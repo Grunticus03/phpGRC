@@ -5,12 +5,12 @@ Consumers must degrade gracefully if providers are absent.
 
 | Capability                | Provider(s) | Consumer(s)                 | Status |
 |--------------------------|-------------|-----------------------------|--------|
-| core.settings.manage     | Core        | All modules                 | ✅     |
-| core.auth.local          | Core        | All modules                 | ✅     |
-| core.auth.mfa.totp       | Core        | All modules                 | ✅     |
-| core.auth.break_glass    | Core        | Admin Ops                   | ✅     |
-| core.rbac                | Core        | All modules                 | ✅     |
-| core.avatars             | Core        | All modules (user refs)     | ✅     |
+| core.settings.manage     | Core        | All modules                 |      |
+| core.auth.local          | Core        | All modules                 |      |
+| core.auth.mfa.totp       | Core        | All modules                 |      |
+| core.auth.break_glass    | Core        | Admin Ops                   |      |
+| core.rbac                | Core        | All modules                 |      |
+| core.avatars             | Core        | All modules (user refs)     |      |
 | core.audit.log           | Core        | All modules                 | ⏳ Phase 4 (baseline in place: `audit_events`) |
 | core.evidence.manage     | Core        | Risks, Compliance, Audits   | ⏳ Phase 4 |
 | core.exports             | Core        | Reporting                   | ⏳ Phase 4 (stubs in Phase 2 roadmap) |
