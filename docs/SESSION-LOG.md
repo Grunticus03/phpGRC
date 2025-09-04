@@ -73,3 +73,16 @@ Use it to maintain a permanent, auditable record of all work across phases.
 - Phase/Step status: Phase 1 partial — CORE-002 complete, CORE-001 pending.
 - Next action (you): None — CI validated.
 - Next action (me): Prepare Installer/Setup Wizard scaffold (CORE-001) next session.
+
+---
+
+### Session 2025-09-06: Phase 1 CORE-001 Planning
+- Context: Established test box workflow (snapshots, push-to-test.sh) for Installer/Setup Wizard development.
+- Goal: Lock in next task: CORE-001 Installer/Setup Wizard scaffold.
+- Constraints: Docs only, no code changes yet.
+
+# Closeout
+- Deliverables produced: Updated ROADMAP.md (marked CORE-001 as ⏳ next), updated SESSION-LOG.md.
+- Phase/Step status: Phase 1 partial — CORE-002 ✅, CORE-001 pending.
+- Next action (you): Maintain test box snapshot baseline.
+- Next action (me): Draft Instruction Preamble + planning breakdown for CORE-001 scaffold.
