@@ -28,7 +28,7 @@
 
 - [ ] Define CI guardrails skeleton (PHPCS, PHPStan, Psalm, PHPUnit, Enlightn, composer-audit, OpenAPI lint) — *stub only*
 
-- [ ] Repo structure confirmation (`/api`, `/web`, `/docs`, `/.github`, `/scripts`) — *no app code yet*
+- [x] Repo structure confirmation (`/api`, `/web`, `/docs`, `/.github`, `/scripts`) — *no app code yet*
 
 - [ ] Setup Wizard scaffold plan (stub doc)
 
