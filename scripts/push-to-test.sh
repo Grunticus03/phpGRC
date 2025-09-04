@@ -19,7 +19,7 @@ set -euo pipefail
 IFS=$'\n\t'
 
 # ------------ Config (override via args/env) ------------
-TEST_HOST="172.16.0.47"
+TEST_HOST="administrator@172.16.0.47"
 TEST_PATH="${2:-${TEST_PATH:-/opt/phpgrc}}"
 APACHE_SVC="${3:-${APACHE_SVC:-apache2}}"
 
@@ -74,7 +74,7 @@ sha256sum "${ARCHIVE_LOCAL}" > "${CHECKSUM_LOCAL}"
 
 # ------------ Remote prep ------------
 echo "→ Ensuring remote directories exist"
-ssh "${TEST_HOST}" "${SUDO} mkdir -p '${REMOTE_RELEASES}' '${REMOTE_SHARED}' && ${SUDO} chown -R \$(id -un):\$(id -gn) '${TEST_PATH}' || true"
+ssh -t "${TEST_HOST}" "${SUDO} mkdir -p '${REMOTE_RELEASES}' '${REMOTE_SHARED}' '${REMOTE_CURRENT}' && ${SUDO} chown -R \$(id -un):\$(id -gn) '${TEST_PATH}' || true"
 
 # ------------ Transfer ------------
 echo "→ Uploading archive and checksum"
@@ -91,12 +91,13 @@ echo "→ Unpacking to ${REMOTE_DIR}"
 mkdir -p "${REMOTE_DIR}"
 tar -xzf "$(basename "${ARCHIVE_LOCAL}")" -C "${REMOTE_DIR}"
 
-echo "→ Setting ownership for web user (www-data if Debian/Ubuntu)"
+# Chown to www-data only if sudo available and user can escalate
 if id www-data >/dev/null 2>&1; then
-  ${SUDO} chown -R www-data:www-data "${REMOTE_DIR}"
-else
-  # Fallback: leave as current user; adjust if your distro uses 'apache' or other.
-  true
+  if command -v sudo >/dev/null 2>&1; then
+    ${SUDO} chown -R www-data:www-data "${REMOTE_DIR}" || echo "(!) Skipping chown to www-data"
+  else
+    echo "(!) sudo not present; leaving ownership as-is"
+  fi
 fi
 
 echo "→ Atomically updating 'current' symlink"
@@ -104,9 +105,9 @@ ${SUDO} ln -sfn "${REMOTE_DIR}" "${REMOTE_CURRENT}"
 
 echo "→ Reloading web service: ${APACHE_SVC}"
 if command -v systemctl >/dev/null 2>&1; then
-  ${SUDO} systemctl reload "${APACHE_SVC}" || ${SUDO} systemctl restart "${APACHE_SVC}"
+  ${SUDO} systemctl reload "${APACHE_SVC}" || ${SUDO} systemctl restart "${APACHE_SVC}" || echo "(!) Reload failed (likely sudo). Reload manually."
 else
-  ${SUDO} service "${APACHE_SVC}" reload || ${SUDO} service "${APACHE_SVC}" restart
+  ${SUDO} service "${APACHE_SVC}" reload || ${SUDO} service "${APACHE_SVC}" restart || echo "(!) Reload failed (likely sudo). Reload manually."
 fi
 
 echo "✓ Deploy complete: ${REMOTE_CURRENT} → ${REMOTE_DIR}"
