@@ -1,0 +1,53 @@
+name: Deploy to Server (Manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Git ref to deploy (branch or tag)'
+        required: true
+        default: 'main'
+
+jobs:
+  deploy:
+    name: Deploy via SSH/rsync
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.ref }}
+
+      - name: Configure SSH
+        run: |
+          install -m 700 -d ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          # Known hosts to prevent MITM prompts
+          ssh-keyscan -p "${{ secrets.SSH_PORT }}" "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Verify SSH connectivity
+        run: |
+          ssh -p "${{ secrets.SSH_PORT }}" "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" "echo 'CONNECTED:' $(hostname) && mkdir -p '${{ secrets.DEPLOY_PATH }}/releases' '${{ secrets.DEPLOY_PATH }}/shared'"
+
+      - name: Rsync repository to timestamped release
+        env:
+          TS: ${{ github.run_id }}-${{ github.run_attempt }}
+        run: |
+          set -euo pipefail
+          RELEASE_DIR="${{ secrets.DEPLOY_PATH }}/releases/${TS}"
+          ssh -p "${{ secrets.SSH_PORT }}" "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" "mkdir -p '${RELEASE_DIR}'"
+          rsync -az --delete --exclude '.git' -e "ssh -p ${{ secrets.SSH_PORT }}" ./ "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${RELEASE_DIR}/"
+
+      - name: Update 'current' symlink (atomic)
+        env:
+          TS: ${{ github.run_id }}-${{ github.run_attempt }}
+        run: |
+          set -euo pipefail
+          RELEASE_DIR="${{ secrets.DEPLOY_PATH }}/releases/${TS}"
+          ssh -p "${{ secrets.SSH_PORT }}" "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" "\
+            ln -sfn '${RELEASE_DIR}' '${{ secrets.DEPLOY_PATH }}/current' && \
+            echo '${RELEASE_DIR}' > '${{ secrets.DEPLOY_PATH }}/LAST_DEPLOY.txt' && \
+            readlink -f '${{ secrets.DEPLOY_PATH }}/current' \
+          "
