@@ -18,7 +18,7 @@
 - [x] HTTPS/443 serving live (`/var/www/phpgrc/current/web`)
 - [x] CI/CD guardrails skeleton committed (`ci.yml`) — ✅ Green
 - [x] Repo structure confirmation (`/api`, `/web`, `/docs`, `/.github`, `/scripts`) — no app code yet
-- [ ] Installer & Setup Wizard scaffold (backlog CORE-001) — plan + stubs required ⏳ NEXT TASK
+- [x] Installer & Setup Wizard scaffold (backlog CORE-001) — plan + stubs required ⏳ NEXT TASK
 
 ---
 

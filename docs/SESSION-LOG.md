@@ -86,3 +86,20 @@ Use it to maintain a permanent, auditable record of all work across phases.
 - Phase/Step status: Phase 1 partial — CORE-002 ✅, CORE-001 pending.
 - Next action (you): Maintain test box snapshot baseline.
 - Next action (me): Draft Instruction Preamble + planning breakdown for CORE-001 scaffold.
+
+---
+
+## Session 2025-09-04: Phase 1 CORE-001 Planning + Stubs
+- Context: Completed planning deliverables and scaffolded non-functional stub files for Installer & Setup Wizard.
+- Goal: Close out CORE-001 planning scope with `/docs/installer` specs and skeleton files.
+- Constraints: No implementation; stubs only with header + purpose.
+
+# Closeout
+- Deliverables produced:
+  - `/docs/installer/README.md` (overview)
+  - `/docs/installer/CORE-001.md` (planning spec)
+  - Stub skeleton files under `/scripts/install`, `/api/app/...`, `/api/routes`, `/api/database/migrations`, `/web/src/routes/setup/*`
+- Phase/Step status: Phase 1 partial — CORE-001 ✅ (planning + stubs), CORE-002 ✅, awaiting Phase 2 kickoff.
+- Next action (you): Merge stubs/docs into repo and maintain infra baseline.
+- Next action (me): Prepare Auth/Routing scaffolding plan (Phase 2 kickoff).
+
