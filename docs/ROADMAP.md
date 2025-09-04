@@ -18,7 +18,7 @@
 - [x] HTTPS/443 serving live (`/var/www/phpgrc/current/web`)
 - [x] CI/CD guardrails skeleton committed (`ci.yml`) — ✅ Green
 - [x] Repo structure confirmation (`/api`, `/web`, `/docs`, `/.github`, `/scripts`) — no app code yet
-- [ ] Installer & Setup Wizard scaffold (backlog CORE-001) — plan + stubs required
+- [ ] Installer & Setup Wizard scaffold (backlog CORE-001) — plan + stubs required ⏳ NEXT TASK
 
 ---
 
@@ -73,7 +73,7 @@
 
 ---
 
-### Current Status (as of 2025-09-03)
+### Current Status (as of 2025-09-04)
 - ✅ Deployed via GitHub Actions and confirmed green.
 - ✅ HTTPS/443 serving placeholder from `web/`.
 - ✅ CI/CD workflow green (`ci.yml`).
