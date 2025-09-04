@@ -42,25 +42,22 @@ jobs:
   backend:
     name: Backend (PHP/Laravel) — PHPCS / PHPStan / Psalm / PHPUnit / Enlightn / Composer Audit
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: api
     steps:
-      - name: Skip if /api missing
-        id: check_api
-        run: |
-          if [ ! -f "composer.json" ]; then
-            echo "present=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "present=true" >> "$GITHUB_OUTPUT"
-          fi
-
       - name: Checkout
-        if: steps.check_api.outputs.present == 'true'
         uses: actions/checkout@v4
 
+      # IMPORTANT: Do NOT set job-level working-directory. Check for folder first.
+      - name: Detect /api presence
+        id: detect_api
+        run: |
+          if [ -d "api" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Setup PHP
-        if: steps.check_api.outputs.present == 'true'
+        if: steps.detect_api.outputs.present == 'true'
         uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ env.PHP_VERSION }}
@@ -70,8 +67,7 @@ jobs:
           ini-values: memory_limit=1G, error_reporting=E_ALL
 
       - name: Composer cache
-        if: steps.check_api.outputs.present == 'true'
-        id: composer-cache
+        if: steps.detect_api.outputs.present == 'true'
         uses: actions/cache@v4
         with:
           path: |
@@ -81,12 +77,13 @@ jobs:
           restore-keys: ${{ runner.os }}-composer-
 
       - name: Install dependencies
-        if: steps.check_api.outputs.present == 'true'
+        if: steps.detect_api.outputs.present == 'true'
+        working-directory: api
         run: composer install --no-interaction --prefer-dist
 
-      # ========== PHPCS ==========
       - name: PHPCS (PSR-12)
-        if: steps.check_api.outputs.present == 'true'
+        if: steps.detect_api.outputs.present == 'true'
+        working-directory: api
         run: |
           if [ -f "vendor/bin/phpcs" ]; then
             vendor/bin/phpcs --standard=PSR12 --report=checkstyle | cs2pr
@@ -95,9 +92,9 @@ jobs:
           fi
         continue-on-error: ${{ env.ENFORCE_GUARDRAILS != 'true' }}
 
-      # ========== PHPStan ==========
       - name: PHPStan (Level 5 target)
-        if: steps.check_api.outputs.present == 'true'
+        if: steps.detect_api.outputs.present == 'true'
+        working-directory: api
         run: |
           if [ -f "vendor/bin/phpstan" ]; then
             vendor/bin/phpstan analyse --no-progress --level=max || vendor/bin/phpstan analyse --no-progress --level=5
@@ -106,9 +103,9 @@ jobs:
           fi
         continue-on-error: ${{ env.ENFORCE_GUARDRAILS != 'true' }}
 
-      # ========== Psalm ==========
       - name: Psalm (no-new-issues intent)
-        if: steps.check_api.outputs.present == 'true'
+        if: steps.detect_api.outputs.present == 'true'
+        working-directory: api
         run: |
           if [ -f "vendor/bin/psalm" ]; then
             vendor/bin/psalm --no-cache --taint-analysis --output-format=github
@@ -117,9 +114,9 @@ jobs:
           fi
         continue-on-error: ${{ env.ENFORCE_GUARDRAILS != 'true' }}
 
-      # ========== PHPUnit ==========
       - name: PHPUnit
-        if: steps.check_api.outputs.present == 'true'
+        if: steps.detect_api.outputs.present == 'true'
+        working-directory: api
         run: |
           if [ -f "vendor/bin/phpunit" ]; then
             vendor/bin/phpunit --no-coverage
@@ -128,9 +125,9 @@ jobs:
           fi
         continue-on-error: ${{ env.ENFORCE_GUARDRAILS != 'true' }}
 
-      # ========== Enlightn ==========
       - name: Enlightn Security Checks
-        if: steps.check_api.outputs.present == 'true'
+        if: steps.detect_api.outputs.present == 'true'
+        working-directory: api
         env:
           APP_ENV: testing
           APP_KEY: base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
@@ -142,9 +139,9 @@ jobs:
           fi
         continue-on-error: ${{ env.ENFORCE_GUARDRAILS != 'true' }}
 
-      # ========== Composer Audit ==========
       - name: Composer Audit (High/Critical fail)
-        if: steps.check_api.outputs.present == 'true'
+        if: steps.detect_api.outputs.present == 'true'
+        working-directory: api
         run: |
           if composer --version >/dev/null 2>&1; then
             composer audit --no-interaction --format=plain
@@ -154,19 +151,19 @@ jobs:
           fi
         continue-on-error: ${{ env.ENFORCE_GUARDRAILS != 'true' }}
 
-      # ========== OpenAPI Lint (Spectral) ==========
       - name: Setup Node for Spectral
-        if: steps.check_api.outputs.present == 'true'
+        if: steps.detect_api.outputs.present == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
 
       - name: Install Spectral CLI
-        if: steps.check_api.outputs.present == 'true'
+        if: steps.detect_api.outputs.present == 'true'
         run: npm install --global @stoplight/spectral-cli
 
       - name: Spectral Lint /api/openapi.json
-        if: steps.check_api.outputs.present == 'true'
+        if: steps.detect_api.outputs.present == 'true'
+        working-directory: api
         run: |
           if [ -f "openapi.json" ]; then
             spectral lint openapi.json
@@ -175,28 +172,28 @@ jobs:
           fi
         continue-on-error: ${{ env.ENFORCE_GUARDRAILS != 'true' }}
 
+      - name: Skip notice (no /api directory)
+        if: steps.detect_api.outputs.present != 'true'
+        run: echo "::notice title=Backend::Skipping because /api folder does not exist yet."
+
   frontend:
     name: Frontend (web) — Lint / Build (stub)
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: web
     steps:
-      - name: Skip if /web missing
-        id: check_web
-        run: |
-          if [ ! -f "package.json" ]; then
-            echo "present=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "present=true" >> "$GITHUB_OUTPUT"
-          fi
-
       - name: Checkout
-        if: steps.check_web.outputs.present == 'true'
         uses: actions/checkout@v4
 
+      - name: Detect /web presence
+        id: detect_web
+        run: |
+          if [ -d "web" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Setup Node
-        if: steps.check_web.outputs.present == 'true'
+        if: steps.detect_web.outputs.present == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -204,11 +201,13 @@ jobs:
           cache-dependency-path: web/package-lock.json
 
       - name: Install deps
-        if: steps.check_web.outputs.present == 'true'
+        if: steps.detect_web.outputs.present == 'true'
+        working-directory: web
         run: npm ci
 
       - name: ESLint (if configured)
-        if: steps.check_web.outputs.present == 'true'
+        if: steps.detect_web.outputs.present == 'true'
+        working-directory: web
         run: |
           if npm run | grep -q "eslint"; then
             npm run eslint
@@ -218,7 +217,8 @@ jobs:
         continue-on-error: ${{ env.ENFORCE_GUARDRAILS != 'true' }}
 
       - name: Build (Vite) smoke
-        if: steps.check_web.outputs.present == 'true'
+        if: steps.detect_web.outputs.present == 'true'
+        working-directory: web
         run: |
           if npm run | grep -q "build"; then
             npm run build
@@ -226,6 +226,10 @@ jobs:
             echo "::notice title=Build::no build script defined. Add Vite build when SPA exists."
           fi
         continue-on-error: ${{ env.ENFORCE_GUARDRAILS != 'true' }}
+
+      - name: Skip notice (no /web directory)
+        if: steps.detect_web.outputs.present != 'true'
+        run: echo "::notice title=Frontend::Skipping because /web folder does not exist yet."
 
   docs:
     name: Docs — Spectral (OpenAPI fragments) & Markdown lint (stub)
