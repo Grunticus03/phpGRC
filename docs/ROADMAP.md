@@ -16,7 +16,7 @@
 ## Phase 1 — Guardrails + Setup baseline
 - [x] Server deploy connection (GitHub Actions → rsync → `releases/` + `current`)
 - [x] HTTPS/443 serving live (`/var/www/phpgrc/current/web`)
-- [ ] CI/CD guardrails defined (PHPCS, PHPStan L5, Psalm no-new-issues, PHPUnit, Enlightn, composer-audit, OpenAPI lint, commitlint, CODEOWNERS) — stub scaffold present, full enforcement targeted in backlog CORE-002
+- [x] CI/CD guardrails skeleton committed (`ci.yml`) — ✅ Green
 - [x] Repo structure confirmation (`/api`, `/web`, `/docs`, `/.github`, `/scripts`) — no app code yet
 - [ ] Installer & Setup Wizard scaffold (backlog CORE-001) — plan + stubs required
 
@@ -76,4 +76,5 @@
 ### Current Status (as of 2025-09-03)
 - ✅ Deployed via GitHub Actions and confirmed green.
 - ✅ HTTPS/443 serving placeholder from `web/`.
-- ▶ Next: advance Phase 1 by defining guardrails (CORE-002) and scaffolding Installer/Setup Wizard (CORE-001).
+- ✅ CI/CD workflow green (`ci.yml`).
+- ▶ Next: finish Phase 1 by scaffolding Installer/Setup Wizard (CORE-001).

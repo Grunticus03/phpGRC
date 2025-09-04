@@ -60,3 +60,16 @@ Use it to maintain a permanent, auditable record of all work across phases.
 - Phase/Step status: Phase 0 formally closed, Phase 1 in progress.
 - Next action (you): Merge updated docs to repo.
 - Next action (me): Draft guardrails skeleton (ci.yml) and Installer scaffold (CORE-001).
+
+---
+
+### Session 2025-09-05: Phase 1 CORE-002 CI/CD Guardrails
+- Context: Added `ci.yml` workflow to enforce guardrails (PSR-12, PHPStan, Psalm, PHPUnit, Enlightn, composer-audit, Spectral).
+- Goal: Get CI green on main branch with guardrails scaffold.
+- Constraints: Skip gracefully if `/api` or `/web` not yet present.
+
+# Closeout
+- Deliverables produced: `.github/workflows/ci.yml` committed, CI workflow green.
+- Phase/Step status: Phase 1 partial — CORE-002 complete, CORE-001 pending.
+- Next action (you): None — CI validated.
+- Next action (me): Prepare Installer/Setup Wizard scaffold (CORE-001) next session.
