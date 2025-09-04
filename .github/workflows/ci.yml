@@ -46,7 +46,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # IMPORTANT: Do NOT set job-level working-directory. Check for folder first.
+      # Detect project layout
       - name: Detect /api presence
         id: detect_api
         run: |
@@ -56,8 +56,18 @@ jobs:
             echo "present=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Setup PHP
+      - name: Detect composer.json
         if: steps.detect_api.outputs.present == 'true'
+        id: detect_composer
+        run: |
+          if [ -f "api/composer.json" ]; then
+            echo "has_composer=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_composer=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Setup PHP
+        if: steps.detect_api.outputs.present == 'true' && steps.detect_composer.outputs.has_composer == 'true'
         uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ env.PHP_VERSION }}
@@ -67,7 +77,7 @@ jobs:
           ini-values: memory_limit=1G, error_reporting=E_ALL
 
       - name: Composer cache
-        if: steps.detect_api.outputs.present == 'true'
+        if: steps.detect_api.outputs.present == 'true' && steps.detect_composer.outputs.has_composer == 'true'
         uses: actions/cache@v4
         with:
           path: |
@@ -77,12 +87,13 @@ jobs:
           restore-keys: ${{ runner.os }}-composer-
 
       - name: Install dependencies
-        if: steps.detect_api.outputs.present == 'true'
+        if: steps.detect_api.outputs.present == 'true' && steps.detect_composer.outputs.has_composer == 'true'
         working-directory: api
         run: composer install --no-interaction --prefer-dist
 
+      # ========== PHPCS ==========
       - name: PHPCS (PSR-12)
-        if: steps.detect_api.outputs.present == 'true'
+        if: steps.detect_api.outputs.present == 'true' && steps.detect_composer.outputs.has_composer == 'true'
         working-directory: api
         run: |
           if [ -f "vendor/bin/phpcs" ]; then
@@ -92,8 +103,9 @@ jobs:
           fi
         continue-on-error: ${{ env.ENFORCE_GUARDRAILS != 'true' }}
 
+      # ========== PHPStan ==========
       - name: PHPStan (Level 5 target)
-        if: steps.detect_api.outputs.present == 'true'
+        if: steps.detect_api.outputs.present == 'true' && steps.detect_composer.outputs.has_composer == 'true'
         working-directory: api
         run: |
           if [ -f "vendor/bin/phpstan" ]; then
@@ -103,8 +115,9 @@ jobs:
           fi
         continue-on-error: ${{ env.ENFORCE_GUARDRAILS != 'true' }}
 
+      # ========== Psalm ==========
       - name: Psalm (no-new-issues intent)
-        if: steps.detect_api.outputs.present == 'true'
+        if: steps.detect_api.outputs.present == 'true' && steps.detect_composer.outputs.has_composer == 'true'
         working-directory: api
         run: |
           if [ -f "vendor/bin/psalm" ]; then
@@ -114,8 +127,9 @@ jobs:
           fi
         continue-on-error: ${{ env.ENFORCE_GUARDRAILS != 'true' }}
 
+      # ========== PHPUnit ==========
       - name: PHPUnit
-        if: steps.detect_api.outputs.present == 'true'
+        if: steps.detect_api.outputs.present == 'true' && steps.detect_composer.outputs.has_composer == 'true'
         working-directory: api
         run: |
           if [ -f "vendor/bin/phpunit" ]; then
@@ -125,8 +139,9 @@ jobs:
           fi
         continue-on-error: ${{ env.ENFORCE_GUARDRAILS != 'true' }}
 
+      # ========== Enlightn ==========
       - name: Enlightn Security Checks
-        if: steps.detect_api.outputs.present == 'true'
+        if: steps.detect_api.outputs.present == 'true' && steps.detect_composer.outputs.has_composer == 'true'
         working-directory: api
         env:
           APP_ENV: testing
@@ -139,8 +154,9 @@ jobs:
           fi
         continue-on-error: ${{ env.ENFORCE_GUARDRAILS != 'true' }}
 
+      # ========== Composer Audit ==========
       - name: Composer Audit (High/Critical fail)
-        if: steps.detect_api.outputs.present == 'true'
+        if: steps.detect_api.outputs.present == 'true' && steps.detect_composer.outputs.has_composer == 'true'
         working-directory: api
         run: |
           if composer --version >/dev/null 2>&1; then
@@ -151,6 +167,7 @@ jobs:
           fi
         continue-on-error: ${{ env.ENFORCE_GUARDRAILS != 'true' }}
 
+      # ========== OpenAPI Lint (Spectral) ==========
       - name: Setup Node for Spectral
         if: steps.detect_api.outputs.present == 'true'
         uses: actions/setup-node@v4
@@ -172,6 +189,10 @@ jobs:
           fi
         continue-on-error: ${{ env.ENFORCE_GUARDRAILS != 'true' }}
 
+      # Friendly skip notes
+      - name: Skip notice (no composer.json)
+        if: steps.detect_api.outputs.present == 'true' && steps.detect_composer.outputs.has_composer != 'true'
+        run: echo "::notice title=Backend::/api present but composer.json missing — skipping PHP toolchain."
       - name: Skip notice (no /api directory)
         if: steps.detect_api.outputs.present != 'true'
         run: echo "::notice title=Backend::Skipping because /api folder does not exist yet."
@@ -192,21 +213,48 @@ jobs:
             echo "present=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Setup Node
+      - name: Detect package.json / lockfile
         if: steps.detect_web.outputs.present == 'true'
+        id: detect_pkg
+        run: |
+          if [ -f "web/package.json" ]; then
+            echo "has_pkg=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_pkg=false" >> "$GITHUB_OUTPUT"
+          fi
+          if [ -f "web/package-lock.json" ]; then
+            echo "has_lock=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_lock=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Setup Node with cache only if lockfile exists (avoids cache error)
+      - name: Setup Node (with cache)
+        if: steps.detect_web.outputs.present == 'true' && steps.detect_pkg.outputs.has_lock == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: "npm"
+          cache: npm
           cache-dependency-path: web/package-lock.json
 
+      - name: Setup Node (no cache)
+        if: steps.detect_web.outputs.present == 'true' && steps.detect_pkg.outputs.has_lock != 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
       - name: Install deps
-        if: steps.detect_web.outputs.present == 'true'
+        if: steps.detect_web.outputs.present == 'true' && steps.detect_pkg.outputs.has_pkg == 'true'
         working-directory: web
-        run: npm ci
+        run: |
+          if [ -f "package-lock.json" ]; then
+            npm ci
+          else
+            npm install
+          fi
 
       - name: ESLint (if configured)
-        if: steps.detect_web.outputs.present == 'true'
+        if: steps.detect_web.outputs.present == 'true' && steps.detect_pkg.outputs.has_pkg == 'true'
         working-directory: web
         run: |
           if npm run | grep -q "eslint"; then
@@ -217,7 +265,7 @@ jobs:
         continue-on-error: ${{ env.ENFORCE_GUARDRAILS != 'true' }}
 
       - name: Build (Vite) smoke
-        if: steps.detect_web.outputs.present == 'true'
+        if: steps.detect_web.outputs.present == 'true' && steps.detect_pkg.outputs.has_pkg == 'true'
         working-directory: web
         run: |
           if npm run | grep -q "build"; then
@@ -227,6 +275,10 @@ jobs:
           fi
         continue-on-error: ${{ env.ENFORCE_GUARDRAILS != 'true' }}
 
+      # Friendly skip notes
+      - name: Skip notice (no package.json)
+        if: steps.detect_web.outputs.present == 'true' && steps.detect_pkg.outputs.has_pkg != 'true'
+        run: echo "::notice title=Frontend::/web present but package.json missing — skipping Node toolchain."
       - name: Skip notice (no /web directory)
         if: steps.detect_web.outputs.present != 'true'
         run: echo "::notice title=Frontend::Skipping because /web folder does not exist yet."
