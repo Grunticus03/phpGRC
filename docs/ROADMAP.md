@@ -1,92 +1,92 @@
-\# phpGRC — ROADMAP (Aligned to Charter v1.1)
+# phpGRC — ROADMAP (Aligned to Charter v1.1)
 
 
 
-> Source of truth for phase gating. Each checkbox must be merged \& deployed with green guardrails before moving on.
+> Source of truth for phase gating. Each checkbox must be merged & deployed with green guardrails before moving on.
 
 
 
-\## Phase 0 — Docs-first foundation
+## Phase 0 — Docs-first foundation
 
-\- \[x] Charter v1.1 committed
+- [x] Charter v1.1 committed
 
-\- \[x] Start ROADMAP.md (this file)
+- [x] Start ROADMAP.md (this file)
 
-\- \[ ] Seed BACKLOG.yml (modules/features)
+- [ ] Seed BACKLOG.yml (modules/features)
 
-\- \[ ] Create CAPABILITIES.md (initial matrix)
+- [ ] Create CAPABILITIES.md (initial matrix)
 
-\- \[ ] Add RFC template `docs/rfcs/000-template.md`
-
-
-
-\## Phase 1 — Guardrails + Setup baseline (minimal, no features)
-
-\- \[x] Server deploy connection (GitHub Actions → rsync → `releases/` + `current`)
-
-\- \[x] HTTPS/443 serving live (`/var/www/phpgrc/current/web`)
-
-\- \[ ] Define CI guardrails skeleton (PHPCS, PHPStan, Psalm, PHPUnit, Enlightn, composer-audit, OpenAPI lint) — \*stub only\*
-
-\- \[ ] Repo structure confirmation (`/api`, `/web`, `/docs`, `/.github`, `/scripts`) — \*no app code yet\*
-
-\- \[ ] Setup Wizard scaffold plan (stub doc)
+- [ ] Add RFC template `docs/rfcs/000-template.md`
 
 
 
-\## Phase 2 — Auth/Routing (stubs only, no features enabled by default)
+## Phase 1 — Guardrails + Setup baseline (minimal, no features)
 
-\- \[ ] Laravel API skeleton (no modules)
+- [x] Server deploy connection (GitHub Actions → rsync → `releases/` + `current`)
 
-\- \[ ] Sanctum SPA mode scaffold (disabled until SPA exists)
+- [x] HTTPS/443 serving live (`/var/www/phpgrc/current/web`)
 
-\- \[ ] TOTP/MFA placeholder config (off by default)
+- [ ] Define CI guardrails skeleton (PHPCS, PHPStan, Psalm, PHPUnit, Enlightn, composer-audit, OpenAPI lint) — *stub only*
 
-\- \[ ] Break-glass DB-flag placeholder (off by default)
+- [ ] Repo structure confirmation (`/api`, `/web`, `/docs`, `/.github`, `/scripts`) — *no app code yet*
 
-
-
-\## Phase 3 — Module foundation
-
-\- \[ ] ModuleManager + `module.json` schema (no modules enabled)
-
-\- \[ ] Capabilities registry (no consumers yet)
+- [ ] Setup Wizard scaffold plan (stub doc)
 
 
 
-\## Phase 4 — Core app usable (later)
+## Phase 2 — Auth/Routing (stubs only, no features enabled by default)
 
-\- \[ ] Settings UI (DB-backed)
+- [ ] Laravel API skeleton (no modules)
 
-\- \[ ] Audit Trail
+- [ ] Sanctum SPA mode scaffold (disabled until SPA exists)
 
-\- \[ ] Evidence pipeline
+- [ ] TOTP/MFA placeholder config (off by default)
 
-\- \[ ] Exports (CSV/JSON/PDF)
-
-
-
-\## Phase 5 — Swagger + dashboards (later)
-
-\- \[ ] OpenAPI served at `/api/openapi.json`
-
-\- \[ ] Spectral lint in CI
+- [ ] Break-glass DB-flag placeholder (off by default)
 
 
 
-\## Phase 6 — Integrations (later)
+## Phase 3 — Module foundation
 
-\- \[ ] Integration Bus MVP
+- [ ] ModuleManager + `module.json` schema (no modules enabled)
 
-\- \[ ] External Auth providers (OIDC/SAML/LDAP/Entra)
+- [ ] Capabilities registry (no consumers yet)
 
 
 
-\## Phase 7 — Release v1.0 (later)
+## Phase 4 — Core app usable (later)
 
-\- \[ ] Prod deploy workflows
+- [ ] Settings UI (DB-backed)
 
-\- \[ ] Hardening \& docs
+- [ ] Audit Trail
+
+- [ ] Evidence pipeline
+
+- [ ] Exports (CSV/JSON/PDF)
+
+
+
+## Phase 5 — Swagger + dashboards (later)
+
+- [ ] OpenAPI served at `/api/openapi.json`
+
+- [ ] Spectral lint in CI
+
+
+
+## Phase 6 — Integrations (later)
+
+- [ ] Integration Bus MVP
+
+- [ ] External Auth providers (OIDC/SAML/LDAP/Entra)
+
+
+
+## Phase 7 — Release v1.0 (later)
+
+- [ ] Prod deploy workflows
+
+- [ ] Hardening & docs
 
 
 
@@ -94,19 +94,19 @@
 
 
 
-\### Current Status (today)
+### Current Status (today)
 
-\- ✅ Deployed via GitHub Actions and confirmed green.
+- ✅ Deployed via GitHub Actions and confirmed green.
 
-\- ✅ HTTPS/443 serving placeholder from `web/`.
+- ✅ HTTPS/443 serving placeholder from `web/`.
 
-\- ▶ Next: choose one \*tiny\* item (recommendation below).
+- ▶ Next: choose one *tiny* item (recommendation below).
 
 
 
-\### Next tiny step (recommendation)
+### Next tiny step (recommendation)
 
-\*\*Create repo structure confirmation\*\* (no code): add empty sentinels for `/api`, `/docs/rfcs/`, and `/scripts/` if missing, then re-deploy to confirm paths exist on the server. \*(We’ll do this in the next conversation as a single, small change.)\*
+**Create repo structure confirmation** (no code): add empty sentinels for `/api`, `/docs/rfcs/`, and `/scripts/` if missing, then re-deploy to confirm paths exist on the server. *(We’ll do this in the next conversation as a single, small change.)*
 
 
 
