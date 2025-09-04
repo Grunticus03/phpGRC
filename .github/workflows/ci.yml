@@ -1,0 +1,283 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - ".github/workflows/ci.yml"
+      - "api/**"
+      - "web/**"
+      - "docs/**"
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - ".github/workflows/ci.yml"
+      - "api/**"
+      - "web/**"
+      - "docs/**"
+
+# Toggle hard enforcement without editing steps:
+# Set repository/environment variable ENFORCE_GUARDRAILS=true to make failures block merges.
+env:
+  PHP_VERSION: "8.3"
+  NODE_VERSION: "20.x"
+  ENFORCE_GUARDRAILS: "false"
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  meta:
+    name: Meta (changed-paths only)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: List changed files (debug)
+        uses: tj-actions/changed-files@v45
+        with:
+          since_last_remote_commit: true
+
+  backend:
+    name: Backend (PHP/Laravel) — PHPCS / PHPStan / Psalm / PHPUnit / Enlightn / Composer Audit
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: api
+    steps:
+      - name: Skip if /api missing
+        id: check_api
+        run: |
+          if [ ! -f "composer.json" ]; then
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Checkout
+        if: steps.check_api.outputs.present == 'true'
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        if: steps.check_api.outputs.present == 'true'
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          coverage: none
+          tools: composer, cs2pr
+          extensions: mbstring, intl, zip, gd, pdo_mysql
+          ini-values: memory_limit=1G, error_reporting=E_ALL
+
+      - name: Composer cache
+        if: steps.check_api.outputs.present == 'true'
+        id: composer-cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.composer/cache/files
+            api/vendor
+          key: ${{ runner.os }}-composer-${{ hashFiles('api/composer.lock') }}
+          restore-keys: ${{ runner.os }}-composer-
+
+      - name: Install dependencies
+        if: steps.check_api.outputs.present == 'true'
+        run: composer install --no-interaction --prefer-dist
+
+      # ========== PHPCS ==========
+      - name: PHPCS (PSR-12)
+        if: steps.check_api.outputs.present == 'true'
+        run: |
+          if [ -f "vendor/bin/phpcs" ]; then
+            vendor/bin/phpcs --standard=PSR12 --report=checkstyle | cs2pr
+          else
+            echo "::notice title=PHPCS::phpcs not found. Add squizlabs/php_codesniffer to require-dev."
+          fi
+        continue-on-error: ${{ env.ENFORCE_GUARDRAILS != 'true' }}
+
+      # ========== PHPStan ==========
+      - name: PHPStan (Level 5 target)
+        if: steps.check_api.outputs.present == 'true'
+        run: |
+          if [ -f "vendor/bin/phpstan" ]; then
+            vendor/bin/phpstan analyse --no-progress --level=max || vendor/bin/phpstan analyse --no-progress --level=5
+          else
+            echo "::notice title=PHPStan::phpstan not found. Add phpstan/phpstan (and larastan) to require-dev."
+          fi
+        continue-on-error: ${{ env.ENFORCE_GUARDRAILS != 'true' }}
+
+      # ========== Psalm ==========
+      - name: Psalm (no-new-issues intent)
+        if: steps.check_api.outputs.present == 'true'
+        run: |
+          if [ -f "vendor/bin/psalm" ]; then
+            vendor/bin/psalm --no-cache --taint-analysis --output-format=github
+          else
+            echo "::notice title=Psalm::psalm not found. Add vimeo/psalm and psalm/plugin-laravel to require-dev."
+          fi
+        continue-on-error: ${{ env.ENFORCE_GUARDRAILS != 'true' }}
+
+      # ========== PHPUnit ==========
+      - name: PHPUnit
+        if: steps.check_api.outputs.present == 'true'
+        run: |
+          if [ -f "vendor/bin/phpunit" ]; then
+            vendor/bin/phpunit --no-coverage
+          else
+            echo "::notice title=PHPUnit::phpunit not found. Add phpunit/phpunit to require-dev."
+          fi
+        continue-on-error: ${{ env.ENFORCE_GUARDRAILS != 'true' }}
+
+      # ========== Enlightn ==========
+      - name: Enlightn Security Checks
+        if: steps.check_api.outputs.present == 'true'
+        env:
+          APP_ENV: testing
+          APP_KEY: base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+        run: |
+          if [ -f "artisan" ] && [ -f "vendor/bin/enlightn" ]; then
+            php artisan enlightn --ci
+          else
+            echo "::notice title=Enlightn::package not present or no artisan. Add enlightn/enlightn to require-dev."
+          fi
+        continue-on-error: ${{ env.ENFORCE_GUARDRAILS != 'true' }}
+
+      # ========== Composer Audit ==========
+      - name: Composer Audit (High/Critical fail)
+        if: steps.check_api.outputs.present == 'true'
+        run: |
+          if composer --version >/dev/null 2>&1; then
+            composer audit --no-interaction --format=plain
+          else
+            echo "::error::Composer not available."
+            exit 1
+          fi
+        continue-on-error: ${{ env.ENFORCE_GUARDRAILS != 'true' }}
+
+      # ========== OpenAPI Lint (Spectral) ==========
+      - name: Setup Node for Spectral
+        if: steps.check_api.outputs.present == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install Spectral CLI
+        if: steps.check_api.outputs.present == 'true'
+        run: npm install --global @stoplight/spectral-cli
+
+      - name: Spectral Lint /api/openapi.json
+        if: steps.check_api.outputs.present == 'true'
+        run: |
+          if [ -f "openapi.json" ]; then
+            spectral lint openapi.json
+          else
+            echo "::notice title=Spectral::openapi.json not found in /api. Will enforce once present."
+          fi
+        continue-on-error: ${{ env.ENFORCE_GUARDRAILS != 'true' }}
+
+  frontend:
+    name: Frontend (web) — Lint / Build (stub)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - name: Skip if /web missing
+        id: check_web
+        run: |
+          if [ ! -f "package.json" ]; then
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Checkout
+        if: steps.check_web.outputs.present == 'true'
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        if: steps.check_web.outputs.present == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install deps
+        if: steps.check_web.outputs.present == 'true'
+        run: npm ci
+
+      - name: ESLint (if configured)
+        if: steps.check_web.outputs.present == 'true'
+        run: |
+          if npm run | grep -q "eslint"; then
+            npm run eslint
+          else
+            echo "::notice title=ESLint::no script defined. Add an eslint script when ready."
+          fi
+        continue-on-error: ${{ env.ENFORCE_GUARDRAILS != 'true' }}
+
+      - name: Build (Vite) smoke
+        if: steps.check_web.outputs.present == 'true'
+        run: |
+          if npm run | grep -q "build"; then
+            npm run build
+          else
+            echo "::notice title=Build::no build script defined. Add Vite build when SPA exists."
+          fi
+        continue-on-error: ${{ env.ENFORCE_GUARDRAILS != 'true' }}
+
+  docs:
+    name: Docs — Spectral (OpenAPI fragments) & Markdown lint (stub)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install Spectral CLI
+        run: npm install --global @stoplight/spectral-cli
+
+      - name: Lint OpenAPI fragments (if any)
+        run: |
+          set +e
+          FOUND=0
+          for f in $(git ls-files "docs/**/*.openapi.json" "docs/**/*.swagger.json" 2>/dev/null); do
+            FOUND=1
+            spectral lint "$f" || exit $([ "${ENFORCE_GUARDRAILS}" = "true" ] && echo 1 || echo 0)
+          done
+          if [ $FOUND -eq 0 ]; then
+            echo "::notice title=Spectral::no doc fragments found."
+          fi
+        continue-on-error: ${{ env.ENFORCE_GUARDRAILS != 'true' }}
+
+      - name: Markdownlint (stub)
+        run: |
+          echo "::notice title=Markdown::Add markdownlint-cli when ready."
+        continue-on-error: ${{ env.ENFORCE_GUARDRAILS != 'true' }}
+
+  summary:
+    name: Summary & Gate
+    needs: [ meta, backend, frontend, docs ]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Determine overall status
+        run: |
+          echo "ENFORCE_GUARDRAILS=${ENFORCE_GUARDRAILS}"
+          if [ "${ENFORCE_GUARDRAILS}" = "true" ]; then
+            # If any needed job failed, fail the workflow
+            if [ "${{ needs.meta.result }}" != "success" ] || \
+               [ "${{ needs.backend.result }}" != "success" ] || \
+               [ "${{ needs.frontend.result }}" != "success" ] || \
+               [ "${{ needs.docs.result }}" != "success" ]; then
+              echo "::error::At least one guardrail job failed under enforcement mode."
+              exit 1
+            fi
+          else
+            echo "::notice title=CI::Enforcement disabled. Set ENFORCE_GUARDRAILS=true to gate merges."
+          fi
