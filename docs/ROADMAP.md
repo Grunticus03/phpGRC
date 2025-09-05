@@ -32,10 +32,10 @@
 
 ---
 
-## Phase 3 — Module foundation
-- [ ] ModuleManager + `module.json` schema
-- [ ] Capabilities registry
-- [ ] Stubs for Risks, Compliance, Audits, Policies modules
+## Phase 3 — Module foundation ✅ COMPLETE
+- [x] ModuleManager + `module.json` schema
+- [x] Capabilities registry
+- [x] Stubs for Risks, Compliance, Audits, Policies modules
 
 ---
 
@@ -78,4 +78,5 @@
 - ✅ HTTPS/443 serving placeholder from `web/`.
 - ✅ CI/CD workflow green (`ci.yml`).
 - ✅ Phase 2 scaffolding complete and inert by default.
-- ▶ Next: Phase 3 kickoff (Module foundation).
+- ✅ Phase 3 module foundation complete.
+- ▶ Next: Phase 4 kickoff (Core app usable).
