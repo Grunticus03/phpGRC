@@ -7,18 +7,20 @@ namespace App\Http\Controllers\Export;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Routing\Controller;
 
-/**
- * Placeholder export status controller.
- */
 final class StatusController extends Controller
 {
+    /**
+     * GET /api/exports/{jobId}/status
+     * Stub: always pending with 0% progress.
+     */
     public function show(string $jobId): JsonResponse
     {
         return response()->json([
-            'jobId'   => $jobId,
-            'status'  => 'queued', // or 'running','done','error' in future
-            'percent' => 0,
-            'note'    => 'status placeholder; no background work in Phase 2',
+            'ok'       => true,
+            'jobId'    => $jobId,
+            'status'   => 'pending',
+            'progress' => 0,
+            'note'     => 'stub-only',
         ]);
     }
 }

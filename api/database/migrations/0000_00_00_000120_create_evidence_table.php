@@ -2,39 +2,27 @@
 
 declare(strict_types=1);
 
+// Phase 4 placeholder migration. Do not execute this phase.
 use Illuminate\Database\Migrations\Migration;
-// use Illuminate\Database\Schema\Blueprint;
-// use Illuminate\Support\Facades\Schema;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration {
-    /**
-     * Phase 4 stub migration.
-     * INTENT: Do nothing at runtime. Schema shown below for later enablement.
-     *
-     * // TODO (enable later):
-     * // Schema::create('evidence', function (Blueprint $table): void {
-     * //     $table->id();
-     * //     $table->unsignedBigInteger('owner_id'); // fk users.id
-     * //     $table->string('filename', 255);
-     * //     $table->string('mime', 128);
-     * //     $table->unsignedBigInteger('size_bytes');
-     * //     $table->char('sha256', 64);
-     * //     $table->dateTime('created_at');
-     * //     $table->index(['owner_id']);
-     * //     $table->index(['sha256']);
-     * // });
-     */
     public function up(): void
     {
-        // no-op (stub only)
+        Schema::create('evidence', function (Blueprint $table): void {
+            $table->string('id')->primary();                 // e.g., ev_0001 (stub)
+            $table->unsignedBigInteger('owner_id');          // fk users.id (deferred)
+            $table->string('filename');
+            $table->string('mime', 128);
+            $table->unsignedBigInteger('size_bytes');
+            $table->string('sha256', 64);                    // placeholder; write deferred
+            $table->dateTimeTz('created_at')->useCurrent();
+        });
     }
 
-    /**
-     * // TODO (enable later):
-     * // Schema::dropIfExists('evidence');
-     */
     public function down(): void
     {
-        // no-op (stub only)
+        Schema::dropIfExists('evidence');
     }
 };
