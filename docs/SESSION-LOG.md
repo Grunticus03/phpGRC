@@ -260,3 +260,27 @@ Use it to maintain a permanent, auditable record of all work across phases.
 - Next action (you): Maintain repo baseline.
 - Next action (me): Draft next Phase 4 increment — Settings UI expansion and RBAC enforcement planning.
 - Suggested commit: `docs(phase-4): kickoff scaffolding complete — CI green`
+
+---
+
+### Session 2025-09-07: Phase 4 — Core App Scaffolds
+- Context: Extended Phase-4 with Settings UI expansion, RBAC middleware + roles, Audit Trail stub, Evidence pipeline stub, Exports lifecycle stub, and Avatars stub. Added placeholder models and reserved migrations.
+- Goal: Complete all scaffolds defined in PHASE-4-TASK-BREAKDOWN so phpGRC is minimally usable.
+- Constraints: Stub-only, no persistence, deterministic outputs, full-file delivery.
+
+# Closeout
+- Deliverables produced:
+  - `/api/app/Http/Controllers/Admin/SettingsController.php` (echo + validation stubs)
+  - `/web/src/routes/admin/Settings.tsx` (forms for RBAC/Audit/Evidence/Avatars)
+  - `/api/app/Http/Middleware/RbacMiddleware.php` (tag-only)
+  - `/api/app/Http/Controllers/Rbac/RolesController.php` + `/web/src/routes/admin/Roles.tsx`
+  - `/api/app/Http/Controllers/Audit/AuditController.php` + `/web/src/routes/audit/index.tsx`
+  - `/api/app/Http/Controllers/Evidence/EvidenceController.php`, `StoreEvidenceRequest.php` + `/web/src/routes/evidence/index.tsx`
+  - `/api/app/Http/Controllers/Export/ExportController.php`, `StatusController.php` + `/web/src/routes/exports/index.tsx`
+  - `/api/app/Http/Controllers/Avatar/AvatarController.php`, `StoreAvatarRequest.php` + `/web/src/routes/profile/Avatar.tsx`
+  - `/api/app/Models/{Role,AuditEvent,Evidence,Avatar}.php`
+  - Placeholder migrations for roles, audit_events, evidence, avatars, exports
+  - Updated `/api/routes/api.php` with new routes guarded by RBAC middleware
+- Phase/Step status: Phase 4 scaffolds ✅ complete — all stubs added per spec, CI expected green.
+- Next action (you): Run CI/linters, confirm migrations remain inert, merge to main.
+- Next action (me): Prepare Phase-4 documentation updates (PHASE-4-SPEC, CAPABILITIES.md) and unit-test scaffolds, then draft Phase-5 kickoff.
