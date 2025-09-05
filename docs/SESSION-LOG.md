@@ -103,3 +103,21 @@ Use it to maintain a permanent, auditable record of all work across phases.
 - Next action (you): Merge stubs/docs into repo and maintain infra baseline.
 - Next action (me): Prepare Auth/Routing scaffolding plan (Phase 2 kickoff).
 
+---
+
+### Session 2025-09-04: Phase 2 Kickoff Scaffolding
+- Context: All Phase 2 stub files created and populated. Auth/Routing kickoff documented. Dual-migration policy clarified.
+- Goal: Record Phase 2 start, stub set, and coexistence of Phase 1 installer migration with Phase 2 Laravel skeleton migrations.
+- Constraints: Stubs only, no functional auth or RBAC yet.
+
+# Closeout
+- Deliverables produced:
+  - `/docs/phase-2/KICKOFF.md` updated with Migrations Clarification.
+  - `/docs/auth/PHASE-2-SPEC.md` updated with Migrations Policy.
+  - `/api` stubs: controllers, middleware, model, routes, `config/auth.php`, `config/sanctum.php`.
+  - `/api/database/migrations/0000_00_00_000000_create_users_table.php` and `0000_00_00_000001_create_personal_access_tokens_table.php` added.
+  - `/api/database/migrations/...create_users_and_auth_tables.php` retained from Phase 1 (installer/schema-init).
+  - `/web/src/lib/api/auth.ts` and SPA route stubs for Login/Mfa/BreakGlass.
+- Phase/Step status: Phase 2 started — scaffolding present; CI expected to remain green on stubs.
+- Next action (you): Push branch and open PR; verify CI green and path filters behave.
+- Next action (me): Prepare TODO wiring plan for Sanctum SPA mode and propose RBAC schema outline for CORE-004.

@@ -18,12 +18,12 @@
 - [x] HTTPS/443 serving live (`/var/www/phpgrc/current/web`)
 - [x] CI/CD guardrails skeleton committed (`ci.yml`) — ✅ Green
 - [x] Repo structure confirmation (`/api`, `/web`, `/docs`, `/.github`, `/scripts`) — no app code yet
-- [x] Installer & Setup Wizard scaffold (backlog CORE-001) — plan + stubs required ⏳ NEXT TASK
+- [x] Installer & Setup Wizard scaffold (backlog CORE-001) — plan + stubs required
 
 ---
 
 ## Phase 2 — Auth/Routing
-- [ ] Laravel API skeleton (no modules yet)
+- [ ] Laravel API skeleton (no modules yet) ⏳ NEXT TASK
 - [ ] Sanctum SPA mode scaffold (disabled until SPA exists)
 - [ ] TOTP/MFA placeholder config (off by default)
 - [ ] Break-glass DB-flag placeholder (off by default)
