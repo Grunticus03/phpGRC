@@ -11,13 +11,17 @@ use App\Http\Controllers\Auth\MeController;
 use App\Http\Controllers\Auth\TotpController;
 use App\Http\Controllers\Export\ExportController;
 use App\Http\Controllers\Export\StatusController;
+use App\Http\Controllers\Rbac\RolesController;
+use App\Http\Controllers\Audit\AuditController;
+use App\Http\Controllers\Evidence\EvidenceController;
+use App\Http\Controllers\Avatar\AvatarController;
 use App\Http\Middleware\BreakGlassGuard;
 use Illuminate\Support\Facades\Route;
 
 /*
- |----------------------------------------------------------------------
+ |--------------------------------------------------------------------------
  | Reserved setup paths (Phase 1 CORE-001 — stubs only, no handlers yet)
- |----------------------------------------------------------------------
+ |--------------------------------------------------------------------------
  | GET  /api/setup/status
  | POST /api/setup/db/test
  | POST /api/setup/db/write
@@ -32,17 +36,17 @@ use Illuminate\Support\Facades\Route;
  */
 
 /*
- |----------------------------------------------------------------------
+ |--------------------------------------------------------------------------
  | Health
- |----------------------------------------------------------------------
+ |--------------------------------------------------------------------------
 */
 Route::get('/health', fn () => response()->json(['ok' => true]));
 
 /*
- |----------------------------------------------------------------------
+ |--------------------------------------------------------------------------
  | Auth placeholders (Phase 2 scaffolding)
  |  - Controllers are NOT invokable; route to explicit methods.
- |----------------------------------------------------------------------
+ |--------------------------------------------------------------------------
 */
 Route::post('/auth/login',  [LoginController::class,  'login']);
 Route::post('/auth/logout', [LogoutController::class, 'logout']);
@@ -52,18 +56,18 @@ Route::post('/auth/totp/enroll', [TotpController::class, 'enroll']);
 Route::post('/auth/totp/verify', [TotpController::class, 'verify']);
 
 /*
- |----------------------------------------------------------------------
+ |--------------------------------------------------------------------------
  | Break-glass (disabled by default)
  |  - Guard returns 404 unless config('core.auth.break_glass.enabled') is true.
- |----------------------------------------------------------------------
+ |--------------------------------------------------------------------------
 */
 Route::post('/auth/break-glass', [BreakGlassController::class, 'invoke'])
     ->middleware(BreakGlassGuard::class);
 
 /*
- |----------------------------------------------------------------------
+ |--------------------------------------------------------------------------
  | Admin Settings framework (skeleton only, no DB I/O)
- |----------------------------------------------------------------------
+ |--------------------------------------------------------------------------
 */
 Route::prefix('/admin')->group(function (): void {
     Route::get('/settings', [SettingsController::class, 'index']);
@@ -71,12 +75,44 @@ Route::prefix('/admin')->group(function (): void {
 });
 
 /*
- |----------------------------------------------------------------------
+ |--------------------------------------------------------------------------
  | Exports stubs (Phase 2 placeholders; real delivery in Phase 4)
- |----------------------------------------------------------------------
+ |--------------------------------------------------------------------------
 */
 Route::prefix('/exports')->group(function (): void {
-    Route::post('/', [ExportController::class, 'create']);                 // POST /api/exports
-    Route::get('/{jobId}/status', [StatusController::class, 'show']);      // GET  /api/exports/{jobId}/status
-    Route::get('/{jobId}/download', [ExportController::class, 'download']); // GET  /api/exports/{jobId}/download
+    Route::post('/', [ExportController::class, 'create']);                   // POST /api/exports
+    Route::get('/{jobId}/status', [StatusController::class, 'show']);        // GET  /api/exports/{jobId}/status
+    Route::get('/{jobId}/download', [ExportController::class, 'download']);  // GET  /api/exports/{jobId}/download
 });
+
+/*
+ |--------------------------------------------------------------------------
+ | RBAC roles scaffold (Phase 4 — stub-only)
+ |--------------------------------------------------------------------------
+*/
+Route::prefix('/rbac')->group(function (): void {
+    Route::get('/roles', [RolesController::class, 'index']);  // GET  /api/rbac/roles
+    Route::post('/roles', [RolesController::class, 'store']); // POST /api/rbac/roles (no-op)
+    // TODO: attach RbacMiddleware once enforcement exists.
+});
+
+/*
+ |--------------------------------------------------------------------------
+ | Audit trail scaffold (Phase 4 — read-only stub)
+ |--------------------------------------------------------------------------
+*/
+Route::get('/audit', [AuditController::class, 'index']); // GET /api/audit
+
+/*
+ |--------------------------------------------------------------------------
+ | Evidence scaffold (Phase 4 — upload no-op)
+ |--------------------------------------------------------------------------
+*/
+Route::post('/evidence', [EvidenceController::class, 'store']); // POST /api/evidence
+
+/*
+ |--------------------------------------------------------------------------
+ | Avatars scaffold (Phase 4 — upload no-op)
+ |--------------------------------------------------------------------------
+*/
+Route::post('/avatar', [AvatarController::class, 'store']); // POST /api/avatar
