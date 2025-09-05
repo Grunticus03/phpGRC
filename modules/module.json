@@ -1,0 +1,18 @@
+{
+  "$schema": "../../api/module.schema.json",
+  "name": "risks",
+  "displayName": "Risks",
+  "version": "0.1.0",
+  "description": "Risk register scaffolds.",
+  "requires": [],
+  "capabilities": ["risks.read", "risks.write", "risks.scoring"],
+  "migrations": [
+    "database/migrations/0000_00_00_000100_create_risks_table.php"
+  ],
+  "settings": { "defaults": { "risks.scoring.method": "qualitative" } },
+  "ui": { "nav": [ { "label": "Risks", "path": "/risks", "order": 20 } ] },
+  "openapi": "openapi.yaml",
+  "serviceProvider": "Modules\\Risks\\RisksServiceProvider",
+  "health": { "endpoint": "/api/risks/health" },
+  "enabled": true
+}
