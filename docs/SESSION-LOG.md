@@ -1,3 +1,4 @@
+# @phpgrc:/docs/SESSION-LOG.md
 # 🗒️ phpGRC Session Log
 
 This file records session headers/footers for phpGRC development.  
@@ -134,3 +135,81 @@ Use it to maintain a permanent, auditable record of all work across phases.
 - Phase/Step status: Phase 2 started — “Laravel API skeleton (no modules yet)” stubs added.
 - Next action (you): Review stubs compile under linters; confirm CI remains green.
 - Next action (me): Prepare composer strategy to introduce full Laravel 11 skeleton without breaking CI, then add Sanctum wiring placeholders.
+
+---
+
+### Session 2025-09-05: Phase 2 — Sanctum SPA Scaffold
+- Context: Prepare SPA session auth using Sanctum while keeping behavior inert.
+- Goal: Scaffold Sanctum config and guard with no runtime change.
+- Constraints: No DB I/O; `stateful=[]`; `api` guard commented.
+
+# Closeout
+- Deliverables produced: Updated `/api/config/auth.php` and `/api/config/sanctum.php`; `/docs/auth/SANCTUM-SPA-NOTES.md`.
+- Phase/Step status: Advanced Phase 2.
+- Next action (you): None.
+- Next action (me): Add MFA/TOTP scaffold.
+
+---
+
+### Session 2025-09-05: Phase 2 — MFA TOTP Scaffold
+- Context: Placeholders for MFA requirements and defaults.
+- Goal: Add config keys and middleware stub; no enforcement.
+- Constraints: No DB, no auth checks.
+
+# Closeout
+- Deliverables produced: `/api/config/core.php`; `app/Http/Middleware/MfaRequired.php`; `/docs/auth/MFA-TOTP-NOTES.md`.
+- Phase/Step status: Advanced Phase 2.
+- Next action (you): None.
+- Next action (me): Add Break-glass guard.
+
+---
+
+### Session 2025-09-05: Phase 2 — Break-glass Guard
+- Context: Hidden emergency login path gated by DB/config flag.
+- Goal: Guard returns 404 unless enabled; no other behavior.
+- Constraints: No audit, no MFA enforcement yet.
+
+# Closeout
+- Deliverables produced: `app/Http/Middleware/BreakGlassGuard.php`; guarded route in `/api/routes/api.php`; `/docs/auth/BREAK-GLASS-NOTES.md`.
+- Phase/Step status: Advanced Phase 2.
+- Next action (you): None.
+- Next action (me): Add Admin Settings framework skeleton.
+
+---
+
+### Session 2025-09-05: Phase 2 — Admin Settings Framework
+- Context: Provide placeholder endpoints for future DB-backed settings UI.
+- Goal: Read-only config echo and no-op update.
+- Constraints: No persistence; no RBAC yet.
+
+# Closeout
+- Deliverables produced: `Admin/SettingsController.php`; routes under `/api/admin/settings`.
+- Phase/Step status: Advanced Phase 2.
+- Next action (you): None.
+- Next action (me): Add Exports stubs.
+
+---
+
+### Session 2025-09-05: Phase 2 — Exports Stubs
+- Context: Early API shape for exports with no jobs or storage.
+- Goal: Create/status/download placeholders.
+- Constraints: No queues, no files, no DB.
+
+# Closeout
+- Deliverables produced: `Export/ExportController.php`, `Export/StatusController.php`; routes under `/api/exports`; `/docs/phase-2/EXPORTS-STUBS-TASK.md`.
+- Phase/Step status: Advanced Phase 2.
+- Next action (you): None.
+- Next action (me): Phase 2 closeout.
+
+---
+
+### Session 2025-09-05: Phase 2 Closeout
+- Context: All Phase 2 roadmap items are scaffolded and inert.
+- Goal: Mark roadmap complete for Phase 2 and record closeout.
+- Constraints: CI remains green; no functional auth or persistence.
+
+# Closeout
+- Deliverables produced: Updated `docs/ROADMAP.md` (Phase 2 ✅), updated `docs/SESSION-LOG.md` (this entry).
+- Phase/Step status: Phase 2 ✅ complete.
+- Next action (you): Merge docs and stubs; keep CI green.
+- Next action (me): Stand by for Phase 3 kickoff when requested.

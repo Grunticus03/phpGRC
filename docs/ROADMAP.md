@@ -13,7 +13,7 @@
 
 ---
 
-## Phase 1 — Guardrails + Setup baseline
+## Phase 1 — Guardrails + Setup baseline ✅ COMPLETE
 - [x] Server deploy connection (GitHub Actions → rsync → `releases/` + `current`)
 - [x] HTTPS/443 serving live (`/var/www/phpgrc/current/web`)
 - [x] CI/CD guardrails skeleton committed (`ci.yml`) — ✅ Green
@@ -22,13 +22,13 @@
 
 ---
 
-## Phase 2 — Auth/Routing
-- [ ] Laravel API skeleton (no modules yet) ⏳ NEXT TASK
-- [ ] Sanctum SPA mode scaffold (disabled until SPA exists)
-- [ ] TOTP/MFA placeholder config (off by default)
-- [ ] Break-glass DB-flag placeholder (off by default)
-- [ ] Admin Settings UI framework (DB-backed, backlog CORE-003)
-- [ ] Early stubs for Exports capability (CSV/JSON/PDF) — deferred to Phase 4 delivery
+## Phase 2 — Auth/Routing ✅ COMPLETE
+- [x] Laravel API skeleton (no modules yet)
+- [x] Sanctum SPA mode scaffold (disabled until SPA exists)
+- [x] TOTP/MFA placeholder config (off by default)
+- [x] Break-glass DB-flag placeholder (off by default)
+- [x] Admin Settings UI framework (skeleton only)
+- [x] Early stubs for Exports capability (CSV/JSON/PDF) — delivery deferred to Phase 4
 
 ---
 
@@ -73,8 +73,9 @@
 
 ---
 
-### Current Status (as of 2025-09-04)
+### Current Status (as of 2025-09-05)
 - ✅ Deployed via GitHub Actions and confirmed green.
 - ✅ HTTPS/443 serving placeholder from `web/`.
 - ✅ CI/CD workflow green (`ci.yml`).
-- ▶ Next: finish Phase 1 by scaffolding Installer/Setup Wizard (CORE-001).
+- ✅ Phase 2 scaffolding complete and inert by default.
+- ▶ Next: Phase 3 kickoff (Module foundation).
