@@ -237,3 +237,26 @@ Use it to maintain a permanent, auditable record of all work across phases.
 - Next action (you): none.
 - Next action (me): Prepare kickoff for Phase 4 (Core app usable: Settings UI, RBAC, Audit Trail, Evidence pipeline, Exports, Avatars).
 - Suggested commit: `docs(phase-3): close out Module foundation — CI green, merged to main`
+
+---
+
+### Session 2025-09-06: Phase 4 Kickoff — Core App Usable
+- Context: Phase 4 scaffolding complete and merged to main with CI green. All core features (Settings UI, RBAC, Audit Trail, Evidence, Exports, Avatars) stubbed and inert.
+- Goal: Record Phase 4 kickoff and scaffolding closeout.
+- Constraints: No functional persistence or enforcement; stubs only; guardrails enforced.
+
+# Closeout
+- Deliverables produced:
+  - `/docs/phase-4/KICKOFF.md`
+  - `/docs/core/PHASE-4-SPEC.md`
+  - API controllers: `Rbac/RolesController.php`, `Audit/AuditController.php`, `Evidence/EvidenceController.php`, `Avatar/AvatarController.php`
+  - Middleware: `RbacMiddleware.php`
+  - Models: `Role.php`, `AuditEvent.php`, `Evidence.php`, `Avatar.php`
+  - Routes: updated `/api/routes/api.php` with RBAC, Audit, Evidence, Exports, Avatar endpoints
+  - Config: `/api/config/core.php` updated with Phase 4 keys (`rbac`, `audit`, `evidence`, `avatars`)
+  - Migrations (stub-only): roles, audit_events, evidence, avatars
+  - Web routes (stubs): Admin Settings, Admin Roles, Audit, Evidence, Exports, Avatar
+- Phase/Step status: Phase 4 ⏳ in progress — scaffolding merged, CI ✅ green.
+- Next action (you): Maintain repo baseline.
+- Next action (me): Draft next Phase 4 increment — Settings UI expansion and RBAC enforcement planning.
+- Suggested commit: `docs(phase-4): kickoff scaffolding complete — CI green`
