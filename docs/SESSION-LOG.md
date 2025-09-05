@@ -234,6 +234,6 @@ Use it to maintain a permanent, auditable record of all work across phases.
   - Core module stubs: `/modules/risks/*`, `/modules/compliance/*`, `/modules/audits/*`, `/modules/policies/*`
   - Core framework stubs: `/api/app/Contracts/ModuleInterface.php`, `/api/app/Services/Modules/ModuleManager.php`, `/api/app/Services/Modules/CapabilitiesRegistry.php`
 - Phase/Step status: Phase 3 ✅ complete — CI green, merged to main.
-- Next action (you): Merge and maintain infra baseline.
+- Next action (you): none.
 - Next action (me): Prepare kickoff for Phase 4 (Core app usable: Settings UI, RBAC, Audit Trail, Evidence pipeline, Exports, Avatars).
 - Suggested commit: `docs(phase-3): close out Module foundation — CI green, merged to main`
