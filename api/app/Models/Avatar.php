@@ -7,11 +7,16 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 
 /**
- * Placeholder model for user avatars.
+ * Placeholder Avatar model (Phase 4).
+ * Processing and storage deferred.
  */
 final class Avatar extends Model
 {
     protected $table = 'avatars';
-    protected $guarded = [];
-    public $timestamps = true;
+    public $incrementing = false;
+    protected $keyType = 'string';
+
+    protected $fillable = [
+        'id', 'user_id', 'path', 'mime', 'size_bytes', 'width', 'height',
+    ];
 }

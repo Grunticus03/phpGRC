@@ -7,12 +7,11 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 
 /**
- * Placeholder model for RBAC roles.
- * No relations or business logic in Phase 4.
+ * Placeholder Role model (Phase 4).
+ * No relations or business logic this phase.
  */
 final class Role extends Model
 {
     protected $table = 'roles';
-    protected $guarded = [];
-    public $timestamps = true;
+    protected $fillable = ['name'];
 }
