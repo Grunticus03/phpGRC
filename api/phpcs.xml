@@ -1,0 +1,9 @@
+<?xml version="1.0"?>
+<ruleset name="phpGRC PSR-12">
+  <description>PSR-12 with project paths.</description>
+  <rule ref="PSR12"/>
+  <file>app</file>
+  <file>routes</file>
+  <file>tests</file>
+  <exclude-pattern>vendor/</exclude-pattern>
+</ruleset>
