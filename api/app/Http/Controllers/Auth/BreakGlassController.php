@@ -1,5 +1,4 @@
 <?php
-
 declare(strict_types=1);
 
 namespace App\Http\Controllers\Auth;
@@ -9,9 +8,10 @@ use Illuminate\Routing\Controller;
 
 final class BreakGlassController extends Controller
 {
-    public function __invoke(): JsonResponse
+    /** Placeholder only. Should be gated by DB flag in future. */
+    public function invoke(): JsonResponse
     {
-        // TODO: gate by DB flag in later phase
+        // TODO: Enforce DB flag, rate limit, and full audit in later phases
         return response()->json(['accepted' => true], 202);
     }
 }

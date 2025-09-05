@@ -1,16 +1,17 @@
 <?php
-
 declare(strict_types=1);
 
 namespace App\Http\Controllers\Auth;
 
-use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Response;
 use Illuminate\Routing\Controller;
 
 final class LogoutController extends Controller
 {
-    public function __invoke(): JsonResponse
+    /** Placeholder only. No session/token logic. */
+    public function logout(): Response
     {
-        return response()->json(null, 204);
+        // TODO: Implement in Phase 2 auth task
+        return response()->noContent(); // 204
     }
 }

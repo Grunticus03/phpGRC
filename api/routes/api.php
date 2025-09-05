@@ -1,5 +1,3 @@
-# @phpgrc:/api/routes/api.php
-# Purpose: Define placeholder auth routes and health endpoint
 <?php
 
 declare(strict_types=1);
@@ -38,14 +36,15 @@ Route::get('/health', fn () => response()->json(['ok' => true]));
 /*
  |----------------------------------------------------------------------
  | Auth placeholders (Phase 2 scaffolding)
+ |  - Controllers are NOT invokable; route to explicit methods.
  |----------------------------------------------------------------------
 */
-Route::post('/auth/login',  LoginController::class);
-Route::post('/auth/logout', LogoutController::class);
-Route::get('/auth/me',      MeController::class);
+Route::post('/auth/login',  [LoginController::class,  'login']);
+Route::post('/auth/logout', [LogoutController::class, 'logout']);
+Route::get('/auth/me',      [MeController::class,     'me']);
 
 Route::post('/auth/totp/enroll', [TotpController::class, 'enroll']);
 Route::post('/auth/totp/verify', [TotpController::class, 'verify']);
 
-Route::post('/auth/break-glass', BreakGlassController::class)
+Route::post('/auth/break-glass', [BreakGlassController::class, 'invoke'])
     ->middleware('breakglass.guard');

@@ -1,5 +1,4 @@
 <?php
-
 declare(strict_types=1);
 
 namespace App\Http\Controllers\Auth;
@@ -10,9 +9,10 @@ use Illuminate\Routing\Controller;
 
 final class LoginController extends Controller
 {
-    // TODO: replace placeholder with real auth in later phase
-    public function __invoke(Request $request): JsonResponse
+    /** Placeholder only. No auth logic. */
+    public function login(Request $request): JsonResponse
     {
-        return response()->json(['ok' => true]); // placeholder
+        // TODO: Implement in Phase 2 auth task
+        return response()->json(['ok' => true, 'note' => 'placeholder'], 200);
     }
 }

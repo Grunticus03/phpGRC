@@ -1,7 +1,14 @@
 <?php
 
+declare(strict_types=1);
+
+/**
+ * Phase 2 — Sanctum SPA scaffold (kept inert).
+ * - Keep 'web' session guard active.
+ * - Provide commented 'api' guard using Sanctum for later enablement.
+ * - No password reset providers in this phase.
+ */
 return [
-    // Placeholder only; full config deferred
     'defaults' => [
         'guard' => 'web',
         'passwords' => 'users',
@@ -9,15 +16,24 @@ return [
 
     'guards' => [
         'web' => [
-            'driver' => 'session',
+            'driver'   => 'session',
             'provider' => 'users',
         ],
+
+        // Enable later for SPA:
+        // 'api' => [
+        //     'driver'   => 'sanctum',
+        //     'provider' => 'users',
+        // ],
     ],
 
     'providers' => [
         'users' => [
             'driver' => 'eloquent',
-            'model' => \App\Models\User::class,
+            'model'  => App\Models\User::class,
         ],
     ],
+
+    // Out of scope in Phase 2
+    'passwords' => [],
 ];
