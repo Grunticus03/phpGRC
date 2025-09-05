@@ -16,6 +16,7 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 **Phase:** 1  
 **Step:** 1  
 **Dependencies:** None  
+**Status:** Done
 
 ---
 
@@ -27,6 +28,7 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 **Phase:** 1  
 **Step:** 2  
 **Dependencies:** None  
+**Status:** Done
 
 ---
 
