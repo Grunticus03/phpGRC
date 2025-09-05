@@ -7,38 +7,88 @@ namespace App\Http\Controllers\Admin;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
+use Illuminate\Support\Facades\Validator;
 
 /**
- * Placeholder Admin Settings controller (no DB I/O, no auth).
- * Returns config-backed placeholders and accepts no-op updates.
+ * Phase 4 stub: echo core.* settings and validate payloads.
+ * No persistence. Returns note:"stub-only".
  */
 final class SettingsController extends Controller
 {
+    /**
+     * GET /api/admin/settings
+     */
     public function index(): JsonResponse
     {
-        return response()->json([
-            'settings' => [
-                // Auth feature flags
-                'core.auth.local.enabled'                    => (bool) config('core.auth.local.enabled', true),
-                'core.auth.break_glass.enabled'              => (bool) config('core.auth.break_glass.enabled', false),
-
-                // MFA TOTP defaults
-                'core.auth.mfa.totp.required_for_admin'      => (bool) config('core.auth.mfa.totp.required_for_admin', true),
-                'core.auth.mfa.totp.issuer'                  => (string) config('core.auth.mfa.totp.issuer', 'phpGRC'),
-                'core.auth.mfa.totp.digits'                  => (int) config('core.auth.mfa.totp.digits', 6),
-                'core.auth.mfa.totp.period'                  => (int) config('core.auth.mfa.totp.period', 30),
-                'core.auth.mfa.totp.algorithm'               => (string) config('core.auth.mfa.totp.algorithm', 'SHA1'),
+        $config = [
+            'core' => [
+                'rbac' => [
+                    'enabled' => (bool) config('core.rbac.enabled', true),
+                    'roles'   => (array) config('core.rbac.roles', ['Admin','Auditor','Risk Manager','User']),
+                ],
+                'audit' => [
+                    'enabled'        => (bool) config('core.audit.enabled', true),
+                    'retention_days' => (int) config('core.audit.retention_days', 365),
+                ],
+                'evidence' => [
+                    'enabled'      => (bool) config('core.evidence.enabled', true),
+                    'max_mb'       => (int) config('core.evidence.max_mb', 25),
+                    'allowed_mime' => (array) config('core.evidence.allowed_mime', [
+                        'application/pdf','image/png','image/jpeg','text/plain',
+                    ]),
+                ],
+                'avatars' => [
+                    'enabled' => (bool) config('core.avatars.enabled', true),
+                    'size_px' => (int) config('core.avatars.size_px', 128),
+                    'format'  => (string) config('core.avatars.format', 'webp'),
+                ],
             ],
-            'note' => 'placeholders only; DB-backed settings land in CORE-003 later',
-        ]);
+        ];
+
+        return response()->json(['ok' => true, 'config' => $config]);
     }
 
+    /**
+     * POST /api/admin/settings
+     * Validate only; do not persist.
+     */
     public function update(Request $request): JsonResponse
     {
-        // Placeholder: accept payload but do not persist or validate
+        $rules = [
+            'core.rbac.enabled'            => ['sometimes','boolean'],
+            'core.rbac.roles'              => ['sometimes','array','min:1'],
+            'core.rbac.roles.*'            => ['string','min:3','max:64'],
+
+            'core.audit.enabled'           => ['sometimes','boolean'],
+            'core.audit.retention_days'    => ['sometimes','integer','min:1','max:730'],
+
+            'core.evidence.enabled'        => ['sometimes','boolean'],
+            'core.evidence.max_mb'         => ['sometimes','integer','min:1','max:500'],
+            'core.evidence.allowed_mime'   => ['sometimes','array','min:1'],
+            'core.evidence.allowed_mime.*' => ['string','min:3','max:128'],
+
+            'core.avatars.enabled'         => ['sometimes','boolean'],
+            'core.avatars.size_px'         => ['sometimes','integer','min:32','max:1024'],
+            'core.avatars.format'          => ['sometimes','in:webp,jpeg,png'],
+        ];
+
+        $v = Validator::make($request->all(), $rules);
+
+        if ($v->fails()) {
+            return response()->json([
+                'ok'     => false,
+                'code'   => 'VALIDATION_FAILED',
+                'errors' => $v->errors(),
+            ], 422);
+        }
+
+        $accepted = (array) data_get($request->all(), 'core', []);
+
         return response()->json([
-            'accepted' => true,
-            'note'     => 'placeholder; persistence deferred',
-        ], 202);
+            'ok'       => true,
+            'applied'  => false,
+            'note'     => 'stub-only',
+            'accepted' => ['core' => $accepted],
+        ], 200);
     }
 }

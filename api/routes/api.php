@@ -1,4 +1,3 @@
-# @phpgrc:/api/routes/api.php
 <?php
 
 declare(strict_types=1);
@@ -16,6 +15,7 @@ use App\Http\Controllers\Audit\AuditController;
 use App\Http\Controllers\Evidence\EvidenceController;
 use App\Http\Controllers\Avatar\AvatarController;
 use App\Http\Middleware\BreakGlassGuard;
+use App\Http\Middleware\RbacMiddleware;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -69,10 +69,12 @@ Route::post('/auth/break-glass', [BreakGlassController::class, 'invoke'])
  | Admin Settings framework (skeleton only, no DB I/O)
  |--------------------------------------------------------------------------
 */
-Route::prefix('/admin')->group(function (): void {
-    Route::get('/settings', [SettingsController::class, 'index']);
-    Route::put('/settings', [SettingsController::class, 'update']);
-});
+Route::prefix('/admin')
+    ->middleware(RbacMiddleware::class) // Phase 4: no-op if core.rbac.enabled=false
+    ->group(function (): void {
+        Route::get('/settings', [SettingsController::class, 'index']);
+        Route::put('/settings', [SettingsController::class, 'update']);
+    });
 
 /*
  |--------------------------------------------------------------------------
@@ -90,11 +92,12 @@ Route::prefix('/exports')->group(function (): void {
  | RBAC roles scaffold (Phase 4 — stub-only)
  |--------------------------------------------------------------------------
 */
-Route::prefix('/rbac')->group(function (): void {
-    Route::get('/roles', [RolesController::class, 'index']);  // GET  /api/rbac/roles
-    Route::post('/roles', [RolesController::class, 'store']); // POST /api/rbac/roles (no-op)
-    // TODO: attach RbacMiddleware once enforcement exists.
-});
+Route::prefix('/rbac')
+    ->middleware(RbacMiddleware::class) // Phase 4: tag-only, no enforcement
+    ->group(function (): void {
+        Route::get('/roles', [RolesController::class, 'index']);  // GET  /api/rbac/roles
+        Route::post('/roles', [RolesController::class, 'store']); // POST /api/rbac/roles (no-op)
+    });
 
 /*
  |--------------------------------------------------------------------------
