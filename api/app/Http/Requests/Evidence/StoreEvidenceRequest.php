@@ -16,7 +16,7 @@ final class StoreEvidenceRequest extends FormRequest
 
     public function rules(): array
     {
-        $maxMb = (int) config('core.evidence.max_mb', 25);
+        $maxMb   = (int) config('core.evidence.max_mb', 25);
         $allowed = (array) config('core.evidence.allowed_mime', [
             'application/pdf', 'image/png', 'image/jpeg', 'text/plain',
         ]);
@@ -32,10 +32,10 @@ final class StoreEvidenceRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'file.required'   => 'File is required.',
-            'file.file'       => 'Invalid upload.',
-            'file.max'        => 'File exceeds the configured size limit.',
-            'file.mimetypes'  => 'File type is not allowed.',
+            'file.required'  => 'File is required.',
+            'file.file'      => 'Invalid upload.',
+            'file.max'       => 'File exceeds the configured size limit.',
+            'file.mimetypes' => 'File type is not allowed.',
         ];
     }
 }

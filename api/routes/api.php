@@ -112,7 +112,7 @@ Route::get('/audit', [AuditController::class, 'index']);
 
 /*
  |--------------------------------------------------------------------------
- | Evidence scaffold (Phase 4 — upload no-op)
+ | Evidence (Phase 4 — persisted)
  |--------------------------------------------------------------------------
 */
 Route::post('/evidence', [EvidenceController::class, 'store']);
