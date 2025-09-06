@@ -7,30 +7,47 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 
 /**
- * Placeholder Eloquent model for audit_events.
- * Phase 4: shape only; no persistence or relations.
+ * Eloquent model for audit_events.
  *
- * @property string      $id
- * @property string      $occurred_at
- * @property int|null    $actor_id
- * @property string      $action
- * @property string      $entity_type
- * @property string      $entity_id
- * @property string|null $ip
- * @property string|null $ua
- * @property array|null  $meta
+ * @property string                      $id
+ * @property \Carbon\CarbonImmutable     $occurred_at
+ * @property int|null                    $actor_id
+ * @property string                      $action
+ * @property string                      $category
+ * @property string                      $entity_type
+ * @property string                      $entity_id
+ * @property string|null                 $ip
+ * @property string|null                 $ua
+ * @property array<string,mixed>|null    $meta
+ * @property \Carbon\CarbonImmutable     $created_at
  */
 final class AuditEvent extends Model
 {
     public $incrementing = false;
+
     protected $table = 'audit_events';
+
     protected $keyType = 'string';
+
     protected $fillable = [
-        'id', 'occurred_at', 'actor_id', 'action', 'entity_type', 'entity_id', 'ip', 'ua', 'meta',
+        'id',
+        'occurred_at',
+        'actor_id',
+        'action',
+        'category',
+        'entity_type',
+        'entity_id',
+        'ip',
+        'ua',
+        'meta',
+        'created_at',
     ];
+
     protected $casts = [
-        'meta' => 'array',
+        'occurred_at' => 'immutable_datetime',
+        'created_at'  => 'immutable_datetime',
+        'meta'        => 'array',
     ];
-    // Timestamps not required for this stub.
+
     public $timestamps = false;
 }
