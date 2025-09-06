@@ -7,13 +7,14 @@ namespace App\Models;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
+use Laravel\Sanctum\PersonalAccessToken;
 
 /**
  * Placeholder User model for Phase 2 skeleton.
- * - Fields will be reconciled when CORE-004 (RBAC roles) introduces full user model.
- * - Only minimal fillable/hidden fields defined to keep CI green.
+ * - Fields reconciled in CORE-004.
  *
- * @use HasApiTokens<\Laravel\Sanctum\PersonalAccessToken>
+ * @psalm-use \Laravel\Sanctum\HasApiTokens<\Laravel\Sanctum\PersonalAccessToken>
+ * @use \Laravel\Sanctum\HasApiTokens<\Laravel\Sanctum\PersonalAccessToken>
  */
 final class User extends Authenticatable
 {
