@@ -1,5 +1,3 @@
-# @phpgrc:/docs/BACKLOG.md
-
 # 📋 phpGRC Backlog
 Complete backlog of all features, modules, and deliverables.  
 Each item has: **id, module, title, description, acceptance_criteria, phase, step, deps, status**
@@ -18,7 +16,7 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 **Phase:** 1  
 **Step:** 1  
 **Dependencies:** None  
-**Status:** ✅ Done
+**Status:** Done
 
 ---
 
@@ -30,7 +28,7 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 **Phase:** 1  
 **Step:** 2  
 **Dependencies:** None  
-**Status:** ✅ Done
+**Status:** Done
 
 ---
 
@@ -42,7 +40,7 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 **Phase:** 2  
 **Step:** 1  
 **Dependencies:** CORE-001  
-**Status:** ✅ Done
+**Status:** In progress — API echo + validation stubs live; UI scaffold present; no persistence yet.
 
 ---
 
@@ -54,7 +52,7 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 **Phase:** 2  
 **Step:** 2  
 **Dependencies:** CORE-003  
-**Status:** ✅ Done
+**Status:** In progress — middleware tagged on admin/rbac routes; roles endpoint scaffold; policies and DB deferred.
 
 ---
 
@@ -66,7 +64,7 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 **Phase:** 2  
 **Step:** 3  
 **Dependencies:** CORE-003  
-**Status:** ✅ Done
+**Status:** Scaffolded — guard in place; auditing and rate limits pending.
 
 ---
 
@@ -78,7 +76,7 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 **Phase:** 2  
 **Step:** 4  
 **Dependencies:** CORE-003  
-**Status:** ✅ Done
+**Status:** In progress — validation stub and model/migration placeholders; processing/storage pending.
 
 ---
 
@@ -90,7 +88,7 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 **Phase:** 4  
 **Step:** 1  
 **Dependencies:** CORE-003  
-**Status:** ✅ Done
+**Status:** In progress — upload validation + migration stub with sha256; DB storage/versioning pending.
 
 ---
 
@@ -102,7 +100,7 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 **Phase:** 4  
 **Step:** 2  
 **Dependencies:** CORE-003  
-**Status:** ✅ Done
+**Status:** In progress — controller returns sample events; model + migration stubbed; categories/retention wiring pending.
 
 ---
 
@@ -115,7 +113,7 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 **Phase:** 4  
 **Step:** 3  
 **Dependencies:** CORE-006  
-**Status:** ✅ Done
+**Status:** In progress — create/status/download stubs; jobs DB + file generation pending.
 
 ---
 
@@ -128,7 +126,7 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 **Phase:** 5  
 **Step:** 1  
 **Dependencies:** None  
-**Status:** ⏳ Pending
+**Status:** Planned
 
 ---
 
@@ -142,7 +140,7 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 **Phase:** 3  
 **Step:** 1  
 **Dependencies:** CORE-004  
-**Status:** ✅ Done
+**Status:** Stubbed (Phase 3) — module skeleton only.
 
 ---
 
@@ -154,7 +152,7 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 **Phase:** 3  
 **Step:** 2  
 **Dependencies:** RISK-001  
-**Status:** ✅ Done
+**Status:** Stubbed (Phase 3).
 
 ---
 
@@ -166,7 +164,7 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 **Phase:** 3  
 **Step:** 3  
 **Dependencies:** RISK-002  
-**Status:** ✅ Done
+**Status:** Stubbed (Phase 3).
 
 ---
 
@@ -180,7 +178,7 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 **Phase:** 3  
 **Step:** 1  
 **Dependencies:** CORE-004  
-**Status:** ✅ Done
+**Status:** Stubbed (Phase 3).
 
 ---
 
@@ -192,7 +190,7 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 **Phase:** 3  
 **Step:** 2  
 **Dependencies:** COMP-001  
-**Status:** ✅ Done
+**Status:** Stubbed (Phase 3).
 
 ---
 
@@ -206,7 +204,7 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 **Phase:** 3  
 **Step:** 3  
 **Dependencies:** RISK-001, COMP-002  
-**Status:** ✅ Done
+**Status:** Stubbed (Phase 3).
 
 ---
 
@@ -220,7 +218,7 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 **Phase:** 3  
 **Step:** 4  
 **Dependencies:** CORE-004  
-**Status:** ✅ Done
+**Status:** Stubbed (Phase 3).
 
 ---
 
@@ -234,7 +232,7 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 **Phase:** 6  
 **Step:** 1  
 **Dependencies:** CORE-004, RISK-001  
-**Status:** ⏳ Pending
+**Status:** Planned
 
 ---
 
@@ -248,7 +246,7 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 **Phase:** 6  
 **Step:** 2  
 **Dependencies:** CORE-004  
-**Status:** ⏳ Pending
+**Status:** Planned
 
 ---
 
@@ -262,7 +260,7 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 **Phase:** 6  
 **Step:** 3  
 **Dependencies:** CORE-004, FUT-006  
-**Status:** ⏳ Pending
+**Status:** Planned
 
 ---
 
@@ -276,7 +274,7 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 **Phase:** 6  
 **Step:** 4  
 **Dependencies:** CORE-004, INC-001  
-**Status:** ⏳ Pending
+**Status:** Planned
 
 ---
 
@@ -290,7 +288,7 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 **Phase:** 5  
 **Step:** 2  
 **Dependencies:** CORE-008, RISK-002, COMP-002, AUD-001  
-**Status:** ⏳ Pending
+**Status:** Planned
 
 ---
 
@@ -298,18 +296,24 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 
 - **FUT-001 — Task & Workflow Management**  
   Unified tasks across modules; workflows for approvals/remediation.  
+  **Status:** Planned
 
 - **FUT-002 — Third-Party Engagement Portal**  
   Vendor portal for questionnaires and evidence uploads.  
+  **Status:** Planned
 
-- **FUT-003 — Asset & Configuration Management**  
+- **FUT-3 — Asset & Configuration Management**  
   Registry of assets; ingest from external sources via Integration Bus.  
+  **Status:** Planned
 
 - **FUT-004 — Indicators (KPI/KRI/KCI)**  
   Metric tracking, thresholds, alerts, dashboards.  
+  **Status:** Planned
 
 - **FUT-005 — Case Management (Whistleblower/Ethics)**  
   Anonymous case intake, secure workflows.  
+  **Status:** Planned
 
 - **FUT-006 — Integration Bus**  
   Connectors, pipelines, transforms, observability.  
+  **Status:** Planned

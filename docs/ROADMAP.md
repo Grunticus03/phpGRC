@@ -1,5 +1,4 @@
-# @phpgrc:/docs/ROADMAP.md
-
+# @phpgrc:/ROADMAP.md
 # phpGRC — ROADMAP (Aligned to Charter v1.1)
 
 > Source of truth for phase gating. Each checkbox must be merged & deployed with green guardrails before moving on.
@@ -41,13 +40,13 @@
 
 ---
 
-## Phase 4 — Core app usable ✅ COMPLETE
-- [x] Settings UI (all configs, RBAC)
-- [x] RBAC roles scaffold (Admin, Auditor, Risk Manager, User)
-- [x] Audit Trail
-- [x] Evidence pipeline
-- [x] Exports (CSV/JSON/PDF)
-- [x] Avatars
+## Phase 4 — Core app usable ⏳ IN PROGRESS
+- Settings UI — scaffolds ✅ (echo + validation); persistence + audit pending
+- RBAC roles — middleware + roles endpoint ✅; policies + DB pending
+- Audit Trail — controller/model/migration stubs ✅; categories + retention wiring pending
+- Evidence pipeline — validation + migration stub ✅; DB storage + sha256 hashing pending
+- Exports — create/status/download stubs ✅; jobs DB + file generation pending
+- Avatars — validation stub ✅; processing/storage pending
 
 ---
 
@@ -75,11 +74,10 @@
 
 ---
 
-### Current Status (as of 2025-09-07)
+### Current Status (as of 2025-09-05)
 - ✅ Deployed via GitHub Actions and confirmed green.
 - ✅ HTTPS/443 serving placeholder from `web/`.
 - ✅ CI/CD workflow green (`ci.yml`).
 - ✅ Phase 2 scaffolding complete and inert by default.
 - ✅ Phase 3 module foundation complete.
-- ✅ Phase 4 scaffolds complete — core usable baseline.
-- ▶ Next: Phase 5 kickoff (Swagger + dashboards).
+- ⏳ Phase 4 scaffolding merged; CI green; enforcement/persistence next.

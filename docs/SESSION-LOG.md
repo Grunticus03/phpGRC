@@ -300,3 +300,28 @@ Use it to maintain a permanent, auditable record of all work across phases.
 - Phase/Step status: Phase 4 ⏳ in progress — scaffolds ✅, analyzer integration pending.
 - Next action (you): none until file output.
 - Next action (me): generate full, corrected /api/composer.json for Laravel 11 + PHP 8.3 + analyzers.
+
+---
+
+## 2025-09-05 P4 CI guardrails hardening
+- Scope: `/api` tooling and CI.
+- Changes (Conventional Commits):
+  - chore(api): guard composer scripts; add Sanctum; fix dev autoload
+  - build(api): add PHPStan bootstrap and Sanctum polyfill
+  - ci: add native Psalm SARIF upload workflow
+  - style(api): commit Pint-applied fixes
+- Outcomes:
+  - Composer install clean with artisan guard
+  - Pint clean after committing edits
+  - PHPStan passes via autoload + polyfill
+  - Psalm passes with `<stubs>` and polyfill
+  - Security → Code scanning populated by Psalm SARIF
+- Artifacts touched:
+  - `/api/composer.json`
+  - `/api/phpstan.neon`
+  - `/api/psalm.xml`
+  - `/api/stubs/laravel-sanctum-polyfill.php`
+  - `/.github/workflows/ci.yml`
+  - `/.github/workflows/psalm-security.yml`
+- Status: Green
+- Next: proceed with Phase-4 API scaffolding per ROADMAP; optionally switch Pint to `--test` in CI to fail on drift
