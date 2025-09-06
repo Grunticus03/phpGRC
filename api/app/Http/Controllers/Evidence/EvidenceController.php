@@ -38,7 +38,7 @@ final class EvidenceController extends Controller
         $sha256       = hash('sha256', $bytes);
         $ownerId      = (int) (Auth::id() ?? 0);
         $originalName = (string) $uploaded->getClientOriginalName();
-        $mime         = (string) ($uploaded->getClientMimeType() ?? 'application/octet-stream');
+        $mime         = $uploaded->getClientMimeType(); // non-nullable; remove ?? default
         $sizeBytes    = (int) $uploaded->getSize();
 
         /** @var array{id:string,version:int} $saved */
