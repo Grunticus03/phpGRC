@@ -4,62 +4,62 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Audit;
 
+use App\Support\Audit\AuditCategories;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 
 /**
- * Phase 4 stub: returns sample audit events.
- * No DB reads/writes. Accepts ?limit (1..100) and ?cursor (opaque).
+ * Phase 4 stub: returns sample audit events per spec.
+ * No DB I/O. Accepts ?limit (1..100) and ?cursor (opaque).
  */
 final class AuditController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $limit = (int) $request->query('limit', 20);
-        if ($limit < 1) {
-            $limit = 1;
-        } elseif ($limit > 100) {
-            $limit = 100;
-        }
+        $validated = $request->validate([
+            'limit'  => ['sometimes', 'integer', 'min:1', 'max:100'],
+            'cursor' => ['sometimes', 'string', 'max:200'],
+        ]);
 
-        $cursor = (string) $request->query('cursor', '');
+        $limit  = (int) ($validated['limit'] ?? 25);
+        $cursor = (string) ($validated['cursor'] ?? '');
 
-        // Static sample events (shape per spec)
         $events = [
             [
-                'id'          => 'ae_0001',
                 'occurred_at' => '2025-09-05T12:00:00Z',
                 'actor_id'    => 1,
                 'action'      => 'settings.update',
-                'entity_type' => 'core.settings',
-                'entity_id'   => 'core.rbac.enabled',
+                'category'    => 'SETTINGS',
+                'entity_type' => 'core.config',
+                'entity_id'   => 'rbac',
                 'ip'          => '203.0.113.10',
                 'ua'          => 'Mozilla/5.0',
-                'meta'        => ['old' => true, 'new' => true, 'note' => 'stub-only'],
+                'meta'        => (object)[],
             ],
             [
-                'id'          => 'ae_0002',
                 'occurred_at' => '2025-09-05T12:05:00Z',
                 'actor_id'    => 1,
                 'action'      => 'auth.break_glass.guard',
+                'category'    => 'AUTH',
                 'entity_type' => 'core.auth',
                 'entity_id'   => 'break_glass',
                 'ip'          => '203.0.113.11',
                 'ua'          => 'Mozilla/5.0',
-                'meta'        => ['enabled' => false],
+                'meta'        => (object)['enabled' => false],
             ],
         ];
 
-        // Cursoring is fake in this phase.
         $slice = array_slice($events, 0, $limit);
-        $nextCursor = null; // always end in stub
 
         return response()->json([
-            'ok'         => true,
-            'items'      => $slice,
-            'nextCursor' => $nextCursor,
-            'note'       => 'stub-only',
+            'ok'              => true,
+            'items'           => $slice,
+            'nextCursor'      => null,
+            'note'            => 'stub-only',
+            '_categories'     => AuditCategories::ALL,
+            '_retention_days' => (int) config('core.audit.retention_days', 365),
+            '_cursor_echo'    => $cursor,
         ]);
     }
 }
