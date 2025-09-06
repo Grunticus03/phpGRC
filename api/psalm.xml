@@ -2,13 +2,18 @@
 <psalm
     errorLevel="8"
     resolveFromConfigFile="true"
-    findUnusedCode="false"
     cacheDirectory="build/psalm"
+    findUnusedCode="false"
 >
     <projectFiles>
         <directory name="app" />
     </projectFiles>
+
     <plugins>
         <pluginClass class="Psalm\LaravelPlugin\Plugin"/>
     </plugins>
+
+    <stubs>
+        <file name="stubs/laravel-sanctum-polyfill.php"/>
+    </stubs>
 </psalm>
