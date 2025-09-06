@@ -5,3 +5,4 @@
 /storage/*.key
 /storage/logs/*.log
 /bootstrap/cache/*.php
+/api/.env
