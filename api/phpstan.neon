@@ -6,5 +6,7 @@ parameters:
     paths:
         - app
     tmpDir: build/phpstan
-    checkMissingIterableValueType: false
-    treatPhpDocTypesAsCertain: false
+    bootstrapFiles:
+        - vendor/autoload.php
+    scanDirectories:
+        - vendor/laravel/sanctum/src
