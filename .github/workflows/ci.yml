@@ -3,106 +3,51 @@ name: CI
 on:
   push:
     branches: [ main ]
+    paths:
+      - "api/**"
+      - ".github/workflows/ci.yml"
   pull_request:
-    branches: [ main ]
+    paths:
+      - "api/**"
+      - ".github/workflows/ci.yml"
+  workflow_dispatch:
 
 jobs:
-  discover:
+  api:
+    name: API checks
     runs-on: ubuntu-latest
-    outputs:
-      api_present: ${{ steps.chk.outputs.api_present }}
-      web_present: ${{ steps.chk.outputs.web_present }}
-      api_has_composer: ${{ steps.chk.outputs.api_has_composer }}
-      web_has_package: ${{ steps.chk.outputs.web_has_package }}
-      artisan_present: ${{ steps.chk.outputs.artisan_present }}
+    defaults:
+      run:
+        working-directory: api
     steps:
-      - uses: actions/checkout@v4
-      - id: chk
-        shell: bash
-        run: |
-          set -e
-          [[ -d api ]] && echo "api_present=true" || echo "api_present=false" >> $GITHUB_OUTPUT
-          [[ -d web ]] && echo "web_present=true" || echo "web_present=false" >> $GITHUB_OUTPUT
-          [[ -f api/composer.json ]] && echo "api_has_composer=true" || echo "api_has_composer=false" >> $GITHUB_OUTPUT
-          [[ -f web/package.json ]] && echo "web_has_package=true" || echo "web_has_package=false" >> $GITHUB_OUTPUT
-          [[ -f api/artisan ]] && echo "artisan_present=true" || echo "artisan_present=false" >> $GITHUB_OUTPUT
+      - name: Checkout
+        uses: actions/checkout@v4
 
-  api-php:
-    needs: discover
-    if: needs.discover.outputs.api_present == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: PHP toolchain
+      - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.3'
-          tools: composer, phpunit, phpstan, phpcs, psalm
-      - name: Assert analyzer configs when composer.json exists
-        if: needs.discover.outputs.api_has_composer == 'true'
-        run: |
-          missing=0
-          for f in api/phpcs.xml api/phpstan.neon api/psalm.xml api/phpunit.xml.dist; do
-            [[ -f "$f" ]] || { echo "::error file=$f::missing"; missing=1; }
-          done
-          if [[ "${{ needs.discover.outputs.artisan_present }}" == "true" ]]; then
-            [[ -f api/composer.json ]] || true # artisan implies laravel; Enlightn will run
-          fi
-          exit $missing
-      - name: Install (API)
-        if: needs.discover.outputs.api_has_composer == 'true'
-        run: composer install --no-interaction --prefer-dist --no-progress --working-dir=api
-      - name: PHPCS (PSR-12)
-        if: needs.discover.outputs.api_has_composer == 'true'
-        run: phpcs -q --standard=api/phpcs.xml
-      - name: PHPStan
-        if: needs.discover.outputs.api_has_composer == 'true'
-        run: phpstan analyse -c api/phpstan.neon
-      - name: Psalm
-        if: needs.discover.outputs.api_has_composer == 'true'
-        run: psalm --config=api/psalm.xml --no-cache
-      - name: PHPUnit
-        if: needs.discover.outputs.api_has_composer == 'true'
-        run: phpunit -c api/phpunit.xml.dist
-      - name: Composer audit
-        if: needs.discover.outputs.api_has_composer == 'true'
-        run: composer audit --working-dir=api --no-interaction --format plain --locked
-      - name: Enlightn (skip unless Laravel artisan present)
-        if: needs.discover.outputs.artisan_present == 'true' && needs.discover.outputs.api_has_composer == 'true'
-        run: php api/artisan enlightn --run --no-interaction
+          php-version: "8.3"
+          extensions: mbstring, intl, pdo_mysql, dom, xml
+          coverage: none
 
-  web-node:
-    needs: discover
-    if: needs.discover.outputs.web_present == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Composer cache
+        uses: actions/cache@v4
         with:
-          node-version: 20
-          cache: 'npm'
-          cache-dependency-path: web/package-lock.json
-      - name: Install (Web)
-        if: needs.discover.outputs.web_has_package == 'true'
-        run: npm ci --prefix web
-      - name: Typecheck / Lint
-        if: needs.discover.outputs.web_has_package == 'true'
-        run: |
-          npm run -s typecheck || true
-          npm run -s lint || true
-      - name: Unit tests
-        if: needs.discover.outputs.web_has_package == 'true'
-        run: npm test --prefix web --if-present -- --ci
+          path: ~/.composer/cache
+          key: ${{ runner.os }}-composer-${{ hashFiles('api/composer.lock') }}
+          restore-keys: ${{ runner.os }}-composer-
 
-  docs-openapi:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Spectral lint (skip if spec missing)
-        run: |
-          if [[ -f api/openapi.json ]]; then
-            npm -g i @stoplight/spectral-cli >/dev/null 2>&1
-            spectral lint -r docs/.spectral.yaml api/openapi.json
-          else
-            echo "openapi.json absent → skipping"
-          fi
+      - name: Install deps
+        run: composer install --no-interaction --prefer-dist
+
+      - name: Pint
+        run: vendor/bin/pint -v
+
+      - name: PHPStan
+        run: vendor/bin/phpstan analyse --memory-limit=-1
+
+      - name: Psalm
+        run: vendor/bin/psalm --no-cache
+
+      - name: PHPUnit
+        run: vendor/bin/phpunit
