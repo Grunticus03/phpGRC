@@ -22,22 +22,20 @@ jobs:
   psalm-security:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup PHP
-        uses: shivammathur/setup-php@v2
+      - uses: shivammathur/setup-php@v2
         with:
           php-version: "8.3"
           coverage: none
 
-      - name: Composer install (api)
+      - name: Install deps (api)
         working-directory: api
         run: composer install --no-interaction --prefer-dist --no-scripts
 
-      - name: Psalm Security Scan (Docker)
+      - name: Psalm Security (SARIF)
         working-directory: api
-        run: docker run --rm -v "$PWD:$PWD" -w "$PWD" ghcr.io/psalm/psalm-security-scan:latest
+        run: vendor/bin/psalm --taint-analysis --no-progress --output-format=sarif --report=results.sarif
 
       - name: Upload SARIF
         uses: github/codeql-action/upload-sarif@v3

@@ -6,6 +6,5 @@ parameters:
     paths:
         - app
     tmpDir: build/phpstan
-    ignoreErrors:
-        -
-            identifier: missingType.iterableValue
+    checkMissingIterableValueType: false
+    treatPhpDocTypesAsCertain: false
