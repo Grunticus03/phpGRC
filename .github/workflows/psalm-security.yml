@@ -33,7 +33,7 @@ jobs:
 
       - name: Composer install (api)
         working-directory: api
-        run: composer install --no-interaction --prefer-dist
+        run: composer install --no-interaction --prefer-dist --no-scripts
 
       - name: Psalm Security Scan (Docker)
         working-directory: api
