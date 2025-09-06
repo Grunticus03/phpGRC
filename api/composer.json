@@ -32,7 +32,7 @@
     }
   },
   "scripts": {
-    "app:prepare": "php -r \"foreach(['bootstrap/cache','storage/app','storage/framework/cache','storage/framework/sessions','storage/framework/views','storage/logs'] as $d){ if(!is_dir($d)) @mkdir($d, 0775, true);} if (!file_exists('.env') && file_exists('.env.example')) @copy('.env.example', '.env');\"",
+    "app:prepare": "@php scripts/composer/app-prepare.php",
     "post-autoload-dump": [
       "@app:prepare",
       "@php scripts/composer/run-if-artisan.php package:discover --ansi"
