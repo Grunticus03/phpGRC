@@ -346,3 +346,18 @@ Use it to maintain a permanent, auditable record of all work across phases.
 - Phase/Step status: Phase-4 scaffolding complete; persistence, hashing, policies, and DB migrations remain.
 - Next action (you): None. Confirm endpoints reachable in test.
 - Next action (me): Draft persistence plan for Evidence (storage + sha256), Audit writes + retention enforcement, RBAC policies, and Exports job model.
+
+---
+
+### Session 2025-09-06: Phase 4 — Evidence persistence + retrieval, CI/dev setup stabilized
+- Context: Move Evidence from validate-only to DB-backed with versioning and SHA-256; stabilize CI and dev bootstrap to cut friction. Phase 4 scope per Roadmap. :contentReference[oaicite:0]{index=0}
+- Deliverables:
+  - Evidence: DB storage, `version`ing, SHA-256, HEAD/GET with ETag, cursor listing; limits from config. :contentReference[oaicite:1]{index=1}
+  - Tests: `EvidenceUploadTest`, `EvidenceRetrieveTest` passing; PHPStan/Psalm clean.
+  - CI: MySQL service; Laravel dirs prepare; fixed Psalm APP_KEY; Sanctum installed.
+  - Composer: `scripts/composer/app-prepare.php`; `app:prepare` hook.
+  - Dev docs: `/docs/DEV-SETUP.md`, `/docs/MAKE-TARGETS.md`.
+  - Keepers: `bootstrap/cache`, `storage/**` with `.gitignore`.
+  - Config templates: `.env.example`, `scripts/templates/shared-config.php`.
+- Phase/Step status: Phase 4 in progress; Evidence persistence complete; Audit persistence next. :contentReference[oaicite:2]{index=2}
+- Next action (me): Implement Audit DB writes + retention purge tied to `core.audit.retention_days`. :contentReference[oaicite:3]{index=3}

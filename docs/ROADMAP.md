@@ -46,7 +46,7 @@
 - [x] Evidence — multipart validate (size/mime via config)
 - [x] Exports — path route `POST /api/exports/{type}` added; legacy body route kept; status echoes `id`
 - [x] Avatars — WEBP-only validation; basic dimension check
-- [ ] Evidence persistence: storage pathing + sha256 hashing
+- [x] Evidence persistence: storage pathing + sha256 hashing  ← updated
 - [ ] Audit persistence: write path + retention enforcement (≤ 2 years)
 - [ ] RBAC policies and DB roles
 - [ ] Exports job model + generation (CSV/JSON/PDF)

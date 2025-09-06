@@ -88,7 +88,7 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 **Phase:** 4  
 **Step:** 1  
 **Dependencies:** CORE-003  
-**Status:** In progress — upload validation + config-driven limits; DB storage/versioning pending.
+**Status:** Done — DB storage with SHA-256 and per-filename versioning; HEAD/GET with ETag; cursor listing; limits from config.
 
 ---
 
