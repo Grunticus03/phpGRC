@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Avatar;
 
-use App\Http\Controllers\Controller;
 use App\Http\Requests\Avatar\StoreAvatarRequest;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Routing\Controller;
 
 final class AvatarController extends Controller
 {
@@ -27,7 +27,6 @@ final class AvatarController extends Controller
 
         $file = $request->file('file');
 
-        // Optional basic dimension sanity check; no processing in this phase.
         [$w, $h] = @getimagesize($file->getPathname()) ?: [null, null];
         if (!is_int($w) || !is_int($h)) {
             return response()->json([
