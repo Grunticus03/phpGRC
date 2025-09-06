@@ -85,8 +85,8 @@ Route::prefix('/admin')
  |--------------------------------------------------------------------------
 */
 Route::prefix('/exports')->group(function (): void {
-    Route::post('/{type}', [ExportController::class, 'createType']);        // new spec route
-    Route::post('/',       [ExportController::class, 'create']);            // legacy: type in body
+    Route::post('/{type}', [ExportController::class, 'createType']);        // spec route
+    Route::post('/',       [ExportController::class, 'create']);            // legacy body route
     Route::get('/{jobId}/status',   [StatusController::class, 'show']);
     Route::get('/{jobId}/download', [ExportController::class, 'download']);
 });

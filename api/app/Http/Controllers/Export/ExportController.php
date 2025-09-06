@@ -12,36 +12,13 @@ final class ExportController extends Controller
 {
     /**
      * POST /api/exports (legacy)
-     * Body: { "type": "csv"|"json"|"pdf" , "params": {...} }
+     * Body: { "type": "csv"|"json"|"pdf", "params": {...} }
+     * Stub: returns a fixed jobId and echoes type/params.
      */
     public function create(Request $request): JsonResponse
     {
         $type = (string) $request->input('type', '');
-        if (!in_array($type, ['csv','json','pdf'], true)) {
-            return response()->json([
-                'ok'   => false,
-                'code' => 'EXPORT_TYPE_UNSUPPORTED',
-                'note' => 'stub-only',
-            ], 422);
-        }
-
-        $jobId = 'exp_stub_0001';
-
-        return response()->json([
-            'ok'    => true,
-            'jobId' => $jobId,
-            'type'  => $type,
-            'params'=> $request->input('params', new \stdClass()),
-            'note'  => 'stub-only',
-        ], 202);
-    }
-
-    /**
-     * POST /api/exports/{type}  (spec)
-     */
-    public function createType(Request $request, string $type): JsonResponse
-    {
-        if (!in_array($type, ['csv','json','pdf'], true)) {
+        if (!in_array($type, ['csv', 'json', 'pdf'], true)) {
             return response()->json([
                 'ok'   => false,
                 'code' => 'EXPORT_TYPE_UNSUPPORTED',
@@ -50,7 +27,35 @@ final class ExportController extends Controller
         }
 
         $request->validate([
-            'params' => ['sometimes','array'],
+            'params' => ['sometimes', 'array'],
+        ]);
+
+        return response()->json([
+            'ok'    => true,
+            'jobId' => 'exp_stub_0001',
+            'type'  => $type,
+            'params'=> $request->input('params', new \stdClass()),
+            'note'  => 'stub-only',
+        ], 202);
+    }
+
+    /**
+     * POST /api/exports/{type} (spec-preferred)
+     * Body: { "params": {...} }
+     * Stub: returns a fixed jobId and echoes type/params.
+     */
+    public function createType(Request $request, string $type): JsonResponse
+    {
+        if (!in_array($type, ['csv', 'json', 'pdf'], true)) {
+            return response()->json([
+                'ok'   => false,
+                'code' => 'EXPORT_TYPE_UNSUPPORTED',
+                'note' => 'stub-only',
+            ], 422);
+        }
+
+        $request->validate([
+            'params' => ['sometimes', 'array'],
         ]);
 
         return response()->json([

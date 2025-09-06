@@ -17,9 +17,7 @@ final class StoreAvatarRequest extends FormRequest
     {
         // Spec lock: WEBP only
         $allowed = ['image/webp'];
-
-        // Soft cap for stub validation (2 MB)
-        $maxKb = 2048;
+        $maxKb = 2048; // 2 MB stub cap
 
         return [
             'file' => ['required', 'file', 'max:' . $maxKb, 'mimetypes:' . implode(',', $allowed)],
