@@ -11,28 +11,51 @@ use Illuminate\Routing\Controller;
 final class ExportController extends Controller
 {
     /**
-     * POST /api/exports
+     * POST /api/exports (legacy)
      * Body: { "type": "csv"|"json"|"pdf" , "params": {...} }
-     * Stub: returns a fixed jobId and echoes type/params.
      */
     public function create(Request $request): JsonResponse
     {
         $type = (string) $request->input('type', '');
-        $allowed = ['csv', 'json', 'pdf'];
-        if (! in_array($type, $allowed, true)) {
+        if (!in_array($type, ['csv','json','pdf'], true)) {
             return response()->json([
                 'ok'   => false,
-                'code' => 'EXPORT_TYPE_INVALID',
+                'code' => 'EXPORT_TYPE_UNSUPPORTED',
                 'note' => 'stub-only',
-            ], 400);
+            ], 422);
         }
 
-        // Stub-only: deterministic job id
         $jobId = 'exp_stub_0001';
 
         return response()->json([
             'ok'    => true,
             'jobId' => $jobId,
+            'type'  => $type,
+            'params'=> $request->input('params', new \stdClass()),
+            'note'  => 'stub-only',
+        ], 202);
+    }
+
+    /**
+     * POST /api/exports/{type}  (spec)
+     */
+    public function createType(Request $request, string $type): JsonResponse
+    {
+        if (!in_array($type, ['csv','json','pdf'], true)) {
+            return response()->json([
+                'ok'   => false,
+                'code' => 'EXPORT_TYPE_UNSUPPORTED',
+                'note' => 'stub-only',
+            ], 422);
+        }
+
+        $request->validate([
+            'params' => ['sometimes','array'],
+        ]);
+
+        return response()->json([
+            'ok'    => true,
+            'jobId' => 'exp_stub_0001',
             'type'  => $type,
             'params'=> $request->input('params', new \stdClass()),
             'note'  => 'stub-only',

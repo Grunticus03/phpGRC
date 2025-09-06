@@ -67,24 +67,28 @@ Route::post('/auth/break-glass', [BreakGlassController::class, 'invoke'])
 /*
  |--------------------------------------------------------------------------
  | Admin Settings framework (skeleton only, no DB I/O)
+ |  - Spec uses POST. Keep PUT for backward compatibility.
  |--------------------------------------------------------------------------
 */
 Route::prefix('/admin')
     ->middleware(RbacMiddleware::class) // Phase 4: no-op if core.rbac.enabled=false
     ->group(function (): void {
         Route::get('/settings', [SettingsController::class, 'index']);
-        Route::put('/settings', [SettingsController::class, 'update']);
+        Route::post('/settings', [SettingsController::class, 'update']); // spec-preferred
+        Route::put('/settings', [SettingsController::class, 'update']);  // legacy alias
     });
 
 /*
  |--------------------------------------------------------------------------
- | Exports stubs (Phase 2 placeholders; real delivery in Phase 4)
+ | Exports stubs (Phase 4 delivery)
+ |  - Spec: POST /exports/{type}. Keep legacy POST /exports for compatibility.
  |--------------------------------------------------------------------------
 */
 Route::prefix('/exports')->group(function (): void {
-    Route::post('/', [ExportController::class, 'create']);                   // POST /api/exports
-    Route::get('/{jobId}/status', [StatusController::class, 'show']);        // GET  /api/exports/{jobId}/status
-    Route::get('/{jobId}/download', [ExportController::class, 'download']);  // GET  /api/exports/{jobId}/download
+    Route::post('/{type}', [ExportController::class, 'createType']);        // new spec route
+    Route::post('/',       [ExportController::class, 'create']);            // legacy: type in body
+    Route::get('/{jobId}/status',   [StatusController::class, 'show']);
+    Route::get('/{jobId}/download', [ExportController::class, 'download']);
 });
 
 /*
@@ -95,8 +99,8 @@ Route::prefix('/exports')->group(function (): void {
 Route::prefix('/rbac')
     ->middleware(RbacMiddleware::class) // Phase 4: tag-only, no enforcement
     ->group(function (): void {
-        Route::get('/roles', [RolesController::class, 'index']);  // GET  /api/rbac/roles
-        Route::post('/roles', [RolesController::class, 'store']); // POST /api/rbac/roles (no-op)
+        Route::get('/roles', [RolesController::class, 'index']);
+        Route::post('/roles', [RolesController::class, 'store']);
     });
 
 /*
@@ -104,18 +108,18 @@ Route::prefix('/rbac')
  | Audit trail scaffold (Phase 4 — read-only stub)
  |--------------------------------------------------------------------------
 */
-Route::get('/audit', [AuditController::class, 'index']); // GET /api/audit
+Route::get('/audit', [AuditController::class, 'index']);
 
 /*
  |--------------------------------------------------------------------------
  | Evidence scaffold (Phase 4 — upload no-op)
  |--------------------------------------------------------------------------
 */
-Route::post('/evidence', [EvidenceController::class, 'store']); // POST /api/evidence
+Route::post('/evidence', [EvidenceController::class, 'store']);
 
 /*
  |--------------------------------------------------------------------------
  | Avatars scaffold (Phase 4 — upload no-op)
  |--------------------------------------------------------------------------
 */
-Route::post('/avatar', [AvatarController::class, 'store']); // POST /api/avatar
+Route::post('/avatar', [AvatarController::class, 'store']);

@@ -10,16 +10,15 @@ final class StoreAvatarRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        // RBAC enforcement deferred in Phase 4.
-        return true;
+        return true; // RBAC deferred in Phase 4
     }
 
     public function rules(): array
     {
-        // Allowed formats per Phase 4 defaults
-        $allowed = ['image/webp', 'image/jpeg', 'image/png'];
+        // Spec lock: WEBP only
+        $allowed = ['image/webp'];
 
-        // File size: soft cap at 2 MB for stub. Real limit comes later with processing.
+        // Soft cap for stub validation (2 MB)
         $maxKb = 2048;
 
         return [
@@ -33,7 +32,7 @@ final class StoreAvatarRequest extends FormRequest
             'file.required'  => 'File is required.',
             'file.file'      => 'Invalid upload.',
             'file.max'       => 'File exceeds the temporary upload size limit.',
-            'file.mimetypes' => 'Only WEBP, JPEG, or PNG are allowed.',
+            'file.mimetypes' => 'Only WEBP is allowed.',
         ];
     }
 }

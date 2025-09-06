@@ -7,6 +7,7 @@ namespace App\Http\Controllers\Admin;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Validator;
 
 /**
@@ -49,30 +50,44 @@ final class SettingsController extends Controller
     }
 
     /**
-     * POST /api/admin/settings
+     * POST/PUT /api/admin/settings
+     * Accept both shapes:
+     *  A) { "rbac": {...}, "audit": {...}, "evidence": {...}, "avatars": {...} }  (spec)
+     *  B) { "core": { "rbac": {...}, "audit": {...}, "evidence": {...}, "avatars": {...} } } (legacy)
      * Validate only; do not persist.
      */
     public function update(Request $request): JsonResponse
     {
+        $payload = $request->all();
+
+        // Normalize to top-level sections per spec
+        $sections = Arr::has($payload, 'core') && is_array($payload['core'])
+            ? (array) $payload['core']
+            : Arr::only($payload, ['rbac','audit','evidence','avatars']);
+
         $rules = [
-            'core.rbac.enabled'            => ['sometimes','boolean'],
-            'core.rbac.roles'              => ['sometimes','array','min:1'],
-            'core.rbac.roles.*'            => ['string','min:3','max:64'],
+            'rbac'                  => ['sometimes','array'],
+            'rbac.enabled'          => ['sometimes','boolean'],
+            'rbac.roles'            => ['sometimes','array','min:1'],
+            'rbac.roles.*'          => ['string','min:3','max:64'],
 
-            'core.audit.enabled'           => ['sometimes','boolean'],
-            'core.audit.retention_days'    => ['sometimes','integer','min:1','max:730'],
+            'audit'                 => ['sometimes','array'],
+            'audit.enabled'         => ['sometimes','boolean'],
+            'audit.retention_days'  => ['sometimes','integer','min:1','max:730'],
 
-            'core.evidence.enabled'        => ['sometimes','boolean'],
-            'core.evidence.max_mb'         => ['sometimes','integer','min:1','max:500'],
-            'core.evidence.allowed_mime'   => ['sometimes','array','min:1'],
-            'core.evidence.allowed_mime.*' => ['string','min:3','max:128'],
+            'evidence'              => ['sometimes','array'],
+            'evidence.enabled'      => ['sometimes','boolean'],
+            'evidence.max_mb'       => ['sometimes','integer','min:1','max:500'],
+            'evidence.allowed_mime' => ['sometimes','array','min:1'],
+            'evidence.allowed_mime.*' => ['string','min:3','max:128'],
 
-            'core.avatars.enabled'         => ['sometimes','boolean'],
-            'core.avatars.size_px'         => ['sometimes','integer','min:32','max:1024'],
-            'core.avatars.format'          => ['sometimes','in:webp,jpeg,png'],
+            'avatars'               => ['sometimes','array'],
+            'avatars.enabled'       => ['sometimes','boolean'],
+            'avatars.size_px'       => ['sometimes','integer','in:128'], // spec lock
+            'avatars.format'        => ['sometimes','in:webp'],          // spec lock
         ];
 
-        $v = Validator::make($request->all(), $rules);
+        $v = Validator::make($sections, $rules);
 
         if ($v->fails()) {
             return response()->json([
@@ -82,13 +97,11 @@ final class SettingsController extends Controller
             ], 422);
         }
 
-        $accepted = (array) data_get($request->all(), 'core', []);
-
         return response()->json([
             'ok'       => true,
             'applied'  => false,
             'note'     => 'stub-only',
-            'accepted' => ['core' => $accepted],
+            'accepted' => $v->validated(),
         ], 200);
     }
 }
