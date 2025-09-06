@@ -1,3 +1,4 @@
+# .github/workflows/ci.yml
 name: CI
 
 on:
@@ -16,9 +17,27 @@ jobs:
   api:
     name: API checks
     runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: phpgrc_test
+          MYSQL_USER: phpgrc
+          MYSQL_PASSWORD: secret
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+
     defaults:
       run:
         working-directory: api
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -30,6 +49,18 @@ jobs:
           extensions: mbstring, intl, pdo_mysql, dom, xml
           coverage: none
 
+      - name: Install MySQL client
+        run: sudo apt-get update && sudo apt-get install -y mysql-client
+
+      - name: Prepare Laravel dirs
+        run: |
+          mkdir -p bootstrap/cache \
+            storage/app \
+            storage/framework/cache storage/framework/sessions storage/framework/views \
+            storage/logs
+          # empty .env to silence Dotenv warnings (we override via env)
+          touch .env
+
       - name: Composer cache
         uses: actions/cache@v4
         with:
@@ -40,6 +71,18 @@ jobs:
       - name: Install deps
         run: composer install --no-interaction --prefer-dist
 
+      - name: Wait for MySQL and provision test DB
+        env:
+          MYSQL_PWD: root
+        run: |
+          for i in {1..30}; do
+            mysql -h 127.0.0.1 -uroot -e "SELECT 1" && break
+            sleep 2
+          done
+          mysql -h 127.0.0.1 -uroot -e "CREATE DATABASE IF NOT EXISTS phpgrc_test CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;"
+          mysql -h 127.0.0.1 -uroot -e "CREATE USER IF NOT EXISTS 'phpgrc'@'%' IDENTIFIED BY 'secret';"
+          mysql -h 127.0.0.1 -uroot -e "GRANT ALL ON phpgrc_test.* TO 'phpgrc'@'%'; FLUSH PRIVILEGES;"
+
       - name: Pint
         run: vendor/bin/pint -v
 
@@ -47,7 +90,33 @@ jobs:
         run: vendor/bin/phpstan analyse --memory-limit=-1
 
       - name: Psalm
+        env:
+          APP_ENV: testing
+          APP_DEBUG: "true"
+          APP_KEY: base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+          DB_CONNECTION: mysql
+          DB_HOST: 127.0.0.1
+          DB_PORT: "3306"
+          DB_DATABASE: phpgrc_test
+          DB_USERNAME: phpgrc
+          DB_PASSWORD: secret
+          CACHE_DRIVER: array
+          SESSION_DRIVER: array
+          QUEUE_CONNECTION: sync
         run: vendor/bin/psalm --no-cache
 
       - name: PHPUnit
+        env:
+          APP_ENV: testing
+          APP_DEBUG: "true"
+          APP_KEY: base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+          DB_CONNECTION: mysql
+          DB_HOST: 127.0.0.1
+          DB_PORT: "3306"
+          DB_DATABASE: phpgrc_test
+          DB_USERNAME: phpgrc
+          DB_PASSWORD: secret
+          CACHE_DRIVER: array
+          SESSION_DRIVER: array
+          QUEUE_CONNECTION: sync
         run: vendor/bin/phpunit
