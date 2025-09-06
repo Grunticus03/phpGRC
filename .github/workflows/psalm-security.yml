@@ -11,7 +11,7 @@ on:
       - "api/**"
       - ".github/workflows/psalm-security.yml"
   schedule:
-    - cron: "0 6 * * 1"   # Mondays 06:00 UTC
+    - cron: "0 6 * * 1"
   workflow_dispatch:
 
 permissions:
@@ -25,7 +25,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install PHP and Composer (for autoload/types)
+      - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
           php-version: "8.3"
@@ -35,14 +35,12 @@ jobs:
         working-directory: api
         run: composer install --no-interaction --prefer-dist
 
-      - name: Psalm Security Scan
+      - name: Psalm Security Scan (Docker)
         working-directory: api
-        uses: docker://ghcr.io/psalm/psalm-security-scan
-        # Produces results.sarif in working directory. :contentReference[oaicite:1]{index=1}
+        run: docker run --rm -v "$PWD:$PWD" -w "$PWD" ghcr.io/psalm/psalm-security-scan:latest
 
-      - name: Upload SARIF to GitHub Code Scanning
+      - name: Upload SARIF
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: api/results.sarif
           category: psalm-security
-        # Third-party SARIF upload populates the Security tab. :contentReference[oaicite:2]{index=2}
