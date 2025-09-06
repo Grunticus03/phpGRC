@@ -6,30 +6,15 @@ namespace Tests\Feature;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\Config;
 use Tests\TestCase;
 
 final class EvidenceUploadTest extends TestCase
 {
     use RefreshDatabase;
 
-    protected function setUp(): void
-    {
-        parent::setUp();
-
-        // Prefer SQLite for tests if available; falls back to default connection.
-        if (extension_loaded('pdo_sqlite')) {
-            Config::set('database.default', 'sqlite');
-            Config::set('database.connections.sqlite.database', database_path('database.sqlite'));
-            if (! is_file(database_path('database.sqlite'))) {
-                @touch(database_path('database.sqlite'));
-            }
-        }
-    }
-
     public function test_upload_disabled_returns_400(): void
     {
-        Config::set('core.evidence.enabled', false);
+        config()->set('core.evidence.enabled', false);
 
         $file = UploadedFile::fake()->createWithContent('small.txt', "hello\n", 'text/plain');
 
@@ -43,7 +28,7 @@ final class EvidenceUploadTest extends TestCase
 
     public function test_upload_persists_and_returns_metadata(): void
     {
-        Config::set('core.evidence.enabled', true);
+        config()->set('core.evidence.enabled', true);
 
         $content = "hello\n";
         $file = UploadedFile::fake()->createWithContent('small.txt', $content, 'text/plain');
