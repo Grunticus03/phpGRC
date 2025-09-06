@@ -21,7 +21,7 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 ---
 
 ### CORE-002 — CI/CD Guardrails
-**Description:** Max strictness CI/CD (PHPCS, PHPStan L5, Psalm, Enlightn, composer-audit, Spectral, commitlint, CODEOWNERS).  
+**Description:** Max strictness CI/CD (PHPCS, PHPStan, Psalm, Enlightn, composer-audit, Spectral, commitlint, CODEOWNERS).  
 **Acceptance Criteria:**
 - All guardrails green before merge  
 - Guardrails enforced by branch protections  
@@ -35,7 +35,7 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 ### CORE-003 — Admin Settings UI
 **Description:** Unified UI for system configs (auth, RBAC, evidence, exports, notifications, backups).  
 **Acceptance Criteria:**
-- All configs editable in UI (except emergency DB flag)  
+- Configs editable in UI (except emergency DB flag)  
 - Changes audited  
 **Phase:** 2  
 **Step:** 1  
@@ -45,14 +45,14 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 ---
 
 ### CORE-004 — RBAC Roles
-**Description:** Roles Admin, Auditor, Risk Manager, User created with namespaced permissions.  
+**Description:** Roles Admin, Auditor, Risk Manager, User with namespaced permissions.  
 **Acceptance Criteria:**
 - Permissions follow `<module>.<action>` pattern  
 - Enforced by Policies + Middleware  
 **Phase:** 2  
 **Step:** 2  
 **Dependencies:** CORE-003  
-**Status:** In progress — middleware tagged on admin/rbac routes; roles endpoint scaffold; policies and DB deferred.
+**Status:** In progress — `RbacMiddleware` no-op added; roles endpoint scaffold; policies and DB deferred.
 
 ---
 
@@ -64,31 +64,31 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 **Phase:** 2  
 **Step:** 3  
 **Dependencies:** CORE-003  
-**Status:** Scaffolded — guard in place; auditing and rate limits pending.
+**Status:** Scaffolded — guard present; auditing and rate limits pending.
 
 ---
 
 ### CORE-010 — Avatars
 **Description:** User avatars (128px WEBP canonical).  
 **Acceptance Criteria:**
-- Upload any size; crop or resize to 128  
+- Upload any size; crop/resize to 128  
 - Fallback initials or username  
 **Phase:** 2  
 **Step:** 4  
 **Dependencies:** CORE-003  
-**Status:** In progress — validation stub and model/migration placeholders; processing/storage pending.
+**Status:** In progress — WEBP-only validation stub and controller; processing/storage pending.
 
 ---
 
 ### CORE-006 — Evidence Pipeline
 **Description:** DB storage, SHA-256, versioning, attestation log.  
 **Acceptance Criteria:**
-- Default max 25 MB (configurable in UI)  
+- Default max 25 MB (configurable)  
 - Version history immutable  
 **Phase:** 4  
 **Step:** 1  
 **Dependencies:** CORE-003  
-**Status:** In progress — upload validation + migration stub with sha256; DB storage/versioning pending.
+**Status:** In progress — upload validation + config-driven limits; DB storage/versioning pending.
 
 ---
 
@@ -100,12 +100,12 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 **Phase:** 4  
 **Step:** 2  
 **Dependencies:** CORE-003  
-**Status:** In progress — controller returns sample events; model + migration stubbed; categories/retention wiring pending.
+**Status:** In progress — controller spec-aligned; categories helper added; write path + retention enforcement pending.
 
 ---
 
 ### CORE-008 — Exports
-**Description:** Export endpoints for CSV, JSON, PDF (Dompdf).  
+**Description:** Export endpoints for CSV, JSON, PDF.  
 **Acceptance Criteria:**
 - Job/status pattern  
 - Stored in DB  
@@ -113,7 +113,7 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 **Phase:** 4  
 **Step:** 3  
 **Dependencies:** CORE-006  
-**Status:** In progress — create/status/download stubs; jobs DB + file generation pending.
+**Status:** In progress — `POST /api/exports/{type}` added; legacy `POST /api/exports` kept; status echoes `id`; jobs DB + file generation pending.
 
 ---
 
@@ -140,7 +140,7 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 **Phase:** 3  
 **Step:** 1  
 **Dependencies:** CORE-004  
-**Status:** Stubbed (Phase 3) — module skeleton only.
+**Status:** Stubbed (Phase 3).
 
 ---
 
@@ -295,14 +295,14 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 ## 🔮 Future
 
 - **FUT-001 — Task & Workflow Management**  
-  Unified tasks across modules; workflows for approvals/remediation.  
+  Unified tasks across modules; approvals/remediation.  
   **Status:** Planned
 
 - **FUT-002 — Third-Party Engagement Portal**  
   Vendor portal for questionnaires and evidence uploads.  
   **Status:** Planned
 
-- **FUT-3 — Asset & Configuration Management**  
+- **FUT-003 — Asset & Configuration Management**  
   Registry of assets; ingest from external sources via Integration Bus.  
   **Status:** Planned
 

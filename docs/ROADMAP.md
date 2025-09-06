@@ -1,4 +1,3 @@
-# @phpgrc:/ROADMAP.md
 # phpGRC — ROADMAP (Aligned to Charter v1.1)
 
 > Source of truth for phase gating. Each checkbox must be merged & deployed with green guardrails before moving on.
@@ -15,21 +14,21 @@
 ---
 
 ## Phase 1 — Guardrails + Setup baseline ✅ COMPLETE
-- [x] Server deploy connection (GitHub Actions → rsync → `releases/` + `current`)
-- [x] HTTPS/443 serving live (`/var/www/phpgrc/current/web`)
-- [x] CI/CD guardrails skeleton committed (`ci.yml`) — ✅ Green
-- [x] Repo structure confirmation (`/api`, `/web`, `/docs`, `/.github`, `/scripts`) — no app code yet
-- [x] Installer & Setup Wizard scaffold (backlog CORE-001) — plan + stubs required
+- [x] Repo structure established (`/api`, `/web`, `/docs`, `.github`, `/scripts`)
+- [x] CI/CD skeleton (`.github/workflows/ci.yml`) green
+- [x] Deploy workflow to test target
+- [x] HTTPS placeholder served
+- [x] CORE-001 installer + setup wizard stubs
 
 ---
 
 ## Phase 2 — Auth/Routing ✅ COMPLETE
-- [x] Laravel API skeleton (no modules yet)
-- [x] Sanctum SPA mode scaffold (disabled until SPA exists)
-- [x] TOTP/MFA placeholder config (off by default)
-- [x] Break-glass DB-flag placeholder (off by default)
-- [x] Admin Settings UI framework (skeleton only)
-- [x] Early stubs for Exports capability (CSV/JSON/PDF) — delivery deferred to Phase 4
+- [x] Laravel API skeleton reachable
+- [x] Auth scaffolds (login/logout/me)
+- [x] TOTP scaffolds
+- [x] Break-glass guard scaffold
+- [x] Admin Settings UI framework (skeleton)
+- [x] Early Exports stub endpoints
 
 ---
 
@@ -41,12 +40,17 @@
 ---
 
 ## Phase 4 — Core app usable ⏳ IN PROGRESS
-- Settings UI — scaffolds ✅ (echo + validation); persistence + audit pending
-- RBAC roles — middleware + roles endpoint ✅; policies + DB pending
-- Audit Trail — controller/model/migration stubs ✅; categories + retention wiring pending
-- Evidence pipeline — validation + migration stub ✅; DB storage + sha256 hashing pending
-- Exports — create/status/download stubs ✅; jobs DB + file generation pending
-- Avatars — validation stub ✅; processing/storage pending
+- [x] Settings — echo + validation stubs (accept spec or legacy payload; normalized)
+- [x] RBAC — roles list + no-op middleware
+- [x] Audit — spec-shaped events, categories helper, retention echo
+- [x] Evidence — multipart validate (size/mime via config)
+- [x] Exports — path route `POST /api/exports/{type}` added; legacy body route kept; status echoes `id`
+- [x] Avatars — WEBP-only validation; basic dimension check
+- [ ] Evidence persistence: storage pathing + sha256 hashing
+- [ ] Audit persistence: write path + retention enforcement (≤ 2 years)
+- [ ] RBAC policies and DB roles
+- [ ] Exports job model + generation (CSV/JSON/PDF)
+- [ ] Settings persistence + audit logging
 
 ---
 
@@ -59,11 +63,11 @@
 ---
 
 ## Phase 6 — Integrations
-- [ ] Integration Bus MVP (connectors, pipelines, transforms, observability)  
+- [ ] Integration Bus MVP (connectors, pipelines, transforms, observability)
 - [ ] External Auth providers (OIDC/SAML/LDAP/Entra)
 - [ ] Asset ingestion (CMDB, cloud, IPAM)
 - [ ] Indicator framework
-- [ ] BCP/DRP workflows, Vendor inventory, Incident logging (per backlog)
+- [ ] BCP/DRP workflows, Vendor inventory, Incident logging
 
 ---
 
@@ -75,9 +79,6 @@
 ---
 
 ### Current Status (as of 2025-09-05)
-- ✅ Deployed via GitHub Actions and confirmed green.
-- ✅ HTTPS/443 serving placeholder from `web/`.
-- ✅ CI/CD workflow green (`ci.yml`).
-- ✅ Phase 2 scaffolding complete and inert by default.
-- ✅ Phase 3 module foundation complete.
-- ⏳ Phase 4 scaffolding merged; CI green; enforcement/persistence next.
+- ✅ CI/CD green.
+- ✅ Phase-4 validation controllers merged.
+- ⏳ Persistence and policies pending in Phase-4.

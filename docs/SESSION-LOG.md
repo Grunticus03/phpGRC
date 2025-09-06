@@ -325,3 +325,24 @@ Use it to maintain a permanent, auditable record of all work across phases.
   - `/.github/workflows/psalm-security.yml`
 - Status: Green
 - Next: proceed with Phase-4 API scaffolding per ROADMAP; optionally switch Pint to `--test` in CI to fail on drift
+
+---
+
+### Session 2025-09-05: Phase 4 — Controllers & Spec Alignment
+- Context: Lock Phase-4 contracts and wire validation-only endpoints.
+- Goal: Bring Settings, RBAC, Audit, Evidence, Exports, Avatars to echo/validate stubs per spec.
+- Constraints: No persistence. No DB I/O. Deterministic outputs. Guardrails green.
+
+# Closeout
+- Deliverables:
+  - API: `Admin/SettingsController` (spec+legacy payloads, strict rules), `Rbac/RolesController` (list + no-op store), `Audit/AuditController` (spec shape + categories + retention echo), `Evidence/EvidenceController` (multipart validate), `Export/ExportController` (adds `createType` path route), `Export/StatusController` (echo `id` and `jobId`), `Avatar/AvatarController` (extends framework base, WEBP only).
+  - Requests: `Avatar/StoreAvatarRequest` (WEBP-only), `Evidence/StoreEvidenceRequest` (size/mime via config).
+  - Middleware: `RbacMiddleware` (no-op, tags `rbac_enabled`).
+  - Support: `Support/Audit/AuditCategories`.
+  - Routes: Adds `POST /api/exports/{type}`; keeps legacy `POST /api/exports`.
+  - Config: `config/core.php` keys confirmed.
+  - Docs: `docs/core/PHASE-4-SPEC.md` updated to reflect dual exports routes, WEBP-only avatars, and settings normalization.
+- CI: Green.
+- Phase/Step status: Phase-4 scaffolding complete; persistence, hashing, policies, and DB migrations remain.
+- Next action (you): None. Confirm endpoints reachable in test.
+- Next action (me): Draft persistence plan for Evidence (storage + sha256), Audit writes + retention enforcement, RBAC policies, and Exports job model.
