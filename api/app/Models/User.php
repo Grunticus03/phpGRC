@@ -12,6 +12,8 @@ use Laravel\Sanctum\HasApiTokens;
  * Placeholder User model for Phase 2 skeleton.
  * - Fields will be reconciled when CORE-004 (RBAC roles) introduces full user model.
  * - Only minimal fillable/hidden fields defined to keep CI green.
+ *
+ * @use HasApiTokens<\Laravel\Sanctum\PersonalAccessToken>
  */
 final class User extends Authenticatable
 {
