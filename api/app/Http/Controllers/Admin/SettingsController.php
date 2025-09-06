@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
 
 /**
  * Phase 4 stub: echo core.* settings and validate payloads.
@@ -16,9 +17,6 @@ use Illuminate\Support\Facades\Validator;
  */
 final class SettingsController extends Controller
 {
-    /**
-     * GET /api/admin/settings
-     */
     public function index(): JsonResponse
     {
         $config = [
@@ -51,25 +49,27 @@ final class SettingsController extends Controller
 
     /**
      * POST/PUT /api/admin/settings
-     * Accept both shapes:
-     *  A) { "rbac": {...}, "audit": {...}, "evidence": {...}, "avatars": {...} }  (spec)
-     *  B) { "core": { "rbac": {...}, "audit": {...}, "evidence": {...}, "avatars": {...} } } (legacy)
+     * Accepts either top-level sections or legacy { core: { ... } }.
      * Validate only; do not persist.
      */
     public function update(Request $request): JsonResponse
     {
         $payload = $request->all();
 
-        // Normalize to top-level sections per spec
+        // Normalize to top-level sections
         $sections = Arr::has($payload, 'core') && is_array($payload['core'])
             ? (array) $payload['core']
             : Arr::only($payload, ['rbac','audit','evidence','avatars']);
+
+        $allowedMime = (array) config('core.evidence.allowed_mime', [
+            'application/pdf','image/png','image/jpeg','text/plain',
+        ]);
 
         $rules = [
             'rbac'                  => ['sometimes','array'],
             'rbac.enabled'          => ['sometimes','boolean'],
             'rbac.roles'            => ['sometimes','array','min:1'],
-            'rbac.roles.*'          => ['string','min:3','max:64'],
+            'rbac.roles.*'          => ['string','min:1','max:64'],
 
             'audit'                 => ['sometimes','array'],
             'audit.enabled'         => ['sometimes','boolean'],
@@ -79,12 +79,12 @@ final class SettingsController extends Controller
             'evidence.enabled'      => ['sometimes','boolean'],
             'evidence.max_mb'       => ['sometimes','integer','min:1','max:500'],
             'evidence.allowed_mime' => ['sometimes','array','min:1'],
-            'evidence.allowed_mime.*' => ['string','min:3','max:128'],
+            'evidence.allowed_mime.*' => [Rule::in($allowedMime)],
 
             'avatars'               => ['sometimes','array'],
             'avatars.enabled'       => ['sometimes','boolean'],
             'avatars.size_px'       => ['sometimes','integer','in:128'], // spec lock
-            'avatars.format'        => ['sometimes','in:webp'],          // spec lock
+            'avatars.format'        => ['sometimes', Rule::in(['webp'])], // spec lock
         ];
 
         $v = Validator::make($sections, $rules);
