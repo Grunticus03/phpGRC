@@ -1,0 +1,4 @@
+<?php
+namespace Laravel\Sanctum;
+
+trait HasApiTokens {}

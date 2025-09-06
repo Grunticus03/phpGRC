@@ -8,5 +8,5 @@ parameters:
     tmpDir: build/phpstan
     bootstrapFiles:
         - vendor/autoload.php
-    scanDirectories:
-        - vendor/laravel/sanctum/src
+    stubFiles:
+        - stubs/laravel-sanctum.stub
