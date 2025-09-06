@@ -112,10 +112,12 @@ Route::get('/audit', [AuditController::class, 'index']);
 
 /*
  |--------------------------------------------------------------------------
- | Evidence (Phase 4 — persisted)
+ | Evidence (Phase 4 — persisted + retrieval)
  |--------------------------------------------------------------------------
 */
+Route::get('/evidence', [EvidenceController::class, 'index']);
 Route::post('/evidence', [EvidenceController::class, 'store']);
+Route::match(['GET', 'HEAD'], '/evidence/{id}', [EvidenceController::class, 'show']);
 
 /*
  |--------------------------------------------------------------------------
