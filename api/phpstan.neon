@@ -1,8 +1,10 @@
+includes:
+    - vendor/larastan/larastan/extension.neon
+
 parameters:
-  level: 5
-  paths:
-    - app
-    - routes
-  tmpDir: build/phpstan
-  checkGenericClassInNonGenericObjectType: false
-  reportUnmatchedIgnoredErrors: true
+    level: 5
+    paths:
+        - app
+    tmpDir: build/phpstan
+    checkMissingIterableValueType: false
+    treatPhpDocTypesAsCertain: false

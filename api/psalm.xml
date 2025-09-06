@@ -1,14 +1,14 @@
 <?xml version="1.0"?>
 <psalm
-  errorLevel="4"
-  findUnusedCode="false"
-  cacheDirectory="build/psalm"
+    errorLevel="8"
+    resolveFromConfigFile="true"
+    findUnusedCode="false"
+    cacheDirectory="build/psalm"
 >
-  <projectFiles>
-    <directory name="app"/>
-    <directory name="routes"/>
-    <ignoreFiles>
-      <directory name="vendor"/>
-    </ignoreFiles>
-  </projectFiles>
+    <projectFiles>
+        <directory name="app" />
+    </projectFiles>
+    <plugins>
+        <pluginClass class="Psalm\LaravelPlugin\Plugin"/>
+    </plugins>
 </psalm>

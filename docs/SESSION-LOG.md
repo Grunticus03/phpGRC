@@ -284,3 +284,19 @@ Use it to maintain a permanent, auditable record of all work across phases.
 - Phase/Step status: Phase 4 scaffolds ✅ complete — all stubs added per spec, CI expected green.
 - Next action (you): Run CI/linters, confirm migrations remain inert, merge to main.
 - Next action (me): Prepare Phase-4 documentation updates (PHASE-4-SPEC, CAPABILITIES.md) and unit-test scaffolds, then draft Phase-5 kickoff.
+
+---
+
+### Session 2025-09-07: Phase 4 — Composer + Analyzer Alignment
+
+- Context: Phase-4 scaffolding complete and CI green on stubs. Composer install attempts failed due to dependency/version mismatches (Laravel 11 + PHP 8.3 baseline vs. incompatible fruitcake/laravel-cors, Carbon, and parser/psalm conflicts).
+- Goal: Identify and confirm next step — regenerate authoritative /api/composer.json aligned with Laravel 11 + PHP 8.3 + guardrail analyzers.
+- Constraints: Deterministic, full-file outputs only, traceable to Charter guardrails and Backlog CORE-002.
+
+# Closeout
+-Deliverables produced:
+  -Dependency analysis of composer conflicts.
+- Next step identified: regenerate full /api/composer.json with Laravel 11 + PHP 8.3 baseline and analyzer stack.
+- Phase/Step status: Phase 4 ⏳ in progress — scaffolds ✅, analyzer integration pending.
+- Next action (you): none until file output.
+- Next action (me): generate full, corrected /api/composer.json for Laravel 11 + PHP 8.3 + analyzers.
