@@ -106,7 +106,10 @@ jobs:
           CACHE_DRIVER: array
           SESSION_DRIVER: array
           QUEUE_CONNECTION: sync
-        run: vendor/bin/psalm --no-cache
+        #run: vendor/bin/psalm --no-cache
+        run: |
+          THREADS=$(nproc --all || getconf _NPROCESSORS_ONLN || echo 2)
+          vendor/bin/psalm --no-cache --threads="$THREADS"
 
       - name: PHPUnit
         env:
