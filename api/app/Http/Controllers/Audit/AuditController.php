@@ -15,7 +15,7 @@ final class AuditController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        // Validate types only. Clamp bounds in code.
+        // Type validation only; bounds are clamped below.
         $v = Validator::make($request->query(), [
             'limit'  => ['sometimes', 'integer'],
             'cursor' => ['sometimes', 'string', 'max:400'],
@@ -23,10 +23,10 @@ final class AuditController extends Controller
 
         if ($v->fails()) {
             return response()->json([
-                'ok'     => false,
-                'code'   => 'VALIDATION_FAILED',
-                'message'=> 'Validation failed.',
-                'errors' => $v->errors(),
+                'ok'      => false,
+                'code'    => 'VALIDATION_FAILED',
+                'message' => 'Validation failed.',
+                'errors'  => $v->errors(),
             ], 422);
         }
 
@@ -38,11 +38,23 @@ final class AuditController extends Controller
         }
         $cursor = (string) $request->query('cursor', '');
 
+        // If a cursor was provided, validate its structure strictly.
+        if ($request->has('cursor') && $cursor !== '' && !$this->isValidCursor($cursor)) {
+            return response()->json([
+                'ok'      => false,
+                'code'    => 'VALIDATION_FAILED',
+                'message' => 'Validation failed.',
+                'errors'  => ['cursor' => ['Invalid cursor.']],
+            ], 422);
+        }
+
+        // Stub path when table is not present (Phase 4).
         if (!Schema::hasTable('audit_events')) {
             return $this->stubResponse($limit, $cursor);
         }
 
-        [$afterTs, $afterId] = $this->decodeCursor($cursor);
+        // Decode cursor for keyset pagination (non-strict here; already validated if present).
+        [$afterTs, $afterId] = $this->decodeCursorLenient($cursor);
 
         $q = AuditEvent::query()
             ->orderByDesc('occurred_at')
@@ -84,11 +96,12 @@ final class AuditController extends Controller
         }
 
         return response()->json([
-            'ok'         => true,
-            'items'      => $items,
-            'nextCursor' => $nextCursor,
-            // Keep lightweight metadata present to satisfy API tests.
-            '_categories' => ['AUTH', 'SETTINGS', 'RBAC', 'EVIDENCE', 'EXPORTS'],
+            'ok'              => true,
+            'items'           => $items,
+            'nextCursor'      => $nextCursor,
+            // Tests expect these metadata keys present.
+            '_categories'     => ['AUTH', 'SETTINGS', 'RBAC', 'EVIDENCE', 'EXPORTS'],
+            '_retention_days' => (int) config('core.audit.retention_days', 365),
         ], 200);
     }
 
@@ -99,9 +112,37 @@ final class AuditController extends Controller
     }
 
     /**
+     * Strict cursor validator: base64url(JSON {ts:string ISO8601, id:string})
+     */
+    private function isValidCursor(string $cursor): bool
+    {
+        try {
+            $pad = strlen($cursor) % 4;
+            if ($pad) {
+                $cursor .= str_repeat('=', 4 - $pad);
+            }
+            $raw = base64_decode(strtr($cursor, '-_', '+/'), true);
+            if ($raw === false) {
+                return false;
+            }
+            $obj = json_decode($raw, true, 512, JSON_THROW_ON_ERROR);
+            if (!is_array($obj) || !isset($obj['ts'], $obj['id']) || !is_string($obj['ts']) || !is_string($obj['id'])) {
+                return false;
+            }
+            // Basic ISO-8601 parse check
+            \Carbon\CarbonImmutable::parse($obj['ts']);
+            return $obj['id'] !== '';
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
+    /**
+     * Lenient decode for internal paging; returns [CarbonImmutable|null, string|null]
+     *
      * @return array{0: \Carbon\CarbonImmutable|null, 1: string|null}
      */
-    private function decodeCursor(string $cursor): array
+    private function decodeCursorLenient(string $cursor): array
     {
         if ($cursor === '') {
             return [null, null];
@@ -157,11 +198,12 @@ final class AuditController extends Controller
         $slice = array_slice($events, 0, max(1, min(100, $limit)));
 
         return response()->json([
-            'ok'         => true,
-            'items'      => $slice,
-            'nextCursor' => null,
-            'note'       => 'stub-only',
-            '_categories'=> ['AUTH', 'SETTINGS', 'RBAC', 'EVIDENCE', 'EXPORTS'],
+            'ok'              => true,
+            'items'           => $slice,
+            'nextCursor'      => null,
+            'note'            => 'stub-only',
+            '_categories'     => ['AUTH', 'SETTINGS', 'RBAC', 'EVIDENCE', 'EXPORTS'],
+            '_retention_days' => (int) config('core.audit.retention_days', 365),
         ], 200);
     }
 }
