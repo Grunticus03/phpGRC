@@ -11,19 +11,11 @@ use Symfony\Component\HttpFoundation\Response;
 
 /**
  * RBAC middleware with route-level role enforcement.
- *
- * Behavior
- * - If config('core.rbac.enabled') is false → passthrough.
- * - If no roles are declared on the route → passthrough.
- * - Else require the authenticated user to have ≥1 of the declared roles.
- *
  * Declare roles on routes with ->defaults('roles', ['Admin', 'Auditor'])
  */
 final class RbacMiddleware
 {
     /**
-     * Handle an incoming request.
-     *
      * @param  \Closure(\Illuminate\Http\Request): (\Symfony\Component\HttpFoundation\Response)  $next
      */
     public function handle(Request $request, Closure $next): Response
@@ -43,11 +35,10 @@ final class RbacMiddleware
 
         /** @var array<string,mixed> $action */
         $action = $route->getAction();
-
         /** @var mixed $declared */
         $declared = $action['roles'] ?? ($route->defaults['roles'] ?? []);
-
         $requiredRoles = is_string($declared) ? [$declared] : (array) $declared;
+
         if ($requiredRoles === []) {
             return $next($request);
         }

@@ -28,12 +28,13 @@ final class User extends Authenticatable
     protected $hidden = ['password', 'remember_token'];
 
     /**
-     * @return BelongsToMany<Role, User>
+     * @return BelongsToMany<\App\Models\Role, \App\Models\User>
      */
     public function roles(): BelongsToMany
     {
-        /** @var BelongsToMany<Role, User> */
-        return $this->belongsToMany(Role::class, 'role_user', 'user_id', 'role_id');
+        /** @var BelongsToMany<\App\Models\Role, \App\Models\User> $rel */
+        $rel = $this->belongsToMany(Role::class, 'role_user', 'user_id', 'role_id');
+        return $rel;
     }
 
     public function hasRole(string $roleName): bool

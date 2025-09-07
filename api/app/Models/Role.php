@@ -10,7 +10,6 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 /**
  * @property string $id
  * @property string $name
- * @extends Model<Role>
  */
 final class Role extends Model
 {
@@ -20,11 +19,12 @@ final class Role extends Model
     protected $fillable = ['id', 'name'];
 
     /**
-     * @return BelongsToMany<User, Role>
+     * @return BelongsToMany<\App\Models\User, \App\Models\Role>
      */
     public function users(): BelongsToMany
     {
-        /** @var BelongsToMany<User, Role> */
-        return $this->belongsToMany(User::class, 'role_user', 'role_id', 'user_id');
+        /** @var BelongsToMany<\App\Models\User, \App\Models\Role> $rel */
+        $rel = $this->belongsToMany(User::class, 'role_user', 'role_id', 'user_id');
+        return $rel;
     }
 }
