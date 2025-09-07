@@ -107,8 +107,7 @@ final class SettingsController extends Controller
     }
 
     /**
-     * Convert Laravel's flat error bag keys (e.g., "avatars.size_px") into nested arrays
-     * so JSON paths like errors.avatars.size_px.0 resolve in tests.
+     * Build nested error arrays using dot-keys, e.g. "avatars.size_px" -> ["avatars"=>["size_px"=>["msg"]]]
      *
      * @param array<string, array<int, string>> $flat
      * @return array<string, mixed>
@@ -118,19 +117,7 @@ final class SettingsController extends Controller
         $nested = [];
 
         foreach ($flat as $key => $messages) {
-            $parts = explode('.', $key);
-            $ref =& $nested;
-
-            foreach ($parts as $part) {
-                if (!isset($ref[$part]) || !is_array($ref[$part])) {
-                    $ref[$part] = [];
-                }
-                $ref =& $ref[$part];
-            }
-
-            // Ensure indexed array of strings at the leaf
-            $ref = array_values($messages);
-            unset($ref);
+            Arr::set($nested, $key, array_values($messages));
         }
 
         return $nested;
