@@ -15,8 +15,11 @@ final class AuditController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        // Accept params from querystring or JSON body to satisfy tests.
-        $data = $request->all();
+        // Merge query params and JSON body for validation (no null-coalesce).
+        $data = array_merge(
+            $request->query(),
+            $request->json()->all()
+        );
 
         // Type validation only; bounds handled below.
         $v = Validator::make($data, [
@@ -55,7 +58,7 @@ final class AuditController extends Controller
 
         $cursor = (string) ($data['cursor'] ?? '');
 
-        // Allow simple tokens like "abc123"; only 422 on unsafe chars.
+        // Allow simple tokens like "abc123"; 422 on unsafe chars.
         if ($cursor !== '' && !preg_match('/^[A-Za-z0-9_-]*$/', $cursor)) {
             return response()->json([
                 'ok'      => false,
