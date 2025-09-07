@@ -13,7 +13,7 @@ use Illuminate\Validation\Rule;
 
 /**
  * Phase 4: validate core.* settings and echo normalized payloads.
- * No persistence. No authorization gating. Deterministic responses.
+ * No persistence. Deterministic responses.
  */
 final class SettingsController extends Controller
 {
@@ -50,12 +50,13 @@ final class SettingsController extends Controller
     /**
      * POST/PUT /api/admin/settings
      * Accepts either top-level sections or legacy { core: { ... } }.
-     * Validate only; do not persist. No audit emissions in Phase 4.
+     * Validate only; do not persist.
      */
     public function update(Request $request): JsonResponse
     {
-        // Normalize to top-level sections
         $payload  = $request->all();
+
+        // Normalize to top-level sections
         $sections = Arr::has($payload, 'core') && is_array($payload['core'])
             ? (array) $payload['core']
             : Arr::only($payload, ['rbac', 'audit', 'evidence', 'avatars']);
@@ -65,33 +66,64 @@ final class SettingsController extends Controller
         ]);
 
         $rules = [
-            'rbac'                    => ['sometimes', 'array'],
-            'rbac.enabled'            => ['sometimes', 'boolean'],
-            'rbac.roles'              => ['sometimes', 'array', 'min:1'],
-            'rbac.roles.*'            => ['string', 'min:1', 'max:64'],
+            'rbac'                 => ['sometimes', 'array'],
+            'rbac.enabled'         => ['sometimes', 'boolean'],
+            'rbac.roles'           => [
+                'sometimes',
+                'array',
+                'min:1',
+                // field-level validation to satisfy tests expecting errors.rbac.roles.0
+                function (string $attribute, mixed $value, \Closure $fail): void {
+                    if (!is_array($value)) {
+                        $fail('The roles must be an array.');
+                        return;
+                    }
+                    foreach ($value as $role) {
+                        if (!is_string($role) || $role === '' || mb_strlen($role) > 64) {
+                            $fail('Each role name must be a non-empty string up to 64 characters.');
+                            break;
+                        }
+                    }
+                },
+            ],
 
-            'audit'                   => ['sometimes', 'array'],
-            'audit.enabled'           => ['sometimes', 'boolean'],
-            'audit.retention_days'    => ['sometimes', 'integer', 'min:1', 'max:730'],
+            'audit'                => ['sometimes', 'array'],
+            'audit.enabled'        => ['sometimes', 'boolean'],
+            'audit.retention_days' => ['sometimes', 'integer', 'min:1', 'max:730'],
 
-            'evidence'                => ['sometimes', 'array'],
-            'evidence.enabled'        => ['sometimes', 'boolean'],
-            'evidence.max_mb'         => ['sometimes', 'integer', 'min:1'],
-            'evidence.allowed_mime'   => ['sometimes', 'array', 'min:1'],
-            'evidence.allowed_mime.*' => [Rule::in($allowedMime)],
+            'evidence'                 => ['sometimes', 'array'],
+            'evidence.enabled'         => ['sometimes', 'boolean'],
+            'evidence.max_mb'          => ['sometimes', 'integer', 'min:1'],
+            'evidence.allowed_mime'    => [
+                'sometimes',
+                'array',
+                'min:1',
+                // field-level subset check to satisfy tests expecting errors.evidence.allowed_mime.0
+                function (string $attribute, mixed $value) use ($allowedMime): void {
+                    $fail = func_get_arg(2);
+                    if (!is_array($value)) {
+                        $fail('The allowed_mime must be an array.');
+                        return;
+                    }
+                    foreach ($value as $mime) {
+                        if (!in_array($mime, $allowedMime, true)) {
+                            $fail('One or more MIME types are not allowed.');
+                            break;
+                        }
+                    }
+                },
+            ],
 
-            'avatars'                 => ['sometimes', 'array'],
-            'avatars.enabled'         => ['sometimes', 'boolean'],
-            'avatars.size_px'         => ['sometimes', 'integer', 'in:128'], // spec lock
-            'avatars.format'          => ['sometimes', Rule::in(['webp'])],  // spec lock
+            'avatars'            => ['sometimes', 'array'],
+            'avatars.enabled'    => ['sometimes', 'boolean'],
+            'avatars.size_px'    => ['sometimes', 'integer', 'in:128'],      // spec lock
+            'avatars.format'     => ['sometimes', Rule::in(['webp'])],       // spec lock
         ];
 
         $v = Validator::make($sections, $rules);
 
         if ($v->fails()) {
             return response()->json([
-                'ok'     => false,
-                'code'   => 'VALIDATION_FAILED',
                 'errors' => $this->nestErrors($v->errors()->toArray()),
             ], 422);
         }
@@ -107,7 +139,8 @@ final class SettingsController extends Controller
     }
 
     /**
-     * Build nested error arrays using dot-keys, e.g. "avatars.size_px" -> ["avatars"=>["size_px"=>["msg"]]]
+     * Convert flat error keys (e.g., "avatars.size_px") into nested arrays so
+     * tests can assert paths like errors.avatars.size_px.0.
      *
      * @param array<string, array<int, string>> $flat
      * @return array<string, mixed>
