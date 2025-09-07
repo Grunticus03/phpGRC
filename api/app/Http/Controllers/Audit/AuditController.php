@@ -15,8 +15,11 @@ final class AuditController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        // Type validation only.
-        $v = Validator::make($request->query(), [
+        // Accept params from querystring or JSON body to satisfy tests.
+        $data = $request->all();
+
+        // Type validation only; bounds handled below.
+        $v = Validator::make($data, [
             'limit'  => ['sometimes', 'integer'],
             'cursor' => ['sometimes', 'string', 'max:400'],
         ]);
@@ -30,11 +33,9 @@ final class AuditController extends Controller
             ], 422);
         }
 
-        // Negative limits are invalid (422). Zero and >100 are clamped.
-        if ($request->has('limit')) {
-            $rawLimit = $request->query('limit');
-            // At this point, 'integer' rule has ensured integer-like; cast safely.
-            $intLimit = (int) $rawLimit;
+        // Negative limits are invalid (422). Zero and >100 clamp.
+        if (array_key_exists('limit', $data)) {
+            $intLimit = (int) $data['limit'];
             if ($intLimit < 0) {
                 return response()->json([
                     'ok'      => false,
@@ -45,17 +46,17 @@ final class AuditController extends Controller
             }
         }
 
-        $limit = (int) $request->query('limit', 25);
+        $limit = array_key_exists('limit', $data) ? (int) $data['limit'] : 25;
         if ($limit < 1) {
             $limit = 1;
         } elseif ($limit > 100) {
             $limit = 100;
         }
 
-        $cursor = (string) $request->query('cursor', '');
+        $cursor = (string) ($data['cursor'] ?? '');
 
-        // Allow simple tokens like "abc123"; only 422 on obviously unsafe chars.
-        if ($request->has('cursor') && $cursor !== '' && !preg_match('/^[A-Za-z0-9_-]*$/', $cursor)) {
+        // Allow simple tokens like "abc123"; only 422 on unsafe chars.
+        if ($cursor !== '' && !preg_match('/^[A-Za-z0-9_-]*$/', $cursor)) {
             return response()->json([
                 'ok'      => false,
                 'code'    => 'VALIDATION_FAILED',
@@ -64,7 +65,7 @@ final class AuditController extends Controller
             ], 422);
         }
 
-        // Fallback stub when table is absent (Phase 4).
+        // Stub fallback when table absent (Phase 4).
         if (!Schema::hasTable('audit_events')) {
             return $this->stubResponse($limit, $cursor);
         }
@@ -127,6 +128,8 @@ final class AuditController extends Controller
     }
 
     /**
+     * Lenient decode; returns [CarbonImmutable|null, string|null]
+     *
      * @return array{0: \Carbon\CarbonImmutable|null, 1: string|null}
      */
     private function decodeCursorLenient(string $cursor): array
