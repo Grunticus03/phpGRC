@@ -4,98 +4,169 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Services\Audit\AuditLogger;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\Gate;
 use Tests\TestCase;
 
 final class EvidenceApiTest extends TestCase
 {
-    public function test_disabled_returns_400(): void
+    protected function setUp(): void
     {
-        config(['core.evidence.enabled' => false]);
+        parent::setUp();
 
-        $file = UploadedFile::fake()->create('a.txt', 1, 'text/plain');
+        // Allow all evidence actions during tests.
+        Gate::shouldReceive('authorize')->andReturn(true);
 
-        $this->postJson('/api/evidence', ['file' => $file])
+        // Bind a no-op audit logger.
+        $this->app->instance(AuditLogger::class, new class {
+            public function log(array $e): void {}
+        });
+    }
+
+    /** @test */
+    public function store_accepts_allowed_pdf_and_returns_201_with_ids(): void
+    {
+        $file = UploadedFile::fake()->createWithContent('evidence.pdf', 'PDFDATA');
+
+        $res = $this->post('/api/evidence', ['file' => $file]);
+
+        $res->assertStatus(201)
+            ->assertJson([
+                'ok'   => true,
+                'mime' => 'application/pdf',
+                'name' => 'evidence.pdf',
+            ])
+            ->assertJsonStructure(['id', 'version', 'sha256', 'size']);
+    }
+
+    /** @test */
+    public function store_accepts_allowed_png_and_returns_201(): void
+    {
+        $file = UploadedFile::fake()->image('screen.png', 10, 10);
+
+        $this->post('/api/evidence', ['file' => $file])
+            ->assertStatus(201)
+            ->assertJsonPath('mime', 'image/png')
+            ->assertJsonPath('name', 'screen.png');
+    }
+
+    /** @test */
+    public function store_rejects_disallowed_mime_with_422(): void
+    {
+        $file = UploadedFile::fake()->createWithContent('malware.exe', 'EXE', 'application/x-msdownload');
+
+        $this->post('/api/evidence', ['file' => $file])
+            ->assertStatus(422)
+            ->assertJsonPath('ok', false)
+            ->assertJsonPath('code', 'VALIDATION_FAILED');
+    }
+
+    /** @test */
+    public function store_rejects_oversize_file_with_422(): void
+    {
+        Config::set('core.evidence.max_mb', 1); // 1 MB limit
+        $file = UploadedFile::fake()->create('big.pdf', /* KB */ 1024 + 1, 'application/pdf');
+
+        $this->post('/api/evidence', ['file' => $file])
+            ->assertStatus(422)
+            ->assertJsonPath('ok', false)
+            ->assertJsonPath('code', 'VALIDATION_FAILED');
+    }
+
+    /** @test */
+    public function store_returns_400_when_feature_disabled(): void
+    {
+        Config::set('core.evidence.enabled', false);
+
+        $file = UploadedFile::fake()->createWithContent('evidence.pdf', 'PDFDATA');
+
+        $this->post('/api/evidence', ['file' => $file])
             ->assertStatus(400)
-            ->assertJson(['ok' => false, 'code' => 'EVIDENCE_NOT_ENABLED']);
+            ->assertJson([
+                'ok'   => false,
+                'code' => 'EVIDENCE_NOT_ENABLED',
+            ]);
     }
 
-    public function test_upload_valid_pdf_201_and_fetch_by_id_and_etag(): void
+    /** @test */
+    public function index_paginates_and_returns_next_cursor(): void
     {
-        if (! Schema::hasTable('evidence')) {
-            $this->markTestSkipped('evidence table not present');
-        }
+        // Create three items.
+        $this->post('/api/evidence', ['file' => UploadedFile::fake()->createWithContent('a.txt', 'A', 'text/plain')]);
+        $this->post('/api/evidence', ['file' => UploadedFile::fake()->createWithContent('b.txt', 'B', 'text/plain')]);
+        $this->post('/api/evidence', ['file' => UploadedFile::fake()->createWithContent('c.txt', 'C', 'text/plain')]);
 
-        config(['core.evidence.enabled' => true]);
+        $res = $this->getJson('/api/evidence?limit=2');
 
-        $file = UploadedFile::fake()->create('doc.pdf', 5, 'application/pdf');
-
-        $r = $this->postJson('/api/evidence', ['file' => $file])
-            ->assertCreated()
-            ->assertJsonStructure(['ok','id','version','sha256','size','mime','name'])
-            ->json();
-
-        $id = $r['id'];
-        $etag = '"' . $r['sha256'] . '"';
-
-        // HEAD returns headers only
-        $head = $this->call('HEAD', "/api/evidence/{$id}");
-        $head->assertOk();
-        $head->assertHeader('ETag', $etag);
-        $this->assertSame('', $head->getContent());
-
-        // GET returns body and same ETag
-        $get = $this->get("/api/evidence/{$id}");
-        $get->assertOk();
-        $get->assertHeader('ETag', $etag);
-
-        // 304 when ETag matches
-        $this->get("/api/evidence/{$id}", ['If-None-Match' => $etag])
-            ->assertStatus(304);
+        $res->assertOk()
+            ->assertJsonPath('ok', true)
+            ->assertJsonCount(2, 'data')
+            ->assertJsonStructure(['next_cursor']);
     }
 
-    public function test_index_cursor_and_limit(): void
+    /** @test */
+    public function show_returns_bytes_and_headers_for_get(): void
     {
-        if (! Schema::hasTable('evidence')) {
-            $this->markTestSkipped('evidence table not present');
-        }
+        $upload = UploadedFile::fake()->createWithContent('doc.txt', 'DOC', 'text/plain');
+        $created = $this->post('/api/evidence', ['file' => $upload])->json();
 
-        config(['core.evidence.enabled' => true]);
+        $id  = $created['id'];
+        $sha = $created['sha256'];
 
-        // Ensure at least 2 items
-        $this->postJson('/api/evidence', ['file' => UploadedFile::fake()->create('x.txt', 1, 'text/plain')])->assertCreated();
-        $this->postJson('/api/evidence', ['file' => UploadedFile::fake()->create('y.txt', 1, 'text/plain')])->assertCreated();
+        $res = $this->get("/api/evidence/{$id}");
 
-        $page1 = $this->getJson('/api/evidence?limit=1')
-            ->assertOk()
-            ->json();
+        $res->assertOk()
+            ->assertHeader('ETag', "\"{$sha}\"")
+            ->assertHeader('Content-Type', 'text/plain')
+            ->assertHeader('Content-Length', (string) strlen('DOC'));
 
-        $this->assertIsArray($page1['data']);
-        $this->assertCount(1, $page1['data']);
-        $this->assertArrayHasKey('next_cursor', $page1);
-
-        if (! empty($page1['next_cursor'])) {
-            $this->getJson('/api/evidence?limit=1&cursor=' . urlencode($page1['next_cursor']))
-                ->assertOk()
-                ->assertJsonStructure(['ok','data','next_cursor']);
-        }
+        $this->assertSame('DOC', $res->getContent());
     }
 
-    public function test_rejects_large_file_and_wrong_mime(): void
+    /** @test */
+    public function head_returns_headers_only(): void
     {
-        config(['core.evidence.enabled' => true, 'core.evidence.max_mb' => 1, 'core.evidence.allowed_mime' => ['text/plain']]);
+        $upload = UploadedFile::fake()->createWithContent('head.txt', 'HEAD', 'text/plain');
+        $created = $this->post('/api/evidence', ['file' => $upload])->json();
 
-        // 2 MB exceeds max_mb=1
-        $tooBig = UploadedFile::fake()->create('big.bin', 2048, 'application/octet-stream');
-        $this->postJson('/api/evidence', ['file' => $tooBig])
-            ->assertStatus(422)
-            ->assertJsonFragment(['code' => 'VALIDATION_FAILED']);
+        $id  = $created['id'];
+        $sha = $created['sha256'];
 
-        // Wrong mime
-        $wrong = UploadedFile::fake()->create('img.jpeg', 10, 'image/jpeg');
-        $this->postJson('/api/evidence', ['file' => $wrong])
-            ->assertStatus(422)
-            ->assertJsonFragment(['code' => 'VALIDATION_FAILED']);
+        $res = $this->call('HEAD', "/api/evidence/{$id}");
+
+        $res->assertStatus(200)
+            ->assertHeader('ETag', "\"{$sha}\"")
+            ->assertHeader('Content-Type', 'text/plain');
+
+        $this->assertSame('', $res->getContent());
+    }
+
+    /** @test */
+    public function get_with_if_none_match_returns_304(): void
+    {
+        $upload = UploadedFile::fake()->createWithContent('etag.txt', 'ETAG', 'text/plain');
+        $created = $this->post('/api/evidence', ['file' => $upload])->json();
+
+        $id  = $created['id'];
+        $sha = $created['sha256'];
+
+        $res = $this->withHeaders(['If-None-Match' => "\"{$sha}\""])
+            ->get("/api/evidence/{$id}");
+
+        $res->assertStatus(304);
+        $this->assertSame('', $res->getContent());
+    }
+
+    /** @test */
+    public function show_returns_404_for_missing_id(): void
+    {
+        $this->get('/api/evidence/ev_does_not_exist')
+            ->assertStatus(404)
+            ->assertJson([
+                'ok'   => false,
+                'code' => 'EVIDENCE_NOT_FOUND',
+            ]);
     }
 }
