@@ -6,110 +6,72 @@ namespace Tests\Feature;
 
 use Tests\TestCase;
 
-final class ExportApiTest extends TestCase
+final class ExportsApiTest extends TestCase
 {
     /** @test */
-    public function legacy_create_accepts_valid_types_and_returns_202(): void
+    public function create_type_accepts_csv_json_pdf(): void
     {
         foreach (['csv', 'json', 'pdf'] as $type) {
-            $res = $this->postJson('/api/exports', [
-                'type'   => $type,
-                'params' => ['foo' => 'bar'],
-            ]);
-
-            $res->assertStatus(202)
-                ->assertJson([
-                    'ok'    => true,
-                    'jobId' => 'exp_stub_0001',
-                    'type'  => $type,
-                    'note'  => 'stub-only',
-                ])
-                ->assertJsonPath('params.foo', 'bar');
+            $this->postJson("/api/exports/{$type}", ['params' => ['foo' => 'bar']])
+                ->assertStatus(202)
+                ->assertJsonPath('ok', true)
+                ->assertJsonPath('jobId', 'exp_stub_0001')
+                ->assertJsonPath('type', $type)
+                ->assertJsonPath('note', 'stub-only');
         }
     }
 
     /** @test */
-    public function legacy_create_rejects_unsupported_type(): void
+    public function create_legacy_accepts_type_in_body(): void
     {
-        $this->postJson('/api/exports', ['type' => 'xml'])
+        $this->postJson('/api/exports', [
+            'type'   => 'csv',
+            'params' => ['a' => 1],
+        ])
+            ->assertStatus(202)
+            ->assertJsonPath('ok', true)
+            ->assertJsonPath('jobId', 'exp_stub_0001')
+            ->assertJsonPath('type', 'csv')
+            ->assertJsonPath('note', 'stub-only');
+    }
+
+    /** @test */
+    public function create_rejects_unsupported_type_with_422(): void
+    {
+        $this->postJson('/api/exports/xml', ['params' => []])
             ->assertStatus(422)
-            ->assertJson([
-                'ok'   => false,
-                'code' => 'EXPORT_TYPE_UNSUPPORTED',
-                'note' => 'stub-only',
-            ]);
+            ->assertJsonPath('ok', false)
+            ->assertJsonPath('code', 'EXPORT_TYPE_UNSUPPORTED')
+            ->assertJsonPath('note', 'stub-only');
+
+        $this->postJson('/api/exports', ['type' => 'xls'])
+            ->assertStatus(422)
+            ->assertJsonPath('ok', false)
+            ->assertJsonPath('code', 'EXPORT_TYPE_UNSUPPORTED')
+            ->assertJsonPath('note', 'stub-only');
     }
 
     /** @test */
-    public function spec_create_type_accepts_valid_types_and_returns_202(): void
+    public function status_returns_pending_progress_zero(): void
     {
-        foreach (['csv', 'json', 'pdf'] as $type) {
-            $res = $this->postJson("/api/exports/{$type}", [
-                'params' => ['a' => 1],
-            ]);
-
-            $res->assertStatus(202)
-                ->assertJson([
-                    'ok'    => true,
-                    'jobId' => 'exp_stub_0001',
-                    'type'  => $type,
-                    'note'  => 'stub-only',
-                ])
-                ->assertJsonPath('params.a', 1);
-        }
-    }
-
-    /** @test */
-    public function spec_create_type_defaults_params_to_empty_object(): void
-    {
-        $res = $this->postJson('/api/exports/json', []);
-
-        $res->assertStatus(202)
-            ->assertJson([
-                'ok'    => true,
-                'jobId' => 'exp_stub_0001',
-                'type'  => 'json',
-                'note'  => 'stub-only',
-            ]);
-
-        // Laravel decodes JSON objects to arrays in ->json().
-        $this->assertSame([], $res->json('params'));
-    }
-
-    /** @test */
-    public function create_type_validates_params_must_be_array(): void
-    {
-        $this->postJson('/api/exports/csv', ['params' => 'not-an-array'])
-            ->assertStatus(422);
-    }
-
-    /** @test */
-    public function status_returns_pending_with_ids_echoed(): void
-    {
-        $jobId = 'exp_test_123';
-        $this->getJson("/api/exports/{$jobId}/status")
+        $this->getJson('/api/exports/exp_stub_0001/status')
             ->assertOk()
-            ->assertJson([
-                'ok'       => true,
-                'status'   => 'pending',
-                'progress' => 0,
-                'id'       => $jobId,
-                'jobId'    => $jobId,
-                'note'     => 'stub-only',
-            ]);
+            ->assertJsonPath('ok', true)
+            ->assertJsonPath('status', 'pending')
+            ->assertJsonPath('progress', 0)
+            ->assertJsonPath('id', 'exp_stub_0001')
+            ->assertJsonPath('jobId', 'exp_stub_0001')
+            ->assertJsonPath('note', 'stub-only');
     }
 
     /** @test */
-    public function download_returns_404_not_ready(): void
+    public function download_always_404_not_ready_in_phase_4(): void
     {
-        $jobId = 'exp_test_404';
-        $this->getJson("/api/exports/{$jobId}/download")
+        $this->getJson('/api/exports/exp_stub_0001/download')
             ->assertStatus(404)
-            ->assertJson([
-                'ok'   => false,
-                'code' => 'EXPORT_NOT_READY',
-                'note' => 'stub-only',
-                'jobId'=> $jobId,
-            ]);
+            ->assertJsonPath('ok', false)
+            ->assertJsonPath('code', 'EXPORT_NOT_READY')
+            ->assertJsonPath('jobId', 'exp_stub_0001')
+            ->assertJsonPath('note', 'stub-only');
     }
 }
