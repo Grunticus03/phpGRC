@@ -19,11 +19,11 @@ final class Role extends Model
     protected $fillable = ['id', 'name'];
 
     /**
-     * @return BelongsToMany<\App\Models\User, \App\Models\Role>
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsToMany<\App\Models\User, \App\Models\Role>
      */
     public function users(): BelongsToMany
     {
-        /** @var BelongsToMany<\App\Models\User, \App\Models\Role> $rel */
+        /** @var \Illuminate\Database\Eloquent\Relations\BelongsToMany<\App\Models\User, \App\Models\Role> $rel */
         $rel = $this->belongsToMany(User::class, 'role_user', 'role_id', 'user_id');
         return $rel;
     }

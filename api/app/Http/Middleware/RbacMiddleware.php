@@ -11,9 +11,14 @@ use Symfony\Component\HttpFoundation\Response;
 
 /**
  * RBAC middleware.
- * - When core.rbac.enabled = false → tag and passthrough.
- * - When enabled → require at least one of the route-declared roles.
- *   Declare with: ->defaults('roles', ['Admin', 'Auditor'])
+ * - If core.rbac.enabled = false → passthrough.
+ * - If no roles declared on route → passthrough.
+ * - If roles declared:
+ *     • Anonymous user → passthrough (Phase 4 behavior).
+ *     • Authenticated without required role → 403.
+ *     • Authenticated with role → allow.
+ *
+ * Declare roles on routes with: ->defaults('roles', ['Admin'])
  */
 final class RbacMiddleware
 {
@@ -45,8 +50,10 @@ final class RbacMiddleware
         }
 
         $user = $request->user();
+
+        // Phase 4: anonymous requests pass through.
         if (! $user instanceof User) {
-            abort(401);
+            return $next($request);
         }
 
         if ($user->hasAnyRole($requiredRoles)) {
