@@ -47,7 +47,7 @@ Avatars: AVATAR_NOT_ENABLED, AVATAR_INVALID_IMAGE, AVATAR_UNSUPPORTED_FORMAT, AV
 
 ### Admin Settings
 - `GET /api/admin/settings`
-  - Response (200): `{ "ok": true, "config": { "core": { "rbac": {...}, "audit": {...}, "evidence": {...}, "avatars": {...} } } }`
+  - Response: `{ ok: true, config: { core: { rbac, audit, evidence, avatars } } }`
 
 - `POST /api/admin/settings`  (also accepts `PUT` for compatibility)
   - Request JSON (either shape accepted; server normalizes to top-level):
@@ -76,19 +76,25 @@ Avatars: AVATAR_NOT_ENABLED, AVATAR_INVALID_IMAGE, AVATAR_UNSUPPORTED_FORMAT, AV
     - `audit.retention_days` integer 1..730
     - `evidence.max_mb` integer ≥1; `evidence.allowed_mime` ⊆ default list
     - `avatars.size_px` must equal `128`; `avatars.format` must equal `"webp"`
-  - Response (200): `{ "ok": true, "applied": false, "note": "stub-only", "accepted": { ...normalized... } }`
+  - Response: `{ ok: true, applied: false, note: "stub-only", accepted: { ...normalized... } }`
+  - **Validation error shape (Phase-4 behavior):**
+    - Spec/normalized shape: `{ ok: false, code: "VALIDATION_FAILED", errors: { ...nested... } }`
+    - Legacy shape (`{ core: {...} }` payload): `{ errors: { ...nested... } }`
 
 ### RBAC Roles
 - `GET /api/rbac/roles`
-  - Response (200): `{ "ok": true, "roles": ["Admin","Auditor","Risk Manager","User"] }`
+  - Response: `{ ok: true, roles: ["Admin","Auditor","Risk Manager","User"] }`
 - `POST /api/rbac/roles`
-  - Request: `{ "name": "..." }`
-  - Response (202): `{ "ok": false, "note": "stub-only" }`
+  - Request: `{ "name": "..." }`  
+  - Response: `{ ok: false, note: "stub-only" }` (202)
 
 ### Audit
-- `GET /api/audit?limit=20&cursor=<opaque>`
-  - `limit` 1..100 (default 20), `cursor` opaque
-  - Response (200):
+- `GET /api/audit?limit=25&cursor=<opaque>`
+  - **Params accepted from querystring or JSON body.**
+  - `limit` must be integer in **1..100**. Outside bounds → **422** with `{ ok:false, code:"VALIDATION_FAILED", message, errors }`.  
+  - `cursor` optional string; allowed charset `[A-Za-z0-9_-]`. Unsafe chars → **422**.
+  - Pagination: lenient base64url decode if possible; unknown tokens just start from first page.
+  - Response (DB present):
     ```json
     {
       "ok": true,
@@ -107,22 +113,23 @@ Avatars: AVATAR_NOT_ENABLED, AVATAR_INVALID_IMAGE, AVATAR_UNSUPPORTED_FORMAT, AV
         }
       ],
       "nextCursor": null,
-      "note": "stub-only"
+      "_categories": ["AUTH","SETTINGS","RBAC","EVIDENCE","EXPORTS"],
+      "_retention_days": 365
     }
     ```
-  - Errors: AUDIT_NOT_ENABLED, UNAUTHORIZED
+  - Response (stub path when table absent): same shape plus `note:"stub-only"`.
 
 ### Evidence
 - `POST /api/evidence`  (multipart/form-data)
   - Fields: `file` (required), `owner_id` (optional)
-  - Validation: size ≤ `core.evidence.max_mb` MB; MIME ∈ `core.evidence.allowed_mime`
-  - Response (202): `{ "ok": false, "code": "EVIDENCE_STUB", "note": "stub-only" }`
+  - Validation: size ≤ `core.evidence.max_mb` MB; mime ∈ `core.evidence.allowed_mime`
+  - Response: `{ ok: false, code: "EVIDENCE_STUB", note: "stub-only" }` (202)
   - Errors: EVIDENCE_NOT_ENABLED, EVIDENCE_TOO_LARGE, EVIDENCE_MIME_NOT_ALLOWED
 
 ### Exports
 - Preferred: `POST /api/exports/{type}` where `{type} ∈ {csv,json,pdf}`
   - Body: `{ "params": { ... } }` (optional)
-  - Response (202): `{ "ok": true, "jobId": "exp_stub_0001", "type": "<type>", "params": { ... }, "note": "stub-only" }`
+  - Response: `{ ok: true, jobId: "exp_stub_0001", type: "<type>", params: { ... }, note: "stub-only" }` (202)
   - Errors: `EXPORT_TYPE_UNSUPPORTED` (422)
 
 - Legacy (kept this phase): `POST /api/exports`
@@ -130,16 +137,16 @@ Avatars: AVATAR_NOT_ENABLED, AVATAR_INVALID_IMAGE, AVATAR_UNSUPPORTED_FORMAT, AV
   - Same response and errors as above.
 
 - `GET /api/exports/{id}/status`
-  - Response (200): `{ "ok": true, "status": "pending", "progress": 0, "id": "<id>" }`
+  - Response: `{ ok: true, status: "pending", progress: 0, id: "<id>" }`
 
 - `GET /api/exports/{id}/download`
-  - Response (404): `{ "ok": false, "code": "EXPORT_NOT_READY", "note": "stub-only" }`
+  - Response: `{ ok: false, code: "EXPORT_NOT_READY", note: "stub-only" }` (404)
 
 ### Avatars
 - `POST /api/avatar`  (multipart/form-data)
   - Fields: `file` (required)
   - Validation: must be image; MIME must be `image/webp`; soft cap 2 MB; basic dimension sanity check
-  - Response (202): `{ "ok": false, "code": "AVATAR_STUB", "note": "stub-only" }`
+  - Response: `{ ok: false, code: "AVATAR_STUB", note: "stub-only" }` (202)
   - Errors: AVATAR_NOT_ENABLED, AVATAR_INVALID_IMAGE, AVATAR_UNSUPPORTED_FORMAT, AVATAR_TOO_LARGE
 
 ---

@@ -309,3 +309,18 @@ Use it to maintain a permanent, auditable record of all work across phases.
 - Phase/Step status: Phase 4 advanced — Audit + Evidence persistence complete; CI ✅ green.
 - Next action (you): None.
 - Next action (me): Plan RBAC enforcement pass and Exports job model.
+
+---
+
+### 2025-09-07 — Phase 4
+
+- Added: `/api/tests/Feature/Admin/SettingsControllerValidationTest.php`
+- Replaced: `/api/app/Http/Controllers/Admin/SettingsController.php`
+  - Normalizes legacy shape. Nested error schema. `code: VALIDATION_FAILED` on spec shape. No persistence.
+- Added: `/api/tests/Feature/Audit/AuditControllerTest.php`
+- Replaced: `/api/app/Http/Controllers/Audit/AuditController.php`
+  - Validates `limit` ∈ 1..100 with 422. Accepts query or JSON params. Cursor charset `[A-Za-z0-9_-]`. Lenient decode. Returns `_categories`, `_retention_days`. Stub path adds `note:"stub-only"`.
+- Updated docs: `/docs/core/PHASE-4-SPEC.md`, `/docs/CAPABILITIES.md`
+- CI: green. PHPStan warnings resolved.
+
+**Next:** add Export API feature tests and implement `ExportController` + `StatusController` to pass them.

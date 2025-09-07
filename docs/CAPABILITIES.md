@@ -11,9 +11,9 @@ Consumers must degrade gracefully if providers are absent.
 | core.auth.break_glass    | Core        | Admin Ops                   | Phase 2 scaffold                         |
 | core.rbac                | Core        | All modules                 | Phase 4 stubs implemented (middleware/policy placeholders) |
 | core.avatars             | Core        | All modules (user refs)     | Phase 4 stubs implemented (upload validate) |
-| core.audit.log           | Core        | All modules                 | Phase 4 stubs implemented (events stub, retention key) |
+| core.audit.log           | Core        | All modules                 | Phase 4 stubs implemented (list stub, retention key, strict param validation) |
 | core.evidence.manage     | Core        | Risks, Compliance, Audits   | Phase 4 stubs implemented (validate-only) |
-| core.exports             | Core        | Reporting                   | Phase 4 stubs implemented (job/status)   |
+| core.exports             | Core        | Reporting                   | Phase 4 stubs implemented (job/status stubs) |
 | risks.read/write         | Risks       | Audits, Compliance, Reports | Phase 3 stubs                            |
 | risks.scoring            | Risks       | Reporting                   | Phase 3 stubs                            |
 | risks.treatment          | Risks       | Workflows (future)          | Phase 3 stubs                            |
