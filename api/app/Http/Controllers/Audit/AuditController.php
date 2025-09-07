@@ -15,13 +15,12 @@ final class AuditController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        // Merge query params and JSON body explicitly.
-        $data = array_merge($request->query(), $request->json()->all());
+        $data = $request->all();
 
-        // Type validation only; bounds handled below.
+        // Validate: field present AND non-empty -> must match type.
         $v = Validator::make($data, [
-            'limit'  => ['sometimes', 'integer'],
-            'cursor' => ['sometimes', 'string', 'max:400'],
+            'limit'  => ['sometimes', 'filled', 'integer'],
+            'cursor' => ['sometimes', 'filled', 'string', 'max:400'],
         ]);
 
         if ($v->fails()) {
