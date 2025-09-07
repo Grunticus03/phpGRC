@@ -41,16 +41,16 @@
 
 ## Phase 4 — Core app usable ⏳ IN PROGRESS
 - [x] Settings — echo + validation stubs (accept spec or legacy payload; normalized)
-- [x] RBAC — roles list + no-op middleware
-- [x] Audit — spec-shaped events, categories helper, retention echo
+- [x] RBAC — roles list + no-op middleware + gates registered
+- [x] Audit — spec-shaped listing, categories helper, retention echo
 - [x] Evidence — multipart validate (size/mime via config)
-- [x] Exports — path route `POST /api/exports/{type}` added; legacy body route kept; status echoes `id`
-- [x] Avatars — WEBP-only validation; basic dimension check
-- [x] Evidence persistence: storage pathing + sha256 hashing  ← updated
+- [x] Evidence persistence: storage + sha256 + versioning + listing + headers
 - [x] Audit persistence: write path + retention enforcement (≤ 2 years)
-- [ ] RBAC policies and DB roles
+- [x] API docs for Settings/Audit/Evidence + common errors
+- [x] Feature tests for Settings/Audit/Evidence + RBAC middleware tagging
+- [ ] RBAC policies enforced and DB roles binding
 - [ ] Exports job model + generation (CSV/JSON/PDF)
-- [ ] Settings persistence + audit logging
+- [ ] Settings persistence + audit logging of applied changes
 
 ---
 
@@ -78,7 +78,9 @@
 
 ---
 
-### Current Status (as of 2025-09-06)
-- ✅ CI/CD green.
-- ✅ Phase-4 validation controllers merged.
-- ⏳ RBAC and Exports persistence pending in Phase-4.
+### Current Status (as of 2025-09-07)
+- ✅ CI/CD green on main.
+- ✅ Phase-4 audit and evidence persistence complete.
+- ✅ RBAC gates registered; middleware in place.
+- ⏳ RBAC enforcement and Exports job model remain.
+- ⏳ Settings persistence and audited apply remain.

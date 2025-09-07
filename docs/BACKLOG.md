@@ -40,7 +40,7 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 **Phase:** 2  
 **Step:** 1  
 **Dependencies:** CORE-001  
-**Status:** In progress — API echo + validation stubs live; UI scaffold present; no persistence yet.
+**Status:** In progress — API echo + validation stubs live; UI scaffold present; tests added; docs under `/docs/api/SETTINGS.md`; persistence not implemented.
 
 ---
 
@@ -52,7 +52,7 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 **Phase:** 2  
 **Step:** 2  
 **Dependencies:** CORE-003  
-**Status:** In progress — `RbacMiddleware` no-op added; roles endpoint scaffold; policies and DB deferred.
+**Status:** In progress — `RbacMiddleware` no-op, gates registered, policy stubs added, roles seeder present; enforcement and role-binding deferred.
 
 ---
 
@@ -88,7 +88,7 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 **Phase:** 4  
 **Step:** 1  
 **Dependencies:** CORE-003  
-**Status:** Done — DB storage with SHA-256 and per-filename versioning; HEAD/GET with ETag; cursor listing; limits from config.
+**Status:** Done — DB storage with SHA-256 and per-filename versioning; HEAD/GET with ETag; cursor listing; limits from config; audit for upload/read/head implemented; docs and tests in place.
 
 ---
 
@@ -100,7 +100,7 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 **Phase:** 4  
 **Step:** 2  
 **Dependencies:** CORE-003  
-**Status:** Done — write path + retention enforcement implemented; settings and auth hooks emit audit; listing uses cursor pagination.
+**Status:** Done — write path + retention enforcement; categories helper; controller listing with cursor pagination; hooks for settings and evidence; docs and tests in place.
 
 ---
 
@@ -113,7 +113,7 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 **Phase:** 4  
 **Step:** 3  
 **Dependencies:** CORE-006  
-**Status:** In progress — `POST /api/exports/{type}` added; legacy `POST /api/exports` kept; status echoes `id`; jobs DB + file generation pending.
+**Status:** In progress — `POST /api/exports/{type}` + legacy route present; status echoes `id`; jobs DB + file generation pending.
 
 ---
 
@@ -308,10 +308,6 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 
 - **FUT-004 — Indicators (KPI/KRI/KCI)**  
   Metric tracking, thresholds, alerts, dashboards.  
-  **Status:** Planned
-
-- **FUT-005 — Case Management (Whistleblower/Ethics)**  
-  Anonymous case intake, secure workflows.  
   **Status:** Planned
 
 - **FUT-006 — Integration Bus**  
