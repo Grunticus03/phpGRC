@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Evidence;
 
 use App\Http\Requests\Evidence\StoreEvidenceRequest;
 use App\Models\Evidence;
+use App\Services\Audit\AuditLogger;
 use Carbon\CarbonInterface;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -13,12 +14,13 @@ use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\Response;
 
 final class EvidenceController extends Controller
 {
-    public function store(StoreEvidenceRequest $request): JsonResponse
+    public function store(StoreEvidenceRequest $request, AuditLogger $audit): JsonResponse
     {
         Gate::authorize('core.evidence.manage');
 
@@ -61,6 +63,26 @@ final class EvidenceController extends Controller
             return ['id' => $id, 'version' => $version];
         });
 
+        // Audit: evidence.upload
+        if (config('core.audit.enabled', true) && Schema::hasTable('audit_events')) {
+            $audit->log([
+                'actor_id'    => $request->user()?->id ?? null,
+                'action'      => 'evidence.upload',
+                'category'    => 'EVIDENCE',
+                'entity_type' => 'evidence',
+                'entity_id'   => $saved['id'],
+                'ip'          => $request->ip(),
+                'ua'          => $request->userAgent(),
+                'meta'        => [
+                    'filename'   => $originalName,
+                    'mime'       => $mime,
+                    'size_bytes' => $sizeBytes,
+                    'sha256'     => $sha256,
+                    'version'    => $saved['version'],
+                ],
+            ]);
+        }
+
         return response()->json([
             'ok'      => true,
             'id'      => $saved['id'],
@@ -72,7 +94,7 @@ final class EvidenceController extends Controller
         ], 201);
     }
 
-    public function show(Request $request, string $id): Response
+    public function show(Request $request, string $id, AuditLogger $audit): Response
     {
         Gate::authorize('core.evidence.manage');
 
@@ -86,6 +108,7 @@ final class EvidenceController extends Controller
 
         $inm = (string) ($request->headers->get('If-None-Match') ?? '');
         if ($inm !== '' && $this->etagMatches($etag, $inm)) {
+            // Do not audit cache hits.
             return response()->noContent(304);
         }
 
@@ -96,6 +119,26 @@ final class EvidenceController extends Controller
             'Content-Disposition'     => $this->contentDisposition($ev->filename),
             'X-Content-Type-Options'  => 'nosniff',
         ];
+
+        // Audit successful read (GET or HEAD)
+        if (config('core.audit.enabled', true) && Schema::hasTable('audit_events')) {
+            $audit->log([
+                'actor_id'    => $request->user()?->id ?? null,
+                'action'      => $request->isMethod('HEAD') ? 'evidence.head' : 'evidence.read',
+                'category'    => 'EVIDENCE',
+                'entity_type' => 'evidence',
+                'entity_id'   => $ev->id,
+                'ip'          => $request->ip(),
+                'ua'          => $request->userAgent(),
+                'meta'        => [
+                    'filename'   => $ev->filename,
+                    'mime'       => $ev->mime,
+                    'size_bytes' => (int) $ev->size_bytes,
+                    'sha256'     => $ev->sha256,
+                    'version'    => (int) $ev->version,
+                ],
+            ]);
+        }
 
         if ($request->isMethod('HEAD')) {
             return response('', 200, $headers);

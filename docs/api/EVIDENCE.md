@@ -1,4 +1,5 @@
 # Evidence API
+
 Phase 4 behavior: persisted create/list/retrieve. Bytes stored in DB. Basic RBAC gate only (stub allows all).
 
 ## AuthZ
@@ -10,6 +11,7 @@ Phase 4 behavior: persisted create/list/retrieve. Bytes stored in DB. Basic RBAC
 - `core.evidence.allowed_mime`: allowlist, default `["application/pdf","image/png","image/jpeg","text/plain"]`
 
 ## Endpoints
+
 ### POST /api/evidence
 Multipart
 - `file`: required, file, max size `max_mb` MB, `mimetypes` in allowlist
@@ -32,6 +34,10 @@ Responses
 { "ok": false, "code": "EVIDENCE_NOT_ENABLED" }
 ```
 - 422 Validation error per `StoreEvidenceRequest`
+
+**Audit**
+- Emits `action="evidence.upload"`, `category="EVIDENCE"`, `entity_type="evidence"`, `entity_id=<id>`.
+- `meta`: `filename`, `mime`, `size_bytes`, `sha256`, `version`.
 
 ### GET /api/evidence
 Query
@@ -68,6 +74,12 @@ Responses
 - 304 Not Modified when ETag matches
 - 404 Not Found
 - `HEAD` verb returns headers only with 200.
+
+**Audit**
+- On 200 responses:
+  - GET → `action="evidence.read"`, `category="EVIDENCE"`
+  - HEAD → `action="evidence.head"`, `category="EVIDENCE"`
+- Not logged for 304 or 404.
 
 ## Versioning
 - First upload per `(owner_id, filename)` starts at version 1. Subsequent uploads with the same tuple increment `version` in a transaction.

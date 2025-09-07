@@ -1,10 +1,18 @@
 # Audit API
+
 Phase 4 behavior: read-only listing. Uses DB if table exists, else returns stub list.
 
 ## AuthZ
 - Requires Gate `core.audit.view` (stub allows all in Phase 4).
 
+## Event catalog (Phase 4)
+- `settings.update` — emitted by Admin Settings API per section accepted.
+- `evidence.upload` — emitted on successful evidence POST.
+- `evidence.read` — emitted on GET evidence by id (200 only).
+- `evidence.head` — emitted on HEAD evidence by id (200 only).
+
 ## Endpoint
+
 ### GET /api/audit
 Query
 - `limit`: integer 1..100, default 25
@@ -12,7 +20,7 @@ Query
 
 Responses
 - 200 OK
-```
+```json
 {
   "ok": true,
   "items": [
@@ -34,7 +42,3 @@ Responses
   "_cursor_echo": null
 }
 ```
-
-Notes
-- When DB table `audit_events` is present, items reflect stored events ordered by `(occurred_at desc, id desc)`.
-- `nextCursor` encodes the last returned row’s `(occurred_at,id)` to resume.
