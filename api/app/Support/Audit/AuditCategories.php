@@ -8,11 +8,12 @@ final class AuditCategories
 {
     /** @var array<int,string> */
     public const ALL = [
-        'SETTINGS',
         'AUTH',
+        'SETTINGS',
         'RBAC',
         'EVIDENCE',
-        'EXPORTS',
-        'AVATAR',
+        'EXPORT',
+        'USER',
+        'SYSTEM',
     ];
 }
