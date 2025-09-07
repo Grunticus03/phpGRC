@@ -15,10 +15,10 @@ final class AuditController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        // Read all user input (query + body if any)
-        $data = $request->all();
+        // Merge query params and JSON body explicitly.
+        $data = array_merge($request->query(), $request->json()->all());
 
-        // Type validation; bounds handled below
+        // Type validation only; bounds handled below.
         $v = Validator::make($data, [
             'limit'  => ['sometimes', 'integer'],
             'cursor' => ['sometimes', 'string', 'max:400'],
@@ -55,7 +55,7 @@ final class AuditController extends Controller
 
         $cursor = (string) ($data['cursor'] ?? '');
 
-        // Allow simple tokens like "abc123"; 422 on unsafe chars
+        // Allow simple tokens like "abc123"; 422 on unsafe chars.
         if ($cursor !== '' && !preg_match('/^[A-Za-z0-9_-]*$/', $cursor)) {
             return response()->json([
                 'ok'      => false,
@@ -65,12 +65,12 @@ final class AuditController extends Controller
             ], 422);
         }
 
-        // Stub fallback when table absent (Phase 4)
+        // Stub fallback when table absent (Phase 4).
         if (!Schema::hasTable('audit_events')) {
             return $this->stubResponse($limit);
         }
 
-        // Lenient decode; unknown tokens just don't page
+        // Lenient decode; unknown tokens just don't page.
         [$afterTs, $afterId] = $this->decodeCursorLenient($cursor);
 
         $q = AuditEvent::query()
