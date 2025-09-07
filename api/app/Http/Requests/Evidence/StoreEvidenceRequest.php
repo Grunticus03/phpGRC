@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\Evidence;
 
+use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Http\Exceptions\HttpResponseException;
 
 final class StoreEvidenceRequest extends FormRequest
 {
@@ -37,5 +39,24 @@ final class StoreEvidenceRequest extends FormRequest
             'file.max'       => 'File exceeds the configured size limit.',
             'file.mimetypes' => 'File type is not allowed.',
         ];
+    }
+
+    protected function failedValidation(Validator $validator): void
+    {
+        // Return unified API error envelope expected by tests.
+        throw new HttpResponseException(response()->json([
+            'ok'     => false,
+            'code'   => 'VALIDATION_FAILED',
+            'errors' => $validator->errors(),
+        ], 422));
+    }
+
+    protected function failedAuthorization(): void
+    {
+        // Keep consistent envelope on auth failures if added later.
+        throw new HttpResponseException(response()->json([
+            'ok'   => false,
+            'code' => 'FORBIDDEN',
+        ], 403));
     }
 }
