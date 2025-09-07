@@ -1,8 +1,7 @@
-# FILE: docs/core/PHASE-4-SPEC.md
 # Phase 4 — Core App Usable Spec
 
 ## Instruction Preamble
-- **Date:** 2025-09-05
+- **Date:** 2025-09-07
 - **Phase:** 4
 - **Goal:** Lock contracts, payloads, config keys, and stub migrations for Settings, RBAC, Audit, Evidence, Exports, Avatars.
 - **Constraints:** Stubs only; no persistence; deterministic outputs; CI guardrails intact.
@@ -48,7 +47,7 @@ Avatars: AVATAR_NOT_ENABLED, AVATAR_INVALID_IMAGE, AVATAR_UNSUPPORTED_FORMAT, AV
 
 ### Admin Settings
 - `GET /api/admin/settings`
-  - Response: `{ ok: true, config: { core: { rbac, audit, evidence, avatars } } }`
+  - Response (200): `{ "ok": true, "config": { "core": { "rbac": {...}, "audit": {...}, "evidence": {...}, "avatars": {...} } } }`
 
 - `POST /api/admin/settings`  (also accepts `PUT` for compatibility)
   - Request JSON (either shape accepted; server normalizes to top-level):
@@ -77,24 +76,25 @@ Avatars: AVATAR_NOT_ENABLED, AVATAR_INVALID_IMAGE, AVATAR_UNSUPPORTED_FORMAT, AV
     - `audit.retention_days` integer 1..730
     - `evidence.max_mb` integer ≥1; `evidence.allowed_mime` ⊆ default list
     - `avatars.size_px` must equal `128`; `avatars.format` must equal `"webp"`
-  - Response: `{ ok: true, applied: false, note: "stub-only", accepted: { ...normalized... } }`
+  - Response (200): `{ "ok": true, "applied": false, "note": "stub-only", "accepted": { ...normalized... } }`
 
 ### RBAC Roles
 - `GET /api/rbac/roles`
-  - Response: `{ ok: true, roles: ["Admin","Auditor","Risk Manager","User"] }`
+  - Response (200): `{ "ok": true, "roles": ["Admin","Auditor","Risk Manager","User"] }`
 - `POST /api/rbac/roles`
-  - Request: `{ "name": "..." }`  
-  - Response: `{ ok: false, note: "stub-only" }` (202)
+  - Request: `{ "name": "..." }`
+  - Response (202): `{ "ok": false, "note": "stub-only" }`
 
 ### Audit
-- `GET /api/audit?limit=25&cursor=<opaque>`
-  - `limit` 1..100 (default 25), `cursor` opaque
-  - Response:
+- `GET /api/audit?limit=20&cursor=<opaque>`
+  - `limit` 1..100 (default 20), `cursor` opaque
+  - Response (200):
     ```json
     {
       "ok": true,
       "items": [
         {
+          "id": "ae_0001",
           "occurred_at": "2025-09-05T12:00:00Z",
           "actor_id": 1,
           "action": "settings.update",
@@ -115,14 +115,14 @@ Avatars: AVATAR_NOT_ENABLED, AVATAR_INVALID_IMAGE, AVATAR_UNSUPPORTED_FORMAT, AV
 ### Evidence
 - `POST /api/evidence`  (multipart/form-data)
   - Fields: `file` (required), `owner_id` (optional)
-  - Validation: size ≤ `core.evidence.max_mb` MB; mime ∈ `core.evidence.allowed_mime`
-  - Response: `{ ok: false, code: "EVIDENCE_STUB", note: "stub-only" }` (202)
+  - Validation: size ≤ `core.evidence.max_mb` MB; MIME ∈ `core.evidence.allowed_mime`
+  - Response (202): `{ "ok": false, "code": "EVIDENCE_STUB", "note": "stub-only" }`
   - Errors: EVIDENCE_NOT_ENABLED, EVIDENCE_TOO_LARGE, EVIDENCE_MIME_NOT_ALLOWED
 
 ### Exports
 - Preferred: `POST /api/exports/{type}` where `{type} ∈ {csv,json,pdf}`
   - Body: `{ "params": { ... } }` (optional)
-  - Response: `{ ok: true, jobId: "exp_stub_0001", type: "<type>", params: { ... }, note: "stub-only" }` (202)
+  - Response (202): `{ "ok": true, "jobId": "exp_stub_0001", "type": "<type>", "params": { ... }, "note": "stub-only" }`
   - Errors: `EXPORT_TYPE_UNSUPPORTED` (422)
 
 - Legacy (kept this phase): `POST /api/exports`
@@ -130,16 +130,16 @@ Avatars: AVATAR_NOT_ENABLED, AVATAR_INVALID_IMAGE, AVATAR_UNSUPPORTED_FORMAT, AV
   - Same response and errors as above.
 
 - `GET /api/exports/{id}/status`
-  - Response: `{ ok: true, status: "pending", progress: 0, id: "<id>" }`
+  - Response (200): `{ "ok": true, "status": "pending", "progress": 0, "id": "<id>" }`
 
 - `GET /api/exports/{id}/download`
-  - Response: `{ ok: false, code: "EXPORT_NOT_READY", note: "stub-only" }` (404)
+  - Response (404): `{ "ok": false, "code": "EXPORT_NOT_READY", "note": "stub-only" }`
 
 ### Avatars
 - `POST /api/avatar`  (multipart/form-data)
   - Fields: `file` (required)
   - Validation: must be image; MIME must be `image/webp`; soft cap 2 MB; basic dimension sanity check
-  - Response: `{ ok: false, code: "AVATAR_STUB", note: "stub-only" }` (202)
+  - Response (202): `{ "ok": false, "code": "AVATAR_STUB", "note": "stub-only" }`
   - Errors: AVATAR_NOT_ENABLED, AVATAR_INVALID_IMAGE, AVATAR_UNSUPPORTED_FORMAT, AVATAR_TOO_LARGE
 
 ---
