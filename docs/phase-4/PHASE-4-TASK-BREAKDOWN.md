@@ -32,7 +32,7 @@
 - [x] Migration stub `audit_events`
 - [ ] Define categories and retention config in spec
 - [ ] Persist audit events for evidence actions (upload/read)
-- [ ] Retention purge job honoring `core.audit.retention_days`
+- [x] Retention purge job honoring `core.audit.retention_days`
 
 ### 4. Evidence Pipeline (CORE-006)
 - [x] `EvidenceController.php` with validations
@@ -82,7 +82,8 @@
 5. Exports stub lifecycle  
 6. Avatars stub  
 7. Evidence persistence + retrieval endpoints  
-8. CI/dev bootstrap hardening (composer prepare, keepers, MySQL-in-CI, Psalm key)
+8. CI/dev bootstrap hardening (composer prepare, keepers, MySQL-in-CI, Psalm key)  
+9. Audit persistence + retention hooks  
 
 ---
 
@@ -95,5 +96,4 @@
 - [x] Avatars validated (stub)
 - [x] Docs/specs/tests updated for evidence
 - [x] CI green
-- [ ] Audit persistence + retention implemented
-- [ ] RBAC policies wired (permissive default acceptable)
+- [x] Audit persistence + retention implemented

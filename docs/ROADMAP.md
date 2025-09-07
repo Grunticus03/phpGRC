@@ -47,7 +47,7 @@
 - [x] Exports — path route `POST /api/exports/{type}` added; legacy body route kept; status echoes `id`
 - [x] Avatars — WEBP-only validation; basic dimension check
 - [x] Evidence persistence: storage pathing + sha256 hashing  ← updated
-- [ ] Audit persistence: write path + retention enforcement (≤ 2 years)
+- [x] Audit persistence: write path + retention enforcement (≤ 2 years)
 - [ ] RBAC policies and DB roles
 - [ ] Exports job model + generation (CSV/JSON/PDF)
 - [ ] Settings persistence + audit logging
@@ -78,7 +78,7 @@
 
 ---
 
-### Current Status (as of 2025-09-05)
+### Current Status (as of 2025-09-06)
 - ✅ CI/CD green.
 - ✅ Phase-4 validation controllers merged.
-- ⏳ Persistence and policies pending in Phase-4.
+- ⏳ RBAC and Exports persistence pending in Phase-4.

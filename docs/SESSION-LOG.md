@@ -361,3 +361,58 @@ Use it to maintain a permanent, auditable record of all work across phases.
   - Config templates: `.env.example`, `scripts/templates/shared-config.php`.
 - Phase/Step status: Phase 4 in progress; Evidence persistence complete; Audit persistence next. :contentReference[oaicite:2]{index=2}
 - Next action (me): Implement Audit DB writes + retention purge tied to `core.audit.retention_days`. :contentReference[oaicite:3]{index=3}
+
+---
+
+## 2025-09-06 — Phase 4: Audit persistence, hooks, and test-host bring-up
+
+### Scope
+- Enable DB-backed Audit trail with keyset pagination.
+- Add centralized `AuditLogger`, scheduled retention purge, and controller hooks.
+- Wire audit events for Settings updates and Auth stubs (login, logout, TOTP, break-glass guard).
+- Stand up test host on :9000 with Apache + PHP-FPM and MySQL.
+- Resolve deploy, env, and cache issues discovered during bring-up.
+
+### Changes
+- API
+  - `app/Models/AuditEvent.php` — promote stub to persisted model with casts.
+  - `database/migrations/0000_00_00_000110_create_audit_events_table.php` — enable table with indices.
+  - `app/Http/Controllers/Audit/AuditController.php` — DB-backed listing with cursor pagination; stub fallback.
+  - `app/Services/Audit/AuditLogger.php` — centralized write helper (ULID keys, UTC timestamps).
+  - `app/Console/Commands/AuditRetentionPurge.php` — purge events older than retention window, clamped [30..730] days.
+  - `app/Console/Kernel.php` — schedule `audit:purge` daily at 03:10 UTC.
+  - `config/core.php` — confirm `core.audit.retention_days` default 365.
+  - `routes/api.php` — audit route present; no change to path shape.
+  - Settings: `app/Http/Controllers/Admin/SettingsController.php` — validate and emit per-section `settings.update` audit rows.
+  - Auth hooks:
+    - `Auth\LoginController::login` — emits `auth.login`.
+    - `Auth\LogoutController::logout` — emits `auth.logout`.
+    - `Auth\TotpController::{enroll,verify}` — emit `auth.totp.enroll` and `auth.totp.verify`.
+    - `Middleware\BreakGlassGuard` — constructor DI + emits `auth.break_glass.guard` 404 when disabled.
+- Tests
+  - `tests/Feature/AuditIndexTest.php` — cursor pagination.
+  - `tests/Feature/AuditRetentionTest.php` — purge respects `--days`.
+  - `tests/Feature/AuthAuditTest.php` — login/logout/TOTP events + break-glass guard.
+- Ops / Deploy
+  - Built clean release tarball including `api/`.
+  - Fixed `current` symlink to point at extracted release.
+  - Provisioned Apache vhost on :9000 and PHP-FPM socket handler.
+  - MySQL provision script (optional) and switch from SQLite.
+  - Resolved `EnlightnServiceProvider` in prod by clearing caches / reinstalling prod deps.
+  - Added `resources/views/.gitkeep` to avoid optimize warning (directory now exists).
+
+### Evidence
+- `curl` POST `/api/admin/settings` returned `audit_logged: 3`.
+- `/api/audit` shows `settings.update`, `auth.login`, `auth.logout`, `auth.totp.enroll`, `auth.totp.verify`, `auth.break_glass.guard`.
+- `php artisan test --filter=AuthAuditTest` passed on host after installing dev deps temporarily.
+
+### Acceptance
+- CI green after changes.  
+- Audit rows persist; retention purge dry-run executes.  
+- Break-glass returns 404 when disabled and emits audit row.
+
+### Follow-ups
+- Add crontab entry to run scheduler on test host.
+- Evidence upload persistence and validation (Phase-4).
+- RBAC enforcement pass (currently permissive middleware).
+- Export job stub → persisted job model + status polling.

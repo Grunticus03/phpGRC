@@ -64,7 +64,7 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 **Phase:** 2  
 **Step:** 3  
 **Dependencies:** CORE-003  
-**Status:** Scaffolded — guard present; auditing and rate limits pending.
+**Status:** Scaffolded — guard present; audit guard logging added; rate limits pending.
 
 ---
 
@@ -100,7 +100,7 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 **Phase:** 4  
 **Step:** 2  
 **Dependencies:** CORE-003  
-**Status:** In progress — controller spec-aligned; categories helper added; write path + retention enforcement pending.
+**Status:** Done — write path + retention enforcement implemented; settings and auth hooks emit audit; listing uses cursor pagination.
 
 ---
 
