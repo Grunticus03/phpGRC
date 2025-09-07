@@ -345,3 +345,25 @@ Use it to maintain a permanent, auditable record of all work across phases.
 - Phase/Step status: Phase 4 advanced; remaining work limited to persistence for Exports and Settings, and RBAC enforcement.
 - Next action (you): None.
 - Next action (me): Start Auth scaffolds tests and optional FormRequests next session.
+
+---
+
+### Session 2025-09-07: Phase 4 — RBAC scaffolding, conditional enforcement, PHPStan alignment
+- Context: Phase 4 in progress. Settings validation stubs exist. RBAC wiring needed without breaking Phase-4 tests.
+- Goal: Integrate RBAC middleware/gates and role bindings; keep Phase-4 behavior inert for anonymous; enforce for authenticated when enabled; resolve PHPStan generics.
+- Constraints: No scope outside Charter/Backlog. Phase-4 tests expect non-auth 200/422 paths to remain viable. CI is source of truth.
+
+# Closeout
+- Deliverables produced:
+  - `api/app/Http/Middleware/RbacMiddleware.php` — conditional enforcement: if `core.rbac.enabled=true` and roles declared, enforce for authenticated users; anonymous passthrough; otherwise passthrough. No stray PHPStan ignores.
+  - `api/app/Providers/AuthServiceProvider.php` — gates registered; currently permissive per Phase-4 test expectations.
+  - `api/app/Models/User.php`, `api/app/Models/Role.php` — `belongsToMany` relations; `hasRole`/`hasAnyRole`; PHPStan generics specified.
+  - `api/database/migrations/0000_00_00_000100_create_roles_table.php` — roles table (string PK).
+  - `api/database/migrations/0000_00_00_000101_create_role_user_table.php` — pivot.
+  - `api/database/seeders/RolesSeeder.php` — seeds from `config('core.rbac.roles')`.
+  - `api/routes/api.php` — route role defaults added for admin/audit while keeping Phase-4 endpoints functional.
+  - CI: PHPStan green in GitHub; local VS Code extension mismatch documented with remediation steps.
+- Phase/Step status: advance
+  - RBAC scaffold integrated. Enforcement behavior aligned to tests. CI green.
+- Next action (you): none
+- Next action (me): provide full files for Exports job model scaffolding and Settings persistence next (controllers, model, migration, tests).
