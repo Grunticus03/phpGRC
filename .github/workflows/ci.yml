@@ -47,7 +47,8 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: "8.3"
-          extensions: mbstring, intl, pdo_mysql, dom, xml
+          #extensions: mbstring, intl, pdo_mysql, dom, xml
+          extensions: mbstring, intl, pdo_mysql, dom, xml, pcntl, posix
           coverage: none
           # Self-hosted settings below
           tools: composer:v2
@@ -108,8 +109,8 @@ jobs:
           QUEUE_CONNECTION: sync
         #run: vendor/bin/psalm --no-cache
         run: |
-          THREADS=$(nproc --all || getconf _NPROCESSORS_ONLN || echo 2)
-          vendor/bin/psalm --no-cache --threads="$THREADS"
+          THREADS=$(nproc --all || echo 4)
+          vendor/bin/psalm --threads="$THREADS" --scan-threads="$THREADS" --no-diff
 
       - name: PHPUnit
         env:
