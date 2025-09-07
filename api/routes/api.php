@@ -3,17 +3,17 @@
 declare(strict_types=1);
 
 use App\Http\Controllers\Admin\SettingsController;
+use App\Http\Controllers\Audit\AuditController;
 use App\Http\Controllers\Auth\BreakGlassController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\LogoutController;
 use App\Http\Controllers\Auth\MeController;
 use App\Http\Controllers\Auth\TotpController;
+use App\Http\Controllers\Avatar\AvatarController;
+use App\Http\Controllers\Evidence\EvidenceController;
 use App\Http\Controllers\Export\ExportController;
 use App\Http\Controllers\Export\StatusController;
 use App\Http\Controllers\Rbac\RolesController;
-use App\Http\Controllers\Audit\AuditController;
-use App\Http\Controllers\Evidence\EvidenceController;
-use App\Http\Controllers\Avatar\AvatarController;
 use App\Http\Middleware\BreakGlassGuard;
 use App\Http\Middleware\RbacMiddleware;
 use Illuminate\Support\Facades\Route;
@@ -45,7 +45,6 @@ Route::get('/health', fn () => response()->json(['ok' => true]));
 /*
  |--------------------------------------------------------------------------
  | Auth placeholders (Phase 2 scaffolding)
- |  - Controllers are NOT invokable; route to explicit methods.
  |--------------------------------------------------------------------------
 */
 Route::post('/auth/login',  [LoginController::class,  'login']);
@@ -58,7 +57,6 @@ Route::post('/auth/totp/verify', [TotpController::class, 'verify']);
 /*
  |--------------------------------------------------------------------------
  | Break-glass (disabled by default)
- |  - Guard returns 404 unless config('core.auth.break_glass.enabled') is true.
  |--------------------------------------------------------------------------
 */
 Route::post('/auth/break-glass', [BreakGlassController::class, 'invoke'])
@@ -66,49 +64,49 @@ Route::post('/auth/break-glass', [BreakGlassController::class, 'invoke'])
 
 /*
  |--------------------------------------------------------------------------
- | Admin Settings framework (skeleton only, no DB I/O)
- |  - Spec uses POST. Keep PUT for backward compatibility.
+ | Admin Settings (enforced by RBAC when enabled)
  |--------------------------------------------------------------------------
 */
 Route::prefix('/admin')
-    ->middleware(RbacMiddleware::class) // Phase 4: no-op if core.rbac.enabled=false
+    ->middleware(RbacMiddleware::class)
     ->group(function (): void {
-        Route::get('/settings', [SettingsController::class, 'index']);
-        Route::post('/settings', [SettingsController::class, 'update']); // spec-preferred
-        Route::put('/settings', [SettingsController::class, 'update']);  // legacy alias
+        Route::get('/settings',  [SettingsController::class, 'index'])->defaults('roles', ['Admin']);
+        Route::post('/settings', [SettingsController::class, 'update'])->defaults('roles', ['Admin']);
+        Route::put('/settings',  [SettingsController::class, 'update'])->defaults('roles', ['Admin']);
     });
 
 /*
  |--------------------------------------------------------------------------
- | Exports stubs (Phase 4 delivery)
- |  - Spec: POST /exports/{type}. Keep legacy POST /exports for compatibility.
+ | Exports stubs (Phase 4)
  |--------------------------------------------------------------------------
 */
 Route::prefix('/exports')->group(function (): void {
-    Route::post('/{type}', [ExportController::class, 'createType']);        // spec route
-    Route::post('/',       [ExportController::class, 'create']);            // legacy body route
-    Route::get('/{jobId}/status',   [StatusController::class, 'show']);
-    Route::get('/{jobId}/download', [ExportController::class, 'download']);
+    Route::post('/{type}',           [ExportController::class, 'createType']);
+    Route::post('/',                 [ExportController::class, 'create']);
+    Route::get('/{jobId}/status',    [StatusController::class, 'show']);
+    Route::get('/{jobId}/download',  [ExportController::class, 'download']);
 });
 
 /*
  |--------------------------------------------------------------------------
- | RBAC roles scaffold (Phase 4 — stub-only)
+ | RBAC roles scaffold (admin-only when enabled)
  |--------------------------------------------------------------------------
 */
 Route::prefix('/rbac')
-    ->middleware(RbacMiddleware::class) // Phase 4: tag-only, no enforcement
+    ->middleware(RbacMiddleware::class)
     ->group(function (): void {
-        Route::get('/roles', [RolesController::class, 'index']);
-        Route::post('/roles', [RolesController::class, 'store']);
+        Route::get('/roles',  [RolesController::class, 'index'])->defaults('roles', ['Admin']);
+        Route::post('/roles', [RolesController::class, 'store'])->defaults('roles', ['Admin']);
     });
 
 /*
  |--------------------------------------------------------------------------
- | Audit trail scaffold (Phase 4 — read-only stub)
+ | Audit trail (view limited when enabled)
  |--------------------------------------------------------------------------
 */
-Route::get('/audit', [AuditController::class, 'index']);
+Route::get('/audit', [AuditController::class, 'index'])
+    ->middleware(RbacMiddleware::class)
+    ->defaults('roles', ['Admin', 'Auditor']);
 
 /*
  |--------------------------------------------------------------------------
@@ -121,7 +119,7 @@ Route::match(['GET', 'HEAD'], '/evidence/{id}', [EvidenceController::class, 'sho
 
 /*
  |--------------------------------------------------------------------------
- | Avatars scaffold (Phase 4 — upload no-op)
+ | Avatars scaffold (Phase 4)
  |--------------------------------------------------------------------------
 */
 Route::post('/avatar', [AvatarController::class, 'store']);

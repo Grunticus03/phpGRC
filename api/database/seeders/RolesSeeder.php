@@ -11,14 +11,14 @@ use Illuminate\Support\Str;
 
 /**
  * Seeds the roles table from config('core.rbac.roles').
- * Safe in Phase 4: no-ops if the table does not exist.
+ * Safe if table is absent.
  */
 final class RolesSeeder extends Seeder
 {
     public function run(): void
     {
         if (! Schema::hasTable('roles')) {
-            return; // Phase 4: placeholder migration not applied yet
+            return;
         }
 
         $roles = (array) config('core.rbac.roles', ['Admin', 'Auditor', 'Risk Manager', 'User']);
@@ -28,14 +28,12 @@ final class RolesSeeder extends Seeder
 
             $exists = DB::table('roles')->where('name', $name)->exists();
             if ($exists) {
-                // Touch updated_at to reflect seeding pass.
                 DB::table('roles')
                     ->where('name', $name)
                     ->update(['updated_at' => now()]);
                 continue;
             }
 
-            // Deterministic primary key from role name for readability.
             $id = 'role_' . Str::slug($name, '_');
 
             DB::table('roles')->insert([

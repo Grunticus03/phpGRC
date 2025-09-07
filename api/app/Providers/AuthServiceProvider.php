@@ -4,43 +4,46 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Models\User;
 use Illuminate\Foundation\Support\Providers\AuthServiceProvider as ServiceProvider;
 use Illuminate\Support\Facades\Gate;
 
 /**
- * Purpose: Register RBAC gates for core capabilities (stub-only).
- * Notes:
- * - Gates return permissive defaults to keep behavior inert in Phase 4.
- * - Replace with real checks when CORE-004 enforcement lands.
+ * Registers capability gates backed by role checks.
+ * Gates stay permissive when RBAC is disabled.
  */
 final class AuthServiceProvider extends ServiceProvider
 {
     /** @var array<class-string, class-string> */
     protected $policies = [
-        // Model policies can be mapped here when models exist.
-        // e.g., Evidence::class => \App\Policies\EvidencePolicy::class,
+        // Map model policies when needed.
     ];
 
     public function boot(): void
     {
         $this->registerPolicies();
 
-        // Settings management
-        Gate::define('core.settings.manage', function ($user = null): bool {
-            // TODO: enforce Admin role when RBAC is active
-            return true; // stub: allow
+        Gate::define('core.settings.manage', /**
+         * @param  User|null  $user
+         */ function ($user = null): bool {
+            if (! (bool) config('core.rbac.enabled', false)) {
+                return true;
+            }
+            return $user instanceof User && $user->hasAnyRole(['Admin']);
         });
 
-        // Evidence upload/manage
         Gate::define('core.evidence.manage', function ($user = null): bool {
-            // TODO: enforce per-role and per-owner rules
-            return true; // stub: allow
+            if (! (bool) config('core.rbac.enabled', false)) {
+                return true;
+            }
+            return $user instanceof User && $user->hasAnyRole(['Admin', 'Risk Manager']);
         });
 
-        // Audit viewing
         Gate::define('core.audit.view', function ($user = null): bool {
-            // TODO: restrict to Admin/Auditor roles
-            return true; // stub: allow
+            if (! (bool) config('core.rbac.enabled', false)) {
+                return true;
+            }
+            return $user instanceof User && $user->hasAnyRole(['Admin', 'Auditor']);
         });
     }
 }

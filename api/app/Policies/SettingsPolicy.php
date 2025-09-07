@@ -6,21 +6,21 @@ namespace App\Policies;
 
 use App\Models\User;
 
-/**
- * Purpose: Policy skeleton for Admin Settings (stub-only).
- * Capability: core.settings.manage
- */
 final class SettingsPolicy
 {
     public function view(?User $user): bool
     {
-        // TODO: gate on RBAC; allow Admin by default
-        return true; // stub
+        if (! (bool) config('core.rbac.enabled', false)) {
+            return true;
+        }
+        return $user !== null && $user->hasAnyRole(['Admin']);
     }
 
     public function update(?User $user): bool
     {
-        // TODO: gate on RBAC; allow Admin by default
-        return true; // stub
+        if (! (bool) config('core.rbac.enabled', false)) {
+            return true;
+        }
+        return $user !== null && $user->hasAnyRole(['Admin']);
     }
 }

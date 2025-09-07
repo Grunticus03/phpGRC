@@ -4,18 +4,20 @@ declare(strict_types=1);
 
 namespace App\Http\Middleware;
 
+use App\Models\User;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Phase 4 placeholder middleware for RBAC.
- * Behavior:
- * - If core.rbac.enabled === false → no-op passthrough.
- * - Otherwise, leaves authorization to future policy checks.
- * - Provides scaffolding to read required roles from route/attributes.
+ * RBAC middleware with route-level role enforcement.
  *
- * No persistence. No real enforcement in Phase 4.
+ * Behavior
+ * - If config('core.rbac.enabled') is false → passthrough.
+ * - If no roles are declared on the route → passthrough.
+ * - Else require the authenticated user to have ≥1 of the declared roles.
+ *
+ * Declare roles on routes with ->defaults('roles', ['Admin', 'Auditor'])
  */
 final class RbacMiddleware
 {
@@ -26,19 +28,39 @@ final class RbacMiddleware
      */
     public function handle(Request $request, Closure $next): Response
     {
-        // Echo-only phase: bypass when disabled.
-        if (! (bool) config('core.rbac.enabled', true)) {
-            // Optionally tag request for downstream awareness.
+        $enabled = (bool) config('core.rbac.enabled', false);
+        if (! $enabled) {
             $request->attributes->set('rbac_enabled', false);
             return $next($request);
         }
 
-        // Phase 4: do not enforce. Tag request and pass through.
         $request->attributes->set('rbac_enabled', true);
 
-        // Future: read required roles from route/action attributes.
-        // $required = $request->route()->defaults['roles'] ?? [];
+        $route = $request->route();
+        if ($route === null) {
+            return $next($request);
+        }
 
-        return $next($request);
+        /** @var array<string,mixed> $action */
+        $action = $route->getAction();
+
+        /** @var mixed $declared */
+        $declared = $action['roles'] ?? ($route->defaults['roles'] ?? []);
+
+        $requiredRoles = is_string($declared) ? [$declared] : (array) $declared;
+        if ($requiredRoles === []) {
+            return $next($request);
+        }
+
+        $authUser = $request->user();
+        if (! $authUser instanceof User) {
+            abort(401);
+        }
+
+        if ($authUser->hasAnyRole($requiredRoles)) {
+            return $next($request);
+        }
+
+        abort(403);
     }
 }

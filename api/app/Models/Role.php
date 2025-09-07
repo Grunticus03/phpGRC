@@ -5,13 +5,26 @@ declare(strict_types=1);
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 /**
- * Placeholder Role model (Phase 4).
- * No relations or business logic this phase.
+ * @property string $id
+ * @property string $name
+ * @extends Model<Role>
  */
 final class Role extends Model
 {
     protected $table = 'roles';
-    protected $fillable = ['name'];
+
+    /** @var array<int, string> */
+    protected $fillable = ['id', 'name'];
+
+    /**
+     * @return BelongsToMany<User, Role>
+     */
+    public function users(): BelongsToMany
+    {
+        /** @var BelongsToMany<User, Role> */
+        return $this->belongsToMany(User::class, 'role_user', 'role_id', 'user_id');
+    }
 }
