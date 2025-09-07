@@ -4,13 +4,15 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\Avatar;
 
+use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Http\Exceptions\HttpResponseException;
 
 final class StoreAvatarRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return true; // Auth handled elsewhere
+        return true; // Auth elsewhere
     }
 
     public function rules(): array
@@ -38,5 +40,17 @@ final class StoreAvatarRequest extends FormRequest
             'file.mimes'    => "Only .$format is accepted in Phase 4.",
             'file.max'      => 'Avatar exceeds the allowed size.',
         ];
+    }
+
+    protected function failedValidation(Validator $validator): void
+    {
+        throw new HttpResponseException(
+            response()->json([
+                'ok'     => false,
+                'code'   => 'AVATAR_VALIDATION_FAILED',
+                'note'   => 'stub-only',
+                'errors' => $validator->errors(),
+            ], 422)
+        );
     }
 }
