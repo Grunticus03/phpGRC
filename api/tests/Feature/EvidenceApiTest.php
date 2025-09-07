@@ -8,6 +8,7 @@ use App\Services\Audit\AuditLogger;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Gate;
+use Mockery;
 use Tests\TestCase;
 
 final class EvidenceApiTest extends TestCase
@@ -16,19 +17,23 @@ final class EvidenceApiTest extends TestCase
     {
         parent::setUp();
 
-        // Allow all evidence actions during tests.
         Gate::shouldReceive('authorize')->andReturn(true);
 
-        // Bind a no-op audit logger.
-        $this->app->instance(AuditLogger::class, new class {
-            public function log(array $e): void {}
-        });
+        $mock = Mockery::mock(AuditLogger::class);
+        $mock->shouldReceive('log')->byDefault()->andReturnNull();
+        $this->app->instance(AuditLogger::class, $mock);
+    }
+
+    protected function tearDown(): void
+    {
+        Mockery::close();
+        parent::tearDown();
     }
 
     /** @test */
     public function store_accepts_allowed_pdf_and_returns_201_with_ids(): void
     {
-        $file = UploadedFile::fake()->createWithContent('evidence.pdf', 'PDFDATA');
+        $file = UploadedFile::fake()->create('evidence.pdf', 2, 'application/pdf');
 
         $res = $this->post('/api/evidence', ['file' => $file]);
 
@@ -55,7 +60,7 @@ final class EvidenceApiTest extends TestCase
     /** @test */
     public function store_rejects_disallowed_mime_with_422(): void
     {
-        $file = UploadedFile::fake()->createWithContent('malware.exe', 'EXE', 'application/x-msdownload');
+        $file = UploadedFile::fake()->create('malware.exe', 1, 'application/x-msdownload');
 
         $this->post('/api/evidence', ['file' => $file])
             ->assertStatus(422)
@@ -67,7 +72,7 @@ final class EvidenceApiTest extends TestCase
     public function store_rejects_oversize_file_with_422(): void
     {
         Config::set('core.evidence.max_mb', 1); // 1 MB limit
-        $file = UploadedFile::fake()->create('big.pdf', /* KB */ 1024 + 1, 'application/pdf');
+        $file = UploadedFile::fake()->create('big.pdf', 1024 + 1, 'application/pdf');
 
         $this->post('/api/evidence', ['file' => $file])
             ->assertStatus(422)
@@ -80,7 +85,7 @@ final class EvidenceApiTest extends TestCase
     {
         Config::set('core.evidence.enabled', false);
 
-        $file = UploadedFile::fake()->createWithContent('evidence.pdf', 'PDFDATA');
+        $file = UploadedFile::fake()->create('evidence.pdf', 2, 'application/pdf');
 
         $this->post('/api/evidence', ['file' => $file])
             ->assertStatus(400)
@@ -93,10 +98,9 @@ final class EvidenceApiTest extends TestCase
     /** @test */
     public function index_paginates_and_returns_next_cursor(): void
     {
-        // Create three items.
-        $this->post('/api/evidence', ['file' => UploadedFile::fake()->createWithContent('a.txt', 'A', 'text/plain')]);
-        $this->post('/api/evidence', ['file' => UploadedFile::fake()->createWithContent('b.txt', 'B', 'text/plain')]);
-        $this->post('/api/evidence', ['file' => UploadedFile::fake()->createWithContent('c.txt', 'C', 'text/plain')]);
+        $this->post('/api/evidence', ['file' => UploadedFile::fake()->create('a.txt', 1, 'text/plain')]);
+        $this->post('/api/evidence', ['file' => UploadedFile::fake()->create('b.txt', 1, 'text/plain')]);
+        $this->post('/api/evidence', ['file' => UploadedFile::fake()->create('c.txt', 1, 'text/plain')]);
 
         $res = $this->getJson('/api/evidence?limit=2');
 
@@ -109,7 +113,7 @@ final class EvidenceApiTest extends TestCase
     /** @test */
     public function show_returns_bytes_and_headers_for_get(): void
     {
-        $upload = UploadedFile::fake()->createWithContent('doc.txt', 'DOC', 'text/plain');
+        $upload = UploadedFile::fake()->createWithContent('doc.txt', 'DOC');
         $created = $this->post('/api/evidence', ['file' => $upload])->json();
 
         $id  = $created['id'];
@@ -128,7 +132,7 @@ final class EvidenceApiTest extends TestCase
     /** @test */
     public function head_returns_headers_only(): void
     {
-        $upload = UploadedFile::fake()->createWithContent('head.txt', 'HEAD', 'text/plain');
+        $upload = UploadedFile::fake()->createWithContent('head.txt', 'HEAD');
         $created = $this->post('/api/evidence', ['file' => $upload])->json();
 
         $id  = $created['id'];
@@ -146,7 +150,7 @@ final class EvidenceApiTest extends TestCase
     /** @test */
     public function get_with_if_none_match_returns_304(): void
     {
-        $upload = UploadedFile::fake()->createWithContent('etag.txt', 'ETAG', 'text/plain');
+        $upload = UploadedFile::fake()->createWithContent('etag.txt', 'ETAG');
         $created = $this->post('/api/evidence', ['file' => $upload])->json();
 
         $id  = $created['id'];
