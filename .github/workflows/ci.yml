@@ -52,6 +52,14 @@ jobs:
           coverage: none
           # Self-hosted settings below
           tools: composer:v2
+      
+        #Assert parallel prereq for self-hosted GHR
+      - name: Assert parallel prerequisites
+        run: |
+          php -r 'echo "disable_functions=",ini_get("disable_functions"),PHP_EOL;'
+          php -r 'echo "proc_open:",function_exists("proc_open")?"ok":"DISABLED",PHP_EOL;'
+          php -r 'echo "pcntl:",extension_loaded("pcntl")?"on":"off",PHP_EOL;'
+          php -r 'echo "xdebug:",extension_loaded("xdebug")?"on":"off",PHP_EOL;'
 
       - name: Install MySQL client
         run: sudo apt-get update && sudo apt-get install -y mysql-client
@@ -110,7 +118,7 @@ jobs:
         #run: vendor/bin/psalm --no-cache
         run: |
           THREADS=$(nproc --all || echo 4)
-          vendor/bin/psalm --threads="$THREADS" --scan-threads="$THREADS" --no-diff
+          vendor/bin/psalm --threads="$THREADS" --scan-threads="$THREADS" --no-diff --long-progress
 
       - name: PHPUnit
         env:
