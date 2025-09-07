@@ -324,3 +324,24 @@ Use it to maintain a permanent, auditable record of all work across phases.
 - CI: green. PHPStan warnings resolved.
 
 **Next:** add Export API feature tests and implement `ExportController` + `StatusController` to pass them.
+
+---
+
+### 2025-09-07 — Phase 4 Hardening (avatars, evidence, settings, rbac, audit, exports, break-glass)
+- Context: Stabilize Phase-4 scaffolds with strict validation and feature tests.
+- Goal: Lock API contracts with tests. Keep persistence minimal and gated.
+- Changes:
+  - Avatars: `StoreAvatarRequest` + MIME/size validation. `AvatarController@store` returns 422 for non-WEBP and echoes metadata.
+  - Settings: tightened validation rules and error envelope; legacy and spec shapes supported.
+  - Evidence: `StoreEvidenceRequest` size/MIME guard; `EvidenceController` stores bytes with SHA-256, ETag, HEAD/304 behavior, cursor pagination; audit emits when table exists.
+  - RBAC: `StoreRoleRequest` and endpoint tests; middleware pass-through verified.
+  - Audit: index param validation hardened; stub fallback covered by tests.
+  - Exports: spec and legacy POST endpoints tested; status and download stubs verified.
+  - Break-glass: middleware guard tests for disabled 404 and enabled 202.
+  - Test hygiene: fixed PHPUnit discovery by renaming `Export(s)ApiTest.php` to match class; removed class/file mismatch.
+- Outcomes: CI green; contracts locked by tests.
+# Closeout
+- Deliverables produced: feature tests for Avatars, Evidence, RBAC, Audit, Exports, Break-glass; new FormRequests; minor docs updates.
+- Phase/Step status: Phase 4 advanced; remaining work limited to persistence for Exports and Settings, and RBAC enforcement.
+- Next action (you): None.
+- Next action (me): Start Auth scaffolds tests and optional FormRequests next session.

@@ -38,33 +38,33 @@
 - [x] Feature tests (`AuditApiTest`, `AuditControllerTest`)
 
 ### 4. Evidence Pipeline (CORE-006)
-- [ ] `EvidenceController.php` with validations (Phase 4: validate-only stub)
-- [ ] `StoreEvidenceRequest.php` (unified error envelope)
+- [x] `EvidenceController.php` with validations (Phase 4: validate-only stub)
+- [x] `StoreEvidenceRequest.php` (unified error envelope)
 - [ ] SPA `/web/src/routes/evidence/index.tsx`
-- [ ] Migration `...create_evidence_table.php` with sha256 + LONGBLOB
-- [ ] `Evidence.php` model
-- [ ] Persist bytes + sha256 + per-filename versioning
-- [ ] `GET/HEAD /api/evidence/{id}` with `ETag`, `Content-Length`, `nosniff`, attachment disposition
-- [ ] `GET /api/evidence?limit&cursor` opaque cursor pagination (+ created_at,id index)
-- [ ] Feature tests: upload, retrieve, ETag 304, pagination, 404, disabled path
-- [ ] Audit hooks for upload/read/head
+- [x] Migration `...create_evidence_table.php` with sha256 + LONGBLOB
+- [x] `Evidence.php` model
+- [x] Persist bytes + sha256 + per-filename versioning
+- [x] `GET/HEAD /api/evidence/{id}` with `ETag`, `Content-Length`, `nosniff`, attachment disposition
+- [x] `GET /api/evidence?limit&cursor` opaque cursor pagination (+ created_at,id index)
+- [x] Feature tests: upload, retrieve, ETag 304, pagination, 404, disabled path
+- [x] Audit hooks for upload/read/head
 - [ ] Document API in `/docs/api/EVIDENCE.md`
 
 ### 5. Exports (CORE-008 expansion)
-- [ ] Extend `ExportController.php` with `create` + `download` (stub)
-- [ ] `StatusController.php` (stub)
+- [x] Extend `ExportController.php` with `create` + `download` (stub)
+- [x] `StatusController.php` (stub)
 - [ ] SPA `/web/src/routes/exports/index.tsx`
 - [ ] Migration stub `exports`
 - [ ] Job model and artifact generation (CSV/JSON/PDF)
-- [ ] Feature tests (`ExportApiTest`)
+- [x] Feature tests (`ExportApiTest`)
 
 ### 6. Avatars (CORE-010)
-- [ ] `AvatarController.php` with validation stub
-- [ ] `StoreAvatarRequest.php`
+- [x] `AvatarController.php` with validation stub
+- [x] `StoreAvatarRequest.php`
 - [ ] SPA `/web/src/routes/profile/Avatar.tsx`
 - [ ] Migration stub `avatars` with unique user_id
 - [ ] `Avatar.php` model
-- [ ] Feature tests
+- [x] Feature tests
 
 ---
 
@@ -72,7 +72,7 @@
 - [x] Update PHASE-4-SPEC.md with final payloads and errors
 - [x] Update CAPABILITIES.md to mark Phase-4 features status
 - [x] Add unit/feature tests for settings/audit controllers
-- [ ] Add unit/feature tests for evidence/exports/avatars
+- [x] Add unit/feature tests for evidence/exports/avatars
 - [x] CI guardrails: Pint / PHPStan / Psalm / PHPUnit on PRs
 - [x] Composer bootstrap: `scripts/composer/app-prepare.php`, `app:prepare` hook
 - [x] Keepers: `bootstrap/cache`, `storage/**` `.gitignore` committed
@@ -97,9 +97,9 @@
 - [x] Settings UI echoes configs, validates updates
 - [x] RBAC middleware present, roles scaffolded; gates registered
 - [x] Audit Trail listing present with stub fallback and strict param validation
-- [ ] Evidence validate-only stub implemented with tests
-- [ ] Exports follow job/status pattern (stub) with tests
-- [ ] Avatars validated (stub) with tests
+- [x] Evidence validate-only stub implemented with tests
+- [x] Exports follow job/status pattern (stub) with tests
+- [x] Avatars validated (stub) with tests
 - [x] Docs/specs/tests updated for settings/audit
 - [x] CI green
 - [ ] RBAC enforcement + role-binding
