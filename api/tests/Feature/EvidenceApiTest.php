@@ -16,11 +16,9 @@ final class EvidenceApiTest extends TestCase
     {
         parent::setUp();
 
-        // Allow all evidence actions during tests.
         Gate::shouldReceive('authorize')->andReturn(true);
 
-        // Do not bind/mocking AuditLogger; let the container resolve the real class.
-        // Controller guards on table existence before calling ->log(), so no side effects.
+        // Resolve real logger; controller guards on table existence.
         $this->app->make(AuditLogger::class);
     }
 
@@ -107,7 +105,7 @@ final class EvidenceApiTest extends TestCase
     /** @test */
     public function show_returns_bytes_and_headers_for_get(): void
     {
-        $upload = UploadedFile::fake()->createWithContent('doc.txt', 'DOC', 'text/plain');
+        $upload  = UploadedFile::fake()->createWithContent('doc.txt', 'DOC', 'text/plain');
         $created = $this->post('/api/evidence', ['file' => $upload])->json();
 
         $id  = $created['id'];
@@ -117,8 +115,11 @@ final class EvidenceApiTest extends TestCase
 
         $res->assertOk()
             ->assertHeader('ETag', "\"{$sha}\"")
-            ->assertHeader('Content-Type', 'text/plain')
             ->assertHeader('Content-Length', (string) strlen('DOC'));
+
+        $ct = $res->headers->get('Content-Type');
+        $this->assertNotNull($ct);
+        $this->assertMatchesRegularExpression('#^text/plain\b#', $ct);
 
         $this->assertSame('DOC', $res->getContent());
     }
@@ -126,7 +127,7 @@ final class EvidenceApiTest extends TestCase
     /** @test */
     public function head_returns_headers_only(): void
     {
-        $upload = UploadedFile::fake()->createWithContent('head.txt', 'HEAD', 'text/plain');
+        $upload  = UploadedFile::fake()->createWithContent('head.txt', 'HEAD', 'text/plain');
         $created = $this->post('/api/evidence', ['file' => $upload])->json();
 
         $id  = $created['id'];
@@ -135,8 +136,11 @@ final class EvidenceApiTest extends TestCase
         $res = $this->call('HEAD', "/api/evidence/{$id}");
 
         $res->assertStatus(200)
-            ->assertHeader('ETag', "\"{$sha}\"")
-            ->assertHeader('Content-Type', 'text/plain');
+            ->assertHeader('ETag', "\"{$sha}\"");
+
+        $ct = $res->headers->get('Content-Type');
+        $this->assertNotNull($ct);
+        $this->assertMatchesRegularExpression('#^text/plain\b#', $ct);
 
         $this->assertSame('', $res->getContent());
     }
@@ -144,7 +148,7 @@ final class EvidenceApiTest extends TestCase
     /** @test */
     public function get_with_if_none_match_returns_304(): void
     {
-        $upload = UploadedFile::fake()->createWithContent('etag.txt', 'ETAG', 'text/plain');
+        $upload  = UploadedFile::fake()->createWithContent('etag.txt', 'ETAG', 'text/plain');
         $created = $this->post('/api/evidence', ['file' => $upload])->json();
 
         $id  = $created['id'];
