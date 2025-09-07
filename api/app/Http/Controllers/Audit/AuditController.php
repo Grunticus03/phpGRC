@@ -5,29 +5,34 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Audit;
 
 use App\Models\AuditEvent;
-use App\Support\Audit\AuditCategories;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Validator;
 
-/**
- * Phase 4: list audit events with optional keyset cursor.
- * Clamps limit to 1..100. Falls back to stub if table missing.
- */
 final class AuditController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        // Clamp instead of 422 to satisfy tests
-        $limit = (int) $request->query('limit', 25);
-        if ($limit < 1) {
-            $limit = 1;
-        } elseif ($limit > 100) {
-            $limit = 100;
+        // Validate query params: 422 on invalid
+        $v = Validator::make($request->query(), [
+            'limit'  => ['sometimes', 'integer', 'min:1', 'max:100'],
+            'cursor' => ['sometimes', 'string', 'max:400'],
+        ]);
+
+        if ($v->fails()) {
+            return response()->json([
+                'ok'     => false,
+                'code'   => 'VALIDATION_FAILED',
+                'errors' => $v->errors(),
+            ], 422);
         }
+
+        $limit  = (int) $request->query('limit', 25);
         $cursor = (string) $request->query('cursor', '');
 
+        // Stub path if table not present in Phase 4
         if (!Schema::hasTable('audit_events')) {
             return $this->stubResponse($limit, $cursor);
         }
@@ -74,13 +79,10 @@ final class AuditController extends Controller
         }
 
         return response()->json([
-            'ok'              => true,
-            'items'           => $items,
-            'nextCursor'      => $nextCursor,
-            '_categories'     => AuditCategories::ALL,
-            '_retention_days' => (int) config('core.audit.retention_days', 365),
-            '_cursor_echo'    => $cursor !== '' ? $cursor : null,
-        ]);
+            'ok'         => true,
+            'items'      => $items,
+            'nextCursor' => $nextCursor,
+        ], 200);
     }
 
     private function encodeCursor(string $isoTs, string $id): string
@@ -145,16 +147,13 @@ final class AuditController extends Controller
             ],
         ];
 
-        $slice = array_slice($events, 0, $limit);
+        $slice = array_slice($events, 0, max(1, min(100, $limit)));
 
         return response()->json([
-            'ok'              => true,
-            'items'           => $slice,
-            'nextCursor'      => null,
-            'note'            => 'stub-only',
-            '_categories'     => AuditCategories::ALL,
-            '_retention_days' => (int) config('core.audit.retention_days', 365),
-            '_cursor_echo'    => $cursor !== '' ? $cursor : null,
-        ]);
+            'ok'         => true,
+            'items'      => $slice,
+            'nextCursor' => null,
+            'note'       => 'stub-only',
+        ], 200);
     }
 }
