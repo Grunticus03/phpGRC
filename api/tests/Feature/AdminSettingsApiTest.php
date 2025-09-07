@@ -1,0 +1,146 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Tests\Feature;
+
+use Tests\TestCase;
+
+final class AdminSettingsApiTest extends TestCase
+{
+    /** @test */
+    public function index_returns_core_defaults(): void
+    {
+        $res = $this->getJson('/api/admin/settings');
+
+        $res->assertOk()
+            ->assertJsonPath('ok', true)
+            ->assertJsonStructure([
+                'config' => [
+                    'core' => [
+                        'rbac'    => ['enabled', 'roles'],
+                        'audit'   => ['enabled', 'retention_days'],
+                        'evidence'=> ['enabled', 'max_mb', 'allowed_mime'],
+                        'avatars' => ['enabled', 'size_px', 'format'],
+                    ],
+                ],
+            ]);
+    }
+
+    /** @test */
+    public function update_accepts_flat_payload_and_echoes_accepted(): void
+    {
+        $payload = [
+            'rbac' => [
+                'enabled' => false,
+                'roles'   => ['Admin', 'Auditor'],
+            ],
+            'audit' => [
+                'enabled'        => true,
+                'retention_days' => 180,
+            ],
+            'evidence' => [
+                'enabled'      => true,
+                'max_mb'       => 50,
+                'allowed_mime' => ['application/pdf', 'image/png'],
+            ],
+            'avatars' => [
+                'enabled' => true,
+                'size_px' => 128,
+                'format'  => 'webp',
+            ],
+        ];
+
+        $res = $this->postJson('/api/admin/settings', $payload);
+
+        $res->assertOk()
+            ->assertJsonPath('ok', true)
+            ->assertJsonPath('applied', false)
+            ->assertJsonPath('note', 'stub-only')
+            ->assertJsonPath('accepted.rbac.roles.0', 'Admin')
+            ->assertJsonPath('accepted.audit.retention_days', 180)
+            ->assertJsonPath('accepted.avatars.format', 'webp');
+    }
+
+    /** @test */
+    public function update_rejects_invalid_role_entries(): void
+    {
+        $payload = [
+            'rbac' => [
+                'roles' => ['Admin', ''], // empty role should fail
+            ],
+        ];
+
+        $this->postJson('/api/admin/settings', $payload)
+            ->assertStatus(422)
+            ->assertJsonStructure([
+                'errors' => ['rbac' => []], // nested error paths present
+            ]);
+    }
+
+    /** @test */
+    public function legacy_shape_rejects_disallowed_mime_and_uses_legacy_error_envelope(): void
+    {
+        $payload = [
+            'core' => [
+                'evidence' => [
+                    'allowed_mime' => ['application/x-msdownload'], // not in allowed list
+                ],
+            ],
+        ];
+
+        $res = $this->postJson('/api/admin/settings', $payload);
+
+        $res->assertStatus(422)
+            ->assertJsonStructure(['errors' => ['evidence' => []]])
+            ->assertJsonMissingPath('ok') // legacy path should not include ok/code
+            ->assertJsonMissingPath('code');
+    }
+
+    /** @test */
+    public function update_rejects_avatar_size_other_than_128(): void
+    {
+        $payload = [
+            'avatars' => [
+                'size_px' => 256,
+            ],
+        ];
+
+        $this->postJson('/api/admin/settings', $payload)
+            ->assertStatus(422)
+            ->assertJsonStructure(['errors' => ['avatars' => []]]);
+    }
+
+    /** @test */
+    public function update_rejects_avatar_format_other_than_webp(): void
+    {
+        $payload = [
+            'avatars' => [
+                'format' => 'png',
+            ],
+        ];
+
+        $this->postJson('/api/admin/settings', $payload)
+            ->assertStatus(422)
+            ->assertJsonStructure(['errors' => ['avatars' => []]]);
+    }
+
+    /** @test */
+    public function update_rejects_audit_retention_out_of_range(): void
+    {
+        // too low
+        $this->postJson('/api/admin/settings', ['audit' => ['retention_days' => 0]])
+            ->assertStatus(422);
+
+        // too high
+        $this->postJson('/api/admin/settings', ['audit' => ['retention_days' => 10000]])
+            ->assertStatus(422);
+    }
+
+    /** @test */
+    public function update_rejects_evidence_max_mb_below_min(): void
+    {
+        $this->postJson('/api/admin/settings', ['evidence' => ['max_mb' => 0]])
+            ->assertStatus(422);
+    }
+}
