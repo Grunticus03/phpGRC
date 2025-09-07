@@ -15,7 +15,7 @@ final class AuditController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        // Type validation only; bounds are clamped later.
+        // Type validation only.
         $v = Validator::make($request->query(), [
             'limit'  => ['sometimes', 'integer'],
             'cursor' => ['sometimes', 'string', 'max:400'],
@@ -30,15 +30,31 @@ final class AuditController extends Controller
             ], 422);
         }
 
+        // Negative limits are invalid (422). Zero and >100 are clamped.
+        if ($request->has('limit')) {
+            $rawLimit = $request->query('limit');
+            // At this point, 'integer' rule has ensured integer-like; cast safely.
+            $intLimit = (int) $rawLimit;
+            if ($intLimit < 0) {
+                return response()->json([
+                    'ok'      => false,
+                    'code'    => 'VALIDATION_FAILED',
+                    'message' => 'Validation failed.',
+                    'errors'  => ['limit' => ['The limit field must be greater than or equal to 0.']],
+                ], 422);
+            }
+        }
+
         $limit = (int) $request->query('limit', 25);
         if ($limit < 1) {
             $limit = 1;
         } elseif ($limit > 100) {
             $limit = 100;
         }
+
         $cursor = (string) $request->query('cursor', '');
 
-        // If a cursor is present, ensure it uses only base64url-safe chars.
+        // Allow simple tokens like "abc123"; only 422 on obviously unsafe chars.
         if ($request->has('cursor') && $cursor !== '' && !preg_match('/^[A-Za-z0-9_-]*$/', $cursor)) {
             return response()->json([
                 'ok'      => false,
@@ -48,12 +64,12 @@ final class AuditController extends Controller
             ], 422);
         }
 
-        // Table missing ⇒ stub fallback.
+        // Fallback stub when table is absent (Phase 4).
         if (!Schema::hasTable('audit_events')) {
             return $this->stubResponse($limit, $cursor);
         }
 
-        // Lenient decode (non-fatal). Unknown tokens just don't page.
+        // Lenient decode; unknown tokens just don't page.
         [$afterTs, $afterId] = $this->decodeCursorLenient($cursor);
 
         $q = AuditEvent::query()
@@ -99,6 +115,7 @@ final class AuditController extends Controller
             'ok'              => true,
             'items'           => $items,
             'nextCursor'      => $nextCursor,
+            '_categories'     => ['AUTH', 'SETTINGS', 'RBAC', 'EVIDENCE', 'EXPORTS'],
             '_retention_days' => (int) config('core.audit.retention_days', 365),
         ], 200);
     }
@@ -110,8 +127,6 @@ final class AuditController extends Controller
     }
 
     /**
-     * Lenient decode; returns [CarbonImmutable|null, string|null]
-     *
      * @return array{0: \Carbon\CarbonImmutable|null, 1: string|null}
      */
     private function decodeCursorLenient(string $cursor): array
@@ -174,6 +189,7 @@ final class AuditController extends Controller
             'items'           => $slice,
             'nextCursor'      => null,
             'note'            => 'stub-only',
+            '_categories'     => ['AUTH', 'SETTINGS', 'RBAC', 'EVIDENCE', 'EXPORTS'],
             '_retention_days' => (int) config('core.audit.retention_days', 365),
         ], 200);
     }
