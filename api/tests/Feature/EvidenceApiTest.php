@@ -8,7 +8,6 @@ use App\Services\Audit\AuditLogger;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Gate;
-use Mockery;
 use Tests\TestCase;
 
 final class EvidenceApiTest extends TestCase
@@ -17,17 +16,12 @@ final class EvidenceApiTest extends TestCase
     {
         parent::setUp();
 
+        // Allow all evidence actions during tests.
         Gate::shouldReceive('authorize')->andReturn(true);
 
-        $mock = Mockery::mock(AuditLogger::class);
-        $mock->shouldReceive('log')->byDefault()->andReturnNull();
-        $this->app->instance(AuditLogger::class, $mock);
-    }
-
-    protected function tearDown(): void
-    {
-        Mockery::close();
-        parent::tearDown();
+        // Do not bind/mocking AuditLogger; let the container resolve the real class.
+        // Controller guards on table existence before calling ->log(), so no side effects.
+        $this->app->make(AuditLogger::class);
     }
 
     /** @test */
@@ -113,7 +107,7 @@ final class EvidenceApiTest extends TestCase
     /** @test */
     public function show_returns_bytes_and_headers_for_get(): void
     {
-        $upload = UploadedFile::fake()->createWithContent('doc.txt', 'DOC');
+        $upload = UploadedFile::fake()->createWithContent('doc.txt', 'DOC', 'text/plain');
         $created = $this->post('/api/evidence', ['file' => $upload])->json();
 
         $id  = $created['id'];
@@ -132,7 +126,7 @@ final class EvidenceApiTest extends TestCase
     /** @test */
     public function head_returns_headers_only(): void
     {
-        $upload = UploadedFile::fake()->createWithContent('head.txt', 'HEAD');
+        $upload = UploadedFile::fake()->createWithContent('head.txt', 'HEAD', 'text/plain');
         $created = $this->post('/api/evidence', ['file' => $upload])->json();
 
         $id  = $created['id'];
@@ -150,7 +144,7 @@ final class EvidenceApiTest extends TestCase
     /** @test */
     public function get_with_if_none_match_returns_304(): void
     {
-        $upload = UploadedFile::fake()->createWithContent('etag.txt', 'ETAG');
+        $upload = UploadedFile::fake()->createWithContent('etag.txt', 'ETAG', 'text/plain');
         $created = $this->post('/api/evidence', ['file' => $upload])->json();
 
         $id  = $created['id'];
