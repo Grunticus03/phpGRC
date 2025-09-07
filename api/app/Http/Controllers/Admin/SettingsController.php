@@ -9,6 +9,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
@@ -21,6 +22,8 @@ final class SettingsController extends Controller
 {
     public function index(): JsonResponse
     {
+        Gate::authorize('core.settings.manage');
+
         $config = [
             'core' => [
                 'rbac' => [
@@ -56,6 +59,8 @@ final class SettingsController extends Controller
      */
     public function update(Request $request, AuditLogger $audit): JsonResponse
     {
+        Gate::authorize('core.settings.manage');
+
         $payload = $request->all();
 
         // Normalize to top-level sections

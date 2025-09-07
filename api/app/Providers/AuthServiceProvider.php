@@ -23,6 +23,8 @@ final class AuthServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        $this->registerPolicies();
+
         // Settings management
         Gate::define('core.settings.manage', function ($user = null): bool {
             // TODO: enforce Admin role when RBAC is active

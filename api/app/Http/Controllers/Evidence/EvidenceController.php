@@ -12,6 +12,7 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -19,6 +20,8 @@ final class EvidenceController extends Controller
 {
     public function store(StoreEvidenceRequest $request): JsonResponse
     {
+        Gate::authorize('core.evidence.manage');
+
         if (! (bool) config('core.evidence.enabled', true)) {
             return response()->json(['ok' => false, 'code' => 'EVIDENCE_NOT_ENABLED'], 400);
         }
@@ -71,6 +74,8 @@ final class EvidenceController extends Controller
 
     public function show(Request $request, string $id): Response
     {
+        Gate::authorize('core.evidence.manage');
+
         /** @var Evidence|null $ev */
         $ev = Evidence::query()->find($id);
         if (! $ev) {
@@ -101,6 +106,8 @@ final class EvidenceController extends Controller
 
     public function index(Request $request): JsonResponse
     {
+        Gate::authorize('core.evidence.manage');
+
         $limit = (int) $request->query('limit', 20);
         $limit = $limit < 1 ? 1 : ($limit > 100 ? 100 : $limit);
 

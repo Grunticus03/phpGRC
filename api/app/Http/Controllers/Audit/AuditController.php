@@ -9,6 +9,7 @@ use App\Support\Audit\AuditCategories;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Schema;
 
 /**
@@ -20,6 +21,8 @@ final class AuditController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
+        Gate::authorize('core.audit.view');
+
         $validated = $request->validate([
             'limit'  => ['sometimes', 'integer', 'min:1', 'max:100'],
             'cursor' => ['sometimes', 'string', 'max:400'],
