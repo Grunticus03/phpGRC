@@ -72,7 +72,7 @@ final class SettingsController extends Controller
                 'sometimes',
                 'array',
                 'min:1',
-                // field-level validation to satisfy tests expecting errors.rbac.roles.0
+                // Aggregate errors at rbac.roles (not rbac.roles.*)
                 function (string $attribute, mixed $value, \Closure $fail): void {
                     if (!is_array($value)) {
                         $fail('The roles must be an array.');
@@ -98,9 +98,8 @@ final class SettingsController extends Controller
                 'sometimes',
                 'array',
                 'min:1',
-                // field-level subset check to satisfy tests expecting errors.evidence.allowed_mime.0
-                function (string $attribute, mixed $value) use ($allowedMime): void {
-                    $fail = func_get_arg(2);
+                // Ensure provided list is a subset of allowed defaults
+                function (string $attribute, mixed $value, \Closure $fail) use ($allowedMime): void {
                     if (!is_array($value)) {
                         $fail('The allowed_mime must be an array.');
                         return;
@@ -114,16 +113,18 @@ final class SettingsController extends Controller
                 },
             ],
 
-            'avatars'            => ['sometimes', 'array'],
-            'avatars.enabled'    => ['sometimes', 'boolean'],
-            'avatars.size_px'    => ['sometimes', 'integer', 'in:128'],      // spec lock
-            'avatars.format'     => ['sometimes', Rule::in(['webp'])],       // spec lock
+            'avatars'         => ['sometimes', 'array'],
+            'avatars.enabled' => ['sometimes', 'boolean'],
+            'avatars.size_px' => ['sometimes', 'integer', 'in:128'],     // spec lock
+            'avatars.format'  => ['sometimes', Rule::in(['webp'])],      // spec lock
         ];
 
         $v = Validator::make($sections, $rules);
 
         if ($v->fails()) {
             return response()->json([
+                'ok'     => false,
+                'code'   => 'VALIDATION_FAILED',
                 'errors' => $this->nestErrors($v->errors()->toArray()),
             ], 422);
         }
