@@ -11,10 +11,6 @@ use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 
-/**
- * Phase 4: validate core.* settings and echo normalized payloads.
- * No persistence. Deterministic responses.
- */
 final class SettingsController extends Controller
 {
     public function index(): JsonResponse
@@ -47,17 +43,12 @@ final class SettingsController extends Controller
         return response()->json(['ok' => true, 'config' => $config], 200);
     }
 
-    /**
-     * POST/PUT /api/admin/settings
-     * Accepts either top-level sections or legacy { core: { ... } }.
-     * Validate only; do not persist.
-     */
     public function update(Request $request): JsonResponse
     {
-        $payload  = $request->all();
+        $payload = $request->all();
 
-        // Normalize to top-level sections
-        $sections = Arr::has($payload, 'core') && is_array($payload['core'])
+        $isLegacy = Arr::has($payload, 'core') && is_array($payload['core']);
+        $sections = $isLegacy
             ? (array) $payload['core']
             : Arr::only($payload, ['rbac', 'audit', 'evidence', 'avatars']);
 
@@ -72,7 +63,6 @@ final class SettingsController extends Controller
                 'sometimes',
                 'array',
                 'min:1',
-                // Aggregate errors at rbac.roles (not rbac.roles.*)
                 function (string $attribute, mixed $value, \Closure $fail): void {
                     if (!is_array($value)) {
                         $fail('The roles must be an array.');
@@ -98,7 +88,6 @@ final class SettingsController extends Controller
                 'sometimes',
                 'array',
                 'min:1',
-                // Ensure provided list is a subset of allowed defaults
                 function (string $attribute, mixed $value, \Closure $fail) use ($allowedMime): void {
                     if (!is_array($value)) {
                         $fail('The allowed_mime must be an array.');
@@ -115,17 +104,24 @@ final class SettingsController extends Controller
 
             'avatars'         => ['sometimes', 'array'],
             'avatars.enabled' => ['sometimes', 'boolean'],
-            'avatars.size_px' => ['sometimes', 'integer', 'in:128'],     // spec lock
-            'avatars.format'  => ['sometimes', Rule::in(['webp'])],      // spec lock
+            'avatars.size_px' => ['sometimes', 'integer', 'in:128'],
+            'avatars.format'  => ['sometimes', Rule::in(['webp'])],
         ];
 
         $v = Validator::make($sections, $rules);
 
         if ($v->fails()) {
+            $errors = $this->nestErrors($v->errors()->toArray());
+
+            if ($isLegacy) {
+                // Legacy-shape tests expect only "errors" at root.
+                return response()->json(['errors' => $errors], 422);
+            }
+
             return response()->json([
                 'ok'     => false,
                 'code'   => 'VALIDATION_FAILED',
-                'errors' => $this->nestErrors($v->errors()->toArray()),
+                'errors' => $errors,
             ], 422);
         }
 
@@ -140,20 +136,15 @@ final class SettingsController extends Controller
     }
 
     /**
-     * Convert flat error keys (e.g., "avatars.size_px") into nested arrays so
-     * tests can assert paths like errors.avatars.size_px.0.
-     *
      * @param array<string, array<int, string>> $flat
      * @return array<string, mixed>
      */
     private function nestErrors(array $flat): array
     {
         $nested = [];
-
         foreach ($flat as $key => $messages) {
             Arr::set($nested, $key, array_values($messages));
         }
-
         return $nested;
     }
 }
