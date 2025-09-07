@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace App\Http\Middleware;
 
-use App\Models\User;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * RBAC middleware with route-level role enforcement.
- * Declare roles on routes with ->defaults('roles', ['Admin', 'Auditor'])
+ * Phase 4 RBAC placeholder.
+ * No enforcement. Tags request and passes through.
+ * Route roles may be declared but are not enforced this phase.
  */
 final class RbacMiddleware
 {
@@ -20,38 +20,14 @@ final class RbacMiddleware
      */
     public function handle(Request $request, Closure $next): Response
     {
+        // Tag for downstream awareness only.
         $enabled = (bool) config('core.rbac.enabled', false);
-        if (! $enabled) {
-            $request->attributes->set('rbac_enabled', false);
-            return $next($request);
-        }
+        $request->attributes->set('rbac_enabled', $enabled);
 
-        $request->attributes->set('rbac_enabled', true);
+        // Future phases will evaluate declared roles.
+        // $route = $request->route();
+        // $declared = $route?->defaults['roles'] ?? [];
 
-        $route = $request->route();
-        if ($route === null) {
-            return $next($request);
-        }
-
-        /** @var array<string,mixed> $action */
-        $action = $route->getAction();
-        /** @var mixed $declared */
-        $declared = $action['roles'] ?? ($route->defaults['roles'] ?? []);
-        $requiredRoles = is_string($declared) ? [$declared] : (array) $declared;
-
-        if ($requiredRoles === []) {
-            return $next($request);
-        }
-
-        $authUser = $request->user();
-        if (! $authUser instanceof User) {
-            abort(401);
-        }
-
-        if ($authUser->hasAnyRole($requiredRoles)) {
-            return $next($request);
-        }
-
-        abort(403);
+        return $next($request);
     }
 }
