@@ -17,7 +17,7 @@ final class AuditController extends Controller
     {
         $data = $request->all();
 
-        // Validate: field present AND non-empty -> must match type.
+        // Validate presence + type. Bounds checked below.
         $v = Validator::make($data, [
             'limit'  => ['sometimes', 'filled', 'integer'],
             'cursor' => ['sometimes', 'filled', 'string', 'max:400'],
@@ -32,29 +32,23 @@ final class AuditController extends Controller
             ], 422);
         }
 
-        // Negative limits are invalid (422). Zero and >100 clamp.
+        // Enforce bounds strictly: 1..100 → else 422
         if (array_key_exists('limit', $data)) {
             $intLimit = (int) $data['limit'];
-            if ($intLimit < 0) {
+            if ($intLimit < 1 || $intLimit > 100) {
                 return response()->json([
                     'ok'      => false,
                     'code'    => 'VALIDATION_FAILED',
                     'message' => 'Validation failed.',
-                    'errors'  => ['limit' => ['The limit field must be greater than or equal to 0.']],
+                    'errors'  => ['limit' => ['The limit field must be between 1 and 100.']],
                 ], 422);
             }
         }
 
-        $limit = array_key_exists('limit', $data) ? (int) $data['limit'] : 25;
-        if ($limit < 1) {
-            $limit = 1;
-        } elseif ($limit > 100) {
-            $limit = 100;
-        }
-
+        $limit  = array_key_exists('limit', $data) ? (int) $data['limit'] : 25;
         $cursor = (string) ($data['cursor'] ?? '');
 
-        // Allow simple tokens like "abc123"; 422 on unsafe chars.
+        // Allow simple tokens; reject unsafe chars only.
         if ($cursor !== '' && !preg_match('/^[A-Za-z0-9_-]*$/', $cursor)) {
             return response()->json([
                 'ok'      => false,
@@ -64,12 +58,12 @@ final class AuditController extends Controller
             ], 422);
         }
 
-        // Stub fallback when table absent (Phase 4).
+        // Stub fallback for Phase 4 if table absent.
         if (!Schema::hasTable('audit_events')) {
             return $this->stubResponse($limit);
         }
 
-        // Lenient decode; unknown tokens just don't page.
+        // Lenient decode; unknown tokens just skip paging.
         [$afterTs, $afterId] = $this->decodeCursorLenient($cursor);
 
         $q = AuditEvent::query()
@@ -127,8 +121,6 @@ final class AuditController extends Controller
     }
 
     /**
-     * Lenient decode; returns [CarbonImmutable|null, string|null]
-     *
      * @return array{0: \Carbon\CarbonImmutable|null, 1: string|null}
      */
     private function decodeCursorLenient(string $cursor): array

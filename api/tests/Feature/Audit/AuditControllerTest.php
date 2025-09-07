@@ -33,19 +33,17 @@ final class AuditControllerTest extends TestCase
                      )
                  )
                  ->has('nextCursor')
-                 ->etc() // allow metadata keys like _categories
+                 ->etc()
         );
     }
 
     public function test_get_audit_respects_limit_param_bounds(): void
     {
-        // lower bound clamped to 1
-        $this->getJson('/api/audit?limit=0')->assertOk();
+        // 0 and >100 are invalid → 422
+        $this->getJson('/api/audit?limit=0')->assertStatus(422)->assertJsonStructure(['message','errors']);
+        $this->getJson('/api/audit?limit=1000')->assertStatus(422)->assertJsonStructure(['message','errors']);
 
-        // upper bound clamped to 100
-        $this->getJson('/api/audit?limit=1000')->assertOk();
-
-        // typical with cursor echo
+        // typical valid request
         $this->getJson('/api/audit?limit=25&cursor=abc123')->assertOk();
     }
 }
