@@ -49,6 +49,8 @@ jobs:
           php-version: "8.3"
           extensions: mbstring, intl, pdo_mysql, dom, xml
           coverage: none
+          # Self-hosted settings below
+          tools: composer:v2
 
       - name: Install MySQL client
         run: sudo apt-get update && sudo apt-get install -y mysql-client
