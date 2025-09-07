@@ -33,6 +33,7 @@
 - [ ] Define categories and retention config in spec
 - [ ] Persist audit events for evidence actions (upload/read)
 - [x] Retention purge job honoring `core.audit.retention_days`
+- [x] DB-backed listing + `AuditLogger` + auth settings/login/logout/totp hooks
 
 ### 4. Evidence Pipeline (CORE-006)
 - [x] `EvidenceController.php` with validations
