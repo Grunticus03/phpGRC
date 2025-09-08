@@ -7,22 +7,15 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
-/**
- * @property string $id
- * @property string $name
- */
 final class Role extends Model
 {
     protected $table = 'roles';
+    protected $primaryKey = 'id';
+    public $incrementing = false;
+    protected $keyType = 'string';
 
     /** @var array<int, string> */
     protected $fillable = ['id', 'name'];
-
-    /** @var string */
-    protected $keyType = 'string';
-
-    /** @var bool */
-    public $incrementing = false;
 
     /**
      * @return \Illuminate\Database\Eloquent\Relations\BelongsToMany<\App\Models\User, \App\Models\Role>
@@ -34,4 +27,3 @@ final class Role extends Model
         return $rel;
     }
 }
-

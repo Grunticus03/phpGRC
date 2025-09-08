@@ -17,7 +17,11 @@ final class RolesSeeder extends Seeder
         ];
 
         foreach ($roles as $r) {
-            Role::query()->updateOrCreate(['id' => $r['id']], ['name' => $r['name']]);
+            // Create if missing; don’t update the primary key on existing rows
+            Role::query()->firstOrCreate(
+                ['name' => $r['name']],
+                ['id'   => $r['id']]
+            );
         }
     }
 }
