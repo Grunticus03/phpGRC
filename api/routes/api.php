@@ -2,6 +2,9 @@
 
 declare(strict_types=1);
 
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
+use App\Models\User;
 use App\Http\Controllers\Admin\SettingsController;
 use App\Http\Controllers\Audit\AuditController;
 use App\Http\Controllers\Auth\BreakGlassController;
@@ -64,15 +67,28 @@ Route::post('/auth/break-glass', [BreakGlassController::class, 'invoke'])
 
 /*
  |--------------------------------------------------------------------------
+ | Build RBAC stack: auth:sanctum first when require_auth=true
+ |--------------------------------------------------------------------------
+*/
+$rbacStack = [RbacMiddleware::class];
+if (config('core.rbac.require_auth', false)) {
+    array_unshift($rbacStack, 'auth:sanctum');
+}
+
+/*
+ |--------------------------------------------------------------------------
  | Admin Settings (enforced by RBAC when enabled)
  |--------------------------------------------------------------------------
 */
 Route::prefix('/admin')
-    ->middleware(RbacMiddleware::class)
+    ->middleware($rbacStack)
     ->group(function (): void {
-        Route::get('/settings',  [SettingsController::class, 'index'])->defaults('roles', ['Admin']);
-        Route::post('/settings', [SettingsController::class, 'update'])->defaults('roles', ['Admin']);
-        Route::put('/settings',  [SettingsController::class, 'update'])->defaults('roles', ['Admin']);
+        Route::match(['GET','HEAD'], '/settings', [SettingsController::class, 'index'])
+            ->defaults('roles', ['Admin']);
+        Route::post('/settings', [SettingsController::class, 'update'])
+            ->defaults('roles', ['Admin']);
+        Route::put('/settings',  [SettingsController::class, 'update'])
+            ->defaults('roles', ['Admin']);
     });
 
 /*
@@ -93,10 +109,12 @@ Route::prefix('/exports')->group(function (): void {
  |--------------------------------------------------------------------------
 */
 Route::prefix('/rbac')
-    ->middleware(RbacMiddleware::class)
+    ->middleware($rbacStack)
     ->group(function (): void {
-        Route::get('/roles',  [RolesController::class, 'index'])->defaults('roles', ['Admin']);
-        Route::post('/roles', [RolesController::class, 'store'])->defaults('roles', ['Admin']);
+        Route::match(['GET','HEAD'], '/roles', [RolesController::class, 'index'])
+            ->defaults('roles', ['Admin']);
+        Route::post('/roles', [RolesController::class, 'store'])
+            ->defaults('roles', ['Admin']);
     });
 
 /*
@@ -104,8 +122,8 @@ Route::prefix('/rbac')
  | Audit trail (view limited when enabled)
  |--------------------------------------------------------------------------
 */
-Route::get('/audit', [AuditController::class, 'index'])
-    ->middleware(RbacMiddleware::class)
+Route::match(['GET','HEAD'], '/audit', [AuditController::class, 'index'])
+    ->middleware($rbacStack)
     ->defaults('roles', ['Admin', 'Auditor']);
 
 /*
@@ -115,7 +133,7 @@ Route::get('/audit', [AuditController::class, 'index'])
 */
 Route::get('/evidence', [EvidenceController::class, 'index']);
 Route::post('/evidence', [EvidenceController::class, 'store']);
-Route::match(['GET', 'HEAD'], '/evidence/{id}', [EvidenceController::class, 'show']);
+Route::match(['GET','HEAD'], '/evidence/{id}', [EvidenceController::class, 'show']);
 
 /*
  |--------------------------------------------------------------------------

@@ -3,9 +3,11 @@
 declare(strict_types=1);
 
 use App\Providers\AuthServiceProvider;
+use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Request;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -15,12 +17,21 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        // Global middleware registration lives here when needed.
+        // avoid guest redirects to non-existent 'login'
+        $middleware->redirectGuestsTo(fn () => null);
+        $middleware->redirectUsersTo(fn () => null);
     })
     ->withProviders([
         AuthServiceProvider::class,
     ])
     ->withExceptions(function (Exceptions $exceptions): void {
-        // Exception rendering/reporting config lives here when needed.
+        // return JSON 401 instead of redirecting to 'login'
+        $exceptions->render(function (AuthenticationException $e, Request $request) {
+            return response()->json([
+                'ok'     => false,
+                'code'   => 'UNAUTHENTICATED',
+                'message'=> 'Authentication required.',
+            ], 401);
+        });
     })
     ->create();

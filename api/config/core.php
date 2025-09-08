@@ -42,7 +42,9 @@ return [
     |--------------------------------------------------------------------------
     */
     'rbac' => [
-        'enabled' => env('CORE_RBAC_ENABLED', true),
+//        'enabled' => env('CORE_RBAC_ENABLED', true),
+        'enabled' => true,
+        'require_auth' => true,
         'roles' => [
             'Admin',
             'Auditor',

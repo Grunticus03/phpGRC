@@ -1,5 +1,4 @@
 <?php
-
 declare(strict_types=1);
 
 namespace App\Http\Middleware;
@@ -7,60 +6,46 @@ namespace App\Http\Middleware;
 use App\Models\User;
 use Closure;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Auth\AuthenticationException;
 use Symfony\Component\HttpFoundation\Response;
 
-/**
- * RBAC middleware.
- * - If core.rbac.enabled = false → passthrough.
- * - If no roles declared on route → passthrough.
- * - If roles declared:
- *     • Anonymous user → passthrough (Phase 4 behavior).
- *     • Authenticated without required role → 403.
- *     • Authenticated with role → allow.
- *
- * Declare roles on routes with: ->defaults('roles', ['Admin'])
- */
 final class RbacMiddleware
 {
-    /**
-     * @param  \Closure(\Illuminate\Http\Request): (\Symfony\Component\HttpFoundation\Response)  $next
-     */
     public function handle(Request $request, Closure $next): Response
     {
         $enabled = (bool) config('core.rbac.enabled', false);
         $request->attributes->set('rbac_enabled', $enabled);
 
-        if (! $enabled) {
-            return $next($request);
-        }
-
         $route = $request->route();
-        if ($route === null) {
+        if (! $enabled || $route === null) {
             return $next($request);
         }
 
-        /** @var array<string,mixed> $action */
-        $action = $route->getAction();
-        /** @var mixed $declared */
-        $declared = $action['roles'] ?? ($route->defaults['roles'] ?? []);
+        $declared = $route->defaults['roles'] ?? [];
         $requiredRoles = is_string($declared) ? [$declared] : (array) $declared;
-
         if ($requiredRoles === []) {
             return $next($request);
         }
 
-        $user = $request->user();
+        // Use Sanctum to resolve the user from Bearer PATs
+        Auth::shouldUse('sanctum');
+        $user = Auth::user();
 
-        // Phase 4: anonymous requests pass through.
-        if (! $user instanceof User) {
+        $requireAuth = (bool) config('core.rbac.require_auth', false);
+
+        if (! $user) {
+            if ($requireAuth) {
+                throw new AuthenticationException(); // -> 401 JSON from your handler
+            }
+            // Phase-4 anonymous passthrough
             return $next($request);
         }
 
-        if ($user->hasAnyRole($requiredRoles)) {
+        if ($user instanceof User && $user->hasAnyRole($requiredRoles)) {
             return $next($request);
         }
 
-        abort(403);
+        return response()->json(['ok'=>false,'code'=>'FORBIDDEN','message'=>'Forbidden'], 403);
     }
 }
-

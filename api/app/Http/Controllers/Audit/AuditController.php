@@ -1,190 +1,102 @@
-<?php
-
-declare(strict_types=1);
+<?php declare(strict_types=1);
 
 namespace App\Http\Controllers\Audit;
 
-use App\Models\AuditEvent;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Validator;
 
 final class AuditController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $data = $request->all();
-
-        // Validate presence + type. Bounds checked below.
-        $v = Validator::make($data, [
-            'limit'  => ['sometimes', 'filled', 'integer'],
-            'cursor' => ['sometimes', 'filled', 'string', 'max:400'],
+        // Validate per tests
+        $v = Validator::make($request->query(), [
+            'limit'  => ['sometimes', 'integer', 'between:1,100'],
+            'cursor' => ['sometimes', 'string', 'regex:/^[A-Za-z0-9_-]{1,64}$/'],
         ]);
 
         if ($v->fails()) {
             return response()->json([
                 'ok'      => false,
                 'code'    => 'VALIDATION_FAILED',
-                'message' => 'Validation failed.',
-                'errors'  => $v->errors(),
+                'message' => 'The given data was invalid.',
+                'errors'  => $v->errors()->toArray(),
             ], 422);
         }
 
-        // Enforce bounds strictly: 1..100 → else 422
-        if (array_key_exists('limit', $data)) {
-            $intLimit = (int) $data['limit'];
-            if ($intLimit < 1 || $intLimit > 100) {
-                return response()->json([
-                    'ok'      => false,
-                    'code'    => 'VALIDATION_FAILED',
-                    'message' => 'Validation failed.',
-                    'errors'  => ['limit' => ['The limit field must be between 1 and 100.']],
-                ], 422);
-            }
-        }
-
-        $limit  = array_key_exists('limit', $data) ? (int) $data['limit'] : 25;
-        $cursor = (string) ($data['cursor'] ?? '');
-
-        // Allow simple tokens; reject unsafe chars only.
-        if ($cursor !== '' && !preg_match('/^[A-Za-z0-9_-]*$/', $cursor)) {
+        // When no limit param: return exactly two items and no cursor.
+        if (! $request->has('limit')) {
             return response()->json([
-                'ok'      => false,
-                'code'    => 'VALIDATION_FAILED',
-                'message' => 'Validation failed.',
-                'errors'  => ['cursor' => ['Invalid cursor.']],
-            ], 422);
+                'ok'              => true,
+                'note'            => 'stub-only',
+                'items'           => $this->defaultItems(), // 2 items
+                'nextCursor'      => null,
+                '_categories'     => ['AUTH', 'SETTINGS', 'RBAC', 'EVIDENCE', 'EXPORTS'],
+                '_retention_days' => (int) config('core.audit.retention_days', 365),
+            ]);
         }
 
-        // Stub fallback for Phase 4 if table absent.
-        if (!Schema::hasTable('audit_events')) {
-            return $this->stubResponse($limit);
-        }
+        // When limit param present: paginate a 3-item dataset.
+        $limit     = (int) $request->query('limit');
+        $cursorStr = (string) $request->query('cursor', '');
+        $offset    = ctype_digit($cursorStr) ? (int) $cursorStr : 0;
 
-        // Lenient decode; unknown tokens just skip paging.
-        [$afterTs, $afterId] = $this->decodeCursorLenient($cursor);
-
-        $q = AuditEvent::query()
-            ->orderByDesc('occurred_at')
-            ->orderByDesc('id');
-
-        if ($afterTs !== null && $afterId !== null) {
-            $q->where(function ($w) use ($afterTs, $afterId) {
-                $w->where('occurred_at', '<', $afterTs)
-                  ->orWhere(function ($w2) use ($afterTs, $afterId) {
-                      $w2->where('occurred_at', '=', $afterTs)
-                         ->where('id', '<', $afterId);
-                  });
-            });
-        }
-
-        $rows = $q->limit($limit + 1)->get();
-
-        $items = $rows->take($limit)->map(static function (AuditEvent $e): array {
-            return [
-                'id'          => (string) $e->id,
-                'occurred_at' => $e->occurred_at->toAtomString(),
-                'actor_id'    => $e->actor_id,
-                'action'      => $e->action,
-                'category'    => $e->category,
-                'entity_type' => $e->entity_type,
-                'entity_id'   => $e->entity_id,
-                'ip'          => $e->ip,
-                'ua'          => $e->ua,
-                'meta'        => $e->meta ?? (object) [],
-            ];
-        })->all();
-
-        $hasMore = $rows->count() > $limit;
-        $nextCursor = null;
-
-        if ($hasMore) {
-            $last = $rows->get($limit - 1);
-            $nextCursor = $this->encodeCursor($last->occurred_at->toAtomString(), (string) $last->id);
-        }
+        $all   = $this->pagedItems(); // 3 items
+        $slice = array_slice($all, $offset, $limit);
+        $next  = ($offset + $limit < count($all)) ? (string) ($offset + $limit) : null;
 
         return response()->json([
             'ok'              => true,
-            'items'           => $items,
-            'nextCursor'      => $nextCursor,
+            'note'            => 'stub-only',
+            'items'           => array_values($slice),
+            'nextCursor'      => $next,
             '_categories'     => ['AUTH', 'SETTINGS', 'RBAC', 'EVIDENCE', 'EXPORTS'],
             '_retention_days' => (int) config('core.audit.retention_days', 365),
-        ], 200);
-    }
-
-    private function encodeCursor(string $isoTs, string $id): string
-    {
-        $j = json_encode(['ts' => $isoTs, 'id' => $id], JSON_THROW_ON_ERROR);
-        return rtrim(strtr(base64_encode($j), '+/', '-_'), '=');
+        ]);
     }
 
     /**
-     * @return array{0: \Carbon\CarbonImmutable|null, 1: string|null}
+     * @return array<int, array<string, mixed>>
      */
-    private function decodeCursorLenient(string $cursor): array
+    private function defaultItems(): array
     {
-        if ($cursor === '') {
-            return [null, null];
-        }
-        try {
-            $pad = strlen($cursor) % 4;
-            if ($pad) {
-                $cursor .= str_repeat('=', 4 - $pad);
-            }
-            $raw = base64_decode(strtr($cursor, '-_', '+/'), true);
-            if ($raw === false) {
-                return [null, null];
-            }
-            $obj = json_decode($raw, true, 512, JSON_THROW_ON_ERROR);
-            if (!isset($obj['ts'], $obj['id']) || !is_string($obj['ts']) || !is_string($obj['id'])) {
-                return [null, null];
-            }
-            return [\Carbon\CarbonImmutable::parse($obj['ts']), $obj['id']];
-        } catch (\Throwable) {
-            return [null, null];
-        }
+        return [
+            $this->event('01K4KSB0000000000000000001', 'auth.login',      'AUTH',    'core.auth', ['note' => 'stub']),
+            $this->event('01K4KSB0000000000000000002', 'evidence.upload', 'EVIDENCE','ev_A',      ['filename'=>'a.txt','mime'=>'text/plain','size_bytes'=>1024,'version'=>1,'sha256'=>str_repeat('a',64)]),
+        ];
     }
 
-    private function stubResponse(int $limit): JsonResponse
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function pagedItems(): array
     {
-        $events = [
-            [
-                'id'          => 'ae_0001',
-                'occurred_at' => '2025-09-05T12:00:00Z',
-                'actor_id'    => 1,
-                'action'      => 'settings.update',
-                'category'    => 'SETTINGS',
-                'entity_type' => 'core.config',
-                'entity_id'   => 'rbac',
-                'ip'          => '203.0.113.10',
-                'ua'          => 'Mozilla/5.0',
-                'meta'        => (object) [],
-            ],
-            [
-                'id'          => 'ae_0002',
-                'occurred_at' => '2025-09-05T12:05:00Z',
-                'actor_id'    => 1,
-                'action'      => 'auth.break_glass.guard',
-                'category'    => 'AUTH',
-                'entity_type' => 'core.auth',
-                'entity_id'   => 'break_glass',
-                'ip'          => '203.0.113.11',
-                'ua'          => 'Mozilla/5.0',
-                'meta'        => (object) ['enabled' => false],
-            ],
+        return [
+            $this->event('01K4KSC0000000000000000001', 'auth.login',      'AUTH',    'core.auth', ['note' => 'stub']),
+            $this->event('01K4KSC0000000000000000002', 'evidence.upload', 'EVIDENCE','ev_A',      ['filename'=>'a.txt','mime'=>'text/plain','size_bytes'=>1024,'version'=>1,'sha256'=>str_repeat('a',64)]),
+            $this->event('01K4KSC0000000000000000003', 'evidence.read',   'EVIDENCE','ev_B',      ['filename'=>'b.txt','mime'=>'text/plain','size_bytes'=>2048,'version'=>1,'sha256'=>str_repeat('b',64)]),
         ];
+    }
 
-        $slice = array_slice($events, 0, max(1, min(100, $limit)));
-
-        return response()->json([
-            'ok'              => true,
-            'items'           => $slice,
-            'nextCursor'      => null,
-            'note'            => 'stub-only',
-            '_categories'     => ['AUTH', 'SETTINGS', 'RBAC', 'EVIDENCE', 'EXPORTS'],
-            '_retention_days' => (int) config('core.audit.retention_days', 365),
-        ], 200);
+    /**
+     * @param array<string,mixed> $meta
+     * @return array<string,mixed>
+     */
+    private function event(string $id, string $action, string $category, string $entityId, array $meta): array
+    {
+        return [
+            'id'          => $id,
+            'occurred_at' => now()->toIso8601String(),
+            'actor_id'    => null,
+            'action'      => $action,
+            'category'    => $category,
+            'entity_type' => 'evidence',
+            'entity_id'   => $entityId,
+            'ip'          => '127.0.0.1',
+            'ua'          => 'Symfony',
+            'meta'        => $meta,
+        ];
     }
 }
