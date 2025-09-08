@@ -63,3 +63,4 @@ final class RbacMiddleware
         abort(403);
     }
 }
+

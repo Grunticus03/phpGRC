@@ -18,6 +18,12 @@ final class Role extends Model
     /** @var array<int, string> */
     protected $fillable = ['id', 'name'];
 
+    /** @var string */
+    protected $keyType = 'string';
+
+    /** @var bool */
+    public $incrementing = false;
+
     /**
      * @return \Illuminate\Database\Eloquent\Relations\BelongsToMany<\App\Models\User, \App\Models\Role>
      */
@@ -28,3 +34,4 @@ final class Role extends Model
         return $rel;
     }
 }
+
