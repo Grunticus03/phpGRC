@@ -40,7 +40,7 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 **Phase:** 2  
 **Step:** 1  
 **Dependencies:** CORE-001  
-**Status:** In progress — API echo + validation stubs live; UI scaffold present; tests added; docs under `/docs/api/SETTINGS.md`; persistence not implemented.
+**Status:** In progress — API echo + validation stubs live; UI scaffold present; tests added; persistence not implemented.
 
 ---
 
@@ -52,7 +52,7 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 **Phase:** 2  
 **Step:** 2  
 **Dependencies:** CORE-003  
-**Status:** In progress — `RbacMiddleware` no-op, gates registered, policy stubs added, roles seeder present; enforcement and role-binding deferred.
+**Status:** In progress — Sanctum PAT auth enabled; route-level role enforcement via `auth:sanctum` + `RbacMiddleware`; consistent JSON 401/403; canonical role seeder and pivot verified. Fine-grained policies and self-serve role management pending.
 
 ---
 

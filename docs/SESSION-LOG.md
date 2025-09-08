@@ -367,3 +367,31 @@ Use it to maintain a permanent, auditable record of all work across phases.
   - RBAC scaffold integrated. Enforcement behavior aligned to tests. CI green.
 - Next action (you): none
 - Next action (me): provide full files for Exports job model scaffolding and Settings persistence next (controllers, model, migration, tests).
+
+---
+
+### Session 2025-09-08: Phase 4 — RBAC Testing
+# Closeout
+- Deliverables produced:
+  - RBAC+Sanctum integration (middleware/auth config/route stack)
+  - Local-only dev bootstrap for deterministic PATs
+  - Idempotent RolesSeeder
+  - Corrected Role pivot
+  - Updated core RBAC defaults
+  - Tests relocated/fixed
+- Phase/Step status:
+  - Phase 4 — In progress
+    - ✅ RBAC enforcement + role-binding
+    - ✅ Audit/Evidence stubs/persistence per scope
+    - ⏳ Settings persistence + audited apply
+    - ⏳ Exports job model + artifacts.
+- Next action (you):
+  - Lock envs (CORE_RBAC_ENABLED/REQUIRE_AUTH true)
+  - Seed roles across envs
+  - Rotate/store Admin/Auditor PATs in secrets
+  - Ensure /api/dev/bootstrap is local-only
+  - Note new flows in ops docs.
+- Next action (me):
+  - Implement Settings persistence + audited apply (schema/service/controller/audit/tests) and open PR
+  - Exports job model + artifact generation with tests and docs.
+

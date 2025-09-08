@@ -41,14 +41,15 @@
 
 ## Phase 4 — Core app usable ⏳ IN PROGRESS
 - [x] Settings — echo + validation stubs (accept spec or legacy payload; normalized)
-- [x] RBAC — roles list + no-op middleware + gates registered
+- [x] RBAC — Sanctum PAT guard enabled; route-level enforcement; JSON 401/403 contract
 - [x] Audit — spec-shaped listing, categories helper, retention echo
 - [x] Evidence — multipart validate (size/mime via config)
 - [x] Evidence persistence: storage + sha256 + versioning + listing + headers
 - [x] Audit persistence: write path + retention enforcement (≤ 2 years)
 - [x] API docs for Settings/Audit/Evidence + common errors
 - [x] Feature tests for Settings/Audit/Evidence + RBAC middleware tagging
-- [ ] RBAC policies enforced and DB roles binding
+- [x] CI: sqlite seeding + role bootstrap for tests
+- [ ] RBAC fine-grained policies and UI role management
 - [ ] Exports job model + generation (CSV/JSON/PDF)
 - [ ] Settings persistence + audit logging of applied changes
 
@@ -78,9 +79,10 @@
 
 ---
 
-### Current Status (as of 2025-09-07)
-- ✅ CI/CD green on main.
-- ✅ Phase-4 audit and evidence persistence complete.
-- ✅ RBAC gates registered; middleware in place.
-- ⏳ RBAC enforcement and Exports job model remain.
+### Current Status (as of 2025-09-08)
+- ✅ CI/CD green on main; all tests passing (expected skips).
+- ✅ RBAC enforcement active via Sanctum + middleware; canonical roles seeded.
+- ✅ Audit & Evidence persistence complete.
+- ⏳ Exports job model and document generation remain.
 - ⏳ Settings persistence and audited apply remain.
+- ⏳ Replace allow-all gates with fine-grained policies.
