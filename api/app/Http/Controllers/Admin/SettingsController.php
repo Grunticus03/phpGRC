@@ -19,6 +19,7 @@ final class SettingsController extends Controller
     public function index(): JsonResponse
     {
         $effective = $this->settings->effectiveConfig(); // ['core' => [...]]
+
         return response()->json([
             'ok'     => true,
             'config' => ['core' => $effective['core']],
@@ -31,17 +32,25 @@ final class SettingsController extends Controller
         $raw = (array) $request->all();
 
         // Normalize accepted sections from either legacy or flat payloads.
-        $validated   = (array) $request->validated();
-        $legacyCore  = is_array(Arr::get($raw, 'core')) ? (array) $raw['core'] : [];
-        $accepted    = Arr::only($legacyCore + $validated, ['rbac', 'audit', 'evidence', 'avatars']);
+        $validated  = (array) $request->validated();
+        $legacyCore = is_array(Arr::get($raw, 'core')) ? (array) $raw['core'] : [];
+        $accepted   = Arr::only($legacyCore + $validated, ['rbac', 'audit', 'evidence', 'avatars']);
 
         // Discover the "apply" intent (default false). Accepts root or legacy core.apply.
         $applyInput = $request->input('apply', Arr::get($raw, 'core.apply', false));
         $applyBool  = filter_var($applyInput, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
-        $apply      = $applyBool !== null ? $applyBool : (bool) $applyInput;
+        if ($applyBool === null) {
+            $s = is_string($applyInput) ? strtolower($applyInput) : '';
+            $apply = in_array($s, ['1', 'true', 'on', 'yes'], true) || $applyInput === 1 || $applyInput === true;
+        } else {
+            $apply = $applyBool;
+        }
 
-        // If not applying or persistence unavailable => stub-only response.
-        if (!$apply || !$this->settings->persistenceAvailable()) {
+        // Global stub gate plus table availability.
+        $stubOnly = (bool) config('core.settings.stub_only', true);
+
+        // If not applying, or stub-only is on, or persistence unavailable => stub-only response.
+        if (!$apply || $stubOnly || !$this->settings->persistenceAvailable()) {
             return response()->json([
                 'ok'       => true,
                 'applied'  => false,
@@ -65,4 +74,3 @@ final class SettingsController extends Controller
         ], 200);
     }
 }
-

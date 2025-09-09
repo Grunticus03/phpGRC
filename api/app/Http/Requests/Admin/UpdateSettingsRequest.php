@@ -12,6 +12,8 @@ use Illuminate\Validation\Rule;
 
 final class UpdateSettingsRequest extends FormRequest
 {
+    private bool $legacyPayload = false;
+
     public function authorize(): bool
     {
         return true;
@@ -23,7 +25,8 @@ final class UpdateSettingsRequest extends FormRequest
     protected function prepareForValidation(): void
     {
         $core = $this->input('core');
-        if (is_array($core)) {
+        $this->legacyPayload = is_array($core);
+        if ($this->legacyPayload) {
             $this->merge(Arr::only($core, ['rbac', 'audit', 'evidence', 'avatars']));
         }
     }
@@ -40,9 +43,9 @@ final class UpdateSettingsRequest extends FormRequest
             'rbac.roles.*' => ['string', 'min:1', 'max:64'],
 
             // Audit
-            'audit'                 => ['sometimes', 'array'],
-            'audit.enabled'         => ['sometimes', 'boolean'],
-            'audit.retention_days'  => ['sometimes', 'integer', 'min:1', 'max:730'],
+            'audit'                => ['sometimes', 'array'],
+            'audit.enabled'        => ['sometimes', 'boolean'],
+            'audit.retention_days' => ['sometimes', 'integer', 'min:1', 'max:730'],
 
             // Evidence
             'evidence'                => ['sometimes', 'array'],
@@ -63,31 +66,32 @@ final class UpdateSettingsRequest extends FormRequest
     }
 
     /**
-     * API-shaped validation errors expected by tests.
-     * - ok: false
-     * - code: VALIDATION_FAILED
-     * - errors nested by section and field, e.g. errors.avatars.size_px
+     * Validation error envelopes:
+     * - Legacy payloads: { errors: { <section>: { <field>: [...] } } }
+     * - Spec payloads:   { ok:false, code:"VALIDATION_FAILED", errors:{...}, message:"..." }
      */
     protected function failedValidation(Validator $validator)
     {
         $fieldErrors = $validator->errors()->toArray();
 
+        // Build nested errors[section][field] so tests can assert errors.avatars.size_px, etc.
         $errors = [];
         foreach ($fieldErrors as $key => $messages) {
             $parts   = explode('.', $key);
             $section = $parts[0] ?? '_';
-            // collapse numeric indexes so rbac.roles.0 -> errors.rbac.roles
-            $field = $parts[1] ?? '';
-            if ($field === '' || is_numeric($field)) {
-                $field = $parts[1] ?? $section;
-            }
-            // handle three-level keys like evidence.allowed_mime.1 -> allowed_mime
+            $field   = $parts[1] ?? $section;
+            // Collapse numeric indexes: evidence.allowed_mime.0 -> evidence.allowed_mime
             if (isset($parts[2]) && is_numeric($parts[2])) {
                 // keep $field from index 1
             }
-
             $existing = $errors[$section][$field] ?? [];
             $errors[$section][$field] = array_values(array_unique(array_merge($existing, $messages)));
+        }
+
+        if ($this->legacyPayload) {
+            throw new HttpResponseException(response()->json([
+                'errors' => $errors,
+            ], 422));
         }
 
         throw new HttpResponseException(response()->json([
