@@ -20,7 +20,7 @@ final class SettingsController extends Controller
 
     public function index(): JsonResponse
     {
-        // Return only contract fields to avoid leaking extras like require_auth.
+        // Canonical contract shape only.
         $config = [
             'core' => [
                 'rbac' => [
@@ -46,13 +46,27 @@ final class SettingsController extends Controller
             ],
         ];
 
+        // Reflect persisted overrides into the contract shape.
+        $overrides = $this->settings->currentOverrides(); // flat: ['core.audit.retention_days' => 180, ...]
+        foreach ($overrides as $key => $value) {
+            if (!is_string($key) || !str_starts_with($key, 'core.')) {
+                continue;
+            }
+            $path = substr($key, 5); // strip 'core.'
+            $top = explode('.', $path, 2)[0] ?? null;
+            if (!in_array($top, ['rbac', 'audit', 'evidence', 'avatars'], true)) {
+                continue; // never leak non-contract keys like rbac.require_auth
+            }
+            // Update nested value within our prepared $config.
+            data_set($config['core'], $path, $value);
+        }
+
         return response()->json(['ok' => true, 'config' => $config], 200);
     }
 
     public function update(Request $request): JsonResponse
     {
-        $payload = $request->all();
-
+        $payload  = $request->all();
         $isLegacy = Arr::has($payload, 'core') && is_array($payload['core']);
         $sections = $isLegacy
             ? (array) $payload['core']
@@ -132,7 +146,11 @@ final class SettingsController extends Controller
 
         $accepted = $v->validated();
 
-        $stubOnly = (bool) config('core.settings.stub_only', true);
+        // Robust boolean coercion: accepts bools and strings like "false"/"0".
+        $raw      = config('core.settings.stub_only', true);
+        $coerced  = filter_var($raw, FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE);
+        $stubOnly = is_bool($coerced) ? $coerced : (bool) $raw;
+
         if ($stubOnly) {
             return response()->json([
                 'ok'       => true,
@@ -166,9 +184,8 @@ final class SettingsController extends Controller
     {
         $nested = [];
         foreach ($flat as $key => $messages) {
-            \Illuminate\Support\Arr::set($nested, $key, array_values($messages));
+            Arr::set($nested, $key, array_values($messages));
         }
         return $nested;
     }
 }
-
