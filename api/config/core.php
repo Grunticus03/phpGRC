@@ -3,9 +3,9 @@
 declare(strict_types=1);
 
 return [
-    // Feature toggle for Phase 1 tests: stub-only responses unless explicitly disabled.
+    // Phase 1: default to stub-only, but honor boolean env/overrides correctly.
     'settings' => [
-        'stub_only' => env('CORE_SETTINGS_STUB_ONLY', true),
+        'stub_only' => filter_var(env('CORE_SETTINGS_STUB_ONLY', true), FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) ?? true,
     ],
 
     'auth' => [
@@ -59,4 +59,3 @@ return [
         'format'  => env('CORE_AVATARS_FORMAT', 'webp'),
     ],
 ];
-

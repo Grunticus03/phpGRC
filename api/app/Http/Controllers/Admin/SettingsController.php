@@ -107,7 +107,8 @@ final class SettingsController extends Controller
 
         $accepted = $v->validated();
 
-        $stubOnly = (bool) config('core.settings.stub_only', true);
+        // Robust boolean read for env/config values like "false", "0", etc.
+        $stubOnly = filter_var((string) config('core.settings.stub_only', 'true'), FILTER_VALIDATE_BOOL);
 
         if ($stubOnly || !$this->settings->persistenceAvailable()) {
             return response()->json([
