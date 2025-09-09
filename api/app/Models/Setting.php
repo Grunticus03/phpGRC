@@ -1,19 +1,20 @@
 <?php
-
 declare(strict_types=1);
 
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-/**
- * Core settings overrides stored by dotted key (e.g., "core.audit.enabled").
- */
 final class Setting extends Model
 {
     protected $table = 'core_settings';
 
-    /** @var array<int, string> */
+    protected $primaryKey = 'key';
+    public $incrementing = false;
+    protected $keyType = 'string';
+
+    public $timestamps = true;
+
     protected $fillable = [
         'key',
         'value',
@@ -21,9 +22,8 @@ final class Setting extends Model
         'updated_by',
     ];
 
-    /** @var array<string, string> */
+    // Store JSON-encoded text; decode on read.
     protected $casts = [
-        'value' => 'json',
+        'value' => 'array',
     ];
 }
-
