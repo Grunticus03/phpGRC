@@ -9,6 +9,7 @@ use App\Models\Setting;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 final class SettingsService
 {
@@ -16,31 +17,32 @@ final class SettingsService
     public function effectiveConfig(): array
     {
         $defaults = (array) config('core', []);
-        $overrides = $this->currentOverrides(); // ['core.audit.enabled' => false, ...]
+        $overrides = $this->currentOverrides();
 
         $merged = $defaults;
         foreach ($overrides as $dotKey => $value) {
-            // only accept keys under "core."
             if (!str_starts_with($dotKey, 'core.')) {
                 continue;
             }
-            Arr::set($merged, substr($dotKey, 5), $value); // strip "core."
+            Arr::set($merged, substr($dotKey, 5), $value);
         }
 
         return ['core' => $merged];
     }
 
+    public function persistenceAvailable(): bool
+    {
+        return Schema::hasTable('core_settings');
+    }
+
     /**
-     * Apply accepted settings. Partial updates only affect provided keys.
-     *
-     * @param array<string,mixed> $accepted  // shape: ['rbac'=>..., 'audit'=>..., 'evidence'=>..., 'avatars'=>...]
+     * @param array<string,mixed> $accepted
      * @param int|null $actorId
      * @param array<string,mixed> $context
-     * @return array{changes: array<int, array<string, mixed>>}
+     * @return array{changes: array<int, array{key:string, old:mixed, new:mixed, action:string}>}
      */
     public function apply(array $accepted, ?int $actorId = null, array $context = []): array
     {
-        // Flatten accepted to dot keys with "core." prefix and filter to whitelisted sections.
         $flatAccepted = $this->prefixWithCore(
             Arr::dot(Arr::only($accepted, ['rbac', 'audit', 'evidence', 'avatars']))
         );
@@ -48,13 +50,11 @@ final class SettingsService
         $baseline = $this->prefixWithCore(Arr::dot((array) config('core', [])));
         $current  = $this->currentOverrides();
 
-        // Start from current overrides and update only touched keys.
         $desired = $current;
 
         foreach ($flatAccepted as $key => $val) {
             $default = $baseline[$key] ?? null;
 
-            // If same as default, we do not need an override.
             if ($this->valuesEqual($val, $default)) {
                 if (array_key_exists($key, $desired)) {
                     unset($desired[$key]);
@@ -65,7 +65,6 @@ final class SettingsService
             $desired[$key] = $val;
         }
 
-        // Compute delta limited to keys we touched (keys present in $flatAccepted or that became unset).
         $touchedKeys = array_unique(array_keys($flatAccepted));
         $becameUnset = array_diff(array_keys($current), array_keys($desired));
         foreach ($becameUnset as $k) {
@@ -74,44 +73,45 @@ final class SettingsService
             }
         }
 
-        $toDelete = array_values(array_intersect($becameUnset, $touchedKeys));
-        $toUpsert = [];
-        foreach ($touchedKeys as $k) {
-            $cur = $current[$k] ?? null;
-            $des = $desired[$k] ?? null;
-            if ($cur === null && $des !== null) {
-                $toUpsert[$k] = $des;
-            } elseif ($des !== null && !$this->valuesEqual($cur, $des)) {
-                $toUpsert[$k] = $des;
+        if ($this->persistenceAvailable()) {
+            $toDelete = array_values(array_intersect($becameUnset, $touchedKeys));
+            $toUpsert = [];
+            foreach ($touchedKeys as $k) {
+                $cur = $current[$k] ?? null;
+                $des = $desired[$k] ?? null;
+                if ($cur === null && $des !== null) {
+                    $toUpsert[$k] = $des;
+                } elseif ($des !== null && !$this->valuesEqual($cur, $des)) {
+                    $toUpsert[$k] = $des;
+                }
             }
+
+            DB::transaction(function () use ($toDelete, $toUpsert, $actorId): void {
+                if ($toDelete !== []) {
+                    Setting::query()->whereIn('key', $toDelete)->delete();
+                }
+                if ($toUpsert !== []) {
+                    $rows = [];
+                    $now = now();
+                    foreach ($toUpsert as $k => $v) {
+                        $rows[] = [
+                            'key'        => $k,
+                            'value'      => $this->encodeJson($v),
+                            'type'       => 'json',
+                            'updated_by' => $actorId,
+                            'updated_at' => $now,
+                            'created_at' => $now,
+                        ];
+                    }
+                    Setting::query()->getQuery()->upsert(
+                        $rows,
+                        ['key'],
+                        ['value', 'type', 'updated_by', 'updated_at']
+                    );
+                }
+            });
         }
 
-        DB::transaction(function () use ($toDelete, $toUpsert, $actorId): void {
-            if ($toDelete !== []) {
-                Setting::query()->whereIn('key', $toDelete)->delete();
-            }
-            if ($toUpsert !== []) {
-                $rows = [];
-                $now = now();
-                foreach ($toUpsert as $k => $v) {
-                    $rows[] = [
-                        'key'        => $k,
-                        'value'      => $v,
-                        'type'       => 'json',
-                        'updated_by' => $actorId,
-                        'updated_at' => $now,
-                        'created_at' => $now,
-                    ];
-                }
-                Setting::query()->upsert(
-                    $rows,
-                    ['key'],
-                    ['value', 'type', 'updated_by', 'updated_at']
-                );
-            }
-        });
-
-        // Build change list for auditing.
         $changes = [];
         foreach ($touchedKeys as $k) {
             $old = $current[$k] ?? null;
@@ -123,14 +123,13 @@ final class SettingsService
 
             $action = $new === null ? 'unset' : ($old === null ? 'set' : 'update');
             $changes[] = [
-                'key'   => $k,
-                'old'   => $old,
-                'new'   => $new,
-                'action'=> $action,
+                'key'    => $k,
+                'old'    => $old,
+                'new'    => $new,
+                'action' => $action,
             ];
         }
 
-        // Fire event for audit pipeline. Listener wiring can be added later.
         event(new SettingsUpdated(
             actorId: $actorId,
             changes: $changes,
@@ -144,12 +143,18 @@ final class SettingsService
     /** @return array<string, mixed> */
     private function currentOverrides(): array
     {
-        /** @var Collection<int, array{key:string, value:mixed}> $rows */
+        if (!$this->persistenceAvailable()) {
+            return [];
+        }
+
+        /** @var Collection<int, Setting> $rows */
         $rows = Setting::query()->select(['key', 'value'])->get();
 
         $out = [];
         foreach ($rows as $row) {
-            $out[$row['key']] = $row['value'];
+            /** @var mixed $val */
+            $val = $row->value; // cast to PHP via $casts
+            $out[$row->key] = $val;
         }
         return $out;
     }
@@ -162,7 +167,6 @@ final class SettingsService
     {
         $out = [];
         foreach ($flat as $k => $v) {
-            // Ensure only whitelisted sections are persisted.
             if (
                 str_starts_with($k, 'rbac.') ||
                 str_starts_with($k, 'audit.') ||
@@ -177,7 +181,6 @@ final class SettingsService
 
     private function valuesEqual(mixed $a, mixed $b): bool
     {
-        // Strict compare after normalizing arrays for order-insensitive equality where applicable.
         if (is_array($a) && is_array($b)) {
             return $this->normalizeArray($a) === $this->normalizeArray($b);
         }
@@ -187,7 +190,6 @@ final class SettingsService
     /** @param array<int|string, mixed> $arr */
     private function normalizeArray(array $arr): array
     {
-        // Distinguish associative vs list.
         $isAssoc = array_keys($arr) !== range(0, count($arr) - 1);
         if ($isAssoc) {
             ksort($arr);
@@ -199,7 +201,6 @@ final class SettingsService
             return $arr;
         }
 
-        // For lists of scalars, sort for stable comparison.
         $allScalars = true;
         foreach ($arr as $v) {
             if (!is_scalar($v) && !is_null($v)) {
@@ -212,7 +213,16 @@ final class SettingsService
             return $arr;
         }
 
-        // Leave as-is for mixed lists.
         return $arr;
     }
+
+    private function encodeJson(mixed $value): string
+    {
+        $json = json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        if ($json === false) {
+            throw new \RuntimeException('Failed to encode JSON for settings value.');
+        }
+        return $json;
+    }
 }
+

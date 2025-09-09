@@ -8,7 +8,6 @@ use Illuminate\Database\Eloquent\Model;
 
 /**
  * Core settings overrides stored by dotted key (e.g., "core.audit.enabled").
- * Only deviations from defaults are persisted.
  */
 final class Setting extends Model
 {

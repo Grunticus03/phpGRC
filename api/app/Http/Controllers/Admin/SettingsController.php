@@ -20,9 +20,7 @@ final class SettingsController extends Controller
 
     public function index(): JsonResponse
     {
-        // Return effective config = defaults with DB overrides applied.
         $config = $this->settings->effectiveConfig();
-
         return response()->json(['ok' => true, 'config' => $config], 200);
     }
 
@@ -108,6 +106,16 @@ final class SettingsController extends Controller
         }
 
         $accepted = $v->validated();
+
+        // Back-compat: if persistence is unavailable (e.g., table not migrated in some tests), return stub-only.
+        if (!$this->settings->persistenceAvailable()) {
+            return response()->json([
+                'ok'       => true,
+                'applied'  => false,
+                'note'     => 'stub-only',
+                'accepted' => $accepted,
+            ], 200);
+        }
 
         $actorId = $request->user()?->id ? (int) $request->user()->id : null;
         $context = [

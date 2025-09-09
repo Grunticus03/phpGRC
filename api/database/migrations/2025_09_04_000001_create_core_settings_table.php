@@ -11,9 +11,9 @@ return new class extends Migration {
     {
         Schema::create('core_settings', function (Blueprint $table): void {
             $table->bigIncrements('id');
-            $table->string('key', 191)->unique(); // dotted key, e.g., core.audit.retention_days
-            $table->json('value')->nullable();    // JSON-encoded scalar/array
-            $table->string('type', 32)->default('json'); // reserved
+            $table->string('key', 191)->unique();
+            $table->json('value')->nullable();
+            $table->string('type', 32)->default('json');
             $table->unsignedBigInteger('updated_by')->nullable();
             $table->timestamps();
 
@@ -26,4 +26,3 @@ return new class extends Migration {
         Schema::dropIfExists('core_settings');
     }
 };
-
