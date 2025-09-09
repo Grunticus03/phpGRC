@@ -3,9 +3,9 @@
 declare(strict_types=1);
 
 return [
-    // Phase 1: default to stub-only, but honor boolean env/overrides correctly.
+    // Persistence gate. Default OFF so tests can persist unless they enable stub-only.
     'settings' => [
-        'stub_only' => filter_var(env('CORE_SETTINGS_STUB_ONLY', true), FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) ?? true,
+        'stub_only' => filter_var(env('CORE_SETTINGS_STUB_ONLY', false), FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) ?? false,
     ],
 
     'auth' => [
