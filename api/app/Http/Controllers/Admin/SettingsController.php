@@ -28,46 +28,66 @@ final class SettingsController extends Controller
 
     public function update(UpdateSettingsRequest $request): JsonResponse
     {
-        $raw       = (array) $request->all(); // may include legacy { core: {...} }
-        $validated = (array) $request->validated();
-        $legacy    = is_array(Arr::get($raw, 'core')) ? (array) $raw['core'] : [];
+        // Raw payload (may be legacy { core: {...} } or flat)
+        $raw = (array) $request->all();
 
-        $accepted  = Arr::only($legacy + $validated, ['rbac', 'audit', 'evidence', 'avatars']);
+        // Normalize accepted sections from either legacy or flat payloads.
+        $validated  = (array) $request->validated();
+        $legacyCore = is_array(Arr::get($raw, 'core')) ? (array) $raw['core'] : [];
+        $accepted   = Arr::only($legacyCore + $validated, ['rbac', 'audit', 'evidence', 'avatars']);
 
-        // Explicit apply flag only. If absent/false => stub-only.
-        $applyRequested = false;
-        if ($request->has('apply')) {
-            $applyRequested = $request->boolean('apply');
-        }
-        if (Arr::has($raw, 'core.apply')) {
-            $v = Arr::get($raw, 'core.apply');
-            $applyRequested = $applyRequested || (is_bool($v) ? $v
-                : (is_int($v) ? $v === 1
-                : (is_string($v) ? in_array(strtolower($v), ['1','true','on','yes'], true) : false)));
-        }
+        $stubGate   = (bool) config('core.settings.stub_only', true);
+        $canPersist = $this->settings->persistenceAvailable();
 
-        // Ignore stub gate for explicit apply. Apply if table exists; else stub-only.
-        if ($applyRequested && $this->settings->persistenceAvailable()) {
-            $result = $this->settings->apply(
-                accepted: $accepted,
-                actorId: auth()->id() ?? null,
-                context: ['origin' => 'admin.settings']
-            );
-
+        // Respect stub gate always, or lack of storage.
+        if ($stubGate || !$canPersist) {
             return response()->json([
                 'ok'       => true,
-                'applied'  => true,
+                'applied'  => false,
+                'note'     => 'stub-only',
                 'accepted' => $accepted,
-                'changes'  => $result['changes'],
             ], 200);
         }
 
-        // Default: stub-only echo
+        // Determine if an explicit apply flag was provided.
+        $hasApplyRoot   = $request->has('apply');
+        $hasApplyLegacy = Arr::has($raw, 'core.apply');
+        $applyProvided  = $hasApplyRoot || $hasApplyLegacy;
+
+        // Parse apply value if provided; otherwise default to true in persistence mode.
+        $apply = true;
+        if ($applyProvided) {
+            $applyInput = $request->input('apply', Arr::get($raw, 'core.apply'));
+            $applyBool  = filter_var($applyInput, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+            if ($applyBool === null) {
+                $s = is_string($applyInput) ? strtolower($applyInput) : '';
+                $apply = in_array($s, ['1', 'true', 'on', 'yes'], true) || $applyInput === 1 || $applyInput === true;
+            } else {
+                $apply = $applyBool;
+            }
+        }
+
+        if (!$apply) {
+            return response()->json([
+                'ok'       => true,
+                'applied'  => false,
+                'note'     => 'stub-only',
+                'accepted' => $accepted,
+            ], 200);
+        }
+
+        // Persist overrides and report changes.
+        $result = $this->settings->apply(
+            accepted: $accepted,
+            actorId: auth()->id() ?? null,
+            context: ['origin' => 'admin.settings']
+        );
+
         return response()->json([
             'ok'       => true,
-            'applied'  => false,
-            'note'     => 'stub-only',
+            'applied'  => true,
             'accepted' => $accepted,
+            'changes'  => $result['changes'],
         ], 200);
     }
 }
