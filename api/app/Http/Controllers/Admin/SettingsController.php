@@ -46,11 +46,8 @@ final class SettingsController extends Controller
             $apply = $applyBool;
         }
 
-        // Global stub gate plus table availability.
-        $stubOnly = (bool) config('core.settings.stub_only', true);
-
-        // If not applying, or stub-only is on, or persistence unavailable => stub-only response.
-        if (!$apply || $stubOnly || !$this->settings->persistenceAvailable()) {
+        // Stub-only when not applying or persistence is unavailable.
+        if (!$apply || !$this->settings->persistenceAvailable()) {
             return response()->json([
                 'ok'       => true,
                 'applied'  => false,
@@ -74,3 +71,4 @@ final class SettingsController extends Controller
         ], 200);
     }
 }
+
