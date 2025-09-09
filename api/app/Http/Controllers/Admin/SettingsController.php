@@ -28,46 +28,27 @@ final class SettingsController extends Controller
 
     public function update(UpdateSettingsRequest $request): JsonResponse
     {
-        // Raw payload (may be legacy { core: {...} } or flat)
-        $raw = (array) $request->all();
+        $raw       = (array) $request->all(); // may be legacy { core: {...} }
+        $validated = (array) $request->validated();
+        $legacy    = is_array(Arr::get($raw, 'core')) ? (array) $raw['core'] : [];
 
-        // Normalize accepted sections from either legacy or flat payloads.
-        $validated  = (array) $request->validated();
-        $legacyCore = is_array(Arr::get($raw, 'core')) ? (array) $raw['core'] : [];
-        $accepted   = Arr::only($legacyCore + $validated, ['rbac', 'audit', 'evidence', 'avatars']);
+        $accepted  = Arr::only($legacy + $validated, ['rbac', 'audit', 'evidence', 'avatars']);
 
-        $stubGate   = (bool) config('core.settings.stub_only', true);
-        $canPersist = $this->settings->persistenceAvailable();
-
-        // Respect stub gate always, or lack of storage.
-        if ($stubGate || !$canPersist) {
-            return response()->json([
-                'ok'       => true,
-                'applied'  => false,
-                'note'     => 'stub-only',
-                'accepted' => $accepted,
-            ], 200);
-        }
-
-        // Determine if an explicit apply flag was provided.
-        $hasApplyRoot   = $request->has('apply');
-        $hasApplyLegacy = Arr::has($raw, 'core.apply');
-        $applyProvided  = $hasApplyRoot || $hasApplyLegacy;
-
-        // Parse apply value if provided; otherwise default to true in persistence mode.
-        $apply = true;
+        // Apply only if an explicit flag is present and truthy (root or legacy).
+        $applyProvided = $request->has('apply') || Arr::has($raw, 'core.apply');
+        $applyRequested = false;
         if ($applyProvided) {
-            $applyInput = $request->input('apply', Arr::get($raw, 'core.apply'));
-            $applyBool  = filter_var($applyInput, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
-            if ($applyBool === null) {
-                $s = is_string($applyInput) ? strtolower($applyInput) : '';
-                $apply = in_array($s, ['1', 'true', 'on', 'yes'], true) || $applyInput === 1 || $applyInput === true;
-            } else {
-                $apply = $applyBool;
+            $v = $request->input('apply', Arr::get($raw, 'core.apply'));
+            if (is_bool($v)) {
+                $applyRequested = $v;
+            } elseif (is_int($v)) {
+                $applyRequested = ($v === 1);
+            } elseif (is_string($v)) {
+                $applyRequested = in_array(strtolower($v), ['1', 'true', 'on', 'yes'], true);
             }
         }
 
-        if (!$apply) {
+        if (!$applyProvided || !$applyRequested || !$this->settings->persistenceAvailable()) {
             return response()->json([
                 'ok'       => true,
                 'applied'  => false,
@@ -76,7 +57,6 @@ final class SettingsController extends Controller
             ], 200);
         }
 
-        // Persist overrides and report changes.
         $result = $this->settings->apply(
             accepted: $accepted,
             actorId: auth()->id() ?? null,
