@@ -19,7 +19,6 @@ final class SettingsController extends Controller
     public function index(): JsonResponse
     {
         $effective = $this->settings->effectiveConfig(); // ['core' => [...]]
-
         return response()->json([
             'ok'     => true,
             'config' => ['core' => $effective['core']],
@@ -28,15 +27,24 @@ final class SettingsController extends Controller
 
     public function update(UpdateSettingsRequest $request): JsonResponse
     {
-        // Accept both flat and legacy { core: {...} } payloads.
-        $raw = $request->all();
+        // Raw payload (may be legacy { core: {...} } or flat)
+        $raw = (array) $request->all();
 
-        $accepted = Arr::has($raw, 'core') && is_array($raw['core'])
-            ? Arr::only((array) $raw['core'], ['rbac', 'audit', 'evidence', 'avatars'])
-            : Arr::only($request->validated(), ['rbac', 'audit', 'evidence', 'avatars']);
+        // Normalize accepted sections from either legacy or flat payloads.
+        $validated   = (array) $request->validated();
+        $legacyCore  = is_array(Arr::get($raw, 'core')) ? (array) $raw['core'] : [];
+        $accepted    = Arr::only($legacyCore + $validated, ['rbac', 'audit', 'evidence', 'avatars']);
 
-        // If persistence is not available, return stub-only per Phase-1 contract.
-        if (!$this->settings->persistenceAvailable()) {
+        // Discover the "apply" intent (default false). Accepts root or legacy core.apply.
+        $applyInput = $request->input('apply', Arr::get($raw, 'core.apply', false));
+        $applyBool  = filter_var($applyInput, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+        $apply      = $applyBool !== null ? $applyBool : (bool) $applyInput;
+
+        // Global stub gate plus table availability.
+        $stubOnly = (bool) config('core.settings.stub_only', true);
+
+        // If not applying, or stub-only is on, or persistence unavailable => stub-only response.
+        if (!$apply || $stubOnly || !$this->settings->persistenceAvailable()) {
             return response()->json([
                 'ok'       => true,
                 'applied'  => false,
