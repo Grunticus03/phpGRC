@@ -18,7 +18,7 @@ final class UpdateSettingsRequest extends FormRequest
     }
 
     /**
-     * Normalize legacy shape: { core: { ... } }  ->  top-level keys.
+     * Normalize legacy shape: { core: { ... } } -> top-level keys.
      */
     protected function prepareForValidation(): void
     {
@@ -34,15 +34,15 @@ final class UpdateSettingsRequest extends FormRequest
 
         return [
             // RBAC
-            'rbac'                => ['sometimes', 'array'],
-            'rbac.enabled'        => ['sometimes', 'boolean'],
-            'rbac.roles'          => ['sometimes', 'array', 'min:1'],
-            'rbac.roles.*'        => ['string', 'min:1', 'max:64'],
+            'rbac'         => ['sometimes', 'array'],
+            'rbac.enabled' => ['sometimes', 'boolean'],
+            'rbac.roles'   => ['sometimes', 'array', 'min:1'],
+            'rbac.roles.*' => ['string', 'min:1', 'max:64'],
 
             // Audit
-            'audit'                => ['sometimes', 'array'],
-            'audit.enabled'        => ['sometimes', 'boolean'],
-            'audit.retention_days' => ['sometimes', 'integer', 'min:1', 'max:730'],
+            'audit'                 => ['sometimes', 'array'],
+            'audit.enabled'         => ['sometimes', 'boolean'],
+            'audit.retention_days'  => ['sometimes', 'integer', 'min:1', 'max:730'],
 
             // Evidence
             'evidence'                => ['sometimes', 'array'],
@@ -58,29 +58,42 @@ final class UpdateSettingsRequest extends FormRequest
             'avatars.format'  => ['sometimes', Rule::in(['webp'])],
 
             // Optional switch to apply changes (default false)
-            'apply'           => ['sometimes', 'boolean'],
+            'apply' => ['sometimes', 'boolean'],
         ];
     }
 
     /**
-     * Return API-shaped validation errors expected by tests.
-     *  - code: VALIDATION_FAILED
-     *  - errors grouped by top-level section (rbac/audit/evidence/avatars)
+     * API-shaped validation errors expected by tests.
+     * - ok: false
+     * - code: VALIDATION_FAILED
+     * - errors nested by section and field, e.g. errors.avatars.size_px
      */
     protected function failedValidation(Validator $validator)
     {
         $fieldErrors = $validator->errors()->toArray();
 
-        // Group messages by the first segment (e.g. "avatars" from "avatars.size_px")
-        $grouped = [];
+        $errors = [];
         foreach ($fieldErrors as $key => $messages) {
-            $top = explode('.', $key, 2)[0];
-            $grouped[$top] = array_values(array_unique(array_merge($grouped[$top] ?? [], $messages)));
+            $parts   = explode('.', $key);
+            $section = $parts[0] ?? '_';
+            // collapse numeric indexes so rbac.roles.0 -> errors.rbac.roles
+            $field = $parts[1] ?? '';
+            if ($field === '' || is_numeric($field)) {
+                $field = $parts[1] ?? $section;
+            }
+            // handle three-level keys like evidence.allowed_mime.1 -> allowed_mime
+            if (isset($parts[2]) && is_numeric($parts[2])) {
+                // keep $field from index 1
+            }
+
+            $existing = $errors[$section][$field] ?? [];
+            $errors[$section][$field] = array_values(array_unique(array_merge($existing, $messages)));
         }
 
         throw new HttpResponseException(response()->json([
+            'ok'      => false,
             'code'    => 'VALIDATION_FAILED',
-            'errors'  => $grouped,
+            'errors'  => $errors,
             'message' => $validator->errors()->first(),
         ], 422));
     }

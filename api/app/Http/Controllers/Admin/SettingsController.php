@@ -40,11 +40,8 @@ final class SettingsController extends Controller
         $applyBool  = filter_var($applyInput, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
         $apply      = $applyBool !== null ? $applyBool : (bool) $applyInput;
 
-        // Global stub gate plus table availability.
-        $stubOnly = (bool) config('core.settings.stub_only', true);
-
-        // If not applying, or stub-only is on, or persistence unavailable => stub-only response.
-        if (!$apply || $stubOnly || !$this->settings->persistenceAvailable()) {
+        // If not applying or persistence unavailable => stub-only response.
+        if (!$apply || !$this->settings->persistenceAvailable()) {
             return response()->json([
                 'ok'       => true,
                 'applied'  => false,
