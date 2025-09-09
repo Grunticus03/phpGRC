@@ -33,47 +33,44 @@ final class SettingsController extends Controller
         $legacy    = is_array(Arr::get($raw, 'core')) ? (array) $raw['core'] : [];
         $accepted  = Arr::only($legacy + $validated, ['rbac', 'audit', 'evidence', 'avatars']);
 
-        // Determine method: POST => default apply=false; PUT/PATCH => default apply=true
-        $method = strtoupper($request->getMethod());
-        $defaultApply = in_array($method, ['PUT', 'PATCH'], true);
+        // Default comes from stub gate: true => stub-only, false => apply.
+        $stubOnly = (bool) config('core.settings.stub_only', true);
+        $apply    = !$stubOnly;
 
-        // Parse explicit apply if provided (root or legacy core.apply)
-        $applyProvided = $request->has('apply') || Arr::has($raw, 'core.apply');
-        $apply = $defaultApply;
-        if ($applyProvided) {
+        // If request explicitly provides apply (root or legacy), honor it.
+        if ($request->has('apply') || Arr::has($raw, 'core.apply')) {
             $v = $request->input('apply', Arr::get($raw, 'core.apply'));
             if (is_bool($v)) {
                 $apply = $v;
             } elseif (is_int($v)) {
                 $apply = ($v === 1);
             } elseif (is_string($v)) {
-                $apply = in_array(strtolower($v), ['1', 'true', 'on', 'yes'], true);
-            } else {
-                $apply = $defaultApply;
+                $apply = in_array(strtolower($v), ['1','true','on','yes'], true);
             }
         }
 
-        // Persist only if storage is available and apply=true
-        if ($apply && $this->settings->persistenceAvailable()) {
-            $result = $this->settings->apply(
-                accepted: $accepted,
-                actorId: auth()->id() ?? null,
-                context: ['origin' => 'admin.settings']
-            );
-
+        // If we are not applying or persistence isn't available, echo stub-only.
+        if (!$apply || !$this->settings->persistenceAvailable()) {
             return response()->json([
                 'ok'       => true,
-                'applied'  => true,
+                'applied'  => false,
+                'note'     => 'stub-only',
                 'accepted' => $accepted,
-                'changes'  => $result['changes'],
             ], 200);
         }
 
+        // Persist and report changes.
+        $result = $this->settings->apply(
+            accepted: $accepted,
+            actorId: auth()->id() ?? null,
+            context: ['origin' => 'admin.settings']
+        );
+
         return response()->json([
             'ok'       => true,
-            'applied'  => false,
-            'note'     => 'stub-only',
+            'applied'  => true,
             'accepted' => $accepted,
+            'changes'  => $result['changes'],
         ], 200);
     }
 }
