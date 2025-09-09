@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Admin;
 
+use App\Services\Settings\SettingsService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
@@ -13,32 +14,14 @@ use Illuminate\Validation\Rule;
 
 final class SettingsController extends Controller
 {
+    public function __construct(private readonly SettingsService $settings)
+    {
+    }
+
     public function index(): JsonResponse
     {
-        $config = [
-            'core' => [
-                'rbac' => [
-                    'enabled' => (bool) config('core.rbac.enabled', true),
-                    'roles'   => (array) config('core.rbac.roles', ['Admin', 'Auditor', 'Risk Manager', 'User']),
-                ],
-                'audit' => [
-                    'enabled'        => (bool) config('core.audit.enabled', true),
-                    'retention_days' => (int) config('core.audit.retention_days', 365),
-                ],
-                'evidence' => [
-                    'enabled'      => (bool) config('core.evidence.enabled', true),
-                    'max_mb'       => (int) config('core.evidence.max_mb', 25),
-                    'allowed_mime' => (array) config('core.evidence.allowed_mime', [
-                        'application/pdf', 'image/png', 'image/jpeg', 'text/plain',
-                    ]),
-                ],
-                'avatars' => [
-                    'enabled' => (bool) config('core.avatars.enabled', true),
-                    'size_px' => (int) config('core.avatars.size_px', 128),
-                    'format'  => (string) config('core.avatars.format', 'webp'),
-                ],
-            ],
-        ];
+        // Return effective config = defaults with DB overrides applied.
+        $config = $this->settings->effectiveConfig();
 
         return response()->json(['ok' => true, 'config' => $config], 200);
     }
@@ -114,7 +97,6 @@ final class SettingsController extends Controller
             $errors = $this->nestErrors($v->errors()->toArray());
 
             if ($isLegacy) {
-                // Legacy-shape tests expect only "errors" at root.
                 return response()->json(['errors' => $errors], 422);
             }
 
@@ -127,11 +109,19 @@ final class SettingsController extends Controller
 
         $accepted = $v->validated();
 
+        $actorId = $request->user()?->id ? (int) $request->user()->id : null;
+        $context = [
+            'ip'         => $request->ip(),
+            'user_agent' => (string) $request->userAgent(),
+        ];
+
+        $result = $this->settings->apply($accepted, $actorId, $context);
+
         return response()->json([
             'ok'       => true,
-            'applied'  => false,
-            'note'     => 'stub-only',
+            'applied'  => true,
             'accepted' => $accepted,
+            'changes'  => $result['changes'],
         ], 200);
     }
 
@@ -143,8 +133,9 @@ final class SettingsController extends Controller
     {
         $nested = [];
         foreach ($flat as $key => $messages) {
-            Arr::set($nested, $key, array_values($messages));
+            \Illuminate\Support\Arr::set($nested, $key, array_values($messages));
         }
         return $nested;
     }
 }
+

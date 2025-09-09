@@ -13,6 +13,7 @@ use Illuminate\Routing\Controller;
  * GET  /api/rbac/roles → list scaffold roles from config.
  * POST /api/rbac/roles → validate payload, no persistence, echo stub.
  */
+
 final class RolesController extends Controller
 {
     public function index(): JsonResponse
