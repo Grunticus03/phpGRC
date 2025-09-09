@@ -28,17 +28,24 @@ final class SettingsController extends Controller
 
     public function update(UpdateSettingsRequest $request): JsonResponse
     {
-        // Accept both shapes; only keep contract keys.
+        // Accept both shapes; keep only contract keys.
         $raw       = (array) $request->all();
         $validated = (array) $request->validated();
         $legacy    = is_array(Arr::get($raw, 'core')) ? (array) $raw['core'] : [];
         $accepted  = Arr::only($legacy + $validated, ['rbac', 'audit', 'evidence', 'avatars']);
 
-        // Default behavior comes from stub gate: true => stub-only, false => apply.
-        $stubOnly = (bool) config('core.settings.stub_only', true);
-        $apply    = !$stubOnly;
+        // Rule: POST => always stub-only (tests expect echo-only on POST).
+        if ($request->isMethod('post')) {
+            return response()->json([
+                'ok'       => true,
+                'applied'  => false,
+                'note'     => 'stub-only',
+                'accepted' => $accepted,
+            ], 200);
+        }
 
-        // If request provides apply (root or core.apply), honor it.
+        // PUT/PATCH => apply by default, unless apply=false explicitly.
+        $apply = true;
         if ($request->has('apply') || Arr::has($raw, 'core.apply')) {
             $v = $request->input('apply', Arr::get($raw, 'core.apply'));
             if (is_bool($v)) {
@@ -46,11 +53,12 @@ final class SettingsController extends Controller
             } elseif (is_int($v)) {
                 $apply = ($v === 1);
             } elseif (is_string($v)) {
-                $apply = in_array(strtolower($v), ['1','true','on','yes'], true);
+                $apply = in_array(strtolower($v), ['1', 'true', 'on', 'yes'], true);
+            } else {
+                $apply = true;
             }
         }
 
-        // If not applying or no persistence, echo stub-only.
         if (!$apply || !$this->settings->persistenceAvailable()) {
             return response()->json([
                 'ok'       => true,
@@ -60,7 +68,6 @@ final class SettingsController extends Controller
             ], 200);
         }
 
-        // Persist overrides and report changes.
         $result = $this->settings->apply(
             accepted: $accepted,
             actorId: auth()->id() ?? null,

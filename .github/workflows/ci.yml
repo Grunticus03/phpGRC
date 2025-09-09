@@ -130,6 +130,9 @@ jobs:
           QUEUE_CONNECTION: sync
         run: php artisan migrate --no-interaction --force
 
+      - name: Sanitize env
+        run: unset CORE_SETTINGS_STUB_ONLY || true
+
       - name: PHPUnit
         env:
           APP_ENV: testing
