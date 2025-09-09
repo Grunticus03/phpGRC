@@ -89,6 +89,8 @@ Route::prefix('/admin')
             ->defaults('roles', ['Admin']);
         Route::put('/settings',  [SettingsController::class, 'update'])
             ->defaults('roles', ['Admin']);
+        Route::patch('/settings', [SettingsController::class, 'update'])
+            ->defaults('roles', ['Admin']);
     });
 
 /*

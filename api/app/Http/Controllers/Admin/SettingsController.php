@@ -33,27 +33,27 @@ final class SettingsController extends Controller
         $legacy    = is_array(Arr::get($raw, 'core')) ? (array) $raw['core'] : [];
         $accepted  = Arr::only($legacy + $validated, ['rbac', 'audit', 'evidence', 'avatars']);
 
-        // Parse explicit apply flag if present (root or core.apply).
-        $hasApply = $request->has('apply') || Arr::has($raw, 'core.apply');
-        $applyRequested = false;
-        if ($hasApply) {
+        // Determine method: POST => default apply=false; PUT/PATCH => default apply=true
+        $method = strtoupper($request->getMethod());
+        $defaultApply = in_array($method, ['PUT', 'PATCH'], true);
+
+        // Parse explicit apply if provided (root or legacy core.apply)
+        $applyProvided = $request->has('apply') || Arr::has($raw, 'core.apply');
+        $apply = $defaultApply;
+        if ($applyProvided) {
             $v = $request->input('apply', Arr::get($raw, 'core.apply'));
             if (is_bool($v)) {
-                $applyRequested = $v;
+                $apply = $v;
             } elseif (is_int($v)) {
-                $applyRequested = ($v === 1);
+                $apply = ($v === 1);
             } elseif (is_string($v)) {
-                $applyRequested = in_array(strtolower($v), ['1','true','on','yes'], true);
+                $apply = in_array(strtolower($v), ['1', 'true', 'on', 'yes'], true);
+            } else {
+                $apply = $defaultApply;
             }
         }
 
-        // Verb-driven default:
-        // - POST: default apply = false (stub-only) unless explicit true.
-        // - PUT:  default apply = true (persist) unless explicit false.
-        $isPut = $request->isMethod('PUT');
-        $apply = $isPut ? !$hasApply || $applyRequested : $applyRequested;
-
-        // Only persist when table exists.
+        // Persist only if storage is available and apply=true
         if ($apply && $this->settings->persistenceAvailable()) {
             $result = $this->settings->apply(
                 accepted: $accepted,
@@ -69,7 +69,6 @@ final class SettingsController extends Controller
             ], 200);
         }
 
-        // Stub-only echo
         return response()->json([
             'ok'       => true,
             'applied'  => false,
