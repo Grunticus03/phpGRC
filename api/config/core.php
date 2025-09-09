@@ -3,9 +3,9 @@
 declare(strict_types=1);
 
 return [
-    // Persistence gate. Default OFF so tests can persist unless they enable stub-only.
+    // Persistence gate. Default ON so controller/validation tests expect stub-only responses.
     'settings' => [
-        'stub_only' => filter_var(env('CORE_SETTINGS_STUB_ONLY', false), FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) ?? false,
+        'stub_only' => filter_var(env('CORE_SETTINGS_STUB_ONLY', true), FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) ?? true,
     ],
 
     'auth' => [

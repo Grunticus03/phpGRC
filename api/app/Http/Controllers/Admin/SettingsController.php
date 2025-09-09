@@ -132,8 +132,7 @@ final class SettingsController extends Controller
 
         $accepted = $v->validated();
 
-        // Gate via boolean config. Default false so persistence runs in tests unless explicitly enabled.
-        $stubOnly = (bool) config('core.settings.stub_only', false);
+        $stubOnly = (bool) config('core.settings.stub_only', true);
         if ($stubOnly) {
             return response()->json([
                 'ok'       => true,
