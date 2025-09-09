@@ -16,15 +16,20 @@ final class SettingsService
     /** @return array{core: array<string, mixed>} */
     public function effectiveConfig(): array
     {
-        $defaults = (array) config('core', []);
+        $defaults  = (array) config('core', []);
         $overrides = $this->currentOverrides();
 
-        $merged = $defaults;
+        // Merge defaults + overrides (only for contract keys)
+        $merged = $this->filterForContract($defaults);
+
         foreach ($overrides as $dotKey => $value) {
             if (!str_starts_with($dotKey, 'core.')) {
                 continue;
             }
-            Arr::set($merged, substr($dotKey, 5), $value);
+            $sub = substr($dotKey, 5); // rbac.enabled etc
+            if ($this->isContractKey($sub)) {
+                Arr::set($merged, $sub, $value);
+            }
         }
 
         return ['core' => $merged];
@@ -47,7 +52,7 @@ final class SettingsService
             Arr::dot(Arr::only($accepted, ['rbac', 'audit', 'evidence', 'avatars']))
         );
 
-        $baseline = $this->prefixWithCore(Arr::dot((array) config('core', [])));
+        $baseline = $this->prefixWithCore(Arr::dot($this->filterForContract((array) config('core', []))));
         $current  = $this->currentOverrides();
 
         $desired = $current;
@@ -65,10 +70,12 @@ final class SettingsService
             $desired[$key] = $val;
         }
 
-        $touchedKeys = array_unique(array_keys($flatAccepted));
+        $touchedKeys = array_keys($flatAccepted);
+        $touchedKeys = array_values(array_unique($touchedKeys));
+
         $becameUnset = array_diff(array_keys($current), array_keys($desired));
         foreach ($becameUnset as $k) {
-            if (in_array($k, $touchedKeys, true)) {
+            if (!in_array($k, $touchedKeys, true)) {
                 $touchedKeys[] = $k;
             }
         }
@@ -79,9 +86,10 @@ final class SettingsService
             foreach ($touchedKeys as $k) {
                 $cur = $current[$k] ?? null;
                 $des = $desired[$k] ?? null;
-                if ($cur === null && $des !== null) {
-                    $toUpsert[$k] = $des;
-                } elseif ($des !== null && !$this->valuesEqual($cur, $des)) {
+                if ($des === null) {
+                    continue;
+                }
+                if ($cur === null || !$this->valuesEqual($cur, $des)) {
                     $toUpsert[$k] = $des;
                 }
             }
@@ -223,6 +231,40 @@ final class SettingsService
             throw new \RuntimeException('Failed to encode JSON for settings value.');
         }
         return $json;
+    }
+
+    /** @return array<string,mixed> */
+    private function filterForContract(array $core): array
+    {
+        $core = Arr::only($core, ['rbac', 'audit', 'evidence', 'avatars']);
+
+        $rbac = Arr::only((array) ($core['rbac'] ?? []), ['enabled', 'roles']);
+        $audit = Arr::only((array) ($core['audit'] ?? []), ['enabled', 'retention_days']);
+        $evidence = Arr::only((array) ($core['evidence'] ?? []), ['enabled', 'max_mb', 'allowed_mime']);
+        $avatars = Arr::only((array) ($core['avatars'] ?? []), ['enabled', 'size_px', 'format']);
+
+        return [
+            'rbac'     => $rbac,
+            'audit'    => $audit,
+            'evidence' => $evidence,
+            'avatars'  => $avatars,
+        ];
+    }
+
+    private function isContractKey(string $subKey): bool
+    {
+        return in_array($subKey, [
+            'rbac.enabled',
+            'rbac.roles',
+            'audit.enabled',
+            'audit.retention_days',
+            'evidence.enabled',
+            'evidence.max_mb',
+            'evidence.allowed_mime',
+            'avatars.enabled',
+            'avatars.size_px',
+            'avatars.format',
+        ], true);
     }
 }
 

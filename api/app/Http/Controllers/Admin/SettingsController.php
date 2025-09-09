@@ -107,8 +107,9 @@ final class SettingsController extends Controller
 
         $accepted = $v->validated();
 
-        // Back-compat: if persistence is unavailable (e.g., table not migrated in some tests), return stub-only.
-        if (!$this->settings->persistenceAvailable()) {
+        $stubOnly = (bool) config('core.settings.stub_only', true);
+
+        if ($stubOnly || !$this->settings->persistenceAvailable()) {
             return response()->json([
                 'ok'       => true,
                 'applied'  => false,

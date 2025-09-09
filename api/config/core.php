@@ -3,6 +3,11 @@
 declare(strict_types=1);
 
 return [
+    // Feature toggle for Phase 1 tests: stub-only responses unless explicitly disabled.
+    'settings' => [
+        'stub_only' => env('CORE_SETTINGS_STUB_ONLY', true),
+    ],
+
     'auth' => [
         'local' => [
             'enabled' => env('CORE_AUTH_LOCAL_ENABLED', true),
@@ -54,3 +59,4 @@ return [
         'format'  => env('CORE_AVATARS_FORMAT', 'webp'),
     ],
 ];
+
