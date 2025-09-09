@@ -20,48 +20,14 @@ final class SettingsController extends Controller
 
     public function index(): JsonResponse
     {
-        // Canonical contract shape only.
-        $config = [
-            'core' => [
-                'rbac' => [
-                    'enabled' => (bool) config('core.rbac.enabled', true),
-                    'roles'   => (array) config('core.rbac.roles', ['Admin', 'Auditor', 'Risk Manager', 'User']),
-                ],
-                'audit' => [
-                    'enabled'        => (bool) config('core.audit.enabled', true),
-                    'retention_days' => (int) config('core.audit.retention_days', 365),
-                ],
-                'evidence' => [
-                    'enabled'      => (bool) config('core.evidence.enabled', true),
-                    'max_mb'       => (int) config('core.evidence.max_mb', 25),
-                    'allowed_mime' => (array) config('core.evidence.allowed_mime', [
-                        'application/pdf', 'image/png', 'image/jpeg', 'text/plain',
-                    ]),
-                ],
-                'avatars' => [
-                    'enabled' => (bool) config('core.avatars.enabled', true),
-                    'size_px' => (int) config('core.avatars.size_px', 128),
-                    'format'  => (string) config('core.avatars.format', 'webp'),
-                ],
-            ],
-        ];
+        // Use the public API; it already merges defaults + DB overrides
+        // and filters to the contract keys.
+        $effective = $this->settings->effectiveConfig(); // ['core' => [...]]
 
-        // Reflect persisted overrides into the contract shape.
-        $overrides = $this->settings->currentOverrides(); // flat: ['core.audit.retention_days' => 180, ...]
-        foreach ($overrides as $key => $value) {
-            if (!is_string($key) || !str_starts_with($key, 'core.')) {
-                continue;
-            }
-            $path = substr($key, 5); // strip 'core.'
-            $top = explode('.', $path, 2)[0] ?? null;
-            if (!in_array($top, ['rbac', 'audit', 'evidence', 'avatars'], true)) {
-                continue; // never leak non-contract keys like rbac.require_auth
-            }
-            // Update nested value within our prepared $config.
-            data_set($config['core'], $path, $value);
-        }
-
-        return response()->json(['ok' => true, 'config' => $config], 200);
+        return response()->json([
+            'ok'     => true,
+            'config' => ['core' => $effective['core']],
+        ], 200);
     }
 
     public function update(Request $request): JsonResponse
