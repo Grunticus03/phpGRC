@@ -36,33 +36,27 @@ final class SettingsController extends Controller
         $legacyCore = is_array(Arr::get($raw, 'core')) ? (array) $raw['core'] : [];
         $accepted   = Arr::only($legacyCore + $validated, ['rbac', 'audit', 'evidence', 'avatars']);
 
-        // Global stub gate and storage availability.
-        $stubOnly = (bool) config('core.settings.stub_only', true);
-        if ($stubOnly || !$this->settings->persistenceAvailable()) {
-            return response()->json([
-                'ok'       => true,
-                'applied'  => false,
-                'note'     => 'stub-only',
-                'accepted' => $accepted,
-            ], 200);
+        // Explicit apply flag only. If absent or false => stub-only.
+        $applyRequested = false;
+        if ($request->has('apply')) {
+            $applyRequested = $request->boolean('apply');
         }
-
-        // Determine apply. If flag provided, honor it. If absent, default to true when stub gate is off.
-        $applyFlagProvided = $request->has('apply') || Arr::has($raw, 'core.apply');
-        $applyInput = $request->input('apply', Arr::get($raw, 'core.apply', true));
-        if ($applyFlagProvided === false) {
-            $apply = true; // default-on in persistence mode
-        } else {
-            $applyBool = filter_var($applyInput, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
-            if ($applyBool === null) {
-                $s = is_string($applyInput) ? strtolower($applyInput) : '';
-                $apply = in_array($s, ['1', 'true', 'on', 'yes'], true) || $applyInput === 1 || $applyInput === true;
-            } else {
-                $apply = $applyBool;
+        if (Arr::has($raw, 'core.apply')) {
+            $v = Arr::get($raw, 'core.apply');
+            if (is_bool($v)) {
+                $applyRequested = $applyRequested || $v;
+            } elseif (is_int($v)) {
+                $applyRequested = $applyRequested || ($v === 1);
+            } elseif (is_string($v)) {
+                $applyRequested = $applyRequested || in_array(strtolower($v), ['1', 'true', 'on', 'yes'], true);
             }
         }
 
-        if (!$apply) {
+        // Stub-only unless explicit apply AND persistence enabled AND stub gate off.
+        $stubGate = (bool) config('core.settings.stub_only', true);
+        $canPersist = $this->settings->persistenceAvailable();
+
+        if (!$applyRequested || $stubGate || !$canPersist) {
             return response()->json([
                 'ok'       => true,
                 'applied'  => false,
