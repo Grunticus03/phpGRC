@@ -8,6 +8,13 @@ use Tests\TestCase;
 
 final class ExportsApiTest extends TestCase
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+        // Force stub-only path regardless of migrated tables or other tests.
+        config(['core.exports.enabled' => false]);
+    }
+
     /** @test */
     public function create_type_accepts_csv_json_pdf_and_echoes_params(): void
     {
