@@ -15,8 +15,8 @@ use Illuminate\Support\Facades\Storage;
 use Throwable;
 
 /**
- * Phase 4: CSV generator for CORE-008.
- * Writes an artifact for type=csv when persistence is enabled.
+ * Phase 4: CSV + JSON generator for CORE-008.
+ * Writes an artifact for type=csv or type=json when persistence is enabled.
  */
 final class GenerateExport implements ShouldQueue
 {
@@ -48,48 +48,54 @@ final class GenerateExport implements ShouldQueue
                 $export->save();
             }
 
-            // Only CSV is implemented at this step
-            if ($export->type !== 'csv') {
+            // Resolve disk/path base
+            $disk = (string) config('core.exports.disk', config('filesystems.default', 'local'));
+            $dir  = trim((string) config('core.exports.dir', 'exports'), '/');
+            Storage::disk($disk)->makeDirectory($dir);
+
+            $nowUtc    = CarbonImmutable::now('UTC')->format('c');
+            $params    = (array) ($export->params ?? []);
+            $artifact  = '';
+            $mime      = '';
+            $path      = '';
+
+            if ($export->type === 'csv') {
+                $rows = [
+                    ['export_id', 'generated_at', 'type', 'param_count'],
+                    [$export->id, $nowUtc, $export->type, (string) count($params)],
+                ];
+                foreach ($params as $k => $v) {
+                    $rows[] = ['param_key', (string) $k, 'param_value', is_scalar($v) ? (string) $v : json_encode($v, JSON_UNESCAPED_SLASHES)];
+                }
+                $artifact = self::toCsv($rows);
+                $mime     = 'text/csv';
+                $path     = "{$dir}/{$export->id}.csv";
+            } elseif ($export->type === 'json') {
+                $payload = [
+                    'export_id'    => $export->id,
+                    'generated_at' => $nowUtc,
+                    'type'         => $export->type,
+                    'params'       => $params,
+                ];
+                $artifact = (string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+                $mime     = 'application/json';
+                $path     = "{$dir}/{$export->id}.json";
+            } else {
                 $export->error_code = 'EXPORT_TYPE_UNSUPPORTED';
-                $export->error_note = 'Only CSV supported in Phase 4 step.';
+                $export->error_note = 'Only CSV and JSON supported in Phase 4 step.';
                 $this->failExport($export);
                 return;
             }
 
-            // Resolve disk/path
-            $disk = (string) config('core.exports.disk', config('filesystems.default', 'local'));
-            $dir  = trim((string) config('core.exports.dir', 'exports'), '/');
-            $path = "{$dir}/{$export->id}.csv";
-
-            // Ensure directory exists
-            Storage::disk($disk)->makeDirectory($dir);
-
-            // Produce deterministic CSV payload
-            $nowUtc = CarbonImmutable::now('UTC')->format('c');
-            $params = (array) ($export->params ?? []);
-            $paramCount = count($params);
-
-            $rows = [
-                ['export_id', 'generated_at', 'type', 'param_count'],
-                [$export->id, $nowUtc, $export->type, (string) $paramCount],
-            ];
-
-            // Optional: include flattened params as key/value rows for traceability
-            foreach ($params as $k => $v) {
-                $rows[] = ['param_key', (string) $k, 'param_value', is_scalar($v) ? (string) $v : json_encode($v, JSON_UNESCAPED_SLASHES)];
-            }
-
-            $csv = self::toCsv($rows);
-
             // Write artifact
-            Storage::disk($disk)->put($path, $csv);
+            Storage::disk($disk)->put($path, $artifact);
 
             // Capture metadata
             $export->artifact_disk   = $disk;
             $export->artifact_path   = $path;
-            $export->artifact_mime   = 'text/csv';
-            $export->artifact_size   = strlen($csv);
-            $export->artifact_sha256 = hash('sha256', $csv);
+            $export->artifact_mime   = $mime;
+            $export->artifact_size   = strlen($artifact);
+            $export->artifact_sha256 = hash('sha256', $artifact);
 
             // Complete
             $export->progress = 100;
@@ -124,7 +130,6 @@ final class GenerateExport implements ShouldQueue
 
     private function failExport(Export $export): void
     {
-        // Fall back if model lacks markFailed()
         if (method_exists($export, 'markFailed')) {
             $export->markFailed();
         } else {
