@@ -17,6 +17,7 @@ final class SettingsController extends Controller
     public function index(): JsonResponse
     {
         $effective = $this->settings->effectiveConfig();
+
         return response()->json([
             'ok'     => true,
             'config' => ['core' => $effective['core']],
@@ -31,18 +32,15 @@ final class SettingsController extends Controller
         $legacy    = is_array(Arr::get($raw, 'core')) ? (array) $raw['core'] : [];
         $accepted  = Arr::only($legacy + $validated, ['rbac', 'audit', 'evidence', 'avatars']);
 
-        // 1) If explicit apply provided (root or core.apply), honor it.
-        $hasApply = $request->has('apply') || Arr::has($raw, 'core.apply');
-        if ($hasApply) {
-            $v = $request->input('apply', Arr::get($raw, 'core.apply'));
+        // Apply ONLY when an explicit flag is present and truthy (root or legacy core.apply).
+        $apply = false;
+        if ($request->has('apply')) {
+            $apply = $request->boolean('apply');
+        } elseif (Arr::has($raw, 'core.apply')) {
+            $v = Arr::get($raw, 'core.apply');
             $apply = is_bool($v) ? $v
                 : (is_int($v) ? $v === 1
                 : (is_string($v) && in_array(strtolower($v), ['1','true','on','yes'], true)));
-        } else {
-            // 2) Else: apply when method is PUT/PATCH OR stub gate is OFF.
-            $isPutPatch = in_array(strtoupper($request->getMethod()), ['PUT','PATCH'], true);
-            $stubOnly   = (bool) config('core.settings.stub_only', true);
-            $apply      = $isPutPatch || !$stubOnly;
         }
 
         if (!$apply || !$this->settings->persistenceAvailable()) {
