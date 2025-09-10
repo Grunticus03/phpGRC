@@ -134,7 +134,6 @@ final class GenerateExport implements ShouldQueue
     {
         $header = "%PDF-1.4\n";
 
-        // Content stream
         $stream = "BT\n/F1 12 Tf\n72 720 Td\n(" . self::pdfEscape($text) . ") Tj\nET\n";
         $obj1 = "1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj\n";
         $obj2 = "2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj\n";
@@ -148,7 +147,7 @@ final class GenerateExport implements ShouldQueue
         $offsets = [];
         $pos = strlen($header);
         foreach ($objects as $i => $obj) {
-            $n = $i + 1; // object number
+            $n = $i + 1;
             $offsets[$n] = $pos;
             $body .= $obj;
             $pos = strlen($header) + strlen($body);
@@ -169,8 +168,8 @@ final class GenerateExport implements ShouldQueue
     private static function pdfEscape(string $s): string
     {
         return str_replace(
-            [ "\\", "(", ")" ],
-            [ "\\\\", "\\(", "\\)" ],
+            ["\\", "(", ")"],
+            ["\\\\", "\\(", "\\)"],
             $s
         );
     }
@@ -181,7 +180,7 @@ final class GenerateExport implements ShouldQueue
             $export->markFailed();
         } else {
             $export->status    = 'failed';
-            $export->failed_at = Carbon\CarbonImmutable::now('UTC');
+            $export->failed_at = CarbonImmutable::now('UTC');
             $export->save();
         }
     }
