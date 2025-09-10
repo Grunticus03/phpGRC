@@ -99,4 +99,4 @@
 - [x] Docs/specs/tests updated for settings/audit/evidence
 - [x] CI green
 - [ ] Fine-grained RBAC policies + UI role management
-- [ ] Settings persistence + audited apply
+- [x] Settings persistence + audited apply
