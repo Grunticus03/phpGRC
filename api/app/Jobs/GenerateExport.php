@@ -15,8 +15,7 @@ use Illuminate\Support\Facades\Storage;
 use Throwable;
 
 /**
- * Phase 4: CSV + JSON generator for CORE-008.
- * Writes an artifact for type=csv or type=json when persistence is enabled.
+ * CORE-008: CSV + JSON + PDF generator.
  */
 final class GenerateExport implements ShouldQueue
 {
@@ -35,11 +34,9 @@ final class GenerateExport implements ShouldQueue
             return;
         }
 
-        // Move to running
         $export->markRunning();
 
         try {
-            // Simulate staged progress
             foreach ([30, 60, 90] as $p) {
                 if ($export->status !== 'running') {
                     return;
@@ -48,16 +45,16 @@ final class GenerateExport implements ShouldQueue
                 $export->save();
             }
 
-            // Resolve disk/path base
             $disk = (string) config('core.exports.disk', config('filesystems.default', 'local'));
             $dir  = trim((string) config('core.exports.dir', 'exports'), '/');
             Storage::disk($disk)->makeDirectory($dir);
 
-            $nowUtc    = CarbonImmutable::now('UTC')->format('c');
-            $params    = (array) ($export->params ?? []);
-            $artifact  = '';
-            $mime      = '';
-            $path      = '';
+            $nowUtc = CarbonImmutable::now('UTC')->format('c');
+            $params = (array) ($export->params ?? []);
+
+            $artifact = '';
+            $mime     = '';
+            $path     = '';
 
             if ($export->type === 'csv') {
                 $rows = [
@@ -80,24 +77,26 @@ final class GenerateExport implements ShouldQueue
                 $artifact = (string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
                 $mime     = 'application/json';
                 $path     = "{$dir}/{$export->id}.json";
+            } elseif ($export->type === 'pdf') {
+                $text = "phpGRC export {$export->id} {$nowUtc}";
+                $artifact = self::minimalPdf($text);
+                $mime     = 'application/pdf';
+                $path     = "{$dir}/{$export->id}.pdf";
             } else {
                 $export->error_code = 'EXPORT_TYPE_UNSUPPORTED';
-                $export->error_note = 'Only CSV and JSON supported in Phase 4 step.';
+                $export->error_note = 'Supported types: csv, json, pdf.';
                 $this->failExport($export);
                 return;
             }
 
-            // Write artifact
             Storage::disk($disk)->put($path, $artifact);
 
-            // Capture metadata
             $export->artifact_disk   = $disk;
             $export->artifact_path   = $path;
             $export->artifact_mime   = $mime;
             $export->artifact_size   = strlen($artifact);
             $export->artifact_sha256 = hash('sha256', $artifact);
 
-            // Complete
             $export->progress = 100;
             $export->save();
             $export->markCompleted();
@@ -128,13 +127,61 @@ final class GenerateExport implements ShouldQueue
         return $out;
     }
 
+    /**
+     * Generate a valid minimal one-page PDF with a text line.
+     */
+    private static function minimalPdf(string $text): string
+    {
+        $header = "%PDF-1.4\n";
+
+        // Content stream
+        $stream = "BT\n/F1 12 Tf\n72 720 Td\n(" . self::pdfEscape($text) . ") Tj\nET\n";
+        $obj1 = "1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj\n";
+        $obj2 = "2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj\n";
+        $obj3 = "3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >> endobj\n";
+        $obj4 = "4 0 obj << /Length " . strlen($stream) . " >> stream\n{$stream}endstream\nendobj\n";
+        $obj5 = "5 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj\n";
+
+        $objects = [$obj1, $obj2, $obj3, $obj4, $obj5];
+
+        $body = '';
+        $offsets = [];
+        $pos = strlen($header);
+        foreach ($objects as $i => $obj) {
+            $n = $i + 1; // object number
+            $offsets[$n] = $pos;
+            $body .= $obj;
+            $pos = strlen($header) + strlen($body);
+        }
+
+        $xref = "xref\n0 6\n";
+        $xref .= "0000000000 65535 f \n";
+        for ($i = 1; $i <= 5; $i++) {
+            $xref .= sprintf("%010d 00000 n \n", $offsets[$i]);
+        }
+
+        $startxref = strlen($header) + strlen($body);
+        $trailer = "trailer << /Size 6 /Root 1 0 R >>\nstartxref\n{$startxref}\n%%EOF";
+
+        return $header . $body . $xref . $trailer;
+    }
+
+    private static function pdfEscape(string $s): string
+    {
+        return str_replace(
+            [ "\\", "(", ")" ],
+            [ "\\\\", "\\(", "\\)" ],
+            $s
+        );
+    }
+
     private function failExport(Export $export): void
     {
         if (method_exists($export, 'markFailed')) {
             $export->markFailed();
         } else {
             $export->status    = 'failed';
-            $export->failed_at = CarbonImmutable::now('UTC');
+            $export->failed_at = Carbon\CarbonImmutable::now('UTC');
             $export->save();
         }
     }
