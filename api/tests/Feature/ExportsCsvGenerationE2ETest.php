@@ -37,10 +37,11 @@ final class ExportsCsvGenerationE2ETest extends TestCase
             ->assertJsonPath('status', 'completed')
             ->assertJsonPath('jobId', $jobId);
 
-        // Download should succeed with CSV content-type
+        // Download should succeed with CSV content-type (allow charset suffix)
         $dl = $this->get("/api/exports/{$jobId}/download");
         $dl->assertOk();
-        $dl->assertHeader('content-type', 'text/csv');
+        $ctype = strtolower((string) $dl->headers->get('content-type'));
+        $this->assertStringStartsWith('text/csv', $ctype);
 
         // Body should contain header line
         $this->assertStringContainsString('export_id,generated_at,type,param_count', (string) $dl->getContent());
