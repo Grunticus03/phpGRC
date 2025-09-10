@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Models\Export;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
@@ -16,6 +17,7 @@ final class ExportsCsvGenerationE2ETest extends TestCase
         // Enable persistence and sync queue for immediate job execution
         config(['core.exports.enabled' => true]);
         config(['queue.default' => 'sync']);
+        config(['filesystems.default' => 'local']);
 
         // Run migrations so 'exports' table exists
         Artisan::call('migrate', ['--force' => true]);
@@ -37,14 +39,21 @@ final class ExportsCsvGenerationE2ETest extends TestCase
             ->assertJsonPath('status', 'completed')
             ->assertJsonPath('jobId', $jobId);
 
-        // Download should succeed with CSV content-type (allow charset suffix)
+        // Download should succeed; allow charset suffix
         $dl = $this->get("/api/exports/{$jobId}/download");
         $dl->assertOk();
         $ctype = strtolower((string) $dl->headers->get('content-type'));
         $this->assertStringStartsWith('text/csv', $ctype);
+        $this->assertStringContainsString("filename=export-{$jobId}.csv", (string) $dl->headers->get('content-disposition'));
 
-        // Body should contain header line
-        $this->assertStringContainsString('export_id,generated_at,type,param_count', (string) $dl->getContent());
+        // Read artifact from storage and validate content
+        /** @var Export $export */
+        $export = Export::query()->findOrFail($jobId);
+        $disk = $export->artifact_disk ?: 'local';
+        $this->assertTrue(Storage::disk($disk)->exists((string) $export->artifact_path));
+        $csv = Storage::disk($disk)->get((string) $export->artifact_path);
+
+        $this->assertStringContainsString('export_id,generated_at,type,param_count', $csv);
     }
 }
 
