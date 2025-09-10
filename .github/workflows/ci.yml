@@ -50,6 +50,13 @@ jobs:
           coverage: none
           tools: composer:v2
 
+      - name: Assert parallel prerequisites
+        run: |
+          php -r 'echo "disable_functions=",ini_get("disable_functions"),PHP_EOL;'
+          php -r 'echo "proc_open:",function_exists("proc_open")?"ok":"DISABLED",PHP_EOL;'
+          php -r 'echo "pcntl:",extension_loaded("pcntl")?"on":"off",PHP_EOL;'
+          php -r 'echo "xdebug:",extension_loaded("xdebug")?"on":"off",PHP_EOL;'
+
       - name: Install MySQL client
         run: sudo apt-get update && sudo apt-get install -y mysql-client
 
@@ -59,7 +66,7 @@ jobs:
             storage/app \
             storage/framework/cache storage/framework/sessions storage/framework/views \
             storage/logs
-          : > .env  # empty
+          touch .env
 
       - name: Composer cache
         uses: actions/cache@v4
@@ -83,9 +90,29 @@ jobs:
           mysql -h 127.0.0.1 -uroot -e "CREATE USER IF NOT EXISTS 'phpgrc'@'%' IDENTIFIED BY 'secret';"
           mysql -h 127.0.0.1 -uroot -e "GRANT ALL ON phpgrc_test.* TO 'phpgrc'@'%'; FLUSH PRIVILEGES;"
 
-      # Wipe any cached config that could pin stub_only=false
-      - name: Clear config cache
-        run: php artisan config:clear || true
+      - name: Pint
+        run: vendor/bin/pint -v
+
+      - name: PHPStan
+        run: vendor/bin/phpstan analyse --memory-limit=-1
+
+      - name: Psalm
+        env:
+          APP_ENV: testing
+          APP_DEBUG: "true"
+          APP_KEY: base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+          DB_CONNECTION: mysql
+          DB_HOST: 127.0.0.1
+          DB_PORT: "3306"
+          DB_DATABASE: phpgrc_test
+          DB_USERNAME: phpgrc
+          DB_PASSWORD: secret
+          CACHE_DRIVER: array
+          SESSION_DRIVER: array
+          QUEUE_CONNECTION: sync
+        run: |
+          THREADS=$(nproc --all || echo 4)
+          vendor/bin/psalm --threads="$THREADS" --scan-threads="$THREADS" --no-diff --long-progress
 
       - name: Migrate (testing)
         env:
@@ -102,27 +129,6 @@ jobs:
           SESSION_DRIVER: array
           QUEUE_CONNECTION: sync
         run: php artisan migrate --no-interaction --force
-
-      # Prove the live value the tests will see
-      - name: Sanity check stub_only
-        env:
-          APP_ENV: testing
-          APP_DEBUG: "true"
-          APP_KEY: base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
-          DB_CONNECTION: mysql
-          DB_HOST: 127.0.0.1
-          DB_PORT: "3306"
-          DB_DATABASE: phpgrc_test
-          DB_USERNAME: phpgrc
-          DB_PASSWORD: secret
-          CACHE_DRIVER: array
-          SESSION_DRIVER: array
-          QUEUE_CONNECTION: sync
-        run: |
-          php -r 'require "vendor/autoload.php";
-            $app = require __DIR__."/bootstrap/app.php";
-            $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
-            echo "core.settings.stub_only=".(config("core.settings.stub_only")?"true":"false"), PHP_EOL;'
 
       - name: PHPUnit
         env:
