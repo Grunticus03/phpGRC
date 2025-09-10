@@ -23,9 +23,6 @@ final class GenerateExport implements ShouldQueue
     use Queueable;
     use SerializesModels;
 
-    /** @var string */
-    public $queue = 'exports';
-
     public function __construct(public readonly string $exportId) {}
 
     public function handle(): void
