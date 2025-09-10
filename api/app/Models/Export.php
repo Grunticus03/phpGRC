@@ -43,12 +43,12 @@ final class Export extends Model
 
     /** @var array<string, string> */
     protected $casts = [
-        'params'       => 'array',
-        'progress'     => 'integer',
-        'artifact_size'=> 'integer',
-        'created_at'   => 'immutable_datetime',
-        'completed_at' => 'immutable_datetime',
-        'failed_at'    => 'immutable_datetime',
+        'params'        => 'array',
+        'progress'      => 'integer',
+        'artifact_size' => 'integer',
+        'created_at'    => 'immutable_datetime',
+        'completed_at'  => 'immutable_datetime',
+        'failed_at'     => 'immutable_datetime',
     ];
 
     public static function newId(): string
@@ -69,7 +69,7 @@ final class Export extends Model
             'params'     => $params,
             'status'     => 'pending',
             'progress'   => 0,
-            'created_at' => now(),
+            'created_at' => now()->toImmutable(),
         ]);
     }
 
@@ -84,7 +84,7 @@ final class Export extends Model
     {
         $this->status = 'completed';
         $this->progress = 100;
-        $this->completed_at = now();
+        $this->completed_at = now()->toImmutable();
         $this->save();
     }
 
@@ -92,9 +92,10 @@ final class Export extends Model
     {
         $this->status = 'failed';
         $this->progress = 0;
-        $this->failed_at = now();
+        $this->failed_at = now()->toImmutable();
         $this->error_code = $code;
         $this->error_note = $note;
         $this->save();
     }
 }
+
