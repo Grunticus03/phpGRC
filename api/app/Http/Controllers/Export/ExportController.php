@@ -14,12 +14,14 @@ final class ExportController extends Controller
 {
     public function __construct(private readonly ExportService $service = new ExportService()) {}
 
+    private function persistenceOn(): bool
+    {
+        return (bool) config('core.exports.enabled', false) && Schema::hasTable('exports');
+    }
+
     /**
      * POST /api/exports (legacy)
      * Body: { "type": "csv"|"json"|"pdf", "params": {...} }
-     * Behavior:
-     *  - If exports table exists, enqueue real job and return jobId.
-     *  - Otherwise, retain Phase-4 stub behavior.
      */
     public function create(Request $request): JsonResponse
     {
@@ -37,7 +39,7 @@ final class ExportController extends Controller
         ]);
         $params = (array) ($validated['params'] ?? []);
 
-        if (Schema::hasTable('exports')) {
+        if ($this->persistenceOn()) {
             $export = $this->service->enqueue($type, $params);
 
             return response()->json([
@@ -48,7 +50,6 @@ final class ExportController extends Controller
             ], 202);
         }
 
-        // Fallback stub (table not present in this phase)
         return response()->json([
             'ok'     => true,
             'jobId'  => 'exp_stub_0001',
@@ -59,9 +60,8 @@ final class ExportController extends Controller
     }
 
     /**
-     * POST /api/exports/{type} (spec-preferred)
+     * POST /api/exports/{type}
      * Body: { "params": {...} }
-     * Behavior mirrors create().
      */
     public function createType(Request $request, string $type): JsonResponse
     {
@@ -78,7 +78,7 @@ final class ExportController extends Controller
         ]);
         $params = (array) ($validated['params'] ?? []);
 
-        if (Schema::hasTable('exports')) {
+        if ($this->persistenceOn()) {
             $export = $this->service->enqueue($type, $params);
 
             return response()->json([
@@ -89,7 +89,6 @@ final class ExportController extends Controller
             ], 202);
         }
 
-        // Fallback stub
         return response()->json([
             'ok'     => true,
             'jobId'  => 'exp_stub_0001',
