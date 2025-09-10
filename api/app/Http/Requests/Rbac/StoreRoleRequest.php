@@ -25,7 +25,7 @@ final class StoreRoleRequest extends FormRequest
             'name' => [
                 'required',
                 'string',
-                'min:1',
+                'min:2',
                 'max:64',
                 Rule::notIn($existing), // pretend-unique against current config list
             ],
@@ -37,7 +37,7 @@ final class StoreRoleRequest extends FormRequest
         return [
             'name.required' => 'Role name is required.',
             'name.string'   => 'Role name must be a string.',
-            'name.min'      => 'Role name cannot be empty.',
+            'name.min'      => 'Role name must be at least 2 characters.',
             'name.max'      => 'Role name must be at most 64 characters.',
             'name.not_in'   => 'Role already exists.',
         ];
