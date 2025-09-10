@@ -95,7 +95,7 @@ Route::prefix('/admin')
 
 /*
  |--------------------------------------------------------------------------
- | Exports stubs (Phase 4)
+ | Exports stubs (Phase 4) + CSV download when persistence on
  |--------------------------------------------------------------------------
 */
 Route::prefix('/exports')->group(function (): void {
@@ -143,3 +143,4 @@ Route::match(['GET','HEAD'], '/evidence/{id}', [EvidenceController::class, 'show
  |--------------------------------------------------------------------------
 */
 Route::post('/avatar', [AvatarController::class, 'store']);
+
