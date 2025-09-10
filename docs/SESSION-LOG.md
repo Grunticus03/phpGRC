@@ -393,3 +393,21 @@ Use it to maintain a permanent, auditable record of all work across phases.
 - Phase/Step status: Phase 4 continuing; CORE-003 “Settings persistence + audited apply” complete.
 - Next action (you): Merge to main; keep `CORE_SETTINGS_STUB_ONLY` unset in CI; snapshot dev.
 - Next action (me): Start CORE-008 exports job model + file generation scaffold, then proceed to CORE-004 fine-grained policies/UI.
+
+### Session 2025-09-09: Phase 4 — Exports job model + queue scaffold
+- Context: Implement CORE-008 scaffolding without changing public stub behavior.
+- Goal: Add Export model, queue job, service, guarded wiring in controllers, expanded migration; keep tests green.
+- Constraints: Deterministic outputs, CI guardrails, maintain stub responses unless explicitly enabled.
+
+# Closeout
+- Deliverables produced:
+  - `/api/app/Models/Export.php` with immutable timestamps and helpers.
+  - `/api/app/Jobs/GenerateExport.php` queued worker (no `$queue` prop; tags provided).
+  - `/api/app/Services/Export/ExportService.php` with `enqueue()` and `onQueue('exports')`.
+  - Expanded migration `*_create_exports_table.php` with artifact and error fields.
+  - Controllers updated to gate persistence behind `config('core.exports.enabled') && Schema::hasTable('exports')`.
+  - Static ID tests preserved; PHPStan, Psalm, and PHPUnit all green.
+- Phase/Step status: Phase 4 advancing; CORE-008 scaffold complete, generators/download pending.
+- Next action (you): None required now.
+- Next action (me): Implement CSV generator + artifact storage + download endpoint, then extend to JSON/PDF and RBAC guards.
+
