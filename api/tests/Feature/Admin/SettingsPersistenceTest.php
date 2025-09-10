@@ -30,9 +30,9 @@ final class SettingsPersistenceTest extends TestCase
 
     public function test_update_sets_and_unsets_overrides(): void
     {
-        // Baseline default in config/core.php is enabled=true.
-        // 1) Disable => should persist override.
+        // 1) Disable => persist override (explicit apply)
         $res1 = $this->json('POST', '/api/admin/settings', [
+            'apply' => true,
             'audit' => ['enabled' => false],
         ]);
         $res1->assertStatus(200)->assertJson(['ok' => true, 'applied' => true]);
@@ -41,8 +41,9 @@ final class SettingsPersistenceTest extends TestCase
             'key' => 'core.audit.enabled',
         ]);
 
-        // 2) Revert to default => override removed.
+        // 2) Revert to default => remove override (explicit apply)
         $res2 = $this->json('POST', '/api/admin/settings', [
+            'apply' => true,
             'audit' => ['enabled' => true],
         ]);
         $res2->assertStatus(200)->assertJson(['ok' => true, 'applied' => true]);
@@ -61,19 +62,21 @@ final class SettingsPersistenceTest extends TestCase
             'type'  => 'json',
         ]);
 
-        // Update only audit section.
+        // Update only audit section with explicit apply.
         $this->json('POST', '/api/admin/settings', [
+            'apply' => true,
             'audit' => ['retention_days' => 180],
-        ])->assertStatus(200);
+        ])->assertStatus(200)->assertJson(['ok' => true, 'applied' => true]);
 
         // Evidence override remains.
         $this->assertDatabaseHas('core_settings', [
             'key' => 'core.evidence.max_mb',
         ]);
 
-        // Audit override persisted if different from default.
+        // Audit override persisted (different from default 365).
         $this->assertDatabaseHas('core_settings', [
             'key' => 'core.audit.retention_days',
         ]);
     }
 }
+
