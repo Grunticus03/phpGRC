@@ -37,6 +37,15 @@ return [
         ],
     ],
 
+    // Capability flags. Nested to allow config('core.capabilities.core.exports.generate').
+    'capabilities' => [
+        'core' => [
+            'exports' => [
+                'generate' => env('CAP_CORE_EXPORTS_GENERATE', true),
+            ],
+        ],
+    ],
+
     'audit' => [
         'enabled' => env('CORE_AUDIT_ENABLED', true),
         'retention_days' => env('CORE_AUDIT_RETENTION_DAYS', 365),
@@ -58,4 +67,12 @@ return [
         'size_px' => env('CORE_AVATARS_SIZE_PX', 128),
         'format'  => env('CORE_AVATARS_FORMAT', 'webp'),
     ],
+
+    // Exports defaults used by generator
+    'exports' => [
+        'enabled' => env('CORE_EXPORTS_ENABLED', true),
+        'disk'    => env('CORE_EXPORTS_DISK', env('FILESYSTEM_DISK', 'local')),
+        'dir'     => env('CORE_EXPORTS_DIR', 'exports'),
+    ],
 ];
+

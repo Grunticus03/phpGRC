@@ -18,8 +18,21 @@ final class RbacMiddleware
         $request->attributes->set('rbac_enabled', $enabled);
 
         $route = $request->route();
-        if (! $enabled || $route === null) {
+        if (!$enabled || $route === null) {
             return $next($request);
+        }
+
+        // Optional capability flag on the route. Blocks even before auth/roles.
+        $capKey = $route->defaults['capability'] ?? null;
+        if (is_string($capKey) && $capKey !== '') {
+            $capEnabled = (bool) config('core.capabilities.' . $capKey, true);
+            if (!$capEnabled) {
+                return response()->json([
+                    'ok'         => false,
+                    'code'       => 'CAPABILITY_DISABLED',
+                    'capability' => $capKey,
+                ], 403);
+            }
         }
 
         $declared = $route->defaults['roles'] ?? [];
@@ -34,9 +47,9 @@ final class RbacMiddleware
 
         $requireAuth = (bool) config('core.rbac.require_auth', false);
 
-        if (! $user) {
+        if (!$user) {
             if ($requireAuth) {
-                throw new AuthenticationException(); // -> 401 JSON from your handler
+                throw new AuthenticationException(); // -> 401 by handler
             }
             // Phase-4 anonymous passthrough
             return $next($request);
@@ -46,6 +59,7 @@ final class RbacMiddleware
             return $next($request);
         }
 
-        return response()->json(['ok'=>false,'code'=>'FORBIDDEN','message'=>'Forbidden'], 403);
+        return response()->json(['ok' => false, 'code' => 'FORBIDDEN', 'message' => 'Forbidden'], 403);
     }
 }
+

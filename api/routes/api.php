@@ -95,15 +95,24 @@ Route::prefix('/admin')
 
 /*
  |--------------------------------------------------------------------------
- | Exports stubs (Phase 4) + CSV download when persistence on
+ | Exports (Phase 4) — enforce RBAC; creation also gated by capability
  |--------------------------------------------------------------------------
 */
-Route::prefix('/exports')->group(function (): void {
-    Route::post('/{type}',           [ExportController::class, 'createType']);
-    Route::post('/',                 [ExportController::class, 'create']);
-    Route::get('/{jobId}/status',    [StatusController::class, 'show']);
-    Route::get('/{jobId}/download',  [ExportController::class, 'download']);
-});
+Route::prefix('/exports')
+    ->middleware($rbacStack)
+    ->group(function (): void {
+        Route::post('/{type}', [ExportController::class, 'createType'])
+            ->defaults('roles', ['Admin'])
+            ->defaults('capability', 'core.exports.generate');
+        Route::post('/', [ExportController::class, 'create'])
+            ->defaults('roles', ['Admin'])
+            ->defaults('capability', 'core.exports.generate');
+
+        Route::get('/{jobId}/status', [StatusController::class, 'show'])
+            ->defaults('roles', ['Admin', 'Auditor']);
+        Route::get('/{jobId}/download', [ExportController::class, 'download'])
+            ->defaults('roles', ['Admin', 'Auditor']);
+    });
 
 /*
  |--------------------------------------------------------------------------
