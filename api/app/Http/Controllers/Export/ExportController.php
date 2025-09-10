@@ -4,16 +4,22 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Export;
 
+use App\Services\Export\ExportService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
+use Illuminate\Support\Facades\Schema;
 
 final class ExportController extends Controller
 {
+    public function __construct(private readonly ExportService $service = new ExportService()) {}
+
     /**
      * POST /api/exports (legacy)
      * Body: { "type": "csv"|"json"|"pdf", "params": {...} }
-     * Stub: returns a fixed jobId and echoes type/params.
+     * Behavior:
+     *  - If exports table exists, enqueue real job and return jobId.
+     *  - Otherwise, retain Phase-4 stub behavior.
      */
     public function create(Request $request): JsonResponse
     {
@@ -26,23 +32,36 @@ final class ExportController extends Controller
             ], 422);
         }
 
-        $request->validate([
+        $validated = $request->validate([
             'params' => ['sometimes', 'array'],
         ]);
+        $params = (array) ($validated['params'] ?? []);
 
+        if (Schema::hasTable('exports')) {
+            $export = $this->service->enqueue($type, $params);
+
+            return response()->json([
+                'ok'     => true,
+                'jobId'  => $export->id,
+                'type'   => $type,
+                'params' => $params,
+            ], 202);
+        }
+
+        // Fallback stub (table not present in this phase)
         return response()->json([
-            'ok'    => true,
-            'jobId' => 'exp_stub_0001',
-            'type'  => $type,
-            'params'=> $request->input('params', new \stdClass()),
-            'note'  => 'stub-only',
+            'ok'     => true,
+            'jobId'  => 'exp_stub_0001',
+            'type'   => $type,
+            'params' => $params ?: new \stdClass(),
+            'note'   => 'stub-only',
         ], 202);
     }
 
     /**
      * POST /api/exports/{type} (spec-preferred)
      * Body: { "params": {...} }
-     * Stub: returns a fixed jobId and echoes type/params.
+     * Behavior mirrors create().
      */
     public function createType(Request $request, string $type): JsonResponse
     {
@@ -54,30 +73,44 @@ final class ExportController extends Controller
             ], 422);
         }
 
-        $request->validate([
+        $validated = $request->validate([
             'params' => ['sometimes', 'array'],
         ]);
+        $params = (array) ($validated['params'] ?? []);
 
+        if (Schema::hasTable('exports')) {
+            $export = $this->service->enqueue($type, $params);
+
+            return response()->json([
+                'ok'     => true,
+                'jobId'  => $export->id,
+                'type'   => $type,
+                'params' => $params,
+            ], 202);
+        }
+
+        // Fallback stub
         return response()->json([
-            'ok'    => true,
-            'jobId' => 'exp_stub_0001',
-            'type'  => $type,
-            'params'=> $request->input('params', new \stdClass()),
-            'note'  => 'stub-only',
+            'ok'     => true,
+            'jobId'  => 'exp_stub_0001',
+            'type'   => $type,
+            'params' => $params ?: new \stdClass(),
+            'note'   => 'stub-only',
         ], 202);
     }
 
     /**
      * GET /api/exports/{jobId}/download
-     * Stub: always not ready.
+     * Phase 4: always not ready.
      */
     public function download(string $jobId): JsonResponse
     {
         return response()->json([
-            'ok'   => false,
-            'code' => 'EXPORT_NOT_READY',
-            'note' => 'stub-only',
-            'jobId'=> $jobId,
+            'ok'    => false,
+            'code'  => 'EXPORT_NOT_READY',
+            'note'  => 'stub-only',
+            'jobId' => $jobId,
         ], 404);
     }
 }
+

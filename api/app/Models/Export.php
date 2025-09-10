@@ -1,0 +1,100 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Str;
+
+/**
+ * Phase 4: Export job record (scaffold).
+ * Compatible with migration (id, type, params, status, progress, artifact_*, created_at, completed_at, failed_at).
+ */
+final class Export extends Model
+{
+    protected $table = 'exports';
+
+    /** String PK (ULID). */
+    public $incrementing = false;
+    protected $keyType = 'string';
+
+    /** Manual timestamps; we manage created_at/completed_at/failed_at explicitly. */
+    public $timestamps = false;
+
+    /** @var array<int, string> */
+    protected $fillable = [
+        'id',
+        'type',
+        'params',
+        'status',
+        'progress',
+        'artifact_disk',
+        'artifact_path',
+        'artifact_mime',
+        'artifact_size',
+        'artifact_sha256',
+        'created_at',
+        'completed_at',
+        'failed_at',
+        'error_code',
+        'error_note',
+    ];
+
+    /** @var array<string, string> */
+    protected $casts = [
+        'params'       => 'array',
+        'progress'     => 'integer',
+        'artifact_size'=> 'integer',
+        'created_at'   => 'immutable_datetime',
+        'completed_at' => 'immutable_datetime',
+        'failed_at'    => 'immutable_datetime',
+    ];
+
+    public static function newId(): string
+    {
+        return (string) Str::ulid();
+    }
+
+    /**
+     * Create a pending export.
+     *
+     * @param array<string,mixed> $params
+     */
+    public static function createPending(string $type, array $params = []): self
+    {
+        return self::query()->create([
+            'id'         => self::newId(),
+            'type'       => $type,
+            'params'     => $params,
+            'status'     => 'pending',
+            'progress'   => 0,
+            'created_at' => now(),
+        ]);
+    }
+
+    public function markRunning(): void
+    {
+        $this->status = 'running';
+        $this->progress = max((int) ($this->progress ?? 0), 10);
+        $this->save();
+    }
+
+    public function markCompleted(): void
+    {
+        $this->status = 'completed';
+        $this->progress = 100;
+        $this->completed_at = now();
+        $this->save();
+    }
+
+    public function markFailed(string $code = 'INTERNAL_ERROR', string $note = ''): void
+    {
+        $this->status = 'failed';
+        $this->progress = 0;
+        $this->failed_at = now();
+        $this->error_code = $code;
+        $this->error_note = $note;
+        $this->save();
+    }
+}
