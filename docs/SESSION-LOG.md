@@ -370,65 +370,26 @@ Use it to maintain a permanent, auditable record of all work across phases.
 
 ---
 
-### Session 2025-09-08: Phase 4 — RBAC Testing
-# Closeout
-- Deliverables produced:
-  - RBAC+Sanctum integration (middleware/auth config/route stack)
-  - Local-only dev bootstrap for deterministic PATs
-  - Idempotent RolesSeeder
-  - Corrected Role pivot
-  - Updated core RBAC defaults
-  - Tests relocated/fixed
-- Phase/Step status:
-  - Phase 4 — In progress
-    - ✅ RBAC enforcement + role-binding
-    - ✅ Audit/Evidence stubs/persistence per scope
-    - ⏳ Settings persistence + audited apply
-    - ⏳ Exports job model + artifacts.
-- Next action (you):
-  - Lock envs (CORE_RBAC_ENABLED/REQUIRE_AUTH true)
-  - Seed roles across envs
-  - Rotate/store Admin/Auditor PATs in secrets
-  - Ensure /api/dev/bootstrap is local-only
-  - Note new flows in ops docs.
-- Next action (me):
-  - Implement Settings persistence + audited apply (schema/service/controller/audit/tests) and open PR
-  - Exports job model + artifact generation with tests and docs.
-
-### Session 2025-09-09: Phase 4 — Settings persistence + CI stabilization
-- Context: PHPUnit failures around `applied` semantics, stub-gate env leakage, and missing DB migrations in CI.
-- Goal: Make CI green across Pint, PHPStan, Psalm, PHPUnit. Lock the Settings API contract and align tests.
-- Constraints: No scope creep. Follow Charter/STYLEGUIDE. Preserve legacy `{ core: {...} }` shape. Security-first.
+### Session 2025-09-08: Phase 4 Settings Persistence (apply plan)
+- Context: Move from echo-only to persisted overrides.
+- Goal: Implement `SettingsService::apply` with diff logic and events.
+- Constraints: Contract keys only; persistence gated by table presence.
 
 # Closeout
-- Deliverables produced:
-  - **Controllers**
-    - `api/app/Http/Controllers/Admin/SettingsController.php` — explicit-apply contract; accepts flat and legacy shapes; returns envelopes (`ok`, `applied`, `accepted`, `changes` or `note: "stub-only"`); persistence gated by table presence only.
-  - **Requests/Validation**
-    - `api/app/Http/Requests/Admin/UpdateSettingsRequest.php` — normalization of legacy shape; strict rules for `rbac/audit/evidence/avatars`; custom 422 envelope grouped at top-level sections.
-  - **Services/Model/Migration**
-    - `api/app/Services/Settings/SettingsService.php` — `effectiveConfig()`, `apply()` with contract-key filter, idempotent merge/unset, `SettingsUpdated` event, JSON upsert.
-    - `api/app/Models/Setting.php` — JSON cast, string PK `key`.
-    - `api/database/migrations/2025_09_04_000001_create_core_settings_table.php` — `core_settings` table.
-  - **Config/Routes**
-    - `api/config/core.php` — defaults incl. canonical MIME list.
-    - `api/routes/api.php` — GET/POST/PUT/PATCH `/api/admin/settings` wired.
-  - **CI & Test Harness**
-    - `api/phpunit.xml` — no `CORE_SETTINGS_STUB_ONLY`.
-    - `.github/workflows/ci.yml` — MySQL service + migrate step, config clear, sanity echo of `core.settings.stub_only`, PHPUnit + Pint + PHPStan + Psalm restored.
-    - Tests updated: `tests/Feature/Admin/SettingsPersistenceTest.php` now uses `apply=true` for persistence assertions.
-- Decisions recorded:
-  - **API contract**: Stub-only by default. Persist only when request includes an explicit truthy `apply` flag (root or `core.apply`). HTTP verb does not alter apply. Persistence requires `core_settings` to exist.
-  - **Validation contract**: Legacy shape supported. 422 envelope groups errors by top-level section. Avatars `size_px`=128 only, `format`=`webp`. Evidence MIME must be in canonical list.
-  - **CI rule**: Never set `CORE_SETTINGS_STUB_ONLY` in CI. Always run migrations before PHPUnit.
-- Risks/assumptions:
-  - If additional settings keys are added without updating the contract filter, they will be ignored. Mitigation: add keys to `SettingsService::isContractKey()` and validation rules.
-  - `SettingsUpdated` event has no persistent audit sink yet. Mitigation: wire listener in Phase 4 audit tasks.
-- Evidence:
-  - GitHub Actions: all jobs green. PHPUnit: 94 tests, 0 failures. Pint, PHPStan, Psalm passing.
-- Next action (you):
-  - Keep CI env free of `CORE_SETTINGS_STUB_ONLY`.
-  - Add secrets rotation notes to ops docs if needed.
-- Next action (me):
-  - Add regression tests for `apply=false` and legacy `core.apply=true`.
-  - Implement audit listener to persist `SettingsUpdated` into the audit trail.
+- Deliverables produced: `SettingsService::apply` with diffing, `SettingsUpdated` event, feature tests, config gates.
+- Phase/Step status: Settings persistence logic implemented.
+- Next action (you): Keep CI free of `CORE_SETTINGS_STUB_ONLY`; ensure migrations run before PHPUnit.
+- Next action (me): Add audited apply sink and finalize tests.
+
+---
+
+### Session 2025-09-09: Phase 4 — Settings audited apply
+- Context: Settings persistence implemented; add durable audit of applied diffs.
+- Goal: Wire `SettingsUpdated` → persistent audit sink; fix ID length mismatch causing 1406.
+- Constraints: No schema churn unless required; keep CI guardrails green; emit a single audit record per apply.
+
+# Closeout
+- Deliverables produced: `/api/app/Listeners/Audit/RecordSettingsUpdate.php` (ULID IDs, DB sink, guarded, non-fatal), `/api/app/Providers/EventServiceProvider.php` (maps `SettingsUpdated`→listener), `/api/bootstrap/app.php` (provider registration), tests green (94 passing, expected skips).
+- Phase/Step status: Phase 4 continuing; CORE-003 “Settings persistence + audited apply” complete.
+- Next action (you): Merge to main; keep `CORE_SETTINGS_STUB_ONLY` unset in CI; snapshot dev.
+- Next action (me): Start CORE-008 exports job model + file generation scaffold, then proceed to CORE-004 fine-grained policies/UI.

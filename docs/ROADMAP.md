@@ -79,10 +79,10 @@
 
 ---
 
-### Current Status (as of 2025-09-08)
+### Current Status (as of 2025-09-09)
 - ✅ CI/CD green on main; all tests passing (expected skips).
 - ✅ RBAC enforcement active via Sanctum + middleware; canonical roles seeded.
 - ✅ Audit & Evidence persistence complete.
 - ⏳ Exports job model and document generation remain.
-- ⏳ Settings persistence and audited apply remain.
+- ✅ Settings persistence and audited apply complete.
 - ⏳ Replace allow-all gates with fine-grained policies.

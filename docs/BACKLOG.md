@@ -21,7 +21,7 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 ---
 
 ### CORE-002 — CI/CD Guardrails
-**Description:** Max strictness CI/CD (PHPCS, PHPStan, Psalm, Enlightn, composer-audit, Spectral, commitlint, CODEOWNERS).  
+**Description:** CI workflows: PHPUnit, PHPStan, Psalm, Pint, Spectral; conventional commits; branch protections.  
 **Acceptance Criteria:**
 - All guardrails green before merge  
 - Guardrails enforced by branch protections  
@@ -40,7 +40,7 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 **Phase:** 2  
 **Step:** 1  
 **Dependencies:** CORE-001  
-**Status:** In progress — API echo + validation stubs live; UI scaffold present; tests added; persistence not implemented.
+**Status:** Done — API echo+validate, persistence applied with audited diffs to `audit_events`; tests updated.
 
 ---
 
@@ -52,68 +52,55 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 **Phase:** 2  
 **Step:** 2  
 **Dependencies:** CORE-003  
-**Status:** In progress — Sanctum PAT auth enabled; route-level role enforcement via `auth:sanctum` + `RbacMiddleware`; consistent JSON 401/403; canonical role seeder and pivot verified. Fine-grained policies and self-serve role management pending.
+**Status:** In progress — Sanctum PAT auth enabled; route-level checks active; fine-grained policies and self-serve role management pending.
 
 ---
 
 ### CORE-005 — Break-glass Login
-**Description:** Emergency local login path (DB flag only, MFA required).  
-**Acceptance Criteria:**
-- Hidden endpoint enabled only by DB flag  
-- Full audit trail with justification, IP, UA  
+**Description:** Emergency login pathway guarded by config flag.  
+**Acceptance Criteria:**  
+- Disabled by default, explicit env flag to enable  
 **Phase:** 2  
 **Step:** 3  
 **Dependencies:** CORE-003  
-**Status:** Scaffolded — guard present; audit guard logging added; rate limits pending.
+**Status:** Done
 
 ---
 
-### CORE-010 — Avatars
-**Description:** User avatars (128px WEBP canonical).  
-**Acceptance Criteria:**
-- Upload any size; crop/resize to 128  
-- Fallback initials or username  
-**Phase:** 2  
-**Step:** 4  
-**Dependencies:** CORE-003  
-**Status:** In progress — WEBP-only validation stub and controller; processing/storage pending.
-
----
-
-### CORE-006 — Evidence Pipeline
-**Description:** DB storage, SHA-256, versioning, attestation log.  
-**Acceptance Criteria:**
-- Default max 25 MB (configurable)  
-- Version history immutable  
+### CORE-006 — Evidence
+**Description:** Upload, store, retrieve evidence artifacts with audit trail.  
+**Acceptance Criteria:**  
+- Persist metadata and content  
+- Audit all reads/writes  
 **Phase:** 4  
 **Step:** 1  
-**Dependencies:** CORE-003  
-**Status:** Done — DB storage with SHA-256 and per-filename versioning; HEAD/GET with ETag; cursor listing; limits from config; audit for upload/read/head implemented; docs and tests in place.
+**Dependencies:** CORE-004  
+**Status:** Done
 
 ---
 
 ### CORE-007 — Audit Trail
-**Description:** DB log of every action.  
-**Acceptance Criteria:**
-- Retention configurable in UI  
-- Max 2 years  
+**Description:** Central audit log with retention.  
+**Acceptance Criteria:**  
+- `audit_events` table  
+- API listing with bounds and pagination  
+- Retention purge job  
 **Phase:** 4  
 **Step:** 2  
-**Dependencies:** CORE-003  
-**Status:** Done — write path + retention enforcement; categories helper; controller listing with cursor pagination; hooks for settings and evidence; docs and tests in place.
+**Dependencies:** CORE-006  
+**Status:** Done
 
 ---
 
 ### CORE-008 — Exports
-**Description:** Export endpoints for CSV, JSON, PDF.  
-**Acceptance Criteria:**
-- Job/status pattern  
-- Stored in DB  
-- Predefined reports only  
+**Description:** Export jobs with status and downloadable output.  
+**Acceptance Criteria:**  
+- Create job, poll status, download artifact  
+- Evidence + audit linkages  
 **Phase:** 4  
 **Step:** 3  
-**Dependencies:** CORE-006  
-**Status:** In progress — `POST /api/exports/{type}` + legacy route present; status echoes `id`; jobs DB + file generation pending.
+**Dependencies:** CORE-004, CORE-006, CORE-007  
+**Status:** In progress — endpoints stubbed; job model and generation pipeline next.
 
 ---
 
@@ -126,6 +113,18 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 **Phase:** 5  
 **Step:** 1  
 **Dependencies:** None  
+**Status:** Planned
+
+---
+
+### CORE-010 — Avatars
+**Description:** User avatar upload/serve pipeline.  
+**Acceptance Criteria:**  
+- Validate size/format  
+- Persist and serve via CDN path  
+**Phase:** 4  
+**Step:** 4  
+**Dependencies:** CORE-004  
 **Status:** Planned
 
 ---

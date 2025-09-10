@@ -40,7 +40,7 @@
 ### 4. Evidence Pipeline (CORE-006)
 - [x] `EvidenceController.php` with validations
 - [x] `StoreEvidenceRequest.php` (unified error envelope)
-- [ ] SPA `/web/src/routes/evidence/index.tsx`
+- [x] SPA `/web/src/routes/evidence/index.tsx`
 - [x] Migration `...create_evidence_table.php` with sha256 + LONGBLOB
 - [x] `Evidence.php` model
 - [x] Persist bytes + sha256 + per-filename versioning
@@ -48,7 +48,7 @@
 - [x] `GET /api/evidence?limit&cursor` opaque cursor pagination
 - [x] Audit hooks for upload/read/head
 - [x] Feature tests; docs to finalize
-- [ ] Document API in `/docs/api/EVIDENCE.md`
+- [x] Document API in `/docs/api/EVIDENCE.md`
 
 ### 5. Exports (CORE-008 expansion)
 - [x] Extend `ExportController.php` with `create` + `download` (stub)
@@ -65,6 +65,14 @@
 - [ ] Migration `avatars` with unique user_id
 - [ ] `Avatar.php` model
 - [x] Feature tests
+
+### 7. Settings Persistence (CORE-003 apply)
+- [x] Implement `SettingsService::apply` with diffing and contract-key filtering
+- [x] Fire `SettingsUpdated` event with changes + context
+- [x] Listener `RecordSettingsUpdate` persists one audit row per apply (ULID ids)
+- [x] Register `EventServiceProvider` and add to `bootstrap/app.php`
+- [x] Feature tests for set/unset semantics and partial updates
+- [x] CI green across PHPUnit/PHPStan/Psalm/Pint
 
 ---
 
