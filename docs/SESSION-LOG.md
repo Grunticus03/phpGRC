@@ -411,3 +411,19 @@ Use it to maintain a permanent, auditable record of all work across phases.
 - Next action (you): None required now.
 - Next action (me): Implement CSV generator + artifact storage + download endpoint, then extend to JSON/PDF and RBAC guards.
 
+### Session 2025-09-10: Phase 4 Implement — Exports E2E + RBAC
+- Context: Exports moved from stubs to persisted artifacts with CSV/JSON/PDF and download; enforced RBAC and capability gate on exports.
+- Goal: Ship CORE-008 end-to-end with tests and keep CI green.
+- Constraints: Charter scope only, full-file edits, deterministic tests, preserve stub behavior for legacy tests.
+
+# Closeout
+- Deliverables produced:
+  - GenerateExport job now writes artifacts for csv, json, pdf with metadata and SHA-256.
+  - Download endpoint streams artifacts with correct Content-Type and filename.
+  - Tests: ExportsCsvGenerationE2ETest, ExportsJsonGenerationE2ETest, ExportsPdfGenerationE2ETest; ExportsApiTest forced stub path to remain stable.
+  - RBAC: route-level roles on exports; capability gate `core.exports.generate`; middleware checks `config('core.capabilities.*')`.
+  - Config: `core.exports` disk/dir defaults; capabilities map added.
+  - CI and static analysis green.
+- Phase/Step status: Phase 4 — CORE-008 Exports E2E complete; exports RBAC enforced; phase continues with remaining RBAC fine-grained items and docs sync.
+- Next action (you): Provide `/docs/PHASE-4-SPEC.md`, `/docs/PHASE-4-TASK-BREAKDOWN.md`, `/docs/BACKLOG.md`, `/docs/ROADMAP.md` for full-file updates to mark CORE-008 done and record RBAC changes.
+- Next action (me): In env and deploys, set `CORE_EXPORTS_ENABLED=true`, `CAP_CORE_EXPORTS_GENERATE=true`, verify filesystem disk, run `artisan migrate`, and ensure a queue worker is active.

@@ -1,3 +1,5 @@
+# FILE: /docs/BACKLOG.md
+
 # 📋 phpGRC Backlog
 Complete backlog of all features, modules, and deliverables.  
 Each item has: **id, module, title, description, acceptance_criteria, phase, step, deps, status**
@@ -9,10 +11,10 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 ### CORE-001 — Bootstrap Installer & Setup Wizard
 **Description:** Bootstrap script + setup webpage (DB config, SMTP, IdP, admin account).  
 **Acceptance Criteria:**
-- Installer fetches release  
-- Wizard stores DB config only on disk  
-- All other settings stored in DB  
-- *NOTE: Redirect to setup until complete deferred to Phase 2*  
+- Installer fetches release
+- Wizard stores DB config only on disk
+- All other settings stored in DB
+- Redirect-to-setup until complete deferred to Phase 2  
 **Phase:** 1  
 **Step:** 1  
 **Dependencies:** None  
@@ -23,8 +25,9 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 ### CORE-002 — CI/CD Guardrails
 **Description:** CI workflows: PHPUnit, PHPStan, Psalm, Pint, Spectral; conventional commits; branch protections.  
 **Acceptance Criteria:**
-- All guardrails green before merge  
-- Guardrails enforced by branch protections  
+- All guardrails pass on main
+- Commit style enforced
+- Fail-fast on security static analysis  
 **Phase:** 1  
 **Step:** 2  
 **Dependencies:** None  
@@ -32,62 +35,65 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 
 ---
 
-### CORE-003 — Admin Settings UI
-**Description:** Unified UI for system configs (auth, RBAC, evidence, exports, notifications, backups).  
+### CORE-003 — Admin Settings
+**Description:** Admin Settings API and SPA to manage core config (RBAC, Audit, Evidence, Avatars).  
 **Acceptance Criteria:**
-- Configs editable in UI (except emergency DB flag)  
-- Changes audited  
-**Phase:** 2  
+- API accepts spec or legacy payload; normalizes to spec
+- SPA renders and submits form with validation
+- Errors standardized  
+**Phase:** 4  
 **Step:** 1  
-**Dependencies:** CORE-001  
-**Status:** Done — API echo+validate, persistence applied with audited diffs to `audit_events`; tests updated.
+**Dependencies:** CORE-002  
+**Status:** Done
 
 ---
 
 ### CORE-004 — RBAC Roles
 **Description:** Roles Admin, Auditor, Risk Manager, User with namespaced permissions.  
 **Acceptance Criteria:**
-- Permissions follow `<module>.<action>` pattern  
+- Permissions follow `<module>.<action>` pattern
 - Enforced by Policies + Middleware  
-**Phase:** 2  
+**Phase:** 4  
 **Step:** 2  
 **Dependencies:** CORE-003  
-**Status:** In progress — Sanctum PAT auth enabled; route-level checks active; fine-grained policies and self-serve role management pending.
+**Status:** In progress — route-level roles enforced on exports; capability gate added; fine-grained policies and role management pending.
 
 ---
 
 ### CORE-005 — Break-glass Login
 **Description:** Emergency login pathway guarded by config flag.  
 **Acceptance Criteria:**  
-- Disabled by default, explicit env flag to enable  
+- Disabled by default, explicit env flag to enable
+- Single-use token, strict audit trail  
 **Phase:** 2  
 **Step:** 3  
-**Dependencies:** CORE-003  
-**Status:** Done
-
----
-
-### CORE-006 — Evidence
-**Description:** Upload, store, retrieve evidence artifacts with audit trail.  
-**Acceptance Criteria:**  
-- Persist metadata and content  
-- Audit all reads/writes  
-**Phase:** 4  
-**Step:** 1  
 **Dependencies:** CORE-004  
 **Status:** Done
 
 ---
 
-### CORE-007 — Audit Trail
-**Description:** Central audit log with retention.  
+### CORE-006 — Audit Trail
+**Description:** Append-only audit events with retention limits.  
 **Acceptance Criteria:**  
-- `audit_events` table  
-- API listing with bounds and pagination  
+- `audit_events` table
+- API listing with bounds and pagination
 - Retention purge job  
 **Phase:** 4  
 **Step:** 2  
-**Dependencies:** CORE-006  
+**Dependencies:** CORE-004  
+**Status:** Done
+
+---
+
+### CORE-007 — Evidence Store
+**Description:** Evidence upload, validation, storage, and retrieval.  
+**Acceptance Criteria:**
+- Validate size/mime by config
+- Store to filesystem with sha256 + metadata
+- List and retrieve  
+**Phase:** 4  
+**Step:** 2  
+**Dependencies:** CORE-003  
 **Status:** Done
 
 ---
@@ -95,37 +101,39 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 ### CORE-008 — Exports
 **Description:** Export jobs with status and downloadable output.  
 **Acceptance Criteria:**  
-- Create job, poll status, download artifact  
-- Evidence + audit linkages  
+- Create job, poll status, download artifact
+- Types csv/json/pdf
+- RBAC enforced on create/status/download
+- Capability `core.exports.generate` gates creation  
 **Phase:** 4  
 **Step:** 3  
 **Dependencies:** CORE-004, CORE-006, CORE-007  
-**Status:** In progress — endpoints stubbed; job model and generation pipeline next.
+**Status:** Done
 
 ---
 
 ### CORE-009 — Swagger/OpenAPI
 **Description:** Auto-generated OpenAPI 3 spec + SwaggerUI.  
 **Acceptance Criteria:**
-- `/api/openapi.json` generated  
-- `/api/docs` served  
+- `/api/openapi.json` generated
+- `/api/docs` served
 - CI lint with Spectral  
 **Phase:** 5  
 **Step:** 1  
-**Dependencies:** None  
+**Dependencies:** CORE-002  
 **Status:** Planned
 
 ---
 
 ### CORE-010 — Avatars
-**Description:** User avatar upload/serve pipeline.  
+**Description:** User avatars upload with format normalization.  
 **Acceptance Criteria:**  
-- Validate size/format  
-- Persist and serve via CDN path  
+- Validate size/mime
+- Normalize to WEBP, canonical size  
 **Phase:** 4  
 **Step:** 4  
-**Dependencies:** CORE-004  
-**Status:** Planned
+**Dependencies:** CORE-003  
+**Status:** Done
 
 ---
 

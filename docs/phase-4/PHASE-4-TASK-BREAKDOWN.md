@@ -1,7 +1,9 @@
+# FILE: /docs/PHASE-4-TASK-BREAKDOWN.md
+
 # Phase 4 — Core App Usable Detailed Task Breakdown
 
 ## Instruction Preamble
-- Date 2025-09-09
+- Date 2025-09-10
 - Phase 4
 - Goal Decompose Phase 4 deliverables into detailed, sequential tasks to guide incremental scaffolding, enforcement, and persistence work.
 - Constraints
@@ -20,59 +22,52 @@
 - [x] Extend SPA `/web/src/routes/admin/Settings.tsx`
 - [x] Add unit tests (`SettingsValidationTest`)
 - [x] Document payloads and error codes in PHASE-4-SPEC.md
-- [x] Persist settings to DB with audited apply
-- [x] Surface effective config via API
+- [x] Persistence apply + audit of settings changes
 
-### 2. RBAC enforcement + roles (CORE-004)
-- [x] Introduce `RbacMiddleware` and role defaults on routes
-- [x] Scaffold roles endpoints (`/api/rbac/roles` GET/POST)
-- [ ] Fine-grained policy matrix and UI
-- [ ] Enforcement tests and negative cases
-- [ ] Docs: role capabilities table and error taxonomy
+### 2. RBAC (CORE-004)
+- [x] Middleware scaffold with route `->defaults('roles', [...])`
+- [x] Sanctum PAT wiring; 401/403 contracts
+- [x] Enforce RBAC on Exports endpoints; require `Admin` for create; `Admin`/`Auditor` for status/download
+- [x] Capability gate `core.exports.generate` checked in middleware
+- [ ] Fine-grained policies and role management UI
 
-### 3. Audit trail (CORE-006)
-- [x] List endpoint stub with pagination params
-- [ ] Migration finalized for `audit_events` (ULID PK, actor, action, entity, network, agent)
-- [ ] Write-on-change hooks for settings apply and RBAC changes
-- [ ] Tests for event shapes and filters
-- [ ] Docs: event schema and categories
+### 3. Audit (CORE-006)
+- [x] Audit listing endpoint with pagination
+- [x] Persistence: `audit_events` table, write path, retention enforcement
+- [x] Tests: shape + retention
 
 ### 4. Evidence (CORE-007)
-- [x] Persisted storage API (`/api/evidence` index/store/show)
-- [ ] Size/type limits + virus scan hooks
-- [ ] Download with signed URLs and audit log
-- [ ] Tests for upload constraints and retrieval
-- [ ] Docs: retention and chain-of-custody notes
+- [x] Multipart upload validate size/mime by config
+- [x] Persistence: storage with sha256 + metadata
+- [x] Listing + retrieval endpoints
+- [x] Tests: upload + fetch
 
 ### 5. Exports (CORE-008)
-- [x] Model `App\Models\Export` with ULID, immutable timestamps, casts
-- [x] Job `App\Jobs\GenerateExport` queued worker, progress simulation
-- [x] Service `App\Services\Export\ExportService::enqueue()`
-- [x] Controllers wire-in with feature gate `core.exports.enabled` and table check
-- [x] Migration expanded: artifact metadata and error fields
-- [x] Tests remain green with stub IDs when feature disabled
-- [ ] CSV generator: build dataset, stream to temp, persist to storage, set artifact fields, mark completed
-- [ ] JSON generator: same flow as CSV
-- [ ] PDF generator: placeholder using simple renderer; full templating later
-- [ ] Download endpoint: return 404 until artifact present, then stream/download with correct `Content-Type` and length
-- [ ] Status polling tests and generator happy-path tests
-- [ ] Docs: export types, params schema, error codes
+- [x] Migration: `exports` table with lifecycle + artifact fields
+- [x] Model/Service + `GenerateExport` job
+- [x] Implement CSV artifact (RFC4180)
+- [x] Implement JSON artifact (UTF-8)
+- [x] Implement minimal PDF artifact
+- [x] Status endpoint returns `pending|running|completed|failed` with progress
+- [x] Download streams artifact with correct content type + filename
+- [x] Stub path preserved when persistence disabled
+- [x] E2E tests: CSV/JSON/PDF + stub behavior
+- [ ] Tests: RBAC for exports endpoints (authorized vs unauthorized)
 
 ### 6. Avatars (CORE-010)
-- [x] Upload scaffold endpoint
-- [ ] Storage, transformation, and RBAC checks
-- [ ] Tests and docs
+- [x] Upload + validate, normalized to WEBP
+- [x] Config documented
 
 ### 7. DevEx, QA, and Docs
 - [x] CI workflows pass: PHPStan, Psalm, PHPUnit
 - [x] Lint/format passes (Pint)
-- [ ] Expand PHASE-4-SPEC with exports persistence and download contracts
-- [ ] Update ROADMAP/BACKLOG statuses for CORE-008 partial completion
-- [ ] SESSION-LOG entry recorded for this session
+- [x] Expand PHASE-4-SPEC with exports persistence and download contracts
+- [x] Update ROADMAP/BACKLOG statuses for CORE-008 completion
+- [x] SESSION-LOG entry recorded for this session
 
 ---
 
-## Immediate Next Sprint (narrow)
-1. Implement CSV generator end-to-end (storage write + status + download).
-2. Add feature-flagged tests that toggle `core.exports.enabled=true` to exercise non-stub path.
-3. Document export payloads and download behavior in PHASE-4-SPEC.md.
+## Immediate Next Sprint
+1. RBAC: add fine-grained policies and tests for exports endpoints.
+2. Role management UI scaffolding.
+3. Prep Phase 5: wire OpenAPI and Spectral in CI.

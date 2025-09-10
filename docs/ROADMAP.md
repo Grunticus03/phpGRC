@@ -6,9 +6,9 @@
 
 ## Phase 0 — Docs-first foundation ✅ COMPLETE
 - [x] Charter v1.1 committed
-- [x] Start ROADMAP.md (this file)
-- [x] Seed BACKLOG.md (modules/features)
-- [x] Create CAPABILITIES.md (initial matrix)
+- [x] Start ROADMAP.md
+- [x] Seed BACKLOG.md
+- [x] Create CAPABILITIES.md
 - [x] Add RFC template `docs/rfcs/000-template.md`
 
 ---
@@ -40,18 +40,17 @@
 ---
 
 ## Phase 4 — Core app usable ⏳ IN PROGRESS
-- [x] Settings — echo + validation stubs (accept spec or legacy payload; normalized)
-- [x] RBAC — Sanctum PAT guard enabled; route-level enforcement; JSON 401/403 contract
-- [x] Audit — spec-shaped listing, categories helper, retention echo
+- [x] Settings — echo + validation stubs
+- [x] RBAC — Sanctum PAT guard; route enforcement; JSON 401/403 contract
+- [x] Audit — listing, categories helper, retention echo
 - [x] Evidence — multipart validate (size/mime via config)
-- [x] Evidence persistence: storage + sha256 + versioning + listing + headers
+- [x] Evidence persistence: storage + sha256 + listing + headers
 - [x] Audit persistence: write path + retention enforcement (≤ 2 years)
 - [x] API docs for Settings/Audit/Evidence + common errors
 - [x] Feature tests for Settings/Audit/Evidence + RBAC middleware tagging
-- [x] CI: sqlite seeding + role bootstrap for tests
 - [ ] RBAC fine-grained policies and UI role management
-- [ ] Exports job model + generation (CSV/JSON/PDF)
-- [ ] Settings persistence + audit logging of applied changes
+- [x] Exports job model + generation (CSV/JSON/PDF) + download with headers
+- [x] Settings persistence + audit logging of applied changes
 
 ---
 

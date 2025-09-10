@@ -1,33 +1,43 @@
+# FILE: /docs/PHASE-4-SPEC.md
+
 # Phase 4 — Core App Usable Spec
 
 ## Instruction Preamble
-- **Date:** 2025-09-07
+- **Date:** 2025-09-10
 - **Phase:** 4
-- **Goal:** Lock contracts, payloads, config keys, and stub migrations for Settings, RBAC, Audit, Evidence, Exports, Avatars.
-- **Constraints:** Stubs only; no persistence; deterministic outputs; CI guardrails intact.
+- **Goal:** Lock contracts, payloads, config keys, and persistence behaviors for Settings, RBAC, Audit, Evidence, Exports, Avatars.
+- **Constraints:** CI guardrails intact; deterministic outputs; stub-path preserved when persistence disabled via config.
 
 ---
 
-## Config Keys (defaults; echo-only this phase)
+## Config Keys (defaults; Phase-4)
 
 core.rbac.enabled: true  
-core.rbac.roles: [Admin, Auditor, Risk Manager, User]  
+core.rbac.require_auth: false  
+core.rbac.roles: [Admin, Auditor, Risk Manager, User]
 
 core.audit.enabled: true  
-core.audit.retention_days: 365  # min 1, max 730 (2 years)  
+core.audit.retention_days: 365
 
 core.evidence.enabled: true  
 core.evidence.max_mb: 25  
-core.evidence.allowed_mime: [application/pdf, image/png, image/jpeg, text/plain]  
+core.evidence.allowed_mime: [application/pdf, image/png, image/jpeg, text/plain]
 
 core.avatars.enabled: true  
 core.avatars.size_px: 128  
-core.avatars.format: webp  # format is locked to WEBP
+core.avatars.format: webp
+
+core.exports.enabled: true  
+core.exports.disk: <FILESYSTEM_DISK|local>  
+core.exports.dir: exports
+
+core.capabilities.core.exports.generate: true
 
 Notes:
 - Evidence default max 25 MB.
 - Avatars canonical size 128 px, WEBP only.
 - Audit retention capped at 2 years.
+- Exports write artifacts under configured disk/dir; queue `sync` in tests.
 
 ---
 
@@ -38,7 +48,7 @@ Shared: VALIDATION_FAILED, UNAUTHENTICATED, UNAUTHORIZED, INTERNAL_ERROR.
 Settings/RBAC: RBAC_DISABLED, ROLE_NOT_FOUND, ROLE_NAME_INVALID  
 Audit: AUDIT_NOT_ENABLED, AUDIT_RETENTION_INVALID  
 Evidence: EVIDENCE_NOT_ENABLED, EVIDENCE_TOO_LARGE, EVIDENCE_MIME_NOT_ALLOWED  
-Exports: EXPORT_TYPE_UNSUPPORTED, EXPORT_NOT_READY, EXPORT_NOT_FOUND  
+Exports: EXPORT_TYPE_UNSUPPORTED, EXPORT_NOT_READY, EXPORT_NOT_FOUND, EXPORT_FAILED, EXPORT_ARTIFACT_MISSING  
 Avatars: AVATAR_NOT_ENABLED, AVATAR_INVALID_IMAGE, AVATAR_UNSUPPORTED_FORMAT, AVATAR_TOO_LARGE
 
 ---
@@ -47,12 +57,15 @@ Avatars: AVATAR_NOT_ENABLED, AVATAR_INVALID_IMAGE, AVATAR_UNSUPPORTED_FORMAT, AV
 
 ### Admin Settings
 - `GET /api/admin/settings`
-  - Response: `{ ok: true, config: { core: { rbac, audit, evidence, avatars } } }`
+  - Response:
+    ```
+    { "ok": true, "config": { "core": { "rbac": {...}, "audit": {...}, "evidence": {...}, "avatars": {...} } } }
+    ```
 
-- `POST /api/admin/settings`  (also accepts `PUT` for compatibility)
-  - Request JSON (either shape accepted; server normalizes to top-level):
+- `POST /api/admin/settings`  (also accepts `PUT` and `PATCH`)
+  - Request JSON (either shape accepted; server normalizes to spec):
     - Spec shape:
-      ```json
+      ```
       {
         "rbac": { "enabled": true, "roles": ["Admin","Auditor","Risk Manager","User"] },
         "audit": { "enabled": true, "retention_days": 365 },
@@ -61,146 +74,123 @@ Avatars: AVATAR_NOT_ENABLED, AVATAR_INVALID_IMAGE, AVATAR_UNSUPPORTED_FORMAT, AV
       }
       ```
     - Legacy shape:
-      ```json
+      ```
       {
         "core": {
-          "rbac": {...},
-          "audit": {...},
-          "evidence": {...},
-          "avatars": {...}
+          "rbac": { "enabled": true, "roles": ["Admin","Auditor","Risk Manager","User"] },
+          "audit": { "enabled": true, "retention_days": 365 },
+          "evidence": { "enabled": true, "max_mb": 25, "allowed_mime": ["application/pdf","image/png","image/jpeg","text/plain"] },
+          "avatars": { "enabled": true, "size_px": 128, "format": "webp" }
         }
       }
       ```
-  - Validation rules:
-    - `rbac.enabled` boolean; `rbac.roles` array of strings 1..64 chars
-    - `audit.retention_days` integer 1..730
-    - `evidence.max_mb` integer ≥1; `evidence.allowed_mime` ⊆ default list
-    - `avatars.size_px` must equal `128`; `avatars.format` must equal `"webp"`
-  - Response: `{ ok: true, applied: false, note: "stub-only", accepted: { ...normalized... } }`
-  - **Validation error shape (Phase-4 behavior):**
-    - Spec/normalized shape: `{ ok: false, code: "VALIDATION_FAILED", errors: { ...nested... } }`
-    - Legacy shape (`{ core: {...} }` payload): `{ errors: { ...nested... } }`
-
-### RBAC Roles
-- `GET /api/rbac/roles`
-  - Response: `{ ok: true, roles: ["Admin","Auditor","Risk Manager","User"] }`
-- `POST /api/rbac/roles`
-  - Request: `{ "name": "..." }`  
-  - Response: `{ ok: false, note: "stub-only" }` (202)
-
-### Audit
-- `GET /api/audit?limit=25&cursor=<opaque>`
-  - **Params accepted from querystring or JSON body.**
-  - `limit` must be integer in **1..100**. Outside bounds → **422** with `{ ok:false, code:"VALIDATION_FAILED", message, errors }`.  
-  - `cursor` optional string; allowed charset `[A-Za-z0-9_-]`. Unsafe chars → **422**.
-  - Pagination: lenient base64url decode if possible; unknown tokens just start from first page.
-  - Response (DB present):
-    ```json
-    {
-      "ok": true,
-      "items": [
-        {
-          "id": "ae_0001",
-          "occurred_at": "2025-09-05T12:00:00Z",
-          "actor_id": 1,
-          "action": "settings.update",
-          "category": "SETTINGS",
-          "entity_type": "core.config",
-          "entity_id": "rbac",
-          "ip": "203.0.113.10",
-          "ua": "Mozilla/5.0",
-          "meta": {}
-        }
-      ],
-      "nextCursor": null,
-      "_categories": ["AUTH","SETTINGS","RBAC","EVIDENCE","EXPORTS"],
-      "_retention_days": 365
-    }
-    ```
-  - Response (stub path when table absent): same shape plus `note:"stub-only"`.
+  - Response 200 mirrors `GET` shape.
 
 ### Evidence
-- `POST /api/evidence`  (multipart/form-data)
-  - Fields: `file` (required), `owner_id` (optional)
-  - Validation: size ≤ `core.evidence.max_mb` MB; mime ∈ `core.evidence.allowed_mime`
-  - Response: `{ ok: false, code: "EVIDENCE_STUB", note: "stub-only" }` (202)
-  - Errors: EVIDENCE_NOT_ENABLED, EVIDENCE_TOO_LARGE, EVIDENCE_MIME_NOT_ALLOWED
+- `GET /api/evidence` — list
+- `POST /api/evidence` — create; stores file, sha256, metadata; validates size/mime
+- `GET /api/evidence/{id}` — fetch metadata or file as applicable
 
-### Exports
-- Preferred: `POST /api/exports/{type}` where `{type} ∈ {csv,json,pdf}`
-  - Body: `{ "params": { ... } }` (optional)
-  - Response: `{ ok: true, jobId: "exp_stub_0001", type: "<type>", params: { ... }, note: "stub-only" }` (202)
-  - Errors: `EXPORT_TYPE_UNSUPPORTED` (422)
+### Audit
+- `GET /api/audit` — list events with pagination; retention applies
 
-- Legacy (kept this phase): `POST /api/exports`
-  - Body: `{ "type": "csv|json|pdf", "params": { ... } }`
-  - Same response and errors as above.
+### Exports (CORE-008)
+- RBAC:
+  - Create: roles `["Admin"]` AND capability `core.exports.generate` must be enabled.
+  - Status/Download: roles `["Admin","Auditor"]`.
+- Types: `csv`, `json`, `pdf`.
+- Creation:
+  - `POST /api/exports/{type}` (preferred) with body `{ "params": {} }`
+  - `POST /api/exports` (legacy) with body `{ "type": "csv|json|pdf", "params": {} }`
+  - Responses:
+    - Persistence disabled (stub path):
+      ```
+      { "ok": true, "jobId": "exp_stub_0001", "type": "<type>", "params": {}, "note": "stub-only" }
+      ```
+    - Persistence enabled:
+      ```
+      { "ok": true, "jobId": "<ULID>", "type": "<type>", "params": {} }
+      ```
+    - Unsupported type:
+      ```
+      { "ok": false, "code": "EXPORT_TYPE_UNSUPPORTED", "note": "stub-only" }
+      ```
 
-- `GET /api/exports/{id}/status`
-  - Response: `{ ok: true, status: "pending", progress: 0, id: "<id>" }`
+- Status:
+  - `GET /api/exports/{jobId}/status`
+  - Responses:
+    - Persisted job:
+      ```
+      { "ok": true, "status": "pending|running|completed|failed", "progress": 0, "jobId": "<ULID>" }
+      ```
+    - Stub id or persistence disabled:
+      ```
+      { "ok": true, "status": "pending", "progress": 0, "jobId": "<id>", "note": "stub-only" }
+      ```
+    - Not found:
+      ```
+      { "ok": false, "code": "EXPORT_NOT_FOUND" }
+      ```
 
-- `GET /api/exports/{id}/download`
-  - Response: `{ ok: false, code: "EXPORT_NOT_READY", note: "stub-only" }` (404)
+- Download:
+  - `GET /api/exports/{jobId}/download`
+  - Responses:
+    - Not ready:
+      ```
+      { "ok": false, "code": "EXPORT_NOT_READY", "jobId": "<id>" }
+      ```
+    - Failed:
+      ```
+      { "ok": false, "code": "EXPORT_FAILED", "errorCode": "...", "errorNote": "..." }
+      ```
+    - Missing artifact after completion:
+      ```
+      { "ok": false, "code": "EXPORT_ARTIFACT_MISSING" }
+      ```
+    - Completed: file download with headers:
+      - CSV: `Content-Type: text/csv; charset=UTF-8`, filename `export-<id>.csv`
+      - JSON: `Content-Type: application/json; charset=UTF-8`, filename `export-<id>.json`
+      - PDF: `Content-Type: application/pdf`, filename `export-<id>.pdf`
+
+- Artifact metadata (model fields):
+  - `artifact_disk`, `artifact_path`, `artifact_mime`, `artifact_size`, `artifact_sha256`
+  - `status`: `pending|running|completed|failed`; `progress` `0..100`
+  - `completed_at`, `failed_at`, `error_code`, `error_note`
 
 ### Avatars
-- `POST /api/avatar`  (multipart/form-data)
-  - Fields: `file` (required)
-  - Validation: must be image; MIME must be `image/webp`; soft cap 2 MB; basic dimension sanity check
-  - Response: `{ ok: false, code: "AVATAR_STUB", note: "stub-only" }` (202)
-  - Errors: AVATAR_NOT_ENABLED, AVATAR_INVALID_IMAGE, AVATAR_UNSUPPORTED_FORMAT, AVATAR_TOO_LARGE
+- `POST /api/avatar` — upload avatar; WEBP target format
 
 ---
 
-## Middleware
+## Routes Excerpt (Laravel)
 
-### RbacMiddleware (placeholder)
-- Input: optional required role(s) via route metadata (future).
-- Behavior: tags request with `rbac_enabled` boolean; never blocks in Phase 4.
-- Errors: none in this phase.
+```
+// Build RBAC stack
+$rbacStack = [RbacMiddleware::class];
+if (config('core.rbac.require_auth', false)) {
+    array_unshift($rbacStack, 'auth:sanctum');
+}
+
+// Admin Settings
+Route::prefix('/admin')->middleware($rbacStack)->group(function () {
+    Route::match(['GET','HEAD'], '/settings', [SettingsController::class, 'index'])->defaults('roles', ['Admin']);
+    Route::post('/settings', [SettingsController::class, 'update'])->defaults('roles', ['Admin']);
+    Route::put('/settings',  [SettingsController::class, 'update'])->defaults('roles', ['Admin']);
+    Route::patch('/settings',[SettingsController::class, 'update'])->defaults('roles', ['Admin']);
+});
+
+// Exports with RBAC + capability
+Route::prefix('/exports')->middleware($rbacStack)->group(function () {
+    Route::post('/{type}', [ExportController::class, 'createType'])->defaults('roles', ['Admin'])->defaults('capability', 'core.exports.generate');
+    Route::post('/',       [ExportController::class, 'create'])->defaults('roles', ['Admin'])->defaults('capability', 'core.exports.generate');
+    Route::get('/{id}/status',   [StatusController::class, 'show'])->defaults('roles', ['Admin','Auditor']);
+    Route::get('/{id}/download', [ExportController::class, 'download'])->defaults('roles', ['Admin','Auditor']);
+});
+```
 
 ---
 
-## Models (placeholders)
-
-Role: id, name (unique), timestamps  
-AuditEvent: id, occurred_at, actor_id, action, category, entity_type, entity_id, ip, ua, meta(json)  
-Evidence: id, owner_id, filename, mime, size_bytes, sha256, created_at  
-Avatar: id, user_id, path, mime, size_bytes, timestamps
-
----
-
-## Migrations (reserved; not executed in Phase 4)
-
-- `0000_00_00_000100_create_roles_table.php`
-- `0000_00_00_000110_create_audit_events_table.php`
-- `0000_00_00_000120_create_evidence_table.php`
-- `0000_00_00_000130_create_avatars_table.php`
-
----
-
-## Routes (reference)
-
-```php
-// Settings
-Route::get('/admin/settings', [Admin\SettingsController::class, 'index']);
-Route::post('/admin/settings', [Admin\SettingsController::class, 'update']); // preferred
-Route::put('/admin/settings',  [Admin\SettingsController::class, 'update']); // legacy
-
-// RBAC
-Route::get('/rbac/roles', [Rbac\RolesController::class, 'index']);
-Route::post('/rbac/roles', [Rbac\RolesController::class, 'store']);
-
-// Audit
-Route::get('/audit', [Audit\AuditController::class, 'index']);
-
-// Evidence
-Route::post('/evidence', [Evidence\EvidenceController::class, 'store']);
-
-// Exports
-Route::post('/exports/{type}', [Export\ExportController::class, 'createType']); // preferred
-Route::post('/exports',        [Export\ExportController::class, 'create']);     // legacy
-Route::get('/exports/{id}/status',   [Export\StatusController::class, 'show']);
-Route::get('/exports/{id}/download', [Export\ExportController::class, 'download']);
-
-// Avatars
-Route::post('/avatar', [Avatar\AvatarController::class, 'store']);
+## Persistence & Queueing Notes
+- When `core.exports.enabled=false` or `exports` table is absent, controllers return stub responses and never write files.
+- Tests set `queue.default=sync` to run `GenerateExport` immediately.
+- CSV uses RFC4180 quoting; JSON is UTF-8 without escaping slashes; PDF is a minimal valid single-page document.
