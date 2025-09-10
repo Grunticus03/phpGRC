@@ -61,7 +61,7 @@ final class ExportsRbacTest extends TestCase
 
         $res = $this->postJson('/api/exports/csv', ['params' => []]);
 
-        $res->assertStatus(200)
+        $res->assertStatus(202) // create returns 202 Accepted
             ->assertJson([
                 'ok' => true,
                 'type' => 'csv',
