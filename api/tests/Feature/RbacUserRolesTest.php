@@ -24,6 +24,7 @@ final class RbacUserRolesTest extends TestCase
         config()->set('core.rbac.mode', 'db');
         config()->set('core.rbac.require_auth', true);
 
+        // Seed if available; tests will still be robust if seeder is empty.
         $this->seed(RolesSeeder::class);
     }
 
@@ -35,9 +36,9 @@ final class RbacUserRolesTest extends TestCase
             'password' => bcrypt('secret'),
         ]);
 
-        // Grant Admin role by numeric id
-        $adminRoleId = (int) Role::query()->where('name', 'Admin')->value('id');
-        $admin->roles()->syncWithoutDetaching([$adminRoleId]);
+        // Ensure an Admin role exists and get its numeric PK.
+        $adminRole = Role::query()->firstOrCreate(['name' => 'Admin']);
+        $admin->roles()->syncWithoutDetaching([$adminRole->getKey()]);
 
         Sanctum::actingAs($admin);
 
@@ -67,6 +68,9 @@ final class RbacUserRolesTest extends TestCase
     {
         $this->actingAsAdmin();
 
+        // Ensure target roles exist
+        Role::query()->firstOrCreate(['name' => 'Auditor']);
+
         $user = User::query()->create([
             'name' => 'Bob',
             'email' => 'bob@example.com',
@@ -88,6 +92,10 @@ final class RbacUserRolesTest extends TestCase
     public function test_attach_and_detach_single_role(): void
     {
         $this->actingAsAdmin();
+
+        // Ensure target roles exist
+        Role::query()->firstOrCreate(['name' => 'Auditor']);
+        Role::query()->firstOrCreate(['name' => 'Risk Manager']);
 
         $user = User::query()->create([
             'name' => 'Carol',
