@@ -7,6 +7,7 @@ namespace App\Http\Requests\Rbac;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\Exceptions\HttpResponseException;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
 
 final class StoreRoleRequest extends FormRequest
@@ -25,17 +26,33 @@ final class StoreRoleRequest extends FormRequest
         }
     }
 
+    private function persistenceEnabled(): bool
+    {
+        /** @var bool $flag */
+        $flag = (bool) config('core.rbac.persistence', false);
+        /** @var mixed $mode */
+        $mode = config('core.rbac.mode');
+        return $flag || $mode === 'persist';
+    }
+
     public function rules(): array
     {
-        return [
-            'name' => [
-                'required',
-                'string',
-                'min:2',
-                'max:64',
-                Rule::unique('roles', 'name'),
-            ],
+        $base = [
+            'name' => ['required', 'string', 'min:2', 'max:64'],
         ];
+
+        if (!$this->persistenceEnabled()) {
+            /** @var array<int,string> $existing */
+            $existing = (array) config('core.rbac.roles', ['Admin', 'Auditor', 'Risk Manager', 'User']);
+            $base['name'][] = Rule::notIn($existing); // pretend-unique against config list
+            return $base;
+        }
+
+        if (Schema::hasTable('roles')) {
+            $base['name'][] = Rule::unique('roles', 'name');
+        }
+
+        return $base;
     }
 
     public function messages(): array
@@ -46,6 +63,7 @@ final class StoreRoleRequest extends FormRequest
             'name.min'      => 'Role name must be at least 2 characters.',
             'name.max'      => 'Role name must be at most 64 characters.',
             'name.unique'   => 'Role already exists.',
+            'name.not_in'   => 'Role already exists.',
         ];
     }
 
