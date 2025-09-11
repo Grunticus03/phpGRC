@@ -13,21 +13,27 @@ final class StoreRoleRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        // RBAC enforcement comes later; always allow in Phase 4.
+        // RBAC enforcement lands later; allow in Phase 4.
         return true;
+    }
+
+    protected function prepareForValidation(): void
+    {
+        $name = $this->input('name');
+        if (is_string($name)) {
+            $this->merge(['name' => trim($name)]);
+        }
     }
 
     public function rules(): array
     {
-        $existing = (array) config('core.rbac.roles', ['Admin', 'Auditor', 'Risk Manager', 'User']);
-
         return [
             'name' => [
                 'required',
                 'string',
                 'min:2',
                 'max:64',
-                Rule::notIn($existing), // pretend-unique against current config list
+                Rule::unique('roles', 'name'),
             ],
         ];
     }
@@ -39,7 +45,7 @@ final class StoreRoleRequest extends FormRequest
             'name.string'   => 'Role name must be a string.',
             'name.min'      => 'Role name must be at least 2 characters.',
             'name.max'      => 'Role name must be at most 64 characters.',
-            'name.not_in'   => 'Role already exists.',
+            'name.unique'   => 'Role already exists.',
         ];
     }
 
@@ -54,3 +60,4 @@ final class StoreRoleRequest extends FormRequest
         );
     }
 }
+
