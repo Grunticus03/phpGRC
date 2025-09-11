@@ -8,6 +8,7 @@ use App\Models\Role;
 use App\Models\User;
 use Database\Seeders\RolesSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Str;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -24,8 +25,16 @@ final class RbacUserRolesTest extends TestCase
         config()->set('core.rbac.mode', 'db');
         config()->set('core.rbac.require_auth', true);
 
-        // Seed if available; tests will still be robust if seeder is empty.
         $this->seed(RolesSeeder::class);
+    }
+
+    private static function ensureRole(string $name): Role
+    {
+        // Roles use non-auto IDs (e.g., ULID). Provide an id when inserting.
+        return Role::query()->firstOrCreate(
+            ['name' => $name],
+            ['id' => (string) Str::ulid()]
+        );
     }
 
     private function actingAsAdmin(): User
@@ -36,8 +45,7 @@ final class RbacUserRolesTest extends TestCase
             'password' => bcrypt('secret'),
         ]);
 
-        // Ensure an Admin role exists and get its numeric PK.
-        $adminRole = Role::query()->firstOrCreate(['name' => 'Admin']);
+        $adminRole = self::ensureRole('Admin');
         $admin->roles()->syncWithoutDetaching([$adminRole->getKey()]);
 
         Sanctum::actingAs($admin);
@@ -68,8 +76,7 @@ final class RbacUserRolesTest extends TestCase
     {
         $this->actingAsAdmin();
 
-        // Ensure target roles exist
-        Role::query()->firstOrCreate(['name' => 'Auditor']);
+        self::ensureRole('Auditor');
 
         $user = User::query()->create([
             'name' => 'Bob',
@@ -93,9 +100,8 @@ final class RbacUserRolesTest extends TestCase
     {
         $this->actingAsAdmin();
 
-        // Ensure target roles exist
-        Role::query()->firstOrCreate(['name' => 'Auditor']);
-        Role::query()->firstOrCreate(['name' => 'Risk Manager']);
+        self::ensureRole('Auditor');
+        self::ensureRole('Risk Manager');
 
         $user = User::query()->create([
             'name' => 'Carol',
