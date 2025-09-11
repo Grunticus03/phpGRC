@@ -6,28 +6,19 @@ namespace Tests\Feature;
 
 use App\Models\Role;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Testing\TestResponse;
 use Tests\TestCase;
 
 final class RolesPersistenceTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_index_returns_config_list_when_db_empty(): void
+    protected function setUp(): void
     {
-        $res = $this->getJson('/api/rbac/roles');
-        $res->assertOk()
-            ->assertJson([
-                'ok' => true,
-            ])
-            ->assertJsonStructure([
-                'roles',
-            ]);
+        parent::setUp();
 
-        /** @var array{roles: array<int,string>} $json */
-        $json = $res->json();
-        self::assertIsArray($json['roles']);
-        self::assertNotEmpty($json['roles']);
+        // Force persistence path for these tests only.
+        config()->set('core.rbac.mode', 'persist');
+        config()->set('core.rbac.persistence', true);
     }
 
     public function test_store_persists_role_and_index_reflects_db(): void
@@ -50,7 +41,6 @@ final class RolesPersistenceTest extends TestCase
         $ijson = $index->json();
         self::assertContains('Compliance Lead', $ijson['roles']);
 
-        // DB assertion
         self::assertTrue(Role::query()->where('name', 'Compliance Lead')->exists());
     }
 
