@@ -17,17 +17,35 @@ jobs:
         working-directory: web
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+
+      # Use cache only when the lockfile exists in the repo
+      - name: Setup Node (no cache)
+        if: ${{ hashFiles('web/package-lock.json') == '' }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Setup Node (cached)
+        if: ${{ hashFiles('web/package-lock.json') != '' }}
+        uses: actions/setup-node@v4
         with:
           node-version: "20"
           cache: "npm"
           cache-dependency-path: "web/package-lock.json"
+
       - name: Install deps
         run: |
-          if [ -f package-lock.json ]; then npm ci; else npm install; fi
+          if [ -f package-lock.json ]; then
+            npm ci
+          else
+            npm install
+          fi
+
       - name: Typecheck
         run: npm run typecheck
+
       - name: Build
         run: npm run build
+
       - name: Unit tests
         run: npm test --silent
