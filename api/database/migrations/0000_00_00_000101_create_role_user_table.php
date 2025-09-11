@@ -11,7 +11,7 @@ return new class extends Migration {
     {
         Schema::create('role_user', function (Blueprint $table): void {
             $table->unsignedBigInteger('user_id');
-            $table->string('role_id');
+            $table->string('role_id', 26);
 
             $table->primary(['user_id', 'role_id']);
 
@@ -25,4 +25,3 @@ return new class extends Migration {
         Schema::dropIfExists('role_user');
     }
 };
-

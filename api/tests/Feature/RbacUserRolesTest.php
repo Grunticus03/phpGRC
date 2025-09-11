@@ -8,7 +8,6 @@ use App\Models\Role;
 use App\Models\User;
 use Database\Seeders\RolesSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Str;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -20,21 +19,11 @@ final class RbacUserRolesTest extends TestCase
     {
         parent::setUp();
 
-        // Enable RBAC and DB-backed mode for these tests.
         config()->set('core.rbac.enabled', true);
-        config()->set('core.rbac.mode', 'db');
+        config()->set('core.rbac.mode', 'persist');     // align with config/core.php
         config()->set('core.rbac.require_auth', true);
 
         $this->seed(RolesSeeder::class);
-    }
-
-    private static function ensureRole(string $name): Role
-    {
-        // Roles use non-auto IDs (e.g., ULID). Provide an id when inserting.
-        return Role::query()->firstOrCreate(
-            ['name' => $name],
-            ['id' => (string) Str::ulid()]
-        );
     }
 
     private function actingAsAdmin(): User
@@ -45,8 +34,8 @@ final class RbacUserRolesTest extends TestCase
             'password' => bcrypt('secret'),
         ]);
 
-        $adminRole = self::ensureRole('Admin');
-        $admin->roles()->syncWithoutDetaching([$adminRole->getKey()]);
+        $adminRoleId = (string) Role::query()->where('name', 'Admin')->value('id');
+        $admin->roles()->syncWithoutDetaching([$adminRoleId]);
 
         Sanctum::actingAs($admin);
 
@@ -76,7 +65,7 @@ final class RbacUserRolesTest extends TestCase
     {
         $this->actingAsAdmin();
 
-        self::ensureRole('Auditor');
+        Role::query()->firstOrCreate(['name' => 'Auditor']);
 
         $user = User::query()->create([
             'name' => 'Bob',
@@ -100,8 +89,8 @@ final class RbacUserRolesTest extends TestCase
     {
         $this->actingAsAdmin();
 
-        self::ensureRole('Auditor');
-        self::ensureRole('Risk Manager');
+        Role::query()->firstOrCreate(['name' => 'Auditor']);
+        Role::query()->firstOrCreate(['name' => 'Risk Manager']);
 
         $user = User::query()->create([
             'name' => 'Carol',
@@ -109,15 +98,12 @@ final class RbacUserRolesTest extends TestCase
             'password' => bcrypt('secret'),
         ]);
 
-        // Attach
         $a = $this->postJson("/api/rbac/users/{$user->id}/roles/Auditor");
         $a->assertStatus(200)->assertJsonFragment(['roles' => ['Auditor']]);
 
-        // Attach second
         $b = $this->postJson("/api/rbac/users/{$user->id}/roles/Risk Manager");
         $b->assertStatus(200)->assertJsonFragment(['roles' => ['Auditor', 'Risk Manager']]);
 
-        // Detach one
         $c = $this->deleteJson("/api/rbac/users/{$user->id}/roles/Auditor");
         $c->assertStatus(200)->assertJsonFragment(['roles' => ['Risk Manager']]);
     }

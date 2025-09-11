@@ -10,8 +10,8 @@ return new class extends Migration {
     public function up(): void
     {
         Schema::create('roles', function (Blueprint $table): void {
-            // String primary key keeps IDs human-readable, e.g., role_admin
-            $table->string('id')->primary();
+            // ULID-compatible string PK (26 chars)
+            $table->string('id', 26)->primary();
             $table->string('name')->unique();
             $table->timestampsTz();
         });
@@ -22,4 +22,3 @@ return new class extends Migration {
         Schema::dropIfExists('roles');
     }
 };
-

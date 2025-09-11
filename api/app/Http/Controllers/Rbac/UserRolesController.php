@@ -12,12 +12,15 @@ use Illuminate\Routing\Controller;
 
 final class UserRolesController extends Controller
 {
-    /**
-     * GET /api/rbac/users/{user}/roles
-     */
+    private function rbacActive(): bool
+    {
+        return (bool) config('core.rbac.enabled', false)
+            && (string) config('core.rbac.mode', 'stub') === 'persist';
+    }
+
     public function show(int $user): JsonResponse
     {
-        if (!(bool) config('core.rbac.enabled', false) || (string) config('core.rbac.mode', 'db') !== 'db') {
+        if (!$this->rbacActive()) {
             return response()->json(['ok' => false, 'code' => 'RBAC_DISABLED'], 404);
         }
 
@@ -33,14 +36,9 @@ final class UserRolesController extends Controller
         ], 200);
     }
 
-    /**
-     * PUT /api/rbac/users/{user}/roles
-     * Replace the user's roles with the provided set.
-     * Body: { "roles": ["Admin","Auditor"] }
-     */
     public function replace(Request $request, int $user): JsonResponse
     {
-        if (!(bool) config('core.rbac.enabled', false) || (string) config('core.rbac.mode', 'db') !== 'db') {
+        if (!$this->rbacActive()) {
             return response()->json(['ok' => false, 'code' => 'RBAC_DISABLED'], 404);
         }
 
@@ -67,7 +65,6 @@ final class UserRolesController extends Controller
             ], 422);
         }
 
-        // Sync by numeric IDs per FK role_user.role_id -> roles.id
         $u->roles()->sync($map->values()->all());
 
         return response()->json([
@@ -77,13 +74,9 @@ final class UserRolesController extends Controller
         ], 200);
     }
 
-    /**
-     * POST /api/rbac/users/{user}/roles/{role}
-     * Attach a single role by name if it exists.
-     */
     public function attach(int $user, string $role): JsonResponse
     {
-        if (!(bool) config('core.rbac.enabled', false) || (string) config('core.rbac.mode', 'db') !== 'db') {
+        if (!$this->rbacActive()) {
             return response()->json(['ok' => false, 'code' => 'RBAC_DISABLED'], 404);
         }
 
@@ -100,7 +93,6 @@ final class UserRolesController extends Controller
         /** @var User $u */
         $u = User::query()->findOrFail($user);
 
-        // Ensure idempotent attach by numeric role id
         $u->roles()->syncWithoutDetaching([$roleId]);
 
         return response()->json([
@@ -110,13 +102,9 @@ final class UserRolesController extends Controller
         ], 200);
     }
 
-    /**
-     * DELETE /api/rbac/users/{user}/roles/{role}
-     * Detach a single role by name if present.
-     */
     public function detach(int $user, string $role): JsonResponse
     {
-        if (!(bool) config('core.rbac.enabled', false) || (string) config('core.rbac.mode', 'db') !== 'db') {
+        if (!$this->rbacActive()) {
             return response()->json(['ok' => false, 'code' => 'RBAC_DISABLED'], 404);
         }
 
