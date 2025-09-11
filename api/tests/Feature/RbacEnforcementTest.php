@@ -15,6 +15,21 @@ final class RbacEnforcementTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        // Force persistence so seeder runs and FK targets exist.
+        config()->set('core.rbac.mode', 'persist');
+        config()->set('core.rbac.persistence', true);
+
+        // Default to enabled; individual tests can override.
+        config()->set('core.rbac.enabled', true);
+
+        // Seed default roles.
+        $this->seed(RolesSeeder::class);
+    }
+
     public function test_admin_settings_access_when_rbac_disabled_is_permitted(): void
     {
         config()->set('core.rbac.enabled', false);
@@ -34,8 +49,6 @@ final class RbacEnforcementTest extends TestCase
     public function test_admin_settings_requires_admin_role_when_rbac_enabled(): void
     {
         config()->set('core.rbac.enabled', true);
-
-        $this->seed(RolesSeeder::class);
 
         $user = User::query()->create([
             'name' => 'Bob',
@@ -62,8 +75,6 @@ final class RbacEnforcementTest extends TestCase
     {
         config()->set('core.rbac.enabled', true);
 
-        $this->seed(RolesSeeder::class);
-
         $user = User::query()->create([
             'name' => 'Charlie',
             'email' => 'charlie@example.com',
@@ -80,8 +91,6 @@ final class RbacEnforcementTest extends TestCase
     {
         config()->set('core.rbac.enabled', true);
 
-        $this->seed(RolesSeeder::class);
-
         $user = User::query()->create([
             'name' => 'Dana',
             'email' => 'dana@example.com',
@@ -89,6 +98,8 @@ final class RbacEnforcementTest extends TestCase
         ]);
 
         $auditorId = (string) DB::table('roles')->where('name', 'Auditor')->value('id');
+        $this->assertNotEmpty($auditorId);
+
         DB::table('role_user')->insert([
             'user_id' => $user->id,
             'role_id' => $auditorId,
@@ -100,3 +111,4 @@ final class RbacEnforcementTest extends TestCase
         $res->assertStatus(200);
     }
 }
+
