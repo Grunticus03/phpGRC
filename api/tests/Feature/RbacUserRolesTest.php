@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Models\Role;
 use App\Models\User;
 use Database\Seeders\RolesSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -34,8 +35,9 @@ final class RbacUserRolesTest extends TestCase
             'password' => bcrypt('secret'),
         ]);
 
-        // Grant Admin role directly on pivot (role PK = name)
-        $admin->roles()->syncWithoutDetaching(['Admin']);
+        // Grant Admin role by numeric id
+        $adminRoleId = (int) Role::query()->where('name', 'Admin')->value('id');
+        $admin->roles()->syncWithoutDetaching([$adminRoleId]);
 
         Sanctum::actingAs($admin);
 

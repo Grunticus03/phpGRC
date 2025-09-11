@@ -9,7 +9,6 @@ use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
-use Illuminate\Validation\Rule;
 
 final class UserRolesController extends Controller
 {
@@ -54,12 +53,12 @@ final class UserRolesController extends Controller
         $u = User::query()->findOrFail($user);
 
         $names = array_values($payload['roles']);
-        $existing = Role::query()
-            ->whereIn('name', $names)
-            ->pluck('name')
-            ->all();
 
-        $missing = array_values(array_diff($names, $existing));
+        $map = Role::query()
+            ->whereIn('name', $names)
+            ->pluck('id', 'name'); // name => id
+
+        $missing = array_values(array_diff($names, $map->keys()->all()));
         if ($missing !== []) {
             return response()->json([
                 'ok'    => false,
@@ -68,8 +67,8 @@ final class UserRolesController extends Controller
             ], 422);
         }
 
-        // Role PK is the 'name' string per schema; sync by IDs = names.
-        $u->roles()->sync($existing);
+        // Sync by numeric IDs per FK role_user.role_id -> roles.id
+        $u->roles()->sync($map->values()->all());
 
         return response()->json([
             'ok'    => true,
@@ -80,7 +79,7 @@ final class UserRolesController extends Controller
 
     /**
      * POST /api/rbac/users/{user}/roles/{role}
-     * Attach a single role if it exists.
+     * Attach a single role by name if it exists.
      */
     public function attach(int $user, string $role): JsonResponse
     {
@@ -88,20 +87,21 @@ final class UserRolesController extends Controller
             return response()->json(['ok' => false, 'code' => 'RBAC_DISABLED'], 404);
         }
 
-        $role = trim($role);
-        if ($role === '') {
+        $name = trim($role);
+        if ($name === '') {
             return response()->json(['ok' => false, 'code' => 'ROLE_NAME_INVALID'], 422);
         }
 
-        if (!Role::query()->whereKey($role)->exists()) {
-            return response()->json(['ok' => false, 'code' => 'ROLE_NOT_FOUND', 'roles' => [$role]], 422);
+        $roleId = Role::query()->where('name', $name)->value('id');
+        if ($roleId === null) {
+            return response()->json(['ok' => false, 'code' => 'ROLE_NOT_FOUND', 'roles' => [$name]], 422);
         }
 
         /** @var User $u */
         $u = User::query()->findOrFail($user);
 
-        // Ensure idempotent attach
-        $u->roles()->syncWithoutDetaching([$role]);
+        // Ensure idempotent attach by numeric role id
+        $u->roles()->syncWithoutDetaching([$roleId]);
 
         return response()->json([
             'ok'    => true,
@@ -112,7 +112,7 @@ final class UserRolesController extends Controller
 
     /**
      * DELETE /api/rbac/users/{user}/roles/{role}
-     * Detach a single role if present.
+     * Detach a single role by name if present.
      */
     public function detach(int $user, string $role): JsonResponse
     {
@@ -120,15 +120,20 @@ final class UserRolesController extends Controller
             return response()->json(['ok' => false, 'code' => 'RBAC_DISABLED'], 404);
         }
 
-        $role = trim($role);
-        if ($role === '') {
+        $name = trim($role);
+        if ($name === '') {
             return response()->json(['ok' => false, 'code' => 'ROLE_NAME_INVALID'], 422);
+        }
+
+        $roleId = Role::query()->where('name', $name)->value('id');
+        if ($roleId === null) {
+            return response()->json(['ok' => false, 'code' => 'ROLE_NOT_FOUND', 'roles' => [$name]], 422);
         }
 
         /** @var User $u */
         $u = User::query()->findOrFail($user);
 
-        $u->roles()->detach([$role]);
+        $u->roles()->detach([$roleId]);
 
         return response()->json([
             'ok'    => true,
