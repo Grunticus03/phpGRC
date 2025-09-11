@@ -427,3 +427,19 @@ Use it to maintain a permanent, auditable record of all work across phases.
 - Phase/Step status: Phase 4 — CORE-008 Exports E2E complete; exports RBAC enforced; phase continues with remaining RBAC fine-grained items and docs sync.
 - Next action (you): Provide `/docs/PHASE-4-SPEC.md`, `/docs/PHASE-4-TASK-BREAKDOWN.md`, `/docs/BACKLOG.md`, `/docs/ROADMAP.md` for full-file updates to mark CORE-008 done and record RBAC changes.
 - Next action (me): In env and deploys, set `CORE_EXPORTS_ENABLED=true`, `CAP_CORE_EXPORTS_GENERATE=true`, verify filesystem disk, run `artisan migrate`, and ensure a queue worker is active.
+
+---
+
+### Session 2025-09-10: Phase 4 — Roles UI wiring + Frontend CI
+- Context: No SPA entry or router existed. Added Vite+TS scaffold, hash router, layout, nav, Roles page wiring, and a Vitest smoke test. Configured `web-ci` with conditional caching for self-hosted runner.
+- Goal: Make `/admin/roles` reachable and ensure frontend CI runs green.
+- Constraints: Phase 4 stubs only; no role persistence.
+
+# Closeout
+- Deliverables produced:
+  - Web: `web/index.html` replaced with SPA root; `web/src/main.tsx`; `web/src/router.tsx`; `web/src/layouts/AppLayout.tsx`; `web/src/components/Nav.tsx`; `web/src/routes/admin/Roles.tsx` (existing page, now wired); `web/src/routes/admin/index.tsx`.
+  - Tooling: `web/package.json`; `web/tsconfig.json`; `web/tsconfig.node.json`; `web/vite.config.ts`; `web/vite-env.d.ts`; `web/src/__tests__/smoke.test.ts`.
+  - CI: `.github/workflows/web-ci.yml` with lockfile-aware Node cache; Vitest runs; CI green.
+- Phase/Step status: Phase 4 advanced — Roles UI accessible at `/#/admin/roles`; frontend CI ✅.
+- Next action (you): None.
+- Next action (me): Plan role persistence (migrations + DB-backed `store`) and fine-grained policy enforcement next.
