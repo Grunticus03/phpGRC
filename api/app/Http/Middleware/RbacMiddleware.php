@@ -35,6 +35,12 @@ final class RbacMiddleware
             }
         }
 
+        // Gate DB-backed role checks by mode. In non-DB modes, skip role enforcement.
+        $mode = (string) config('core.rbac.mode', 'db'); // expected: 'db'|'stub'|'off'
+        if ($mode !== 'db') {
+            return $next($request);
+        }
+
         $declared = $route->defaults['roles'] ?? [];
         $requiredRoles = is_string($declared) ? [$declared] : (array) $declared;
         if ($requiredRoles === []) {
@@ -62,4 +68,3 @@ final class RbacMiddleware
         return response()->json(['ok' => false, 'code' => 'FORBIDDEN', 'message' => 'Forbidden'], 403);
     }
 }
-

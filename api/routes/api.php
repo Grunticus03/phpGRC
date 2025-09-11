@@ -17,6 +17,7 @@ use App\Http\Controllers\Evidence\EvidenceController;
 use App\Http\Controllers\Export\ExportController;
 use App\Http\Controllers\Export\StatusController;
 use App\Http\Controllers\Rbac\RolesController;
+use App\Http\Controllers\Rbac\UserRolesController;
 use App\Http\Middleware\BreakGlassGuard;
 use App\Http\Middleware\RbacMiddleware;
 use Illuminate\Support\Facades\Route;
@@ -116,15 +117,30 @@ Route::prefix('/exports')
 
 /*
  |--------------------------------------------------------------------------
- | RBAC roles scaffold (admin-only when enabled)
+ | RBAC roles + user-role assignment (admin-only when enabled)
  |--------------------------------------------------------------------------
 */
 Route::prefix('/rbac')
     ->middleware($rbacStack)
     ->group(function (): void {
+        // Role catalog
         Route::match(['GET','HEAD'], '/roles', [RolesController::class, 'index'])
             ->defaults('roles', ['Admin']);
         Route::post('/roles', [RolesController::class, 'store'])
+            ->defaults('roles', ['Admin']);
+
+        // User role management
+        Route::match(['GET','HEAD'], '/users/{user}/roles', [UserRolesController::class, 'show'])
+            ->whereNumber('user')
+            ->defaults('roles', ['Admin']);
+        Route::put('/users/{user}/roles', [UserRolesController::class, 'replace'])
+            ->whereNumber('user')
+            ->defaults('roles', ['Admin']);
+        Route::post('/users/{user}/roles/{role}', [UserRolesController::class, 'attach'])
+            ->whereNumber('user')
+            ->defaults('roles', ['Admin']);
+        Route::delete('/users/{user}/roles/{role}', [UserRolesController::class, 'detach'])
+            ->whereNumber('user')
             ->defaults('roles', ['Admin']);
     });
 
@@ -152,4 +168,3 @@ Route::match(['GET','HEAD'], '/evidence/{id}', [EvidenceController::class, 'show
  |--------------------------------------------------------------------------
 */
 Route::post('/avatar', [AvatarController::class, 'store']);
-

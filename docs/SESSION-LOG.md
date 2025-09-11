@@ -443,3 +443,16 @@ Use it to maintain a permanent, auditable record of all work across phases.
 - Phase/Step status: Phase 4 advanced — Roles UI accessible at `/#/admin/roles`; frontend CI ✅.
 - Next action (you): None.
 - Next action (me): Plan role persistence (migrations + DB-backed `store`) and fine-grained policy enforcement next.
+
+---
+
+### Session 2025-09-11: Phase 4 — RBAC roles persistence gating
+- Context: Roles endpoint moved from stub-only to optional DB persistence. Tests failed on uniqueness and FK when unseeded.
+- Goal: Gate persistence behind config, add safe seeding, update tests. Keep CI green.
+- Constraints: Charter + Phase 4 scope. No full RBAC enforcement. No UI work. CI guardrails intact.
+
+Closeout
+- Deliverables produced: updated `App\Http\Controllers\Rbac\RolesController`; updated `App\Http\Requests\Rbac\StoreRoleRequest`; updated `config/core.php` (adds `CORE_RBAC_MODE` + `CORE_RBAC_PERSISTENCE` and wiring); updated `database/seeders/DatabaseSeeder.php` (conditional seeding); new `database/seeders/RoleSeeder.php`; updated tests `RolesPersistenceTest` and `RbacEnforcementTest` to force persist + seed; updated `/api/.env.example` with RBAC vars. CI green.
+- Phase/Step status: Phase 4 in progress; RBAC role persistence implemented behind flag; enforcement deferred to Phase 5.
+- Next action (you): Provide files to implement role assignment API and DB-backed checks gated by `CORE_RBAC_MODE`: `app/Http/Middleware/RbacMiddleware.php`, `routes/api.php`, `app/Http/Controllers/Rbac/UserRolesController.php` (new), `tests/Feature/RbacUserRolesTest.php` (new).
+- Next action (me): Deliver full-file replacements for the four items above once provided.
