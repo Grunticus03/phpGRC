@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 return [
-    // Persistence gate. Default ON so controller/validation tests expect stub-only responses.
+    // Persistence gates
     'settings' => [
         'stub_only' => filter_var(env('CORE_SETTINGS_STUB_ONLY', true), FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) ?? true,
     ],
@@ -15,10 +15,10 @@ return [
         'mfa' => [
             'totp' => [
                 'required_for_admin' => env('CORE_AUTH_MFA_TOTP_REQUIRED_FOR_ADMIN', true),
-                'issuer'   => env('CORE_AUTH_MFA_TOTP_ISSUER', 'phpGRC'),
-                'digits'   => env('CORE_AUTH_MFA_TOTP_DIGITS', 6),
-                'period'   => env('CORE_AUTH_MFA_TOTP_PERIOD', 30),
-                'algorithm'=> env('CORE_AUTH_MFA_TOTP_ALGORITHM', 'SHA1'),
+                'issuer'    => env('CORE_AUTH_MFA_TOTP_ISSUER', 'phpGRC'),
+                'digits'    => env('CORE_AUTH_MFA_TOTP_DIGITS', 6),
+                'period'    => env('CORE_AUTH_MFA_TOTP_PERIOD', 30),
+                'algorithm' => env('CORE_AUTH_MFA_TOTP_ALGORITHM', 'SHA1'),
             ],
         ],
         'break_glass' => [
@@ -27,7 +27,12 @@ return [
     ],
 
     'rbac' => [
-        'enabled' => true,
+        'enabled'      => true,
+        // Mode controls controllers/validation behavior. Default stub.
+        // Values: 'stub' | 'persist'
+        'mode'         => env('CORE_RBAC_MODE', 'stub'),
+        // Back-compat boolean toggle; either this OR mode=persist enables persistence paths.
+        'persistence'  => filter_var(env('CORE_RBAC_PERSISTENCE', false), FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) ?? false,
         'require_auth' => env('CORE_RBAC_REQUIRE_AUTH', false),
         'roles' => [
             'Admin',
@@ -37,7 +42,7 @@ return [
         ],
     ],
 
-    // Capability flags. Nested to allow config('core.capabilities.core.exports.generate').
+    // Capability flags
     'capabilities' => [
         'core' => [
             'exports' => [
@@ -68,7 +73,7 @@ return [
         'format'  => env('CORE_AVATARS_FORMAT', 'webp'),
     ],
 
-    // Exports defaults used by generator
+    // Exports defaults
     'exports' => [
         'enabled' => env('CORE_EXPORTS_ENABLED', true),
         'disk'    => env('CORE_EXPORTS_DISK', env('FILESYSTEM_DISK', 'local')),

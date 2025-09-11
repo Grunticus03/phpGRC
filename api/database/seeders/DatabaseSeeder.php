@@ -10,8 +10,13 @@ final class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
-        $this->call([
-            RolesSeeder::class,
-        ]);
+        $persist = (config('core.rbac.mode') === 'persist') || (bool) config('core.rbac.persistence', false);
+
+        if ($persist) {
+            $this->call([
+                RolesSeeder::class,
+            ]);
+        }
     }
 }
+
