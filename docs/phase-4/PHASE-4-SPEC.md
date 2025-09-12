@@ -1,7 +1,7 @@
 # Phase 4 — Core App Usable Spec
 
 ## Instruction Preamble
-- **Date:** 2025-09-11
+- **Date:** 2025-09-12
 - **Phase:** 4
 - **Goal:** Lock contracts, payloads, config keys, and persistence behaviors for Settings, RBAC, Audit, Evidence, Exports, Avatars.
 - **Constraints:** CI guardrails intact; deterministic outputs; stub-path preserved when persistence disabled via config.
@@ -143,14 +143,53 @@ Avatars: AVATAR_NOT_ENABLED, AVATAR_INVALID_IMAGE, AVATAR_UNSUPPORTED_FORMAT, AV
 - `GET /api/evidence/{id}` — fetch metadata or file as applicable
 
 ### Audit
-- `GET /api/audit` — list events with pagination; retention applies
+- `GET /api/audit` — list events with pagination.  
+  **Filters (query string):**
+  - `category` ∈ `["AUTH","SETTINGS","RBAC","EVIDENCE","EXPORT","USER","SYSTEM"]`
+  - `action` string ≤191
+  - `occurred_from`, `occurred_to` (ISO8601 or any `Carbon::parse`-able date; server coerces to UTC)
+  - `actor_id` integer
+  - `entity_type` string ≤128
+  - `entity_id` string ≤191
+  - `ip` valid IP
+  - `order` ∈ `asc|desc` (default `desc`)
+  - `limit` 1..100. Default 2 on first page, 1 on cursor-only requests.
+  - `cursor` pagination cursor. Aliases: `cursor`, `nextCursor`, `page[cursor]`. Format `base64(ts|id|limit|emittedCount)`; tolerant of plaintext `ts|id|...`.
+  **Response (persisted path):**
+  ~~~json
+  {
+    "ok": true,
+    "_categories": ["AUTH","SETTINGS","RBAC","EVIDENCE","EXPORT","USER","SYSTEM"],
+    "_retention_days": 365,
+    "filters": { "order":"desc","limit":2,"cursor":null, "category":null, "action":null, "occurred_from":null, "occurred_to":null, "actor_id":null, "entity_type":null, "entity_id":null, "ip":null },
+    "items": [
+      {"id":"01J....","occurred_at":"2025-09-12T03:12:34Z","actor_id":1,"action":"rbac.user_role.attached","category":"RBAC","entity_type":"user","entity_id":"42","ip":"203.0.113.5","ua":"...","meta":{"role":"Auditor"}}
+    ],
+    "nextCursor": "ey4uLg"
+  }
+  ~~~
+  **Response (stub path for empty DB and no business filters):**
+  ~~~json
+  {
+    "ok": true,
+    "note": "stub-only",
+    "_categories": ["AUTH","SETTINGS","RBAC","EVIDENCE","EXPORT","USER","SYSTEM"],
+    "_retention_days": 365,
+    "filters": {"order":"desc","limit":2,"cursor":null},
+    "items": [ { "...": "three deterministic stub events ..." } ],
+    "nextCursor": "..."
+  }
+  ~~~
 
 **RBAC Audit actions**
 - Category: `RBAC`
-- Actions and meta:
-  - `role.replace` — `{before: string[], after: string[], added: string[], removed: string[]}`
-  - `role.attach`  — `{role: string, before: string[], after: string[]}`
-  - `role.detach`  — `{role: string, before: string[], after: string[]}`
+- Canonical actions:
+  - `rbac.role.created` — `{name:string}`
+  - `rbac.user_role.replaced` — `{before:string[], after:string[], added:string[], removed:string[]}`
+  - `rbac.user_role.attached` — `{role:string, before:string[], after:string[]}`
+  - `rbac.user_role.detached` — `{role:string, before:string[], after:string[]}`
+- Aliases written for legacy/compatibility:
+  - `role.replace`, `role.attach`, `role.detach` (same meta)
 
 ### Exports (CORE-008)
 - RBAC:
@@ -214,6 +253,18 @@ Avatars: AVATAR_NOT_ENABLED, AVATAR_INVALID_IMAGE, AVATAR_UNSUPPORTED_FORMAT, AV
 
 ### Avatars
 - `POST /api/avatar` — upload avatar; WEBP target format
+
+---
+
+## Retention
+
+- Command: `php artisan audit:purge [--days=N] [--dry-run]`
+  - On invalid `N` (<1 or >730) the command exits non-zero and prints `AUDIT_RETENTION_INVALID`.
+  - Deletes rows with `occurred_at < now_utc - N days`.
+- Scheduler:
+  - Runs daily at **03:10 UTC**.
+  - Scheduler clamps configured days to **[30, 730]** to reduce accidental loss.
+  - Command enforces **[1, 730]** for manual runs.
 
 ---
 

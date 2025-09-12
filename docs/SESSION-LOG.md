@@ -85,7 +85,7 @@ Use it to maintain a permanent, auditable record of all work across phases.
 - Deliverables produced: Updated ROADMAP.md (marked CORE-001 as ⏳ next), updated SESSION-LOG.md.
 - Phase/Step status: Phase 1 partial — CORE-002 ✅, CORE-001 pending.
 - Next action (you): Maintain test box snapshot baseline.
-- Next action (me): Draft Instruction Preamble + planning breakdown for CORE-001 scaffold.
+- Next action (me): Draft guardrails skeleton & Installer scaffold.
 
 ---
 
@@ -219,7 +219,7 @@ Use it to maintain a permanent, auditable record of all work across phases.
 - Next action (me): await instruction to begin Phase 3 when ready.
 - Suggested commit: `docs(phase-2): close out Phase 2 — CI green, merged to main`
 
-...
+---
 
 ### Session 2025-09-05: Phase 3 Closeout
 - Context: Completed all scaffolding tasks for module foundation per Charter and Roadmap.
@@ -259,7 +259,6 @@ Use it to maintain a permanent, auditable record of all work across phases.
 - Phase/Step status: Phase 4 ⏳ in progress — scaffolding merged, CI ✅ green.
 - Next action (you): Maintain repo baseline.
 - Next action (me): Draft next Phase 4 increment — Settings UI expansion and RBAC enforcement planning.
-- Suggested commit: `docs(phase-4): kickoff scaffolding complete — CI green`
 
 ---
 
@@ -270,9 +269,9 @@ Use it to maintain a permanent, auditable record of all work across phases.
 
 # Closeout
 - Deliverables produced:
-  - `/api/bootstrap/app.php` → added `withProviders([AuthServiceProvider::class])`
-  - `/api/app/Providers/AuthServiceProvider.php` → gates registered
-  - `/api/tests/Feature/RbacPolicyTest.php` → middleware tagging test
+  - `api/bootstrap/app.php` → added `withProviders([AuthServiceProvider::class])`
+  - `api/app/Providers/AuthServiceProvider.php` → gates registered
+  - `api/tests/Feature/RbacPolicyTest.php` → middleware tagging test
 - Phase/Step status: Phase 4 advanced — gates active, tests pass.
 - Next action (you): None.
 - Next action (me): Proceed with validation envelope alignment.
@@ -286,7 +285,7 @@ Use it to maintain a permanent, auditable record of all work across phases.
 
 # Closeout
 - Deliverables produced:
-  - `/api/app/Http/Requests/Evidence/StoreEvidenceRequest.php` → custom `failedValidation`
+  - `api/app/Http/Requests/Evidence/StoreEvidenceRequest.php` → custom `failedValidation`
   - Docs created: `/docs/api/SETTINGS.md`, `/docs/api/AUDIT.md`, `/docs/api/EVIDENCE.md`, `/docs/api/ERRORS.md`
   - Feature tests added: `SettingsValidationTest`, `EvidenceApiTest`, `AuditApiTest`
 - Phase/Step status: Phase 4 advanced — docs and tests in place; CI ✅ green.
@@ -331,7 +330,7 @@ Use it to maintain a permanent, auditable record of all work across phases.
 - Context: Stabilize Phase-4 scaffolds with strict validation and feature tests.
 - Goal: Lock API contracts with tests. Keep persistence minimal and gated.
 - Changes:
-  - Avatars: `StoreAvatarRequest` + MIME/size validation. `AvatarController@store` returns 422 for non-WEBP and echoes metadata.
+  - Avatars: `StoreAvatarRequest` + MIME/size guard. `AvatarController@store` returns 422 for non-WEBP and echoes metadata.
   - Settings: tightened validation rules and error envelope; legacy and spec shapes supported.
   - Evidence: `StoreEvidenceRequest` size/MIME guard; `EvidenceController` stores bytes with SHA-256, ETag, HEAD/304 behavior, cursor pagination; audit emits when table exists.
   - RBAC: `StoreRoleRequest` and endpoint tests; middleware pass-through verified.
@@ -370,7 +369,7 @@ Use it to maintain a permanent, auditable record of all work across phases.
 
 ---
 
-### Session 2025-09-08: Phase 4 Settings Persistence (apply plan)
+### Session 2025-09-09: Phase 4 Settings Persistence (apply plan)
 - Context: Move from echo-only to persisted overrides.
 - Goal: Implement `SettingsService::apply` with diff logic and events.
 - Constraints: Contract keys only; persistence gated by table presence.
@@ -493,3 +492,22 @@ Closeout
 - Phase/Step status: Audit API stub pagination stabilized; CI green.
 - Next action (you): Merge to main and tag. Note completion of stub pagination under CORE-006.
 - Next action (me): Implement persisted-path filters and retention job in Phase 4 follow-ups.
+
+---
+
+### Session 2025-09-12: Phase 4 — RBAC Audit Canonicalization + Filters + Retention
+- Context: RBAC role-change audit needed canonical names; audit list required filters; retention job needed scheduling.
+- Goal: Emit `rbac.role.created` and `rbac.user_role.{attached,detached,replaced}` with legacy alias events; ship list filters; add `audit:purge` and daily scheduler.
+- Constraints: Keep CI and static analysis green; full-file outputs only.
+
+# Closeout
+- Deliverables produced:
+  - Controllers updated to emit canonical RBAC actions and legacy `role.*` aliases.
+  - `AuditController@index` reads filters: category, action, occurred_from/to, actor_id, entity_type/id, ip; echoes `filters` and `_retention_days`.
+  - Command `audit:purge` with `--days` and `--dry-run`; returns `AUDIT_RETENTION_INVALID` on out-of-range; transactional delete.
+  - Scheduler: runs `audit:purge` daily at 03:10 UTC; clamps days to [30,730].
+  - Docs updated: `PHASE-4-SPEC.md` (audit filters, RBAC actions, retention), `PHASE-4-TASK-BREAKDOWN.md`, `CAPABILITIES.md`.
+  - Tests: `RbacAuditTest` green; CI green.
+- Phase/Step status: Phase 4 advanced — CORE-006 filters + retention complete; RBAC audit contract locked.
+- Next action (you): Review docs and merge.
+- Next action (me): Move to Evidence filters + hash verify and start admin Role Management UI scaffold.

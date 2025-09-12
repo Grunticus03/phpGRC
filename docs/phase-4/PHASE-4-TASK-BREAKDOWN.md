@@ -1,7 +1,7 @@
 # Phase 4 — Core App Usable Detailed Task Breakdown
 
 ## Instruction Preamble
-- Date 2025-09-11
+- Date 2025-09-12
 - Phase 4
 - Goal Decompose Phase 4 deliverables into detailed, sequential tasks to guide incremental scaffolding, enforcement, and persistence work.
 - Constraints
@@ -9,7 +9,7 @@
   - Each increment must pass CI guardrails.
   - Stubs advance to enforcement/persistence gradually.
   - Full traceability to Backlog IDs (CORE-003, CORE-004, CORE-006, CORE-007, CORE-008, CORE-010).
-- Last updated: 2025-09-11
+- Last updated: 2025-09-12
 
 ---
 
@@ -27,8 +27,8 @@
 - [x] Settings update listener writes audit rows
 - [x] `AuditLogger` helper with typed attributes
 - [x] Stub pagination + cursor semantics aligned with tests
-- [ ] Filters on list (category/action/date range) — persisted path
-- [ ] Retention job honoring `core.audit.retention_days`
+- [x] Filters on list (category/action/date range + ids/ip) — persisted path
+- [x] Retention job honoring `core.audit.retention_days` (CLI + scheduler clamp)
 
 ### 3. Evidence (CORE-007)
 - [x] Persist evidence metadata + file store
@@ -60,8 +60,9 @@
 - [ ] Fine-grained policies (capability-level hooks)
 
 ### 7. RBAC Audit
-- [x] Log `role.replace|attach|detach` with before/after sets
-- [ ] Add audit list filters for category `RBAC`
+- [x] Log canonical `rbac.role.created` and `rbac.user_role.{attached,detached,replaced}`
+- [x] Write legacy aliases `role.{attach,detach,replace}` in parallel
+- [x] Add audit list filters for category `RBAC`
 - [ ] Export audit events as CSV
 
 ---
@@ -75,8 +76,7 @@
 ---
 
 ## Immediate Next Steps
-1. Implement audit list filters and retention job.
-2. Evidence: add download hash verification and list filters.
-3. Begin role management UI scaffold under `/admin/rbac`.
-4. Add background queue path for exports (non-test envs).
-
+1. Evidence: add download hash verification and list filters.
+2. Begin role management UI under `/admin/rbac` (read/attach/detach/replace).
+3. Add background queue path for exports in non-test envs.
+4. Add CSV export for audit events.
