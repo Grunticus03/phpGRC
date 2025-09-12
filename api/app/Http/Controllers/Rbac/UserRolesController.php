@@ -42,7 +42,7 @@ final class UserRolesController extends Controller
         try {
             $logger->log([
                 'actor_id'    => $actorId,
-                'action'      => $action,              // rbac.user_role.replaced|attached|detached
+                'action'      => $action,              // role.replace | role.attach | role.detach
                 'category'    => 'RBAC',
                 'entity_type' => 'user',
                 'entity_id'   => (string) $target->id,
@@ -110,7 +110,7 @@ final class UserRolesController extends Controller
         $added   = array_values(array_diff($after, $before));
         $removed = array_values(array_diff($before, $after));
 
-        $this->writeAudit($request, $u, 'rbac.user_role.replaced', [
+        $this->writeAudit($request, $u, 'role.replace', [
             'before'  => $before,
             'after'   => $after,
             'added'   => $added,
@@ -151,7 +151,7 @@ final class UserRolesController extends Controller
 
         // Only log if it actually changed.
         if (!in_array($name, $before, true)) {
-            $this->writeAudit($request, $u, 'rbac.user_role.attached', [
+            $this->writeAudit($request, $u, 'role.attach', [
                 'role'   => $name,
                 'before' => $before,
                 'after'  => $after,
@@ -192,7 +192,7 @@ final class UserRolesController extends Controller
 
         // Only log if it actually changed.
         if (in_array($name, $before, true) && !in_array($name, $after, true)) {
-            $this->writeAudit($request, $u, 'rbac.user_role.detached', [
+            $this->writeAudit($request, $u, 'role.detach', [
                 'role'   => $name,
                 'before' => $before,
                 'after'  => $after,
