@@ -61,7 +61,7 @@ final class AuditController extends Controller
             static function (AuditEvent $e): array {
                 return [
                     'id'          => $e->id,
-                    'occurred_at' => $e->occurred_at?->toIso8601String(),
+                    'occurred_at' => $e->occurred_at->toIso8601String(),
                     'actor_id'    => $e->actor_id,
                     'action'      => $e->action,
                     'category'    => $e->category,
