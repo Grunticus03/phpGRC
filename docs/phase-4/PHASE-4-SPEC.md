@@ -33,6 +33,11 @@ core.exports.dir: exports
 
 core.capabilities.core.exports.generate: true
 
+# Setup Wizard (bugfix scope)
+core.setup.enabled: true  
+core.setup.shared_config_path: /opt/phpgrc/shared/config.php  
+core.setup.allow_commands: false
+
 Notes:
 - Enforcement: when `core.rbac.enabled=true`, route `roles` are enforced. `mode`/`persistence` do not bypass enforcement. `require_auth=true` yields 401 on no auth; otherwise anonymous passthrough occurs before role checks.
 - Persistence path for RBAC catalog and assignments is active when `core.rbac.mode=persist` **or** `core.rbac.persistence=true`.
@@ -41,6 +46,7 @@ Notes:
 - Audit retention capped at 2 years.
 - Exports write artifacts under configured disk/dir.
 - **Queue:** tests force `queue.default=sync`; production may use any Laravel-supported queue.
+- **Setup Wizard:** Only database connection config is written to disk at `core.setup.shared_config_path`. All other settings persist in DB. Redirect-to-setup behavior outside this spec.
 
 ---
 
@@ -52,7 +58,8 @@ Settings/RBAC: RBAC_DISABLED, ROLE_NOT_FOUND, ROLE_NAME_INVALID
 Audit: AUDIT_NOT_ENABLED, AUDIT_RETENTION_INVALID  
 Evidence: EVIDENCE_NOT_ENABLED, EVIDENCE_TOO_LARGE, EVIDENCE_MIME_NOT_ALLOWED, **EVIDENCE_HASH_MISMATCH**  
 Exports: EXPORT_TYPE_UNSUPPORTED, EXPORT_NOT_READY, EXPORT_NOT_FOUND, EXPORT_FAILED, EXPORT_ARTIFACT_MISSING  
-Avatars: AVATAR_NOT_ENABLED, AVATAR_INVALID_IMAGE, AVATAR_UNSUPPORTED_FORMAT, AVATAR_TOO_LARGE
+Avatars: AVATAR_NOT_ENABLED, AVATAR_INVALID_IMAGE, AVATAR_UNSUPPORTED_FORMAT, AVATAR_TOO_LARGE  
+Setup: SETUP_ALREADY_COMPLETED, SETUP_STEP_DISABLED, DB_CONFIG_INVALID, DB_WRITE_FAILED, APP_KEY_EXISTS, SCHEMA_INIT_FAILED, ADMIN_EXISTS, SMTP_INVALID, IDP_UNSUPPORTED, BRANDING_INVALID
 
 ---
 
@@ -68,22 +75,6 @@ Avatars: AVATAR_NOT_ENABLED, AVATAR_INVALID_IMAGE, AVATAR_UNSUPPORTED_FORMAT, AV
     ~~~json
     { "ok": true, "roles": ["Admin","Auditor","Risk Manager","User"] }
     ~~~
-- `POST /api/rbac/roles` (persist path only)
-  - Request:
-    ~~~json
-    { "name": "Compliance Lead" }
-    ~~~
-  - Response 201:
-    ~~~json
-    { "ok": true, "role": { "id": "role_compliance_lead", "name": "Compliance Lead" } }
-    ~~~
-  - Collision rule:
-    - If `role_compliance_lead` exists, next becomes `role_compliance_lead_1`, then `_2`, etc.
-  - Stub path (persistence off):
-    ~~~json
-    { "ok": false, "note": "stub-only", "accepted": { "name": "..." } }
-    ~~~
-
 
 **Role ID Contract**
 - Human-readable slug ID shown in UI/API.
@@ -215,16 +206,6 @@ Avatars: AVATAR_NOT_ENABLED, AVATAR_INVALID_IMAGE, AVATAR_UNSUPPORTED_FORMAT, AV
     - `id, occurred_at, actor_id, action, category, entity_type, entity_id, ip, ua, meta_json`
   - CSV format: RFC 4180 quoting via `fputcsv`.
 
-**RBAC Audit actions**
-- Category: `RBAC`
-- Canonical actions:
-  - `rbac.role.created` — `{name:string}`
-  - `rbac.user_role.replaced` — `{before:string[], after:string[], added:string[], removed:string[]}`
-  - `rbac.user_role.attached` — `{role:string, before:string[], after:string[]}`
-  - `rbac.user_role.detached` — `{role:string, before:string[], after:string[]}`
-- Aliases written for legacy/compatibility:
-  - `role.replace`, `role.attach`, `role.detach` (same meta)
-
 ### Exports (CORE-008)
 - RBAC:
   - Create: roles `["Admin"]` AND capability `core.exports.generate` must be enabled.
@@ -278,7 +259,45 @@ Avatars: AVATAR_NOT_ENABLED, AVATAR_INVALID_IMAGE, AVATAR_UNSUPPORTED_FORMAT, AV
   - `completed_at`, `failed_at`, `error_code`, `error_note`
 
 ### Avatars
-- `POST /api/avatar` — upload avatar; WEBP target format
+- `POST /api/avatar` — upload avatar; validates image; queues background transcode; returns 202 stub payload.
+- `GET|HEAD /api/avatar/{user}?size=32|64|128` — serve WEBP variant from public disk.
+  - Storage path: `public/avatars/{user}/avatar-<size>.webp`
+  - Response headers:
+    - `Content-Type: image/webp`
+    - `X-Content-Type-Options: nosniff`
+    - `Cache-Control: public, max-age=3600, immutable`
+
+### Setup Wizard (Bugfix scope, Phase-4)
+- **Status:** `GET /api/setup/status`
+  - Response:
+    ~~~json
+    { "ok": true, "installed": false, "db_config_present": false, "steps_completed": [] }
+    ~~~
+  - When installed, returns `"installed": true`.
+- **DB Test:** `POST /api/setup/db/test`
+  - Request:
+    ~~~json
+    { "host":"...", "port":3306, "database":"...", "username":"...", "password":"..." }
+    ~~~
+  - Response 200 `{ "ok": true }` or 422 `{ "ok": false, "code":"DB_CONFIG_INVALID", "errors":{...} }`.
+- **DB Write:** `POST /api/setup/db/write`
+  - Writes config atomically to `core.setup.shared_config_path` and returns `{ "ok": true, "path": "/opt/phpgrc/shared/config.php" }`. If disabled: 400 `{ "ok": false, "code":"SETUP_STEP_DISABLED" }`.
+- **App Key:** `POST /api/setup/app-key`
+  - Generates Laravel app key. If `core.setup.allow_commands=false`, returns 202 `{ "ok": true, "note":"stub-only" }`. If already present: 409 `{ "ok": false, "code":"APP_KEY_EXISTS" }`.
+- **Schema Init:** `POST /api/setup/schema/init`
+  - Runs migrations (`--force`) when allowed. Else 202 stub.
+- **Admin:** `POST /api/setup/admin`
+  - Request:
+    ~~~json
+    { "name":"...", "email":"...", "password":"...", "password_confirmation":"..." }
+    ~~~
+  - Creates first admin or returns 409 `{ "code":"ADMIN_EXISTS" }`.
+- **Admin TOTP Verify:** `POST /api/setup/admin/totp/verify`
+  - Request `{ "code":"123456" }`. Response `{ "ok": true }` or 400 `{ "code":"TOTP_CODE_INVALID" }`.
+- **SMTP:** `POST /api/setup/smtp` → stores SMTP settings; validates host/port/auth; 200 on success; 422 on invalid.
+- **IdP:** `POST /api/setup/idp` → stores external IdP config; may return `{ "code":"IDP_UNSUPPORTED" }` if feature off.
+- **Branding:** `POST /api/setup/branding` → stores name/theme/logo; 422 `{ "code":"BRANDING_INVALID" }` on invalid payload.
+- **Finish:** `POST /api/setup/finish` → flips installed flag; subsequent setup routes return `{ "code":"SETUP_ALREADY_COMPLETED" }`.
 
 ---
 
@@ -333,6 +352,32 @@ Route::prefix('/exports')->middleware($rbacStack)->group(function () {
 // Audit
 Route::match(['GET','HEAD'], '/audit', [AuditController::class, 'index'])->middleware($rbacStack)->defaults('roles', ['Admin','Auditor']);
 Route::get('/audit/export.csv', [AuditExportController::class, 'exportCsv'])->middleware($rbacStack)->defaults('roles', ['Admin','Auditor']);
+
+// Evidence
+Route::prefix('/evidence')->middleware($rbacStack)->group(function () {
+    Route::match(['GET','HEAD'], '/', [EvidenceController::class, 'index'])->defaults('roles', ['Admin','Auditor']);
+    Route::post('/', [EvidenceController::class, 'store'])->defaults('roles', ['Admin']);
+    Route::match(['GET','HEAD'], '/{id}', [EvidenceController::class, 'show'])->defaults('roles', ['Admin','Auditor']);
+});
+
+// Avatars
+Route::post('/avatar', [AvatarController::class, 'store']);
+Route::match(['GET','HEAD'], '/avatar/{user}', [AvatarController::class, 'show'])->whereNumber('user');
+
+// Setup Wizard (bugfix scope)
+Route::prefix('/setup')->group(function () {
+    Route::get('/status', [\App\Http\Controllers\Setup\SetupStatusController::class, 'show']);
+    Route::post('/db/test', [\App\Http\Controllers\Setup\DbController::class, 'test']);
+    Route::post('/db/write', [\App\Http\Controllers\Setup\DbController::class, 'write']);
+    Route::post('/app-key', [\App\Http\Controllers\Setup\AppKeyController::class, 'generate']);
+    Route::post('/schema/init', [\App\Http\Controllers\Setup\SchemaController::class, 'init']);
+    Route::post('/admin', [\App\Http\Controllers\Setup\AdminController::class, 'create']);
+    Route::post('/admin/totp/verify', [\App\Http\Controllers\Setup\AdminMfaController::class, 'verify']);
+    Route::post('/smtp', [\App\Http\Controllers\Setup\SmtpController::class, 'store']);
+    Route::post('/idp', [\App\Http\Controllers\Setup\IdpController::class, 'store']);
+    Route::post('/branding', [\App\Http\Controllers\Setup\BrandingController::class, 'store']);
+    Route::post('/finish', [\App\Http\Controllers\Setup\FinishController::class, 'finish']);
+});
 ~~~
 
 ---

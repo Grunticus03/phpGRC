@@ -47,8 +47,8 @@
 
 ### 5. Avatars (CORE-010)
 - [x] Upload endpoint scaffold
-- [ ] Transcode to WEBP in worker
-- [ ] Serve resized variants
+- [x] Transcode to WEBP in worker
+- [x] Serve resized variants
 
 ### 6. RBAC Enforcement + Catalog (CORE-004)
 - [x] `RbacMiddleware` enforces when `core.rbac.enabled=true`
@@ -57,13 +57,21 @@
 - [x] DB-backed checks via `User::hasAnyRole(...)`
 - [x] CI tests for enforcement and endpoints
 - [x] UI scaffold for role management (list roles, create role stub) under `/admin/roles`
-- [x] User–role assignment UI (read/attach/detach/replace)
+- [x] User–role assignment UI (read, attach, detach, replace)
 
 ### 7. RBAC Audit
 - [x] Log canonical `rbac.role.created` and `rbac.user_role.{attached,detached,replaced}`
 - [x] Write legacy aliases `role.{attach,detach,replace}` in parallel
 - [x] Add audit list filters for category `RBAC`
 - [x] Export audit events as CSV
+
+### 8. Bugfix — Complete Setup Wizard (CORE-001 catch-up)
+- [ ] Add controllers: `SetupStatusController`, `DbController`, `AppKeyController`, `SchemaController`, `AdminController`, `AdminMfaController`, `SmtpController`, `IdpController`, `BrandingController`, `FinishController`
+- [ ] Add requests for validation per step
+- [ ] Add `SetupGuard` middleware to block steps after finish
+- [ ] Implement `ConfigFileWriter` with atomic write to `core.setup.shared_config_path`
+- [ ] Wire `/api/setup/*` routes and tests
+- [ ] Update docs and error taxonomy
 
 ---
 
@@ -76,6 +84,6 @@
 ---
 
 ## Immediate Next Steps
-1. Start avatar transcode worker and resized variants.
+1. Implement Setup Wizard backend (`/api/setup/*`) per spec and Charter M).
 2. Minor UX polish on admin pages per STYLEGUIDE.
 
