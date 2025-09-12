@@ -34,7 +34,8 @@ core.exports.dir: exports
 core.capabilities.core.exports.generate: true
 
 Notes:
-- RBAC persistence path is active when `core.rbac.mode=persist` **or** `core.rbac.persistence=true`.
+- Enforcement: when `core.rbac.enabled=true`, route `roles` are enforced. `mode`/`persistence` do not bypass enforcement. `require_auth=true` yields 401 on no auth; otherwise anonymous passthrough occurs before role checks.
+- Persistence path for RBAC catalog and assignments is active when `core.rbac.mode=persist` **or** `core.rbac.persistence=true`.
 - Evidence default max 25 MB.
 - Avatars canonical size 128 px, WEBP only.
 - Audit retention capped at 2 years.
@@ -82,10 +83,11 @@ Avatars: AVATAR_NOT_ENABLED, AVATAR_INVALID_IMAGE, AVATAR_UNSUPPORTED_FORMAT, AV
     { "ok": false, "note": "stub-only", "accepted": { "name": "..." } }
     ~~~
 
-- **Role ID Contract**
-  - Human-readable slug ID shown in UI/API.
-  - Format: `role_<slug>`, lowercase ASCII, `_` separator.
-  - Collision suffix: `_<N>` where `N` starts at 1.
+
+**Role ID Contract**
+- Human-readable slug ID shown in UI/API.
+- Format: `role_<slug>`, lowercase ASCII, `_` separator.
+- Collision suffix: `_<N>` where `N` starts at 1.
 
 ### RBAC — User Role Mapping
 - `GET /api/rbac/users/{userId}/roles`
@@ -102,7 +104,7 @@ Avatars: AVATAR_NOT_ENABLED, AVATAR_INVALID_IMAGE, AVATAR_UNSUPPORTED_FORMAT, AV
 - `POST /api/rbac/users/{userId}/roles/{name}` — attach by role name  
 - `DELETE /api/rbac/users/{userId}/roles/{name}` — detach by role name
 - Enforcement:
-  - Route-level `roles` defaults enforce access via `RbacMiddleware`.
+  - Route-level `roles` defaults are enforced by `RbacMiddleware`.
   - When `core.rbac.require_auth=true`, Sanctum auth required first.
 
 ### Admin Settings
@@ -142,6 +144,13 @@ Avatars: AVATAR_NOT_ENABLED, AVATAR_INVALID_IMAGE, AVATAR_UNSUPPORTED_FORMAT, AV
 
 ### Audit
 - `GET /api/audit` — list events with pagination; retention applies
+
+**RBAC Audit actions**
+- Category: `RBAC`
+- Actions and meta:
+  - `role.replace` — `{before: string[], after: string[], added: string[], removed: string[]}`
+  - `role.attach`  — `{role: string, before: string[], after: string[]}`
+  - `role.detach`  — `{role: string, before: string[], after: string[]}`
 
 ### Exports (CORE-008)
 - RBAC:
@@ -225,10 +234,15 @@ Route::prefix('/admin')->middleware($rbacStack)->group(function () {
     Route::patch('/settings',[SettingsController::class, 'update'])->defaults('roles', ['Admin']);
 });
 
-// RBAC Roles (persist path)
+// RBAC Roles and User-Role mapping
 Route::prefix('/rbac')->middleware($rbacStack)->group(function () {
     Route::match(['GET','HEAD'], '/roles', [RolesController::class, 'index'])->defaults('roles', ['Admin']);
     Route::post('/roles', [RolesController::class, 'store'])->defaults('roles', ['Admin']);
+
+    Route::match(['GET','HEAD'], '/users/{user}/roles', [UserRolesController::class, 'show'])->whereNumber('user')->defaults('roles', ['Admin']);
+    Route::put('/users/{user}/roles', [UserRolesController::class, 'replace'])->whereNumber('user')->defaults('roles', ['Admin']);
+    Route::post('/users/{user}/roles/{role}', [UserRolesController::class, 'attach'])->whereNumber('user')->defaults('roles', ['Admin']);
+    Route::delete('/users/{user}/roles/{role}', [UserRolesController::class, 'detach'])->whereNumber('user')->defaults('roles', ['Admin']);
 });
 
 // Exports with RBAC + capability

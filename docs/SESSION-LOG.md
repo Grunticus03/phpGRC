@@ -481,3 +481,19 @@ Closeout
 - Emit audit events on role create/attach/detach/replace.
 - Document RBAC contract and endpoints.
 - Add negative tests for unauthorized/unauthenticated cases across RBAC + Exports.
+
+### Session 2025-09-11: Phase 4 RBAC Mapping + Enforcement + Audit
+- Context: Phase 4 hardening. Add user–role APIs, fix RBAC enforcement semantics, add audit hooks.
+- Goal: Ship DB-backed user–role assignment with middleware enforcement and audit logging of changes. Sync spec.
+- Constraints: CI must remain green. Full-file outputs. No UI scope yet.
+
+#### Closeout
+- Deliverables produced:
+  - `RbacMiddleware` updated to enforce roles whenever `core.rbac.enabled=true`.
+  - `UserRolesController` writes audit events on replace/attach/detach.
+  - `PHASE-4-SPEC.md` updated (enforcement semantics, RBAC audit actions, routes excerpt).
+  - `PHASE-4-TASK-BREAKDOWN.md` updated (RBAC mapping complete, RBAC audit tasks added).
+  - New tests planned: `RbacAuditTest` (added in this session below).
+- Phase/Step status: Phase 4 advancing; RBAC persistence + enforcement complete; exports E2E complete; audit hooks added.
+- Next action (you): Run CI; verify audit rows on role changes in a dev DB; review updated spec.
+- Next action (me): Add and run `RbacAuditTest`; implement audit list filters and start role management UI scaffold in Phase 5.

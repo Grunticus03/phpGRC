@@ -1,7 +1,7 @@
 # Phase 4 — Core App Usable Detailed Task Breakdown
 
 ## Instruction Preamble
-- Date 2025-09-10
+- Date 2025-09-11
 - Phase 4
 - Goal Decompose Phase 4 deliverables into detailed, sequential tasks to guide incremental scaffolding, enforcement, and persistence work.
 - Constraints
@@ -22,83 +22,57 @@
 - [x] Add unit tests (`SettingsControllerValidationTest`)
 - [x] Document payloads and error codes in `PHASE-4-SPEC.md`
 
-### 2. RBAC (CORE-004) — scaffolding → enforcement
-- [x] `RbacMiddleware` conditional enforcement (enabled + roles → enforce; else passthrough)
-- [x] `AuthServiceProvider` permissive gates for Phase 4 tests
-- [x] `StoreRoleRequest` (min 2..64, duplicate check vs config)
-- [x] `Rbac/RolesController@index,store` stubs with 202 echo
-- [x] Feature tests for roles endpoint (`RolesEndpointTest`)
-- [x] Route role defaults applied (`/admin/*`, `/exports/*`, `/audit`)
-- [x] Admin Roles UI stub wired at `/admin/roles`
-- [x] **Role persistence**: migrations (`roles` string PK, `role_user` pivot), seeder, DB-backed `store`
-- [x] **Role IDs standardized**: human-readable slugs `role_<slug>` with collision suffix `_N`
-- [ ] Fine-grained policies (Settings, Audit, Exports) + tests
-- [ ] Role management UI (create/delete) with persistence
+### 2. Audit Trail (CORE-006)
+- [x] Persisted `audit_events` table + model
+- [x] Settings update listener writes audit rows
+- [x] `AuditLogger` helper with typed attributes
+- [ ] List endpoint filters + pagination polish
+- [ ] Retention job honoring `core.audit.retention_days`
 
-### 3. Exports (CORE-008) — E2E
-- [x] Capability gate `core.exports.generate` at route/middleware
-- [x] RBAC tests (`ExportsRbacTest`)
-- [x] Job generation + artifact write for CSV/JSON/PDF
-- [x] Download endpoint with correct headers
-- [x] Legacy stub responses remain deterministic for tests
-- [ ] Additional generators if specified (none pending)
+### 3. Evidence (CORE-007)
+- [x] Persist evidence metadata + file store
+- [x] Size/mime validation
+- [ ] Hash verification on download
+- [ ] Pagination + filtering on list
 
-### 4. Audit Trail (CORE-006)
-- [x] Persist `audit_events` with ULIDs
-- [x] Evidence actions emit audit
-- [ ] Basic audit viewer route in SPA (read-only)
+### 4. Exports (CORE-008)
+- [x] Create job endpoints (preferred + legacy)
+- [x] Status + download endpoints
+- [x] Capability gate `core.exports.generate`
+- [x] E2E tests green (CSV/JSON/PDF)
+- [ ] Background queue path (beyond sync in tests)
 
-### 5. Evidence Pipeline (CORE-007)
-- [x] Persist evidence with SHA-256 + pagination + HEAD/304
-- [x] Validation + tests
-- [ ] Viewer/download UI stubs in SPA
+### 5. Avatars (CORE-010)
+- [x] Upload endpoint scaffold
+- [ ] Transcode to WEBP in worker
+- [ ] Serve resized variants
 
-### 6. Avatars (CORE-010)
-- [x] Store endpoint + validation (WEBP only)
-- [ ] Storage backend + retrieval
+### 6. RBAC Enforcement + Catalog (CORE-004)
+- [x] `RbacMiddleware` enforces when `core.rbac.enabled=true`
+- [x] Role catalog endpoints (index/store) with slug IDs (`role_<slug>`)
+- [x] User–role mapping endpoints (show/replace/attach/detach)
+- [x] DB-backed checks via `User::hasAnyRole(...)`
+- [x] CI tests for enforcement and endpoints
+- [ ] UI for role management (admin route)
+- [ ] Fine-grained policies (capability-level hooks)
 
-### 7. Web SPA + Frontend CI
-- [x] Convert `web/index.html` to SPA root
-- [x] Add Vite + TypeScript scaffold
-- [x] Add router, layout, and top nav
-- [x] Wire Roles page (`/#/admin/roles`)
-- [x] Add Vitest smoke test
-- [x] Add `web-ci` GitHub Action with conditional Node cache
-- [ ] Add Settings page and link
-- [ ] Add Audit/Evidence viewer stubs
+### 7. RBAC Audit
+- [x] Log `role.replace|attach|detach` with before/after sets
+- [ ] Add audit list filters for category `RBAC`
+- [ ] Export audit events as CSV
 
 ---
 
-## CI/Test Plumbing
-- [x] PHPUnit uses fresh DB migrations and seeds before tests
-- [x] `RolesSeeder` runs in test env; canonical roles present
-- [x] Feature tests updated for slugged role IDs (`RolesPersistenceTest`, `RbacUserRolesTest`)
+## Session/Quality Gates
+- [x] Psalm/PHPStan/Pint clean
+- [x] PHPUnit green in CI
+- [x] Contracts frozen in `PHASE-4-SPEC.md` for delivered areas
+- [ ] UX pass on admin screens (Phase 5)
 
 ---
 
-## Docs Updated (traceability)
-- [x] `PHASE-4-SPEC.md` — RBAC contracts, error taxonomy, routes
-- [x] `STYLEGUIDE.md` — human-readable ID rules and collision policy
-- [x] `ROADMAP.md` — Phase 4 status
-- [x] `BACKLOG.md` — CORE-004 acceptance updated
-- [x] `CAPABILITIES.md` — RBAC capability notes
+## Immediate Next Steps
+1. Add tests for RBAC audit writes (`RbacAuditTest`).
+2. Implement audit filters for category/action.
+3. Begin role management UI scaffold under `/admin/rbac` (Phase 5 prep).
 
----
-
-## Current Risks / Mitigations
-- SPA scope creep → keep UI read-only until policies land. Mitigation: typecheck + smoke tests only.
-- Policy gaps → exports/settings/audit still rely on route roles. Mitigation: add policies next.
-
----
-
-## Next Increments
-1) Fine-grained policies for Settings/Audit/Exports with `$this->authorize(...)` + tests.  
-2) SPA expansion: Admin Settings page; read-only Audit/Evidence views.  
-3) Avatars storage backend + retrieval endpoint.  
-
----
-
-## Definition of Done (Phase 4)
-- All CORE-003/004/006/007/008/010 acceptance criteria met per Charter and Spec.
-- API and SPA routes covered by feature tests or smoke tests.
-- CI guardrails green across PHP and Web pipelines.
