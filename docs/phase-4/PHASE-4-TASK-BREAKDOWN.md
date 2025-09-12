@@ -35,8 +35,8 @@
 - [x] Size/mime validation
 - [x] SHA-256 compute + ETag headers
 - [x] Pagination on list
-- [ ] Filtering on list
-- [ ] Hash verification on download
+- [x] Filtering on list
+- [x] Hash verification on download
 
 ### 4. Exports (CORE-008)
 - [x] Create job endpoints (preferred + legacy)
@@ -56,8 +56,8 @@
 - [x] User–role mapping endpoints (show/replace/attach/detach)
 - [x] DB-backed checks via `User::hasAnyRole(...)`
 - [x] CI tests for enforcement and endpoints
-- [ ] UI for role management (admin route)
-- [ ] Fine-grained policies (capability-level hooks)
+- [x] UI scaffold for role management (list roles, create role stub) under `/admin/roles`
+- [ ] User–role assignment UI (read/attach/detach/replace)
 
 ### 7. RBAC Audit
 - [x] Log canonical `rbac.role.created` and `rbac.user_role.{attached,detached,replaced}`
@@ -76,7 +76,7 @@
 ---
 
 ## Immediate Next Steps
-1. Evidence: add download hash verification and list filters.
-2. Begin role management UI under `/admin/rbac` (read/attach/detach/replace).
-3. Add background queue path for exports in non-test envs.
-4. Add CSV export for audit events.
+1. Build user–role assignment UI under `/admin` (list user, show roles, attach/detach/replace).
+2. Add background queue path for exports in non-test envs.
+3. Add CSV export for audit events.
+4. Extend settings SPA to surface core flags and validation feedback.

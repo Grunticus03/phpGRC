@@ -311,3 +311,10 @@ Route::prefix('/exports')->middleware($rbacStack)->group(function () {
 - When `core.exports.enabled=false` or `exports` table is absent, controllers return stub responses and never write files.
 - Tests set `queue.default=sync` to run `GenerateExport` immediately.
 - CSV uses RFC4180 quoting; JSON is UTF-8 without escaping slashes; PDF is a minimal valid single-page document.
+
+---
+
+## Web UI Notes (Phase 4)
+- Hash-router under `/web` with admin pages:
+  - `/admin/settings` — settings stub.
+  - `/admin/roles` — role list and create role. Uses stub path when RBAC persistence disabled.

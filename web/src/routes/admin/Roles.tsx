@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { listRoles, createRole, CreateRoleResult } from "../../lib/api/rbac";
 
 export default function Roles(): JSX.Element {
   const [loading, setLoading] = useState(true);
@@ -9,16 +10,10 @@ export default function Roles(): JSX.Element {
   const load = async () => {
     setLoading(true);
     setMsg(null);
-    try {
-      const res = await fetch("/api/rbac/roles");
-      const json = await res.json();
-      if (json?.ok && Array.isArray(json.roles)) setRoles(json.roles);
-      else setMsg("Failed to load roles.");
-    } catch {
-      setMsg("Network error.");
-    } finally {
-      setLoading(false);
-    }
+    const res = await listRoles();
+    if (res.ok) setRoles(res.roles);
+    else setMsg("Failed to load roles.");
+    setLoading(false);
   };
 
   useEffect(() => {
@@ -28,27 +23,22 @@ export default function Roles(): JSX.Element {
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setMsg(null);
-    try {
-      const res = await fetch("/api/rbac/roles", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name }),
-      });
-      const json = await res.json();
-      if (res.status === 202 && json?.note === "stub-only") {
-        setMsg(`Accepted: "${json.accepted?.name}". Persistence not implemented.`);
-        setName("");
-      } else if (res.status === 422) {
-        setMsg("Validation error. Name must be 2–64 chars.");
-      } else if (res.status === 403) {
-        setMsg("Forbidden. Admin required.");
-      } else if (!json?.ok) {
-        setMsg("Request failed.");
-      } else {
-        setMsg("Unexpected response.");
-      }
-    } catch {
-      setMsg("Network error.");
+    const trimmed = name.trim();
+    if (trimmed.length < 2) return;
+    const result: CreateRoleResult = await createRole(trimmed);
+    if (result.kind === "created") {
+      setMsg(`Created role ${result.roleName} (${result.roleId}).`);
+      setName("");
+      void load();
+    } else if (result.kind === "stub") {
+      setMsg(`Accepted: "${result.acceptedName}". Persistence not implemented.`);
+      setName("");
+    } else if (result.kind === "error" && result.code === "FORBIDDEN") {
+      setMsg("Forbidden. Admin required.");
+    } else if (result.kind === "error" && result.code === "VALIDATION_FAILED") {
+      setMsg("Validation error. Name must be 2–64 chars.");
+    } else {
+      setMsg("Request failed.");
     }
   };
 
@@ -57,7 +47,7 @@ export default function Roles(): JSX.Element {
   return (
     <div className="container py-3">
       <h1>RBAC Roles</h1>
-      {msg && <div className="alert alert-warning">{msg}</div>}
+      {msg && <div className="alert alert-warning" role="alert">{msg}</div>}
 
       {roles.length === 0 ? (
         <p>No roles defined.</p>
@@ -74,7 +64,7 @@ export default function Roles(): JSX.Element {
 
       <form className="card p-3" onSubmit={onSubmit}>
         <div className="mb-2">
-          <label htmlFor="roleName" className="form-label">Create role (stub)</label>
+          <label htmlFor="roleName" className="form-label">Create role</label>
           <input
             id="roleName"
             className="form-control"
@@ -88,7 +78,7 @@ export default function Roles(): JSX.Element {
         <button type="submit" className="btn btn-primary" disabled={name.trim().length < 2}>
           Submit
         </button>
-        <p className="text-muted mt-2 mb-0">Phase 4 stub. No persistence yet.</p>
+        <p className="text-muted mt-2 mb-0">Stub path accepted when RBAC persistence is off.</p>
       </form>
     </div>
   );
