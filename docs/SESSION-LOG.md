@@ -572,3 +572,20 @@ Closeout
 1. Add CSV export for audit events and route.
 2. Implement avatar transcode worker and resized variants.
 3. Minor UI polish per STYLEGUIDE.
+
+---
+
+### Session 2025-09-12: Phase 4 — Audit CSV export + Setup Wizard bugfix scope
+
+- Context: Phase 4 ongoing. Audit list stable. Setup Wizard routes were stub-only.
+- Goal: Add Audit CSV export contract and append Setup Wizard bugfix scope. Keep CI green.
+- Constraints: Charter-bound. Stub path allowed where persistence disabled.
+
+# Closeout
+- Deliverables produced:
+  - `/docs/PHASE-4-SPEC.md` — added Audit CSV export section and Setup Wizard endpoints + errors.
+  - `/docs/PHASE-4-TASK-BREAKDOWN.md` — added “Bugfix — Complete Setup Wizard (CORE-001 catch-up)”.
+  - `/api/routes/api.php` — added `GET /api/audit/export.csv`; noted `/api/setup/*` endpoints block.
+- Phase/Step status: Phase 4 in progress — CI green.
+- Next action (you): Provide setup controller, middleware, requests, and `config/core.php` files to edit.
+- Next action (me): Implement `/api/setup/*` controllers, validation, `SetupGuard`, and tests; keep PHPStan/Psalm/Pint green.
