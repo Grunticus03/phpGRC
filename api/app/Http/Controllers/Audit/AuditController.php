@@ -185,7 +185,7 @@ final class AuditController extends Controller
             return null;
         }
         try {
-            return Carbon::parse((string) $v)->utc()->toImmutable();
+            return Carbon::parse((string) $v)->utc();
         } catch (\Throwable) {
             return null;
         }
@@ -232,7 +232,7 @@ final class AuditController extends Controller
     }
 
     /**
-     * @return array{0:\Carbon\CarbonImmutable,1:string}|null
+     * @return array{0:\Illuminate\Support\Carbon,1:string}|null
      */
     private function decodeCursor(string $cursor): ?array
     {
@@ -250,7 +250,7 @@ final class AuditController extends Controller
             return null;
         }
         try {
-            $ts = Carbon::parse($tsRaw)->utc()->toImmutable();
+            $ts = Carbon::parse($tsRaw)->utc();
         } catch (\Throwable) {
             return null;
         }
