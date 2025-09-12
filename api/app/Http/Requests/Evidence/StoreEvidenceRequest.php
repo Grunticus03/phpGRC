@@ -43,7 +43,6 @@ final class StoreEvidenceRequest extends FormRequest
 
     protected function failedValidation(Validator $validator): void
     {
-        // Return unified API error envelope expected by tests.
         throw new HttpResponseException(response()->json([
             'ok'     => false,
             'code'   => 'VALIDATION_FAILED',
@@ -53,7 +52,6 @@ final class StoreEvidenceRequest extends FormRequest
 
     protected function failedAuthorization(): void
     {
-        // Keep consistent envelope on auth failures if added later.
         throw new HttpResponseException(response()->json([
             'ok'   => false,
             'code' => 'FORBIDDEN',

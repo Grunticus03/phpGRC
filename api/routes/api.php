@@ -123,13 +123,11 @@ Route::prefix('/exports')
 Route::prefix('/rbac')
     ->middleware($rbacStack)
     ->group(function (): void {
-        // Role catalog
         Route::match(['GET','HEAD'], '/roles', [RolesController::class, 'index'])
             ->defaults('roles', ['Admin']);
         Route::post('/roles', [RolesController::class, 'store'])
             ->defaults('roles', ['Admin']);
 
-        // User role management
         Route::match(['GET','HEAD'], '/users/{user}/roles', [UserRolesController::class, 'show'])
             ->whereNumber('user')
             ->defaults('roles', ['Admin']);
@@ -158,9 +156,16 @@ Route::match(['GET','HEAD'], '/audit', [AuditController::class, 'index'])
  | Evidence (Phase 4 — persisted + retrieval)
  |--------------------------------------------------------------------------
 */
-Route::get('/evidence', [EvidenceController::class, 'index']);
-Route::post('/evidence', [EvidenceController::class, 'store']);
-Route::match(['GET','HEAD'], '/evidence/{id}', [EvidenceController::class, 'show']);
+Route::prefix('/evidence')
+    ->middleware($rbacStack)
+    ->group(function (): void {
+        Route::match(['GET','HEAD'], '/', [EvidenceController::class, 'index'])
+            ->defaults('roles', ['Admin', 'Auditor']);
+        Route::post('/', [EvidenceController::class, 'store'])
+            ->defaults('roles', ['Admin']);
+        Route::match(['GET','HEAD'], '/{id}', [EvidenceController::class, 'show'])
+            ->defaults('roles', ['Admin', 'Auditor']);
+    });
 
 /*
  |--------------------------------------------------------------------------
@@ -168,4 +173,3 @@ Route::match(['GET','HEAD'], '/evidence/{id}', [EvidenceController::class, 'show
  |--------------------------------------------------------------------------
 */
 Route::post('/avatar', [AvatarController::class, 'store']);
-

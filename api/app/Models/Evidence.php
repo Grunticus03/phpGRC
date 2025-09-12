@@ -35,6 +35,5 @@ final class Evidence extends Model
         'created_at' => 'immutable_datetime',
     ];
 
-    // Avoid accidental exposure of raw bytes in generic toArray().
     protected $hidden = ['bytes'];
 }

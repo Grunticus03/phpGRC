@@ -7,6 +7,7 @@ namespace App\Http\Controllers\Evidence;
 use App\Http\Requests\Evidence\StoreEvidenceRequest;
 use App\Models\Evidence;
 use App\Services\Audit\AuditLogger;
+use Carbon\Carbon;
 use Carbon\CarbonInterface;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -63,7 +64,6 @@ final class EvidenceController extends Controller
             return ['id' => $id, 'version' => $version];
         });
 
-        // Audit: evidence.upload
         if (config('core.audit.enabled', true) && Schema::hasTable('audit_events')) {
             $audit->log([
                 'actor_id'    => $request->user()?->id ?? null,
@@ -106,9 +106,19 @@ final class EvidenceController extends Controller
 
         $etag = '"'.$ev->sha256.'"';
 
+        // Optional hash verification: ?sha256=<hex>
+        $providedHash = (string) $request->query('sha256', '');
+        if ($providedHash !== '' && ! hash_equals($ev->sha256, strtolower($providedHash))) {
+            return response()->json([
+                'ok'       => false,
+                'code'     => 'EVIDENCE_HASH_MISMATCH',
+                'expected' => $ev->sha256,
+                'provided' => strtolower($providedHash),
+            ], 412);
+        }
+
         $inm = (string) ($request->headers->get('If-None-Match') ?? '');
         if ($inm !== '' && $this->etagMatches($etag, $inm)) {
-            // Do not audit cache hits.
             return response()->noContent(304);
         }
 
@@ -118,9 +128,9 @@ final class EvidenceController extends Controller
             'ETag'                    => $etag,
             'Content-Disposition'     => $this->contentDisposition($ev->filename),
             'X-Content-Type-Options'  => 'nosniff',
+            'X-Checksum-SHA256'       => $ev->sha256,
         ];
 
-        // Audit successful read (GET or HEAD)
         if (config('core.audit.enabled', true) && Schema::hasTable('audit_events')) {
             $audit->log([
                 'actor_id'    => $request->user()?->id ?? null,
@@ -153,12 +163,11 @@ final class EvidenceController extends Controller
 
         $limit = (int) $request->query('limit', 20);
         $limit = $limit < 1 ? 1 : ($limit > 100 ? 100 : $limit);
+        $order = strtolower((string) $request->query('order', 'desc')) === 'asc' ? 'asc' : 'desc';
 
         $cursor = (string) $request->query('cursor', '');
         $afterTs = null;
         $afterId = null;
-
-        // Cursor encodes "Y-m-d H:i:s|<id>"
         if ($cursor !== '') {
             $decoded = base64_decode($cursor, true);
             if (is_string($decoded) && str_contains($decoded, '|')) {
@@ -169,18 +178,76 @@ final class EvidenceController extends Controller
         }
 
         $q = Evidence::query()
-            ->select(['id','owner_id','filename','mime','size_bytes','sha256','version','created_at'])
-            ->orderByDesc('created_at')
-            ->orderByDesc('id');
+            ->select(['id','owner_id','filename','mime','size_bytes','sha256','version','created_at']);
+
+        // Filters
+        $ownerId = $request->query('owner_id');
+        if ($ownerId !== null && is_numeric($ownerId)) {
+            $q->where('owner_id', '=', (int) $ownerId);
+        }
+
+        $filename = trim((string) $request->query('filename', ''));
+        if ($filename !== '') {
+            $q->where('filename', 'like', '%'.$this->escapeLike($filename).'%');
+        }
+
+        $mime = trim((string) $request->query('mime', ''));
+        if ($mime !== '') {
+            if (str_ends_with($mime, '/*')) {
+                $prefix = substr($mime, 0, -2);
+                $q->where('mime', 'like', $this->escapeLike($prefix).'%');
+            } else {
+                $q->where('mime', '=', $mime);
+            }
+        }
+
+        $shaExact = strtolower(trim((string) $request->query('sha256', '')));
+        if ($shaExact !== '') {
+            $q->where('sha256', '=', $shaExact);
+        }
+        $shaPrefix = strtolower(trim((string) $request->query('sha256_prefix', '')));
+        if ($shaPrefix !== '') {
+            $q->where('sha256', 'like', $this->escapeLike($shaPrefix).'%');
+        }
+
+        $vFrom = $request->query('version_from');
+        if ($vFrom !== null && is_numeric($vFrom)) {
+            $q->where('version', '>=', (int) $vFrom);
+        }
+        $vTo = $request->query('version_to');
+        if ($vTo !== null && is_numeric($vTo)) {
+            $q->where('version', '<=', (int) $vTo);
+        }
+
+        $createdFrom = (string) $request->query('created_from', '');
+        if ($createdFrom !== '') {
+            try { $dt = Carbon::parse($createdFrom); $q->where('created_at', '>=', $dt); } catch (\Throwable) {}
+        }
+        $createdTo = (string) $request->query('created_to', '');
+        if ($createdTo !== '') {
+            try { $dt = Carbon::parse($createdTo); $q->where('created_at', '<=', $dt); } catch (\Throwable) {}
+        }
+
+        $q->orderBy('created_at', $order)->orderBy('id', $order);
 
         if ($afterTs !== null && $afterId !== null) {
-            $q->where(function ($w) use ($afterTs, $afterId): void {
-                $w->where('created_at', '<', $afterTs)
-                  ->orWhere(function ($z) use ($afterTs, $afterId): void {
-                      $z->where('created_at', '=', $afterTs)
-                        ->where('id', '<', $afterId);
-                  });
-            });
+            if ($order === 'desc') {
+                $q->where(function ($w) use ($afterTs, $afterId): void {
+                    $w->where('created_at', '<', $afterTs)
+                      ->orWhere(function ($z) use ($afterTs, $afterId): void {
+                          $z->where('created_at', '=', $afterTs)
+                            ->where('id', '<', $afterId);
+                      });
+                });
+            } else {
+                $q->where(function ($w) use ($afterTs, $afterId): void {
+                    $w->where('created_at', '>', $afterTs)
+                      ->orWhere(function ($z) use ($afterTs, $afterId): void {
+                          $z->where('created_at', '=', $afterTs)
+                            ->where('id', '>', $afterId);
+                      });
+                });
+            }
         }
 
         $rows = $q->limit($limit + 1)->get();
@@ -217,6 +284,20 @@ final class EvidenceController extends Controller
 
         return response()->json([
             'ok'          => true,
+            'filters'     => [
+                'order'          => $order,
+                'limit'          => $limit,
+                'owner_id'       => $ownerId !== null && is_numeric($ownerId) ? (int) $ownerId : null,
+                'filename'       => $filename !== '' ? $filename : null,
+                'mime'           => $mime !== '' ? $mime : null,
+                'sha256'         => $shaExact !== '' ? $shaExact : null,
+                'sha256_prefix'  => $shaPrefix !== '' ? $shaPrefix : null,
+                'version_from'   => $vFrom !== null && is_numeric($vFrom) ? (int) $vFrom : null,
+                'version_to'     => $vTo !== null && is_numeric($vTo) ? (int) $vTo : null,
+                'created_from'   => $createdFrom !== '' ? $createdFrom : null,
+                'created_to'     => $createdTo !== '' ? $createdTo : null,
+                'cursor'         => $cursor !== '' ? $cursor : null,
+            ],
             'data'        => $data,
             'next_cursor' => $nextCursor,
         ]);
@@ -238,5 +319,10 @@ final class EvidenceController extends Controller
         $fallback = str_replace(['"', '\\'], ['%22', '\\\\'], $filename);
         $utf8 = rawurlencode($filename);
         return 'attachment; filename="'.$fallback.'"; filename*=UTF-8\'\''.$utf8;
+    }
+
+    private function escapeLike(string $value): string
+    {
+        return str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $value);
     }
 }
