@@ -5,6 +5,7 @@ import AppLayout from "./layouts/AppLayout";
 import AdminIndex from "./routes/admin/index";
 import Settings from "./routes/admin/Settings";
 import Roles from "./routes/admin/Roles";
+import UserRoles from "./routes/admin/UserRoles";
 
 // Other feature stubs already present (optional wiring later)
 
@@ -16,6 +17,7 @@ const router = createHashRouter(
         <Route index element={<AdminIndex />} />
         <Route path="settings" element={<Settings />} />
         <Route path="roles" element={<Roles />} />
+        <Route path="user-roles" element={<UserRoles />} />
       </Route>
     </Route>
   )

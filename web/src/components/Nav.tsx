@@ -11,6 +11,7 @@ export default function Nav(): JSX.Element {
         <NavLink to="/admin" className={linkCls}>Admin</NavLink>
         <NavLink to="/admin/settings" className={linkCls}>Settings</NavLink>
         <NavLink to="/admin/roles" className={linkCls}>Roles</NavLink>
+        <NavLink to="/admin/user-roles" className={linkCls}>User Roles</NavLink>
       </div>
     </nav>
   );

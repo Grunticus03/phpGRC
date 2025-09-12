@@ -29,6 +29,22 @@ export type CreateRoleError = {
 
 export type CreateRoleResult = CreateRoleCreated | CreateRoleStub | CreateRoleError;
 
+export type UserSummary = { id: number; name: string; email: string };
+
+export type UserRolesResponseOk = {
+  ok: true;
+  user: UserSummary;
+  roles: string[];
+};
+
+export type UserRolesResponseErr = {
+  ok: false;
+  code: string;
+  message?: string;
+};
+
+export type UserRolesResponse = UserRolesResponseOk | UserRolesResponseErr;
+
 async function parseJson(res: Response): Promise<any> {
   try {
     return await res.json();
@@ -55,7 +71,6 @@ export async function createRole(name: string): Promise<CreateRoleResult> {
   });
   const json = await parseJson(res);
 
-  // Persist path (spec): 201 with role object
   if (res.status === 201 && json?.ok === true && json?.role?.id && json?.role?.name) {
     return {
       kind: "created",
@@ -64,15 +79,13 @@ export async function createRole(name: string): Promise<CreateRoleResult> {
       roleName: String(json.role.name),
       raw: json,
     };
-  }
+    }
 
-  // Stub path: either 202 or 200/400 with note: "stub-only"
   if ((res.status === 202 || res.status === 200 || res.status === 400) && json?.note === "stub-only") {
     const accepted = json?.accepted?.name ?? name;
     return { kind: "stub", status: res.status, acceptedName: String(accepted), raw: json };
   }
 
-  // Validation or forbidden
   if (res.status === 422) {
     return { kind: "error", status: res.status, code: "VALIDATION_FAILED", raw: json };
   }
@@ -81,4 +94,53 @@ export async function createRole(name: string): Promise<CreateRoleResult> {
   }
 
   return { kind: "error", status: res.status, code: json?.code, raw: json };
+}
+
+export async function getUserRoles(userId: number): Promise<UserRolesResponse> {
+  const res = await fetch(`/api/rbac/users/${encodeURIComponent(String(userId))}/roles`, {
+    credentials: "same-origin",
+  });
+  const json = await parseJson(res);
+  if (res.ok && json?.ok) {
+    return json as UserRolesResponseOk;
+  }
+  return { ok: false, code: json?.code ?? "REQUEST_FAILED", message: json?.message };
+}
+
+export async function replaceUserRoles(userId: number, roles: string[]): Promise<UserRolesResponse> {
+  const res = await fetch(`/api/rbac/users/${encodeURIComponent(String(userId))}/roles`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    credentials: "same-origin",
+    body: JSON.stringify({ roles }),
+  });
+  const json = await parseJson(res);
+  if (res.ok && json?.ok) {
+    return json as UserRolesResponseOk;
+  }
+  return { ok: false, code: json?.code ?? "REQUEST_FAILED", message: json?.message };
+}
+
+export async function attachUserRole(userId: number, roleName: string): Promise<UserRolesResponse> {
+  const res = await fetch(
+    `/api/rbac/users/${encodeURIComponent(String(userId))}/roles/${encodeURIComponent(roleName)}`,
+    { method: "POST", credentials: "same-origin" }
+  );
+  const json = await parseJson(res);
+  if (res.ok && json?.ok) {
+    return json as UserRolesResponseOk;
+  }
+  return { ok: false, code: json?.code ?? "REQUEST_FAILED", message: json?.message };
+}
+
+export async function detachUserRole(userId: number, roleName: string): Promise<UserRolesResponse> {
+  const res = await fetch(
+    `/api/rbac/users/${encodeURIComponent(String(userId))}/roles/${encodeURIComponent(roleName)}`,
+    { method: "DELETE", credentials: "same-origin" }
+  );
+  const json = await parseJson(res);
+  if (res.ok && json?.ok) {
+    return json as UserRolesResponseOk;
+  }
+  return { ok: false, code: json?.code ?? "REQUEST_FAILED", message: json?.message };
 }
