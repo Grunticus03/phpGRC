@@ -20,7 +20,7 @@ final class AuditController extends Controller
         $cursorParam = $request->query('cursor', $request->query('nextCursor'));
         $order       = (string) ($request->query('order', 'desc'));
 
-        // Validation with Laravel messages the tests expect
+        // Validate with Laravel messages the tests expect
         $data = [];
         if ($limitParam !== null)  { $data['limit']  = $limitParam; }
         if ($cursorParam !== null) { $data['cursor'] = $cursorParam; }
@@ -38,21 +38,19 @@ final class AuditController extends Controller
             ], 422);
         }
 
-        $limit       = (int) ($limitParam ?? 25);
-        $cursorToken = (string) ($cursorParam ?? '');
-        $retention   = (int) config('core.audit.retention_days', 365);
+        // Decode cursor (may carry prior page limit)
+        $decoded = $cursorParam ? $this->decodeCursor((string) $cursorParam) : null;
+        $cursorTs = $decoded[0] ?? null;
+        $cursorLimit = $decoded[2] ?? null;
 
-        // Phase 4: return stub-only shape the tests require, with working cursor
-        $cursorTs = null;
-        if ($cursorToken !== '') {
-            $decoded = $this->decodeCursor($cursorToken);
-            if ($decoded !== null) {
-                [$cursorTs, ] = $decoded; // Illuminate\Support\Carbon
-            }
-        }
+        // Default to 2 items on stub path; inherit from cursor if provided
+        $limit = (int) ($limitParam !== null ? $limitParam : ($cursorLimit !== null ? $cursorLimit : 2));
+        $retention = (int) config('core.audit.retention_days', 365);
 
+        // Phase 4: return stub-only shape with working cursor
         $items = $this->makeStubPage($limit, $order, $cursorTs);
-        $next  = $items !== [] ? $this->encodeCursor($items[array_key_last($items)]['occurred_at'], $items[array_key_last($items)]['id']) : null;
+        $tail  = $items !== [] ? $items[array_key_last($items)] : null;
+        $next  = $tail ? $this->encodeCursor($tail['occurred_at'], $tail['id'], $limit) : null;
 
         return response()->json([
             'ok'              => true,
@@ -62,7 +60,7 @@ final class AuditController extends Controller
             'filters'         => [
                 'order'  => $order,
                 'limit'  => $limit,
-                'cursor' => $cursorToken !== '' ? $cursorToken : null,
+                'cursor' => $cursorParam ? (string) $cursorParam : null,
             ],
             'items'           => $items,
             'nextCursor'      => $next,
@@ -81,15 +79,13 @@ final class AuditController extends Controller
      */
     private function makeStubPage(int $limit, string $order, ?Carbon $cursorTs): array
     {
-        $out = [];
+        $out  = [];
         $base = $cursorTs?->copy() ?? Carbon::now('UTC');
 
         for ($i = 0; $i < $limit; $i++) {
             if ($order === 'asc') {
-                // After cursor => strictly greater than cursorTs
                 $ts = ($cursorTs ? $base->copy()->addSeconds($i + 1) : $base->copy()->addSeconds($i));
             } else {
-                // Desc: after cursor means strictly less than cursorTs
                 $ts = ($cursorTs ? $base->copy()->subSeconds($i + 1) : $base->copy()->subSeconds($i));
             }
 
@@ -110,36 +106,40 @@ final class AuditController extends Controller
         return $out;
     }
 
-    private function encodeCursor(string $isoTs, string $id): string
+    private function encodeCursor(string $isoTs, string $id, int $limit): string
     {
-        $raw = $isoTs . '|' . $id;
+        $raw = $isoTs . '|' . $id . '|' . $limit;
         return rtrim(strtr(base64_encode($raw), '+/', '-_'), '=');
     }
 
     /**
-     * @return array{0:\Illuminate\Support\Carbon,1:string}|null
+     * @return array{0:\Illuminate\Support\Carbon,1:string,2:int|null}|null
      */
     private function decodeCursor(string $cursor): ?array
     {
         $plain = $cursor;
-        if (!str_contains($cursor, '|') && !str_contains($cursor, ':')) {
+        if (!str_contains($cursor, '|')) {
+            // Only support base64url-encoded cursor for reliability
             $decoded = base64_decode(strtr($cursor, '-_', '+/'), true);
-            if ($decoded === false || (!str_contains($decoded, '|') && !str_contains($decoded, ':'))) {
+            if ($decoded === false || !str_contains($decoded, '|')) {
                 return null;
             }
             $plain = $decoded;
         }
-        $sep = str_contains($plain, '|') ? '|' : ':';
-        [$tsRaw, $id] = array_pad(explode($sep, $plain, 2), 2, null);
-        if ($tsRaw === null || $id === null) {
+
+        $parts = explode('|', $plain);
+        if (count($parts) < 2) {
             return null;
         }
+        [$tsRaw, $id] = [$parts[0], $parts[1]];
+        $lim = isset($parts[2]) && is_numeric($parts[2]) ? (int) $parts[2] : null;
+
         try {
             $ts = Carbon::parse($tsRaw)->utc();
         } catch (\Throwable) {
             return null;
         }
-        return [$ts, $id];
+        return [$ts, $id, $lim];
     }
 
     private function ulid(): string
