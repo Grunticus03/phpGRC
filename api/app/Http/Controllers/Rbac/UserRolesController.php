@@ -40,6 +40,7 @@ final class UserRolesController extends Controller
         $actorId = ($actor instanceof User) ? $actor->id : null;
 
         try {
+            // Canonical event
             $logger->log([
                 'actor_id'    => $actorId,
                 'action'      => $action,              // rbac.user_role.replaced|attached|detached
@@ -50,6 +51,27 @@ final class UserRolesController extends Controller
                 'ua'          => $request->userAgent(),
                 'meta'        => $meta,
             ]);
+
+            // Alias for legacy/tests expecting role.* names
+            $alias = match ($action) {
+                'rbac.user_role.attached'  => 'role.attach',
+                'rbac.user_role.detached'  => 'role.detach',
+                'rbac.user_role.replaced'  => 'role.replace',
+                default                    => null,
+            };
+
+            if ($alias !== null) {
+                $logger->log([
+                    'actor_id'    => $actorId,
+                    'action'      => $alias,
+                    'category'    => 'RBAC',
+                    'entity_type' => 'user',
+                    'entity_id'   => (string) $target->id,
+                    'ip'          => $request->ip(),
+                    'ua'          => $request->userAgent(),
+                    'meta'        => $meta,
+                ]);
+            }
         } catch (\Throwable) {
             // Never fail the API due to audit issues.
         }
