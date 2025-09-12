@@ -8,6 +8,13 @@ return [
         'stub_only' => filter_var(env('CORE_SETTINGS_STUB_ONLY', true), FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) ?? true,
     ],
 
+    // Setup Wizard (bugfix scope) :contentReference[oaicite:8]{index=8}
+    'setup' => [
+        'enabled'            => filter_var(env('CORE_SETUP_ENABLED', true), FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) ?? true,
+        'shared_config_path' => env('CORE_SETUP_SHARED_CONFIG_PATH', '/opt/phpgrc/shared/config.php'),
+        'allow_commands'     => filter_var(env('CORE_SETUP_ALLOW_COMMANDS', false), FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) ?? false,
+    ],
+
     'auth' => [
         'local' => [
             'enabled' => env('CORE_AUTH_LOCAL_ENABLED', true),

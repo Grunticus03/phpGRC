@@ -21,11 +21,12 @@ use App\Http\Controllers\Rbac\RolesController;
 use App\Http\Controllers\Rbac\UserRolesController;
 use App\Http\Middleware\BreakGlassGuard;
 use App\Http\Middleware\RbacMiddleware;
+use App\Http\Middleware\SetupGuard;
 use Illuminate\Support\Facades\Route;
 
 /*
  |--------------------------------------------------------------------------
- | Reserved setup paths (Phase 1 CORE-001 — stubs only, no handlers yet)
+ | Reserved setup paths wired (Phase 4 bugfix)
  |--------------------------------------------------------------------------
  | GET  /api/setup/status
  | POST /api/setup/db/test
@@ -38,7 +39,22 @@ use Illuminate\Support\Facades\Route;
  | POST /api/setup/idp
  | POST /api/setup/branding
  | POST /api/setup/finish
- */
+*/
+Route::prefix('/setup')
+    ->middleware([SetupGuard::class])
+    ->group(function (): void {
+        Route::get('/status', [\App\Http\Controllers\Setup\SetupStatusController::class, 'show']);
+        Route::post('/db/test', [\App\Http\Controllers\Setup\DbController::class, 'test']);
+        Route::post('/db/write', [\App\Http\Controllers\Setup\DbController::class, 'write']);
+        Route::post('/app-key', [\App\Http\Controllers\Setup\AppKeyController::class, 'generate']);
+        Route::post('/schema/init', [\App\Http\Controllers\Setup\SchemaController::class, 'init']);
+        Route::post('/admin', [\App\Http\Controllers\Setup\AdminController::class, 'create']);
+        Route::post('/admin/totp/verify', [\App\Http\Controllers\Setup\AdminMfaController::class, 'verify']);
+        Route::post('/smtp', [\App\Http\Controllers\Setup\SmtpController::class, 'store']);
+        Route::post('/idp', [\App\Http\Controllers\Setup\IdpController::class, 'store']);
+        Route::post('/branding', [\App\Http\Controllers\Setup\BrandingController::class, 'store']);
+        Route::post('/finish', [\App\Http\Controllers\Setup\FinishController::class, 'finish']);
+    });
 
 /*
  |--------------------------------------------------------------------------

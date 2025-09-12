@@ -3,7 +3,24 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Setup;
 
-final class AdminMfaController
+use App\Http\Requests\Setup\TotpVerifyRequest;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Routing\Controller;
+
+/**
+ * Verify admin TOTP code (stub). Accepts any 6-digit code "123456" in stub path.
+ */
+final class AdminMfaController extends Controller
 {
-    // STUB ONLY: No implementation per CORE-001 Phase 1
+    public function verify(TotpVerifyRequest $request): JsonResponse
+    {
+        $code = $request->validated()['code'];
+
+        if ($code !== '123456') {
+            return response()->json(['ok' => false, 'code' => 'TOTP_CODE_INVALID'], 400);
+        }
+
+        return response()->json(['ok' => true], 200);
+    }
 }
+
