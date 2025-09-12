@@ -4,48 +4,64 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Models\AuditEvent;
 use Illuminate\Console\Command;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
 final class AuditRetentionPurge extends Command
 {
-    protected $signature = 'audit:purge 
-        {--days= : Override retention days (min 30, max 730)} 
-        {--dry-run : Report count only without deleting}';
+    /**
+     * @var string
+     */
+    protected $signature = 'audit:purge {--days=} {--dry-run}';
 
-    protected $description = 'Purge audit events older than retention window';
+    /**
+     * @var string
+     */
+    protected $description = 'Purge audit_events older than the configured retention window.';
 
     public function handle(): int
     {
-        $cfg = (int) config('core.audit.retention_days', 365);
         $daysOpt = $this->option('days');
+        $days    = is_numeric($daysOpt) ? (int) $daysOpt : (int) config('core.audit.retention_days', 365);
 
-        $days = is_numeric($daysOpt) ? (int) $daysOpt : $cfg;
-        $days = max(30, min(730, $days));
+        // Clamp to [1, 730] to guard against accidental misconfiguration.
+        if ($days < 1 || $days > 730) {
+            $this->error('AUDIT_RETENTION_INVALID: days must be between 1 and 730.');
+            return self::FAILURE;
+        }
 
         $cutoff = Carbon::now('UTC')->subDays($days);
 
-        $this->line("Retention: {$days} days. Cutoff: {$cutoff->toAtomString()}");
+        $count = AuditEvent::query()
+            ->where('occurred_at', '<', $cutoff)
+            ->count();
 
-        if ($this->option('dry-run')) {
-            $count = DB::table('audit_events')
-                ->where('occurred_at', '<', $cutoff)
-                ->count();
-            $this->info("Would purge: {$count} rows");
+        $this->line(sprintf(
+            'audit:purge inspecting cutoff=%s days=%d matches=%d %s',
+            $cutoff->toIso8601String(),
+            $days,
+            $count,
+            $this->option('dry-run') ? '(dry-run)' : ''
+        ));
+
+        if ($count === 0) {
             return self::SUCCESS;
         }
 
-        $total = 0;
-        do {
-            $deleted = DB::table('audit_events')
-                ->where('occurred_at', '<', $cutoff)
-                ->limit(10_000)
-                ->delete();
-            $total += $deleted;
-        } while ($deleted > 0);
+        if ((bool) $this->option('dry-run')) {
+            return self::SUCCESS;
+        }
 
-        $this->info("Purged: {$total} rows");
+        DB::transaction(function (): void use ($cutoff) {
+            AuditEvent::query()
+                ->where('occurred_at', '<', $cutoff)
+                ->delete();
+        });
+
+        $this->info('audit:purge completed.');
         return self::SUCCESS;
     }
 }
+

@@ -51,3 +51,4 @@ final class AuditEvent extends Model
 
     public $timestamps = false;
 }
+

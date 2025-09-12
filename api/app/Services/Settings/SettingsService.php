@@ -236,12 +236,12 @@ final class SettingsService
     /** @return array<string,mixed> */
     private function filterForContract(array $core): array
     {
-        $core = Arr::only($core, ['rbac', 'audit', 'evidence', 'avatars']);
+        $core = \Illuminate\Support\Arr::only($core, ['rbac', 'audit', 'evidence', 'avatars']);
 
-        $rbac = Arr::only((array) ($core['rbac'] ?? []), ['enabled', 'roles']);
-        $audit = Arr::only((array) ($core['audit'] ?? []), ['enabled', 'retention_days']);
-        $evidence = Arr::only((array) ($core['evidence'] ?? []), ['enabled', 'max_mb', 'allowed_mime']);
-        $avatars = Arr::only((array) ($core['avatars'] ?? []), ['enabled', 'size_px', 'format']);
+        $rbac = \Illuminate\Support\Arr::only((array) ($core['rbac'] ?? []), ['enabled', 'roles']);
+        $audit = \Illuminate\Support\Arr::only((array) ($core['audit'] ?? []), ['enabled', 'retention_days']);
+        $evidence = \Illuminate\Support\Arr::only((array) ($core['evidence'] ?? []), ['enabled', 'max_mb', 'allowed_mime']);
+        $avatars = \Illuminate\Support\Arr::only((array) ($core['avatars'] ?? []), ['enabled', 'size_px', 'format']);
 
         return [
             'rbac'     => $rbac,

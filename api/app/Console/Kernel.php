@@ -49,3 +49,4 @@ final class Kernel extends ConsoleKernel
         }
     }
 }
+

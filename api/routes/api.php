@@ -168,3 +168,4 @@ Route::match(['GET','HEAD'], '/evidence/{id}', [EvidenceController::class, 'show
  |--------------------------------------------------------------------------
 */
 Route::post('/avatar', [AvatarController::class, 'store']);
+
