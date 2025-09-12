@@ -63,7 +63,7 @@
 - [x] Log canonical `rbac.role.created` and `rbac.user_role.{attached,detached,replaced}`
 - [x] Write legacy aliases `role.{attach,detach,replace}` in parallel
 - [x] Add audit list filters for category `RBAC`
-- [ ] Export audit events as CSV
+- [x] Export audit events as CSV
 
 ---
 
@@ -76,6 +76,6 @@
 ---
 
 ## Immediate Next Steps
-1. Add CSV export route for audit events.
-2. Start avatar transcode worker and resized variants.
-3. Minor UX polish on admin pages per STYLEGUIDE.
+1. Start avatar transcode worker and resized variants.
+2. Minor UX polish on admin pages per STYLEGUIDE.
+

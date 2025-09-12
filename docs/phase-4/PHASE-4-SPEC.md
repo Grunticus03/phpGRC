@@ -84,6 +84,7 @@ Avatars: AVATAR_NOT_ENABLED, AVATAR_INVALID_IMAGE, AVATAR_UNSUPPORTED_FORMAT, AV
     { "ok": false, "note": "stub-only", "accepted": { "name": "..." } }
     ~~~
 
+
 **Role ID Contract**
 - Human-readable slug ID shown in UI/API.
 - Format: `role_<slug>`, lowercase ASCII, `_` separator.
@@ -202,6 +203,18 @@ Avatars: AVATAR_NOT_ENABLED, AVATAR_INVALID_IMAGE, AVATAR_UNSUPPORTED_FORMAT, AV
     }
     ~~~
 
+**Audit — CSV Export**
+- `GET /api/audit/export.csv` — CSV download of events matching the same filters as `GET /api/audit`.
+  - Filters: `category`, `action`, `occurred_from`, `occurred_to`, `actor_id`, `entity_type`, `entity_id`, `ip`, `order`.
+  - Sorting: `order` ∈ `asc|desc` (default `desc`).
+  - Response: file download with headers:
+    - `Content-Type: text/csv`  _(exactly; no charset)_
+    - `Content-Disposition: attachment; filename="audit-<timestamp>.csv"`
+    - `X-Content-Type-Options: nosniff`
+  - Columns:
+    - `id, occurred_at, actor_id, action, category, entity_type, entity_id, ip, ua, meta_json`
+  - CSV format: RFC 4180 quoting via `fputcsv`.
+
 **RBAC Audit actions**
 - Category: `RBAC`
 - Canonical actions:
@@ -316,6 +329,10 @@ Route::prefix('/exports')->middleware($rbacStack)->group(function () {
     Route::get('/{jobId}/status',   [StatusController::class, 'show'])->defaults('roles', ['Admin','Auditor']);
     Route::get('/{jobId}/download', [ExportController::class, 'download'])->defaults('roles', ['Admin','Auditor']);
 });
+
+// Audit
+Route::match(['GET','HEAD'], '/audit', [AuditController::class, 'index'])->middleware($rbacStack)->defaults('roles', ['Admin','Auditor']);
+Route::get('/audit/export.csv', [AuditExportController::class, 'exportCsv'])->middleware($rbacStack)->defaults('roles', ['Admin','Auditor']);
 ~~~
 
 ---
@@ -332,3 +349,4 @@ Route::prefix('/exports')->middleware($rbacStack)->group(function () {
   - `/admin/settings` — settings stub.
   - `/admin/roles` — role list and create role. Uses stub path when RBAC persistence disabled.
   - `/admin/user-roles` — assign roles to users (read, attach, detach, replace).
+

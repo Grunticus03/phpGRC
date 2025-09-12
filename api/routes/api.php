@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Schema;
 use App\Models\User;
 use App\Http\Controllers\Admin\SettingsController;
 use App\Http\Controllers\Audit\AuditController;
+use App\Http\Controllers\Audit\AuditExportController;
 use App\Http\Controllers\Auth\BreakGlassController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\LogoutController;
@@ -151,6 +152,10 @@ Route::match(['GET','HEAD'], '/audit', [AuditController::class, 'index'])
     ->middleware($rbacStack)
     ->defaults('roles', ['Admin', 'Auditor']);
 
+Route::get('/audit/export.csv', [AuditExportController::class, 'exportCsv'])
+    ->middleware($rbacStack)
+    ->defaults('roles', ['Admin', 'Auditor']);
+
 /*
  |--------------------------------------------------------------------------
  | Evidence (Phase 4 — persisted + retrieval)
@@ -173,3 +178,4 @@ Route::prefix('/evidence')
  |--------------------------------------------------------------------------
 */
 Route::post('/avatar', [AvatarController::class, 'store']);
+
