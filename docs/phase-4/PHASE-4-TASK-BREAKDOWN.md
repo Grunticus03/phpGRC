@@ -26,14 +26,17 @@
 - [x] Persisted `audit_events` table + model
 - [x] Settings update listener writes audit rows
 - [x] `AuditLogger` helper with typed attributes
-- [ ] List endpoint filters + pagination polish
+- [x] Stub pagination + cursor semantics aligned with tests
+- [ ] Filters on list (category/action/date range) — persisted path
 - [ ] Retention job honoring `core.audit.retention_days`
 
 ### 3. Evidence (CORE-007)
 - [x] Persist evidence metadata + file store
 - [x] Size/mime validation
+- [x] SHA-256 compute + ETag headers
+- [x] Pagination on list
+- [ ] Filtering on list
 - [ ] Hash verification on download
-- [ ] Pagination + filtering on list
 
 ### 4. Exports (CORE-008)
 - [x] Create job endpoints (preferred + legacy)
@@ -72,7 +75,8 @@
 ---
 
 ## Immediate Next Steps
-1. Add tests for RBAC audit writes (`RbacAuditTest`).
-2. Implement audit filters for category/action.
-3. Begin role management UI scaffold under `/admin/rbac` (Phase 5 prep).
+1. Implement audit list filters and retention job.
+2. Evidence: add download hash verification and list filters.
+3. Begin role management UI scaffold under `/admin/rbac`.
+4. Add background queue path for exports (non-test envs).
 
