@@ -178,4 +178,6 @@ Route::prefix('/evidence')
  |--------------------------------------------------------------------------
 */
 Route::post('/avatar', [AvatarController::class, 'store']);
+Route::match(['GET','HEAD'], '/avatar/{user}', [AvatarController::class, 'show'])
+    ->whereNumber('user');
 
