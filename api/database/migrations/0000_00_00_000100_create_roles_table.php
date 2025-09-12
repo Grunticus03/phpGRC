@@ -10,8 +10,8 @@ return new class extends Migration {
     public function up(): void
     {
         Schema::create('roles', function (Blueprint $table): void {
-            // ULID-compatible string PK (26 chars)
-            $table->string('id', 26)->primary();
+            // Human-readable slug PK (e.g., role_admin, role_compliance_lead_1)
+            $table->string('id', 191)->primary();
             $table->string('name')->unique();
             $table->timestampsTz();
         });

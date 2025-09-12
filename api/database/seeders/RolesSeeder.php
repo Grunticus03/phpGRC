@@ -16,17 +16,23 @@ final class RolesSeeder extends Seeder
             return;
         }
 
-        // Seed always during tests; in non-test envs, seed when persistence is enabled.
         $shouldSeed = app()->runningUnitTests()
-            || config('core.rbac.mode') === 'persist'
+            || (string) config('core.rbac.mode', 'stub') === 'persist'
             || (bool) (config('core.rbac.persistence') ?? false);
 
         if (!$shouldSeed) {
             return;
         }
 
-        foreach (['Admin', 'Auditor', 'Risk Manager', 'User'] as $name) {
-            Role::query()->firstOrCreate(['name' => $name]); // id auto via HasUlids
+        $seed = [
+            ['id' => 'role_admin',    'name' => 'Admin'],
+            ['id' => 'role_auditor',  'name' => 'Auditor'],
+            ['id' => 'role_risk_mgr', 'name' => 'Risk Manager'],
+            ['id' => 'role_user',     'name' => 'User'],
+        ];
+
+        foreach ($seed as $r) {
+            Role::query()->firstOrCreate(['id' => $r['id']], ['name' => $r['name']]);
         }
     }
 }

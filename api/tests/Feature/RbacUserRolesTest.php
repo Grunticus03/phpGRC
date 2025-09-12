@@ -20,7 +20,7 @@ final class RbacUserRolesTest extends TestCase
         parent::setUp();
 
         config()->set('core.rbac.enabled', true);
-        config()->set('core.rbac.mode', 'persist');     // align with config/core.php
+        config()->set('core.rbac.mode', 'persist');
         config()->set('core.rbac.require_auth', true);
 
         $this->seed(RolesSeeder::class);
@@ -34,7 +34,8 @@ final class RbacUserRolesTest extends TestCase
             'password' => bcrypt('secret'),
         ]);
 
-        $adminRoleId = (string) Role::query()->where('name', 'Admin')->value('id');
+        // Attach by slug id
+        $adminRoleId = (string) Role::query()->where('id', 'role_admin')->value('id');
         $admin->roles()->syncWithoutDetaching([$adminRoleId]);
 
         Sanctum::actingAs($admin);
@@ -65,7 +66,8 @@ final class RbacUserRolesTest extends TestCase
     {
         $this->actingAsAdmin();
 
-        Role::query()->firstOrCreate(['name' => 'Auditor']);
+        // Ensure target role exists with slug id
+        Role::query()->firstOrCreate(['id' => 'role_auditor'], ['name' => 'Auditor']);
 
         $user = User::query()->create([
             'name' => 'Bob',
@@ -89,8 +91,8 @@ final class RbacUserRolesTest extends TestCase
     {
         $this->actingAsAdmin();
 
-        Role::query()->firstOrCreate(['name' => 'Auditor']);
-        Role::query()->firstOrCreate(['name' => 'Risk Manager']);
+        Role::query()->firstOrCreate(['id' => 'role_auditor'], ['name' => 'Auditor']);
+        Role::query()->firstOrCreate(['id' => 'role_risk_mgr'], ['name' => 'Risk Manager']);
 
         $user = User::query()->create([
             'name' => 'Carol',

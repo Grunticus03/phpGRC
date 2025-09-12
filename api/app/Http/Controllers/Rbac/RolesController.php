@@ -52,7 +52,6 @@ final class RolesController extends Controller
 
     public function store(StoreRoleRequest $request): JsonResponse
     {
-        // Phase 4 default: stub-only unless persistence is explicitly enabled.
         if (!$this->persistenceEnabled() || !Schema::hasTable('roles')) {
             return response()->json([
                 'ok'       => false,
@@ -63,17 +62,31 @@ final class RolesController extends Controller
 
         $name = $request->validated('name');
 
-        // Deterministic slug ID with collision suffixing.
+        // Base slug: role_<slug>
         $base = 'role_' . Str::slug($name, '_');
-        $id   = $base;
-        $i    = 1;
-        while (Role::query()->whereKey($id)->exists()) {
-            $i++;
-            $id = $base . '_' . $i;
+
+        // If base exists, find the highest suffix and increment.
+        if (Role::query()->whereKey($base)->exists()) {
+            $siblings = Role::query()
+                ->where('id', 'like', $base . '\_%')
+                ->pluck('id')
+                ->all();
+
+            $max = 0;
+            foreach ($siblings as $id) {
+                if (preg_match('/^' . preg_quote($base, '/') . '_(\d+)$/', $id, $m)) {
+                    $n = (int) $m[1];
+                    if ($n > $max) {
+                        $max = $n;
+                    }
+                }
+            }
+            $id = $base . '_' . ($max + 1);
+        } else {
+            $id = $base;
         }
 
-        $role = new Role(['id' => $id, 'name' => $name]);
-        $role->save();
+        $role = Role::query()->create(['id' => $id, 'name' => $name]);
 
         return response()->json([
             'ok'   => true,
@@ -81,4 +94,3 @@ final class RolesController extends Controller
         ], 201);
     }
 }
-
