@@ -39,18 +39,23 @@ final class AuditController extends Controller
         }
 
         // Decode cursor (may carry prior page limit)
-        $decoded = $cursorParam ? $this->decodeCursor((string) $cursorParam) : null;
-        $cursorTs = $decoded[0] ?? null;
-        $cursorLimit = $decoded[2] ?? null;
+        $decoded      = $cursorParam ? $this->decodeCursor((string) $cursorParam) : null;
+        $cursorTs     = $decoded[0] ?? null;
+        $cursorLimit  = $decoded[2] ?? null;
 
         // Default to 2 items on stub path; inherit from cursor if provided
-        $limit = (int) ($limitParam !== null ? $limitParam : ($cursorLimit !== null ? $cursorLimit : 2));
-        $retention = (int) config('core.audit.retention_days', 365);
+        $limit        = (int) ($limitParam !== null ? $limitParam : ($cursorLimit !== null ? $cursorLimit : 2));
+        $retention    = (int) config('core.audit.retention_days', 365);
 
-        // Phase 4: return stub-only shape with working cursor
-        $items = $this->makeStubPage($limit, $order, $cursorTs);
-        $tail  = $items !== [] ? $items[array_key_last($items)] : null;
-        $next  = $tail ? $this->encodeCursor($tail['occurred_at'], $tail['id'], $limit) : null;
+        // Build stub page and next cursor
+        $items        = $this->makeStubPage($limit, $order, $cursorTs);
+        $tail         = $items !== [] ? $items[array_key_last($items)] : null;
+
+        // Include nextCursor only when client asks for pagination (limit param present OR cursor provided)
+        $wantsPaging  = ($limitParam !== null) || ($cursorParam !== null && $cursorParam !== '');
+        $next         = ($wantsPaging && $tail)
+            ? $this->encodeCursor($tail['occurred_at'], $tail['id'], $limit)
+            : null;
 
         return response()->json([
             'ok'              => true,
