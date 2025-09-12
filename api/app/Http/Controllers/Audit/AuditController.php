@@ -15,12 +15,10 @@ final class AuditController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        // Param aliases used in tests
         $limitParam  = $request->query('limit', $request->query('per_page', $request->query('perPage', $request->query('take'))));
         $cursorParam = $request->query('cursor', $request->query('nextCursor'));
         $order       = (string) ($request->query('order', 'desc'));
 
-        // Validate with Laravel messages the tests expect
         $data = [];
         if ($limitParam !== null)  { $data['limit']  = $limitParam; }
         if ($cursorParam !== null) { $data['cursor'] = $cursorParam; }
@@ -38,20 +36,16 @@ final class AuditController extends Controller
             ], 422);
         }
 
-        // Decode cursor (may carry prior page limit)
         $decoded      = $cursorParam ? $this->decodeCursor((string) $cursorParam) : null;
         $cursorTs     = $decoded[0] ?? null;
         $cursorLimit  = $decoded[2] ?? null;
 
-        // Default to 2 items on stub path; inherit from cursor if provided
         $limit        = (int) ($limitParam !== null ? $limitParam : ($cursorLimit !== null ? $cursorLimit : 2));
         $retention    = (int) config('core.audit.retention_days', 365);
 
-        // Build stub page and next cursor
         $items        = $this->makeStubPage($limit, $order, $cursorTs);
         $tail         = $items !== [] ? $items[array_key_last($items)] : null;
 
-        // Include nextCursor only when client asks for pagination (limit param present OR cursor provided)
         $wantsPaging  = ($limitParam !== null) || ($cursorParam !== null && $cursorParam !== '');
         $next         = ($wantsPaging && $tail)
             ? $this->encodeCursor($tail['occurred_at'], $tail['id'], $limit)
@@ -72,16 +66,6 @@ final class AuditController extends Controller
         ], 200);
     }
 
-    /**
-     * Build a deterministic stub page.
-     * If $cursorTs is null: page 1 from "now".
-     * If provided: start strictly after cursor (older for desc, newer for asc).
-     *
-     * @param int $limit
-     * @param 'asc'|'desc' $order
-     * @param \Illuminate\Support\Carbon|null $cursorTs
-     * @return array<int, array{id:string,occurred_at:string,actor_id:int|null,action:string,category:string,entity_type:string,entity_id:string,ip:?string,ua:?string,meta:?array}>
-     */
     private function makeStubPage(int $limit, string $order, ?Carbon $cursorTs): array
     {
         $out  = [];
@@ -123,9 +107,14 @@ final class AuditController extends Controller
     private function decodeCursor(string $cursor): ?array
     {
         $plain = $cursor;
+
         if (!str_contains($cursor, '|')) {
-            // Only support base64url-encoded cursor for reliability
-            $decoded = base64_decode(strtr($cursor, '-_', '+/'), true);
+            $s = strtr($cursor, '-_', '+/');
+            $pad = strlen($s) % 4;
+            if ($pad) {
+                $s .= str_repeat('=', 4 - $pad);
+            }
+            $decoded = base64_decode($s, true);
             if ($decoded === false || !str_contains($decoded, '|')) {
                 return null;
             }
