@@ -54,7 +54,7 @@ final class AuditRetentionPurge extends Command
             return self::SUCCESS;
         }
 
-        DB::transaction(function (): void use ($cutoff) {
+        DB::transaction(function () use ($cutoff): void {
             AuditEvent::query()
                 ->where('occurred_at', '<', $cutoff)
                 ->delete();
