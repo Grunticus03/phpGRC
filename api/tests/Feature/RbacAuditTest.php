@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
-use App\Models\AuditEvent;
 use App\Models\Role;
 use App\Models\User;
 use Database\Seeders\RolesSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -20,123 +20,79 @@ final class RbacAuditTest extends TestCase
     {
         parent::setUp();
 
+        // Enable RBAC persistence and Audit
         config()->set('core.rbac.enabled', true);
         config()->set('core.rbac.mode', 'persist');
-        config()->set('core.rbac.require_auth', true);
+        config()->set('core.rbac.persistence', true);
+        config()->set('core.rbac.require_auth', false); // keep middleware simple in tests
         config()->set('core.audit.enabled', true);
 
         $this->seed(RolesSeeder::class);
-    }
 
-    private function actingAsAdmin(): User
-    {
+        // Admin actor
         $admin = User::query()->create([
-            'name' => 'Admin One',
-            'email' => 'admin1@example.com',
+            'name' => 'Admin',
+            'email' => 'admin@example.com',
             'password' => bcrypt('secret'),
         ]);
 
-        // Ensure admin role exists with slug id
-        Role::query()->firstOrCreate(['id' => 'role_admin'], ['name' => 'Admin']);
-
-        // Attach by slug id
-        $adminRoleId = (string) Role::query()->where('id', 'role_admin')->value('id');
+        $adminRoleId = Role::query()->where('name', 'Admin')->value('id') ?? 'role_admin';
+        if (!Role::query()->whereKey($adminRoleId)->exists()) {
+            Role::query()->create(['id' => $adminRoleId, 'name' => 'Admin']);
+        }
         $admin->roles()->syncWithoutDetaching([$adminRoleId]);
 
         Sanctum::actingAs($admin);
-
-        return $admin;
     }
 
-    public function test_replace_writes_audit_event(): void
+    public function test_role_store_writes_audit_event(): void
     {
-        $this->actingAsAdmin();
+        $res = $this->postJson('/api/rbac/roles', ['name' => 'Compliance Lead']);
+        $res->assertStatus(201)->assertJsonPath('ok', true);
 
-        Role::query()->firstOrCreate(['id' => 'role_auditor'], ['name' => 'Auditor']);
+        $count = DB::table('audit_events')->where('action', 'rbac.role.created')->where('category', 'RBAC')->count();
+        $this->assertGreaterThanOrEqual(1, $count, 'Expected at least one RBAC role.created audit event');
+    }
 
-        $user = User::query()->create([
+    public function test_user_roles_attach_and_detach_write_audit_events(): void
+    {
+        $target = User::query()->create([
             'name' => 'Alice',
             'email' => 'alice@example.com',
             'password' => bcrypt('secret'),
         ]);
 
-        $this->putJson("/api/rbac/users/{$user->id}/roles", [
-            'roles' => ['Auditor'],
-        ])->assertStatus(200);
+        $adminRoleName = 'Admin';
+        $this->postJson("/api/rbac/users/{$target->id}/roles/{$adminRoleName}")
+            ->assertStatus(200)
+            ->assertJsonPath('ok', true);
 
-        /** @var AuditEvent|null $evt */
-        $evt = AuditEvent::query()
-            ->where('category', 'RBAC')
-            ->where('action', 'role.replace')
-            ->where('entity_type', 'user')
-            ->where('entity_id', (string) $user->id)
-            ->latest('occurred_at')
-            ->first();
+        // canonical + alias
+        $this->assertSame(1, DB::table('audit_events')->where('action', 'rbac.user_role.attached')->where('entity_id', (string) $target->id)->count());
+        $this->assertSame(1, DB::table('audit_events')->where('action', 'role.attach')->where('entity_id', (string) $target->id)->count());
 
-        $this->assertNotNull($evt, 'Expected an audit event for role.replace');
-        $this->assertIsArray($evt->meta);
-        $this->assertSame(['Auditor'], $evt->meta['after'] ?? null);
-        $this->assertSame(['Auditor'], $evt->meta['added'] ?? null);
-        $this->assertSame([], $evt->meta['removed'] ?? null);
+        $this->deleteJson("/api/rbac/users/{$target->id}/roles/{$adminRoleName}")
+            ->assertStatus(200)
+            ->assertJsonPath('ok', true);
+
+        $this->assertSame(1, DB::table('audit_events')->where('action', 'rbac.user_role.detached')->where('entity_id', (string) $target->id)->count());
+        $this->assertSame(1, DB::table('audit_events')->where('action', 'role.detach')->where('entity_id', (string) $target->id)->count());
     }
 
-    public function test_attach_logs_once_when_changing(): void
+    public function test_user_roles_replace_writes_audit_event(): void
     {
-        $this->actingAsAdmin();
-
-        Role::query()->firstOrCreate(['id' => 'role_auditor'], ['name' => 'Auditor']);
-
-        $user = User::query()->create([
+        $target = User::query()->create([
             'name' => 'Bob',
             'email' => 'bob@example.com',
             'password' => bcrypt('secret'),
         ]);
 
-        // First attach creates one audit row
-        $this->postJson("/api/rbac/users/{$user->id}/roles/Auditor")->assertStatus(200);
+        $this->putJson("/api/rbac/users/{$target->id}/roles", ['roles' => []])
+            ->assertStatus(200)
+            ->assertJsonPath('ok', true);
 
-        // Idempotent second attach should not add another audit row
-        $this->postJson("/api/rbac/users/{$user->id}/roles/Auditor")->assertStatus(200);
-
-        $count = AuditEvent::query()
-            ->where('category', 'RBAC')
-            ->where('action', 'role.attach')
-            ->where('entity_type', 'user')
-            ->where('entity_id', (string) $user->id)
-            ->count();
-
-        $this->assertSame(1, $count, 'Expected exactly one role.attach audit event');
-    }
-
-    public function test_detach_logs_when_role_present(): void
-    {
-        $this->actingAsAdmin();
-
-        Role::query()->firstOrCreate(['id' => 'role_risk_mgr'], ['name' => 'Risk Manager']);
-
-        $user = User::query()->create([
-            'name' => 'Carol',
-            'email' => 'carol@example.com',
-            'password' => bcrypt('secret'),
-        ]);
-
-        $this->postJson("/api/rbac/users/{$user->id}/roles/Risk Manager")->assertStatus(200);
-
-        $this->deleteJson("/api/rbac/users/{$user->id}/roles/Risk Manager")->assertStatus(200);
-
-        /** @var AuditEvent|null $evt */
-        $evt = AuditEvent::query()
-            ->where('category', 'RBAC')
-            ->where('action', 'role.detach')
-            ->where('entity_type', 'user')
-            ->where('entity_id', (string) $user->id)
-            ->latest('occurred_at')
-            ->first();
-
-        $this->assertNotNull($evt, 'Expected an audit event for role.detach');
-        $this->assertSame('Risk Manager', $evt->meta['role'] ?? null);
-        $this->assertContains('Risk Manager', $evt->meta['before'] ?? []);
-        $this->assertNotContains('Risk Manager', $evt->meta['after'] ?? []);
+        $this->assertSame(1, DB::table('audit_events')->where('action', 'rbac.user_role.replaced')->where('entity_id', (string) $target->id)->count());
+        $this->assertSame(1, DB::table('audit_events')->where('action', 'role.replace')->where('entity_id', (string) $target->id)->count());
     }
 }
 

@@ -6,56 +6,63 @@ namespace App\Services\Audit;
 
 use App\Models\AuditEvent;
 use Carbon\CarbonImmutable;
-use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
 
 final class AuditLogger
 {
-    public function enabled(): bool
-    {
-        return (bool) config('core.audit.enabled', true) && Schema::hasTable('audit_events');
-    }
-
     /**
-     * @param array<string,mixed> $input
+     * @param array{
+     *   actor_id?: int|null,
+     *   action: string,
+     *   category: string,
+     *   entity_type: string,
+     *   entity_id: string,
+     *   ip?: string|null,
+     *   ua?: string|null,
+     *   meta?: array<string,mixed>|null,
+     *   occurred_at?: \DateTimeInterface|string|null,
+     * } $event
      */
-    public function log(array $input): ?AuditEvent
+    public function log(array $event): AuditEvent
     {
-        if (!$this->enabled()) {
-            return null;
+        $now = CarbonImmutable::now('UTC');
+
+        $id = Str::ulid()->toBase32();
+
+        // Normalize occurred_at
+        $when = $now;
+        $occ  = $event['occurred_at'] ?? null;
+        if ($occ instanceof \DateTimeInterface) {
+            $when = CarbonImmutable::instance($occ)->utc();
+        } elseif (is_string($occ) && $occ !== '') {
+            try {
+                $when = CarbonImmutable::parse($occ)->utc();
+            } catch (\Throwable) {
+                $when = $now;
+            }
         }
 
-        $occurredAt = $this->coerceImmutable($input['occurred_at'] ?? null);
+        // Trust type per PHPDoc; controllers/tests supply array|null.
+        /** @var array<string,mixed>|null $meta */
+        $meta = $event['meta'] ?? null;
 
-        $event              = new AuditEvent();
-        $event->id          = (string) Str::ulid();
-        $event->occurred_at = $occurredAt;
-        $event->actor_id    = isset($input['actor_id']) && is_numeric($input['actor_id']) ? (int) $input['actor_id'] : null;
-        $event->action      = (string) ($input['action'] ?? 'unknown');
-        $event->category    = (string) ($input['category'] ?? 'SYSTEM');
-        $event->entity_type = (string) ($input['entity_type'] ?? 'unknown');
-        $event->entity_id   = (string) ($input['entity_id'] ?? '');
-        $event->ip          = isset($input['ip']) ? (string) $input['ip'] : null;
-        $event->ua          = isset($input['ua']) ? (string) $input['ua'] : null;
-        $event->meta        = isset($input['meta']) && is_array($input['meta']) ? $input['meta'] : null;
-        $event->created_at  = CarbonImmutable::now('UTC');
+        /** @var AuditEvent $row */
+        $row = AuditEvent::query()->create([
+            'id'          => $id,
+            'occurred_at' => $when,
+            'actor_id'    => Arr::get($event, 'actor_id'),
+            'action'      => (string) $event['action'],
+            'category'    => (string) $event['category'],
+            'entity_type' => (string) $event['entity_type'],
+            'entity_id'   => (string) $event['entity_id'],
+            'ip'          => Arr::get($event, 'ip'),
+            'ua'          => Arr::get($event, 'ua'),
+            'meta'        => $meta,
+            'created_at'  => $now,
+        ]);
 
-        $event->save();
-
-        return $event;
-    }
-
-    private function coerceImmutable(mixed $val): CarbonImmutable
-    {
-        if ($val instanceof CarbonImmutable) {
-            return $val->utc();
-        }
-
-        try {
-            return CarbonImmutable::parse((string) $val)->utc();
-        } catch (\Throwable) {
-            return CarbonImmutable::now('UTC');
-        }
+        return $row;
     }
 }
 

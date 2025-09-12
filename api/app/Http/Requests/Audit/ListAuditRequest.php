@@ -10,18 +10,12 @@ final class ListAuditRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        // RBAC middleware guards access
         return true;
     }
 
-    /**
-     * Controller performs validation with a custom envelope.
-     * Keep this empty to avoid default 422 responses.
-     *
-     * @return array<string, mixed>
-     */
     public function rules(): array
     {
+        // Controller handles validation to match project 422 envelope.
         return [];
     }
 }
