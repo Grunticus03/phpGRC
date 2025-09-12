@@ -38,41 +38,64 @@ final class AuditController extends Controller
             ], 422);
         }
 
-        $limit  = (int) ($limitParam ?? 25);
-        $cursor = (string) ($cursorParam ?? '');
+        $limit       = (int) ($limitParam ?? 25);
+        $cursorToken = (string) ($cursorParam ?? '');
+        $retention   = (int) config('core.audit.retention_days', 365);
 
-        // Phase 4: always return stub-only shape the tests require
-        $items = $this->makeStubItems($limit, $order);
+        // Phase 4: return stub-only shape the tests require, with working cursor
+        $cursorTs = null;
+        if ($cursorToken !== '') {
+            $decoded = $this->decodeCursor($cursorToken);
+            if ($decoded !== null) {
+                [$cursorTs, ] = $decoded; // Illuminate\Support\Carbon
+            }
+        }
+
+        $items = $this->makeStubPage($limit, $order, $cursorTs);
         $next  = $items !== [] ? $this->encodeCursor($items[array_key_last($items)]['occurred_at'], $items[array_key_last($items)]['id']) : null;
 
         return response()->json([
-            'ok'          => true,
-            'note'        => 'stub-only',
-            '_categories' => AuditCategories::ALL,
-            'filters'     => [
+            'ok'              => true,
+            'note'            => 'stub-only',
+            '_categories'     => AuditCategories::ALL,
+            '_retention_days' => $retention,
+            'filters'         => [
                 'order'  => $order,
                 'limit'  => $limit,
-                'cursor' => $cursor !== '' ? $cursor : null,
+                'cursor' => $cursorToken !== '' ? $cursorToken : null,
             ],
-            'items'       => $items,
-            'nextCursor'  => $next,
+            'items'           => $items,
+            'nextCursor'      => $next,
         ], 200);
     }
 
     /**
+     * Build a deterministic stub page.
+     * If $cursorTs is null: page 1 from "now".
+     * If provided: start strictly after cursor (older for desc, newer for asc).
+     *
+     * @param int $limit
+     * @param 'asc'|'desc' $order
+     * @param \Illuminate\Support\Carbon|null $cursorTs
      * @return array<int, array{id:string,occurred_at:string,actor_id:int|null,action:string,category:string,entity_type:string,entity_id:string,ip:?string,ua:?string,meta:?array}>
      */
-    private function makeStubItems(int $limit, string $order): array
+    private function makeStubPage(int $limit, string $order, ?Carbon $cursorTs): array
     {
         $out = [];
-        $now = Carbon::now('UTC');
+        $base = $cursorTs?->copy() ?? Carbon::now('UTC');
 
         for ($i = 0; $i < $limit; $i++) {
-            $ts = ($order === 'asc' ? $now->copy()->addSeconds($i) : $now->copy()->subSeconds($i))->toIso8601String();
+            if ($order === 'asc') {
+                // After cursor => strictly greater than cursorTs
+                $ts = ($cursorTs ? $base->copy()->addSeconds($i + 1) : $base->copy()->addSeconds($i));
+            } else {
+                // Desc: after cursor means strictly less than cursorTs
+                $ts = ($cursorTs ? $base->copy()->subSeconds($i + 1) : $base->copy()->subSeconds($i));
+            }
 
             $out[] = [
                 'id'          => $this->ulid(),
-                'occurred_at' => $ts,
+                'occurred_at' => $ts->toIso8601String(),
                 'actor_id'    => null,
                 'action'      => 'stub.event',
                 'category'    => 'SYSTEM',
@@ -91,6 +114,32 @@ final class AuditController extends Controller
     {
         $raw = $isoTs . '|' . $id;
         return rtrim(strtr(base64_encode($raw), '+/', '-_'), '=');
+    }
+
+    /**
+     * @return array{0:\Illuminate\Support\Carbon,1:string}|null
+     */
+    private function decodeCursor(string $cursor): ?array
+    {
+        $plain = $cursor;
+        if (!str_contains($cursor, '|') && !str_contains($cursor, ':')) {
+            $decoded = base64_decode(strtr($cursor, '-_', '+/'), true);
+            if ($decoded === false || (!str_contains($decoded, '|') && !str_contains($decoded, ':'))) {
+                return null;
+            }
+            $plain = $decoded;
+        }
+        $sep = str_contains($plain, '|') ? '|' : ':';
+        [$tsRaw, $id] = array_pad(explode($sep, $plain, 2), 2, null);
+        if ($tsRaw === null || $id === null) {
+            return null;
+        }
+        try {
+            $ts = Carbon::parse($tsRaw)->utc();
+        } catch (\Throwable) {
+            return null;
+        }
+        return [$ts, $id];
     }
 
     private function ulid(): string
