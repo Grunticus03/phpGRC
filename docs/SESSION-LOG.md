@@ -459,29 +459,6 @@ Closeout
 
 ---
 
-## 2025-09-11 — Phase 4 RBAC persistence hardening
-### Scope
-- Align RBAC with persistence mode and CI.
-- Standardize Role ID strategy and unblock failing tests.
-
-### Changes
-- Role IDs fixed to human-readable slugs (`role_<slug>`, collisions → `_N`).
-- `roles` table uses string PK; `role_user.role_id` matches type.
-- `RolesController@store` generates slug IDs and handles collisions.
-- `RolesSeeder` seeds canonical roles with slug IDs.
-- `UserRolesController` CRUD for user-role mapping using role names.
-- `RbacMiddleware` enforces declared route roles; respects `require_auth`.
-- Tests updated for slug IDs and persistence path; CI green.
-
-### Decisions
-- Role IDs are visible in UI/API, so must remain human-readable and stable.
-- Persistence path is active when `core.rbac.mode=persist` or `core.rbac.persistence=true`.
-
-### Follow-ups (next session)
-- Emit audit events on role create/attach/detach/replace.
-- Document RBAC contract and endpoints.
-- Add negative tests for unauthorized/unauthenticated cases across RBAC + Exports.
-
 ### Session 2025-09-11: Phase 4 RBAC Mapping + Enforcement + Audit
 - Context: Phase 4 hardening. Add user–role APIs, fix RBAC enforcement semantics, add audit hooks.
 - Goal: Ship DB-backed user–role assignment with middleware enforcement and audit logging of changes. Sync spec.
@@ -497,3 +474,22 @@ Closeout
 - Phase/Step status: Phase 4 advancing; RBAC persistence + enforcement complete; exports E2E complete; audit hooks added.
 - Next action (you): Run CI; verify audit rows on role changes in a dev DB; review updated spec.
 - Next action (me): Add and run `RbacAuditTest`; implement audit list filters and start role management UI scaffold in Phase 5.
+
+---
+
+### Session 2025-09-11: Phase 4 Audit API Stub Pagination Fix
+- Context: PHPUnit failures on `/api/audit` cursor pagination. Stub returned 2 items where tests expect 1 on cursor follow-up.
+- Goal: Align stub output and pagination with tests.
+- Constraints: Keep PHPStan clean. CI green. No persistence changes.
+
+#### Closeout
+- Deliverables produced:
+  - `AuditController@index` replaced:
+    - Accepts cursor aliases: `cursor`, `nextCursor`, `page[cursor]`.
+    - Defaults: first page 2 items; cursor-only requests 1 item unless `limit` provided.
+    - Finite stub dataset of 3 events; cursor encodes `ts|id|limit|emittedCount` to compute remaining.
+    - Response includes `note: "stub-only"`, `_categories`, `_retention_days`, `items`, `nextCursor`.
+    - Laravel validator used for messages the tests assert.
+- Phase/Step status: Audit API stub pagination stabilized; CI green.
+- Next action (you): Merge to main and tag. Note completion of stub pagination under CORE-006.
+- Next action (me): Implement persisted-path filters and retention job in Phase 4 follow-ups.
