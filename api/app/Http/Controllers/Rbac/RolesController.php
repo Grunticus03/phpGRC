@@ -6,8 +6,10 @@ namespace App\Http\Controllers\Rbac;
 
 use App\Http\Requests\Rbac\StoreRoleRequest;
 use App\Models\Role;
+use App\Services\Audit\AuditLogger;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Routing\Controller;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
@@ -88,9 +90,30 @@ final class RolesController extends Controller
 
         $role = Role::query()->create(['id' => $id, 'name' => $name]);
 
+        // Audit
+        try {
+            /** @var AuditLogger $logger */
+            $logger  = app(AuditLogger::class);
+            $actorId = Auth::id();
+
+            $logger->log([
+                'actor_id'    => is_int($actorId) ? $actorId : null,
+                'action'      => 'rbac.role.created',
+                'category'    => 'RBAC',
+                'entity_type' => 'role',
+                'entity_id'   => $role->id,
+                'ip'          => request()->ip(),
+                'ua'          => request()->userAgent(),
+                'meta'        => ['name' => $role->name],
+            ]);
+        } catch (\Throwable) {
+            // never fail on audit
+        }
+
         return response()->json([
             'ok'   => true,
             'role' => ['id' => $role->id, 'name' => $role->name],
         ], 201);
     }
 }
+
