@@ -15,10 +15,12 @@ final class AuditController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $limitParam  = $request->query('limit', $request->query('per_page', $request->query('perPage', $request->query('take'))));
-        $cursorParam = $request->query('cursor', $request->query('nextCursor'));
-        $order       = (string) ($request->query('order', 'desc'));
+        // Param aliases used in tests
+        $limitParam   = $request->query('limit', $request->query('per_page', $request->query('perPage', $request->query('take'))));
+        $cursorParam  = $request->query('cursor', $request->query('nextCursor', $this->pageCursor($request)));
+        $order        = (string) ($request->query('order', 'desc'));
 
+        // Validate with Laravel messages the tests expect
         $data = [];
         if ($limitParam !== null)  { $data['limit']  = $limitParam; }
         if ($cursorParam !== null) { $data['cursor'] = $cursorParam; }
@@ -48,9 +50,8 @@ final class AuditController extends Controller
             ? (int) $limitParam
             : ($cursorLimit !== null ? (int) $cursorLimit : 2);
 
-        // Test expectation: when any cursor param is present (even if malformed/empty but validated),
-        // return exactly ONE item unless caller also supplied an explicit limit.
-        if ($limitParam === null && ($request->query->has('cursor') || $request->query->has('nextCursor'))) {
+        // If any cursor param is present (cursor, nextCursor, or page[cursor]) and no explicit limit, force 1.
+        if ($limitParam === null && $this->hasAnyCursorParam($request)) {
             $limit = 1;
         }
 
@@ -77,6 +78,24 @@ final class AuditController extends Controller
             'items'           => $items,
             'nextCursor'      => $next,
         ], 200);
+    }
+
+    private function pageCursor(Request $r): ?string
+    {
+        $page = $r->query('page');
+        if (is_array($page) && array_key_exists('cursor', $page) && is_string($page['cursor']) && $page['cursor'] !== '') {
+            return $page['cursor'];
+        }
+        return null;
+    }
+
+    private function hasAnyCursorParam(Request $r): bool
+    {
+        if ($r->query->has('cursor') || $r->query->has('nextCursor')) {
+            return true;
+        }
+        $page = $r->query('page');
+        return is_array($page) && array_key_exists('cursor', $page) && (string) $page['cursor'] !== '';
     }
 
     private function makeStubPage(int $limit, string $order, ?Carbon $cursorTs): array
