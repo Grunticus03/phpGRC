@@ -1,3 +1,4 @@
+# @phpgrc:/docs/BACKLOG.md
 # FILE: /docs/BACKLOG.md
 
 # 📋 phpGRC Backlog
@@ -51,12 +52,14 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 ### CORE-004 — RBAC Roles
 **Description:** Roles Admin, Auditor, Risk Manager, User with namespaced permissions.  
 **Acceptance Criteria:**
-- Permissions follow `<module>.<action>` pattern
-- Enforced by Policies + Middleware  
+- Role IDs are human-readable slugs `role_<slug>` with collision suffix `_N`
+- Persistence path gated by `core.rbac.mode=persist` or `core.rbac.persistence=true`
+- Endpoints: list/store roles; user-role list/replace/attach/detach
+- Enforced by Policies/Middleware with JSON 401/403  
 **Phase:** 4  
 **Step:** 2  
 **Dependencies:** CORE-003  
-**Status:** In progress — route-level roles enforced on exports; capability gate added; fine-grained policies and role management pending.
+**Status:** In progress — fine-grained policies and UI role management pending.
 
 ---
 

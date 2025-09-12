@@ -9,6 +9,7 @@
   - Each increment must pass CI guardrails.
   - Stubs advance to enforcement/persistence gradually.
   - Full traceability to Backlog IDs (CORE-003, CORE-004, CORE-006, CORE-007, CORE-008, CORE-010).
+- Last updated: 2025-09-11
 
 ---
 
@@ -29,7 +30,8 @@
 - [x] Feature tests for roles endpoint (`RolesEndpointTest`)
 - [x] Route role defaults applied (`/admin/*`, `/exports/*`, `/audit`)
 - [x] Admin Roles UI stub wired at `/admin/roles`
-- [ ] Role persistence (migrations, pivot, seeder, DB-backed `store`)
+- [x] **Role persistence**: migrations (`roles` string PK, `role_user` pivot), seeder, DB-backed `store`
+- [x] **Role IDs standardized**: human-readable slugs `role_<slug>` with collision suffix `_N`
 - [ ] Fine-grained policies (Settings, Audit, Exports) + tests
 - [ ] Role management UI (create/delete) with persistence
 
@@ -67,16 +69,32 @@
 
 ---
 
+## CI/Test Plumbing
+- [x] PHPUnit uses fresh DB migrations and seeds before tests
+- [x] `RolesSeeder` runs in test env; canonical roles present
+- [x] Feature tests updated for slugged role IDs (`RolesPersistenceTest`, `RbacUserRolesTest`)
+
+---
+
+## Docs Updated (traceability)
+- [x] `PHASE-4-SPEC.md` — RBAC contracts, error taxonomy, routes
+- [x] `STYLEGUIDE.md` — human-readable ID rules and collision policy
+- [x] `ROADMAP.md` — Phase 4 status
+- [x] `BACKLOG.md` — CORE-004 acceptance updated
+- [x] `CAPABILITIES.md` — RBAC capability notes
+
+---
+
 ## Current Risks / Mitigations
-- SPA structure introduced mid-phase → guard with minimal scope and CI typecheck/tests. Mitigation: keep UI read-only and stub-only.
-- RBAC enforcement timing → keep gates permissive until policies tested. Mitigation: feature tests will drive enablement.
+- SPA scope creep → keep UI read-only until policies land. Mitigation: typecheck + smoke tests only.
+- Policy gaps → exports/settings/audit still rely on route roles. Mitigation: add policies next.
 
 ---
 
 ## Next Increments
-1) Role persistence: migrations (`roles`, `role_user`), seeder alignment, DB-backed `RolesController@store`, feature tests.  
-2) Fine-grained policies: Export/Settings/Audit policies + `$this->authorize(...)` where appropriate; tests.  
-3) SPA expansion: Admin landing + Settings page; Audit/Evidence read-only views.
+1) Fine-grained policies for Settings/Audit/Exports with `$this->authorize(...)` + tests.  
+2) SPA expansion: Admin Settings page; read-only Audit/Evidence views.  
+3) Avatars storage backend + retrieval endpoint.  
 
 ---
 

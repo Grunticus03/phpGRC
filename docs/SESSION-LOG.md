@@ -456,3 +456,28 @@ Closeout
 - Phase/Step status: Phase 4 in progress; RBAC role persistence implemented behind flag; enforcement deferred to Phase 5.
 - Next action (you): Provide files to implement role assignment API and DB-backed checks gated by `CORE_RBAC_MODE`: `app/Http/Middleware/RbacMiddleware.php`, `routes/api.php`, `app/Http/Controllers/Rbac/UserRolesController.php` (new), `tests/Feature/RbacUserRolesTest.php` (new).
 - Next action (me): Deliver full-file replacements for the four items above once provided.
+
+---
+
+## 2025-09-11 — Phase 4 RBAC persistence hardening
+### Scope
+- Align RBAC with persistence mode and CI.
+- Standardize Role ID strategy and unblock failing tests.
+
+### Changes
+- Role IDs fixed to human-readable slugs (`role_<slug>`, collisions → `_N`).
+- `roles` table uses string PK; `role_user.role_id` matches type.
+- `RolesController@store` generates slug IDs and handles collisions.
+- `RolesSeeder` seeds canonical roles with slug IDs.
+- `UserRolesController` CRUD for user-role mapping using role names.
+- `RbacMiddleware` enforces declared route roles; respects `require_auth`.
+- Tests updated for slug IDs and persistence path; CI green.
+
+### Decisions
+- Role IDs are visible in UI/API, so must remain human-readable and stable.
+- Persistence path is active when `core.rbac.mode=persist` or `core.rbac.persistence=true`.
+
+### Follow-ups (next session)
+- Emit audit events on role create/attach/detach/replace.
+- Document RBAC contract and endpoints.
+- Add negative tests for unauthorized/unauthenticated cases across RBAC + Exports.
