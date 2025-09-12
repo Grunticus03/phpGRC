@@ -511,3 +511,64 @@ Closeout
 - Phase/Step status: Phase 4 advanced — CORE-006 filters + retention complete; RBAC audit contract locked.
 - Next action (you): Review docs and merge.
 - Next action (me): Move to Evidence filters + hash verify and start admin Role Management UI scaffold.
+
+---
+
+## 2025-09-12 — Phase 4 increments (CORE-004, CORE-007, CORE-008, CORE-003)
+
+### Summary
+- Evidence: added list filters and optional SHA-256 verification on download; tightened RBAC on routes.
+- RBAC UI: delivered role catalog page and user–role assignment page (read, attach, detach, replace).
+- Exports: enabled background queue path with artifact persistence; added service and feature test.
+- Settings SPA: wired validation echo and stub-save flow.
+- Docs: updated PHASE-4-SPEC.md and PHASE-4-TASK-BREAKDOWN.md to reflect shipped contracts.
+- CI: green.
+
+### API changes
+- Evidence
+  - `/api/app/Http/Controllers/Evidence/EvidenceController.php`: list filters (`owner_id`, `filename`, `mime` incl. `type/*`, `sha256`, `sha256_prefix`, `version_{from,to}`, `created_{from,to}`, `order`, `limit`, cursor) and `GET|HEAD /evidence/{id}?sha256=` verification returning `412 EVIDENCE_HASH_MISMATCH`. Added `X-Checksum-SHA256`.
+  - `/api/routes/api.php`: moved evidence endpoints under RBAC stack with roles `['Admin','Auditor']` for read, `['Admin']` for create.
+- Exports
+  - `/api/app/Services/Export/ExportService.php`: new orchestrator; enqueues `GenerateExport`.
+  - `/api/app/Jobs/GenerateExport.php`: queue-backed generator; writes CSV/JSON/PDF, sets artifact metadata and status.
+  - `/api/app/Http/Controllers/Export/ExportController.php`: uses persistence path when enabled; streams artifact on completion; returns `EXPORT_NOT_READY/FAILED/ARTIFACT_MISSING` as applicable.
+  - `/api/app/Http/Controllers/Export/StatusController.php`: reports `pending|running|completed|failed` and progress.
+  - `/api/app/Models/Export.php`: pending/run/complete/fail helpers; ULID ids; artifact fields.
+  - Migration present: `exports` table schema with lifecycle + artifact columns.
+- Settings
+  - No controller changes in this session; SPA side now surfaces validation.
+
+### Web UI
+- Router/Layout/Nav:
+  - `/web/src/router.tsx`, `/web/src/components/Nav.tsx`, `/web/src/routes/admin/index.tsx`: added links and route for user–role assignment.
+- RBAC pages:
+  - `/web/src/routes/admin/Roles.tsx`: role list + create (stub-aware).
+  - `/web/src/routes/admin/UserRoles.tsx`: load user, attach/detach, replace roles.
+  - `/web/src/lib/api/rbac.ts`: client for roles and user-role endpoints.
+- Settings page:
+  - `/web/src/routes/admin/Settings.tsx`: loads config, displays errors, submits stub save; restricts avatar format to WEBP per spec.
+
+### Tests
+- Added `/api/tests/Feature/ExportsQueueTest.php`:
+  - Verifies enqueue → sync-run path, status reflection, download readiness, and stub path when persistence disabled.
+
+### Docs
+- `/docs/PHASE-4-SPEC.md`: 
+  - Documented evidence list filters, `?sha256` verification, `EVIDENCE_HASH_MISMATCH`.
+  - Clarified export headers and queue notes; included `id` alias in status.
+  - Added `/admin/user-roles` to Web UI notes.
+- `/docs/PHASE-4-TASK-BREAKDOWN.md`:
+  - Marked evidence filters + hash verify complete.
+  - Marked exports background queue complete.
+  - Marked RBAC UI (roles + user-roles) complete.
+  - Updated immediate next steps.
+
+### Configuration notes
+- Persistence path for exports requires `core.exports.enabled=true` and `exports` table.
+- Tests pin `queue.default=sync`; production queue is configurable.
+- RBAC enforcement controlled by `core.rbac.enabled`; `require_auth` gates Sanctum.
+
+### Next steps
+1. Add CSV export for audit events and route.
+2. Implement avatar transcode worker and resized variants.
+3. Minor UI polish per STYLEGUIDE.

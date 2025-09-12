@@ -50,7 +50,7 @@ Shared: VALIDATION_FAILED, UNAUTHENTICATED, UNAUTHORIZED, INTERNAL_ERROR.
 
 Settings/RBAC: RBAC_DISABLED, ROLE_NOT_FOUND, ROLE_NAME_INVALID  
 Audit: AUDIT_NOT_ENABLED, AUDIT_RETENTION_INVALID  
-Evidence: EVIDENCE_NOT_ENABLED, EVIDENCE_TOO_LARGE, EVIDENCE_MIME_NOT_ALLOWED  
+Evidence: EVIDENCE_NOT_ENABLED, EVIDENCE_TOO_LARGE, EVIDENCE_MIME_NOT_ALLOWED, **EVIDENCE_HASH_MISMATCH**  
 Exports: EXPORT_TYPE_UNSUPPORTED, EXPORT_NOT_READY, EXPORT_NOT_FOUND, EXPORT_FAILED, EXPORT_ARTIFACT_MISSING  
 Avatars: AVATAR_NOT_ENABLED, AVATAR_INVALID_IMAGE, AVATAR_UNSUPPORTED_FORMAT, AVATAR_TOO_LARGE
 
@@ -83,7 +83,6 @@ Avatars: AVATAR_NOT_ENABLED, AVATAR_INVALID_IMAGE, AVATAR_UNSUPPORTED_FORMAT, AV
     ~~~json
     { "ok": false, "note": "stub-only", "accepted": { "name": "..." } }
     ~~~
-
 
 **Role ID Contract**
 - Human-readable slug ID shown in UI/API.
@@ -139,48 +138,69 @@ Avatars: AVATAR_NOT_ENABLED, AVATAR_INVALID_IMAGE, AVATAR_UNSUPPORTED_FORMAT, AV
   - Response 200 mirrors `GET` shape.
 
 ### Evidence
-- `GET /api/evidence` — list
-- `POST /api/evidence` — create; stores file, sha256, metadata; validates size/mime
-- `GET /api/evidence/{id}` — fetch metadata or file as applicable
+- `GET /api/evidence` — list with filters and cursor pagination.
+  - Query filters:
+    - `owner_id` integer
+    - `filename` substring match
+    - `mime` exact match or family like `image/*`
+    - `sha256` exact
+    - `sha256_prefix` prefix match
+    - `version_from` integer
+    - `version_to` integer
+    - `created_from`, `created_to` ISO8601 or any `Carbon::parse`-able date
+    - `order` ∈ `asc|desc` (default `desc`)
+    - `limit` 1..100 (default 20)
+    - `cursor` `base64("Y-m-d H:i:s|<id>")`
+  - Response:
+    ~~~json
+    { "ok": true, "filters": {...}, "data": [ { "id":"ev_...","owner_id":1,"filename":"...", "mime":"...", "size_bytes":123, "sha256":"...", "version":1, "created_at":"2025-09-12T00:00:00Z" } ], "next_cursor": "..." }
+    ~~~
+- `POST /api/evidence` — create; stores file, sha256, metadata; validates size/mime.
+- `GET|HEAD /api/evidence/{id}` — download with headers:
+  - `ETag: "<sha256>"`
+  - `X-Content-Type-Options: nosniff`
+  - `X-Checksum-SHA256: <sha256>`
+  - Optional `?sha256=<hex>` enforces hash match and returns `412 EVIDENCE_HASH_MISMATCH` when mismatched.
+  - Honors `If-None-Match` for conditional GET.
 
 ### Audit
-- `GET /api/audit` — list events with pagination.  
-  **Filters (query string):**
-  - `category` ∈ `["AUTH","SETTINGS","RBAC","EVIDENCE","EXPORT","USER","SYSTEM"]`
-  - `action` string ≤191
-  - `occurred_from`, `occurred_to` (ISO8601 or any `Carbon::parse`-able date; server coerces to UTC)
-  - `actor_id` integer
-  - `entity_type` string ≤128
-  - `entity_id` string ≤191
-  - `ip` valid IP
-  - `order` ∈ `asc|desc` (default `desc`)
-  - `limit` 1..100. Default 2 on first page, 1 on cursor-only requests.
-  - `cursor` pagination cursor. Aliases: `cursor`, `nextCursor`, `page[cursor]`. Format `base64(ts|id|limit|emittedCount)`; tolerant of plaintext `ts|id|...`.
-  **Response (persisted path):**
-  ~~~json
-  {
-    "ok": true,
-    "_categories": ["AUTH","SETTINGS","RBAC","EVIDENCE","EXPORT","USER","SYSTEM"],
-    "_retention_days": 365,
-    "filters": { "order":"desc","limit":2,"cursor":null, "category":null, "action":null, "occurred_from":null, "occurred_to":null, "actor_id":null, "entity_type":null, "entity_id":null, "ip":null },
-    "items": [
-      {"id":"01J....","occurred_at":"2025-09-12T03:12:34Z","actor_id":1,"action":"rbac.user_role.attached","category":"RBAC","entity_type":"user","entity_id":"42","ip":"203.0.113.5","ua":"...","meta":{"role":"Auditor"}}
-    ],
-    "nextCursor": "ey4uLg"
-  }
-  ~~~
-  **Response (stub path for empty DB and no business filters):**
-  ~~~json
-  {
-    "ok": true,
-    "note": "stub-only",
-    "_categories": ["AUTH","SETTINGS","RBAC","EVIDENCE","EXPORT","USER","SYSTEM"],
-    "_retention_days": 365,
-    "filters": {"order":"desc","limit":2,"cursor":null},
-    "items": [ { "...": "three deterministic stub events ..." } ],
-    "nextCursor": "..."
-  }
-  ~~~
+- `GET /api/audit` — list events with pagination.
+  - Filters (query string):
+    - `category` ∈ `["AUTH","SETTINGS","RBAC","EVIDENCE","EXPORT","USER","SYSTEM"]`
+    - `action` string ≤191
+    - `occurred_from`, `occurred_to` (ISO8601 or any `Carbon::parse`-able date; server coerces to UTC)
+    - `actor_id` integer
+    - `entity_type` string ≤128
+    - `entity_id` string ≤191
+    - `ip` valid IP
+    - `order` ∈ `asc|desc` (default `desc`)
+    - `limit` 1..100. Default 2 on first page, 1 on cursor-only requests.
+    - `cursor` pagination cursor. Aliases: `cursor`, `nextCursor`, `page[cursor]`. Format `base64(ts|id|limit|emittedCount)`; tolerant of plaintext `ts|id|...`.
+  - Response (persisted path):
+    ~~~json
+    {
+      "ok": true,
+      "_categories": ["AUTH","SETTINGS","RBAC","EVIDENCE","EXPORT","USER","SYSTEM"],
+      "_retention_days": 365,
+      "filters": { "order":"desc","limit":2,"cursor":null, "category":null, "action":null, "occurred_from":null, "occurred_to":null, "actor_id":null, "entity_type":null, "entity_id":null, "ip":null },
+      "items": [
+        {"id":"01J....","occurred_at":"2025-09-12T03:12:34Z","actor_id":1,"action":"rbac.user_role.attached","category":"RBAC","entity_type":"user","entity_id":"42","ip":"203.0.113.5","ua":"...","meta":{"role":"Auditor"}}
+      ],
+      "nextCursor": "ey4uLg"
+    }
+    ~~~
+  - Response (stub path for empty DB and no business filters):
+    ~~~json
+    {
+      "ok": true,
+      "note": "stub-only",
+      "_categories": ["AUTH","SETTINGS","RBAC","EVIDENCE","EXPORT","USER","SYSTEM"],
+      "_retention_days": 365,
+      "filters": {"order":"desc","limit":2,"cursor":null},
+      "items": [ { "...": "three deterministic stub events ..." } ],
+      "nextCursor": "..."
+    }
+    ~~~
 
 **RBAC Audit actions**
 - Category: `RBAC`
@@ -211,23 +231,15 @@ Avatars: AVATAR_NOT_ENABLED, AVATAR_INVALID_IMAGE, AVATAR_UNSUPPORTED_FORMAT, AV
       ~~~
     - Unsupported type:
       ~~~json
-      { "ok": false, "code": "EXPORT_TYPE_UNSUPPORTED", "note": "stub-only" }
+      { "ok": false, "code": "EXPORT_TYPE_UNSUPPORTED" }
       ~~~
 - Status:
   - `GET /api/exports/{jobId}/status`
-  - Responses:
-    - Persisted job:
-      ~~~json
-      { "ok": true, "status": "pending|running|completed|failed", "progress": 0, "jobId": "<ULID>" }
-      ~~~
-    - Stub id or persistence disabled:
-      ~~~json
-      { "ok": true, "status": "pending", "progress": 0, "jobId": "<id>", "note": "stub-only" }
-      ~~~
-    - Not found:
-      ~~~json
-      { "ok": false, "code": "EXPORT_NOT_FOUND" }
-      ~~~
+  - Response:
+    ~~~json
+    { "ok": true, "status": "pending|running|completed|failed", "progress": 0, "jobId": "<ULID>", "id": "<ULID>" }
+    ~~~
+    - `id` is an alias of `jobId`.
 - Download:
   - `GET /api/exports/{jobId}/download`
   - Responses:
@@ -244,8 +256,8 @@ Avatars: AVATAR_NOT_ENABLED, AVATAR_INVALID_IMAGE, AVATAR_UNSUPPORTED_FORMAT, AV
       { "ok": false, "code": "EXPORT_ARTIFACT_MISSING" }
       ~~~
     - Completed: file download with headers:
-      - CSV: `Content-Type: text/csv; charset=UTF-8`, filename `export-<id>.csv`
-      - JSON: `Content-Type: application/json; charset=UTF-8`, filename `export-<id>.json`
+      - CSV: `Content-Type: text/csv`, filename `export-<id>.csv`
+      - JSON: `Content-Type: application/json`, filename `export-<id>.json`
       - PDF: `Content-Type: application/pdf`, filename `export-<id>.pdf`
 - Artifact metadata (model fields):
   - `artifact_disk`, `artifact_path`, `artifact_mime`, `artifact_size`, `artifact_sha256`
@@ -301,8 +313,8 @@ Route::prefix('/rbac')->middleware($rbacStack)->group(function () {
 Route::prefix('/exports')->middleware($rbacStack)->group(function () {
     Route::post('/{type}', [ExportController::class, 'createType'])->defaults('roles', ['Admin'])->defaults('capability', 'core.exports.generate');
     Route::post('/',       [ExportController::class, 'create'])->defaults('roles', ['Admin'])->defaults('capability', 'core.exports.generate');
-    Route::get('/{id}/status',   [StatusController::class, 'show'])->defaults('roles', ['Admin','Auditor']);
-    Route::get('/{id}/download', [ExportController::class, 'download'])->defaults('roles', ['Admin','Auditor']);
+    Route::get('/{jobId}/status',   [StatusController::class, 'show'])->defaults('roles', ['Admin','Auditor']);
+    Route::get('/{jobId}/download', [ExportController::class, 'download'])->defaults('roles', ['Admin','Auditor']);
 });
 ~~~
 
@@ -311,7 +323,7 @@ Route::prefix('/exports')->middleware($rbacStack)->group(function () {
 ## Persistence & Queueing Notes
 - When `core.exports.enabled=false` or `exports` table is absent, controllers return stub responses and never write files.
 - Tests set `queue.default=sync` to run `GenerateExport` immediately.
-- CSV uses RFC4180 quoting; JSON is UTF-8 without escaping slashes; PDF is a minimal valid single-page document.
+- CSV uses RFC4180 quoting; JSON is UTF-8; PDF is a minimal valid single-page document.
 
 ---
 
@@ -319,3 +331,4 @@ Route::prefix('/exports')->middleware($rbacStack)->group(function () {
 - Hash-router under `/web` with admin pages:
   - `/admin/settings` — settings stub.
   - `/admin/roles` — role list and create role. Uses stub path when RBAC persistence disabled.
+  - `/admin/user-roles` — assign roles to users (read, attach, detach, replace).
