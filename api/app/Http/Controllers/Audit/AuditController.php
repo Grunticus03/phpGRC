@@ -40,7 +40,21 @@ final class AuditController extends Controller
         $cursorTs     = $decoded[0] ?? null;
         $cursorLimit  = $decoded[2] ?? null;
 
-        $limit        = (int) ($limitParam !== null ? $limitParam : ($cursorLimit !== null ? $cursorLimit : 2));
+        // Limit rules:
+        // - If explicit limit provided, use it.
+        // - Else if cursor carries prior limit, use it.
+        // - Else if cursor present without prior limit, default to 1.
+        // - Else default to 2 (stub first page).
+        if ($limitParam !== null) {
+            $limit = (int) $limitParam;
+        } elseif ($cursorLimit !== null) {
+            $limit = (int) $cursorLimit;
+        } elseif ($cursorParam !== null) {
+            $limit = 1;
+        } else {
+            $limit = 2;
+        }
+
         $retention    = (int) config('core.audit.retention_days', 365);
 
         $items        = $this->makeStubPage($limit, $order, $cursorTs);
