@@ -18,7 +18,7 @@
 ### 1. Settings UI (CORE-003 expansion)
 - [x] Extend `Admin/SettingsController.php` with echo + validation stubs
 - [x] Validation rules + unified 422 envelope
-- [ ] Extend SPA `/web/src/routes/admin/Settings.tsx`
+- [x] Extend SPA `/web/src/routes/admin/Settings.tsx`
 - [x] Add unit tests (`SettingsControllerValidationTest`)
 - [x] Document payloads and error codes in `PHASE-4-SPEC.md`
 
@@ -43,7 +43,7 @@
 - [x] Status + download endpoints
 - [x] Capability gate `core.exports.generate`
 - [x] E2E tests green (CSV/JSON/PDF)
-- [ ] Background queue path (beyond sync in tests)
+- [x] Background queue path (GenerateExport + artifact persistence)
 
 ### 5. Avatars (CORE-010)
 - [x] Upload endpoint scaffold
@@ -57,7 +57,7 @@
 - [x] DB-backed checks via `User::hasAnyRole(...)`
 - [x] CI tests for enforcement and endpoints
 - [x] UI scaffold for role management (list roles, create role stub) under `/admin/roles`
-- [ ] User–role assignment UI (read/attach/detach/replace)
+- [x] User–role assignment UI (read/attach/detach/replace)
 
 ### 7. RBAC Audit
 - [x] Log canonical `rbac.role.created` and `rbac.user_role.{attached,detached,replaced}`
@@ -76,7 +76,6 @@
 ---
 
 ## Immediate Next Steps
-1. Build user–role assignment UI under `/admin` (list user, show roles, attach/detach/replace).
-2. Add background queue path for exports in non-test envs.
-3. Add CSV export for audit events.
-4. Extend settings SPA to surface core flags and validation feedback.
+1. Add CSV export route for audit events.
+2. Start avatar transcode worker and resized variants.
+3. Minor UX polish on admin pages per STYLEGUIDE.

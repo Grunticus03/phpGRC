@@ -39,7 +39,8 @@ Notes:
 - Evidence default max 25 MB.
 - Avatars canonical size 128 px, WEBP only.
 - Audit retention capped at 2 years.
-- Exports write artifacts under configured disk/dir; queue `sync` in tests.
+- Exports write artifacts under configured disk/dir.
+- **Queue:** tests force `queue.default=sync`; production may use any Laravel-supported queue.
 
 ---
 
