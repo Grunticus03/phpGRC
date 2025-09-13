@@ -49,7 +49,8 @@ final class AuditCsvExportTest extends TestCase
         $res->assertHeader('content-disposition');      // filename present
         $res->assertHeader('x-content-type-options', 'nosniff');
 
-        $csv = $res->getContent();
+        // Streamed responses must be read via streamedContent()
+        $csv = $res->streamedContent();
         $this->assertIsString($csv);
 
         // Header row present
