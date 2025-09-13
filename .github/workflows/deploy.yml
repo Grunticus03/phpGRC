@@ -1,53 +1,81 @@
-name: Deploy to Server (Manual)
-
+name: Deploy
 on:
-  workflow_dispatch:
-    inputs:
-      ref:
-        description: 'Git ref to deploy (branch or tag)'
-        required: true
-        default: 'main'
+  push:
+    branches: [ main ]
 
 jobs:
   deploy:
-    name: Deploy via SSH/rsync
-    runs-on: ubuntu-latest
+    runs-on: self-hosted  # your runner on the server
+    defaults:
+      run:
+        working-directory: api
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+
+      - name: PHP setup
+        uses: shivammathur/setup-php@v2
         with:
-          ref: ${{ github.event.inputs.ref }}
+          php-version: '8.3'
+          extensions: mbstring, intl, pdo_mysql, fileinfo
+          coverage: none
 
-      - name: Configure SSH
-        run: |
-          install -m 700 -d ~/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
-          chmod 600 ~/.ssh/id_ed25519
-          # Known hosts to prevent MITM prompts
-          ssh-keyscan -p "${{ secrets.SSH_PORT }}" "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts
+      - name: Composer install (prod)
+        run: composer install --no-dev --prefer-dist --optimize-autoloader
 
-      - name: Verify SSH connectivity
+      - name: Stage release dir
         run: |
-          ssh -p "${{ secrets.SSH_PORT }}" "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" "echo 'CONNECTED:' $(hostname) && mkdir -p '${{ secrets.DEPLOY_PATH }}/releases' '${{ secrets.DEPLOY_PATH }}/shared'"
+          RELEASE="/var/www/phpgrc/releases/${GITHUB_RUN_NUMBER}"
+          sudo mkdir -p "$RELEASE"
+          sudo rsync -a --delete ./ "$RELEASE"/
+          # share persistent dirs
+          cd "$RELEASE"
+          sudo rm -rf storage bootstrap/cache
+          sudo ln -s /var/www/phpgrc/shared/storage storage
+          sudo ln -s /var/www/phpgrc/shared/bootstrap/cache bootstrap/cache
 
-      - name: Rsync repository to timestamped release
-        env:
-          TS: ${{ github.run_id }}-${{ github.run_attempt }}
-        run: |
-          set -euo pipefail
-          RELEASE_DIR="${{ secrets.DEPLOY_PATH }}/releases/${TS}"
-          ssh -p "${{ secrets.SSH_PORT }}" "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" "mkdir -p '${RELEASE_DIR}'"
-          rsync -az --delete --exclude '.git' -e "ssh -p ${{ secrets.SSH_PORT }}" ./ "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${RELEASE_DIR}/"
+          # .env from secrets (edit values!)
+          cat <<'ENV' | sudo tee "$RELEASE/.env" >/dev/null
+APP_ENV=production
+APP_DEBUG=false
+APP_URL=https://phpgrc.gruntlabs.net
+APP_KEY=${{ secrets.APP_KEY }}
 
-      - name: Update 'current' symlink (atomic)
-        env:
-          TS: ${{ github.run_id }}-${{ github.run_attempt }}
-        run: |
-          set -euo pipefail
-          RELEASE_DIR="${{ secrets.DEPLOY_PATH }}/releases/${TS}"
-          ssh -p "${{ secrets.SSH_PORT }}" "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" "\
-            ln -sfn '${RELEASE_DIR}' '${{ secrets.DEPLOY_PATH }}/current' && \
-            echo '${RELEASE_DIR}' > '${{ secrets.DEPLOY_PATH }}/LAST_DEPLOY.txt' && \
-            readlink -f '${{ secrets.DEPLOY_PATH }}/current' \
-          "
+# Use file-backed stores to avoid DB tables at first boot
+CACHE_STORE=file
+SESSION_DRIVER=file
+QUEUE_CONNECTION=sync
+
+LOG_CHANNEL=stack
+LOG_LEVEL=info
+
+# DB
+DB_CONNECTION=mysql
+DB_HOST=${{ secrets.DB_HOST }}
+DB_PORT=3306
+DB_DATABASE=${{ secrets.DB_NAME }}
+DB_USERNAME=${{ secrets.DB_USER }}
+DB_PASSWORD=${{ secrets.DB_PASS }}
+
+# CORS / Sanctum (tune as needed)
+SANCTUM_STATEFUL_DOMAINS=phpgrc.gruntlabs.net
+SESSION_DOMAIN=phpgrc.gruntlabs.net
+ENV
+
+          # permissions
+          sudo chown -R www-data:www-data /var/www/phpgrc
+          sudo find /var/www/phpgrc/shared/storage -type d -exec chmod 775 {} \;
+          sudo chmod 775 /var/www/phpgrc/shared/bootstrap/cache
+
+          # app warmup
+          sudo -u www-data php artisan key:generate --force || true  # will noop if key set
+          sudo -u www-data php artisan storage:link || true
+          sudo -u www-data php artisan migrate --force
+          sudo -u www-data php artisan config:clear
+          sudo -u www-data php artisan route:clear
+          sudo -u www-data php artisan optimize
+
+          # atomically switch current
+          sudo ln -sfn "$RELEASE" /var/www/phpgrc/current
+          sudo systemctl reload php8.3-fpm
+          sudo systemctl reload apache2
