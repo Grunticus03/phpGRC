@@ -589,3 +589,16 @@ Closeout
 - Phase/Step status: Phase 4 in progress — CI green.
 - Next action (you): Provide setup controller, middleware, requests, and `config/core.php` files to edit.
 - Next action (me): Implement `/api/setup/*` controllers, validation, `SetupGuard`, and tests; keep PHPStan/Psalm/Pint green.
+
+---
+
+### Session 2025-09-12: Phase 4 — Setup Wizard + RBAC Audit + Retention
+- Context: Phase 4 implementation. Complete setup wizard backend, add RBAC audit writes with filters, and wire audit retention purge.
+- Goal: Land controllers/requests/middleware for `/api/setup/*`, add `AuditLogger` hooks for role actions, extend `/api/audit` filters, and schedule `audit:purge`.
+- Constraints: CI guardrails strict; no UI scope changes.
+
+# Closeout
+- Deliverables produced: Setup controllers/requests/middleware/routes; `ConfigFileWriter`; RBAC audit writes for role create and user-role attach/detach/replace with legacy aliases; `/api/audit` filters + stub cursor path; `audit:purge` command and scheduler clamp; updated Phase-4 docs.
+- Phase/Step status: Phase 4 core backend complete; CI green.
+- Next action (you): Provide SPA files for `/web/src/routes/admin/roles` and `/web/src/routes/admin/user-roles` to finalize UI wiring and add smoke tests.
+- Next action (me): Prepare UI scaffolding patches per STYLEGUIDE and propose e2e test matrix.

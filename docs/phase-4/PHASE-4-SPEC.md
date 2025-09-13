@@ -59,7 +59,7 @@ Audit: AUDIT_NOT_ENABLED, AUDIT_RETENTION_INVALID
 Evidence: EVIDENCE_NOT_ENABLED, EVIDENCE_TOO_LARGE, EVIDENCE_MIME_NOT_ALLOWED, **EVIDENCE_HASH_MISMATCH**  
 Exports: EXPORT_TYPE_UNSUPPORTED, EXPORT_NOT_READY, EXPORT_NOT_FOUND, EXPORT_FAILED, EXPORT_ARTIFACT_MISSING  
 Avatars: AVATAR_NOT_ENABLED, AVATAR_INVALID_IMAGE, AVATAR_UNSUPPORTED_FORMAT, AVATAR_TOO_LARGE  
-Setup: SETUP_ALREADY_COMPLETED, SETUP_STEP_DISABLED, DB_CONFIG_INVALID, DB_WRITE_FAILED, APP_KEY_EXISTS, SCHEMA_INIT_FAILED, ADMIN_EXISTS, SMTP_INVALID, IDP_UNSUPPORTED, BRANDING_INVALID
+Setup: SETUP_ALREADY_COMPLETED, SETUP_STEP_DISABLED, DB_CONFIG_INVALID, DB_WRITE_FAILED, APP_KEY_EXISTS, SCHEMA_INIT_FAILED, ADMIN_EXISTS, TOTP_CODE_INVALID, SMTP_INVALID, IDP_UNSUPPORTED, BRANDING_INVALID
 
 ---
 
@@ -75,6 +75,7 @@ Setup: SETUP_ALREADY_COMPLETED, SETUP_STEP_DISABLED, DB_CONFIG_INVALID, DB_WRITE
     ~~~json
     { "ok": true, "roles": ["Admin","Auditor","Risk Manager","User"] }
     ~~~
+
 
 **Role ID Contract**
 - Human-readable slug ID shown in UI/API.
@@ -158,7 +159,7 @@ Setup: SETUP_ALREADY_COMPLETED, SETUP_STEP_DISABLED, DB_CONFIG_INVALID, DB_WRITE
 ### Audit
 - `GET /api/audit` — list events with pagination.
   - Filters (query string):
-    - `category` ∈ `["AUTH","SETTINGS","RBAC","EVIDENCE","EXPORT","USER","SYSTEM"]`
+    - `category` ∈ `["SYSTEM","RBAC","AUTH","SETTINGS","EXPORTS","EVIDENCE","AVATARS","AUDIT"]`
     - `action` string ≤191
     - `occurred_from`, `occurred_to` (ISO8601 or any `Carbon::parse`-able date; server coerces to UTC)
     - `actor_id` integer
@@ -172,7 +173,7 @@ Setup: SETUP_ALREADY_COMPLETED, SETUP_STEP_DISABLED, DB_CONFIG_INVALID, DB_WRITE
     ~~~json
     {
       "ok": true,
-      "_categories": ["AUTH","SETTINGS","RBAC","EVIDENCE","EXPORT","USER","SYSTEM"],
+      "_categories": ["SYSTEM","RBAC","AUTH","SETTINGS","EXPORTS","EVIDENCE","AVATARS","AUDIT"],
       "_retention_days": 365,
       "filters": { "order":"desc","limit":2,"cursor":null, "category":null, "action":null, "occurred_from":null, "occurred_to":null, "actor_id":null, "entity_type":null, "entity_id":null, "ip":null },
       "items": [
@@ -186,13 +187,14 @@ Setup: SETUP_ALREADY_COMPLETED, SETUP_STEP_DISABLED, DB_CONFIG_INVALID, DB_WRITE
     {
       "ok": true,
       "note": "stub-only",
-      "_categories": ["AUTH","SETTINGS","RBAC","EVIDENCE","EXPORT","USER","SYSTEM"],
+      "_categories": ["SYSTEM","RBAC","AUTH","SETTINGS","EXPORTS","EVIDENCE","AVATARS","AUDIT"],
       "_retention_days": 365,
       "filters": {"order":"desc","limit":2,"cursor":null},
       "items": [ { "...": "three deterministic stub events ..." } ],
       "nextCursor": "..."
     }
     ~~~
+
 
 **Audit — CSV Export**
 - `GET /api/audit/export.csv` — CSV download of events matching the same filters as `GET /api/audit`.
@@ -271,21 +273,34 @@ Setup: SETUP_ALREADY_COMPLETED, SETUP_STEP_DISABLED, DB_CONFIG_INVALID, DB_WRITE
 - **Status:** `GET /api/setup/status`
   - Response:
     ~~~json
-    { "ok": true, "installed": false, "db_config_present": false, "steps_completed": [] }
+    {
+      "ok": true,
+      "setupComplete": false,
+      "nextStep": "db_config|app_key|schema_init|admin_seed|admin_mfa_verify|null",
+      "checks": {
+        "db_config": false,
+        "app_key": false,
+        "schema_init": false,
+        "admin_seed": false,
+        "admin_mfa_verify": false,
+        "smtp": false,
+        "idp": false,
+        "branding": false
+      }
+    }
     ~~~
-  - When installed, returns `"installed": true`.
 - **DB Test:** `POST /api/setup/db/test`
   - Request:
     ~~~json
-    { "host":"...", "port":3306, "database":"...", "username":"...", "password":"..." }
+    { "driver":"mysql","host":"...", "port":3306, "database":"...", "username":"...", "password":"..." }
     ~~~
-  - Response 200 `{ "ok": true }` or 422 `{ "ok": false, "code":"DB_CONFIG_INVALID", "errors":{...} }`.
+  - Response 200 `{ "ok": true }` or 422 `{ "ok": false, "code":"DB_CONFIG_INVALID", "error":"..." }`.
 - **DB Write:** `POST /api/setup/db/write`
   - Writes config atomically to `core.setup.shared_config_path` and returns `{ "ok": true, "path": "/opt/phpgrc/shared/config.php" }`. If disabled: 400 `{ "ok": false, "code":"SETUP_STEP_DISABLED" }`.
 - **App Key:** `POST /api/setup/app-key`
   - Generates Laravel app key. If `core.setup.allow_commands=false`, returns 202 `{ "ok": true, "note":"stub-only" }`. If already present: 409 `{ "ok": false, "code":"APP_KEY_EXISTS" }`.
 - **Schema Init:** `POST /api/setup/schema/init`
-  - Runs migrations (`--force`) when allowed. Else 202 stub.
+  - Runs migrations (`--force`) when allowed. Else 202 stub. On failure: 500 `{ "ok": false, "code":"SCHEMA_INIT_FAILED", "error":"..." }`.
 - **Admin:** `POST /api/setup/admin`
   - Request:
     ~~~json
@@ -294,22 +309,21 @@ Setup: SETUP_ALREADY_COMPLETED, SETUP_STEP_DISABLED, DB_CONFIG_INVALID, DB_WRITE
   - Creates first admin or returns 409 `{ "code":"ADMIN_EXISTS" }`.
 - **Admin TOTP Verify:** `POST /api/setup/admin/totp/verify`
   - Request `{ "code":"123456" }`. Response `{ "ok": true }` or 400 `{ "code":"TOTP_CODE_INVALID" }`.
-- **SMTP:** `POST /api/setup/smtp` → stores SMTP settings; validates host/port/auth; 200 on success; 422 on invalid.
-- **IdP:** `POST /api/setup/idp` → stores external IdP config; may return `{ "code":"IDP_UNSUPPORTED" }` if feature off.
-- **Branding:** `POST /api/setup/branding` → stores name/theme/logo; 422 `{ "code":"BRANDING_INVALID" }` on invalid payload.
-- **Finish:** `POST /api/setup/finish` → flips installed flag; subsequent setup routes return `{ "code":"SETUP_ALREADY_COMPLETED" }`.
+- **SMTP:** `POST /api/setup/smtp` → validates host/port/auth; 200 on success; 422 on invalid.
+- **IdP:** `POST /api/setup/idp` → may return `{ "code":"IDP_UNSUPPORTED" }` when out of scope.
+- **Branding:** `POST /api/setup/branding` → stores name/theme/logo; 422 on invalid payload.
+- **Finish:** `POST /api/setup/finish` → acknowledges completion once prerequisites are met.
 
 ---
 
 ## Retention
 
 - Command: `php artisan audit:purge [--days=N] [--dry-run]`
-  - On invalid `N` (<1 or >730) the command exits non-zero and prints `AUDIT_RETENTION_INVALID`.
+  - On invalid `N` (<30 or >730) the command exits non-zero and prints `AUDIT_RETENTION_INVALID`.
   - Deletes rows with `occurred_at < now_utc - N days`.
 - Scheduler:
-  - Runs daily at **03:10 UTC**.
-  - Scheduler clamps configured days to **[30, 730]** to reduce accidental loss.
-  - Command enforces **[1, 730]** for manual runs.
+  - Runs daily at **03:10 UTC** when `core.audit.enabled=true`.
+  - Scheduler clamps configured days to **[30, 730]**.
 
 ---
 

@@ -66,12 +66,12 @@
 - [x] Export audit events as CSV
 
 ### 8. Bugfix — Complete Setup Wizard (CORE-001 catch-up)
-- [ ] Add controllers: `SetupStatusController`, `DbController`, `AppKeyController`, `SchemaController`, `AdminController`, `AdminMfaController`, `SmtpController`, `IdpController`, `BrandingController`, `FinishController`
-- [ ] Add requests for validation per step
-- [ ] Add `SetupGuard` middleware to block steps after finish
-- [ ] Implement `ConfigFileWriter` with atomic write to `core.setup.shared_config_path`
-- [ ] Wire `/api/setup/*` routes and tests
-- [ ] Update docs and error taxonomy
+- [x] Add controllers: `SetupStatusController`, `DbController`, `AppKeyController`, `SchemaController`, `AdminController`, `AdminMfaController`, `SmtpController`, `IdpController`, `BrandingController`, `FinishController`
+- [x] Add requests for validation per step
+- [x] Add `SetupGuard` middleware to block steps when disabled by config
+- [x] Implement `ConfigFileWriter` with atomic write to `core.setup.shared_config_path`
+- [x] Wire `/api/setup/*` routes and tests
+- [x] Update docs and error taxonomy
 
 ---
 
@@ -84,6 +84,6 @@
 ---
 
 ## Immediate Next Steps
-1. Implement Setup Wizard backend (`/api/setup/*`) per spec and Charter M).
+1. Role Management UI: finalize SPA flows for create/assign and add smoke tests.
 2. Minor UX polish on admin pages per STYLEGUIDE.
 
