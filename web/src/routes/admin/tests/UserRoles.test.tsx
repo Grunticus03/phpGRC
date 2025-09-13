@@ -76,8 +76,7 @@ describe("Admin UserRoles page", () => {
     await user.click(screen.getByRole("button", { name: /load/i }));
 
     // User card appears
-    const card = await screen.findByRole("heading", { name: /user/i });
-    expect(card).toBeInTheDocument();
+    await screen.findByRole("heading", { level: 2, name: /^User$/ });
 
     // Pick Admin and attach
     await user.selectOptions(screen.getByLabelText(/attach role/i), "Admin");
