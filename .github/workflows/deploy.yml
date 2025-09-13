@@ -99,7 +99,7 @@ jobs:
 
           # shared dirs/ownership (group www-data so Apache/PHP can write)
           mkdir -p "$ROOT/shared/storage/app/public" "$ROOT/shared/bootstrap/cache"
-          chown -R "$(whoami)":www-data "$ROOT/shared"
+          chown -R deploy:deploy $ROOT/shared"
           find "$ROOT/shared/storage" -type d -exec chmod 2775 {} \; || true
           chmod -R g+rwX "$ROOT/shared/bootstrap/cache" "$ROOT/shared/storage"
 
@@ -129,7 +129,7 @@ jobs:
           SANCTUM_STATEFUL_DOMAINS=$(echo "${APP_URL}" | sed -E 's#https?://##;s#/$##')
           SESSION_DOMAIN=$(echo "${APP_URL}" | sed -E 's#https?://##;s#/$##')
           EOF
-            chown "$(whoami)":www-data "$ROOT/shared/api.env"
+            chown deploy:deploy $ROOT/shared/api.env"
             chmod 640 "$ROOT/shared/api.env"
           fi
 
