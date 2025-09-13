@@ -30,13 +30,11 @@ afterEach(() => {
 
 describe("Admin UserRoles page (smoke)", () => {
   test("renders without crashing", async () => {
-    // Provide permissive defaults so any loader/aux calls succeed.
     const fetchMock = vi
       .fn(async (input: any, init?: any) => {
         const url = typeof input === "string" ? input : input.url;
         const method = (init?.method ?? "GET").toUpperCase();
 
-        // Available roles list
         if (method === "GET" && /roles/i.test(url)) {
           return jsonResponse(200, [
             { name: "Compliance Lead", readOnly: true },
@@ -44,7 +42,6 @@ describe("Admin UserRoles page (smoke)", () => {
           ]);
         }
 
-        // Fetch a user by id
         if (method === "GET" && /users?/i.test(url)) {
           return jsonResponse(200, {
             id: "123",
@@ -53,10 +50,7 @@ describe("Admin UserRoles page (smoke)", () => {
           });
         }
 
-        // Default success for any other GETs the page might perform
         if (method === "GET") return jsonResponse(200, {});
-
-        // NOP for mutations
         return jsonResponse(204);
       }) as unknown as typeof fetch;
 
@@ -64,8 +58,6 @@ describe("Admin UserRoles page (smoke)", () => {
 
     renderPage();
 
-    // At minimum the screen should mount and show a heading relevant to the page.
-    // Use a loose match to avoid brittle wording differences.
     expect(
       await screen.findByRole("heading", { name: /user roles|rbac/i })
     ).toBeInTheDocument();
