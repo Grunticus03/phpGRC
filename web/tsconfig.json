@@ -12,7 +12,7 @@
     "noEmit": true,
     "strict": true,
     "noFallthroughCasesInSwitch": true,
-    "types": ["vitest/globals", "vite/client", "node"]
+    "types": ["vitest/globals", "vite/client"]
   },
   "include": ["src", "vite-env.d.ts"]
 }
