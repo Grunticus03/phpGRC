@@ -19,9 +19,10 @@ final class SettingsService
         $defaults  = (array) config('core', []);
         $overrides = $this->currentOverrides();
 
-        // Merge defaults + overrides (only for contract keys)
+        // Start with strictly allowed keys from defaults.
         $merged = $this->filterForContract($defaults);
 
+        // Apply overrides for allowed contract keys only.
         foreach ($overrides as $dotKey => $value) {
             if (!str_starts_with($dotKey, 'core.')) {
                 continue;
@@ -31,6 +32,14 @@ final class SettingsService
                 Arr::set($merged, $sub, $value);
             }
         }
+
+        // Hard-trim again to avoid any leakage of non-contract keys.
+        $merged = $this->filterForContract([
+            'rbac'     => $merged['rbac'] ?? [],
+            'audit'    => $merged['audit'] ?? [],
+            'evidence' => $merged['evidence'] ?? [],
+            'avatars'  => $merged['avatars'] ?? [],
+        ]);
 
         return ['core' => $merged];
     }
@@ -70,8 +79,7 @@ final class SettingsService
             $desired[$key] = $val;
         }
 
-        $touchedKeys = array_keys($flatAccepted);
-        $touchedKeys = array_values(array_unique($touchedKeys));
+        $touchedKeys = array_values(array_unique(array_keys($flatAccepted)));
 
         $becameUnset = array_diff(array_keys($current), array_keys($desired));
         foreach ($becameUnset as $k) {
@@ -238,7 +246,7 @@ final class SettingsService
     {
         $core = \Illuminate\Support\Arr::only($core, ['rbac', 'audit', 'evidence', 'avatars']);
 
-        $rbac = \Illuminate\Support\Arr::only((array) ($core['rbac'] ?? []), ['enabled', 'roles', 'require_auth']);
+        $rbac = \Illuminate\Support\Arr::only((array) ($core['rbac'] ?? []), ['enabled', 'roles']);
         $audit = \Illuminate\Support\Arr::only((array) ($core['audit'] ?? []), ['enabled', 'retention_days']);
         $evidence = \Illuminate\Support\Arr::only((array) ($core['evidence'] ?? []), ['enabled', 'max_mb', 'allowed_mime']);
         $avatars = \Illuminate\Support\Arr::only((array) ($core['avatars'] ?? []), ['enabled', 'size_px', 'format']);
@@ -255,7 +263,6 @@ final class SettingsService
     {
         return in_array($subKey, [
             'rbac.enabled',
-            'rbac.require_auth',
             'rbac.roles',
             'audit.enabled',
             'audit.retention_days',

@@ -17,6 +17,7 @@ use App\Http\Controllers\Avatar\AvatarController;
 use App\Http\Controllers\Evidence\EvidenceController;
 use App\Http\Controllers\Export\ExportController;
 use App\Http\Controllers\Export\StatusController;
+use App\Http\Controllers\OpenApiController;
 use App\Http\Controllers\Rbac\RolesController;
 use App\Http\Controllers\Rbac\UserRolesController;
 use App\Http\Middleware\BreakGlassGuard;
@@ -62,6 +63,13 @@ Route::prefix('/setup')
  |--------------------------------------------------------------------------
 */
 Route::get('/health', fn () => response()->json(['ok' => true]));
+
+/*
+ |--------------------------------------------------------------------------
+ | OpenAPI spec
+ |--------------------------------------------------------------------------
+*/
+Route::match(['GET', 'HEAD'], '/openapi.yaml', [OpenApiController::class, 'yaml']);
 
 /*
  |--------------------------------------------------------------------------
