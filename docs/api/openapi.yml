@@ -1,0 +1,185 @@
+openapi: 3.1.0
+info:
+  title: phpGRC API
+  version: 0.4.0
+  description: |
+    OpenAPI scaffold for phpGRC Phase 4.
+    Source of truth is the code and Phase-4-SPEC.md.
+servers:
+  - url: /api
+paths:
+  /health:
+    get:
+      summary: Health check
+      operationId: health
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                required: [ok]
+  /admin/settings:
+    get:
+      summary: Read effective core settings
+      operationId: adminSettingsIndex
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SettingsEnvelope'
+    post:
+      summary: Validate and persist core settings
+      operationId: adminSettingsUpdate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SettingsPost'
+      responses:
+        '200':
+          description: Accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkEnvelope'
+        '422':
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error422'
+  /rbac/roles:
+    get:
+      summary: List RBAC roles
+      operationId: listRoles
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleList'
+    post:
+      summary: Create role (stub when persistence disabled)
+      operationId: createRole
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  minLength: 2
+                  maxLength: 64
+              required: [name]
+      responses:
+        '201':
+          description: Created
+        '202':
+          description: Accepted (stub-only)
+        '403':
+          description: Forbidden
+        '422':
+          description: Validation failed
+components:
+  schemas:
+    OkEnvelope:
+      type: object
+      properties:
+        ok:
+          type: boolean
+      required: [ok]
+    Error422:
+      type: object
+      properties:
+        ok:
+          type: boolean
+          const: false
+        code:
+          type: string
+          const: VALIDATION_FAILED
+        errors:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+      required: [ok, code, errors]
+    SettingsEnvelope:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        config:
+          type: object
+          properties:
+            core:
+              $ref: '#/components/schemas/CoreConfig'
+      required: [ok, config]
+    SettingsPost:
+      type: object
+      properties:
+        core:
+          $ref: '#/components/schemas/CoreConfig'
+      required: [core]
+    CoreConfig:
+      type: object
+      properties:
+        rbac:
+          type: object
+          properties:
+            enabled:
+              type: boolean
+            roles:
+              type: array
+              items:
+                type: string
+          required: [enabled, roles]
+        audit:
+          type: object
+          properties:
+            enabled:
+              type: boolean
+            retention_days:
+              type: integer
+              minimum: 1
+              maximum: 730
+          required: [enabled, retention_days]
+        evidence:
+          type: object
+          properties:
+            enabled:
+              type: boolean
+            max_mb:
+              type: integer
+              minimum: 1
+              maximum: 500
+            allowed_mime:
+              type: array
+              items:
+                type: string
+          required: [enabled, max_mb, allowed_mime]
+        avatars:
+          type: object
+          properties:
+            enabled:
+              type: boolean
+            size_px:
+              type: integer
+              minimum: 32
+              maximum: 1024
+            format:
+              type: string
+              enum: [webp]
+          required: [enabled, size_px, format]
+      required: [rbac, audit, evidence, avatars]

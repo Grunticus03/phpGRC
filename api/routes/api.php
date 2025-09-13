@@ -19,6 +19,7 @@ use App\Http\Controllers\Export\ExportController;
 use App\Http\Controllers\Export\StatusController;
 use App\Http\Controllers\Rbac\RolesController;
 use App\Http\Controllers\Rbac\UserRolesController;
+use App\Http\Controllers\OpenApiController;
 use App\Http\Middleware\BreakGlassGuard;
 use App\Http\Middleware\RbacMiddleware;
 use App\Http\Middleware\SetupGuard;
@@ -28,17 +29,6 @@ use Illuminate\Support\Facades\Route;
  |--------------------------------------------------------------------------
  | Reserved setup paths wired (Phase 4 bugfix)
  |--------------------------------------------------------------------------
- | GET  /api/setup/status
- | POST /api/setup/db/test
- | POST /api/setup/db/write
- | POST /api/setup/app-key
- | POST /api/setup/schema/init
- | POST /api/setup/admin
- | POST /api/setup/admin/totp/verify
- | POST /api/setup/smtp
- | POST /api/setup/idp
- | POST /api/setup/branding
- | POST /api/setup/finish
 */
 Route::prefix('/setup')
     ->middleware([SetupGuard::class])
@@ -62,6 +52,13 @@ Route::prefix('/setup')
  |--------------------------------------------------------------------------
 */
 Route::get('/health', fn () => response()->json(['ok' => true]));
+
+/*
+ |--------------------------------------------------------------------------
+ | OpenAPI (served from /docs/api/openapi.yaml)
+ |--------------------------------------------------------------------------
+*/
+Route::get('/openapi.yaml', [OpenApiController::class, 'yaml']);
 
 /*
  |--------------------------------------------------------------------------
@@ -213,4 +210,3 @@ Route::prefix('/evidence')
 Route::post('/avatar', [AvatarController::class, 'store']);
 Route::match(['GET','HEAD'], '/avatar/{user}', [AvatarController::class, 'show'])
     ->whereNumber('user');
-
