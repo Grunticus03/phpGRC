@@ -1,14 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 
 type CoreConfig = {
-  rbac: { enabled: boolean; roles: string[] };
+  rbac: { enabled: boolean; roles: string[]; require_auth: boolean };
   audit: { enabled: boolean; retention_days: number };
   evidence: { enabled: boolean; max_mb: number; allowed_mime: string[] };
   avatars: { enabled: boolean; size_px: number; format: string };
 };
 
 type ApiEnvelope =
-  | { ok: true; config?: { core: CoreConfig }; note?: string }
+  | { ok: true; config?: { core: Partial<CoreConfig> }; note?: string }
   | { ok: false; code: string; errors?: Record<string, string[]> };
 
 function FieldErrors({ msgs }: { msgs: string[] }) {
@@ -24,21 +24,48 @@ function FieldErrors({ msgs }: { msgs: string[] }) {
   );
 }
 
+const DEFAULT_CORE: CoreConfig = {
+  rbac: { enabled: true, roles: ["Admin", "Auditor", "Risk Manager", "User"], require_auth: false },
+  audit: { enabled: true, retention_days: 365 },
+  evidence: {
+    enabled: true,
+    max_mb: 25,
+    allowed_mime: ["application/pdf", "image/png", "image/jpeg", "text/plain"],
+  },
+  avatars: { enabled: true, size_px: 128, format: "webp" },
+};
+
+function normalizeCore(incoming?: Partial<CoreConfig>): CoreConfig {
+  const src = incoming ?? {};
+  return {
+    rbac: {
+      enabled: src.rbac?.enabled ?? DEFAULT_CORE.rbac.enabled,
+      roles: src.rbac?.roles ?? DEFAULT_CORE.rbac.roles,
+      require_auth: Boolean(src.rbac?.require_auth ?? DEFAULT_CORE.rbac.require_auth),
+    },
+    audit: {
+      enabled: src.audit?.enabled ?? DEFAULT_CORE.audit.enabled,
+      retention_days: Number(src.audit?.retention_days ?? DEFAULT_CORE.audit.retention_days),
+    },
+    evidence: {
+      enabled: src.evidence?.enabled ?? DEFAULT_CORE.evidence.enabled,
+      max_mb: Number(src.evidence?.max_mb ?? DEFAULT_CORE.evidence.max_mb),
+      allowed_mime: src.evidence?.allowed_mime ?? DEFAULT_CORE.evidence.allowed_mime,
+    },
+    avatars: {
+      enabled: src.avatars?.enabled ?? DEFAULT_CORE.avatars.enabled,
+      size_px: Number(src.avatars?.size_px ?? DEFAULT_CORE.avatars.size_px),
+      format: src.avatars?.format ?? DEFAULT_CORE.avatars.format,
+    },
+  };
+}
+
 export default function Settings(): JSX.Element {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string[]>>({});
-  const [core, setCore] = useState<CoreConfig>({
-    rbac: { enabled: true, roles: ["Admin", "Auditor", "Risk Manager", "User"] },
-    audit: { enabled: true, retention_days: 365 },
-    evidence: {
-      enabled: true,
-      max_mb: 25,
-      allowed_mime: ["application/pdf", "image/png", "image/jpeg", "text/plain"],
-    },
-    avatars: { enabled: true, size_px: 128, format: "webp" },
-  });
+  const [core, setCore] = useState<CoreConfig>(DEFAULT_CORE);
 
   useEffect(() => {
     const ctl = new AbortController();
@@ -53,7 +80,8 @@ export default function Settings(): JSX.Element {
         });
         const json: ApiEnvelope = await res.json();
         if (!ctl.signal.aborted && res.ok && (json as any)?.ok && (json as any)?.config?.core) {
-          setCore((json as any).config.core as CoreConfig);
+          const normalized = normalizeCore((json as any).config.core as Partial<CoreConfig>);
+          setCore(normalized);
           setMsg(null);
         } else if (!ctl.signal.aborted) {
           setMsg("Failed to load settings.");
@@ -152,6 +180,20 @@ export default function Settings(): JSX.Element {
             />
             <label className="form-check-label" htmlFor="rbac_enabled">Enable RBAC</label>
             <FieldErrors msgs={err("rbac.enabled")} />
+          </div>
+
+          <div className="form-check mt-2">
+            <input
+              id="rbac_require_auth"
+              className={"form-check-input" + (err("rbac.require_auth").length ? " is-invalid" : "")}
+              type="checkbox"
+              checked={core.rbac.require_auth}
+              onChange={(e) =>
+                setCore({ ...core, rbac: { ...core.rbac, require_auth: e.currentTarget.checked } })
+              }
+            />
+            <label className="form-check-label" htmlFor="rbac_require_auth">Require Auth (Sanctum) for RBAC APIs</label>
+            <FieldErrors msgs={err("rbac.require_auth")} />
           </div>
 
           <label className="form-label mt-2" htmlFor="rbac_roles">Roles (read-only in Phase 4)</label>

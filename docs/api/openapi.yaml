@@ -3,6 +3,7 @@ info:
   title: phpGRC API
   version: 0.4.2
   license:
+    identifier: MIT
     name: MIT
   description: |
     OpenAPI scaffold for phpGRC Phase 4. Contracts reflect current routes.
@@ -564,6 +565,7 @@ components:
           additionalProperties: false
           properties:
             enabled: { type: boolean }
+            require_auth: { type: boolean }
             roles:
               type: array
               items: { type: string }

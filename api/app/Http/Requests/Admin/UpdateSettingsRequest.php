@@ -37,10 +37,11 @@ final class UpdateSettingsRequest extends FormRequest
 
         return [
             // RBAC
-            'rbac'         => ['sometimes', 'array'],
-            'rbac.enabled' => ['sometimes', 'boolean'],
-            'rbac.roles'   => ['sometimes', 'array', 'min:1'],
-            'rbac.roles.*' => ['string', 'min:1', 'max:64'],
+            'rbac'                 => ['sometimes', 'array'],
+            'rbac.enabled'         => ['sometimes', 'boolean'],
+            'rbac.require_auth'    => ['sometimes', 'boolean'],
+            'rbac.roles'           => ['sometimes', 'array', 'min:1'],
+            'rbac.roles.*'         => ['string', 'min:1', 'max:64'],
 
             // Audit
             'audit'                => ['sometimes', 'array'],
@@ -102,4 +103,3 @@ final class UpdateSettingsRequest extends FormRequest
         ], 422));
     }
 }
-

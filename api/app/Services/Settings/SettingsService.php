@@ -238,7 +238,7 @@ final class SettingsService
     {
         $core = \Illuminate\Support\Arr::only($core, ['rbac', 'audit', 'evidence', 'avatars']);
 
-        $rbac = \Illuminate\Support\Arr::only((array) ($core['rbac'] ?? []), ['enabled', 'roles']);
+        $rbac = \Illuminate\Support\Arr::only((array) ($core['rbac'] ?? []), ['enabled', 'roles', 'require_auth']);
         $audit = \Illuminate\Support\Arr::only((array) ($core['audit'] ?? []), ['enabled', 'retention_days']);
         $evidence = \Illuminate\Support\Arr::only((array) ($core['evidence'] ?? []), ['enabled', 'max_mb', 'allowed_mime']);
         $avatars = \Illuminate\Support\Arr::only((array) ($core['avatars'] ?? []), ['enabled', 'size_px', 'format']);
@@ -255,6 +255,7 @@ final class SettingsService
     {
         return in_array($subKey, [
             'rbac.enabled',
+            'rbac.require_auth',
             'rbac.roles',
             'audit.enabled',
             'audit.retention_days',
@@ -267,4 +268,3 @@ final class SettingsService
         ], true);
     }
 }
-
