@@ -639,3 +639,18 @@ Closeout
 - Phase/Step status: advance
 - Next action (you): run a smoke pass on admin settings, audit list, exports, and evidence with CORE_RBAC_MODE=stub and persist. Confirm route defaults align with PolicyMap keys.
 - Next action (me): update PHASE-4-SPEC.md and PHASE-4-TASK-BREAKDOWN.md to document PolicyMap keys, persist vs stub behavior, and capability gating. Add tasks to audit role create/assign events.
+
+---
+
+### Session Header
+- Session 2025-09-12: [Phase 4, Docs Sync]
+- Context: Aligned docs with implemented Audit/Evidence/RBAC/Exports; ensured CSV header contract; noted RBAC mw tagging.
+- Goal: Update BACKLOG, ROADMAP, PHASE-4-SPEC, PHASE-4-TASK-BREAKDOWN to reflect current behavior with CI green.
+- Constraints: Docs-only; no code changes; freeze delivered contracts.
+
+### Session Footer
+- Closeout
+- Deliverables produced: BACKLOG.md, ROADMAP.md, PHASE-4-SPEC.md, PHASE-4-TASK-BREAKDOWN.md
+- Phase/Step status: advance (Phase 4 in progress; fine-grained RBAC pending)
+- Next action (you): Scaffold PolicyMap/RbacEvaluator + tests; prep OpenAPI surface; minor admin UI polish; keep CI green
+- Next action (me): Review/approve docs; provide RBAC policy matrix & capability toggles; confirm Phase 5 OpenAPI scope
