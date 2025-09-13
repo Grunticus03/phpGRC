@@ -6,8 +6,9 @@ namespace Tests\Feature;
 
 use App\Authorization\RbacEvaluator;
 use App\Models\User;
+use Database\Seeders\RolesSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Mockery;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 final class RbacPolicyEvaluatorTest extends TestCase
@@ -39,12 +40,16 @@ final class RbacPolicyEvaluatorTest extends TestCase
         config()->set('core.rbac.mode', 'persist');
         config()->set('core.rbac.persistence', true);
 
-        /** @var User $user */
-        $user = Mockery::mock(User::class)->makePartial();
-        $user->shouldReceive('hasAnyRole')
-            ->once()
-            ->with(['Admin'])
-            ->andReturn(true);
+        $this->seed(RolesSeeder::class);
+
+        $user = User::query()->create([
+            'name' => 'Alice',
+            'email' => 'alice@example.com',
+            'password' => bcrypt('secret'),
+        ]);
+
+        $adminId = (string) DB::table('roles')->where('name', 'Admin')->value('id');
+        $user->roles()->attach($adminId);
 
         $this->assertTrue(RbacEvaluator::allows($user, 'core.settings.manage'));
     }
@@ -55,12 +60,13 @@ final class RbacPolicyEvaluatorTest extends TestCase
         config()->set('core.rbac.mode', 'persist');
         config()->set('core.rbac.persistence', true);
 
-        /** @var User $user */
-        $user = Mockery::mock(User::class)->makePartial();
-        $user->shouldReceive('hasAnyRole')
-            ->once()
-            ->with(['Admin'])
-            ->andReturn(false);
+        $this->seed(RolesSeeder::class);
+
+        $user = User::query()->create([
+            'name' => 'Bob',
+            'email' => 'bob@example.com',
+            'password' => bcrypt('secret'),
+        ]);
 
         $this->assertFalse(RbacEvaluator::allows($user, 'core.settings.manage'));
     }

@@ -10,16 +10,10 @@ use App\Models\User;
 use Illuminate\Foundation\Support\Providers\AuthServiceProvider as ServiceProvider;
 use Illuminate\Support\Facades\Gate;
 
-/**
- * Register gates for all known policy keys.
- * In stub mode gates allow. In persist mode gates enforce PolicyMap.
- */
 final class AuthServiceProvider extends ServiceProvider
 {
     /** @var array<class-string, class-string> */
-    protected $policies = [
-        // Map model policies when implemented.
-    ];
+    protected $policies = [];
 
     public function boot(): void
     {
