@@ -1,155 +1,53 @@
-name: Deploy API
+name: Deploy to Server (Manual)
 
 on:
-  push:
-    branches: [ main ]
-  workflow_dispatch: {}
-
-concurrency:
-  group: deploy-api
-  cancel-in-progress: false
-
-permissions:
-  contents: read
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Git ref to deploy (branch or tag)'
+        required: true
+        default: 'main'
 
 jobs:
   deploy:
-    runs-on: self-hosted
-    env:
-      ROOT: /var/www/phpgrc
-      RELEASE_DIR: /var/www/phpgrc/releases/${{ github.run_number }}
-      CURRENT_LINK: /var/www/phpgrc/current
-      SHARED_DIR: /var/www/phpgrc/shared
+    name: Deploy via SSH/rsync
+    runs-on: ubuntu-latest
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.ref }}
 
-      - name: Prepare shared directories
+      - name: Configure SSH
+        run: |
+          install -m 700 -d ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          # Known hosts to prevent MITM prompts
+          ssh-keyscan -p "${{ secrets.SSH_PORT }}" "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Verify SSH connectivity
+        run: |
+          ssh -p "${{ secrets.SSH_PORT }}" "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" "echo 'CONNECTED:' $(hostname) && mkdir -p '${{ secrets.DEPLOY_PATH }}/releases' '${{ secrets.DEPLOY_PATH }}/shared'"
+
+      - name: Rsync repository to timestamped release
+        env:
+          TS: ${{ github.run_id }}-${{ github.run_attempt }}
         run: |
           set -euo pipefail
-          sudo mkdir -p "$SHARED_DIR"/{storage,bootstrap/cache}
-          # persistent storage subdirs
-          for d in app public logs \
-                   framework framework/sessions framework/cache framework/views; do
-            sudo mkdir -p "$SHARED_DIR/storage/$d"
-          done
-          sudo chown -R www-data:www-data "$SHARED_DIR"
-          sudo find "$SHARED_DIR" -type d -exec chmod 775 {} \;
-          sudo chmod 664 "$SHARED_DIR"/storage/logs/* || true
-          sudo chmod 775 "$SHARED_DIR/bootstrap/cache"
+          RELEASE_DIR="${{ secrets.DEPLOY_PATH }}/releases/${TS}"
+          ssh -p "${{ secrets.SSH_PORT }}" "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" "mkdir -p '${RELEASE_DIR}'"
+          rsync -az --delete --exclude '.git' -e "ssh -p ${{ secrets.SSH_PORT }}" ./ "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${RELEASE_DIR}/"
 
-      - name: Create release and sync code
+      - name: Update 'current' symlink (atomic)
+        env:
+          TS: ${{ github.run_id }}-${{ github.run_attempt }}
         run: |
           set -euo pipefail
-          sudo mkdir -p "$RELEASE_DIR"
-          # Copy only the API subtree so final path is .../releases/N/api
-          sudo rsync -a --delete "${GITHUB_WORKSPACE}/api/" "$RELEASE_DIR/api/"
-          sudo chown -R www-data:www-data "$RELEASE_DIR"
-
-      - name: Vendor install (composer)
-        run: |
-          set -euo pipefail
-          cd "$RELEASE_DIR/api"
-          sudo -u www-data composer install --no-dev --prefer-dist --optimize-autoloader
-
-      - name: Link shared folders into release
-        run: |
-          set -euo pipefail
-          cd "$RELEASE_DIR/api"
-          # Replace release-local storage + cache with shared
-          sudo -u www-data rm -rf storage bootstrap/cache
-          sudo -u www-data ln -s "$SHARED_DIR/storage" storage
-          sudo -u www-data ln -s "$SHARED_DIR/bootstrap/cache" bootstrap/cache
-
-      - name: Configure environment (.env)
-        run: |
-          set -euo pipefail
-          cd "$RELEASE_DIR/api"
-
-          # Validate required secrets
-          DB_HOST="${{ secrets.DB_HOST }}"
-          DB_NAME="${{ secrets.DB_NAME }}"
-          DB_USER="${{ secrets.DB_USER }}"
-          DB_PASS="${{ secrets.DB_PASS }}"
-          for v in DB_HOST DB_NAME DB_USER DB_PASS; do
-            if [ -z "${!v}" ]; then
-              echo "::error::${v} secret is empty or missing"; exit 1
-            fi
-          done
-
-          # Use provided APP_KEY or generate later
-          APP_KEY="${{ secrets.APP_KEY }}"
-
-          sudo tee .env >/dev/null <<ENV
-          APP_ENV=production
-          APP_DEBUG=false
-          APP_URL=https://phpgrc.gruntlabs.net
-          
-          # Use provided key if present; otherwise artisan will set one
-          APP_KEY=${APP_KEY}
-          
-          LOG_CHANNEL=stack
-          LOG_LEVEL=info
-          
-          CACHE_STORE=file
-          SESSION_DRIVER=file
-          QUEUE_CONNECTION=sync
-          
-          DB_CONNECTION=mysql
-          DB_HOST=${DB_HOST:-127.0.0.1}
-          DB_PORT=3306
-          DB_DATABASE=${DB_NAME}
-          DB_USERNAME=${DB_USER}
-          DB_PASSWORD=${DB_PASS}
-          DB_SOCKET=
-          
-          SANCTUM_STATEFUL_DOMAINS=phpgrc.gruntlabs.net
-          SESSION_DOMAIN=phpgrc.gruntlabs.net
-          ENV
-          sudo chown deploy:www-data .env
-          sudo chmod 640 .env
-
-      - name: Framework prep & DB migrate
-        run: |
-          set -euo pipefail
-          cd "$RELEASE_DIR/api"
-
-          # Ensure fresh config from new .env
-          sudo -u www-data php artisan config:clear
-          sudo -u www-data php artisan route:clear
-
-          # Generate key if not supplied
-          grep -q '^APP_KEY=$' .env && sudo -u www-data php artisan key:generate --force || true
-
-          # Storage symlink (public/storage -> storage/app/public)
-          sudo -u www-data php artisan storage:link || true
-
-          # Quick DB reachability check (force TCP)
-          php -r '
-            $h=getenv("DB_HOST"); $u=getenv("DB_USERNAME"); $p=getenv("DB_PASSWORD");
-            $d=getenv("DB_DATABASE"); $port=getenv("DB_PORT")?:3306;
-            try { new PDO("mysql:host=$h;port=$port;dbname=$d;charset=utf8mb4",$u,$p);
-                  echo "DB OK\n"; }
-            catch(Throwable $e){ fwrite(STDERR,"DB connect failed: ".$e->getMessage()."\n"); exit(1); }
-          '
-
-          # Run migrations
-          sudo -u www-data php artisan migrate --force
-
-          # Optimize caches only after successful migrate
-          sudo -u www-data php artisan optimize
-
-      - name: Activate release
-        run: |
-          set -euo pipefail
-          sudo ln -sfn "$RELEASE_DIR" "$CURRENT_LINK"
-          sudo systemctl reload php8.3-fpm
-          sudo systemctl reload apache2
-
-      - name: Health check
-        run: |
-          set -euo pipefail
-          # Expect your app to expose /api/health
-          curl -fsS https://phpgrc.gruntlabs.net/api/health || {
-            echo "::error::Health check failed"; exit 1;
-          }
+          RELEASE_DIR="${{ secrets.DEPLOY_PATH }}/releases/${TS}"
+          ssh -p "${{ secrets.SSH_PORT }}" "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" "\
+            ln -sfn '${RELEASE_DIR}' '${{ secrets.DEPLOY_PATH }}/current' && \
+            echo '${RELEASE_DIR}' > '${{ secrets.DEPLOY_PATH }}/LAST_DEPLOY.txt' && \
+            readlink -f '${{ secrets.DEPLOY_PATH }}/current' \
+          "
