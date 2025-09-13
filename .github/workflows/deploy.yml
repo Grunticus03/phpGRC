@@ -110,7 +110,7 @@ jobs:
           SANCTUM_STATEFUL_DOMAINS=$(echo "${APP_URL}" | sed -E 's#https?://##;s#/$##')
           SESSION_DOMAIN=$(echo "${APP_URL}" | sed -E 's#https?://##;s#/$##')
           EOF
-            chown YOUR_DEPLOY_USER:www-data "$ROOT/shared/api.env"
+            chown deploy:deploy "$ROOT/shared/api.env"
             chmod 640 "$ROOT/shared/api.env"
           fi
           
