@@ -1,84 +1,155 @@
-name: Deploy
+name: Deploy API
+
 on:
   push:
     branches: [ main ]
+  workflow_dispatch: {}
+
+concurrency:
+  group: deploy-api
+  cancel-in-progress: false
+
+permissions:
+  contents: read
 
 jobs:
   deploy:
-    runs-on: self-hosted  # your runner on the server
-    defaults:
-      run:
-        working-directory: api
-
+    runs-on: self-hosted
+    env:
+      ROOT: /var/www/phpgrc
+      RELEASE_DIR: /var/www/phpgrc/releases/${{ github.run_number }}
+      CURRENT_LINK: /var/www/phpgrc/current
+      SHARED_DIR: /var/www/phpgrc/shared
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: PHP setup
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: '8.3'
-          extensions: mbstring, intl, pdo_mysql, fileinfo
-          coverage: none
-
-      - name: Composer install (prod)
-        run: composer install --no-dev --prefer-dist --optimize-autoloader
-
-      - name: Stage release dir
+      - name: Prepare shared directories
         run: |
           set -euo pipefail
-          RELEASE="/var/www/phpgrc/releases/${GITHUB_RUN_NUMBER}"
-      
-          # ensure target structure exists
-          sudo mkdir -p "$RELEASE" \
-            /var/www/phpgrc/shared/storage \
-            /var/www/phpgrc/shared/bootstrap/cache
-      
-          # copy build to release
-          sudo rsync -a --delete ./ "$RELEASE"/
-      
-          # link shared dirs
-          cd "$RELEASE"
-          sudo rm -rf storage bootstrap/cache
-          sudo ln -sfn /var/www/phpgrc/shared/storage storage
-          sudo ln -sfn /var/www/phpgrc/shared/bootstrap/cache bootstrap/cache
-      
-          # permissions
-          sudo chown -R www-data:www-data /var/www/phpgrc
-          sudo find /var/www/phpgrc/shared/storage -type d -exec chmod 775 {} \;
-          sudo chmod 775 /var/www/phpgrc/shared/bootstrap/cache
-      
-          # write .env (edit secrets)
-          sudo tee "$RELEASE/.env" >/dev/null <<'ENV'
-          APP_ENV=production
-          APP_DEBUG=false
-          APP_URL=https://phpgrc.gruntlabs.net
-          APP_KEY=${{ secrets.APP_KEY }}
-          
-          CACHE_STORE=file
-          SESSION_DRIVER=file
-          QUEUE_CONNECTION=sync
-          
-          DB_CONNECTION=mysql
-          DB_HOST=${{ secrets.DB_HOST }}
-          DB_PORT=3306
-          DB_DATABASE=${{ secrets.DB_NAME }}
-          DB_USERNAME=${{ secrets.DB_USER }}
-          DB_PASSWORD=${{ secrets.DB_PASS }}
-          
-          SANCTUM_STATEFUL_DOMAINS=phpgrc.gruntlabs.net
-          SESSION_DOMAIN=phpgrc.gruntlabs.net
-          ENV
-      
-          # warmup
-          sudo -u www-data php artisan key:generate --force || true
-          sudo -u www-data php artisan storage:link || true
-          sudo -u www-data php artisan migrate --force
+          sudo mkdir -p "$SHARED_DIR"/{storage,bootstrap/cache}
+          # persistent storage subdirs
+          for d in app public logs \
+                   framework framework/sessions framework/cache framework/views; do
+            sudo mkdir -p "$SHARED_DIR/storage/$d"
+          done
+          sudo chown -R www-data:www-data "$SHARED_DIR"
+          sudo find "$SHARED_DIR" -type d -exec chmod 775 {} \;
+          sudo chmod 664 "$SHARED_DIR"/storage/logs/* || true
+          sudo chmod 775 "$SHARED_DIR/bootstrap/cache"
+
+      - name: Create release and sync code
+        run: |
+          set -euo pipefail
+          sudo mkdir -p "$RELEASE_DIR"
+          # Copy only the API subtree so final path is .../releases/N/api
+          sudo rsync -a --delete "${GITHUB_WORKSPACE}/api/" "$RELEASE_DIR/api/"
+          sudo chown -R www-data:www-data "$RELEASE_DIR"
+
+      - name: Vendor install (composer)
+        run: |
+          set -euo pipefail
+          cd "$RELEASE_DIR/api"
+          sudo -u www-data composer install --no-dev --prefer-dist --optimize-autoloader
+
+      - name: Link shared folders into release
+        run: |
+          set -euo pipefail
+          cd "$RELEASE_DIR/api"
+          # Replace release-local storage + cache with shared
+          sudo -u www-data rm -rf storage bootstrap/cache
+          sudo -u www-data ln -s "$SHARED_DIR/storage" storage
+          sudo -u www-data ln -s "$SHARED_DIR/bootstrap/cache" bootstrap/cache
+
+      - name: Configure environment (.env)
+        run: |
+          set -euo pipefail
+          cd "$RELEASE_DIR/api"
+
+          # Validate required secrets
+          DB_HOST="${{ secrets.DB_HOST }}"
+          DB_NAME="${{ secrets.DB_NAME }}"
+          DB_USER="${{ secrets.DB_USER }}"
+          DB_PASS="${{ secrets.DB_PASS }}"
+          for v in DB_HOST DB_NAME DB_USER DB_PASS; do
+            if [ -z "${!v}" ]; then
+              echo "::error::${v} secret is empty or missing"; exit 1
+            fi
+          done
+
+          # Use provided APP_KEY or generate later
+          APP_KEY="${{ secrets.APP_KEY }}"
+
+          sudo tee .env >/dev/null <<ENV
+APP_ENV=production
+APP_DEBUG=false
+APP_URL=https://phpgrc.gruntlabs.net
+
+# Use provided key if present; otherwise artisan will set one
+APP_KEY=${APP_KEY}
+
+LOG_CHANNEL=stack
+LOG_LEVEL=info
+
+CACHE_STORE=file
+SESSION_DRIVER=file
+QUEUE_CONNECTION=sync
+
+DB_CONNECTION=mysql
+DB_HOST=${DB_HOST:-127.0.0.1}
+DB_PORT=3306
+DB_DATABASE=${DB_NAME}
+DB_USERNAME=${DB_USER}
+DB_PASSWORD=${DB_PASS}
+DB_SOCKET=
+
+SANCTUM_STATEFUL_DOMAINS=phpgrc.gruntlabs.net
+SESSION_DOMAIN=phpgrc.gruntlabs.net
+ENV
+          sudo chown www-data:www-data .env
+          sudo chmod 640 .env
+
+      - name: Framework prep & DB migrate
+        run: |
+          set -euo pipefail
+          cd "$RELEASE_DIR/api"
+
+          # Ensure fresh config from new .env
           sudo -u www-data php artisan config:clear
           sudo -u www-data php artisan route:clear
+
+          # Generate key if not supplied
+          grep -q '^APP_KEY=$' .env && sudo -u www-data php artisan key:generate --force || true
+
+          # Storage symlink (public/storage -> storage/app/public)
+          sudo -u www-data php artisan storage:link || true
+
+          # Quick DB reachability check (force TCP)
+          php -r '
+            $h=getenv("DB_HOST"); $u=getenv("DB_USERNAME"); $p=getenv("DB_PASSWORD");
+            $d=getenv("DB_DATABASE"); $port=getenv("DB_PORT")?:3306;
+            try { new PDO("mysql:host=$h;port=$port;dbname=$d;charset=utf8mb4",$u,$p);
+                  echo "DB OK\n"; }
+            catch(Throwable $e){ fwrite(STDERR,"DB connect failed: ".$e->getMessage()."\n"); exit(1); }
+          '
+
+          # Run migrations
+          sudo -u www-data php artisan migrate --force
+
+          # Optimize caches only after successful migrate
           sudo -u www-data php artisan optimize
-      
-          # switch current & reload
-          sudo ln -sfn "$RELEASE" /var/www/phpgrc/current
+
+      - name: Activate release
+        run: |
+          set -euo pipefail
+          sudo ln -sfn "$RELEASE_DIR" "$CURRENT_LINK"
           sudo systemctl reload php8.3-fpm
           sudo systemctl reload apache2
-      
+
+      - name: Health check
+        run: |
+          set -euo pipefail
+          # Expect your app to expose /api/health
+          curl -fsS https://phpgrc.gruntlabs.net/api/health || {
+            echo "::error::Health check failed"; exit 1;
+          }
