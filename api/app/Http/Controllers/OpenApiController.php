@@ -9,20 +9,33 @@ use Illuminate\Routing\Controller as BaseController;
 
 final class OpenApiController extends BaseController
 {
-    /**
-     * Serve the OpenAPI YAML spec from /docs/api/openapi.yaml.
-     */
     public function yaml(): Response
     {
-        $path = base_path('docs/api/openapi.yaml');
+        $path = $this->findSpecPath();
 
-        if (! is_file($path)) {
+        if ($path === null) {
             return response('Spec not found', 404, ['Content-Type' => 'text/plain']);
         }
 
         $content = (string) file_get_contents($path);
 
-        // Return as application/yaml without charset.
         return response($content, 200, ['Content-Type' => 'application/yaml']);
+    }
+
+    private function findSpecPath(): ?string
+    {
+        $candidates = [
+            base_path('docs/api/openapi.yaml'),     // api/docs/api/openapi.yaml
+            base_path('../docs/api/openapi.yaml'),  // monorepo-root/docs/api/openapi.yaml
+        ];
+
+        foreach ($candidates as $p) {
+            $real = realpath($p);
+            if ($real !== false && is_file($real)) {
+                return $real;
+            }
+        }
+
+        return null;
     }
 }
