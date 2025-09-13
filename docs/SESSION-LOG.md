@@ -617,3 +617,25 @@ Closeout
 - Phase/Step status: advance (Phase 4 in progress; fine-grained RBAC pending)
 - Next action (you): Scaffold PolicyMap/RbacEvaluator + tests; prep OpenAPI surface; minor admin UI polish; keep CI green
 - Next action (me): Review/approve docs; provide RBAC policy matrix & capability toggles; confirm Phase 5 OpenAPI scope
+
+---
+
+### Session Header
+- Session 2025-09-12: Phase 4, Fine-grained RBAC Policies
+- Context: Add policy map and evaluator. Wire gates. Enforce via middleware. Keep stub permissive mode.
+- Goal: Implement PolicyMap + RbacEvaluator, annotate routes, and land tests with CI green.
+- Constraints: Follow Charter and Phase-4-SPEC. No truncation. Maintain backward-compatible stubs.
+
+### Session Footer
+- Closeout
+- Deliverables produced: 
+  - /api/app/Authorization/PolicyMap.php
+  - /api/app/Authorization/RbacEvaluator.php
+  - /api/app/Providers/AuthServiceProvider.php (updated to register gates)
+  - /api/app/Http/Middleware/RbacMiddleware.php (updated for roles and policy semantics)
+  - /api/routes/api.php (policy annotations where relevant)
+  - /api/tests/Feature/RbacPolicyEvaluatorTest.php
+  - /api/tests/Feature/RbacMiddlewarePoliciesTest.php
+- Phase/Step status: advance
+- Next action (you): run a smoke pass on admin settings, audit list, exports, and evidence with CORE_RBAC_MODE=stub and persist. Confirm route defaults align with PolicyMap keys.
+- Next action (me): update PHASE-4-SPEC.md and PHASE-4-TASK-BREAKDOWN.md to document PolicyMap keys, persist vs stub behavior, and capability gating. Add tasks to audit role create/assign events.
