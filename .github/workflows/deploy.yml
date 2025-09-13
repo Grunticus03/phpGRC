@@ -33,35 +33,35 @@ jobs:
           sudo rm -rf storage bootstrap/cache
           sudo ln -s /var/www/phpgrc/shared/storage storage
           sudo ln -s /var/www/phpgrc/shared/bootstrap/cache bootstrap/cache
-
+          
           # .env from secrets (edit values!)
           cat <<'ENV' | sudo tee "$RELEASE/.env" >/dev/null
-APP_ENV=production
-APP_DEBUG=false
-APP_URL=https://phpgrc.gruntlabs.net
-APP_KEY=${{ secrets.APP_KEY }}
-
-# Use file-backed stores to avoid DB tables at first boot
-CACHE_STORE=file
-SESSION_DRIVER=file
-QUEUE_CONNECTION=sync
-
-LOG_CHANNEL=stack
-LOG_LEVEL=info
-
-# DB
-DB_CONNECTION=mysql
-DB_HOST=${{ secrets.DB_HOST }}
-DB_PORT=3306
-DB_DATABASE=${{ secrets.DB_NAME }}
-DB_USERNAME=${{ secrets.DB_USER }}
-DB_PASSWORD=${{ secrets.DB_PASS }}
-
-# CORS / Sanctum (tune as needed)
-SANCTUM_STATEFUL_DOMAINS=phpgrc.gruntlabs.net
-SESSION_DOMAIN=phpgrc.gruntlabs.net
-ENV
-
+          APP_ENV=production
+          APP_DEBUG=false
+          APP_URL=https://phpgrc.gruntlabs.net
+          APP_KEY=${{ secrets.APP_KEY }}
+          
+          # Use file-backed stores to avoid DB tables at first boot
+          CACHE_STORE=file
+          SESSION_DRIVER=file
+          QUEUE_CONNECTION=sync
+          
+          LOG_CHANNEL=stack
+          LOG_LEVEL=info
+          
+          # DB
+          DB_CONNECTION=mysql
+          DB_HOST=${{ secrets.DB_HOST }}
+          DB_PORT=3306
+          DB_DATABASE=${{ secrets.DB_NAME }}
+          DB_USERNAME=${{ secrets.DB_USER }}
+          DB_PASSWORD=${{ secrets.DB_PASS }}
+          
+          # CORS / Sanctum (tune as needed)
+          SANCTUM_STATEFUL_DOMAINS=phpgrc.gruntlabs.net
+          SESSION_DOMAIN=phpgrc.gruntlabs.net
+          ENV
+          
           # permissions
           sudo chown -R www-data:www-data /var/www/phpgrc
           sudo find /var/www/phpgrc/shared/storage -type d -exec chmod 775 {} \;
