@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Audit;
 
+use App\Http\Responses\CsvStreamResponse;
 use App\Models\AuditEvent;
 use App\Support\Audit\AuditCategories;
 use Illuminate\Database\Eloquent\Builder;
@@ -12,23 +13,20 @@ use Illuminate\Routing\Controller;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Validator;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\HttpFoundation\StreamedResponse;
 
 final class AuditExportController extends Controller
 {
     /**
      * CSV export of audit events. Same filters as list. No pagination.
      * Content-Type must be exactly "text/csv".
-     *
-     * @return \Symfony\Component\HttpFoundation\Response
      */
     public function exportCsv(Request $request): Response
     {
         if (!config('core.audit.enabled', true)) {
             return response()->json([
-                'ok'    => false,
-                'code'  => 'AUDIT_NOT_ENABLED',
-                'note'  => 'Audit disabled by configuration.',
+                'ok'   => false,
+                'code' => 'AUDIT_NOT_ENABLED',
+                'note' => 'Audit disabled by configuration.',
             ], 400);
         }
 
@@ -126,13 +124,6 @@ final class AuditExportController extends Controller
             fclose($out);
         };
 
-        $response = new StreamedResponse($callback, 200, $headers);
-
-        // Prevent Symfony from auto-appending "; charset=UTF-8" to text/*.
-        if (method_exists($response, 'setCharset')) {
-            try { $response->setCharset(null); } catch (\Throwable) { /* ignore */ }
-        }
-
-        return $response;
+        return new CsvStreamResponse($callback, 200, $headers);
     }
 }
