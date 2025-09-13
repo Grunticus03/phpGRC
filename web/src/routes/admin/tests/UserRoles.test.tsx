@@ -3,6 +3,16 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { vi, type Mock } from "vitest";
 
+// at top of each test
+const user = userEvent.setup();
+
+// ALWAYS await these:
+await user.type(screen.getByLabelText(/create role/i), 'Compliance Lead');
+await user.click(screen.getByRole('button', { name: /submit/i }));
+
+// then wait for UI to settle via findBy* / waitFor
+expect(await screen.findByRole('heading', { name: /rbac roles/i })).toBeInTheDocument();
+
 // Mock API layer used by UserRoles.tsx
 vi.mock("../../../lib/api/rbac", () => ({
   listRoles: vi.fn(),
