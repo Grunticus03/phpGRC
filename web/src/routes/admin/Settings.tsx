@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 type CoreConfig = {
   rbac: { enabled: boolean; roles: string[] };
@@ -10,6 +10,19 @@ type CoreConfig = {
 type ApiEnvelope =
   | { ok: true; config?: { core: CoreConfig }; note?: string }
   | { ok: false; code: string; errors?: Record<string, string[]> };
+
+function FieldErrors({ msgs }: { msgs: string[] }) {
+  if (!msgs || msgs.length === 0) return null;
+  return (
+    <>
+      {msgs.map((m, i) => (
+        <div key={i} className="invalid-feedback d-block">
+          {m}
+        </div>
+      ))}
+    </>
+  );
+}
 
 export default function Settings(): JSX.Element {
   const [loading, setLoading] = useState(true);
@@ -28,25 +41,33 @@ export default function Settings(): JSX.Element {
   });
 
   useEffect(() => {
-    void (async () => {
+    const ctl = new AbortController();
+    (async () => {
       setLoading(true);
       setMsg(null);
       setErrors({});
       try {
-        const res = await fetch("/api/admin/settings", { credentials: "same-origin" });
+        const res = await fetch("/api/admin/settings", {
+          credentials: "same-origin",
+          signal: ctl.signal,
+        });
         const json: ApiEnvelope = await res.json();
-        if (res.ok && (json as any)?.ok && (json as any)?.config?.core) {
+        if (!ctl.signal.aborted && res.ok && (json as any)?.ok && (json as any)?.config?.core) {
           setCore((json as any).config.core as CoreConfig);
-        } else {
+          setMsg(null);
+        } else if (!ctl.signal.aborted) {
           setMsg("Failed to load settings.");
         }
       } catch {
-        setMsg("Network error.");
+        if (!ctl.signal.aborted) setMsg("Network error.");
       } finally {
-        setLoading(false);
+        if (!ctl.signal.aborted) setLoading(false);
       }
     })();
+    return () => ctl.abort();
   }, []);
+
+  const hasErrors = useMemo(() => Object.keys(errors).length > 0, [errors]);
 
   function err(key: string): string[] {
     return errors[key] ?? [];
@@ -89,22 +110,39 @@ export default function Settings(): JSX.Element {
 
   if (loading) return <p>Loading…</p>;
 
+  const disabled = saving;
+
   return (
     <div className="container py-3">
-      <h1>Admin Settings</h1>
-      {msg && (
-        <div className="alert alert-info" role="alert">
-          {msg}
+      <h1 className="mb-3">Admin Settings</h1>
+
+      <div aria-live="polite">
+        {msg && (
+          <div className="alert alert-info" role="status">
+            {msg}
+          </div>
+        )}
+      </div>
+
+      {hasErrors && (
+        <div className="alert alert-warning" role="alert" aria-live="assertive">
+          <p className="mb-1"><strong>Fix the highlighted fields.</strong></p>
+          <ul className="mb-0">
+            {Object.entries(errors).map(([k, v]) => (
+              <li key={k}>{k}: {v?.[0] ?? "Invalid value"}</li>
+            ))}
+          </ul>
         </div>
       )}
 
       <form onSubmit={onSubmit} noValidate>
         {/* RBAC */}
-        <fieldset className="mb-4">
+        <fieldset className="mb-4" disabled={disabled}>
           <legend>RBAC</legend>
 
-          <label className="form-check">
+          <div className="form-check">
             <input
+              id="rbac_enabled"
               className={"form-check-input" + (err("rbac.enabled").length ? " is-invalid" : "")}
               type="checkbox"
               checked={core.rbac.enabled}
@@ -112,29 +150,22 @@ export default function Settings(): JSX.Element {
                 setCore({ ...core, rbac: { ...core.rbac, enabled: e.currentTarget.checked } })
               }
             />
-            <span className="form-check-label">Enable RBAC</span>
-          </label>
-          {err("rbac.enabled").map((m, i) => (
-            <div key={i} className="invalid-feedback d-block">
-              {m}
-            </div>
-          ))}
+            <label className="form-check-label" htmlFor="rbac_enabled">Enable RBAC</label>
+            <FieldErrors msgs={err("rbac.enabled")} />
+          </div>
 
-          <label className="form-label mt-2">Roles (read-only in Phase 4)</label>
-          <input className="form-control" value={core.rbac.roles.join(", ")} readOnly />
-          {err("rbac.roles").map((m, i) => (
-            <div key={i} className="invalid-feedback d-block">
-              {m}
-            </div>
-          ))}
+          <label className="form-label mt-2" htmlFor="rbac_roles">Roles (read-only in Phase 4)</label>
+          <input id="rbac_roles" className="form-control" value={core.rbac.roles.join(", ")} readOnly />
+          <FieldErrors msgs={err("rbac.roles")} />
         </fieldset>
 
         {/* Audit */}
-        <fieldset className="mb-4">
+        <fieldset className="mb-4" disabled={disabled}>
           <legend>Audit</legend>
 
-          <label className="form-check">
+          <div className="form-check">
             <input
+              id="audit_enabled"
               className={"form-check-input" + (err("audit.enabled").length ? " is-invalid" : "")}
               type="checkbox"
               checked={core.audit.enabled}
@@ -142,41 +173,36 @@ export default function Settings(): JSX.Element {
                 setCore({ ...core, audit: { ...core.audit, enabled: e.currentTarget.checked } })
               }
             />
-            <span className="form-check-label">Enable Audit Trail</span>
-          </label>
-          {err("audit.enabled").map((m, i) => (
-            <div key={i} className="invalid-feedback d-block">
-              {m}
-            </div>
-          ))}
+            <label className="form-check-label" htmlFor="audit_enabled">Enable Audit Trail</label>
+            <FieldErrors msgs={err("audit.enabled")} />
+          </div>
 
-          <label className="form-label mt-2">Retention days</label>
+          <label className="form-label mt-2" htmlFor="audit_retention">Retention days</label>
           <input
+            id="audit_retention"
             className={"form-control" + (err("audit.retention_days").length ? " is-invalid" : "")}
             type="number"
+            inputMode="numeric"
             min={1}
             max={730}
             value={core.audit.retention_days}
             onChange={(e) =>
               setCore({
                 ...core,
-                audit: { ...core.audit, retention_days: Number(e.currentTarget.value) },
+                audit: { ...core.audit, retention_days: Number(e.currentTarget.value) || 0 },
               })
             }
           />
-          {err("audit.retention_days").map((m, i) => (
-            <div key={i} className="invalid-feedback d-block">
-              {m}
-            </div>
-          ))}
+          <FieldErrors msgs={err("audit.retention_days")} />
         </fieldset>
 
         {/* Evidence */}
-        <fieldset className="mb-4">
+        <fieldset className="mb-4" disabled={disabled}>
           <legend>Evidence</legend>
 
-          <label className="form-check">
+          <div className="form-check">
             <input
+              id="evidence_enabled"
               className={"form-check-input" + (err("evidence.enabled").length ? " is-invalid" : "")}
               type="checkbox"
               checked={core.evidence.enabled}
@@ -187,39 +213,32 @@ export default function Settings(): JSX.Element {
                 })
               }
             />
-            <span className="form-check-label">Enable Evidence</span>
-          </label>
-          {err("evidence.enabled").map((m, i) => (
-            <div key={i} className="invalid-feedback d-block">
-              {m}
-            </div>
-          ))}
+            <label className="form-check-label" htmlFor="evidence_enabled">Enable Evidence</label>
+            <FieldErrors msgs={err("evidence.enabled")} />
+          </div>
 
-          <label className="form-label mt-2">Max MB</label>
+          <label className="form-label mt-2" htmlFor="evidence_max_mb">Max MB</label>
           <input
+            id="evidence_max_mb"
             className={"form-control" + (err("evidence.max_mb").length ? " is-invalid" : "")}
             type="number"
+            inputMode="numeric"
             min={1}
             max={500}
             value={core.evidence.max_mb}
             onChange={(e) =>
               setCore({
                 ...core,
-                evidence: { ...core.evidence, max_mb: Number(e.currentTarget.value) },
+                evidence: { ...core.evidence, max_mb: Number(e.currentTarget.value) || 0 },
               })
             }
           />
-          {err("evidence.max_mb").map((m, i) => (
-            <div key={i} className="invalid-feedback d-block">
-              {m}
-            </div>
-          ))}
+          <FieldErrors msgs={err("evidence.max_mb")} />
 
-          <label className="form-label mt-2">Allowed MIME (comma-separated)</label>
+          <label className="form-label mt-2" htmlFor="evidence_allowed_mime">Allowed MIME (comma-separated)</label>
           <input
-            className={
-              "form-control" + (err("evidence.allowed_mime").length ? " is-invalid" : "")
-            }
+            id="evidence_allowed_mime"
+            className={"form-control" + (err("evidence.allowed_mime").length ? " is-invalid" : "")}
             value={core.evidence.allowed_mime.join(",")}
             onChange={(e) =>
               setCore({
@@ -234,19 +253,16 @@ export default function Settings(): JSX.Element {
               })
             }
           />
-          {err("evidence.allowed_mime").map((m, i) => (
-            <div key={i} className="invalid-feedback d-block">
-              {m}
-            </div>
-          ))}
+          <FieldErrors msgs={err("evidence.allowed_mime")} />
         </fieldset>
 
         {/* Avatars */}
-        <fieldset className="mb-4">
+        <fieldset className="mb-4" disabled={disabled}>
           <legend>Avatars</legend>
 
-          <label className="form-check">
+          <div className="form-check">
             <input
+              id="avatars_enabled"
               className={"form-check-input" + (err("avatars.enabled").length ? " is-invalid" : "")}
               type="checkbox"
               checked={core.avatars.enabled}
@@ -257,36 +273,31 @@ export default function Settings(): JSX.Element {
                 })
               }
             />
-            <span className="form-check-label">Enable Avatars</span>
-          </label>
-          {err("avatars.enabled").map((m, i) => (
-            <div key={i} className="invalid-feedback d-block">
-              {m}
-            </div>
-          ))}
+            <label className="form-check-label" htmlFor="avatars_enabled">Enable Avatars</label>
+            <FieldErrors msgs={err("avatars.enabled")} />
+          </div>
 
-          <label className="form-label mt-2">Size (px)</label>
+          <label className="form-label mt-2" htmlFor="avatars_size_px">Size (px)</label>
           <input
+            id="avatars_size_px"
             className={"form-control" + (err("avatars.size_px").length ? " is-invalid" : "")}
             type="number"
+            inputMode="numeric"
             min={32}
             max={1024}
             value={core.avatars.size_px}
             onChange={(e) =>
               setCore({
                 ...core,
-                avatars: { ...core.avatars, size_px: Number(e.currentTarget.value) },
+                avatars: { ...core.avatars, size_px: Number(e.currentTarget.value) || 0 },
               })
             }
           />
-          {err("avatars.size_px").map((m, i) => (
-            <div key={i} className="invalid-feedback d-block">
-              {m}
-            </div>
-          ))}
+          <FieldErrors msgs={err("avatars.size_px")} />
 
-          <label className="form-label mt-2">Format</label>
+          <label className="form-label mt-2" htmlFor="avatars_format">Format</label>
           <select
+            id="avatars_format"
             className={"form-select" + (err("avatars.format").length ? " is-invalid" : "")}
             value={core.avatars.format}
             onChange={(e) =>
@@ -296,14 +307,10 @@ export default function Settings(): JSX.Element {
               })
             }
           >
-            {/* Phase 4 spec allows WEBP. Keep options minimal per contract. */}
+            {/* Phase 4 contract: WEBP only. */}
             <option value="webp">webp</option>
           </select>
-          {err("avatars.format").map((m, i) => (
-            <div key={i} className="invalid-feedback d-block">
-              {m}
-            </div>
-          ))}
+          <FieldErrors msgs={err("avatars.format")} />
         </fieldset>
 
         <button className="btn btn-primary" type="submit" disabled={saving}>

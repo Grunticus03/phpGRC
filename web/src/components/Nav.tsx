@@ -5,7 +5,7 @@ const linkCls = ({ isActive }: { isActive: boolean }) =>
 
 export default function Nav(): JSX.Element {
   return (
-    <nav className="navbar">
+    <nav className="navbar" role="navigation" aria-label="Primary">
       <div className="container" style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
         <NavLink to="/" className="navbar-brand">phpGRC</NavLink>
         <NavLink to="/admin" className={linkCls}>Admin</NavLink>

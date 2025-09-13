@@ -65,11 +65,12 @@ export default function Roles(): JSX.Element {
 
   return (
     <div className="container py-3">
-      <h1>RBAC Roles</h1>
+      <h1 className="mb-3">RBAC Roles</h1>
 
-      {note && <div className="alert alert-secondary" role="note">{note}</div>}
-
-      {msg && <div className="alert alert-warning" role="alert" aria-live="polite">{msg}</div>}
+      <div aria-live="polite">
+        {note && <div className="alert alert-secondary" role="note">{note}</div>}
+        {msg && <div className="alert alert-info" role="status">{msg}</div>}
+      </div>
 
       {roles.length === 0 ? (
         <p>No roles defined.</p>
@@ -84,7 +85,7 @@ export default function Roles(): JSX.Element {
         </ul>
       )}
 
-      <form className="card p-3" onSubmit={onSubmit}>
+      <form className="card p-3" onSubmit={onSubmit} noValidate>
         <div className="mb-2">
           <label htmlFor="roleName" className="form-label">Create role</label>
           <input
@@ -93,6 +94,7 @@ export default function Roles(): JSX.Element {
             name="name"
             className="form-control"
             value={name}
+            minLength={2}
             maxLength={64}
             onChange={(e) => setName(e.target.value)}
             placeholder="e.g., Compliance Lead"

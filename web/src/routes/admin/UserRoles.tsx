@@ -132,9 +132,9 @@ export default function UserRoles(): JSX.Element {
 
   return (
     <div className="container py-3">
-      <h1>User Roles</h1>
+      <h1 className="mb-3">User Roles</h1>
 
-      <form className="row gy-2 align-items-end mb-3" onSubmit={lookupUser}>
+      <form className="row gy-2 align-items-end mb-3" onSubmit={lookupUser} noValidate>
         <div className="col-auto">
           <label htmlFor="uid" className="form-label">User ID</label>
           <input
@@ -151,7 +151,9 @@ export default function UserRoles(): JSX.Element {
         </div>
       </form>
 
-      {msg && <div className="alert alert-info" role="alert" aria-live="polite">{msg}</div>}
+      <div aria-live="polite">
+        {msg && <div className="alert alert-info" role="status">{msg}</div>}
+      </div>
 
       {state.kind === "loading" && <p>Loading…</p>}
 
@@ -195,7 +197,7 @@ export default function UserRoles(): JSX.Element {
                 id="attachPick"
                 className="form-select"
                 value={pick}
-                onChange={(e) => setPick(e.currentTarget.value)}
+                onChange={(e) => setPick(e.target.value)}
               >
                 <option value="">Select role…</option>
                 {addChoices.map((r) => (
@@ -209,7 +211,7 @@ export default function UserRoles(): JSX.Element {
           </div>
 
           <h3 className="h6">Replace roles</h3>
-          <form onSubmit={onReplace}>
+          <form onSubmit={onReplace} noValidate>
             <div className="row row-cols-1 row-cols-sm-2 row-cols-md-3 g-2">
               {available.map((r) => {
                 const checked = current.roles.includes(r);
