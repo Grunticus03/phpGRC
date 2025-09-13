@@ -1,22 +1,34 @@
 openapi: 3.1.0
 info:
   title: phpGRC API
-  version: 0.4.1
+  version: 0.4.2
+  license:
+    name: MIT
   description: |
     OpenAPI scaffold for phpGRC Phase 4. Contracts reflect current routes.
     Authoritative references: PHASE-4-SPEC.md and code under /api.
 servers:
   - url: /api
+security: [] # define at root to satisfy "security-defined" rule; override per operation as needed
 tags:
   - name: Health
+    description: Liveness and readiness checks
   - name: Spec
+    description: API specification endpoints
   - name: Auth
+    description: Authentication and MFA
   - name: Admin Settings
+    description: Core configuration management
   - name: RBAC
+    description: Role-based access control
   - name: Audit
+    description: Audit trail viewing and export
   - name: Evidence
+    description: Evidence upload and retrieval
   - name: Exports
+    description: Bulk export jobs
   - name: Avatars
+    description: User avatar upload and fetch
 paths:
   /health:
     get:
@@ -30,6 +42,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/OkEnvelope'
+        '400':
+          description: Bad request
   /openapi.yaml:
     get:
       tags: [Spec]
@@ -42,6 +56,8 @@ paths:
             application/yaml:
               schema:
                 type: string
+        '404':
+          description: Not found
   /auth/login:
     post:
       tags: [Auth]
@@ -140,6 +156,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/SettingsEnvelope' }
+        '403': { $ref: '#/components/responses/Forbidden' }
     post:
       tags: [Admin Settings]
       summary: Validate and optionally persist core settings
@@ -169,6 +186,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/RoleList' }
+        '403': { $ref: '#/components/responses/Forbidden' }
     post:
       tags: [RBAC]
       summary: Create role (stub when persistence disabled)
@@ -621,13 +639,16 @@ components:
       properties:
         id: { type: string }
         occurred_at: { type: string, format: date-time }
-        actor_id: { type: integer, nullable: true }
+        actor_id:
+          type: [integer, 'null']
         action: { type: string }
         category: { type: string }
         entity_type: { type: string }
         entity_id: { type: string }
-        ip: { type: string, nullable: true }
-        agent: { type: string, nullable: true }
+        ip:
+          type: [string, 'null']
+        agent:
+          type: [string, 'null']
     EvidenceItem:
       type: object
       additionalProperties: true
