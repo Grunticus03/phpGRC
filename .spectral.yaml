@@ -1,11 +1,8 @@
 extends: "spectral:oas"
-formats:
-  - oas3
 rules:
-  # relax a few rules for Phase 4
+  # relax a few noisy rules for Phase 4
   info-contact: off
   operation-success-response: warn
-  operation-security-defined: warn
   no-$ref-siblings: warn
   no-unused-components: warn
   oas3-schema: warn
