@@ -1,0 +1,15 @@
+extends:
+  - ruleset: "spectral:oas"
+    severity: warn  # downgrade all built-in OAS rules to warnings for Phase 4
+formats:
+  - oas3.1
+rules:
+  # Tighten or relax selectively as we mature the spec
+  operation-operationId-unique: warn
+  operation-2xx-response: warn
+  info-contact: off
+  info-description: warn
+  operation-security-defined: warn
+  no-$ref-siblings: warn
+  no-unused-components: warn
+  oas3-schema: warn
