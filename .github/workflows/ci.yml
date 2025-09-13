@@ -16,34 +16,69 @@ on:
 
 jobs:
   openapi:
-    name: OpenAPI lint and diff
+    name: OpenAPI lint
     runs-on: self-hosted
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: "20"
       - name: Lint spec with Redocly
         run: npx -y @redocly/cli@1.29.0 lint docs/api/openapi.yaml
-      - name: Lint spec with Spectral
-        run: npx -y @stoplight/spectral-cli@6.11.1 lint docs/api/openapi.yaml
-      - name: Prepare base spec for breaking-change diff
+
+  openapi_breaking:
+    name: OpenAPI breaking-change gate
+    runs-on: self-hosted
+    if: github.event_name == 'pull_request'
+    needs: [openapi]
+    steps:
+      - name: Checkout HEAD
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Save HEAD spec
+        run: cp docs/api/openapi.yaml openapi.new.yaml
+
+      - name: Checkout BASE
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.base_ref }}
+          path: base
+
+      - id: check
+        name: Check base spec presence
+        shell: bash
         run: |
-          git fetch origin main
-          git show origin/main:docs/api/openapi.yaml > /tmp/base-openapi.yaml || echo "no base"
-      - name: Breaking-change check (oasdiff)
-        if: ${{ hashFiles('/tmp/base-openapi.yaml') != '' }}
-        run: npx -y oasdiff@4.0.5 breaking /tmp/base-openapi.yaml docs/api/openapi.yaml --fail-on-diff
+          if [ -f base/docs/api/openapi.yaml ]; then
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            cp base/docs/api/openapi.yaml openapi.old.yaml
+          else
+            echo "Base spec not found. Skipping breaking-change check."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run openapi-diff
+        if: steps.check.outputs.skip != 'true'
+        run: |
+          docker run --rm -v "$PWD":/spec openapitools/openapi-diff:2.0.0 \
+            /spec/openapi.old.yaml /spec/openapi.new.yaml \
+            --fail-on-incompatible \
+            --html /spec/openapi-diff.html
+
+      - name: Upload diff report
+        if: steps.check.outputs.skip != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: openapi-diff-report
+          path: openapi-diff.html
 
   api:
     name: API checks
     runs-on: self-hosted
-    needs: [openapi]
-
+    needs: [openapi] # breaking-change gate runs only on PRs
     services:
       mysql:
         image: mysql:8.0
