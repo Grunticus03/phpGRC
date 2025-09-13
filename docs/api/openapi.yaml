@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: phpGRC API
-  version: 0.4.4
+  version: 0.4.5
   license:
     identifier: MIT
     name: MIT
@@ -10,7 +10,7 @@ info:
     Contracts mirror current routes and response shapes.
 servers:
   - url: /api
-security: [] # optional per-operation security is declared where RBAC/auth may apply
+security: []
 tags:
   - name: Health
     description: Liveness and readiness checks
@@ -40,7 +40,7 @@ paths:
     get:
       tags: [Health]
       summary: Health check
-      description: Returns a simple ok:true envelope to indicate liveness.
+      description: Returns ok:true to indicate liveness.
       operationId: health
       responses:
         '200': { $ref: '#/components/responses/Ok' }
@@ -74,6 +74,7 @@ paths:
             text/html:
               schema:
                 type: string
+        '404': { $ref: '#/components/responses/NotFound' }
 
   # ---------------------------
   # Setup Wizard (first-run)
@@ -82,7 +83,7 @@ paths:
     get:
       tags: [Setup]
       summary: Setup status
-      description: Reports current setup state and any remaining steps.
+      description: Reports current setup state and remaining steps.
       operationId: setupStatus
       responses:
         '200':
@@ -98,7 +99,7 @@ paths:
     post:
       tags: [Setup]
       summary: Test database connectivity
-      description: Attempts to connect to the database using provided parameters.
+      description: Attempts to connect using provided parameters.
       operationId: setupDbTest
       responses:
         '200': { $ref: '#/components/responses/Ok' }
@@ -113,7 +114,7 @@ paths:
     post:
       tags: [Setup]
       summary: Persist database config to shared path
-      description: Writes validated database configuration to the shared config location.
+      description: Writes validated DB configuration.
       operationId: setupDbWrite
       responses:
         '200': { $ref: '#/components/responses/Ok' }
@@ -138,7 +139,7 @@ paths:
     post:
       tags: [Setup]
       summary: Initialize application schema
-      description: Runs migrations and initializes the application schema.
+      description: Runs migrations and initializes schema.
       operationId: setupSchemaInit
       responses:
         '200': { $ref: '#/components/responses/Ok' }
@@ -148,7 +149,7 @@ paths:
     post:
       tags: [Setup]
       summary: Create initial admin user
-      description: Creates the first admin account during setup.
+      description: Creates the first admin account.
       operationId: setupAdminCreate
       responses:
         '201': { description: Created }
@@ -163,7 +164,7 @@ paths:
     post:
       tags: [Setup]
       summary: Verify admin TOTP after enrollment
-      description: Verifies the TOTP code for the initial admin after enrollment.
+      description: Verifies the TOTP code for the initial admin.
       operationId: setupAdminTotpVerify
       requestBody:
         required: true
@@ -177,8 +178,7 @@ paths:
               required: [code]
       responses:
         '200': { $ref: '#/components/responses/Ok' }
-        '400':
-          description: Invalid TOTP
+        '400': { description: Invalid TOTP }
         '403': { $ref: '#/components/responses/Forbidden' }
 
   /setup/smtp:
@@ -230,7 +230,7 @@ paths:
     post:
       tags: [Setup]
       summary: Mark setup complete
-      description: Finalizes initial setup and enables normal operation.
+      description: Finalizes setup and enables normal operation.
       operationId: setupFinish
       responses:
         '200': { $ref: '#/components/responses/Ok' }
@@ -344,7 +344,7 @@ paths:
     get:
       tags: [Admin Settings]
       summary: Read effective core settings
-      description: Returns the effective core configuration resolved from persisted and default values.
+      description: Returns the effective core configuration.
       operationId: adminSettingsIndex
       security:
         - bearerAuth: []
@@ -909,9 +909,7 @@ paths:
           description: Validation failed
           content:
             application/json:
-              schema:
-                allOf:
-                  - $ref: '#/components/schemas/Error422'
+              schema: { $ref: '#/components/schemas/Error422' }
 
   /avatar/{user}:
     parameters:
