@@ -12,6 +12,7 @@ use Illuminate\Routing\Controller;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Validator;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 final class AuditExportController extends Controller
 {
@@ -87,13 +88,13 @@ final class AuditExportController extends Controller
 
         $filename = 'audit-' . gmdate('Ymd\THis\Z') . '.csv';
         $headers  = [
-            'Content-Type'            => 'text/csv',
-            'Content-Disposition'     => 'attachment; filename="'.$filename.'"',
-            'X-Content-Type-Options'  => 'nosniff',
-            'Cache-Control'           => 'no-store, max-age=0',
+            'Content-Type'           => 'text/csv', // exact
+            'Content-Disposition'    => 'attachment; filename="'.$filename.'"',
+            'X-Content-Type-Options' => 'nosniff',
+            'Cache-Control'          => 'no-store, max-age=0',
         ];
 
-        return response()->streamDownload(function () use ($q): void {
+        $callback = function () use ($q): void {
             $out = fopen('php://output', 'wb');
             fputcsv($out, [
                 'id','occurred_at','actor_id','action','category',
@@ -123,7 +124,15 @@ final class AuditExportController extends Controller
 
             fflush($out);
             fclose($out);
-        }, $filename, $headers);
+        };
+
+        $response = new StreamedResponse($callback, 200, $headers);
+
+        // Prevent Symfony from auto-appending "; charset=UTF-8" to text/*.
+        if (method_exists($response, 'setCharset')) {
+            try { $response->setCharset(null); } catch (\Throwable) { /* ignore */ }
+        }
+
+        return $response;
     }
 }
-
