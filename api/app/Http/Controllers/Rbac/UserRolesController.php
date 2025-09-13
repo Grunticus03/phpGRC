@@ -102,7 +102,8 @@ final class UserRolesController extends Controller
         }
 
         $payload = $request->validate([
-            'roles'   => ['required', 'array', 'min:0'],
+            // allow empty array
+            'roles'   => ['present', 'array'],
             'roles.*' => ['string', 'distinct', 'min:1', 'max:64'],
         ]);
 
@@ -111,6 +112,7 @@ final class UserRolesController extends Controller
 
         $before = $u->roles()->pluck('name')->sort()->values()->all();
 
+        /** @var array<int,string> $names */
         $names = array_values($payload['roles']);
 
         $map = Role::query()
