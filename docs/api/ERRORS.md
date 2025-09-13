@@ -1,20 +1,44 @@
-# API Error Envelope
+# Error Envelopes
 
-Common error shape:
+## Validation Errors (Spec shape)
+
+Returned by endpoints following the spec payload shape:
+
 ```json
-{ "ok": false, "code": "<UPPER_SNAKE_CODE>", "errors": { "...optional details..." } }
+{
+  "ok": false,
+  "code": "VALIDATION_FAILED",
+  "errors": {
+    "<section>": {
+      "<field>": ["message 1", "message 2"]
+    }
+  },
+  "message": "First validation error message"
+}
 ```
 
-## Codes in Phase 4
-- `VALIDATION_FAILED`  
-  - Context: Admin Settings payload or Evidence upload validation.  
-  - Shape: `errors` is a map of field → array of messages.
-- `EVIDENCE_NOT_ENABLED`  
-  - Context: POST `/api/evidence` when `core.evidence.enabled=false`.
-- `EVIDENCE_NOT_FOUND`  
-  - Context: GET/HEAD `/api/evidence/{id}` when record missing.
+- `errors` are grouped by **section** (e.g., `rbac`, `audit`, `evidence`, `avatars`), then by field.
+- Array indices (e.g., `evidence.allowed_mime.0`) are collapsed into the field key.
 
-## Conventions
-- 4xx for client issues, 5xx for server faults.
-- Boolean `ok` is always present.
-- Additional diagnostic keys may be included on success responses (e.g., `note: "stub-only"`).
+## Validation Errors (Legacy shape)
+
+When the request used the legacy `{ "core": { ... } }` payload:
+
+```json
+{
+  "errors": {
+    "<section>": {
+      "<field>": ["message 1", "message 2"]
+    }
+  }
+}
+```
+
+## Authorization
+
+- **401 Unauthorized** — when `rbac.require_auth=true` and no authenticated user.  
+- **403 Forbidden** — when user lacks required roles/capabilities/policies:
+
+```json
+{ "ok": false, "code": "FORBIDDEN", "message": "Forbidden" }
+```

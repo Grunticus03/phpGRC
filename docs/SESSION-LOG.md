@@ -684,3 +684,18 @@ Closeout
 - Phase/Step status: advance
 - Next action (you): Supply full files to polish per STYLEGUIDE — `/web/src/routes/admin/Settings.tsx`, `/web/src/routes/admin/Roles.tsx`, `/web/src/routes/admin/UserRoles.tsx`, `/web/src/components/*` used by these screens
 - Next action (me): Apply UX polish to admin pages; scaffold OpenAPI surface for Phase 5 (spec-only)
+
+---
+
+### Session Header
+- Session 2025-09-13: [Phase 4 Closeout]
+- Context: Align Admin Settings (validate-only), modular RBAC with auth toggle, OpenAPI spec + route, and frontend messaging; ensure CI green.
+- Goal: Land code + docs on main with passing tests and a lintable 3.1 spec served at /api/openapi.yaml.
+- Constraints: No scope creep; RBAC remains fully disable-able and modular; settings persistence gated by availability/apply=true.
+
+### Session Footer
+- Closeout
+- Deliverables produced: Updated routes/api.php, RbacMiddleware, UpdateSettingsRequest, SettingsService, SettingsController, web Admin Settings screen, and docs/api/openapi.yaml (+ refreshed SETTINGS.md).
+- Phase/Step status: advance (complete)
+- Next action (you): Tag a release, add a short CHANGELOG entry, and run a smoke test against a staging env with CORE_RBAC_REQUIRE_AUTH toggled both ways.
+- Next action (me): Draft Phase 5 tickets (settings persistence path + audit wiring), propose e2e scenarios for RBAC on/off, and prepare a minimal postman collection from the spec.
