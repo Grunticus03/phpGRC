@@ -54,91 +54,65 @@ jobs:
       - name: Prepare Laravel (server)
         env:
           TS: ${{ github.run_id }}-${{ github.run_attempt }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          APP_URL: ${{ secrets.APP_URL }}
+          APP_KEY: ${{ secrets.APP_KEY }}
+          DB_HOST: ${{ secrets.DB_HOST }}
+          DB_NAME: ${{ secrets.DB_NAME }}
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASS: ${{ secrets.DB_PASS }}
         run: |
           set -euo pipefail
-          ROOT="${{ secrets.DEPLOY_PATH }}"
+          : "${APP_URL:?APP_URL secret is required}"
+          : "${DB_HOST:?missing}"; : "${DB_NAME:?missing}"; : "${DB_USER:?missing}"; : "${DB_PASS:?missing}"
+      
+          ROOT="$DEPLOY_PATH"
           RELEASE_DIR="$ROOT/releases/${TS}"
-
-          # Secrets (masked by GitHub)
-          APP_URL="${{ secrets.APP_URL }}"
-          APP_KEY="${{ secrets.APP_KEY }}"
-          DB_HOST="${{ secrets.DB_HOST }}"
-          DB_NAME="${{ secrets.DB_NAME }}"
-          DB_USER="${{ secrets.DB_USER }}"
-          DB_PASS="${{ secrets.DB_PASS }}"
-
-          ssh -p "${{ secrets.SSH_PORT }}" "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" bash -s <<'REMOTE'
-          set -euo pipefail
-          ROOT="${ROOT}"; RELEASE_DIR="${RELEASE_DIR}"
-          APP_URL="${APP_URL}"; APP_KEY="${APP_KEY}"
-          DB_HOST="${DB_HOST}"; DB_NAME="${DB_NAME}"; DB_USER="${DB_USER}"; DB_PASS="${DB_PASS}"
-
+      
+          ssh -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" \
+            ROOT="$ROOT" RELEASE_DIR="$RELEASE_DIR" \
+            APP_URL="$APP_URL" APP_KEY="$APP_KEY" \
+            DB_HOST="$DB_HOST" DB_NAME="$DB_NAME" DB_USER="$DB_USER" DB_PASS="$DB_PASS" \
+            'bash -seu' <<'REMOTE'
           umask 027
-          mkdir -p "$ROOT/shared/storage/app/public" "$ROOT/shared/bootstrap/cache"
-          chown -R deploy:www-data "$ROOT/shared"
+          sudo mkdir -p "$ROOT/shared/storage/app/public" "$ROOT/shared/bootstrap/cache"
+          sudo chown -R deploy:www-data "$ROOT/shared"
           find "$ROOT/shared/storage" -type d -exec chmod 775 {} \; || true
           chmod -R g+w "$ROOT/shared/bootstrap/cache"
-
-          # Shared .env (create once)
+      
           if [ ! -f "$ROOT/shared/api.env" ]; then
             cat > "$ROOT/shared/api.env" <<EOF
-          APP_ENV=production
-          APP_DEBUG=false
-          APP_URL=${APP_URL}
-          APP_KEY=${APP_KEY}
-          
-          LOG_CHANNEL=stack
-          LOG_LEVEL=info
+            APP_ENV=production
+            APP_DEBUG=false
+            APP_URL=${APP_URL}
+            APP_KEY=${APP_KEY}
+      
+            LOG_CHANNEL=stack
+            LOG_LEVEL=info
 
-          CACHE_STORE=file
-          SESSION_DRIVER=file
-          QUEUE_CONNECTION=sync
-
-          DB_CONNECTION=mysql
-          DB_HOST=${DB_HOST}
-          DB_PORT=3306
-          DB_DATABASE=${DB_NAME}
-          DB_USERNAME=${DB_USER}
-          DB_PASSWORD=${DB_PASS}
-          DB_SOCKET=
-
-          SANCTUM_STATEFUL_DOMAINS=$(echo "${APP_URL}" | sed -E 's#https?://##;s#/$##')
-          SESSION_DOMAIN=$(echo "${APP_URL}" | sed -E 's#https?://##;s#/$##')
-          EOF
-            chown deploy:www-data "$ROOT/shared/api.env"
+            CACHE_STORE=file
+            SESSION_DRIVER=file
+            QUEUE_CONNECTION=sync
+      
+            DB_CONNECTION=mysql
+            DB_HOST=${DB_HOST}
+            DB_PORT=3306
+            DB_DATABASE=${DB_NAME}
+            DB_USERNAME=${DB_USER}
+            DB_PASSWORD=${DB_PASS}
+            DB_SOCKET=
+      
+            SANCTUM_STATEFUL_DOMAINS=$(echo "${APP_URL}" | sed -E 's#https?://##;s#/$##')
+            SESSION_DOMAIN=$(echo "${APP_URL}" | sed -E 's#https?://##;s#/$##')
+            EOF
+            sudo chown deploy:www-data "$ROOT/shared/api.env"
             chmod 640 "$ROOT/shared/api.env"
           fi
-
-          # Link shared to release
-          ln -sfn "$ROOT/shared/api.env"         "$RELEASE_DIR/api/.env"
-          rm -rf   "$RELEASE_DIR/api/storage"
-          ln -sfn "$ROOT/shared/storage"         "$RELEASE_DIR/api/storage"
+      
+          ln -sfn "$ROOT/shared/api.env"  "$RELEASE_DIR/api/.env"
+          rm -rf "$RELEASE_DIR/api/storage"
+          ln -sfn "$ROOT/shared/storage"  "$RELEASE_DIR/api/storage"
           REMOTE
-
-      - name: Install deps, cache, migrate, reload
-        env:
-          TS: ${{ github.run_id }}-${{ github.run_attempt }}
-        run: |
-          set -euo pipefail
-          RELEASE_DIR="${{ secrets.DEPLOY_PATH }}/releases/${TS}"
-
-          ssh -p "${{ secrets.SSH_PORT }}" "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" bash -s <<'REMOTE'
-          set -euo pipefail
-          RELEASE_DIR="${RELEASE_DIR}"
-
-          cd "$RELEASE_DIR/api"
-          php -v
-          composer install --no-dev --prefer-dist --no-interaction --optimize-autoloader
-          php artisan key:generate --force || true
-          php artisan storage:link || true
-          php artisan config:clear
-          php artisan route:clear
-          php artisan config:cache
-          php artisan route:cache
-          php artisan migrate --force || true
-
-          sudo systemctl reload php8.3-fpm || true
-          sudo systemctl reload apache2 || true
-          echo "Deployed: $(date -Is) -> $RELEASE_DIR"
-          REMOTE
-
