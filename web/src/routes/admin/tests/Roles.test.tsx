@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { vi, type Mock } from "vitest";
@@ -12,15 +12,21 @@ vi.mock("../../../lib/api/rbac", () => ({
 import * as api from "../../../lib/api/rbac";
 import Roles from "../Roles";
 
-function renderAt(path = "/admin/roles") {
-  return render(
+async function renderAt(path = "/admin/roles") {
+  const ui = render(
     <MemoryRouter initialEntries={[path]}>
       <Routes>
         <Route path="/admin/roles" element={<Roles />} />
       </Routes>
     </MemoryRouter>
   );
+  await waitFor(() => expect((api.listRoles as unknown as Mock).mock.calls.length).toBeGreaterThan(0));
+  return ui;
 }
+
+afterEach(() => {
+  vi.clearAllMocks();
+});
 
 describe("Admin Roles page", () => {
   test("renders list of roles", async () => {
@@ -29,11 +35,12 @@ describe("Admin Roles page", () => {
       roles: ["Admin", "Auditor", "User"]
     });
 
-    renderAt();
+    await renderAt();
 
     expect(await screen.findByRole("heading", { name: /rbac roles/i })).toBeInTheDocument();
+    const list = screen.getByRole("list");
     for (const r of ["Admin", "Auditor", "User"]) {
-      expect(screen.getByText(r)).toBeInTheDocument();
+      expect(within(list).getByText(r)).toBeInTheDocument();
     }
   });
 
@@ -43,7 +50,7 @@ describe("Admin Roles page", () => {
       roles: []
     });
 
-    renderAt();
+    await renderAt();
 
     await screen.findByRole("heading", { name: /rbac roles/i });
     expect(screen.getByText(/no roles defined/i)).toBeInTheDocument();
@@ -68,7 +75,7 @@ describe("Admin Roles page", () => {
       raw: {}
     });
 
-    renderAt();
+    await renderAt();
 
     await screen.findByRole("heading", { name: /rbac roles/i });
 
@@ -78,8 +85,13 @@ describe("Admin Roles page", () => {
     await user.click(screen.getByRole("button", { name: /submit/i }));
 
     expect(api.createRole).toHaveBeenCalledWith("Compliance Lead");
+
+    // Message appears
     expect(await screen.findByText(/created role compliance lead/i)).toBeInTheDocument();
-    expect(screen.getByText("Compliance Lead")).toBeInTheDocument();
+
+    // And list shows the role
+    const list = screen.getByRole("list");
+    expect(within(list).getByText("Compliance Lead")).toBeInTheDocument();
   });
 
   test("handles stub-only acceptance", async () => {
@@ -93,7 +105,7 @@ describe("Admin Roles page", () => {
       raw: {}
     });
 
-    renderAt();
+    await renderAt();
 
     await screen.findByRole("heading", { name: /rbac roles/i });
     const input = screen.getByLabelText(/create role/i);
@@ -114,7 +126,7 @@ describe("Admin Roles page", () => {
       raw: {}
     });
 
-    renderAt();
+    await renderAt();
 
     await screen.findByText("Admin");
     const input = screen.getByLabelText(/create role/i);
@@ -135,7 +147,7 @@ describe("Admin Roles page", () => {
       raw: {}
     });
 
-    renderAt();
+    await renderAt();
 
     await screen.findByRole("heading", { name: /rbac roles/i });
     const input = screen.getByLabelText(/create role/i);

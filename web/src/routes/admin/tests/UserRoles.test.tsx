@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { vi, type Mock } from "vitest";
@@ -15,15 +15,21 @@ vi.mock("../../../lib/api/rbac", () => ({
 import * as api from "../../../lib/api/rbac";
 import UserRoles from "../UserRoles";
 
-function renderAt(path = "/admin/user-roles") {
-  return render(
+async function renderAt(path = "/admin/user-roles") {
+  const ui = render(
     <MemoryRouter initialEntries={[path]}>
       <Routes>
         <Route path="/admin/user-roles" element={<UserRoles />} />
       </Routes>
     </MemoryRouter>
   );
+  await waitFor(() => expect((api.listRoles as unknown as Mock).mock.calls.length).toBeGreaterThan(0));
+  return ui;
 }
+
+afterEach(() => {
+  vi.clearAllMocks();
+});
 
 describe("Admin UserRoles page", () => {
   test("loads available roles and fetches a user by ID", async () => {
@@ -39,15 +45,17 @@ describe("Admin UserRoles page", () => {
     });
 
     const user = userEvent.setup();
-    renderAt();
+    await renderAt();
 
     const input = await screen.findByLabelText(/user id/i);
     await user.type(input, "1");
     await user.click(screen.getByRole("button", { name: /load/i }));
 
     expect(await screen.findByText(/alice@example.com/i)).toBeInTheDocument();
-    expect(screen.getByText(/current roles/i)).toBeInTheDocument();
-    expect(screen.getByText("User")).toBeInTheDocument();
+
+    // Assert "User" appears in the Current roles list, not elsewhere
+    const list = screen.getByRole("list");
+    expect(within(list).getByText("User")).toBeInTheDocument();
   });
 
   test("attach a role not currently assigned", async () => {
@@ -69,7 +77,7 @@ describe("Admin UserRoles page", () => {
     });
 
     const user = userEvent.setup();
-    renderAt();
+    await renderAt();
 
     const input = await screen.findByLabelText(/user id/i);
     await user.type(input, "1");
@@ -80,7 +88,10 @@ describe("Admin UserRoles page", () => {
     await user.click(screen.getByRole("button", { name: /attach/i }));
 
     expect(api.attachUserRole).toHaveBeenCalledWith(1, "Auditor");
-    expect(await screen.findByText("Auditor")).toBeInTheDocument();
+
+    // Scope assertion to Current roles list to avoid checkbox text
+    const list = await screen.findByRole("list");
+    expect(within(list).getByText("Auditor")).toBeInTheDocument();
   });
 
   test("detach a role", async () => {
@@ -102,7 +113,7 @@ describe("Admin UserRoles page", () => {
     });
 
     const user = userEvent.setup();
-    renderAt();
+    await renderAt();
 
     const input = await screen.findByLabelText(/user id/i);
     await user.type(input, "2");
@@ -136,21 +147,18 @@ describe("Admin UserRoles page", () => {
     });
 
     const user = userEvent.setup();
-    renderAt();
+    await renderAt();
 
     const input = await screen.findByLabelText(/user id/i);
     await user.type(input, "3");
     await user.click(screen.getByRole("button", { name: /load/i }));
 
-    // Cast to HTMLInputElement for .checked
     const adminCheckbox = (await screen.findByLabelText("Admin")) as HTMLInputElement;
     const userCheckbox = screen.getByLabelText("User") as HTMLInputElement;
     const auditorCheckbox = screen.getByLabelText("Auditor") as HTMLInputElement;
 
-    // Ensure starting state: "User" checked
     expect(userCheckbox.checked).toBe(true);
 
-    // Toggle to Admin only
     if (!adminCheckbox.checked) await user.click(adminCheckbox);
     if (userCheckbox.checked) await user.click(userCheckbox);
     if (auditorCheckbox.checked) await user.click(auditorCheckbox);
@@ -159,6 +167,10 @@ describe("Admin UserRoles page", () => {
 
     expect(api.replaceUserRoles).toHaveBeenCalledWith(3, ["Admin"]);
     expect(await screen.findByText(/replaced roles\./i)).toBeInTheDocument();
+
+    // Verify in Current roles list
+    const list = screen.getByRole("list");
+    expect(within(list).getByText("Admin")).toBeInTheDocument();
   });
 
   test("handles forbidden on user lookup", async () => {
@@ -173,7 +185,7 @@ describe("Admin UserRoles page", () => {
     });
 
     const user = userEvent.setup();
-    renderAt();
+    await renderAt();
 
     const input = await screen.findByLabelText(/user id/i);
     await user.type(input, "5");
