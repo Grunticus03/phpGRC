@@ -76,7 +76,6 @@ Setup: SETUP_ALREADY_COMPLETED, SETUP_STEP_DISABLED, DB_CONFIG_INVALID, DB_WRITE
     { "ok": true, "roles": ["Admin","Auditor","Risk Manager","User"] }
     ~~~
 
-
 **Role ID Contract**
 - Human-readable slug ID shown in UI/API.
 - Format: `role_<slug>`, lowercase ASCII, `_` separator.
@@ -149,12 +148,18 @@ Setup: SETUP_ALREADY_COMPLETED, SETUP_STEP_DISABLED, DB_CONFIG_INVALID, DB_WRITE
     { "ok": true, "filters": {...}, "data": [ { "id":"ev_...","owner_id":1,"filename":"...", "mime":"...", "size_bytes":123, "sha256":"...", "version":1, "created_at":"2025-09-12T00:00:00Z" } ], "next_cursor": "..." }
     ~~~
 - `POST /api/evidence` — create; stores file, sha256, metadata; validates size/mime.
+  - Persistence: bytes and metadata stored in DB (`evidence.bytes` LONGBLOB on MySQL).
+  - Also enforces Gate ability `core.evidence.manage`.
 - `GET|HEAD /api/evidence/{id}` — download with headers:
+  - `Content-Type: <stored mime>`
+  - `Content-Length: <bytes>`
+  - `Content-Disposition: attachment; filename="<fallback>"; filename*=UTF-8''<urlenc>` (RFC 5987)
   - `ETag: "<sha256>"`
   - `X-Content-Type-Options: nosniff`
   - `X-Checksum-SHA256: <sha256>`
   - Optional `?sha256=<hex>` enforces hash match and returns `412 EVIDENCE_HASH_MISMATCH` when mismatched.
-  - Honors `If-None-Match` for conditional GET.
+  - Honors `If-None-Match` for conditional GET (`304` when matched).
+  - `HEAD` returns headers only.
 
 ### Audit
 - `GET /api/audit` — list events with pagination.
@@ -195,7 +200,6 @@ Setup: SETUP_ALREADY_COMPLETED, SETUP_STEP_DISABLED, DB_CONFIG_INVALID, DB_WRITE
     }
     ~~~
 
-
 **Audit — CSV Export**
 - `GET /api/audit/export.csv` — CSV download of events matching the same filters as `GET /api/audit`.
   - Filters: `category`, `action`, `occurred_from`, `occurred_to`, `actor_id`, `entity_type`, `entity_id`, `ip`, `order`.
@@ -204,6 +208,7 @@ Setup: SETUP_ALREADY_COMPLETED, SETUP_STEP_DISABLED, DB_CONFIG_INVALID, DB_WRITE
     - `Content-Type: text/csv`  _(exactly; no charset)_
     - `Content-Disposition: attachment; filename="audit-<timestamp>.csv"`
     - `X-Content-Type-Options: nosniff`
+    - `Cache-Control: no-store, max-age=0`
   - Columns:
     - `id, occurred_at, actor_id, action, category, entity_type, entity_id, ip, ua, meta_json`
   - CSV format: RFC 4180 quoting via `fputcsv`.
@@ -408,4 +413,3 @@ Route::prefix('/setup')->group(function () {
   - `/admin/settings` — settings stub.
   - `/admin/roles` — role list and create role. Uses stub path when RBAC persistence disabled.
   - `/admin/user-roles` — assign roles to users (read, attach, detach, replace).
-

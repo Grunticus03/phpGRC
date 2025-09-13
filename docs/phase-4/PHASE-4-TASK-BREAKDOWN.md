@@ -29,14 +29,16 @@
 - [x] Stub pagination + cursor semantics aligned with tests
 - [x] Filters on list (category/action/date range + ids/ip) — persisted path
 - [x] Retention job honoring `core.audit.retention_days` (CLI + scheduler clamp)
+- [x] CSV export with exact `Content-Type: text/csv` header
 
 ### 3. Evidence (CORE-007)
-- [x] Persist evidence metadata + file store
+- [x] Persist evidence metadata + bytes in DB (`evidence.bytes`; LONGBLOB on MySQL)
 - [x] Size/mime validation
-- [x] SHA-256 compute + ETag headers
+- [x] SHA-256 compute + `ETag` and checksum headers
 - [x] Pagination on list
 - [x] Filtering on list
-- [x] Hash verification on download
+- [x] Hash verification on download (`?sha256=` → 412)
+- [x] Conditional GET with `If-None-Match` → 304
 
 ### 4. Exports (CORE-008)
 - [x] Create job endpoints (preferred + legacy)
@@ -52,11 +54,12 @@
 
 ### 6. RBAC Enforcement + Catalog (CORE-004)
 - [x] `RbacMiddleware` enforces when `core.rbac.enabled=true`
+- [x] Request attribute `rbac_enabled` tagged for observability/tests
 - [x] Role catalog endpoints (index/store) with slug IDs (`role_<slug>`)
 - [x] User–role mapping endpoints (show/replace/attach/detach)
 - [x] DB-backed checks via `User::hasAnyRole(...)`
-- [x] CI tests for enforcement and endpoints
-- [x] UI scaffold for role management (list roles, create role stub) under `/admin/roles`
+- [x] CI tests for enforcement and audit
+- [x] UI for role management (list roles, create role) under `/admin/roles`
 - [x] User–role assignment UI (read, attach, detach, replace)
 
 ### 7. RBAC Audit
@@ -84,6 +87,6 @@
 ---
 
 ## Immediate Next Steps
-1. Role Management UI: finalize SPA flows for create/assign and add smoke tests.
+1. Fine-grained RBAC policies (PolicyMap + RbacEvaluator) and tests.
 2. Minor UX polish on admin pages per STYLEGUIDE.
-
+3. Prep OpenAPI surface for Phase 5 (spec scaffolding only).

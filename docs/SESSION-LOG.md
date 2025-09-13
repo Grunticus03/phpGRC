@@ -602,3 +602,18 @@ Closeout
 - Phase/Step status: Phase 4 core backend complete; CI green.
 - Next action (you): Provide SPA files for `/web/src/routes/admin/roles` and `/web/src/routes/admin/user-roles` to finalize UI wiring and add smoke tests.
 - Next action (me): Prepare UI scaffolding patches per STYLEGUIDE and propose e2e test matrix.
+
+---
+
+### Session Header
+- Session 2025-09-12: [Phase 4, Docs Sync]
+- Context: Aligned docs with implemented Audit/Evidence/RBAC/Exports; ensured CSV header contract; noted RBAC mw tagging.
+- Goal: Update BACKLOG, ROADMAP, PHASE-4-SPEC, PHASE-4-TASK-BREAKDOWN to reflect current behavior with CI green.
+- Constraints: Docs-only; no code changes; freeze delivered contracts.
+
+### Session Footer
+- Closeout
+- Deliverables produced: BACKLOG.md, ROADMAP.md, PHASE-4-SPEC.md, PHASE-4-TASK-BREAKDOWN.md
+- Phase/Step status: advance (Phase 4 in progress; fine-grained RBAC pending)
+- Next action (you): Scaffold PolicyMap/RbacEvaluator + tests; prep OpenAPI surface; minor admin UI polish; keep CI green
+- Next action (me): Review/approve docs; provide RBAC policy matrix & capability toggles; confirm Phase 5 OpenAPI scope

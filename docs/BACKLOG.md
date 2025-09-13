@@ -55,11 +55,12 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 - Role IDs are human-readable slugs `role_<slug>` with collision suffix `_N`
 - Persistence path gated by `core.rbac.mode=persist` or `core.rbac.persistence=true`
 - Endpoints: list/store roles; user-role list/replace/attach/detach
-- Enforced by Policies/Middleware with JSON 401/403  
+- Enforced by Middleware with JSON 401/403; `rbac_enabled` request flag tagged
+- Admin UI for roles and user-role assignment  
 **Phase:** 4  
 **Step:** 2  
 **Dependencies:** CORE-003  
-**Status:** In progress — fine-grained policies and UI role management pending.
+**Status:** Partially Done — route enforcement and admin UI complete; fine-grained policy map pending.
 
 ---
 
@@ -79,8 +80,10 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 **Description:** Append-only audit events with retention limits.  
 **Acceptance Criteria:**  
 - `audit_events` table
-- API listing with bounds and pagination
-- Retention purge job  
+- API listing with bounds and cursor pagination
+- CSV export with `Content-Type: text/csv` exactly
+- Retention purge job and scheduler (clamped ≤ 2 years)
+- RBAC + categories helper  
 **Phase:** 4  
 **Step:** 2  
 **Dependencies:** CORE-004  
@@ -92,8 +95,12 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 **Description:** Evidence upload, validation, storage, and retrieval.  
 **Acceptance Criteria:**
 - Validate size/mime by config
-- Store to filesystem with sha256 + metadata
-- List and retrieve  
+- Persist bytes and metadata in DB (`evidence` table; LONGBLOB on MySQL)
+- Compute and return SHA-256; set `ETag`, `X-Content-Type-Options: nosniff`, `X-Checksum-SHA256`
+- `Content-Disposition` attachment with RFC 5987 filename*
+- Support `HEAD` with headers, `GET` with conditional `If-None-Match` → `304`
+- Optional `?sha256=<hex>` verification → `412 EVIDENCE_HASH_MISMATCH` on mismatch
+- List with filters and cursor pagination  
 **Phase:** 4  
 **Step:** 2  
 **Dependencies:** CORE-003  

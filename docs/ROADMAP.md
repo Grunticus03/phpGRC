@@ -43,13 +43,15 @@
 - [x] Settings — echo + validation stubs
 - [x] RBAC — Sanctum PAT guard; route enforcement; JSON 401/403 contract
 - [x] RBAC — role IDs standardized to human-readable slugs
+- [x] RBAC — admin UI for role list/create and user-role assign
 - [x] Audit — listing, categories helper, retention echo
+- [x] Audit — CSV export with exact `Content-Type: text/csv`
 - [x] Evidence — multipart validate (size/mime via config)
-- [x] Evidence persistence: storage + sha256 + listing + headers
+- [x] Evidence persistence: DB storage + sha256 + listing + headers + conditional GET + hash verification
 - [x] Audit persistence: write path + retention enforcement (≤ 2 years)
 - [x] API docs for Settings/Audit/Evidence + common errors
 - [x] Feature tests for Settings/Audit/Evidence + RBAC middleware tagging
-- [ ] RBAC fine-grained policies and UI role management
+- [ ] RBAC fine-grained policies (PolicyMap/Evaluator)
 - [x] Exports job model + generation (CSV/JSON/PDF) + download with headers
 - [x] Settings persistence + audit logging of applied changes
 
@@ -79,9 +81,9 @@
 
 ---
 
-### Current Status (as of 2025-09-11)
+### Current Status (as of 2025-09-12)
 - ✅ CI green on main; all tests passing.
-- ✅ RBAC enforcement active; role IDs locked to slugs.
-- ✅ Audit & Evidence persistence complete.
+- ✅ RBAC enforcement active; admin UI shipped.
+- ✅ Audit & Evidence persistence complete; CSV export headers exact.
 - ✅ Exports model and generation complete.
 - ⏳ Fine-grained RBAC policies remain.
