@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace App\Http\Middleware;
 
+use App\Authorization\RbacEvaluator;
 use App\Models\User;
 use Closure;
 use Illuminate\Auth\AuthenticationException;
@@ -49,13 +50,22 @@ final class RbacMiddleware
             if ($requireAuth) {
                 throw new AuthenticationException(); // 401 via handler
             }
-            // In stub or persist modes, when auth is not required, skip role checks.
+            // In stub or persist modes, when auth is not required, skip role/policy checks.
             return $next($request);
         }
 
         // Enforce roles only when a user is present.
         if ($requiredRoles !== []) {
             if ($user instanceof User && !$user->hasAnyRole($requiredRoles)) {
+                return response()->json(['ok' => false, 'code' => 'FORBIDDEN', 'message' => 'Forbidden'], 403);
+            }
+        }
+
+        // Enforce fine-grained policy when declared.
+        $policy = $route->defaults['policy'] ?? null;
+        if (is_string($policy) && $policy !== '') {
+            $subject = $user instanceof User ? $user : null;
+            if (!RbacEvaluator::allows($subject, $policy)) {
                 return response()->json(['ok' => false, 'code' => 'FORBIDDEN', 'message' => 'Forbidden'], 403);
             }
         }
