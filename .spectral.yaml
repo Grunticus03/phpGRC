@@ -1,8 +1,13 @@
 extends: "spectral:oas"
+
+# Apply to both 3.0 and 3.1 specs
+formats:
+  - oas3
+  - oas3_1
+
 rules:
-  # relax a few noisy rules for Phase 4
+  # Quiet non-critical noise for Phase 4
   info-contact: off
   operation-success-response: warn
   no-$ref-siblings: warn
-  no-unused-components: warn
   oas3-schema: warn
