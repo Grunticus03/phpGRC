@@ -669,3 +669,18 @@ Closeout
 - Phase/Step status: advance
 - Next action (you): Prep a small follow-up to silence React Router warnings (enable v7 future flags or wrap route-mutating ops in `act`); add a lightweight test health check to catch future flakiness.
 - Next action (me): Review the merged test changes and confirm alert copy/messages; decide on enabling React Router v7 future flags; share any upcoming API contract shifts for RBAC persistence.
+
+---
+
+### Session Header
+- Session 2025-09-13: Phase 4 — Fine-grained RBAC policies
+- Context: Enforce route `policy` defaults with PolicyMap + RbacEvaluator; fix PHPStan warning
+- Goal: Gate endpoints by roles and policies; keep CI/linters green; update docs
+- Constraints: Deterministic outputs; no scope creep; full-file edits; nested tildes for inner code
+
+### Session Footer
+- Closeout
+- Deliverables produced: Updated `RbacMiddleware` to enforce `policy`; added/expanded tests (`RbacPolicyEvaluatorTest`, `RbacMiddlewarePoliciesTest`); refreshed `PHASE-4-SPEC.md` and `PHASE-4-TASK-BREAKDOWN.md`; resolved PHPStan `ternary.elseUnreachable`; CI green
+- Phase/Step status: advance
+- Next action (you): Supply full files to polish per STYLEGUIDE — `/web/src/routes/admin/Settings.tsx`, `/web/src/routes/admin/Roles.tsx`, `/web/src/routes/admin/UserRoles.tsx`, `/web/src/components/*` used by these screens
+- Next action (me): Apply UX polish to admin pages; scaffold OpenAPI surface for Phase 5 (spec-only)
