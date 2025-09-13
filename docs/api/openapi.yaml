@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: phpGRC API
-  version: 0.4.3
+  version: 0.4.4
   license:
     identifier: MIT
     name: MIT
@@ -40,6 +40,7 @@ paths:
     get:
       tags: [Health]
       summary: Health check
+      description: Returns a simple ok:true envelope to indicate liveness.
       operationId: health
       responses:
         '200': { $ref: '#/components/responses/Ok' }
@@ -49,10 +50,11 @@ paths:
     get:
       tags: [Spec]
       summary: Serve OpenAPI YAML
+      description: Returns this OpenAPI document as YAML.
       operationId: serveOpenApiYaml
       responses:
         '200':
-          description: YAML
+          description: YAML document
           content:
             application/yaml:
               schema:
@@ -63,10 +65,11 @@ paths:
     get:
       tags: [Docs]
       summary: Swagger UI
+      description: Serves an embedded Swagger UI that loads /api/openapi.yaml.
       operationId: swaggerUi
       responses:
         '200':
-          description: HTML
+          description: HTML page containing Swagger UI
           content:
             text/html:
               schema:
@@ -79,6 +82,7 @@ paths:
     get:
       tags: [Setup]
       summary: Setup status
+      description: Reports current setup state and any remaining steps.
       operationId: setupStatus
       responses:
         '200':
@@ -94,6 +98,7 @@ paths:
     post:
       tags: [Setup]
       summary: Test database connectivity
+      description: Attempts to connect to the database using provided parameters.
       operationId: setupDbTest
       responses:
         '200': { $ref: '#/components/responses/Ok' }
@@ -108,6 +113,7 @@ paths:
     post:
       tags: [Setup]
       summary: Persist database config to shared path
+      description: Writes validated database configuration to the shared config location.
       operationId: setupDbWrite
       responses:
         '200': { $ref: '#/components/responses/Ok' }
@@ -122,6 +128,7 @@ paths:
     post:
       tags: [Setup]
       summary: Generate app key
+      description: Generates and persists the Laravel application key.
       operationId: setupAppKey
       responses:
         '200': { $ref: '#/components/responses/Ok' }
@@ -131,6 +138,7 @@ paths:
     post:
       tags: [Setup]
       summary: Initialize application schema
+      description: Runs migrations and initializes the application schema.
       operationId: setupSchemaInit
       responses:
         '200': { $ref: '#/components/responses/Ok' }
@@ -140,6 +148,7 @@ paths:
     post:
       tags: [Setup]
       summary: Create initial admin user
+      description: Creates the first admin account during setup.
       operationId: setupAdminCreate
       responses:
         '201': { description: Created }
@@ -154,6 +163,7 @@ paths:
     post:
       tags: [Setup]
       summary: Verify admin TOTP after enrollment
+      description: Verifies the TOTP code for the initial admin after enrollment.
       operationId: setupAdminTotpVerify
       requestBody:
         required: true
@@ -167,13 +177,15 @@ paths:
               required: [code]
       responses:
         '200': { $ref: '#/components/responses/Ok' }
-        '400': { description: Invalid TOTP }
+        '400':
+          description: Invalid TOTP
         '403': { $ref: '#/components/responses/Forbidden' }
 
   /setup/smtp:
     post:
       tags: [Setup]
       summary: Save SMTP settings
+      description: Persists mail transport settings and optionally sends a test message.
       operationId: setupSmtp
       responses:
         '200': { $ref: '#/components/responses/Ok' }
@@ -188,6 +200,7 @@ paths:
     post:
       tags: [Setup]
       summary: Save IdP settings
+      description: Persists identity provider configuration for SSO.
       operationId: setupIdp
       responses:
         '200': { $ref: '#/components/responses/Ok' }
@@ -202,6 +215,7 @@ paths:
     post:
       tags: [Setup]
       summary: Save branding
+      description: Saves product name, theme, and optional logo URL.
       operationId: setupBranding
       responses:
         '200': { $ref: '#/components/responses/Ok' }
@@ -216,6 +230,7 @@ paths:
     post:
       tags: [Setup]
       summary: Mark setup complete
+      description: Finalizes initial setup and enables normal operation.
       operationId: setupFinish
       responses:
         '200': { $ref: '#/components/responses/Ok' }
@@ -228,6 +243,7 @@ paths:
     post:
       tags: [Auth]
       summary: Login
+      description: Authenticates a user using email and password.
       operationId: login
       requestBody:
         required: true
@@ -248,6 +264,7 @@ paths:
     post:
       tags: [Auth]
       summary: Logout
+      description: Invalidates the current session or token.
       operationId: logout
       responses:
         '200': { $ref: '#/components/responses/Ok' }
@@ -257,6 +274,7 @@ paths:
     get:
       tags: [Auth]
       summary: Current user
+      description: Returns the authenticated user profile.
       operationId: me
       responses:
         '200':
@@ -283,6 +301,7 @@ paths:
     post:
       tags: [Auth]
       summary: Enroll TOTP
+      description: Starts TOTP enrollment for the authenticated user.
       operationId: totpEnroll
       responses:
         '200': { $ref: '#/components/responses/Ok' }
@@ -292,6 +311,7 @@ paths:
     post:
       tags: [Auth]
       summary: Verify TOTP
+      description: Verifies a one-time TOTP code for the authenticated user.
       operationId: totpVerify
       requestBody:
         required: true
@@ -311,6 +331,7 @@ paths:
     post:
       tags: [Auth]
       summary: Break-glass login
+      description: Emergency access path when normal auth is unavailable.
       operationId: breakGlass
       responses:
         '200': { $ref: '#/components/responses/Ok' }
@@ -323,6 +344,7 @@ paths:
     get:
       tags: [Admin Settings]
       summary: Read effective core settings
+      description: Returns the effective core configuration resolved from persisted and default values.
       operationId: adminSettingsIndex
       security:
         - bearerAuth: []
@@ -337,6 +359,7 @@ paths:
     post:
       tags: [Admin Settings]
       summary: Validate and optionally persist core settings
+      description: Validates settings; persists only when apply=true and persistence is available.
       operationId: adminSettingsUpdate
       security:
         - bearerAuth: []
@@ -357,6 +380,7 @@ paths:
     put:
       tags: [Admin Settings]
       summary: Validate and optionally persist core settings
+      description: Same semantics as POST /admin/settings.
       operationId: adminSettingsPut
       security:
         - bearerAuth: []
@@ -377,6 +401,7 @@ paths:
     patch:
       tags: [Admin Settings]
       summary: Validate and optionally persist core settings
+      description: Same semantics as POST /admin/settings.
       operationId: adminSettingsPatch
       security:
         - bearerAuth: []
@@ -402,6 +427,7 @@ paths:
     get:
       tags: [RBAC]
       summary: List roles
+      description: Lists available roles from config or database depending on mode.
       operationId: rbacListRoles
       security:
         - bearerAuth: []
@@ -416,6 +442,7 @@ paths:
     post:
       tags: [RBAC]
       summary: Create role
+      description: Creates a new role when persistence is enabled; returns stub otherwise.
       operationId: rbacCreateRole
       security:
         - bearerAuth: []
@@ -477,6 +504,7 @@ paths:
     get:
       tags: [RBAC]
       summary: Get roles for user
+      description: Returns the roles assigned to a specific user.
       operationId: rbacGetUserRoles
       security:
         - bearerAuth: []
@@ -491,6 +519,7 @@ paths:
     put:
       tags: [RBAC]
       summary: Replace roles for user
+      description: Replaces all roles for the user with the provided set.
       operationId: rbacReplaceUserRoles
       security:
         - bearerAuth: []
@@ -530,6 +559,7 @@ paths:
     post:
       tags: [RBAC]
       summary: Attach role
+      description: Attaches a role to the user if not already present.
       operationId: rbacAttachUserRole
       security:
         - bearerAuth: []
@@ -545,6 +575,7 @@ paths:
     delete:
       tags: [RBAC]
       summary: Detach role
+      description: Detaches a role from the user if present.
       operationId: rbacDetachUserRole
       security:
         - bearerAuth: []
@@ -565,6 +596,7 @@ paths:
     get:
       tags: [Audit]
       summary: List audit events
+      description: Lists audit events with cursor pagination and filters.
       operationId: auditList
       security:
         - bearerAuth: []
@@ -615,6 +647,7 @@ paths:
     get:
       tags: [Audit]
       summary: Export audit events as CSV
+      description: Streams a CSV of audit events using current filters when supported.
       operationId: auditExportCsv
       security:
         - bearerAuth: []
@@ -636,6 +669,7 @@ paths:
     get:
       tags: [Evidence]
       summary: List evidence items
+      description: Lists evidence items with filters and cursor pagination.
       operationId: evidenceList
       security:
         - bearerAuth: []
@@ -687,6 +721,7 @@ paths:
     post:
       tags: [Evidence]
       summary: Upload evidence
+      description: Uploads a single evidence file and records metadata.
       operationId: evidenceStore
       security:
         - bearerAuth: []
@@ -727,14 +762,15 @@ paths:
         schema: { type: string }
     get:
       tags: [Evidence]
-      summary: Show evidence metadata or stream content
+      summary: Show evidence
+      description: Streams the evidence content; supports conditional headers and hash verification.
       operationId: evidenceShow
       security:
         - bearerAuth: []
         - {}
       responses:
         '200':
-          description: OK
+          description: File content
           content:
             application/octet-stream:
               schema:
@@ -749,6 +785,7 @@ paths:
     post:
       tags: [Exports]
       summary: Create export job (legacy shape)
+      description: Creates an export job with a type in the request body for backward compatibility.
       operationId: exportsCreateLegacy
       security:
         - bearerAuth: []
@@ -778,6 +815,7 @@ paths:
     post:
       tags: [Exports]
       summary: Create export job by type
+      description: Creates an export job for a specific artifact type.
       operationId: exportsCreateByType
       security:
         - bearerAuth: []
@@ -800,6 +838,7 @@ paths:
     get:
       tags: [Exports]
       summary: Export job status
+      description: Returns the current processing status of an export job.
       operationId: exportsStatus
       security:
         - bearerAuth: []
@@ -821,6 +860,7 @@ paths:
     get:
       tags: [Exports]
       summary: Download export artifact
+      description: Downloads the completed export artifact when available.
       operationId: exportsDownload
       security:
         - bearerAuth: []
@@ -842,6 +882,7 @@ paths:
     post:
       tags: [Avatars]
       summary: Upload avatar (webp)
+      description: Uploads a WEBP avatar image and queues transcoding into configured sizes.
       operationId: avatarStore
       requestBody:
         required: true
@@ -871,12 +912,6 @@ paths:
               schema:
                 allOf:
                   - $ref: '#/components/schemas/Error422'
-    get:
-      tags: [Avatars]
-      summary: Not used (see /avatar/{user})
-      operationId: avatarNoop
-      responses:
-        '405': { description: Method not allowed }
 
   /avatar/{user}:
     parameters:
@@ -887,6 +922,7 @@ paths:
     get:
       tags: [Avatars]
       summary: Get avatar
+      description: Returns the WEBP avatar image for the user in the requested size.
       operationId: avatarShow
       responses:
         '200':
