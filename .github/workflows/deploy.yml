@@ -87,7 +87,7 @@ jobs:
             cat > "$ROOT/shared/api.env" <<EOF
             APP_ENV=production
             APP_DEBUG=false
-            APP_URL=${APP_URL}
+            APP_URL="https://phpgrc.gruntlabs.net"
             APP_KEY=${APP_KEY}
       
             LOG_CHANNEL=stack
