@@ -1,21 +1,23 @@
 openapi: 3.1.0
 info:
   title: phpGRC API
-  version: 0.4.2
+  version: 0.4.3
   license:
     identifier: MIT
     name: MIT
   description: |
-    OpenAPI scaffold for phpGRC Phase 4. Contracts reflect current routes.
-    Authoritative references: PHASE-4-SPEC.md and code under /api.
+    OpenAPI 3.1 for phpGRC Phase 4.
+    Contracts mirror current routes and response shapes.
 servers:
   - url: /api
-security: [] # define at root to satisfy "security-defined" rule; override per operation as needed
+security: [] # optional per-operation security is declared where RBAC/auth may apply
 tags:
   - name: Health
     description: Liveness and readiness checks
   - name: Spec
     description: API specification endpoints
+  - name: Docs
+    description: Embedded Swagger UI
   - name: Auth
     description: Authentication and MFA
   - name: Setup
@@ -32,6 +34,7 @@ tags:
     description: Bulk export jobs
   - name: Avatars
     description: User avatar upload and fetch
+
 paths:
   /health:
     get:
@@ -39,14 +42,8 @@ paths:
       summary: Health check
       operationId: health
       responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/OkEnvelope'
-        '400':
-          description: Bad request
+        '200': { $ref: '#/components/responses/Ok' }
+        '400': { description: Bad request }
 
   /openapi.yaml:
     get:
@@ -60,8 +57,20 @@ paths:
             application/yaml:
               schema:
                 type: string
-        '404':
-          description: Not found
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /docs:
+    get:
+      tags: [Docs]
+      summary: Swagger UI
+      operationId: swaggerUi
+      responses:
+        '200':
+          description: HTML
+          content:
+            text/html:
+              schema:
+                type: string
 
   # ---------------------------
   # Setup Wizard (first-run)
@@ -133,8 +142,7 @@ paths:
       summary: Create initial admin user
       operationId: setupAdminCreate
       responses:
-        '201':
-          description: Created
+        '201': { description: Created }
         '422':
           description: Validation failed
           content:
@@ -159,8 +167,7 @@ paths:
               required: [code]
       responses:
         '200': { $ref: '#/components/responses/Ok' }
-        '400':
-          description: Invalid TOTP
+        '400': { description: Invalid TOTP }
         '403': { $ref: '#/components/responses/Forbidden' }
 
   /setup/smtp:
@@ -317,6 +324,9 @@ paths:
       tags: [Admin Settings]
       summary: Read effective core settings
       operationId: adminSettingsIndex
+      security:
+        - bearerAuth: []
+        - {}
       responses:
         '200':
           description: OK
@@ -328,6 +338,9 @@ paths:
       tags: [Admin Settings]
       summary: Validate and optionally persist core settings
       operationId: adminSettingsUpdate
+      security:
+        - bearerAuth: []
+        - {}
       requestBody:
         required: true
         content:
@@ -345,6 +358,9 @@ paths:
       tags: [Admin Settings]
       summary: Validate and optionally persist core settings
       operationId: adminSettingsPut
+      security:
+        - bearerAuth: []
+        - {}
       requestBody:
         required: true
         content:
@@ -362,6 +378,9 @@ paths:
       tags: [Admin Settings]
       summary: Validate and optionally persist core settings
       operationId: adminSettingsPatch
+      security:
+        - bearerAuth: []
+        - {}
       requestBody:
         required: true
         content:
@@ -384,6 +403,9 @@ paths:
       tags: [RBAC]
       summary: List roles
       operationId: rbacListRoles
+      security:
+        - bearerAuth: []
+        - {}
       responses:
         '200':
           description: OK
@@ -393,8 +415,11 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
     post:
       tags: [RBAC]
-      summary: Create role (stub when persistence disabled)
+      summary: Create role
       operationId: rbacCreateRole
+      security:
+        - bearerAuth: []
+        - {}
       requestBody:
         required: true
         content:
@@ -406,8 +431,36 @@ paths:
                 name: { type: string, minLength: 2, maxLength: 64 }
               required: [name]
       responses:
-        '201': { description: Created }
-        '202': { description: Accepted (stub-only) }
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  role:
+                    type: object
+                    properties:
+                      id: { type: string }
+                      name: { type: string }
+                    required: [id, name]
+                required: [ok, role]
+        '202':
+          description: Accepted (stub-only)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  note: { type: string }
+                  accepted:
+                    type: object
+                    properties:
+                      name: { type: string }
+                    required: [name]
+                required: [ok, note, accepted]
         '403': { $ref: '#/components/responses/Forbidden' }
         '422':
           description: Validation failed
@@ -425,6 +478,9 @@ paths:
       tags: [RBAC]
       summary: Get roles for user
       operationId: rbacGetUserRoles
+      security:
+        - bearerAuth: []
+        - {}
       responses:
         '200':
           description: OK
@@ -436,6 +492,9 @@ paths:
       tags: [RBAC]
       summary: Replace roles for user
       operationId: rbacReplaceUserRoles
+      security:
+        - bearerAuth: []
+        - {}
       requestBody:
         required: true
         content:
@@ -472,6 +531,9 @@ paths:
       tags: [RBAC]
       summary: Attach role
       operationId: rbacAttachUserRole
+      security:
+        - bearerAuth: []
+        - {}
       responses:
         '200':
           description: OK
@@ -484,6 +546,9 @@ paths:
       tags: [RBAC]
       summary: Detach role
       operationId: rbacDetachUserRole
+      security:
+        - bearerAuth: []
+        - {}
       responses:
         '200':
           description: OK
@@ -501,7 +566,19 @@ paths:
       tags: [Audit]
       summary: List audit events
       operationId: auditList
+      security:
+        - bearerAuth: []
+        - {}
       parameters:
+        - in: query
+          name: order
+          schema: { type: string, enum: [asc, desc], default: desc }
+        - in: query
+          name: limit
+          schema: { type: integer, minimum: 1, maximum: 100 }
+        - in: query
+          name: cursor
+          schema: { type: string }
         - in: query
           name: category
           schema: { type: string }
@@ -509,22 +586,29 @@ paths:
           name: action
           schema: { type: string }
         - in: query
-          name: page
-          schema: { type: integer, minimum: 1 }
+          name: occurred_from
+          schema: { type: string, format: date-time }
+        - in: query
+          name: occurred_to
+          schema: { type: string, format: date-time }
+        - in: query
+          name: actor_id
+          schema: { type: integer }
+        - in: query
+          name: entity_type
+          schema: { type: string }
+        - in: query
+          name: entity_id
+          schema: { type: string }
+        - in: query
+          name: ip
+          schema: { type: string, format: ipv4 }
       responses:
         '200':
           description: OK
           content:
             application/json:
-              schema:
-                type: object
-                additionalProperties: false
-                properties:
-                  ok: { type: boolean }
-                  items:
-                    type: array
-                    items: { $ref: '#/components/schemas/AuditEvent' }
-                required: [ok, items]
+              schema: { $ref: '#/components/schemas/AuditListEnvelope' }
         '403': { $ref: '#/components/responses/Forbidden' }
 
   /audit/export.csv:
@@ -532,6 +616,9 @@ paths:
       tags: [Audit]
       summary: Export audit events as CSV
       operationId: auditExportCsv
+      security:
+        - bearerAuth: []
+        - {}
       responses:
         '200':
           description: CSV
@@ -550,25 +637,60 @@ paths:
       tags: [Evidence]
       summary: List evidence items
       operationId: evidenceList
+      security:
+        - bearerAuth: []
+        - {}
+      parameters:
+        - in: query
+          name: order
+          schema: { type: string, enum: [asc, desc], default: desc }
+        - in: query
+          name: limit
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+        - in: query
+          name: owner_id
+          schema: { type: integer }
+        - in: query
+          name: filename
+          schema: { type: string }
+        - in: query
+          name: mime
+          schema: { type: string }
+        - in: query
+          name: sha256
+          schema: { type: string }
+        - in: query
+          name: sha256_prefix
+          schema: { type: string }
+        - in: query
+          name: version_from
+          schema: { type: integer }
+        - in: query
+          name: version_to
+          schema: { type: integer }
+        - in: query
+          name: created_from
+          schema: { type: string, format: date-time }
+        - in: query
+          name: created_to
+          schema: { type: string, format: date-time }
+        - in: query
+          name: cursor
+          schema: { type: string }
       responses:
         '200':
           description: OK
           content:
             application/json:
-              schema:
-                type: object
-                additionalProperties: false
-                properties:
-                  ok: { type: boolean }
-                  items:
-                    type: array
-                    items: { $ref: '#/components/schemas/EvidenceItem' }
-                required: [ok, items]
+              schema: { $ref: '#/components/schemas/EvidenceListEnvelope' }
         '403': { $ref: '#/components/responses/Forbidden' }
     post:
       tags: [Evidence]
       summary: Upload evidence
       operationId: evidenceStore
+      security:
+        - bearerAuth: []
+        - {}
       requestBody:
         required: true
         content:
@@ -582,10 +704,20 @@ paths:
                   format: binary
               required: [file]
       responses:
-        '201': { description: Created }
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EvidenceCreated' }
         '413': { description: Payload too large }
         '415': { description: Unsupported media type }
+        '400': { description: Evidence disabled }
         '403': { $ref: '#/components/responses/Forbidden' }
+        '422':
+          description: Validation failed
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error422' }
 
   /evidence/{id}:
     parameters:
@@ -595,14 +727,19 @@ paths:
         schema: { type: string }
     get:
       tags: [Evidence]
-      summary: Show evidence metadata
+      summary: Show evidence metadata or stream content
       operationId: evidenceShow
+      security:
+        - bearerAuth: []
+        - {}
       responses:
         '200':
           description: OK
           content:
-            application/json:
-              schema: { $ref: '#/components/schemas/EvidenceItem' }
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
         '404': { $ref: '#/components/responses/NotFound' }
 
   # ---------------------------
@@ -613,16 +750,23 @@ paths:
       tags: [Exports]
       summary: Create export job (legacy shape)
       operationId: exportsCreateLegacy
+      security:
+        - bearerAuth: []
+        - {}
       requestBody:
         required: false
         content:
           application/json:
             schema:
               type: object
-              description: Legacy accepts type in body
+              additionalProperties: true
       responses:
         '201': { description: Created }
-        '202': { description: Accepted (stub-only) }
+        '202':
+          description: Accepted (stub-only or queued)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ExportJobAccepted' }
         '403': { $ref: '#/components/responses/Forbidden' }
 
   /exports/{type}:
@@ -635,9 +779,16 @@ paths:
       tags: [Exports]
       summary: Create export job by type
       operationId: exportsCreateByType
+      security:
+        - bearerAuth: []
+        - {}
       responses:
         '201': { description: Created }
-        '202': { description: Accepted (stub-only) }
+        '202':
+          description: Accepted (stub-only or queued)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ExportJobAccepted' }
         '403': { $ref: '#/components/responses/Forbidden' }
 
   /exports/{jobId}/status:
@@ -650,18 +801,15 @@ paths:
       tags: [Exports]
       summary: Export job status
       operationId: exportsStatus
+      security:
+        - bearerAuth: []
+        - {}
       responses:
         '200':
           description: OK
           content:
             application/json:
-              schema:
-                type: object
-                additionalProperties: false
-                properties:
-                  ok: { type: boolean }
-                  status: { type: string, enum: [queued, running, done, failed] }
-                required: [ok, status]
+              schema: { $ref: '#/components/schemas/ExportStatusEnvelope' }
         '404': { $ref: '#/components/responses/NotFound' }
 
   /exports/{jobId}/download:
@@ -674,6 +822,9 @@ paths:
       tags: [Exports]
       summary: Download export artifact
       operationId: exportsDownload
+      security:
+        - bearerAuth: []
+        - {}
       responses:
         '200':
           description: File
@@ -700,13 +851,32 @@ paths:
               type: object
               additionalProperties: false
               properties:
-                image:
+                file:
                   type: string
                   format: binary
-              required: [image]
+                user_id:
+                  type: integer
+              required: [file]
       responses:
-        '201': { description: Created }
+        '202':
+          description: Accepted for processing
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AvatarStoreAccepted' }
         '415': { description: Unsupported media type }
+        '422':
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Error422'
+    get:
+      tags: [Avatars]
+      summary: Not used (see /avatar/{user})
+      operationId: avatarNoop
+      responses:
+        '405': { description: Method not allowed }
 
   /avatar/{user}:
     parameters:
@@ -729,6 +899,12 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
 
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: Sanctum PAT
+
   responses:
     Ok:
       description: OK
@@ -754,16 +930,16 @@ components:
       type: object
       additionalProperties: false
       properties:
-        ok: { type: boolean, const: false }
-        code: { type: string, const: VALIDATION_FAILED }
+        ok: { type: boolean }
+        code: { type: string }
         errors:
           type: object
           additionalProperties:
-            type: object
-            additionalProperties:
-              type: array
-              items: { type: string }
-      required: [ok, code, errors]
+            type: array
+            items: { type: string }
+        message:
+          type: string
+      required: [errors]
 
     SettingsEnvelope:
       type: object
@@ -794,6 +970,7 @@ components:
           additionalProperties: false
           properties:
             enabled: { type: boolean }
+            require_auth: { type: boolean }
             roles:
               type: array
               items: { type: string }
@@ -880,16 +1057,116 @@ components:
         entity_id: { type: string }
         ip:
           type: [string, 'null']
-        agent:
+        ua:
           type: [string, 'null']
+        meta:
+          type: ['object', 'null']
+
+    AuditListEnvelope:
+      type: object
+      additionalProperties: false
+      properties:
+        ok: { type: boolean }
+        note: { type: string }
+        _categories:
+          type: array
+          items: { type: string }
+        _retention_days: { type: integer }
+        filters:
+          type: object
+          additionalProperties: true
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/AuditEvent' }
+        nextCursor:
+          type: ['string', 'null']
+      required: [ok, items]
 
     EvidenceItem:
       type: object
       additionalProperties: true
       properties:
         id: { type: string }
+        owner_id: { type: integer }
         name: { type: string }
+        filename: { type: string }
         mime: { type: string }
         size: { type: integer }
+        size_bytes: { type: integer }
         sha256: { type: string }
+        version: { type: integer }
         created_at: { type: string, format: date-time }
+
+    EvidenceListEnvelope:
+      type: object
+      additionalProperties: false
+      properties:
+        ok: { type: boolean }
+        filters:
+          type: object
+          additionalProperties: true
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/EvidenceItem' }
+        next_cursor:
+          type: ['string', 'null']
+      required: [ok, data]
+
+    EvidenceCreated:
+      type: object
+      additionalProperties: false
+      properties:
+        ok: { type: boolean }
+        id: { type: string }
+        version: { type: integer }
+        sha256: { type: string }
+        size: { type: integer }
+        mime: { type: string }
+        name: { type: string }
+      required: [ok, id, version, sha256, size, mime, name]
+
+    ExportJobAccepted:
+      type: object
+      additionalProperties: false
+      properties:
+        ok: { type: boolean }
+        jobId: { type: string }
+        type: { type: string, enum: [csv, json, pdf] }
+        params:
+          type: object
+          additionalProperties: true
+        note: { type: string }
+      required: [ok, jobId, type]
+
+    ExportStatusEnvelope:
+      type: object
+      additionalProperties: false
+      properties:
+        ok: { type: boolean }
+        status: { type: string, enum: [queued, running, done, failed] }
+      required: [ok, status]
+
+    AvatarStoreAccepted:
+      type: object
+      additionalProperties: false
+      properties:
+        ok: { type: boolean }
+        note: { type: string }
+        queued: { type: boolean }
+        file:
+          type: object
+          properties:
+            original_name: { type: string }
+            mime: { type: string }
+            size_bytes: { type: integer }
+            width: { type: integer }
+            height: { type: integer }
+            format: { type: string }
+        target:
+          type: object
+          properties:
+            user_id: { type: integer }
+            sizes:
+              type: array
+              items: { type: integer }
+            format: { type: string }

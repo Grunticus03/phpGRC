@@ -16,17 +16,28 @@ on:
 
 jobs:
   openapi:
-    name: OpenAPI lint
+    name: OpenAPI lint and diff
     runs-on: self-hosted
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: "20"
       - name: Lint spec with Redocly
         run: npx -y @redocly/cli@1.29.0 lint docs/api/openapi.yaml
+      - name: Lint spec with Spectral
+        run: npx -y @stoplight/spectral-cli@6.11.1 lint docs/api/openapi.yaml
+      - name: Prepare base spec for breaking-change diff
+        run: |
+          git fetch origin main
+          git show origin/main:docs/api/openapi.yaml > /tmp/base-openapi.yaml || echo "no base"
+      - name: Breaking-change check (oasdiff)
+        if: ${{ hashFiles('/tmp/base-openapi.yaml') != '' }}
+        run: npx -y oasdiff@4.0.5 breaking /tmp/base-openapi.yaml docs/api/openapi.yaml --fail-on-diff
 
   api:
     name: API checks
