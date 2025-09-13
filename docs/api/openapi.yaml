@@ -535,8 +535,10 @@ components:
         errors:
           type: object
           additionalProperties:
-            type: array
-            items: { type: string }
+            type: object
+            additionalProperties:
+              type: array
+              items: { type: string }
       required: [ok, code, errors]
     SettingsEnvelope:
       type: object
@@ -565,7 +567,6 @@ components:
           additionalProperties: false
           properties:
             enabled: { type: boolean }
-            require_auth: { type: boolean }
             roles:
               type: array
               items: { type: string }
