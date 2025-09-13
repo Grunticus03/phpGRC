@@ -1,15 +1,26 @@
 openapi: 3.1.0
 info:
   title: phpGRC API
-  version: 0.4.0
+  version: 0.4.1
   description: |
-    OpenAPI scaffold for phpGRC Phase 4.
-    Source of truth is the code and Phase-4-SPEC.md.
+    OpenAPI scaffold for phpGRC Phase 4. Contracts reflect current routes.
+    Authoritative references: PHASE-4-SPEC.md and code under /api.
 servers:
   - url: /api
+tags:
+  - name: Health
+  - name: Spec
+  - name: Auth
+  - name: Admin Settings
+  - name: RBAC
+  - name: Audit
+  - name: Evidence
+  - name: Exports
+  - name: Avatars
 paths:
   /health:
     get:
+      tags: [Health]
       summary: Health check
       operationId: health
       responses:
@@ -18,13 +29,109 @@ paths:
           content:
             application/json:
               schema:
+                $ref: '#/components/schemas/OkEnvelope'
+  /openapi.yaml:
+    get:
+      tags: [Spec]
+      summary: Serve OpenAPI YAML
+      operationId: serveOpenApiYaml
+      responses:
+        '200':
+          description: YAML
+          content:
+            application/yaml:
+              schema:
+                type: string
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Login
+      operationId: login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                email: { type: string, format: email }
+                password: { type: string, minLength: 1 }
+              required: [email, password]
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: Logout
+      operationId: logout
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /auth/me:
+    get:
+      tags: [Auth]
+      summary: Current user
+      operationId: me
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
                 type: object
+                additionalProperties: false
                 properties:
-                  ok:
-                    type: boolean
-                required: [ok]
+                  ok: { type: boolean }
+                  user:
+                    type: object
+                    additionalProperties: false
+                    properties:
+                      id: { type: integer }
+                      name: { type: string }
+                      email: { type: string, format: email }
+                    required: [id, name, email]
+                required: [ok, user]
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /auth/totp/enroll:
+    post:
+      tags: [Auth]
+      summary: Enroll TOTP
+      operationId: totpEnroll
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /auth/totp/verify:
+    post:
+      tags: [Auth]
+      summary: Verify TOTP
+      operationId: totpVerify
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                code: { type: string, minLength: 6, maxLength: 8 }
+              required: [code]
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /auth/break-glass:
+    post:
+      tags: [Auth]
+      summary: Break-glass login
+      operationId: breakGlass
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
   /admin/settings:
     get:
+      tags: [Admin Settings]
       summary: Read effective core settings
       operationId: adminSettingsIndex
       responses:
@@ -32,124 +139,422 @@ paths:
           description: OK
           content:
             application/json:
-              schema:
-                $ref: '#/components/schemas/SettingsEnvelope'
+              schema: { $ref: '#/components/schemas/SettingsEnvelope' }
     post:
-      summary: Validate and persist core settings
+      tags: [Admin Settings]
+      summary: Validate and optionally persist core settings
       operationId: adminSettingsUpdate
       requestBody:
         required: true
         content:
           application/json:
-            schema:
-              $ref: '#/components/schemas/SettingsPost'
+            schema: { $ref: '#/components/schemas/SettingsPost' }
       responses:
-        '200':
-          description: Accepted
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/OkEnvelope'
+        '200': { $ref: '#/components/responses/Ok' }
         '422':
           description: Validation failed
           content:
             application/json:
-              schema:
-                $ref: '#/components/schemas/Error422'
+              schema: { $ref: '#/components/schemas/Error422' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
   /rbac/roles:
     get:
-      summary: List RBAC roles
-      operationId: listRoles
+      tags: [RBAC]
+      summary: List roles
+      operationId: rbacListRoles
       responses:
         '200':
           description: OK
           content:
             application/json:
-              schema:
-                $ref: '#/components/schemas/RoleList'
+              schema: { $ref: '#/components/schemas/RoleList' }
     post:
+      tags: [RBAC]
       summary: Create role (stub when persistence disabled)
-      operationId: createRole
+      operationId: rbacCreateRole
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
+              additionalProperties: false
               properties:
-                name:
-                  type: string
-                  minLength: 2
-                  maxLength: 64
+                name: { type: string, minLength: 2, maxLength: 64 }
               required: [name]
       responses:
-        '201':
-          description: Created
-        '202':
-          description: Accepted (stub-only)
-        '403':
-          description: Forbidden
+        '201': { description: Created }
+        '202': { description: Accepted (stub-only) }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '422':
           description: Validation failed
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error422' }
+
+  /rbac/users/{user}/roles:
+    parameters:
+      - in: path
+        name: user
+        required: true
+        schema: { type: integer, minimum: 1 }
+    get:
+      tags: [RBAC]
+      summary: Get roles for user
+      operationId: rbacGetUserRoles
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UserRolesEnvelope' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    put:
+      tags: [RBAC]
+      summary: Replace roles for user
+      operationId: rbacReplaceUserRoles
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                roles:
+                  type: array
+                  items: { type: string }
+              required: [roles]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UserRolesEnvelope' }
+        '400': { description: Bad request }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /rbac/users/{user}/roles/{role}:
+    parameters:
+      - in: path
+        name: user
+        required: true
+        schema: { type: integer, minimum: 1 }
+      - in: path
+        name: role
+        required: true
+        schema: { type: string }
+    post:
+      tags: [RBAC]
+      summary: Attach role
+      operationId: rbacAttachUserRole
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UserRolesEnvelope' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      tags: [RBAC]
+      summary: Detach role
+      operationId: rbacDetachUserRole
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UserRolesEnvelope' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /audit:
+    get:
+      tags: [Audit]
+      summary: List audit events
+      operationId: auditList
+      parameters:
+        - in: query
+          name: category
+          schema: { type: string }
+        - in: query
+          name: action
+          schema: { type: string }
+        - in: query
+          name: page
+          schema: { type: integer, minimum: 1 }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  ok: { type: boolean }
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/AuditEvent' }
+                required: [ok, items]
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /audit/export.csv:
+    get:
+      tags: [Audit]
+      summary: Export audit events as CSV
+      operationId: auditExportCsv
+      responses:
+        '200':
+          description: CSV
+          content:
+            text/csv:
+              schema:
+                type: string
+                description: CSV content
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /evidence:
+    get:
+      tags: [Evidence]
+      summary: List evidence items
+      operationId: evidenceList
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  ok: { type: boolean }
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/EvidenceItem' }
+                required: [ok, items]
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [Evidence]
+      summary: Upload evidence
+      operationId: evidenceStore
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                file:
+                  type: string
+                  format: binary
+              required: [file]
+      responses:
+        '201': { description: Created }
+        '413': { description: Payload too large }
+        '415': { description: Unsupported media type }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /evidence/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: string }
+    get:
+      tags: [Evidence]
+      summary: Show evidence metadata
+      operationId: evidenceShow
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EvidenceItem' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /exports:
+    post:
+      tags: [Exports]
+      summary: Create export job (legacy shape)
+      operationId: exportsCreateLegacy
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              description: Legacy accepts type in body
+      responses:
+        '201': { description: Created }
+        '202': { description: Accepted (stub-only) }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /exports/{type}:
+    parameters:
+      - in: path
+        name: type
+        required: true
+        schema: { type: string, enum: [csv, json, pdf] }
+    post:
+      tags: [Exports]
+      summary: Create export job by type
+      operationId: exportsCreateByType
+      responses:
+        '201': { description: Created }
+        '202': { description: Accepted (stub-only) }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /exports/{jobId}/status:
+    parameters:
+      - in: path
+        name: jobId
+        required: true
+        schema: { type: string }
+    get:
+      tags: [Exports]
+      summary: Export job status
+      operationId: exportsStatus
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  ok: { type: boolean }
+                  status: { type: string, enum: [queued, running, done, failed] }
+                required: [ok, status]
+        '404': { $ref: '#/components/responses/NotFound' }
+  /exports/{jobId}/download:
+    parameters:
+      - in: path
+        name: jobId
+        required: true
+        schema: { type: string }
+    get:
+      tags: [Exports]
+      summary: Download export artifact
+      operationId: exportsDownload
+      responses:
+        '200':
+          description: File
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /avatar:
+    post:
+      tags: [Avatars]
+      summary: Upload avatar (webp)
+      operationId: avatarStore
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                image:
+                  type: string
+                  format: binary
+              required: [image]
+      responses:
+        '201': { description: Created }
+        '415': { description: Unsupported media type }
+  /avatar/{user}:
+    parameters:
+      - in: path
+        name: user
+        required: true
+        schema: { type: integer, minimum: 1 }
+    get:
+      tags: [Avatars]
+      summary: Get avatar
+      operationId: avatarShow
+      responses:
+        '200':
+          description: Image
+          content:
+            image/webp:
+              schema:
+                type: string
+                format: binary
+        '404': { $ref: '#/components/responses/NotFound' }
+
 components:
+  responses:
+    Ok:
+      description: OK
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/OkEnvelope' }
+    Unauthorized:
+      description: Unauthorized
+    Forbidden:
+      description: Forbidden
+    NotFound:
+      description: Not found
   schemas:
     OkEnvelope:
       type: object
+      additionalProperties: false
       properties:
-        ok:
-          type: boolean
+        ok: { type: boolean }
       required: [ok]
     Error422:
       type: object
+      additionalProperties: false
       properties:
-        ok:
-          type: boolean
-          const: false
-        code:
-          type: string
-          const: VALIDATION_FAILED
+        ok: { type: boolean, const: false }
+        code: { type: string, const: VALIDATION_FAILED }
         errors:
           type: object
           additionalProperties:
             type: array
-            items:
-              type: string
+            items: { type: string }
       required: [ok, code, errors]
     SettingsEnvelope:
       type: object
+      additionalProperties: false
       properties:
-        ok:
-          type: boolean
+        ok: { type: boolean }
         config:
           type: object
+          additionalProperties: false
           properties:
-            core:
-              $ref: '#/components/schemas/CoreConfig'
+            core: { $ref: '#/components/schemas/CoreConfig' }
+          required: [core]
       required: [ok, config]
     SettingsPost:
       type: object
+      additionalProperties: false
       properties:
-        core:
-          $ref: '#/components/schemas/CoreConfig'
+        core: { $ref: '#/components/schemas/CoreConfig' }
       required: [core]
     CoreConfig:
       type: object
+      additionalProperties: false
       properties:
         rbac:
           type: object
+          additionalProperties: false
           properties:
-            enabled:
-              type: boolean
+            enabled: { type: boolean }
             roles:
               type: array
-              items:
-                type: string
+              items: { type: string }
           required: [enabled, roles]
         audit:
           type: object
+          additionalProperties: false
           properties:
-            enabled:
-              type: boolean
+            enabled: { type: boolean }
             retention_days:
               type: integer
               minimum: 1
@@ -157,23 +562,22 @@ components:
           required: [enabled, retention_days]
         evidence:
           type: object
+          additionalProperties: false
           properties:
-            enabled:
-              type: boolean
+            enabled: { type: boolean }
             max_mb:
               type: integer
               minimum: 1
               maximum: 500
             allowed_mime:
               type: array
-              items:
-                type: string
+              items: { type: string }
           required: [enabled, max_mb, allowed_mime]
         avatars:
           type: object
+          additionalProperties: false
           properties:
-            enabled:
-              type: boolean
+            enabled: { type: boolean }
             size_px:
               type: integer
               minimum: 32
@@ -183,3 +587,54 @@ components:
               enum: [webp]
           required: [enabled, size_px, format]
       required: [rbac, audit, evidence, avatars]
+    RoleList:
+      type: object
+      additionalProperties: false
+      properties:
+        ok: { type: boolean }
+        roles:
+          type: array
+          items: { type: string }
+        note:
+          type: string
+      required: [ok, roles]
+    UserRolesEnvelope:
+      type: object
+      additionalProperties: false
+      properties:
+        ok: { type: boolean }
+        user:
+          type: object
+          additionalProperties: false
+          properties:
+            id: { type: integer }
+            name: { type: string }
+            email: { type: string, format: email }
+          required: [id, name, email]
+        roles:
+          type: array
+          items: { type: string }
+      required: [ok, user, roles]
+    AuditEvent:
+      type: object
+      additionalProperties: true
+      properties:
+        id: { type: string }
+        occurred_at: { type: string, format: date-time }
+        actor_id: { type: integer, nullable: true }
+        action: { type: string }
+        category: { type: string }
+        entity_type: { type: string }
+        entity_id: { type: string }
+        ip: { type: string, nullable: true }
+        agent: { type: string, nullable: true }
+    EvidenceItem:
+      type: object
+      additionalProperties: true
+      properties:
+        id: { type: string }
+        name: { type: string }
+        mime: { type: string }
+        size: { type: integer }
+        sha256: { type: string }
+        created_at: { type: string, format: date-time }
