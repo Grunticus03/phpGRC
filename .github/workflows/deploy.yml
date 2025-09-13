@@ -80,8 +80,8 @@ jobs:
           
           ssh -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" "$REMOTE_ENV bash -seuo pipefail" <<'REMOTE'
           umask 027
-          sudo mkdir -p "$ROOT/shared/storage/app/public" "$ROOT/shared/bootstrap/cache"
-          sudo chown -R YOUR_DEPLOY_USER:www-data "$ROOT/shared"
+          mkdir -p "$ROOT/shared/storage/app/public" "$ROOT/shared/bootstrap/cache"
+          chown -R YOUR_DEPLOY_USER:www-data "$ROOT/shared"
           find "$ROOT/shared/storage" -type d -exec chmod 775 {} \; || true
           chmod -R g+w "$ROOT/shared/bootstrap/cache"
           
@@ -110,7 +110,7 @@ jobs:
           SANCTUM_STATEFUL_DOMAINS=$(echo "${APP_URL}" | sed -E 's#https?://##;s#/$##')
           SESSION_DOMAIN=$(echo "${APP_URL}" | sed -E 's#https?://##;s#/$##')
           EOF
-            sudo chown YOUR_DEPLOY_USER:www-data "$ROOT/shared/api.env"
+            chown YOUR_DEPLOY_USER:www-data "$ROOT/shared/api.env"
             chmod 640 "$ROOT/shared/api.env"
           fi
           
