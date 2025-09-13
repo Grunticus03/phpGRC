@@ -14,13 +14,13 @@ type ApiEnvelope =
 function FieldErrors({ msgs }: { msgs: string[] }) {
   if (!msgs || msgs.length === 0) return null;
   return (
-    <>
-      {msgs.map((m, i) => (
-        <div key={i} className="invalid-feedback d-block">
-          {m}
-        </div>
-      ))}
-    </>
+    <div className="invalid-feedback d-block" role="alert" aria-live="assertive">
+      <ul className="mb-0">
+        {msgs.map((m, i) => (
+          <li key={i}>{m}</li>
+        ))}
+      </ul>
+    </div>
   );
 }
 
@@ -136,37 +136,43 @@ export default function Settings(): JSX.Element {
     }
   }
 
-  if (loading) return <p>Loading…</p>;
+  if (loading)
+    return (
+      <div className="container py-5" role="status" aria-live="polite" aria-busy="true">
+        <div className="spinner-border" aria-hidden="true"></div>
+        <span className="visually-hidden">Loading</span>
+      </div>
+    );
 
   const disabled = saving;
 
   return (
-    <div className="container py-3">
+    <main id="main" className="container py-3" role="main" aria-busy={saving}>
       <h1 className="mb-3">Admin Settings</h1>
 
-      <div aria-live="polite">
-        {msg && (
-          <div className="alert alert-info" role="status">
-            {msg}
-          </div>
-        )}
+      <div aria-live="polite" role="status">
+        {msg && <div className="alert alert-info">{msg}</div>}
       </div>
 
       {hasErrors && (
         <div className="alert alert-warning" role="alert" aria-live="assertive">
-          <p className="mb-1"><strong>Fix the highlighted fields.</strong></p>
+          <p className="mb-1">
+            <strong>Fix the highlighted fields.</strong>
+          </p>
           <ul className="mb-0">
             {Object.entries(errors).map(([k, v]) => (
-              <li key={k}>{k}: {v?.[0] ?? "Invalid value"}</li>
+              <li key={k}>
+                {k}: {v?.[0] ?? "Invalid value"}
+              </li>
             ))}
           </ul>
         </div>
       )}
 
-      <form onSubmit={onSubmit} noValidate>
+      <form onSubmit={onSubmit} noValidate aria-busy={saving}>
         {/* RBAC */}
         <fieldset className="mb-4" disabled={disabled}>
-          <legend>RBAC</legend>
+          <legend className="h5">RBAC</legend>
 
           <div className="form-check">
             <input
@@ -178,7 +184,9 @@ export default function Settings(): JSX.Element {
                 setCore({ ...core, rbac: { ...core.rbac, enabled: e.currentTarget.checked } })
               }
             />
-            <label className="form-check-label" htmlFor="rbac_enabled">Enable RBAC</label>
+            <label className="form-check-label" htmlFor="rbac_enabled">
+              Enable RBAC
+            </label>
             <FieldErrors msgs={err("rbac.enabled")} />
           </div>
 
@@ -192,18 +200,22 @@ export default function Settings(): JSX.Element {
                 setCore({ ...core, rbac: { ...core.rbac, require_auth: e.currentTarget.checked } })
               }
             />
-            <label className="form-check-label" htmlFor="rbac_require_auth">Require Auth (Sanctum) for RBAC APIs</label>
+            <label className="form-check-label" htmlFor="rbac_require_auth">
+              Require Auth (Sanctum) for RBAC APIs
+            </label>
             <FieldErrors msgs={err("rbac.require_auth")} />
           </div>
 
-          <label className="form-label mt-2" htmlFor="rbac_roles">Roles (read-only in Phase 4)</label>
+          <label className="form-label mt-2" htmlFor="rbac_roles">
+            Roles (read-only in Phase 4)
+          </label>
           <input id="rbac_roles" className="form-control" value={core.rbac.roles.join(", ")} readOnly />
           <FieldErrors msgs={err("rbac.roles")} />
         </fieldset>
 
         {/* Audit */}
         <fieldset className="mb-4" disabled={disabled}>
-          <legend>Audit</legend>
+          <legend className="h5">Audit</legend>
 
           <div className="form-check">
             <input
@@ -215,11 +227,15 @@ export default function Settings(): JSX.Element {
                 setCore({ ...core, audit: { ...core.audit, enabled: e.currentTarget.checked } })
               }
             />
-            <label className="form-check-label" htmlFor="audit_enabled">Enable Audit Trail</label>
+            <label className="form-check-label" htmlFor="audit_enabled">
+              Enable Audit Trail
+            </label>
             <FieldErrors msgs={err("audit.enabled")} />
           </div>
 
-          <label className="form-label mt-2" htmlFor="audit_retention">Retention days</label>
+          <label className="form-label mt-2" htmlFor="audit_retention">
+            Retention days
+          </label>
           <input
             id="audit_retention"
             className={"form-control" + (err("audit.retention_days").length ? " is-invalid" : "")}
@@ -227,6 +243,7 @@ export default function Settings(): JSX.Element {
             inputMode="numeric"
             min={1}
             max={730}
+            step={1}
             value={core.audit.retention_days}
             onChange={(e) =>
               setCore({
@@ -240,7 +257,7 @@ export default function Settings(): JSX.Element {
 
         {/* Evidence */}
         <fieldset className="mb-4" disabled={disabled}>
-          <legend>Evidence</legend>
+          <legend className="h5">Evidence</legend>
 
           <div className="form-check">
             <input
@@ -255,11 +272,15 @@ export default function Settings(): JSX.Element {
                 })
               }
             />
-            <label className="form-check-label" htmlFor="evidence_enabled">Enable Evidence</label>
+            <label className="form-check-label" htmlFor="evidence_enabled">
+              Enable Evidence
+            </label>
             <FieldErrors msgs={err("evidence.enabled")} />
           </div>
 
-          <label className="form-label mt-2" htmlFor="evidence_max_mb">Max MB</label>
+          <label className="form-label mt-2" htmlFor="evidence_max_mb">
+            Max MB
+          </label>
           <input
             id="evidence_max_mb"
             className={"form-control" + (err("evidence.max_mb").length ? " is-invalid" : "")}
@@ -267,6 +288,7 @@ export default function Settings(): JSX.Element {
             inputMode="numeric"
             min={1}
             max={500}
+            step={1}
             value={core.evidence.max_mb}
             onChange={(e) =>
               setCore({
@@ -277,10 +299,13 @@ export default function Settings(): JSX.Element {
           />
           <FieldErrors msgs={err("evidence.max_mb")} />
 
-          <label className="form-label mt-2" htmlFor="evidence_allowed_mime">Allowed MIME (comma-separated)</label>
+          <label className="form-label mt-2" htmlFor="evidence_allowed_mime">
+            Allowed MIME (comma-separated)
+          </label>
           <input
             id="evidence_allowed_mime"
             className={"form-control" + (err("evidence.allowed_mime").length ? " is-invalid" : "")}
+            placeholder="application/pdf,image/png,image/jpeg,text/plain"
             value={core.evidence.allowed_mime.join(",")}
             onChange={(e) =>
               setCore({
@@ -294,13 +319,14 @@ export default function Settings(): JSX.Element {
                 },
               })
             }
+            autoComplete="off"
           />
           <FieldErrors msgs={err("evidence.allowed_mime")} />
         </fieldset>
 
         {/* Avatars */}
         <fieldset className="mb-4" disabled={disabled}>
-          <legend>Avatars</legend>
+          <legend className="h5">Avatars</legend>
 
           <div className="form-check">
             <input
@@ -315,11 +341,15 @@ export default function Settings(): JSX.Element {
                 })
               }
             />
-            <label className="form-check-label" htmlFor="avatars_enabled">Enable Avatars</label>
+            <label className="form-check-label" htmlFor="avatars_enabled">
+              Enable Avatars
+            </label>
             <FieldErrors msgs={err("avatars.enabled")} />
           </div>
 
-          <label className="form-label mt-2" htmlFor="avatars_size_px">Size (px)</label>
+          <label className="form-label mt-2" htmlFor="avatars_size_px">
+            Size (px)
+          </label>
           <input
             id="avatars_size_px"
             className={"form-control" + (err("avatars.size_px").length ? " is-invalid" : "")}
@@ -327,6 +357,7 @@ export default function Settings(): JSX.Element {
             inputMode="numeric"
             min={32}
             max={1024}
+            step={1}
             value={core.avatars.size_px}
             onChange={(e) =>
               setCore({
@@ -337,7 +368,9 @@ export default function Settings(): JSX.Element {
           />
           <FieldErrors msgs={err("avatars.size_px")} />
 
-          <label className="form-label mt-2" htmlFor="avatars_format">Format</label>
+          <label className="form-label mt-2" htmlFor="avatars_format">
+            Format
+          </label>
           <select
             id="avatars_format"
             className={"form-select" + (err("avatars.format").length ? " is-invalid" : "")}
@@ -359,6 +392,6 @@ export default function Settings(): JSX.Element {
           {saving ? "Saving…" : "Save (stub)"}
         </button>
       </form>
-    </div>
+    </main>
   );
 }

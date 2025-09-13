@@ -61,19 +61,25 @@ export default function Roles(): JSX.Element {
     }
   };
 
-  if (loading) return <p>Loading…</p>;
+  if (loading)
+    return (
+      <div className="container py-5" role="status" aria-live="polite" aria-busy="true">
+        <div className="spinner-border" aria-hidden="true"></div>
+        <span className="visually-hidden">Loading</span>
+      </div>
+    );
 
   return (
-    <div className="container py-3">
+    <main id="main" className="container py-3" role="main" aria-busy={submitting}>
       <h1 className="mb-3">RBAC Roles</h1>
 
-      <div aria-live="assertive">
-        {note && <div className="alert alert-secondary" role="note">{note}</div>}
-        {msg && <div className="alert alert-info" role="alert">{msg}</div>}
+      <div aria-live="polite" role="status">
+        {note && <div className="alert alert-secondary">{note}</div>}
+        {msg && <div className="alert alert-info">{msg}</div>}
       </div>
 
       {roles.length === 0 ? (
-        <p>No roles defined.</p>
+        <p className="text-muted">No roles defined.</p>
       ) : (
         <ul className="list-group mb-3">
           {roles.map((r) => (
@@ -85,9 +91,11 @@ export default function Roles(): JSX.Element {
         </ul>
       )}
 
-      <form className="card p-3" onSubmit={onSubmit} noValidate>
+      <form className="card p-3" onSubmit={onSubmit} noValidate aria-busy={submitting}>
         <div className="mb-2">
-          <label htmlFor="roleName" className="form-label">Create role</label>
+          <label htmlFor="roleName" className="form-label">
+            Create role
+          </label>
           <input
             id="roleName"
             type="text"
@@ -100,13 +108,17 @@ export default function Roles(): JSX.Element {
             placeholder="e.g., Compliance Lead"
             required
             autoComplete="off"
+            aria-describedby="roleHelp"
           />
+          <div id="roleHelp" className="form-text">
+            2–64 characters. Letters, numbers, spaces, and dashes recommended.
+          </div>
         </div>
         <button type="submit" className="btn btn-primary" disabled={name.trim().length < 2 || submitting}>
           {submitting ? "Submitting…" : "Submit"}
         </button>
         <p className="text-muted mt-2 mb-0">Stub path accepted when RBAC persistence is off.</p>
       </form>
-    </div>
+    </main>
   );
 }

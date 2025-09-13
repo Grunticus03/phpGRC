@@ -130,13 +130,23 @@ export default function UserRoles(): JSX.Element {
     }
   }
 
+  if (state.kind === "loading")
+    return (
+      <div className="container py-5" role="status" aria-live="polite" aria-busy="true">
+        <div className="spinner-border" aria-hidden="true"></div>
+        <span className="visually-hidden">Loading</span>
+      </div>
+    );
+
   return (
-    <div className="container py-3">
+    <main id="main" className="container py-3" role="main" aria-busy={working}>
       <h1 className="mb-3">User Roles</h1>
 
-      <form className="row gy-2 align-items-end mb-3" onSubmit={lookupUser} noValidate>
+      <form className="row gy-2 align-items-end mb-3" onSubmit={lookupUser} noValidate aria-busy={working}>
         <div className="col-auto">
-          <label htmlFor="uid" className="form-label">User ID</label>
+          <label htmlFor="uid" className="form-label">
+            User ID
+          </label>
           <input
             id="uid"
             className="form-control"
@@ -144,28 +154,38 @@ export default function UserRoles(): JSX.Element {
             inputMode="numeric"
             onChange={(e) => setUserIdInput(e.currentTarget.value)}
             placeholder="e.g., 1"
+            aria-describedby="uidHelp"
           />
+          <div id="uidHelp" className="form-text">
+            Enter a numeric user ID.
+          </div>
         </div>
         <div className="col-auto">
-          <button className="btn btn-primary" type="submit" disabled={working}>Load</button>
+          <button className="btn btn-primary" type="submit" disabled={working}>
+            Load
+          </button>
         </div>
       </form>
 
-      <div aria-live="polite">
-        {msg && <div className="alert alert-info" role="status">{msg}</div>}
+      <div aria-live="polite" role="status">
+        {msg && <div className="alert alert-info">{msg}</div>}
       </div>
-
-      {state.kind === "loading" && <p>Loading…</p>}
 
       {state.kind === "error" && <div className="alert alert-warning" role="alert">{state.message}</div>}
 
       {current && (
-        <div className="card p-3">
+        <div className="card p-3" aria-busy={working}>
           <h2 className="h5 mb-3">User</h2>
           <div className="mb-3">
-            <div><strong>ID:</strong> {current.user.id}</div>
-            <div><strong>Name:</strong> {current.user.name}</div>
-            <div><strong>Email:</strong> {current.user.email}</div>
+            <div>
+              <strong>ID:</strong> {current.user.id}
+            </div>
+            <div>
+              <strong>Name:</strong> {current.user.name}
+            </div>
+            <div>
+              <strong>Email:</strong> {current.user.email}
+            </div>
           </div>
 
           <h3 className="h6">Current roles</h3>
@@ -192,7 +212,9 @@ export default function UserRoles(): JSX.Element {
 
           <div className="mb-3 d-flex gap-2 align-items-end">
             <div>
-              <label className="form-label" htmlFor="attachPick">Attach role</label>
+              <label className="form-label" htmlFor="attachPick">
+                Attach role
+              </label>
               <select
                 id="attachPick"
                 className="form-select"
@@ -201,24 +223,37 @@ export default function UserRoles(): JSX.Element {
               >
                 <option value="">Select role…</option>
                 {addChoices.map((r) => (
-                  <option key={r} value={r}>{r}</option>
+                  <option key={r} value={r}>
+                    {r}
+                  </option>
                 ))}
               </select>
             </div>
-            <button type="button" className="btn btn-secondary" onClick={() => void onAttach()} disabled={!pick || working}>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => void onAttach()}
+              disabled={!pick || working}
+            >
               Attach
             </button>
           </div>
 
           <h3 className="h6">Replace roles</h3>
-          <form onSubmit={onReplace} noValidate>
+          <form onSubmit={onReplace} noValidate aria-busy={working}>
             <div className="row row-cols-1 row-cols-sm-2 row-cols-md-3 g-2">
               {available.map((r) => {
                 const checked = current.roles.includes(r);
                 return (
                   <div className="col" key={r}>
                     <label className="form-check">
-                      <input className="form-check-input" type="checkbox" name="roles" value={r} defaultChecked={checked} />
+                      <input
+                        className="form-check-input"
+                        type="checkbox"
+                        name="roles"
+                        value={r}
+                        defaultChecked={checked}
+                      />
                       <span className="form-check-label">{r}</span>
                     </label>
                   </div>
@@ -226,11 +261,13 @@ export default function UserRoles(): JSX.Element {
               })}
             </div>
             <div className="mt-3">
-              <button className="btn btn-primary" type="submit" disabled={working}>Replace</button>
+              <button className="btn btn-primary" type="submit" disabled={working}>
+                Replace
+              </button>
             </div>
           </form>
         </div>
       )}
-    </div>
+    </main>
   );
 }
