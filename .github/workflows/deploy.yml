@@ -19,17 +19,33 @@ jobs:
         with:
           ref: ${{ github.event.inputs.ref }}
 
+      # Build web UI in CI (optional; remove if no SPA)
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Build web
+        working-directory: web
+        run: |
+          if [ -f package.json ]; then
+            npm ci
+            npm run build
+          else
+            echo "No web/package.json; skipping UI build"
+          fi
+
       - name: Configure SSH
         run: |
           install -m 700 -d ~/.ssh
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
-          # Known hosts to prevent MITM prompts
           ssh-keyscan -p "${{ secrets.SSH_PORT }}" "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts
 
       - name: Verify SSH connectivity
         run: |
-          ssh -p "${{ secrets.SSH_PORT }}" "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" "echo 'CONNECTED:' $(hostname) && mkdir -p '${{ secrets.DEPLOY_PATH }}/releases' '${{ secrets.DEPLOY_PATH }}/shared'"
+          ssh -p "${{ secrets.SSH_PORT }}" "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" \
+            "echo 'CONNECTED:' \$(hostname) && mkdir -p '${{ secrets.DEPLOY_PATH }}/releases' '${{ secrets.DEPLOY_PATH }}/shared'"
 
       - name: Rsync repository to timestamped release
         env:
@@ -38,20 +54,20 @@ jobs:
           set -euo pipefail
           RELEASE_DIR="${{ secrets.DEPLOY_PATH }}/releases/${TS}"
           ssh -p "${{ secrets.SSH_PORT }}" "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" "mkdir -p '${RELEASE_DIR}'"
-          rsync -az --delete --exclude '.git' -e "ssh -p ${{ secrets.SSH_PORT }}" ./ "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${RELEASE_DIR}/"
+          rsync -az --delete \
+            --exclude '.git' \
+            --exclude '.github' \
+            --exclude 'web/node_modules' \
+            -e "ssh -p ${{ secrets.SSH_PORT }}" \
+            ./ "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${RELEASE_DIR}/"
 
-      - name: Update 'current' symlink (atomic)
-        env:
-          TS: ${{ github.run_id }}-${{ github.run_attempt }}
-        run: |
-          set -euo pipefail
-          RELEASE_DIR="${{ secrets.DEPLOY_PATH }}/releases/${TS}"
-          ssh -p "${{ secrets.SSH_PORT }}" "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" "\
-            ln -sfn '${RELEASE_DIR}' '${{ secrets.DEPLOY_PATH }}/current' && \
-            echo '${RELEASE_DIR}' > '${{ secrets.DEPLOY_PATH }}/LAST_DEPLOY.txt' && \
-            readlink -f '${{ secrets.DEPLOY_PATH }}/current' \
-          "
-      - name: Prepare Laravel (server)
+          # if web/dist exists (CI build), ship it to public/
+          if [ -d web/dist ]; then
+            rsync -az -e "ssh -p ${{ secrets.SSH_PORT }}" \
+              web/dist/ "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${RELEASE_DIR}/web/public/"
+          fi
+
+      - name: Prepare Laravel & link shared (server)
         env:
           TS: ${{ github.run_id }}-${{ github.run_attempt }}
           DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
@@ -68,23 +84,26 @@ jobs:
           set -euo pipefail
           : "${APP_URL:?APP_URL secret is required}"
           : "${DB_HOST:?missing}"; : "${DB_NAME:?missing}"; : "${DB_USER:?missing}"; : "${DB_PASS:?missing}"
-      
-          ROOT="$DEPLOY_PATH"
-          RELEASE_DIR="$ROOT/releases/${TS}"
-      
-          # Safely quote for the remote shell
+
+          ROOT="${DEPLOY_PATH}"
+          RELEASE_DIR="${ROOT}/releases/${TS}"
+
+          # quote for remote shell
           q() { printf %q "$1"; }
-          REMOTE_ENV="ROOT=$(q "$ROOT") RELEASE_DIR=$(q "$RELEASE_DIR") \
+          export REMENV="ROOT=$(q "$ROOT") RELEASE_DIR=$(q "$RELEASE_DIR") \
           APP_URL=$(q "$APP_URL") APP_KEY=$(q "$APP_KEY") \
           DB_HOST=$(q "$DB_HOST") DB_NAME=$(q "$DB_NAME") DB_USER=$(q "$DB_USER") DB_PASS=$(q "$DB_PASS")"
-          
-          ssh -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" "$REMOTE_ENV bash -seuo pipefail" <<'REMOTE'
+
+          ssh -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" "$REMENV bash -seuo pipefail" <<'REMOTE'
           umask 027
+
+          # shared dirs/ownership (group www-data so Apache/PHP can write)
           mkdir -p "$ROOT/shared/storage/app/public" "$ROOT/shared/bootstrap/cache"
-          chown -R deploy:deploy "$ROOT/shared"
-          find "$ROOT/shared/storage" -type d -exec chmod 775 {} \; || true
-          chmod -R g+w "$ROOT/shared/bootstrap/cache"
-          
+          chown -R "$(whoami)":www-data "$ROOT/shared"
+          find "$ROOT/shared/storage" -type d -exec chmod 2775 {} \; || true
+          chmod -R g+rwX "$ROOT/shared/bootstrap/cache" "$ROOT/shared/storage"
+
+          # write .env once (idempotent)
           if [ ! -f "$ROOT/shared/api.env" ]; then
             cat > "$ROOT/shared/api.env" <<EOF
           APP_ENV=production
@@ -110,11 +129,76 @@ jobs:
           SANCTUM_STATEFUL_DOMAINS=$(echo "${APP_URL}" | sed -E 's#https?://##;s#/$##')
           SESSION_DOMAIN=$(echo "${APP_URL}" | sed -E 's#https?://##;s#/$##')
           EOF
-            chown deploy:deploy "$ROOT/shared/api.env"
+            chown "$(whoami)":www-data "$ROOT/shared/api.env"
             chmod 640 "$ROOT/shared/api.env"
           fi
-          
+
+          # link shared into release
           ln -sfn "$ROOT/shared/api.env"  "$RELEASE_DIR/api/.env"
           rm -rf "$RELEASE_DIR/api/storage"
           ln -sfn "$ROOT/shared/storage"  "$RELEASE_DIR/api/storage"
+
+          # minimal web public if no SPA built
+          if [ ! -d "$RELEASE_DIR/web/public" ]; then
+            mkdir -p "$RELEASE_DIR/web/public"
+            cat > "$RELEASE_DIR/web/public/index.html" <<HTML
+          <!doctype html><meta charset="utf-8"><title>phpgrc</title>
+          <h1>phpgrc</h1><p>Web UI not built; API at <code>/api</code></p>
+          HTML
+                    fi
+
+          # SPA fallback .htaccess
+          cat > "$RELEASE_DIR/web/public/.htaccess" <<'HT'
+          RewriteEngine On
+          RewriteCond %{REQUEST_FILENAME} !-f
+          RewriteRule ^ index.html [L]
+          HT
+                    REMOTE
+          
+      - name: Install PHP deps & warm caches (server)
+        env:
+          TS: ${{ github.run_id }}-${{ github.run_attempt }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+        run: |
+          set -euo pipefail
+          RELEASE_DIR="${DEPLOY_PATH}/releases/${TS}"
+          ssh -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" bash -seuo pipefail <<REMOTE
+          cd "$RELEASE_DIR/api"
+
+          # Composer on server; no-dev, optimized
+          if command -v composer >/dev/null 2>&1; then
+            composer install --no-dev --prefer-dist --optimize-autoloader -q
+          else
+            echo "composer not found on server" >&2; exit 1
+          fi
+
+          php artisan storage:link || true
+          php artisan optimize:clear
+          php artisan migrate --force || true
+          php artisan config:cache
+          php artisan route:cache
+          if [ -d resources/views ]; then php artisan view:cache; fi
+
+          # perms for runtime
+          chown -R "$(whoami)":www-data bootstrap/cache storage || true
+          chmod -R g+rwX bootstrap/cache storage || true
           REMOTE
+
+      - name: Switch 'current' symlink (atomic) & log
+        env:
+          TS: ${{ github.run_id }}-${{ github.run_attempt }}
+        run: |
+          set -euo pipefail
+          RELEASE_DIR="${{ secrets.DEPLOY_PATH }}/releases/${TS}"
+          ssh -p "${{ secrets.SSH_PORT }}" "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" "\
+            ln -sfn '${RELEASE_DIR}' '${{ secrets.DEPLOY_PATH }}/current' && \
+            echo '${RELEASE_DIR}' > '${{ secrets.DEPLOY_PATH }}/LAST_DEPLOY.txt' && \
+            readlink -f '${{ secrets.DEPLOY_PATH }}/current' \
+          "
+
+      - name: Health check
+        run: |
+          curl -fsS "${{ secrets.APP_URL }}/api/health" | tee /dev/stderr
