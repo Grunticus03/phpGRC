@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   deploy:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     env:
       ROOT: /var/www/phpgrc
       RELEASE_DIR: /var/www/phpgrc/releases/${{ github.run_number }}
