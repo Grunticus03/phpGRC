@@ -1,5 +1,6 @@
 import React from "react";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Routes, Route } from "react-router-dom";
 import { vi } from "vitest";
 import UserRoles from "../UserRoles";
@@ -28,38 +29,64 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe("Admin UserRoles page (smoke)", () => {
-  test("renders without crashing", async () => {
+describe("Admin UserRoles page", () => {
+  test("renders and performs lookup then attach flow", async () => {
+    const user = userEvent.setup();
+
     const fetchMock = vi
       .fn(async (input: any, init?: any) => {
         const url = typeof input === "string" ? input : input.url;
         const method = (init?.method ?? "GET").toUpperCase();
 
-        if (method === "GET" && /roles/i.test(url)) {
-          return jsonResponse(200, [
-            { name: "Compliance Lead", readOnly: true },
-            { name: "Auditor", readOnly: false },
-          ]);
+        // List roles
+        if (method === "GET" && /\/rbac\/roles\b/.test(url)) {
+          return jsonResponse(200, { ok: true, roles: ["Admin", "Auditor", "User"] });
         }
 
-        if (method === "GET" && /users?/i.test(url)) {
+        // Lookup user
+        if (method === "GET" && /\/rbac\/users\/123\/roles\b/.test(url)) {
           return jsonResponse(200, {
-            id: "123",
-            name: "Jane Admin",
-            roles: ["Auditor"],
+            ok: true,
+            user: { id: 123, name: "Jane Admin", email: "jane@example.com" },
+            roles: ["User"],
           });
         }
 
-        if (method === "GET") return jsonResponse(200, {});
-        return jsonResponse(204);
+        // Attach Admin
+        if (method === "POST" && /\/rbac\/users\/123\/roles\/Admin\b/.test(url)) {
+          return jsonResponse(200, {
+            ok: true,
+            user: { id: 123, name: "Jane Admin", email: "jane@example.com" },
+            roles: ["Admin", "User"],
+          });
+        }
+
+        return jsonResponse(200, { ok: true });
       }) as unknown as typeof fetch;
 
     (globalThis as any).fetch = fetchMock;
 
     renderPage();
 
-    expect(
-      await screen.findByRole("heading", { name: /user roles|rbac/i })
-    ).toBeInTheDocument();
+    // Page heading
+    expect(await screen.findByRole("heading", { name: /user roles/i })).toBeInTheDocument();
+
+    // Enter user id and load
+    await user.type(screen.getByLabelText(/user id/i), "123");
+    await user.click(screen.getByRole("button", { name: /load/i }));
+
+    // User card appears
+    const card = await screen.findByRole("heading", { name: /user/i });
+    expect(card).toBeInTheDocument();
+
+    // Pick Admin and attach
+    await user.selectOptions(screen.getByLabelText(/attach role/i), "Admin");
+    await user.click(screen.getByRole("button", { name: /attach/i }));
+
+    // Assert Admin is present in current roles list
+    await waitFor(() => {
+      const list = screen.getByRole("list");
+      expect(within(list).getByText("Admin")).toBeInTheDocument();
+    });
   });
 });

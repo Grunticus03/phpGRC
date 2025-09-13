@@ -1,4 +1,3 @@
-// @phpgrc:/web/src/routes/admin/Roles.tsx
 import { useEffect, useState } from "react";
 import { listRoles, createRole, CreateRoleResult, RoleListResponse } from "../../lib/api/rbac";
 

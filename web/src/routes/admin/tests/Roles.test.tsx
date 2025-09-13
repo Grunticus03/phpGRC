@@ -36,11 +36,11 @@ describe("Admin Roles page", () => {
         const url = typeof input === "string" ? input : input.url;
         const method = (init?.method ?? "GET").toUpperCase();
 
-        if (method === "GET" && /roles/i.test(url)) {
-          return jsonResponse(200, []); // empty list is fine; we only smoke-check UI
+        if (method === "GET" && /\/rbac\/roles\b/.test(url)) {
+          return jsonResponse(200, { ok: true, roles: [] });
         }
+        if (method === "GET") return jsonResponse(200, { ok: true });
 
-        if (method === "GET") return jsonResponse(200, {});
         return jsonResponse(204);
       }) as unknown as typeof fetch;
 
@@ -48,15 +48,9 @@ describe("Admin Roles page", () => {
 
     renderPage();
 
-    expect(
-      await screen.findByRole("heading", { name: /rbac roles/i })
-    ).toBeInTheDocument();
-
-    // Stable, non-brittle assertions (form semantics don’t change with list data).
+    expect(await screen.findByRole("heading", { name: /rbac roles/i })).toBeInTheDocument();
     expect(await screen.findByLabelText(/create role/i)).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: /submit/i })
-    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /submit/i })).toBeInTheDocument();
   });
 
   test("submits create role (POST issued)", async () => {
@@ -65,13 +59,14 @@ describe("Admin Roles page", () => {
         const url = typeof input === "string" ? input : input.url;
         const method = (init?.method ?? "GET").toUpperCase();
 
-        if (method === "GET" && /roles/i.test(url)) {
-          return jsonResponse(200, []); // initial load
+        if (method === "GET" && /\/rbac\/roles\b/.test(url)) {
+          return jsonResponse(200, { ok: true, roles: [] });
         }
-        if (method === "POST" && /roles/i.test(url)) {
-          return jsonResponse(201, { id: 1, name: "Compliance Lead" });
+        if (method === "POST" && /\/rbac\/roles\b/.test(url)) {
+          return jsonResponse(201, { ok: true, role: { id: "role_compliance_lead", name: "Compliance Lead" } });
         }
-        if (method === "GET") return jsonResponse(200, {});
+        if (method === "GET") return jsonResponse(200, { ok: true });
+
         return jsonResponse(204);
       }) as unknown as typeof fetch;
 
@@ -84,17 +79,18 @@ describe("Admin Roles page", () => {
     await user.type(input, "Compliance Lead");
     await user.click(screen.getByRole("button", { name: /submit/i }));
 
-    // Assert behavior via side-effect (network) to avoid brittle UI timing/text.
     await waitFor(() => {
       const calledPost = (fetchMock as any).mock.calls.some(
         ([req, init]: [any, any]) => {
           const url = typeof req === "string" ? req : req?.url ?? "";
           const method = (init?.method ?? "GET").toUpperCase();
-          return /roles/i.test(url) && method === "POST";
+          return /\/rbac\/roles\b/.test(url) && method === "POST";
         }
       );
       expect(calledPost).toBe(true);
     });
+
+    expect(await screen.findByRole("alert")).toBeInTheDocument();
   });
 
   test("handles stub-only acceptance (shows any alert)", async () => {
@@ -103,14 +99,14 @@ describe("Admin Roles page", () => {
         const url = typeof input === "string" ? input : input.url;
         const method = (init?.method ?? "GET").toUpperCase();
 
-        if (method === "GET" && /roles/i.test(url)) {
-          return jsonResponse(200, []);
+        if (method === "GET" && /\/rbac\/roles\b/.test(url)) {
+          return jsonResponse(200, { ok: true, roles: [] });
         }
-        if (method === "POST" && /roles/i.test(url)) {
-          // 202 Accepted – component may render a generic alert; don't assert exact text.
-          return jsonResponse(202, {});
+        if (method === "POST" && /\/rbac\/roles\b/.test(url)) {
+          return jsonResponse(202, { ok: false, note: "stub-only", accepted: { name: "Temp" } });
         }
-        if (method === "GET") return jsonResponse(200, {});
+        if (method === "GET") return jsonResponse(200, { ok: true });
+
         return jsonResponse(204);
       }) as unknown as typeof fetch;
 
@@ -132,13 +128,14 @@ describe("Admin Roles page", () => {
         const url = typeof input === "string" ? input : input.url;
         const method = (init?.method ?? "GET").toUpperCase();
 
-        if (method === "GET" && /roles/i.test(url)) {
-          return jsonResponse(200, []);
+        if (method === "GET" && /\/rbac\/roles\b/.test(url)) {
+          return jsonResponse(200, { ok: true, roles: [] });
         }
-        if (method === "POST" && /roles/i.test(url)) {
-          return jsonResponse(403, { message: "Forbidden" });
+        if (method === "POST" && /\/rbac\/roles\b/.test(url)) {
+          return jsonResponse(403, { ok: false, code: "FORBIDDEN" });
         }
-        if (method === "GET") return jsonResponse(200, {});
+        if (method === "GET") return jsonResponse(200, { ok: true });
+
         return jsonResponse(204);
       }) as unknown as typeof fetch;
 
@@ -160,15 +157,14 @@ describe("Admin Roles page", () => {
         const url = typeof input === "string" ? input : input.url;
         const method = (init?.method ?? "GET").toUpperCase();
 
-        if (method === "GET" && /roles/i.test(url)) {
-          return jsonResponse(200, []);
+        if (method === "GET" && /\/rbac\/roles\b/.test(url)) {
+          return jsonResponse(200, { ok: true, roles: [] });
         }
-        if (method === "POST" && /roles/i.test(url)) {
-          return jsonResponse(422, {
-            message: "Validation error. Name must be 2–64 chars.",
-          });
+        if (method === "POST" && /\/rbac\/roles\b/.test(url)) {
+          return jsonResponse(422, { ok: false, code: "VALIDATION_FAILED" });
         }
-        if (method === "GET") return jsonResponse(200, {});
+        if (method === "GET") return jsonResponse(200, { ok: true });
+
         return jsonResponse(204);
       }) as unknown as typeof fetch;
 
@@ -178,7 +174,6 @@ describe("Admin Roles page", () => {
     const user = userEvent.setup();
 
     const input = await screen.findByLabelText(/create role/i);
-    // Use >= 2 chars so the button enables and the request is sent
     await user.type(input, "XX");
     await user.click(screen.getByRole("button", { name: /submit/i }));
 
