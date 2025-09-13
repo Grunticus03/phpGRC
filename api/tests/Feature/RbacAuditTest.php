@@ -4,12 +4,13 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Models\AuditEvent;
 use App\Models\Role;
 use App\Models\User;
+use Database\Seeders\RolesSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
-use Database\Seeders\RolesSeeder;
 
 final class RbacAuditTest extends TestCase
 {
@@ -42,7 +43,6 @@ final class RbacAuditTest extends TestCase
         $this->assertNotNull($adminRoleId, 'Admin role must exist from seeder.');
         $admin->roles()->attach($adminRoleId);
 
-        // Even if require_auth=false, keep consistent.
         Sanctum::actingAs($admin);
 
         return $admin;
@@ -76,7 +76,7 @@ final class RbacAuditTest extends TestCase
 
     public function test_attach_logs_canonical_and_alias_events(): void
     {
-        $admin   = $this->actingAsAdmin();
+        $admin = $this->actingAsAdmin();
 
         /** @var User $u */
         $u = User::query()->create([
@@ -117,7 +117,7 @@ final class RbacAuditTest extends TestCase
 
     public function test_detach_logs_canonical_and_alias_events(): void
     {
-        $admin   = $this->actingAsAdmin();
+        $admin = $this->actingAsAdmin();
 
         /** @var User $u */
         $u = User::query()->create([
@@ -161,7 +161,7 @@ final class RbacAuditTest extends TestCase
 
     public function test_replace_logs_canonical_event_with_before_after(): void
     {
-        $admin   = $this->actingAsAdmin();
+        $admin = $this->actingAsAdmin();
 
         /** @var User $u */
         $u = User::query()->create([
@@ -181,7 +181,7 @@ final class RbacAuditTest extends TestCase
         ]);
         $res->assertOk()->assertJsonPath('ok', true);
 
-        // Canonical replaced event
+        // Row exists
         $this->assertDatabaseHas('audit_events', [
             'category'    => 'RBAC',
             'action'      => 'rbac.user_role.replaced',
@@ -190,19 +190,28 @@ final class RbacAuditTest extends TestCase
             'actor_id'    => $admin->id,
         ]);
 
-        // Meta contains before/after arrays (spot-check using JSON contains)
-        $this->assertDatabaseHas('audit_events', [
-            'action'        => 'rbac.user_role.replaced',
-            'meta->before'  => ['User'],
-        ]);
-        // Order of after may vary; check presence of both roles
-        $this->assertDatabaseHas('audit_events', [
-            'action'        => 'rbac.user_role.replaced',
-            'meta->after'   => ['Admin', 'Auditor'],
-        ]) || $this->assertDatabaseHas('audit_events', [
-            'action'        => 'rbac.user_role.replaced',
-            'meta->after'   => ['Auditor', 'Admin'],
-        ]);
+        // Load the event and assert JSON payload precisely.
+        /** @var AuditEvent $event */
+        $event = AuditEvent::query()
+            ->where('category', 'RBAC')
+            ->where('action', 'rbac.user_role.replaced')
+            ->where('entity_type', 'user')
+            ->where('entity_id', (string) $u->id)
+            ->orderByDesc('occurred_at')
+            ->firstOrFail();
+
+        $meta = $event->meta ?? [];
+        $this->assertIsArray($meta);
+        $this->assertSame(['User'], $meta['before'] ?? null);
+
+        $after = $meta['after'] ?? null;
+        $this->assertIsArray($after);
+        sort($after);
+        $this->assertSame(['Admin', 'Auditor'], $after);
+
+        // Optional spot checks
+        $this->assertIsArray($meta['added'] ?? []);
+        $this->assertIsArray($meta['removed'] ?? []);
     }
 }
 
