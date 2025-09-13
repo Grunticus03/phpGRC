@@ -1,3 +1,4 @@
+// @phpgrc:/web/src/routes/admin/Roles.tsx
 import { useEffect, useState } from "react";
 import { listRoles, createRole, CreateRoleResult, RoleListResponse } from "../../lib/api/rbac";
 
@@ -74,8 +75,16 @@ export default function Roles(): JSX.Element {
       <h1 className="mb-3">RBAC Roles</h1>
 
       <div aria-live="polite" role="status">
-        {note && <div className="alert alert-secondary">{note}</div>}
-        {msg && <div className="alert alert-info">{msg}</div>}
+        {note && (
+          <div className="alert alert-secondary" role="note">
+            {note}
+          </div>
+        )}
+        {msg && (
+          <div className="alert alert-info" role="alert">
+            {msg}
+          </div>
+        )}
       </div>
 
       {roles.length === 0 ? (
