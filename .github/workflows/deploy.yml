@@ -106,8 +106,7 @@ jobs:
           SANCTUM_STATEFUL_DOMAINS=phpgrc.gruntlabs.net
           SESSION_DOMAIN=phpgrc.gruntlabs.net
           ENV
-          chmod 640 "$RELEASE/api/.env"
-          chown deploy:www-data "$RELEASE/api/.env"
+          sudo chown deploy:www-data .env
           sudo chmod 640 .env
 
       - name: Framework prep & DB migrate
