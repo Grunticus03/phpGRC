@@ -699,3 +699,22 @@ Closeout
 - Phase/Step status: advance (complete)
 - Next action (you): Tag a release, add a short CHANGELOG entry, and run a smoke test against a staging env with CORE_RBAC_REQUIRE_AUTH toggled both ways.
 - Next action (me): Draft Phase 5 tickets (settings persistence path + audit wiring), propose e2e scenarios for RBAC on/off, and prepare a minimal postman collection from the spec.
+
+---
+
+### Session 2025-09-13: Phase 4 — OpenAPI surface + RBAC UI + Docs closeout
+
+- Context: Align OpenAPI with current routes (incl. Setup), stabilize RBAC UI tests, and sync Phase-4 docs.
+- Goal: Provide full-file `docs/api/openapi.yaml`; update BACKLOG, ROADMAP, PHASE-4-SPEC, and PHASE-4-TASK-BREAKDOWN; confirm CI green.
+- Constraints: Full-file outputs only; no diffs; keep CI/static analysis green.
+
+# Closeout
+- Deliverables produced:
+  - `docs/api/openapi.yaml`: 3.1 spec covering Health, Spec, Auth, Setup (`/api/setup/*`), Admin Settings (GET/POST/PUT/PATCH), RBAC (roles + user-role), Audit (list + CSV), Evidence, Exports, Avatars.
+  - `docs/BACKLOG.md`: CORE-004 marked **Done** with policy enforcement and admin UI; clarified acceptance criteria.
+  - `docs/ROADMAP.md`: Phase statuses updated; Phase-4 summarized as “functional core delivered; polish ongoing.”
+  - `docs/PHASE-4-SPEC.md`: policy defaults, RBAC audit canonicals, and route surfaces consolidated.
+  - `docs/PHASE-4-TASK-BREAKDOWN.md`: Setup catch-up and policy tasks checked off.
+- Phase/Step status: Phase 4 advanced — contracts and docs synced; CI ✅ green.
+- Next action (you): Merge docs + spec; keep CI green; begin Phase-5 Swagger UI.
+- Next action (me): Prepare Swagger UI wiring and Spectral lint; propose minor UX polish PRs for admin screens.

@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: phpGRC API
-  version: 0.4.3
+  version: 0.4.2
   license:
     identifier: MIT
     name: MIT
@@ -18,6 +18,8 @@ tags:
     description: API specification endpoints
   - name: Auth
     description: Authentication and MFA
+  - name: Setup
+    description: First-run setup wizard and bootstrapping
   - name: Admin Settings
     description: Core configuration management
   - name: RBAC
@@ -45,6 +47,7 @@ paths:
                 $ref: '#/components/schemas/OkEnvelope'
         '400':
           description: Bad request
+
   /openapi.yaml:
     get:
       tags: [Spec]
@@ -59,6 +62,161 @@ paths:
                 type: string
         '404':
           description: Not found
+
+  # ---------------------------
+  # Setup Wizard (first-run)
+  # ---------------------------
+  /setup/status:
+    get:
+      tags: [Setup]
+      summary: Setup status
+      operationId: setupStatus
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /setup/db/test:
+    post:
+      tags: [Setup]
+      summary: Test database connectivity
+      operationId: setupDbTest
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+        '422':
+          description: Validation failed
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error422' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /setup/db/write:
+    post:
+      tags: [Setup]
+      summary: Persist database config to shared path
+      operationId: setupDbWrite
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+        '422':
+          description: Validation failed
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error422' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /setup/app-key:
+    post:
+      tags: [Setup]
+      summary: Generate app key
+      operationId: setupAppKey
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /setup/schema/init:
+    post:
+      tags: [Setup]
+      summary: Initialize application schema
+      operationId: setupSchemaInit
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /setup/admin:
+    post:
+      tags: [Setup]
+      summary: Create initial admin user
+      operationId: setupAdminCreate
+      responses:
+        '201':
+          description: Created
+        '422':
+          description: Validation failed
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error422' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /setup/admin/totp/verify:
+    post:
+      tags: [Setup]
+      summary: Verify admin TOTP after enrollment
+      operationId: setupAdminTotpVerify
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                code: { type: string, minLength: 6, maxLength: 8 }
+              required: [code]
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+        '400':
+          description: Invalid TOTP
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /setup/smtp:
+    post:
+      tags: [Setup]
+      summary: Save SMTP settings
+      operationId: setupSmtp
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+        '422':
+          description: Validation failed
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error422' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /setup/idp:
+    post:
+      tags: [Setup]
+      summary: Save IdP settings
+      operationId: setupIdp
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+        '422':
+          description: Validation failed
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error422' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /setup/branding:
+    post:
+      tags: [Setup]
+      summary: Save branding
+      operationId: setupBranding
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+        '422':
+          description: Validation failed
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error422' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /setup/finish:
+    post:
+      tags: [Setup]
+      summary: Mark setup complete
+      operationId: setupFinish
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  # ---------------------------
+  # Auth
+  # ---------------------------
   /auth/login:
     post:
       tags: [Auth]
@@ -78,6 +236,7 @@ paths:
       responses:
         '200': { $ref: '#/components/responses/Ok' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+
   /auth/logout:
     post:
       tags: [Auth]
@@ -86,6 +245,7 @@ paths:
       responses:
         '200': { $ref: '#/components/responses/Ok' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+
   /auth/me:
     get:
       tags: [Auth]
@@ -111,6 +271,7 @@ paths:
                     required: [id, name, email]
                 required: [ok, user]
         '401': { $ref: '#/components/responses/Unauthorized' }
+
   /auth/totp/enroll:
     post:
       tags: [Auth]
@@ -119,6 +280,7 @@ paths:
       responses:
         '200': { $ref: '#/components/responses/Ok' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+
   /auth/totp/verify:
     post:
       tags: [Auth]
@@ -137,6 +299,7 @@ paths:
       responses:
         '200': { $ref: '#/components/responses/Ok' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+
   /auth/break-glass:
     post:
       tags: [Auth]
@@ -146,6 +309,9 @@ paths:
         '200': { $ref: '#/components/responses/Ok' }
         '403': { $ref: '#/components/responses/Forbidden' }
 
+  # ---------------------------
+  # Admin Settings (RBAC enforced)
+  # ---------------------------
   /admin/settings:
     get:
       tags: [Admin Settings]
@@ -175,7 +341,44 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/Error422' }
         '403': { $ref: '#/components/responses/Forbidden' }
+    put:
+      tags: [Admin Settings]
+      summary: Validate and optionally persist core settings
+      operationId: adminSettingsPut
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SettingsPost' }
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+        '422':
+          description: Validation failed
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error422' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    patch:
+      tags: [Admin Settings]
+      summary: Validate and optionally persist core settings
+      operationId: adminSettingsPatch
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SettingsPost' }
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+        '422':
+          description: Validation failed
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error422' }
+        '403': { $ref: '#/components/responses/Forbidden' }
 
+  # ---------------------------
+  # RBAC
+  # ---------------------------
   /rbac/roles:
     get:
       tags: [RBAC]
@@ -203,29 +406,8 @@ paths:
                 name: { type: string, minLength: 2, maxLength: 64 }
               required: [name]
       responses:
-        '201':
-          description: Created
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: false
-                properties:
-                  ok: { type: boolean, const: true }
-                  role:
-                    type: object
-                    additionalProperties: false
-                    properties:
-                      id: { type: string }
-                      name: { type: string }
-                    required: [id, name]
-                required: [ok, role]
-        '202':
-          description: Accepted (stub-only)
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RoleCreateAccepted'
+        '201': { description: Created }
+        '202': { description: Accepted (stub-only) }
         '403': { $ref: '#/components/responses/Forbidden' }
         '422':
           description: Validation failed
@@ -272,13 +454,10 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/UserRolesEnvelope' }
+        '400': { description: Bad request }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
-        '422':
-          description: One or more roles not found
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/ErrorRoleNotFound' }
+
   /rbac/users/{user}/roles/{role}:
     parameters:
       - in: path
@@ -301,11 +480,6 @@ paths:
               schema: { $ref: '#/components/schemas/UserRolesEnvelope' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
-        '422':
-          description: Role validation failure
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/ErrorRoleAttachDetach' }
     delete:
       tags: [RBAC]
       summary: Detach role
@@ -318,12 +492,10 @@ paths:
               schema: { $ref: '#/components/schemas/UserRolesEnvelope' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
-        '422':
-          description: Role validation failure
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/ErrorRoleAttachDetach' }
 
+  # ---------------------------
+  # Audit
+  # ---------------------------
   /audit:
     get:
       tags: [Audit]
@@ -354,6 +526,7 @@ paths:
                     items: { $ref: '#/components/schemas/AuditEvent' }
                 required: [ok, items]
         '403': { $ref: '#/components/responses/Forbidden' }
+
   /audit/export.csv:
     get:
       tags: [Audit]
@@ -369,6 +542,9 @@ paths:
                 description: CSV content
         '403': { $ref: '#/components/responses/Forbidden' }
 
+  # ---------------------------
+  # Evidence
+  # ---------------------------
   /evidence:
     get:
       tags: [Evidence]
@@ -410,6 +586,7 @@ paths:
         '413': { description: Payload too large }
         '415': { description: Unsupported media type }
         '403': { $ref: '#/components/responses/Forbidden' }
+
   /evidence/{id}:
     parameters:
       - in: path
@@ -428,6 +605,9 @@ paths:
               schema: { $ref: '#/components/schemas/EvidenceItem' }
         '404': { $ref: '#/components/responses/NotFound' }
 
+  # ---------------------------
+  # Exports
+  # ---------------------------
   /exports:
     post:
       tags: [Exports]
@@ -444,6 +624,7 @@ paths:
         '201': { description: Created }
         '202': { description: Accepted (stub-only) }
         '403': { $ref: '#/components/responses/Forbidden' }
+
   /exports/{type}:
     parameters:
       - in: path
@@ -458,6 +639,7 @@ paths:
         '201': { description: Created }
         '202': { description: Accepted (stub-only) }
         '403': { $ref: '#/components/responses/Forbidden' }
+
   /exports/{jobId}/status:
     parameters:
       - in: path
@@ -481,6 +663,7 @@ paths:
                   status: { type: string, enum: [queued, running, done, failed] }
                 required: [ok, status]
         '404': { $ref: '#/components/responses/NotFound' }
+
   /exports/{jobId}/download:
     parameters:
       - in: path
@@ -501,6 +684,9 @@ paths:
                 format: binary
         '404': { $ref: '#/components/responses/NotFound' }
 
+  # ---------------------------
+  # Avatars
+  # ---------------------------
   /avatar:
     post:
       tags: [Avatars]
@@ -521,6 +707,7 @@ paths:
       responses:
         '201': { description: Created }
         '415': { description: Unsupported media type }
+
   /avatar/{user}:
     parameters:
       - in: path
@@ -554,6 +741,7 @@ components:
       description: Forbidden
     NotFound:
       description: Not found
+
   schemas:
     OkEnvelope:
       type: object
@@ -561,6 +749,7 @@ components:
       properties:
         ok: { type: boolean }
       required: [ok]
+
     Error422:
       type: object
       additionalProperties: false
@@ -570,44 +759,12 @@ components:
         errors:
           type: object
           additionalProperties:
-            type: array
-            items: { type: string }
+            type: object
+            additionalProperties:
+              type: array
+              items: { type: string }
       required: [ok, code, errors]
-    ErrorRoleNotFound:
-      type: object
-      additionalProperties: false
-      properties:
-        ok: { type: boolean, const: false }
-        code: { type: string, const: ROLE_NOT_FOUND }
-        roles:
-          type: array
-          items: { type: string }
-      required: [ok, code, roles]
-    ErrorRoleAttachDetach:
-      type: object
-      additionalProperties: false
-      properties:
-        ok: { type: boolean, const: false }
-        code:
-          type: string
-          enum: [ROLE_NOT_FOUND, ROLE_NAME_INVALID]
-        roles:
-          type: array
-          items: { type: string }
-      required: [ok, code]
-    RoleCreateAccepted:
-      type: object
-      additionalProperties: false
-      properties:
-        ok: { type: boolean, const: false }
-        note: { type: string, const: stub-only }
-        accepted:
-          type: object
-          additionalProperties: false
-          properties:
-            name: { type: string, minLength: 2, maxLength: 64 }
-          required: [name]
-      required: [ok, note, accepted]
+
     SettingsEnvelope:
       type: object
       additionalProperties: false
@@ -620,12 +777,14 @@ components:
             core: { $ref: '#/components/schemas/CoreConfig' }
           required: [core]
       required: [ok, config]
+
     SettingsPost:
       type: object
       additionalProperties: false
       properties:
         core: { $ref: '#/components/schemas/CoreConfig' }
       required: [core]
+
     CoreConfig:
       type: object
       additionalProperties: false
@@ -638,8 +797,7 @@ components:
             roles:
               type: array
               items: { type: string }
-            require_auth: { type: boolean }
-          required: [enabled, roles, require_auth]
+          required: [enabled, roles]
         audit:
           type: object
           additionalProperties: false
@@ -677,6 +835,7 @@ components:
               enum: [webp]
           required: [enabled, size_px, format]
       required: [rbac, audit, evidence, avatars]
+
     RoleList:
       type: object
       additionalProperties: false
@@ -688,6 +847,7 @@ components:
         note:
           type: string
       required: [ok, roles]
+
     UserRolesEnvelope:
       type: object
       additionalProperties: false
@@ -705,6 +865,7 @@ components:
           type: array
           items: { type: string }
       required: [ok, user, roles]
+
     AuditEvent:
       type: object
       additionalProperties: true
@@ -719,11 +880,9 @@ components:
         entity_id: { type: string }
         ip:
           type: [string, 'null']
-        ua:
+        agent:
           type: [string, 'null']
-        meta:
-          type: [object, 'null']
-          additionalProperties: true
+
     EvidenceItem:
       type: object
       additionalProperties: true

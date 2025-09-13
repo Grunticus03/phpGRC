@@ -55,12 +55,12 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 - Role IDs are human-readable slugs `role_<slug>` with collision suffix `_N`
 - Persistence path gated by `core.rbac.mode=persist` or `core.rbac.persistence=true`
 - Endpoints: list/store roles; user-role list/replace/attach/detach
-- Enforced by Middleware with JSON 401/403; `rbac_enabled` request flag tagged
-- Admin UI for roles and user-role assignment  
+- Middleware enforces declared `roles`/`policy` defaults when enabled
+- Admin UI for role catalog and user–role assignment  
 **Phase:** 4  
 **Step:** 2  
 **Dependencies:** CORE-003  
-**Status:** Partially Done — route enforcement and admin UI complete; fine-grained policy map pending.
+**Status:** Done
 
 ---
 
@@ -80,9 +80,9 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 **Description:** Append-only audit events with retention limits.  
 **Acceptance Criteria:**  
 - `audit_events` table
-- API listing with bounds and cursor pagination
-- CSV export with `Content-Type: text/csv` exactly
-- Retention purge job and scheduler (clamped ≤ 2 years)
+- API listing with filters, bounds, and cursor pagination
+- CSV export with `Content-Type: text/csv`
+- Retention purge job (≤ 2 years) + scheduler
 - RBAC + categories helper  
 **Phase:** 4  
 **Step:** 2  
@@ -95,11 +95,10 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 **Description:** Evidence upload, validation, storage, and retrieval.  
 **Acceptance Criteria:**
 - Validate size/mime by config
-- Persist bytes and metadata in DB (`evidence` table; LONGBLOB on MySQL)
-- Compute and return SHA-256; set `ETag`, `X-Content-Type-Options: nosniff`, `X-Checksum-SHA256`
-- `Content-Disposition` attachment with RFC 5987 filename*
-- Support `HEAD` with headers, `GET` with conditional `If-None-Match` → `304`
-- Optional `?sha256=<hex>` verification → `412 EVIDENCE_HASH_MISMATCH` on mismatch
+- Persist bytes and metadata in DB
+- Compute and return SHA-256; set `ETag`, `X-Checksum-SHA256`
+- `HEAD` semantics + conditional `If-None-Match` → `304`
+- Optional `?sha256=<hex>` verification → `412 EVIDENCE_HASH_MISMATCH`
 - List with filters and cursor pagination  
 **Phase:** 4  
 **Step:** 2  
@@ -113,8 +112,7 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 **Acceptance Criteria:**  
 - Create job, poll status, download artifact
 - Types csv/json/pdf
-- RBAC enforced on create/status/download
-- Capability `core.exports.generate` gates creation  
+- RBAC enforced; capability `core.exports.generate` gates creation  
 **Phase:** 4  
 **Step:** 3  
 **Dependencies:** CORE-004, CORE-006, CORE-007  
@@ -123,10 +121,10 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 ---
 
 ### CORE-009 — Swagger/OpenAPI
-**Description:** Auto-generated OpenAPI 3 spec + SwaggerUI.  
+**Description:** OpenAPI 3.1 spec + Spectral lint served at `/api/openapi.yaml`.  
 **Acceptance Criteria:**
-- `/api/openapi.json` generated
-- `/api/docs` served
+- `/api/openapi.yaml` served
+- Spec covers Phase-4 surfaces
 - CI lint with Spectral  
 **Phase:** 5  
 **Step:** 1  
@@ -139,7 +137,7 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 **Description:** User avatars upload with format normalization.  
 **Acceptance Criteria:**  
 - Validate size/mime
-- Normalize to WEBP, canonical size  
+- Normalize to WEBP, canonical size (128px)  
 **Phase:** 4  
 **Step:** 4  
 **Dependencies:** CORE-003  

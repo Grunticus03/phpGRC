@@ -43,6 +43,7 @@ Notes:
 - Enforcement: when `core.rbac.enabled=true`, route `roles` and `policy` defaults are enforced when a user is present. `require_auth=true` yields 401 on no auth; otherwise anonymous passthrough occurs before role/policy checks.
 - Policy evaluation uses `PolicyMap` + `RbacEvaluator`. In stub mode, policies allow. In persist mode, unknown policies deny.
 - Persistence path for RBAC catalog and assignments is active when `core.rbac.mode=persist` **or** `core.rbac.persistence=true`.
+- **RBAC disabled behavior:** user–role endpoints return `404` with `{ "ok": false, "code": "RBAC_DISABLED" }`.
 - Evidence default max 25 MB.
 - Avatars canonical size 128 px, WEBP only.
 - Audit retention capped at 2 years.
@@ -72,7 +73,7 @@ Setup: SETUP_ALREADY_COMPLETED, SETUP_STEP_DISABLED, DB_CONFIG_INVALID, DB_WRITE
 - `core.audit.view` → `["Admin","Auditor"]`
 - `core.evidence.view` → `["Admin","Auditor"]`
 - `core.evidence.manage` → `["Admin"]`
-- `core.exports.generate` → `["Admin"]`
+- `core.exports.generate` → `["Admin"]` _(policy key for optional policy enforcement)_
 - `rbac.roles.manage` → `["Admin"]`
 - `rbac.user_roles.manage` → `["Admin"]`
 
@@ -88,6 +89,7 @@ Setup: SETUP_ALREADY_COMPLETED, SETUP_STEP_DISABLED, DB_CONFIG_INVALID, DB_WRITE
 
 **Route binding:**
 - Add `->defaults('policy', '<policy.key>')` to a route. Middleware enforces after capability and role checks.
+- Creation of Exports additionally supports `->defaults('capability', 'core.exports.generate')` for capability gating.
 
 ---
 
@@ -95,19 +97,39 @@ Setup: SETUP_ALREADY_COMPLETED, SETUP_STEP_DISABLED, DB_CONFIG_INVALID, DB_WRITE
 
 ### RBAC — Role Catalog
 - `GET /api/rbac/roles`
-  - Persistence disabled: returns configured names array.
+  - Persistence **disabled**: returns configured names array.
     ~~~json
     { "ok": true, "roles": ["Admin","Auditor","Risk Manager","User"] }
     ~~~
-  - Persistence enabled: returns names from DB, ordered by name.
+  - Persistence **enabled** (and table exists): returns names from DB, ordered by name; otherwise falls back to configured names.
     ~~~json
     { "ok": true, "roles": ["Admin","Auditor","Risk Manager","User"] }
     ~~~
 
+- `POST /api/rbac/roles`
+  - Request:
+    ~~~json
+    { "name": "Compliance Lead" }
+    ~~~
+  - Responses:
+    - **Persist path**: `201`
+      ~~~json
+      { "ok": true, "role": { "id": "role_compliance_lead", "name": "Compliance Lead" } }
+      ~~~
+      - **Audit:** emits `rbac.role.created` with `meta = { "name": "<Role Name>" }`.
+    - **Stub path (persistence disabled or table absent)**: `202`
+      ~~~json
+      { "ok": false, "note": "stub-only", "accepted": { "name": "Compliance Lead" } }
+      ~~~
+    - Validation: `422` with `VALIDATION_FAILED`.
+    - Forbidden: `403`.
+
 **Role ID Contract**
 - Human-readable slug ID shown in UI/API.
 - Format: `role_<slug>`, lowercase ASCII, `_` separator.
-- Collision suffix: `_<N>` where `N` starts at 1.
+- Collision suffix: `_<N>` where `N` starts at 1 and increments to avoid ID collisions.
+
+---
 
 ### RBAC — User Role Mapping
 - `GET /api/rbac/users/{userId}/roles`
@@ -124,9 +146,17 @@ Setup: SETUP_ALREADY_COMPLETED, SETUP_STEP_DISABLED, DB_CONFIG_INVALID, DB_WRITE
 - `POST /api/rbac/users/{userId}/roles/{name}` — attach by role name  
 - `DELETE /api/rbac/users/{userId}/roles/{name}` — detach by role name
 - Enforcement:
-  - Route-level `roles` defaults are enforced by `RbacMiddleware`.
+  - Route-level `roles` defaults enforced by `RbacMiddleware`.
   - When `core.rbac.require_auth=true`, Sanctum auth required first.
   - Optional `policy` default enforces a `PolicyMap` key in addition to roles.
+  - When RBAC inactive: `404 { "ok": false, "code": "RBAC_DISABLED" }`.
+- **Audit (canonical + aliases):**
+  - Replace → `rbac.user_role.replaced` (`meta`: `before`, `after`, `added`, `removed`) and alias `role.replace`.
+  - Attach → `rbac.user_role.attached` (`meta`: `role`, `before`, `after`) and alias `role.attach`.
+  - Detach → `rbac.user_role.detached` (`meta`: `role`, `before`, `after`) and alias `role.detach`.
+  - Audit write never fails the API (errors swallowed).
+
+---
 
 ### Admin Settings
 - `GET /api/admin/settings`
@@ -157,6 +187,9 @@ Setup: SETUP_ALREADY_COMPLETED, SETUP_STEP_DISABLED, DB_CONFIG_INVALID, DB_WRITE
       }
       ~~~
   - Response 200 mirrors `GET` shape.
+  - RBAC: route defaults require `roles=["Admin"]` and `policy="core.settings.manage"`.
+
+---
 
 ### Evidence
 - `GET /api/evidence` — list with filters and cursor pagination.
@@ -177,8 +210,7 @@ Setup: SETUP_ALREADY_COMPLETED, SETUP_STEP_DISABLED, DB_CONFIG_INVALID, DB_WRITE
     { "ok": true, "filters": {...}, "data": [ { "id":"ev_...","owner_id":1,"filename":"...", "mime":"...", "size_bytes":123, "sha256":"...", "version":1, "created_at":"2025-09-12T00:00:00Z" } ], "next_cursor": "..." }
     ~~~
 - `POST /api/evidence` — create; stores file, sha256, metadata; validates size/mime.
-  - Persistence: bytes and metadata stored in DB (`evidence.bytes` LONGBLOB on MySQL).
-  - Also enforces Gate ability `core.evidence.manage`.
+  - Persistence: bytes and metadata stored in DB; Gate `core.evidence.manage` required.
 - `GET|HEAD /api/evidence/{id}` — download with headers:
   - `Content-Type: <stored mime>`
   - `Content-Length: <bytes>`
@@ -189,6 +221,9 @@ Setup: SETUP_ALREADY_COMPLETED, SETUP_STEP_DISABLED, DB_CONFIG_INVALID, DB_WRITE
   - Optional `?sha256=<hex>` enforces hash match and returns `412 EVIDENCE_HASH_MISMATCH` when mismatched.
   - Honors `If-None-Match` for conditional GET (`304` when matched).
   - `HEAD` returns headers only.
+- RBAC: list/view → `["Admin","Auditor"]`; upload → `["Admin"]` and policy `core.evidence.manage`.
+
+---
 
 ### Audit
 - `GET /api/audit` — list events with pagination.
@@ -228,6 +263,7 @@ Setup: SETUP_ALREADY_COMPLETED, SETUP_STEP_DISABLED, DB_CONFIG_INVALID, DB_WRITE
       "nextCursor": "..."
     }
     ~~~
+- RBAC: view requires roles `["Admin","Auditor"]` and policy `core.audit.view`.
 
 **Audit — CSV Export**
 - `GET /api/audit/export.csv` — CSV download of events matching the same filters as `GET /api/audit`.
@@ -242,9 +278,18 @@ Setup: SETUP_ALREADY_COMPLETED, SETUP_STEP_DISABLED, DB_CONFIG_INVALID, DB_WRITE
     - `id, occurred_at, actor_id, action, category, entity_type, entity_id, ip, ua, meta_json`
   - CSV format: RFC 4180 quoting via `fputcsv`.
 
+**Audit — Canonical Events (RBAC)**
+- `rbac.role.created` (meta: `{ "name": "<Role Name>" }`)
+- `rbac.user_role.attached` (meta: `{ "role": "<Role Name>", "before": [...], "after": [...] }`)
+- `rbac.user_role.detached` (meta: `{ "role": "<Role Name>", "before": [...], "after": [...] }`)
+- `rbac.user_role.replaced` (meta: `{ "before": [...], "after": [...], "added": [...], "removed": [...] }`)
+- **Aliases (legacy/tests):** `role.attach`, `role.detach`, `role.replace` (emitted in addition to canonicals).
+
+---
+
 ### Exports (CORE-008)
 - RBAC:
-  - Create: roles `["Admin"]` AND capability `core.exports.generate` must be enabled. Optional policy `core.exports.generate` may be bound.
+  - Create: roles `["Admin"]` **and** capability `core.exports.generate`. Optional policy key `core.exports.generate` may also be enforced when bound.
   - Status/Download: roles `["Admin","Auditor"]`.
 - Types: `csv`, `json`, `pdf`.
 - Creation:
@@ -294,14 +339,18 @@ Setup: SETUP_ALREADY_COMPLETED, SETUP_STEP_DISABLED, DB_CONFIG_INVALID, DB_WRITE
   - `status`: `pending|running|completed|failed`; `progress` `0..100`
   - `completed_at`, `failed_at`, `error_code`, `error_note`
 
+---
+
 ### Avatars
-- `POST /api/avatar` — upload avatar; validates image; queues background transcode; returns 202 stub payload.
+- `POST /api/avatar` — upload avatar; validates image; queues background transcode; returns `201` on success or `415` on unsupported media type. (Stub path acceptable when feature disabled.)
 - `GET|HEAD /api/avatar/{user}?size=32|64|128` — serve WEBP variant from public disk.
   - Storage path: `public/avatars/{user}/avatar-<size>.webp`
   - Response headers:
     - `Content-Type: image/webp`
     - `X-Content-Type-Options: nosniff`
     - `Cache-Control: public, max-age=3600, immutable`
+
+---
 
 ### Setup Wizard (Bugfix scope, Phase-4)
 - **Status:** `GET /api/setup/status`
@@ -370,47 +419,93 @@ if (config('core.rbac.require_auth', false)) {
     array_unshift($rbacStack, 'auth:sanctum');
 }
 
-// Admin Settings
+// Admin Settings (enforced by RBAC + policy)
 Route::prefix('/admin')->middleware($rbacStack)->group(function () {
-    Route::match(['GET','HEAD'], '/settings', [SettingsController::class, 'index'])->defaults('roles', ['Admin']);
-    Route::post('/settings', [SettingsController::class, 'update'])->defaults('roles', ['Admin']);
-    Route::put('/settings',  [SettingsController::class, 'update'])->defaults('roles', ['Admin']);
-    Route::patch('/settings',[SettingsController::class, 'update'])->defaults('roles', ['Admin']);
+    Route::match(['GET','HEAD'], '/settings', [SettingsController::class, 'index'])
+        ->defaults('roles', ['Admin'])
+        ->defaults('policy', 'core.settings.manage');
+    Route::post('/settings', [SettingsController::class, 'update'])
+        ->defaults('roles', ['Admin'])
+        ->defaults('policy', 'core.settings.manage');
+    Route::put('/settings',  [SettingsController::class, 'update'])
+        ->defaults('roles', ['Admin'])
+        ->defaults('policy', 'core.settings.manage');
+    Route::patch('/settings', [SettingsController::class, 'update'])
+        ->defaults('roles', ['Admin'])
+        ->defaults('policy', 'core.settings.manage');
 });
 
-// RBAC Roles and User-Role mapping
+// RBAC Roles and User-Role mapping (admin-only when enabled)
 Route::prefix('/rbac')->middleware($rbacStack)->group(function () {
-    Route::match(['GET','HEAD'], '/roles', [RolesController::class, 'index'])->defaults('roles', ['Admin']);
-    Route::post('/roles', [RolesController::class, 'store'])->defaults('roles', ['Admin']);
+    Route::match(['GET','HEAD'], '/roles', [RolesController::class, 'index'])
+        ->defaults('roles', ['Admin'])
+        ->defaults('policy', 'rbac.roles.manage');
+    Route::post('/roles', [RolesController::class, 'store'])
+        ->defaults('roles', ['Admin'])
+        ->defaults('policy', 'rbac.roles.manage');
 
-    Route::match(['GET','HEAD'], '/users/{user}/roles', [UserRolesController::class, 'show'])->whereNumber('user')->defaults('roles', ['Admin']);
-    Route::put('/users/{user}/roles', [UserRolesController::class, 'replace'])->whereNumber('user')->defaults('roles', ['Admin']);
-    Route::post('/users/{user}/roles/{role}', [UserRolesController::class, 'attach'])->whereNumber('user')->defaults('roles', ['Admin']);
-    Route::delete('/users/{user}/roles/{role}', [UserRolesController::class, 'detach'])->whereNumber('user')->defaults('roles', ['Admin']);
+    Route::match(['GET','HEAD'], '/users/{user}/roles', [UserRolesController::class, 'show'])
+        ->whereNumber('user')
+        ->defaults('roles', ['Admin'])
+        ->defaults('policy', 'rbac.user_roles.manage');
+    Route::put('/users/{user}/roles', [UserRolesController::class, 'replace'])
+        ->whereNumber('user')
+        ->defaults('roles', ['Admin'])
+        ->defaults('policy', 'rbac.user_roles.manage');
+    Route::post('/users/{user}/roles/{role}', [UserRolesController::class, 'attach'])
+        ->whereNumber('user')
+        ->defaults('roles', ['Admin'])
+        ->defaults('policy', 'rbac.user_roles.manage');
+    Route::delete('/users/{user}/roles/{role}', [UserRolesController::class, 'detach'])
+        ->whereNumber('user')
+        ->defaults('roles', ['Admin'])
+        ->defaults('policy', 'rbac.user_roles.manage');
 });
 
-// Exports with RBAC + capability
+// Exports with RBAC + capability gate (+ optional policy)
 Route::prefix('/exports')->middleware($rbacStack)->group(function () {
-    Route::post('/{type}', [ExportController::class, 'createType'])->defaults('roles', ['Admin'])->defaults('capability', 'core.exports.generate');
-    Route::post('/',       [ExportController::class, 'create'])->defaults('roles', ['Admin'])->defaults('capability', 'core.exports.generate');
-    Route::get('/{jobId}/status',   [StatusController::class, 'show'])->defaults('roles', ['Admin','Auditor']);
-    Route::get('/{jobId}/download', [ExportController::class, 'download'])->defaults('roles', ['Admin','Auditor']);
+    Route::post('/{type}', [ExportController::class, 'createType'])
+        ->defaults('roles', ['Admin'])
+        ->defaults('capability', 'core.exports.generate')
+        ->defaults('policy', 'core.exports.generate');
+    Route::post('/', [ExportController::class, 'create'])
+        ->defaults('roles', ['Admin'])
+        ->defaults('capability', 'core.exports.generate')
+        ->defaults('policy', 'core.exports.generate');
+
+    Route::get('/{jobId}/status', [StatusController::class, 'show'])
+        ->defaults('roles', ['Admin','Auditor']);
+    Route::get('/{jobId}/download', [ExportController::class, 'download'])
+        ->defaults('roles', ['Admin','Auditor']);
 });
 
-// Audit
-Route::match(['GET','HEAD'], '/audit', [AuditController::class, 'index'])->middleware($rbacStack)->defaults('roles', ['Admin','Auditor']);
-Route::get('/audit/export.csv', [AuditExportController::class, 'exportCsv'])->middleware($rbacStack)->defaults('roles', ['Admin','Auditor']);
+// Audit (view limited)
+Route::match(['GET','HEAD'], '/audit', [AuditController::class, 'index'])
+    ->middleware($rbacStack)
+    ->defaults('roles', ['Admin','Auditor'])
+    ->defaults('policy', 'core.audit.view');
+Route::get('/audit/export.csv', [AuditExportController::class, 'exportCsv'])
+    ->middleware($rbacStack)
+    ->defaults('roles', ['Admin','Auditor'])
+    ->defaults('policy', 'core.audit.view');
 
 // Evidence
 Route::prefix('/evidence')->middleware($rbacStack)->group(function () {
-    Route::match(['GET','HEAD'], '/', [EvidenceController::class, 'index'])->defaults('roles', ['Admin','Auditor']);
-    Route::post('/', [EvidenceController::class, 'store'])->defaults('roles', ['Admin']);
-    Route::match(['GET','HEAD'], '/{id}', [EvidenceController::class, 'show'])->defaults('roles', ['Admin','Auditor']);
+    Route::match(['GET','HEAD'], '/', [EvidenceController::class, 'index'])
+        ->defaults('roles', ['Admin','Auditor'])
+        ->defaults('policy', 'core.evidence.view');
+    Route::post('/', [EvidenceController::class, 'store'])
+        ->defaults('roles', ['Admin'])
+        ->defaults('policy', 'core.evidence.manage');
+    Route::match(['GET','HEAD'], '/{id}', [EvidenceController::class, 'show'])
+        ->defaults('roles', ['Admin','Auditor'])
+        ->defaults('policy', 'core.evidence.view');
 });
 
-// Avatars
+// Avatars scaffold
 Route::post('/avatar', [AvatarController::class, 'store']);
-Route::match(['GET','HEAD'], '/avatar/{user}', [AvatarController::class, 'show'])->whereNumber('user');
+Route::match(['GET','HEAD'], '/avatar/{user}', [AvatarController::class, 'show'])
+    ->whereNumber('user');
 
 // Setup Wizard (bugfix scope)
 Route::prefix('/setup')->group(function () {
@@ -434,12 +529,16 @@ Route::prefix('/setup')->group(function () {
 - When `core.exports.enabled=false` or `exports` table is absent, controllers return stub responses and never write files.
 - Tests set `queue.default=sync` to run `GenerateExport` immediately.
 - CSV uses RFC4180 quoting; JSON is UTF-8; PDF is a minimal valid single-page document.
+- Audit writes (`AuditLogger`) never fail API flows; exceptions swallowed.
 
 ---
 
 ## Web UI Notes (Phase 4)
-- Hash-router under `/web` with admin pages:
-  - `/admin/settings` — settings stub.
-  - `/admin/roles` — role list and create role. Uses stub path when RBAC persistence disabled.
+- SPA admin pages:
+  - `/admin/settings` — core settings.
+  - `/admin/roles` — role list and create role (shows “stub-only” acceptance when RBAC persistence is off; read-only badges for catalog).
   - `/admin/user-roles` — assign roles to users (read, attach, detach, replace).
+- A11y: loading sections expose `role="status"` and `aria-busy`; forms use labeled controls and `aria-describedby` for help text.
+- Network errors and permission denials surface as alerts/status messages; tests assert via network side-effects (e.g., POST issued) rather than brittle text.
 
+---

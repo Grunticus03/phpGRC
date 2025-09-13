@@ -56,18 +56,18 @@
 
 ### 6. RBAC Enforcement + Catalog (CORE-004)
 - [x] `RbacMiddleware` enforces when `core.rbac.enabled=true`
-- [x] Request attribute `rbac_enabled` tagged for observability/tests
+- [x] Request attribute `rbac_enabled` for tests
 - [x] Role catalog endpoints (index/store) with slug IDs (`role_<slug>`)
 - [x] User–role mapping endpoints (show/replace/attach/detach)
 - [x] DB-backed checks via `User::hasAnyRole(...)`
 - [x] CI tests for enforcement and audit
-- [x] UI for role management (list roles, create role) under `/admin/roles`
+- [x] UI for role management (`/admin/roles`)
 - [x] User–role assignment UI (read, attach, detach, replace)
 
 ### 7. RBAC Audit
-- [x] Log canonical `rbac.role.created` and `rbac.user_role.{attached,detached,replaced}`
-- [x] Write legacy aliases `role.{attach,detach,replace}` in parallel
-- [x] Add audit list filters for category `RBAC`
+- [x] Canonical `rbac.role.created` and `rbac.user_role.{attached,detached,replaced}`
+- [x] Legacy aliases `role.{attach,detach,replace}`
+- [x] Audit list filters for category `RBAC`
 - [x] Export audit events as CSV
 
 ### 8. Fine-grained RBAC Policies (CORE-004)
@@ -97,5 +97,5 @@
 
 ## Immediate Next Steps
 1. Minor UX polish on admin pages per `STYLEGUIDE.md`.
-2. Prep OpenAPI surface for Phase 5 (spec scaffolding only).
+2. Prep OpenAPI surface and Swagger UI for Phase 5.
 
