@@ -11,7 +11,8 @@
     "isolatedModules": true,
     "noEmit": true,
     "strict": true,
-    "noFallthroughCasesInSwitch": true
+    "noFallthroughCasesInSwitch": true,
+    "types": ["vitest/globals", "vite/client", "node"]
   },
   "include": ["src", "vite-env.d.ts"]
 }

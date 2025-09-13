@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { vi, type Mock } from "vitest";
 
 // Mock API layer used by Roles.tsx
 vi.mock("../../../lib/api/rbac", () => ({
@@ -23,7 +24,7 @@ function renderAt(path = "/admin/roles") {
 
 describe("Admin Roles page", () => {
   test("renders list of roles", async () => {
-    (api.listRoles as unknown as vi.Mock).mockResolvedValueOnce({
+    (api.listRoles as unknown as Mock).mockResolvedValueOnce({
       ok: true,
       roles: ["Admin", "Auditor", "User"]
     });
@@ -37,7 +38,7 @@ describe("Admin Roles page", () => {
   });
 
   test("shows empty state when no roles", async () => {
-    (api.listRoles as unknown as vi.Mock).mockResolvedValueOnce({
+    (api.listRoles as unknown as Mock).mockResolvedValueOnce({
       ok: true,
       roles: []
     });
@@ -52,14 +53,14 @@ describe("Admin Roles page", () => {
     const user = userEvent.setup();
 
     // Initial load: no roles
-    (api.listRoles as unknown as vi.Mock).mockResolvedValueOnce({ ok: true, roles: [] });
+    (api.listRoles as unknown as Mock).mockResolvedValueOnce({ ok: true, roles: [] });
     // After create: roles include new one
-    (api.listRoles as unknown as vi.Mock).mockResolvedValueOnce({
+    (api.listRoles as unknown as Mock).mockResolvedValueOnce({
       ok: true,
       roles: ["Compliance Lead"]
     });
 
-    (api.createRole as unknown as vi.Mock).mockResolvedValueOnce({
+    (api.createRole as unknown as Mock).mockResolvedValueOnce({
       kind: "created",
       status: 201,
       roleId: "role_compliance_lead",
@@ -84,8 +85,8 @@ describe("Admin Roles page", () => {
   test("handles stub-only acceptance", async () => {
     const user = userEvent.setup();
 
-    (api.listRoles as unknown as vi.Mock).mockResolvedValueOnce({ ok: true, roles: [] });
-    (api.createRole as unknown as vi.Mock).mockResolvedValueOnce({
+    (api.listRoles as unknown as Mock).mockResolvedValueOnce({ ok: true, roles: [] });
+    (api.createRole as unknown as Mock).mockResolvedValueOnce({
       kind: "stub",
       status: 202,
       acceptedName: "Temp",
@@ -105,8 +106,8 @@ describe("Admin Roles page", () => {
   test("handles 403 forbidden", async () => {
     const user = userEvent.setup();
 
-    (api.listRoles as unknown as vi.Mock).mockResolvedValueOnce({ ok: true, roles: ["Admin"] });
-    (api.createRole as unknown as vi.Mock).mockResolvedValueOnce({
+    (api.listRoles as unknown as Mock).mockResolvedValueOnce({ ok: true, roles: ["Admin"] });
+    (api.createRole as unknown as Mock).mockResolvedValueOnce({
       kind: "error",
       status: 403,
       code: "FORBIDDEN",
@@ -126,8 +127,8 @@ describe("Admin Roles page", () => {
   test("handles 422 validation error", async () => {
     const user = userEvent.setup();
 
-    (api.listRoles as unknown as vi.Mock).mockResolvedValueOnce({ ok: true, roles: [] });
-    (api.createRole as unknown as vi.Mock).mockResolvedValueOnce({
+    (api.listRoles as unknown as Mock).mockResolvedValueOnce({ ok: true, roles: [] });
+    (api.createRole as unknown as Mock).mockResolvedValueOnce({
       kind: "error",
       status: 422,
       code: "VALIDATION_FAILED",
