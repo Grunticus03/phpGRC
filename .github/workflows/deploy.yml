@@ -72,46 +72,48 @@ jobs:
           ROOT="$DEPLOY_PATH"
           RELEASE_DIR="$ROOT/releases/${TS}"
       
-          ssh -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" \
-            ROOT="$ROOT" RELEASE_DIR="$RELEASE_DIR" \
-            APP_URL="$APP_URL" APP_KEY="$APP_KEY" \
-            DB_HOST="$DB_HOST" DB_NAME="$DB_NAME" DB_USER="$DB_USER" DB_PASS="$DB_PASS" \
-            'bash -seu' <<'REMOTE'
+          # Safely quote for the remote shell
+          q() { printf %q "$1"; }
+          REMOTE_ENV="ROOT=$(q "$ROOT") RELEASE_DIR=$(q "$RELEASE_DIR") \
+          APP_URL=$(q "$APP_URL") APP_KEY=$(q "$APP_KEY") \
+          DB_HOST=$(q "$DB_HOST") DB_NAME=$(q "$DB_NAME") DB_USER=$(q "$DB_USER") DB_PASS=$(q "$DB_PASS")"
+          
+          ssh -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" "$REMOTE_ENV bash -seuo pipefail" <<'REMOTE'
           umask 027
           sudo mkdir -p "$ROOT/shared/storage/app/public" "$ROOT/shared/bootstrap/cache"
-          sudo chown -R deploy:www-data "$ROOT/shared"
+          sudo chown -R YOUR_DEPLOY_USER:www-data "$ROOT/shared"
           find "$ROOT/shared/storage" -type d -exec chmod 775 {} \; || true
           chmod -R g+w "$ROOT/shared/bootstrap/cache"
-      
+          
           if [ ! -f "$ROOT/shared/api.env" ]; then
             cat > "$ROOT/shared/api.env" <<EOF
-            APP_ENV=production
-            APP_DEBUG=false
-            APP_URL=${APP_URL}
-            APP_KEY=${APP_KEY}
-      
-            LOG_CHANNEL=stack
-            LOG_LEVEL=info
-
-            CACHE_STORE=file
-            SESSION_DRIVER=file
-            QUEUE_CONNECTION=sync
-      
-            DB_CONNECTION=mysql
-            DB_HOST=${DB_HOST}
-            DB_PORT=3306
-            DB_DATABASE=${DB_NAME}
-            DB_USERNAME=${DB_USER}
-            DB_PASSWORD=${DB_PASS}
-            DB_SOCKET=
-      
-            SANCTUM_STATEFUL_DOMAINS=$(echo "${APP_URL}" | sed -E 's#https?://##;s#/$##')
-            SESSION_DOMAIN=$(echo "${APP_URL}" | sed -E 's#https?://##;s#/$##')
-            EOF
-            sudo chown deploy:www-data "$ROOT/shared/api.env"
+          APP_ENV=production
+          APP_DEBUG=false
+          APP_URL=${APP_URL}
+          APP_KEY=${APP_KEY}
+          
+          LOG_CHANNEL=stack
+          LOG_LEVEL=info
+          
+          CACHE_STORE=file
+          SESSION_DRIVER=file
+          QUEUE_CONNECTION=sync
+          
+          DB_CONNECTION=mysql
+          DB_HOST=${DB_HOST}
+          DB_PORT=3306
+          DB_DATABASE=${DB_NAME}
+          DB_USERNAME=${DB_USER}
+          DB_PASSWORD=${DB_PASS}
+          DB_SOCKET=
+          
+          SANCTUM_STATEFUL_DOMAINS=$(echo "${APP_URL}" | sed -E 's#https?://##;s#/$##')
+          SESSION_DOMAIN=$(echo "${APP_URL}" | sed -E 's#https?://##;s#/$##')
+          EOF
+            sudo chown YOUR_DEPLOY_USER:www-data "$ROOT/shared/api.env"
             chmod 640 "$ROOT/shared/api.env"
           fi
-      
+          
           ln -sfn "$ROOT/shared/api.env"  "$RELEASE_DIR/api/.env"
           rm -rf "$RELEASE_DIR/api/storage"
           ln -sfn "$ROOT/shared/storage"  "$RELEASE_DIR/api/storage"
