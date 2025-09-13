@@ -1,23 +1,37 @@
 import { useEffect, useState } from "react";
-import { listRoles, createRole, CreateRoleResult } from "../../lib/api/rbac";
+import { listRoles, createRole, CreateRoleResult, RoleListResponse } from "../../lib/api/rbac";
 
 export default function Roles(): JSX.Element {
   const [loading, setLoading] = useState(true);
   const [roles, setRoles] = useState<string[]>([]);
+  const [note, setNote] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [name, setName] = useState<string>("");
+  const [submitting, setSubmitting] = useState<boolean>(false);
 
-  const load = async () => {
+  async function load(abort?: AbortSignal) {
     setLoading(true);
     setMsg(null);
-    const res = await listRoles();
-    if (res.ok) setRoles(res.roles);
-    else setMsg("Failed to load roles.");
-    setLoading(false);
-  };
+    try {
+      const res: RoleListResponse = await listRoles();
+      if (abort?.aborted) return;
+      if (res.ok) {
+        setRoles(res.roles);
+        setNote(res.note ?? null);
+      } else {
+        setMsg("Failed to load roles.");
+      }
+    } catch {
+      if (!abort?.aborted) setMsg("Failed to load roles.");
+    } finally {
+      if (!abort?.aborted) setLoading(false);
+    }
+  }
 
   useEffect(() => {
-    void load();
+    const ctl = new AbortController();
+    void load(ctl.signal);
+    return () => ctl.abort();
   }, []);
 
   const onSubmit = async (e: React.FormEvent) => {
@@ -25,20 +39,25 @@ export default function Roles(): JSX.Element {
     setMsg(null);
     const trimmed = name.trim();
     if (trimmed.length < 2) return;
-    const result: CreateRoleResult = await createRole(trimmed);
-    if (result.kind === "created") {
-      setMsg(`Created role ${result.roleName} (${result.roleId}).`);
-      setName("");
-      void load();
-    } else if (result.kind === "stub") {
-      setMsg(`Accepted: "${result.acceptedName}". Persistence not implemented.`);
-      setName("");
-    } else if (result.kind === "error" && result.code === "FORBIDDEN") {
-      setMsg("Forbidden. Admin required.");
-    } else if (result.kind === "error" && result.code === "VALIDATION_FAILED") {
-      setMsg("Validation error. Name must be 2–64 chars.");
-    } else {
-      setMsg("Request failed.");
+    setSubmitting(true);
+    try {
+      const result: CreateRoleResult = await createRole(trimmed);
+      if (result.kind === "created") {
+        setMsg(`Created role ${result.roleName} (${result.roleId}).`);
+        setName("");
+        await load();
+      } else if (result.kind === "stub") {
+        setMsg(`Accepted: "${result.acceptedName}". Persistence not implemented.`);
+        setName("");
+      } else if (result.kind === "error" && result.code === "FORBIDDEN") {
+        setMsg("Forbidden. Admin required.");
+      } else if (result.kind === "error" && result.code === "VALIDATION_FAILED") {
+        setMsg("Validation error. Name must be 2–64 chars.");
+      } else {
+        setMsg("Request failed.");
+      }
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -47,7 +66,10 @@ export default function Roles(): JSX.Element {
   return (
     <div className="container py-3">
       <h1>RBAC Roles</h1>
-      {msg && <div className="alert alert-warning" role="alert">{msg}</div>}
+
+      {note && <div className="alert alert-secondary" role="note">{note}</div>}
+
+      {msg && <div className="alert alert-warning" role="alert" aria-live="polite">{msg}</div>}
 
       {roles.length === 0 ? (
         <p>No roles defined.</p>
@@ -67,16 +89,19 @@ export default function Roles(): JSX.Element {
           <label htmlFor="roleName" className="form-label">Create role</label>
           <input
             id="roleName"
+            type="text"
+            name="name"
             className="form-control"
             value={name}
             maxLength={64}
             onChange={(e) => setName(e.target.value)}
             placeholder="e.g., Compliance Lead"
             required
+            autoComplete="off"
           />
         </div>
-        <button type="submit" className="btn btn-primary" disabled={name.trim().length < 2}>
-          Submit
+        <button type="submit" className="btn btn-primary" disabled={name.trim().length < 2 || submitting}>
+          {submitting ? "Submitting…" : "Submit"}
         </button>
         <p className="text-muted mt-2 mb-0">Stub path accepted when RBAC persistence is off.</p>
       </form>

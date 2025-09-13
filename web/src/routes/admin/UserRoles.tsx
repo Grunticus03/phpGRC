@@ -28,6 +28,7 @@ export default function UserRoles(): JSX.Element {
     void (async () => {
       const res: RoleListResponse = await listRoles();
       if (res.ok) setAvailable(res.roles);
+      else setMsg("Failed to load available roles.");
     })();
   }, []);
 
@@ -42,6 +43,8 @@ export default function UserRoles(): JSX.Element {
   async function lookupUser(e: React.FormEvent) {
     e.preventDefault();
     setMsg(null);
+    setPick("");
+    setState({ kind: "loading" });
     setWorking(true);
     try {
       const id = Number(userIdInput);
@@ -148,7 +151,7 @@ export default function UserRoles(): JSX.Element {
         </div>
       </form>
 
-      {msg && <div className="alert alert-info" role="alert">{msg}</div>}
+      {msg && <div className="alert alert-info" role="alert" aria-live="polite">{msg}</div>}
 
       {state.kind === "loading" && <p>Loading…</p>}
 
