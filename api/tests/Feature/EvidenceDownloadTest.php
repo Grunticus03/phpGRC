@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Gate;
+use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
 final class EvidenceDownloadTest extends TestCase
@@ -22,7 +24,14 @@ final class EvidenceDownloadTest extends TestCase
         parent::setUp();
         config()->set('core.evidence.enabled', true);
         config()->set('core.rbac.enabled', false);
-        Gate::define('core.evidence.manage', fn () => true);
+
+        Gate::define('core.evidence.manage', fn (User $u) => true);
+        $u = User::query()->create([
+            'name' => 'T',
+            'email' => 't@example.com',
+            'password' => bcrypt('x'),
+        ]);
+        Sanctum::actingAs($u);
 
         $this->bytes = "sample-bytes";
         $file = UploadedFile::fake()->createWithContent('sample.txt', $this->bytes);

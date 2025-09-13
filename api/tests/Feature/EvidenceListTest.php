@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Models\Evidence;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Gate;
+use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
 final class EvidenceListTest extends TestCase
@@ -19,7 +21,15 @@ final class EvidenceListTest extends TestCase
         parent::setUp();
         config()->set('core.evidence.enabled', true);
         config()->set('core.rbac.enabled', false);
-        Gate::define('core.evidence.manage', fn () => true);
+
+        // Permit ability and authenticate a user
+        Gate::define('core.evidence.manage', fn (User $u) => true);
+        $u = User::query()->create([
+            'name' => 'T',
+            'email' => 't@example.com',
+            'password' => bcrypt('x'),
+        ]);
+        Sanctum::actingAs($u);
 
         $t0 = Carbon::parse('2025-01-01T00:00:00Z');
         $t1 = Carbon::parse('2025-01-01T00:01:00Z');
