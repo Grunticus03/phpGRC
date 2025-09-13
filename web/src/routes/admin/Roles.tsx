@@ -67,9 +67,9 @@ export default function Roles(): JSX.Element {
     <div className="container py-3">
       <h1 className="mb-3">RBAC Roles</h1>
 
-      <div aria-live="polite">
+      <div aria-live="assertive">
         {note && <div className="alert alert-secondary" role="note">{note}</div>}
-        {msg && <div className="alert alert-info" role="status">{msg}</div>}
+        {msg && <div className="alert alert-info" role="alert">{msg}</div>}
       </div>
 
       {roles.length === 0 ? (
