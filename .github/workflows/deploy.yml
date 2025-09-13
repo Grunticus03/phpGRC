@@ -81,7 +81,7 @@ jobs:
           ssh -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" "$REMOTE_ENV bash -seuo pipefail" <<'REMOTE'
           umask 027
           mkdir -p "$ROOT/shared/storage/app/public" "$ROOT/shared/bootstrap/cache"
-          chown -R YOUR_DEPLOY_USER:www-data "$ROOT/shared"
+          chown -R deploy:deploy "$ROOT/shared"
           find "$ROOT/shared/storage" -type d -exec chmod 775 {} \; || true
           chmod -R g+w "$ROOT/shared/bootstrap/cache"
           
