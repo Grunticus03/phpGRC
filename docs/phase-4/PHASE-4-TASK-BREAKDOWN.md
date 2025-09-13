@@ -1,7 +1,9 @@
+# /docs/PHASE-4-TASK-BREAKDOWN.md
+
 # Phase 4 — Core App Usable Detailed Task Breakdown
 
 ## Instruction Preamble
-- Date 2025-09-12
+- Date 2025-09-13
 - Phase 4
 - Goal Decompose Phase 4 deliverables into detailed, sequential tasks to guide incremental scaffolding, enforcement, and persistence work.
 - Constraints
@@ -9,7 +11,7 @@
   - Each increment must pass CI guardrails.
   - Stubs advance to enforcement/persistence gradually.
   - Full traceability to Backlog IDs (CORE-003, CORE-004, CORE-006, CORE-007, CORE-008, CORE-010).
-- Last updated: 2025-09-12
+- Last updated: 2025-09-13
 
 ---
 
@@ -68,7 +70,14 @@
 - [x] Add audit list filters for category `RBAC`
 - [x] Export audit events as CSV
 
-### 8. Bugfix — Complete Setup Wizard (CORE-001 catch-up)
+### 8. Fine-grained RBAC Policies (CORE-004)
+- [x] `PolicyMap` defaults and override support via `core.rbac.policies`
+- [x] `RbacEvaluator` with stub/persist semantics
+- [x] Enforce `policy` route defaults in `RbacMiddleware`
+- [x] Tests for policy-only routes and role–policy mismatch
+- [x] Docs updated (`PHASE-4-SPEC.md`)
+
+### 9. Bugfix — Complete Setup Wizard (CORE-001 catch-up)
 - [x] Add controllers: `SetupStatusController`, `DbController`, `AppKeyController`, `SchemaController`, `AdminController`, `AdminMfaController`, `SmtpController`, `IdpController`, `BrandingController`, `FinishController`
 - [x] Add requests for validation per step
 - [x] Add `SetupGuard` middleware to block steps when disabled by config
@@ -87,6 +96,6 @@
 ---
 
 ## Immediate Next Steps
-1. Fine-grained RBAC policies (PolicyMap + RbacEvaluator) and tests.
-2. Minor UX polish on admin pages per STYLEGUIDE.
-3. Prep OpenAPI surface for Phase 5 (spec scaffolding only).
+1. Minor UX polish on admin pages per `STYLEGUIDE.md`.
+2. Prep OpenAPI surface for Phase 5 (spec scaffolding only).
+

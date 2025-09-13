@@ -1,7 +1,7 @@
 # Phase 4 — Core App Usable Spec
 
 ## Instruction Preamble
-- **Date:** 2025-09-12
+- **Date:** 2025-09-13
 - **Phase:** 4
 - **Goal:** Lock contracts, payloads, config keys, and persistence behaviors for Settings, RBAC, Audit, Evidence, Exports, Avatars.
 - **Constraints:** CI guardrails intact; deterministic outputs; stub-path preserved when persistence disabled via config.
@@ -14,7 +14,8 @@ core.rbac.enabled: true
 core.rbac.require_auth: false  
 core.rbac.mode: stub  
 core.rbac.persistence: false  
-core.rbac.roles: [Admin, Auditor, Risk Manager, User]
+core.rbac.roles: [Admin, Auditor, Risk Manager, User]  
+core.rbac.policies: { }  _(optional override; see Fine-grained Policies)_
 
 core.audit.enabled: true  
 core.audit.retention_days: 365
@@ -39,7 +40,8 @@ core.setup.shared_config_path: /opt/phpgrc/shared/config.php
 core.setup.allow_commands: false
 
 Notes:
-- Enforcement: when `core.rbac.enabled=true`, route `roles` are enforced. `mode`/`persistence` do not bypass enforcement. `require_auth=true` yields 401 on no auth; otherwise anonymous passthrough occurs before role checks.
+- Enforcement: when `core.rbac.enabled=true`, route `roles` and `policy` defaults are enforced when a user is present. `require_auth=true` yields 401 on no auth; otherwise anonymous passthrough occurs before role/policy checks.
+- Policy evaluation uses `PolicyMap` + `RbacEvaluator`. In stub mode, policies allow. In persist mode, unknown policies deny.
 - Persistence path for RBAC catalog and assignments is active when `core.rbac.mode=persist` **or** `core.rbac.persistence=true`.
 - Evidence default max 25 MB.
 - Avatars canonical size 128 px, WEBP only.
@@ -60,6 +62,32 @@ Evidence: EVIDENCE_NOT_ENABLED, EVIDENCE_TOO_LARGE, EVIDENCE_MIME_NOT_ALLOWED, *
 Exports: EXPORT_TYPE_UNSUPPORTED, EXPORT_NOT_READY, EXPORT_NOT_FOUND, EXPORT_FAILED, EXPORT_ARTIFACT_MISSING  
 Avatars: AVATAR_NOT_ENABLED, AVATAR_INVALID_IMAGE, AVATAR_UNSUPPORTED_FORMAT, AVATAR_TOO_LARGE  
 Setup: SETUP_ALREADY_COMPLETED, SETUP_STEP_DISABLED, DB_CONFIG_INVALID, DB_WRITE_FAILED, APP_KEY_EXISTS, SCHEMA_INIT_FAILED, ADMIN_EXISTS, TOTP_CODE_INVALID, SMTP_INVALID, IDP_UNSUPPORTED, BRANDING_INVALID
+
+---
+
+## Fine-grained Policies
+
+**Defaults (via `PolicyMap`)**
+- `core.settings.manage` → `["Admin"]`
+- `core.audit.view` → `["Admin","Auditor"]`
+- `core.evidence.view` → `["Admin","Auditor"]`
+- `core.evidence.manage` → `["Admin"]`
+- `core.exports.generate` → `["Admin"]`
+- `rbac.roles.manage` → `["Admin"]`
+- `rbac.user_roles.manage` → `["Admin"]`
+
+**Override shape (`config('core.rbac.policies')`):**
+~~~php
+[
+  'policy.key' => ['Role One','Role Two'],
+  // ...
+]
+~~~
+- In stub mode: all `Gate::allows($policy)` return true.
+- In persist mode: unknown keys deny; user must have any required role.
+
+**Route binding:**
+- Add `->defaults('policy', '<policy.key>')` to a route. Middleware enforces after capability and role checks.
 
 ---
 
@@ -98,6 +126,7 @@ Setup: SETUP_ALREADY_COMPLETED, SETUP_STEP_DISABLED, DB_CONFIG_INVALID, DB_WRITE
 - Enforcement:
   - Route-level `roles` defaults are enforced by `RbacMiddleware`.
   - When `core.rbac.require_auth=true`, Sanctum auth required first.
+  - Optional `policy` default enforces a `PolicyMap` key in addition to roles.
 
 ### Admin Settings
 - `GET /api/admin/settings`
@@ -215,7 +244,7 @@ Setup: SETUP_ALREADY_COMPLETED, SETUP_STEP_DISABLED, DB_CONFIG_INVALID, DB_WRITE
 
 ### Exports (CORE-008)
 - RBAC:
-  - Create: roles `["Admin"]` AND capability `core.exports.generate` must be enabled.
+  - Create: roles `["Admin"]` AND capability `core.exports.generate` must be enabled. Optional policy `core.exports.generate` may be bound.
   - Status/Download: roles `["Admin","Auditor"]`.
 - Types: `csv`, `json`, `pdf`.
 - Creation:
@@ -413,3 +442,4 @@ Route::prefix('/setup')->group(function () {
   - `/admin/settings` — settings stub.
   - `/admin/roles` — role list and create role. Uses stub path when RBAC persistence disabled.
   - `/admin/user-roles` — assign roles to users (read, attach, detach, replace).
+

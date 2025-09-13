@@ -64,7 +64,10 @@ final class RbacMiddleware
         // Enforce fine-grained policy when declared.
         $policy = $route->defaults['policy'] ?? null;
         if (is_string($policy) && $policy !== '') {
-            $subject = $user instanceof User ? $user : null;
+            $subject = null;
+            if ($user instanceof User) {
+                $subject = $user;
+            }
             if (!RbacEvaluator::allows($subject, $policy)) {
                 return response()->json(['ok' => false, 'code' => 'FORBIDDEN', 'message' => 'Forbidden'], 403);
             }
