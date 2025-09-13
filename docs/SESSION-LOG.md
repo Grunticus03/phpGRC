@@ -654,3 +654,18 @@ Closeout
 - Phase/Step status: advance (Phase 4 in progress; fine-grained RBAC pending)
 - Next action (you): Scaffold PolicyMap/RbacEvaluator + tests; prep OpenAPI surface; minor admin UI polish; keep CI green
 - Next action (me): Review/approve docs; provide RBAC policy matrix & capability toggles; confirm Phase 5 OpenAPI scope
+
+---
+
+### Session Header
+- Session 2025-09-13: [Topic] Admin Roles tests — brittle assertions fix & CI stabilization
+- Context: Roles/UserRoles tests were flaky: strict DOM-role assertions, label lookups racing initial “Loading…”, untyped MSW handlers, and `global` references.
+- Goal: Stabilize tests and get CI green without altering app behavior.
+- Constraints: Test-only changes; avoid coupling to DOM structure; keep assertions visible-text based; no production code edits.
+
+### Session Footer
+- Closeout
+- Deliverables produced: CI green run; resilient `Roles.test.tsx` assertions (async `findByText`), typed MSW handlers with per-test `server.use(...)`, shared `testUtils/setupTests.ts` & `testUtils/server.ts`, `global` → `globalThis` and handler param types, this session log.
+- Phase/Step status: advance
+- Next action (you): Prep a small follow-up to silence React Router warnings (enable v7 future flags or wrap route-mutating ops in `act`); add a lightweight test health check to catch future flakiness.
+- Next action (me): Review the merged test changes and confirm alert copy/messages; decide on enabling React Router v7 future flags; share any upcoming API contract shifts for RBAC persistence.
