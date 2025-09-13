@@ -102,13 +102,17 @@ Route::prefix('/admin')
     ->middleware($rbacStack)
     ->group(function (): void {
         Route::match(['GET','HEAD'], '/settings', [SettingsController::class, 'index'])
-            ->defaults('roles', ['Admin']);
+            ->defaults('roles', ['Admin'])
+            ->defaults('policy', 'core.settings.manage');
         Route::post('/settings', [SettingsController::class, 'update'])
-            ->defaults('roles', ['Admin']);
+            ->defaults('roles', ['Admin'])
+            ->defaults('policy', 'core.settings.manage');
         Route::put('/settings',  [SettingsController::class, 'update'])
-            ->defaults('roles', ['Admin']);
+            ->defaults('roles', ['Admin'])
+            ->defaults('policy', 'core.settings.manage');
         Route::patch('/settings', [SettingsController::class, 'update'])
-            ->defaults('roles', ['Admin']);
+            ->defaults('roles', ['Admin'])
+            ->defaults('policy', 'core.settings.manage');
     });
 
 /*
@@ -121,10 +125,12 @@ Route::prefix('/exports')
     ->group(function (): void {
         Route::post('/{type}', [ExportController::class, 'createType'])
             ->defaults('roles', ['Admin'])
-            ->defaults('capability', 'core.exports.generate');
+            ->defaults('capability', 'core.exports.generate')
+            ->defaults('policy', 'core.exports.generate');
         Route::post('/', [ExportController::class, 'create'])
             ->defaults('roles', ['Admin'])
-            ->defaults('capability', 'core.exports.generate');
+            ->defaults('capability', 'core.exports.generate')
+            ->defaults('policy', 'core.exports.generate');
 
         Route::get('/{jobId}/status', [StatusController::class, 'show'])
             ->defaults('roles', ['Admin', 'Auditor']);
@@ -141,22 +147,28 @@ Route::prefix('/rbac')
     ->middleware($rbacStack)
     ->group(function (): void {
         Route::match(['GET','HEAD'], '/roles', [RolesController::class, 'index'])
-            ->defaults('roles', ['Admin']);
+            ->defaults('roles', ['Admin'])
+            ->defaults('policy', 'rbac.roles.manage');
         Route::post('/roles', [RolesController::class, 'store'])
-            ->defaults('roles', ['Admin']);
+            ->defaults('roles', ['Admin'])
+            ->defaults('policy', 'rbac.roles.manage');
 
         Route::match(['GET','HEAD'], '/users/{user}/roles', [UserRolesController::class, 'show'])
             ->whereNumber('user')
-            ->defaults('roles', ['Admin']);
+            ->defaults('roles', ['Admin'])
+            ->defaults('policy', 'rbac.user_roles.manage');
         Route::put('/users/{user}/roles', [UserRolesController::class, 'replace'])
             ->whereNumber('user')
-            ->defaults('roles', ['Admin']);
+            ->defaults('roles', ['Admin'])
+            ->defaults('policy', 'rbac.user_roles.manage');
         Route::post('/users/{user}/roles/{role}', [UserRolesController::class, 'attach'])
             ->whereNumber('user')
-            ->defaults('roles', ['Admin']);
+            ->defaults('roles', ['Admin'])
+            ->defaults('policy', 'rbac.user_roles.manage');
         Route::delete('/users/{user}/roles/{role}', [UserRolesController::class, 'detach'])
             ->whereNumber('user')
-            ->defaults('roles', ['Admin']);
+            ->defaults('roles', ['Admin'])
+            ->defaults('policy', 'rbac.user_roles.manage');
     });
 
 /*
@@ -166,11 +178,13 @@ Route::prefix('/rbac')
 */
 Route::match(['GET','HEAD'], '/audit', [AuditController::class, 'index'])
     ->middleware($rbacStack)
-    ->defaults('roles', ['Admin', 'Auditor']);
+    ->defaults('roles', ['Admin', 'Auditor'])
+    ->defaults('policy', 'core.audit.view');
 
 Route::get('/audit/export.csv', [AuditExportController::class, 'exportCsv'])
     ->middleware($rbacStack)
-    ->defaults('roles', ['Admin', 'Auditor']);
+    ->defaults('roles', ['Admin', 'Auditor'])
+    ->defaults('policy', 'core.audit.view');
 
 /*
  |--------------------------------------------------------------------------
@@ -181,11 +195,14 @@ Route::prefix('/evidence')
     ->middleware($rbacStack)
     ->group(function (): void {
         Route::match(['GET','HEAD'], '/', [EvidenceController::class, 'index'])
-            ->defaults('roles', ['Admin', 'Auditor']);
+            ->defaults('roles', ['Admin', 'Auditor'])
+            ->defaults('policy', 'core.evidence.view');
         Route::post('/', [EvidenceController::class, 'store'])
-            ->defaults('roles', ['Admin']);
+            ->defaults('roles', ['Admin'])
+            ->defaults('policy', 'core.evidence.manage');
         Route::match(['GET','HEAD'], '/{id}', [EvidenceController::class, 'show'])
-            ->defaults('roles', ['Admin', 'Auditor']);
+            ->defaults('roles', ['Admin', 'Auditor'])
+            ->defaults('policy', 'core.evidence.view');
     });
 
 /*
