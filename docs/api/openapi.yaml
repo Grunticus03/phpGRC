@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: phpGRC API
-  version: 0.4.5
+  version: 0.4.6
   license:
     identifier: MIT
     name: MIT
@@ -634,10 +634,7 @@ paths:
           schema: { type: string }
         - in: query
           name: ip
-          schema:
-            oneOf:
-              - { type: string, format: ipv4 }
-              - { type: string, format: ipv6 }
+          schema: { type: string, format: ipv4 }
       responses:
         '200':
           description: OK
@@ -650,7 +647,7 @@ paths:
     get:
       tags: [Audit]
       summary: List audit categories
-      description: Returns an array of supported audit categories.
+      description: Returns the list of valid audit category enums.
       operationId: auditCategories
       security:
         - bearerAuth: []
