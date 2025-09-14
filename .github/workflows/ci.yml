@@ -109,15 +109,16 @@ jobs:
         run: composer install --no-interaction --prefer-dist
 
       - name: Create SQLite testing DB and .env.testing
+        working-directory: api
         run: |
           mkdir -p database
-          :> database/database.testing.sqlite
+          :> database/database.sqlite
           cat > .env.testing <<'EOF'
           APP_ENV=testing
           APP_DEBUG=false
           APP_KEY=base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
           DB_CONNECTION=sqlite
-          DB_DATABASE=${{ github.workspace }}/api/database/database.testing.sqlite
+          DB_DATABASE=${{ github.workspace }}/api/database/database.sqlite
           CACHE_DRIVER=array
           SESSION_DRIVER=array
           QUEUE_CONNECTION=sync
@@ -149,17 +150,20 @@ jobs:
       - name: Clear cached config
         run: php artisan config:clear
 
-      - name: Sanity - Show effective DB
+      - name: Sanity - show effective DB
+        working-directory: api
+        env:
+          APP_ENV: testing
         run: php -r 'require "vendor/autoload.php";$app=require "bootstrap/app.php";$app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();var_export(config("database.default"));echo " ";var_export(config("database.connections.sqlite.database"));echo PHP_EOL;'
 
-
       - name: PHPUnit
+        working-directory: api
         env:
           APP_ENV: testing
           APP_DEBUG: "false"
           APP_KEY: base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
           DB_CONNECTION: sqlite
-          DB_DATABASE: ${{ github.workspace }}/api/database/database.testing.sqlite
+          DB_DATABASE: ${{ github.workspace }}/api/database/database.sqlite
           CACHE_DRIVER: array
           SESSION_DRIVER: array
           QUEUE_CONNECTION: sync
