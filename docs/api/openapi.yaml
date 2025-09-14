@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: phpGRC API
-  version: 0.4.5
+  version: 0.4.6
   license:
     identifier: MIT
     name: MIT
@@ -355,6 +355,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/SettingsEnvelope' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
     post:
       tags: [Admin Settings]
@@ -371,6 +372,7 @@ paths:
             schema: { $ref: '#/components/schemas/SettingsPost' }
       responses:
         '200': { $ref: '#/components/responses/Ok' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
         '422':
           description: Validation failed
           content:
@@ -392,6 +394,7 @@ paths:
             schema: { $ref: '#/components/schemas/SettingsPost' }
       responses:
         '200': { $ref: '#/components/responses/Ok' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
         '422':
           description: Validation failed
           content:
@@ -413,6 +416,7 @@ paths:
             schema: { $ref: '#/components/schemas/SettingsPost' }
       responses:
         '200': { $ref: '#/components/responses/Ok' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
         '422':
           description: Validation failed
           content:
@@ -438,6 +442,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/RoleList' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
     post:
       tags: [RBAC]
@@ -488,6 +493,7 @@ paths:
                       name: { type: string }
                     required: [name]
                 required: [ok, note, accepted]
+        '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '422':
           description: Validation failed
@@ -515,6 +521,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/UserRolesEnvelope' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
     put:
       tags: [RBAC]
@@ -534,7 +541,8 @@ paths:
               properties:
                 roles:
                   type: array
-                  items: { type: string }
+                  uniqueItems: true
+                  items: { type: string, minLength: 2, maxLength: 64 }
               required: [roles]
       responses:
         '200':
@@ -543,8 +551,14 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/UserRolesEnvelope' }
         '400': { description: Bad request }
+        '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '422':
+          description: Role validation failed
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorRoleNotFound' }
 
   /rbac/users/{user}/roles/{role}:
     parameters:
@@ -555,7 +569,8 @@ paths:
       - in: path
         name: role
         required: true
-        schema: { type: string }
+        description: Role name (case-sensitive); 2–64 chars.
+        schema: { type: string, minLength: 2, maxLength: 64 }
     post:
       tags: [RBAC]
       summary: Attach role
@@ -570,8 +585,14 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/UserRolesEnvelope' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '422':
+          description: Unknown or invalid role
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorRoleNotFound' }
     delete:
       tags: [RBAC]
       summary: Detach role
@@ -586,8 +607,14 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/UserRolesEnvelope' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '422':
+          description: Unknown or invalid role
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorRoleNotFound' }
 
   # ---------------------------
   # Audit
@@ -641,6 +668,33 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/AuditListEnvelope' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /audit/categories:
+    get:
+      tags: [Audit]
+      summary: List audit categories
+      description: Returns the supported category values for filtering.
+      operationId: auditCategories
+      security:
+        - bearerAuth: []
+        - {}
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  ok: { type: boolean }
+                  categories:
+                    type: array
+                    items: { type: string }
+                required: [ok, categories]
+        '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
 
   /audit/export.csv:
@@ -660,6 +714,7 @@ paths:
               schema:
                 type: string
                 description: CSV content
+        '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
 
   # ---------------------------
@@ -717,6 +772,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/EvidenceListEnvelope' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
     post:
       tags: [Evidence]
@@ -747,6 +803,7 @@ paths:
         '413': { description: Payload too large }
         '415': { description: Unsupported media type }
         '400': { description: Evidence disabled }
+        '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '422':
           description: Validation failed
@@ -776,6 +833,7 @@ paths:
               schema:
                 type: string
                 format: binary
+        '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
 
   # ---------------------------
@@ -804,6 +862,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ExportJobAccepted' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
 
   /exports/{type}:
@@ -827,6 +886,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ExportJobAccepted' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
 
   /exports/{jobId}/status:
@@ -849,6 +909,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ExportStatusEnvelope' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
 
   /exports/{jobId}/download:
@@ -873,6 +934,7 @@ paths:
               schema:
                 type: string
                 format: binary
+        '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
 
   # ---------------------------
@@ -975,6 +1037,25 @@ components:
           type: string
       required: [errors]
 
+    ErrorRoleNotFound:
+      type: object
+      additionalProperties: false
+      properties:
+        ok: { type: boolean, default: false }
+        code:
+          type: string
+          enum: [ROLE_NOT_FOUND]
+        message:
+          type: string
+          description: Human-readable error message.
+        missing_roles:
+          type: array
+          description: Role names not found.
+          uniqueItems: true
+          minItems: 1
+          items: { type: string, minLength: 2, maxLength: 64 }
+      required: [code, missing_roles]
+
     SettingsEnvelope:
       type: object
       additionalProperties: false
@@ -1005,9 +1086,18 @@ components:
           properties:
             enabled: { type: boolean }
             require_auth: { type: boolean }
+            mode:
+              type: string
+              enum: [stub, db]
+            persistence:
+              type: boolean
             roles:
               type: array
-              items: { type: string }
+              uniqueItems: true
+              items: { type: string, minLength: 2, maxLength: 64 }
+            policies:
+              type: object
+              additionalProperties: true
           required: [enabled, roles]
         audit:
           type: object
