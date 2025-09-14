@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Models\AuditEvent;
 use App\Models\User;
 use Database\Seeders\RolesSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -20,10 +21,7 @@ final class RbacAuditVerificationTest extends TestCase
         parent::setUp();
         config()->set('core.rbac.enabled', true);
         config()->set('core.rbac.mode', 'persist');
-        // Default to no auth required so we can verify null actor_id first.
         config()->set('core.rbac.require_auth', false);
-
-        // Seeder already creates Admin, Auditor, Risk Manager with canonical ids.
         $this->seed(RolesSeeder::class);
     }
 
@@ -98,7 +96,6 @@ final class RbacAuditVerificationTest extends TestCase
         $this->postJson("/api/rbac/users/{$u->id}/roles/Auditor")->assertStatus(200);
         $secondCount = $this->countAuditsForUser($u);
 
-        // First call emits canonical+alias (2). Second call emits none.
         $this->assertSame($firstCount, $secondCount);
         $this->assertGreaterThanOrEqual(2, $firstCount);
     }
@@ -106,14 +103,13 @@ final class RbacAuditVerificationTest extends TestCase
     public function test_replace_with_empty_set_clears_and_audits_removed_with_alias(): void
     {
         $u = $this->makeUser('Dave', 'dave@example.com');
-        // Seed starting roles using canonical ids from seeder.
         $u->roles()->sync(['role_admin', 'role_auditor']);
 
         $this->putJson("/api/rbac/users/{$u->id}/roles", ['roles' => []])
             ->assertStatus(200)
             ->assertJsonFragment(['roles' => []]);
 
-        $pair = DB::table('audit_events')
+        $pair = AuditEvent::query()
             ->where('entity_type', 'user')
             ->where('entity_id', (string) $u->id)
             ->whereIn('action', ['rbac.user_role.replaced', 'role.replace'])
@@ -122,8 +118,7 @@ final class RbacAuditVerificationTest extends TestCase
 
         $this->assertCount(2, $pair);
 
-        // Validate meta.removed contains both names
-        $metas = $pair->pluck('meta')->all();
+        $metas = $pair->pluck('meta')->all(); // casted to array by model
         $removedSets = array_map(
             static fn ($m) => is_array($m) && isset($m['removed']) ? $m['removed'] : [],
             $metas
@@ -135,7 +130,6 @@ final class RbacAuditVerificationTest extends TestCase
 
     public function test_actor_id_is_set_when_authenticated_and_null_when_not(): void
     {
-        // Unauthenticated path
         config()->set('core.rbac.require_auth', false);
         $u1 = $this->makeUser('Eve', 'eve@example.com');
         $this->postJson("/api/rbac/users/{$u1->id}/roles/Auditor")->assertStatus(200);
@@ -147,7 +141,6 @@ final class RbacAuditVerificationTest extends TestCase
         $this->assertNotNull($unauthRow);
         $this->assertNull($unauthRow->actor_id);
 
-        // Authenticated path
         config()->set('core.rbac.require_auth', true);
         $admin = $this->makeUser('Admin Two', 'admin2@example.com');
         $admin->roles()->sync(['role_admin']);
