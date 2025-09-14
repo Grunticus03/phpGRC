@@ -58,8 +58,9 @@
 ---
 
 ## Phase 5 — Swagger + dashboards
-- [ ] OpenAPI served at `/api/openapi.json`
-- [ ] Spectral lint in CI
+- [x] OpenAPI served at `/api/openapi.yaml` and Swagger UI at `/api/docs`
+- [x] OpenAPI lint in CI (Redocly)
+- [x] Breaking-change gate (openapi-diff) in CI
 - [ ] Predefined reports & dashboards
 - [ ] Admin/User docs baseline
 
@@ -81,9 +82,11 @@
 
 ---
 
-### Current Status (as of 2025-09-12)
+### Current Status (as of 2025-09-13)
 - ✅ CI green on main; all tests passing.
 - ✅ RBAC enforcement active; admin UI shipped.
 - ✅ Audit & Evidence persistence complete; CSV export headers exact.
 - ✅ Exports model and generation complete.
+- ✅ OpenAPI served at `/api/openapi.yaml`; Swagger UI at `/api/docs`.
+- ✅ CI lint (Redocly) and breaking-change gate (openapi-diff).
 - ⏳ Fine-grained RBAC policies remain.

@@ -26,7 +26,8 @@ core.evidence.allowed_mime: [application/pdf, image/png, image/jpeg, text/plain]
 
 core.avatars.enabled: true  
 core.avatars.size_px: 128  
-core.avatars.format: webp
+core.avatars.format: webp  
+core.avatars.max_kb: 1024
 
 core.exports.enabled: true  
 core.exports.disk: <FILESYSTEM_DISK|local>  
@@ -50,6 +51,7 @@ Notes:
 - Exports write artifacts under configured disk/dir.
 - **Queue:** tests force `queue.default=sync`; production may use any Laravel-supported queue.
 - **Setup Wizard:** Only database connection config is written to disk at `core.setup.shared_config_path`. All other settings persist in DB. Redirect-to-setup behavior outside this spec.
+- **OpenAPI:** served at `GET /api/openapi.yaml`; Swagger UI at `GET /api/docs`.
 
 ---
 
@@ -59,9 +61,9 @@ Shared: VALIDATION_FAILED, UNAUTHENTICATED, UNAUTHORIZED, INTERNAL_ERROR.
 
 Settings/RBAC: RBAC_DISABLED, ROLE_NOT_FOUND, ROLE_NAME_INVALID  
 Audit: AUDIT_NOT_ENABLED, AUDIT_RETENTION_INVALID  
-Evidence: EVIDENCE_NOT_ENABLED, EVIDENCE_TOO_LARGE, EVIDENCE_MIME_NOT_ALLOWED, **EVIDENCE_HASH_MISMATCH**  
+Evidence: EVIDENCE_NOT_ENABLED, **VALIDATION_FAILED**, **EVIDENCE_HASH_MISMATCH**  
 Exports: EXPORT_TYPE_UNSUPPORTED, EXPORT_NOT_READY, EXPORT_NOT_FOUND, EXPORT_FAILED, EXPORT_ARTIFACT_MISSING  
-Avatars: AVATAR_NOT_ENABLED, AVATAR_INVALID_IMAGE, AVATAR_UNSUPPORTED_FORMAT, AVATAR_TOO_LARGE  
+Avatars: **AVATAR_VALIDATION_FAILED**, AVATAR_NOT_ENABLED, AVATAR_INVALID_IMAGE  
 Setup: SETUP_ALREADY_COMPLETED, SETUP_STEP_DISABLED, DB_CONFIG_INVALID, DB_WRITE_FAILED, APP_KEY_EXISTS, SCHEMA_INIT_FAILED, ADMIN_EXISTS, TOTP_CODE_INVALID, SMTP_INVALID, IDP_UNSUPPORTED, BRANDING_INVALID
 
 ---
@@ -73,7 +75,7 @@ Setup: SETUP_ALREADY_COMPLETED, SETUP_STEP_DISABLED, DB_CONFIG_INVALID, DB_WRITE
 - `core.audit.view` → `["Admin","Auditor"]`
 - `core.evidence.view` → `["Admin","Auditor"]`
 - `core.evidence.manage` → `["Admin"]`
-- `core.exports.generate` → `["Admin"]` _(policy key for optional policy enforcement)_
+- `core.exports.generate` → `["Admin"]`
 - `rbac.roles.manage` → `["Admin"]`
 - `rbac.user_roles.manage` → `["Admin"]`
 
@@ -186,7 +188,7 @@ Setup: SETUP_ALREADY_COMPLETED, SETUP_STEP_DISABLED, DB_CONFIG_INVALID, DB_WRITE
         }
       }
       ~~~
-  - Response 200 mirrors `GET` shape.
+  - Response 200 echoes accepted sections and `applied` flag; with persistence and `"apply": true`, response includes `changes`.
   - RBAC: route defaults require `roles=["Admin"]` and `policy="core.settings.manage"`.
 
 ---
@@ -270,7 +272,7 @@ Setup: SETUP_ALREADY_COMPLETED, SETUP_STEP_DISABLED, DB_CONFIG_INVALID, DB_WRITE
   - Filters: `category`, `action`, `occurred_from`, `occurred_to`, `actor_id`, `entity_type`, `entity_id`, `ip`, `order`.
   - Sorting: `order` ∈ `asc|desc` (default `desc`).
   - Response: file download with headers:
-    - `Content-Type: text/csv`  _(exactly; no charset)_
+    - `Content-Type: text/csv`
     - `Content-Disposition: attachment; filename="audit-<timestamp>.csv"`
     - `X-Content-Type-Options: nosniff`
     - `Cache-Control: no-store, max-age=0`
@@ -312,9 +314,8 @@ Setup: SETUP_ALREADY_COMPLETED, SETUP_STEP_DISABLED, DB_CONFIG_INVALID, DB_WRITE
   - `GET /api/exports/{jobId}/status`
   - Response:
     ~~~json
-    { "ok": true, "status": "pending|running|completed|failed", "progress": 0, "jobId": "<ULID>", "id": "<ULID>" }
+    { "ok": true, "status": "queued|running|done|failed" }
     ~~~
-    - `id` is an alias of `jobId`.
 - Download:
   - `GET /api/exports/{jobId}/download`
   - Responses:
@@ -334,18 +335,21 @@ Setup: SETUP_ALREADY_COMPLETED, SETUP_STEP_DISABLED, DB_CONFIG_INVALID, DB_WRITE
       - CSV: `Content-Type: text/csv`, filename `export-<id>.csv`
       - JSON: `Content-Type: application/json`, filename `export-<id>.json`
       - PDF: `Content-Type: application/pdf`, filename `export-<id>.pdf`
-- Artifact metadata (model fields):
-  - `artifact_disk`, `artifact_path`, `artifact_mime`, `artifact_size`, `artifact_sha256`
-  - `status`: `pending|running|completed|failed`; `progress` `0..100`
-  - `completed_at`, `failed_at`, `error_code`, `error_note`
 
 ---
 
 ### Avatars
-- `POST /api/avatar` — upload avatar; validates image; queues background transcode; returns `201` on success or `415` on unsupported media type. (Stub path acceptable when feature disabled.)
+- `POST /api/avatar` — upload avatar; validates image; queues background transcode; **returns `202 Accepted`** with `"note":"stub-only"` in Phase 4.
+  - Error shapes:
+    - `400 { "ok": false, "code": "AVATAR_NOT_ENABLED" }`
+    - `422 { "ok": false, "code": "AVATAR_VALIDATION_FAILED", "note":"stub-only", "errors": {...} }`
 - `GET|HEAD /api/avatar/{user}?size=32|64|128` — serve WEBP variant from public disk.
   - Storage path: `public/avatars/{user}/avatar-<size>.webp`
-  - Response headers:
+  - Responses:
+    - `200` with `image/webp`
+    - `404 { "ok": false, "code": "AVATAR_NOT_FOUND", "user": <id>, "size": <n> }`
+    - `400 { "ok": false, "code": "AVATAR_NOT_ENABLED" }`
+  - Headers:
     - `Content-Type: image/webp`
     - `X-Content-Type-Options: nosniff`
     - `Cache-Control: public, max-age=3600, immutable`
@@ -522,23 +526,3 @@ Route::prefix('/setup')->group(function () {
     Route::post('/finish', [\App\Http\Controllers\Setup\FinishController::class, 'finish']);
 });
 ~~~
-
----
-
-## Persistence & Queueing Notes
-- When `core.exports.enabled=false` or `exports` table is absent, controllers return stub responses and never write files.
-- Tests set `queue.default=sync` to run `GenerateExport` immediately.
-- CSV uses RFC4180 quoting; JSON is UTF-8; PDF is a minimal valid single-page document.
-- Audit writes (`AuditLogger`) never fail API flows; exceptions swallowed.
-
----
-
-## Web UI Notes (Phase 4)
-- SPA admin pages:
-  - `/admin/settings` — core settings.
-  - `/admin/roles` — role list and create role (shows “stub-only” acceptance when RBAC persistence is off; read-only badges for catalog).
-  - `/admin/user-roles` — assign roles to users (read, attach, detach, replace).
-- A11y: loading sections expose `role="status"` and `aria-busy`; forms use labeled controls and `aria-describedby` for help text.
-- Network errors and permission denials surface as alerts/status messages; tests assert via network side-effects (e.g., POST issued) rather than brittle text.
-
----

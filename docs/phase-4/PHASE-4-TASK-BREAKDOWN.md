@@ -97,5 +97,8 @@
 
 ## Immediate Next Steps
 1. Minor UX polish on admin pages per `STYLEGUIDE.md`.
-2. Prep OpenAPI surface and Swagger UI for Phase 5.
-
+2. OpenAPI/Swagger polish for Phase 5:
+   - [x] Serve YAML at `/api/openapi.yaml` and Swagger UI at `/api/docs`.
+   - [ ] Serve JSON at `/api/openapi.json`.
+   - [ ] Add at least one `4XX` response to `GET /docs` to silence Redocly.
+   - [ ] Wire Spectral lint into CI with a project ruleset.

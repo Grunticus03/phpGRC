@@ -24,11 +24,12 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 ---
 
 ### CORE-002 — CI/CD Guardrails
-**Description:** CI workflows: PHPUnit, PHPStan, Psalm, Pint, Spectral; conventional commits; branch protections.  
+**Description:** CI workflows: PHPUnit, PHPStan, Psalm, Pint, OpenAPI lint, breaking-change gate; conventional commits; branch protections.  
 **Acceptance Criteria:**
 - All guardrails pass on main
 - Commit style enforced
-- Fail-fast on security static analysis  
+- Fail-fast on static analysis and spec lint
+- openapi-diff gate blocks breaking changes on PRs  
 **Phase:** 1  
 **Step:** 2  
 **Dependencies:** None  
@@ -121,15 +122,16 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 ---
 
 ### CORE-009 — Swagger/OpenAPI
-**Description:** OpenAPI 3.1 spec + Spectral lint served at `/api/openapi.yaml`.  
+**Description:** OpenAPI 3.1 spec served at `/api/openapi.yaml` with Swagger UI at `/api/docs`; lint and diff gates in CI.  
 **Acceptance Criteria:**
-- `/api/openapi.yaml` served
-- Spec covers Phase-4 surfaces
-- CI lint with Spectral  
+- `/api/openapi.yaml` served and kept current
+- Swagger UI reachable at `/api/docs`
+- CI lint with Redocly
+- openapi-diff breaking-change gate on PRs  
 **Phase:** 5  
 **Step:** 1  
 **Dependencies:** CORE-002  
-**Status:** Planned
+**Status:** Done
 
 ---
 
