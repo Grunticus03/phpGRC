@@ -7,13 +7,13 @@ on:
       - "api/**"
       - "web/**"
       - "docs/api/**"
-      - ".github/workflows/ci.yml"
+      - ".github/workflows/**"
   pull_request:
     paths:
       - "api/**"
       - "web/**"
       - "docs/api/**"
-      - ".github/workflows/ci.yml"
+      - ".github/workflows/**"
   workflow_dispatch:
 
 jobs:
@@ -33,20 +33,15 @@ jobs:
     if: github.event_name == 'pull_request'
     needs: [openapi]
     steps:
-      - name: Checkout HEAD
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
       - name: Save HEAD spec
         run: cp docs/api/openapi.yaml openapi.new.yaml
-
       - name: Checkout BASE
         uses: actions/checkout@v4
         with:
           ref: ${{ github.base_ref }}
           path: base
-
       - id: check
         name: Check base spec presence
         shell: bash
@@ -55,10 +50,8 @@ jobs:
             echo "skip=false" >> "$GITHUB_OUTPUT"
             cp base/docs/api/openapi.yaml openapi.old.yaml
           else
-            echo "Base spec not found. Skipping breaking-change check."
             echo "skip=true" >> "$GITHUB_OUTPUT"
           fi
-
       - name: Run openapi-diff
         if: steps.check.outputs.skip != 'true'
         run: |
@@ -66,7 +59,6 @@ jobs:
             /spec/openapi.old.yaml /spec/openapi.new.yaml \
             --fail-on-incompatible \
             --html /spec/openapi-diff.html
-
       - name: Upload diff report
         if: steps.check.outputs.skip != 'true'
         uses: actions/upload-artifact@v4
@@ -74,45 +66,70 @@ jobs:
           name: openapi-diff-report
           path: openapi-diff.html
 
-  api:
-    name: API checks (SQLite + static analysis)
+  api_static:
+    name: API static checks + audit
     runs-on: self-hosted
     needs: [openapi]
-    defaults:
-      run:
-        working-directory: api
+    defaults: { run: { working-directory: api } }
     steps:
       - uses: actions/checkout@v4
-
       - uses: shivammathur/setup-php@v2
         with:
           php-version: "8.3"
           extensions: mbstring, intl, pdo_mysql, pdo_sqlite, sqlite3, dom, xml, pcntl, posix, bcmath, fileinfo
           coverage: none
           tools: composer:v2
-
-      - name: Prepare Laravel dirs
-        run: |
-          mkdir -p bootstrap/cache \
-            storage/app storage/framework/cache storage/framework/sessions storage/framework/views \
-            storage/logs
-          :> storage/logs/laravel.log
-
       - name: Composer cache
         uses: actions/cache@v4
         with:
           path: ~/.composer/cache
           key: ${{ runner.os }}-composer-${{ hashFiles('api/composer.lock') }}
           restore-keys: ${{ runner.os }}-composer-
-
       - name: Install deps
         run: composer install --no-interaction --prefer-dist
+      - name: Pint
+        run: vendor/bin/pint -v
+      - name: PHPStan
+        run: vendor/bin/phpstan analyse --memory-limit=-1
+      - name: Psalm
+        run: vendor/bin/psalm --no-cache --long-progress
+      - name: Composer audit (prod only)
+        run: composer audit --locked --no-dev
 
-      - name: Create SQLite testing DB and .env.testing
-        working-directory: api
+  api_tests:
+    name: API tests (SQLite, PHP ${{ matrix.php }}) + coverage
+    runs-on: self-hosted
+    needs: [api_static]
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ["8.2", "8.3"]
+    defaults: { run: { working-directory: api } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: mbstring, intl, pdo_sqlite, sqlite3
+          coverage: xdebug
+          tools: composer:v2
+      - name: Composer cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.composer/cache
+          key: ${{ runner.os }}-composer-${{ hashFiles('api/composer.lock') }}
+          restore-keys: ${{ runner.os }}-composer-
+      - name: Install deps
+        run: composer install --no-interaction --prefer-dist
+      - name: Prepare Laravel dirs
         run: |
-          mkdir -p database
+          mkdir -p bootstrap/cache \
+            storage/app storage/framework/cache storage/framework/sessions storage/framework/views \
+            storage/logs database
+          :> storage/logs/laravel.log
           :> database/database.sqlite
+      - name: Create .env.testing
+        run: |
           cat > .env.testing <<'EOF'
           APP_ENV=testing
           APP_DEBUG=false
@@ -123,69 +140,88 @@ jobs:
           SESSION_DRIVER=array
           QUEUE_CONNECTION=sync
           FILESYSTEM_DISK=local
-          CORE_RBAC_ENABLED=false
-          CORE_RBAC_REQUIRE_AUTH=false
           EOF
-
-      - name: Pint
-        run: vendor/bin/pint -v
-
-      - name: PHPStan
-        run: vendor/bin/phpstan analyse --memory-limit=-1
-
-      - name: Psalm
+      - name: PHPUnit (ParaTest when available)
         env:
           APP_ENV: testing
-          APP_DEBUG: "true"
-          APP_KEY: base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
-          DB_CONNECTION: sqlite
-          DB_DATABASE: ${{ github.workspace }}/api/database/database.testing.sqlite
-          CACHE_DRIVER: array
-          SESSION_DRIVER: array
-          QUEUE_CONNECTION: sync
-        run: |
-          THREADS=$(nproc --all || echo 4)
-          vendor/bin/psalm --threads="$THREADS" --scan-threads="$THREADS" --no-diff --long-progress
-
-      - name: Clear cached config
-        run: php artisan config:clear
-
-      - name: Sanity - show effective DB
-        working-directory: api
-        env:
-          APP_ENV: testing
-        run: php -r 'require "vendor/autoload.php";$app=require "bootstrap/app.php";$app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();var_export(config("database.default"));echo " ";var_export(config("database.connections.sqlite.database"));echo PHP_EOL;'
-
-      - name: PHPUnit
-        working-directory: api
-        env:
-          APP_ENV: testing
-          APP_DEBUG: "false"
-          APP_KEY: base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
           DB_CONNECTION: sqlite
           DB_DATABASE: ${{ github.workspace }}/api/database/database.sqlite
           CACHE_DRIVER: array
           SESSION_DRIVER: array
           QUEUE_CONNECTION: sync
           FILESYSTEM_DISK: local
-        run: vendor/bin/phpunit --log-junit junit.xml
-
+        run: |
+          if [ -x vendor/bin/paratest ]; then
+            vendor/bin/paratest -p auto --runner=WrapperRunner --log-junit junit.xml --coverage-clover clover.xml
+          else
+            vendor/bin/phpunit --log-junit junit.xml --coverage-clover clover.xml
+          fi
       - name: Upload PHPUnit artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: phpunit-artifacts
+          name: phpunit-${{ matrix.php }}
           path: |
             api/junit.xml
+            api/clover.xml
             api/storage/logs/*.log
 
+  api_mysql:
+    name: API tests (MySQL smoke, PHP 8.3)
+    runs-on: self-hosted
+    needs: [api_static]
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_DATABASE: phpgrc_test
+          MYSQL_USER: phpgrc
+          MYSQL_PASSWORD: secret
+          MYSQL_ROOT_PASSWORD: secret
+        ports: [ "3306:3306" ]
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -usecret -psecret"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=20
+    defaults: { run: { working-directory: api } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"
+          extensions: mbstring, intl, pdo_mysql
+          coverage: none
+          tools: composer:v2
+      - name: Install deps
+        run: composer install --no-interaction --prefer-dist
+      - name: .env.testing (MySQL)
+        run: |
+          cat > .env.testing <<'EOF'
+          APP_ENV=testing
+          APP_DEBUG=false
+          APP_KEY=base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+          DB_CONNECTION=mysql
+          DB_HOST=127.0.0.1
+          DB_PORT=3306
+          DB_DATABASE=phpgrc_test
+          DB_USERNAME=phpgrc
+          DB_PASSWORD=secret
+          CACHE_DRIVER=array
+          SESSION_DRIVER=array
+          QUEUE_CONNECTION=sync
+          FILESYSTEM_DISK=local
+          EOF
+      - name: Migrate
+        run: php artisan migrate --force
+      - name: PHPUnit (smoke)
+        run: vendor/bin/phpunit --testsuite=Feature --do-not-cache-result
+
   web:
-    name: Web build (Vite)
+    name: Web build + tests + coverage + audit
     runs-on: self-hosted
     needs: [openapi]
-    defaults:
-      run:
-        working-directory: web
+    defaults: { run: { working-directory: web } }
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -194,8 +230,21 @@ jobs:
           cache: npm
           cache-dependency-path: web/package-lock.json
       - run: npm ci
-      - run: npm run build
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Unit tests + coverage
+        run: npm run test:coverage
+      - name: Build
+        run: npm run build
+      - name: NPM audit (high+)
+        run: npm audit --audit-level=high
       - uses: actions/upload-artifact@v4
         with:
           name: web-dist
           path: web/dist
+      - name: Upload web coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-coverage
+          path: web/coverage
