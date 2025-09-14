@@ -519,7 +519,7 @@ paths:
     put:
       tags: [RBAC]
       summary: Replace roles for user
-      description: Replaces all roles for the user with the provided set. Role names are case-insensitive; duplicates are invalid.
+      description: Replaces all roles for the user with the provided set. Role names are case-insensitive and whitespace-normalized; duplicates are invalid.
       operationId: rbacReplaceUserRoles
       security:
         - bearerAuth: []
@@ -568,7 +568,7 @@ paths:
     post:
       tags: [RBAC]
       summary: Attach role
-      description: Attaches a role to the user if not already present.
+      description: Attaches a role to the user if not already present. Role names are case-insensitive and whitespace-normalized.
       operationId: rbacAttachUserRole
       security:
         - bearerAuth: []
@@ -582,14 +582,17 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '422':
-          description: Unknown role
+          description: Unknown role or validation failed
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/ErrorRoleNotFound' }
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/ErrorRoleNotFound'
+                  - $ref: '#/components/schemas/Error422'
     delete:
       tags: [RBAC]
       summary: Detach role
-      description: Detaches a role from the user if present.
+      description: Detaches a role from the user if present. Role names are case-insensitive and whitespace-normalized.
       operationId: rbacDetachUserRole
       security:
         - bearerAuth: []
@@ -603,10 +606,13 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '422':
-          description: Unknown role
+          description: Unknown role or validation failed
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/ErrorRoleNotFound' }
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/ErrorRoleNotFound'
+                  - $ref: '#/components/schemas/Error422'
 
   # ---------------------------
   # Audit

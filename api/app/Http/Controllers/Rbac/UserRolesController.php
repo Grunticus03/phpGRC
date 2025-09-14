@@ -35,8 +35,8 @@ final class UserRolesController extends Controller
         }
 
         /** @var AuditLogger $logger */
-        $logger = app(AuditLogger::class);
-        $actor  = Auth::user();
+        $logger  = app(AuditLogger::class);
+        $actor   = Auth::user();
         $actorId = ($actor instanceof User) ? $actor->id : null;
 
         try {
@@ -75,20 +75,52 @@ final class UserRolesController extends Controller
         }
     }
 
+    private static function normalizeRoleName(string $value): string
+    {
+        // Trim and collapse internal whitespace. Preserve punctuation.
+        $trimmed = trim($value);
+        return (string) preg_replace('/\s+/u', ' ', $trimmed);
+    }
+
+    private function validationError(string $field, string $message): JsonResponse
+    {
+        return response()->json([
+            'ok'      => false,
+            'message' => 'The given data was invalid.',
+            'code'    => 'VALIDATION_FAILED',
+            'errors'  => [$field => [$message]],
+        ], 422);
+    }
+
     private static function resolveRoleId(string $value): ?string
     {
-        $value = trim($value);
-        if ($value == '') {
-            return null;
+        // Accept ids, exact names, and names matched case-insensitively with whitespace normalization.
+        $norm = self::normalizeRoleName($value);
+
+        // Try primary key by raw and normalized
+        foreach ([$value, $norm] as $candidate) {
+            $byId = Role::query()->whereKey($candidate)->value('id');
+            if (is_string($byId) && $byId !== '') {
+                return $byId;
+            }
         }
 
-        $byId = Role::query()->whereKey($value)->value('id');
-        if (is_string($byId) && $byId !== '') {
-            return $byId;
+        // Exact name match first
+        $byExact = Role::query()->where('name', $norm)->value('id');
+        if (is_string($byExact) && $byExact !== '') {
+            return $byExact;
         }
 
-        $byName = Role::query()->where('name', $value)->value('id');
-        return is_string($byName) && $byName !== '' ? $byName : null;
+        // Case-insensitive + collapsed-space comparison
+        $target = mb_strtolower($norm, 'UTF-8');
+        foreach (Role::query()->get(['id', 'name']) as $r) {
+            $candidate = mb_strtolower(self::normalizeRoleName((string) $r->name), 'UTF-8');
+            if ($candidate === $target) {
+                return (string) $r->id;
+            }
+        }
+
+        return null;
     }
 
     public function show(int $user): JsonResponse
@@ -125,13 +157,28 @@ final class UserRolesController extends Controller
 
         $before = $u->roles()->pluck('name')->sort()->values()->all();
 
-        $values = array_values($payload['roles']);
-        $ids = [];
-        $missing = [];
+        // Normalize names and dedupe after normalization
+        $values   = array_values($payload['roles']);
+        $normSeen = [];
+        $ids      = [];
+        $missing  = [];
+
         foreach ($values as $v) {
-            $id = self::resolveRoleId($v);
+            $norm = self::normalizeRoleName((string) $v);
+            // enforce max length after normalization
+            $len = mb_strlen($norm, 'UTF-8');
+            if ($len < 2 || $len > 64) {
+                return $this->validationError('roles', 'Each role must be between 2 and 64 characters after normalization.');
+            }
+            $key = mb_strtolower($norm, 'UTF-8');
+            if (isset($normSeen[$key])) {
+                return $this->validationError('roles', 'Duplicate roles after normalization.');
+            }
+            $normSeen[$key] = true;
+
+            $id = self::resolveRoleId($norm);
             if ($id === null) {
-                $missing[] = $v;
+                $missing[] = $v; // report original input
             } else {
                 $ids[] = $id;
             }
@@ -139,9 +186,9 @@ final class UserRolesController extends Controller
 
         if ($missing !== []) {
             return response()->json([
-                'ok'             => false,
-                'code'           => 'ROLE_NOT_FOUND',
-                'missing_roles'  => array_values($missing),
+                'ok'            => false,
+                'code'          => 'ROLE_NOT_FOUND',
+                'missing_roles' => array_values($missing),
             ], 422);
         }
 
@@ -171,7 +218,13 @@ final class UserRolesController extends Controller
             return response()->json(['ok' => false, 'code' => 'RBAC_DISABLED'], 404);
         }
 
-        $roleId = self::resolveRoleId($role);
+        $norm = self::normalizeRoleName($role);
+        $len  = mb_strlen($norm, 'UTF-8');
+        if ($len < 2 || $len > 64) {
+            return $this->validationError('role', 'Role name must be between 2 and 64 characters after normalization.');
+        }
+
+        $roleId = self::resolveRoleId($norm);
         if ($roleId === null) {
             return response()->json(['ok' => false, 'code' => 'ROLE_NOT_FOUND', 'missing_roles' => [$role]], 422);
         }
@@ -191,7 +244,7 @@ final class UserRolesController extends Controller
 
         if (!in_array($roleName, $before, true)) {
             $this->writeAudit($request, $u, 'rbac.user_role.attached', [
-                'role'    => $roleName,   // required by tests
+                'role'    => $roleName,
                 'role_id' => $roleId,
                 'before'  => $before,
                 'after'   => $after,
@@ -211,7 +264,13 @@ final class UserRolesController extends Controller
             return response()->json(['ok' => false, 'code' => 'RBAC_DISABLED'], 404);
         }
 
-        $roleId = self::resolveRoleId($role);
+        $norm = self::normalizeRoleName($role);
+        $len  = mb_strlen($norm, 'UTF-8');
+        if ($len < 2 || $len > 64) {
+            return $this->validationError('role', 'Role name must be between 2 and 64 characters after normalization.');
+        }
+
+        $roleId = self::resolveRoleId($norm);
         if ($roleId === null) {
             return response()->json(['ok' => false, 'code' => 'ROLE_NOT_FOUND', 'missing_roles' => [$role]], 422);
         }
@@ -231,7 +290,7 @@ final class UserRolesController extends Controller
 
         if (in_array($roleName, $before, true) && !in_array($roleName, $after, true)) {
             $this->writeAudit($request, $u, 'rbac.user_role.detached', [
-                'role'    => $roleName,   // required by tests
+                'role'    => $roleName,
                 'role_id' => $roleId,
                 'before'  => $before,
                 'after'   => $after,
@@ -245,3 +304,4 @@ final class UserRolesController extends Controller
         ], 200);
     }
 }
+
