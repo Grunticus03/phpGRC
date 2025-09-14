@@ -1,3 +1,4 @@
+# @phpgrc:/.github/workflows/deploy.yml
 name: Deploy to Server (Manual)
 
 on:
@@ -109,14 +110,16 @@ jobs:
           APP_DEBUG=false
           APP_URL=${APP_URL}
           APP_KEY=${APP_KEY}
-          
+
           LOG_CHANNEL=stack
           LOG_LEVEL=info
-          
+
+          # Force file-backed runtime stores to avoid DB table deps
           CACHE_STORE=file
+          CACHE_DRIVER=file
           SESSION_DRIVER=file
           QUEUE_CONNECTION=sync
-          
+
           DB_CONNECTION=mysql
           DB_HOST=${DB_HOST}
           DB_PORT=3306
@@ -128,7 +131,7 @@ jobs:
           CORE_RBAC_MODE=db
           CORE_RBAC_PERSISTENCE=true
           CORE_RBAC_REQUIRE_AUTH=false
-          
+
           SANCTUM_STATEFUL_DOMAINS=$(echo "${APP_URL}" | sed -E 's#https?://##;s#/$##')
           SESSION_DOMAIN=$(echo "${APP_URL}" | sed -E 's#https?://##;s#/$##')
           EOF
@@ -147,7 +150,7 @@ jobs:
           <!doctype html><meta charset="utf-8"><title>phpgrc</title>
           <h1>phpgrc</h1><p>Web UI not built; API at <code>/api</code></p>
           HTML
-                    fi
+          fi
 
           # SPA fallback .htaccess
           cat > "$RELEASE_DIR/web/public/.htaccess" <<'HT'
@@ -156,7 +159,7 @@ jobs:
           RewriteRule ^ index.html [L]
           HT
           REMOTE
-          
+
       - name: Install PHP deps & warm caches (server)
         env:
           TS: ${{ github.run_id }}-${{ github.run_attempt }}
@@ -170,6 +173,9 @@ jobs:
           ssh -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" bash -seuo pipefail <<REMOTE
           cd "$RELEASE_DIR/api"
 
+          # Ensure no stale cached config/routes/views from prior releases
+          rm -f bootstrap/cache/*.php || true
+
           # Composer on server; no-dev, optimized
           if command -v composer >/dev/null 2>&1; then
             composer install --no-dev --prefer-dist --optimize-autoloader -q
@@ -178,8 +184,17 @@ jobs:
           fi
 
           php artisan storage:link || true
-          php artisan optimize:clear
+
+          # Run migrations BEFORE cache clears/builds to satisfy any DB-backed stores if enabled later
           php artisan migrate --force || true
+
+          # Clear caches explicitly; force file store to avoid DB 'cache' table requirement
+          php artisan config:clear || true
+          php artisan route:clear || true
+          php artisan view:clear || true
+          php artisan cache:clear --store=file || true
+
+          # Rebuild caches
           php artisan config:cache
           php artisan route:cache
           if [ -d resources/views ]; then php artisan view:cache; fi
