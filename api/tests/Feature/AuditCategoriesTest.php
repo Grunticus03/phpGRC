@@ -26,6 +26,10 @@ final class AuditCategoriesTest extends TestCase
         $res->assertStatus(200)
             ->assertJsonPath('ok', true)
             ->assertJsonStructure(['ok', 'categories'])
-            ->assertJson(fn ($json) => $json->whereType('categories', 'array'));
+            ->assertJson(fn ($json) =>
+                $json->whereType('categories', 'array')
+                     ->where('ok', true)
+                     ->etc() // allow additional documented fields
+            );
     }
 }
