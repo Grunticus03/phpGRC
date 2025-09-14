@@ -718,3 +718,16 @@ Closeout
 - Phase/Step status: Phase 4 advanced — contracts and docs synced; CI ✅ green.
 - Next action (you): Merge docs + spec; keep CI green; begin Phase-5 Swagger UI.
 - Next action (me): Prepare Swagger UI wiring and Spectral lint; propose minor UX polish PRs for admin screens.
+
+---
+
+### Session 2025-09-13: [Phase 4, RBAC & Audit + CI Stabilization]
+- Context: Enable DB-backed RBAC, wire audit events, fix tests, and stabilize CI.
+- Goal: Achieve green CI with SQLite-backed tests; finalize RBAC-by-name contract and audit meta; document next QA/Config/UX steps.
+- Constraints: Production behavior unchanged; prefer minimal invasive changes; CI must be deterministic.
+
+### Closeout
+- Deliverables produced: RBAC controllers finalized (by name), audit canonical+alias events, fixed Feature tests (green), `.env.testing` + SQLite DB for CI, updated CI workflow with sanity step and artifacts scaffold.
+- Phase/Step status: advance
+- Next action (you): Add ParaTest & coverage to CI; raise PHPStan/Psalm levels; implement `/opt/phpgrc/shared/config.php` overlay provider; add audit/role dropdowns in UI; document OpenAPI error schemas.
+- Next action (me): Enable branch protection with required checks; provision GHCR/Codecov/Dependabot; share any prod overlay values and UI enum lists to wire up.

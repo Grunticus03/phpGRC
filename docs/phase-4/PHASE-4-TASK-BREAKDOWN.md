@@ -92,6 +92,29 @@
 - [x] PHPUnit green in CI
 - [x] Contracts frozen in `PHASE-4-SPEC.md` for delivered areas
 - [ ] UX pass on admin screens (Phase 5)
+- [ ] CI: Protect `main` with required jobs (`openapi`, `openapi_breaking`, `api`, `web`) and linear history.
+- [ ] CI: Upload artifacts (`api/junit.xml`, `api/storage/logs/*.log`, `web/dist`).
+- [ ] CI: Add ParaTest and run with CPU parallelism.
+- [ ] CI: Add coverage (`--coverage-clover coverage.xml`) and upload/report.
+- [ ] CI: Add `composer audit` and `npm audit --audit-level=high`.
+- [ ] CI: Add Dependabot (Composer, npm, GitHub Actions).
+- [ ] CI: Add `actionlint` step to lint workflow YAML.
+- [ ] CI: Add PHP matrix (8.2, 8.3); optional MySQL integration job.
+- [ ] QA: Raise PHPStan level one notch; fix violations or baseline deltas.
+- [ ] QA: Raise Psalm level/config; keep threads; stabilize baseline.
+- [ ] QA: Enforce Pint/PHP-CS-Fixer ruleset in CI.
+- [ ] QA: Add ESLint + `tsc --noEmit` to `web` job; add Prettier check.
+- [ ] Config: Implement early boot merge of `/opt/phpgrc/shared/config.php` (prod overlay) with `.env` ignored in prod.
+- [ ] Config: Document all overlay keys; add redacted “effective-config fingerprint” endpoint.
+- [ ] Config: Ensure `config:cache` includes overlay in build/release steps.
+- [ ] UX: Replace free-text Audit category with dropdown enum; normalize case.
+- [ ] UX: Replace RBAC role text inputs with dropdown sourced from `/api/rbac/roles`.
+- [ ] UX: Surface 422 field-level errors inline on Settings forms.
+- [ ] UX: Add helper text/examples for filters; pre-validate on client.
+- [ ] Tests: Add RBAC idempotency tests (double attach/detach no-op).
+- [ ] Tests: Add replace-with-empty and diff assertions for audit `added/removed`.
+- [ ] Docs: Update OpenAPI error schemas for `ROLE_NOT_FOUND` and 422 arrays.
+- [ ] Release: Add tag-triggered GHCR image build and attach OpenAPI + web assets.
 
 ---
 
