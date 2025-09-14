@@ -128,7 +128,7 @@ final class RbacUserRolesTest extends TestCase
             ->assertJson([
                 'ok' => false,
                 'code' => 'ROLE_NOT_FOUND',
-                'roles' => ['NotARole'],
+                'missing_roles' => ['NotARole'],
             ]);
     }
 

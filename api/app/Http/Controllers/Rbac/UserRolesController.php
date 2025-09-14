@@ -117,7 +117,7 @@ final class UserRolesController extends Controller
 
         $payload = $request->validate([
             'roles'   => ['present', 'array'],
-            'roles.*' => ['string', 'distinct', 'min:1', 'max:64'],
+            'roles.*' => ['string', 'distinct', 'min:2', 'max:64'],
         ]);
 
         /** @var User $u */
@@ -139,9 +139,9 @@ final class UserRolesController extends Controller
 
         if ($missing !== []) {
             return response()->json([
-                'ok'    => false,
-                'code'  => 'ROLE_NOT_FOUND',
-                'roles' => array_values($missing),
+                'ok'             => false,
+                'code'           => 'ROLE_NOT_FOUND',
+                'missing_roles'  => array_values($missing),
             ], 422);
         }
 
@@ -173,7 +173,7 @@ final class UserRolesController extends Controller
 
         $roleId = self::resolveRoleId($role);
         if ($roleId === null) {
-            return response()->json(['ok' => false, 'code' => 'ROLE_NOT_FOUND', 'roles' => [$role]], 422);
+            return response()->json(['ok' => false, 'code' => 'ROLE_NOT_FOUND', 'missing_roles' => [$role]], 422);
         }
 
         /** @var Role|null $roleModel */
@@ -213,7 +213,7 @@ final class UserRolesController extends Controller
 
         $roleId = self::resolveRoleId($role);
         if ($roleId === null) {
-            return response()->json(['ok' => false, 'code' => 'ROLE_NOT_FOUND', 'roles' => [$role]], 422);
+            return response()->json(['ok' => false, 'code' => 'ROLE_NOT_FOUND', 'missing_roles' => [$role]], 422);
         }
 
         /** @var Role|null $roleModel */

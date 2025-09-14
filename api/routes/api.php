@@ -205,6 +205,11 @@ Route::match(['GET','HEAD'], '/audit', [AuditController::class, 'index'])
     ->defaults('roles', ['Admin', 'Auditor'])
     ->defaults('policy', 'core.audit.view');
 
+Route::get('/audit/categories', [AuditController::class, 'categories'])
+    ->middleware($rbacStack)
+    ->defaults('roles', ['Admin', 'Auditor'])
+    ->defaults('policy', 'core.audit.view');
+
 Route::get('/audit/export.csv', [AuditExportController::class, 'exportCsv'])
     ->middleware($rbacStack)
     ->defaults('roles', ['Admin', 'Auditor'])

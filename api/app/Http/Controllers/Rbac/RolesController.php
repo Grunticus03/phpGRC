@@ -21,7 +21,7 @@ final class RolesController extends Controller
         $flag = (bool) config('core.rbac.persistence', false);
         /** @var mixed $mode */
         $mode = config('core.rbac.mode');
-        return $flag || $mode === 'persist';
+        return $flag || $mode === 'persist' || $mode === 'db';
     }
 
     public function index(): JsonResponse
@@ -116,4 +116,3 @@ final class RolesController extends Controller
         ], 201);
     }
 }
-
