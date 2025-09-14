@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
-use App\Models\Role;
 use App\Models\User;
 use Database\Seeders\RolesSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -23,11 +22,9 @@ final class RbacAuditVerificationTest extends TestCase
         config()->set('core.rbac.mode', 'persist');
         // Default to no auth required so we can verify null actor_id first.
         config()->set('core.rbac.require_auth', false);
-        $this->seed(RolesSeeder::class);
 
-        Role::query()->firstOrCreate(['id' => 'role_admin'],   ['name' => 'Admin']);
-        Role::query()->firstOrCreate(['id' => 'role_auditor'], ['name' => 'Auditor']);
-        Role::query()->firstOrCreate(['id' => 'role_risk'],    ['name' => 'Risk Manager']);
+        // Seeder already creates Admin, Auditor, Risk Manager with canonical ids.
+        $this->seed(RolesSeeder::class);
     }
 
     private function makeUser(string $name, string $email): User
@@ -41,7 +38,10 @@ final class RbacAuditVerificationTest extends TestCase
 
     private function countAuditsForUser(User $u): int
     {
-        return (int) DB::table('audit_events')->where('entity_type', 'user')->where('entity_id', (string) $u->id)->count();
+        return (int) DB::table('audit_events')
+            ->where('entity_type', 'user')
+            ->where('entity_id', (string) $u->id)
+            ->count();
     }
 
     public function test_attach_emits_canonical_and_alias_with_null_actor_when_unauthenticated(): void
@@ -106,7 +106,7 @@ final class RbacAuditVerificationTest extends TestCase
     public function test_replace_with_empty_set_clears_and_audits_removed_with_alias(): void
     {
         $u = $this->makeUser('Dave', 'dave@example.com');
-        // Seed starting roles
+        // Seed starting roles using canonical ids from seeder.
         $u->roles()->sync(['role_admin', 'role_auditor']);
 
         $this->putJson("/api/rbac/users/{$u->id}/roles", ['roles' => []])
@@ -124,7 +124,10 @@ final class RbacAuditVerificationTest extends TestCase
 
         // Validate meta.removed contains both names
         $metas = $pair->pluck('meta')->all();
-        $removedSets = array_map(static fn ($m) => is_array($m) && isset($m['removed']) ? $m['removed'] : [], $metas);
+        $removedSets = array_map(
+            static fn ($m) => is_array($m) && isset($m['removed']) ? $m['removed'] : [],
+            $metas
+        );
         $flat = array_unique(array_merge(...array_map(fn ($arr) => is_array($arr) ? $arr : [], $removedSets)));
         sort($flat);
         $this->assertSame(['Admin', 'Auditor'], $flat);
@@ -146,11 +149,7 @@ final class RbacAuditVerificationTest extends TestCase
 
         // Authenticated path
         config()->set('core.rbac.require_auth', true);
-        $admin = User::query()->create([
-            'name' => 'Admin Two',
-            'email' => 'admin2@example.com',
-            'password' => bcrypt('secret'),
-        ]);
+        $admin = $this->makeUser('Admin Two', 'admin2@example.com');
         $admin->roles()->sync(['role_admin']);
         Sanctum::actingAs($admin);
 
