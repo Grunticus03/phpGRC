@@ -104,7 +104,7 @@ final class ExportController extends Controller
     /**
      * GET /api/exports/{jobId}/download
      * If persistence is active and export is completed, stream the artifact.
-     * Otherwise, 404 EXPORT_NOT_READY to match Phase 4 behavior.
+     * Otherwise, 404 EXPORT_NOT_READY (Phase 4 behavior).
      */
     public function download(string $jobId)
     {
@@ -151,12 +151,24 @@ final class ExportController extends Controller
                 'ok'    => false,
                 'code'  => 'EXPORT_ARTIFACT_MISSING',
                 'jobId' => $export->id,
-            ], 410); // gone
+            ], 410);
         }
 
         $filename = "export-{$export->id}." . $export->type;
-        $headers  = [
-            'Content-Type' => $export->artifact_mime ?: 'application/octet-stream',
+
+        // Canonicalize MIME to avoid framework-default surprises.
+        $mime = match ($export->type) {
+            'csv'  => 'text/csv; charset=UTF-8',
+            'json' => 'application/json; charset=UTF-8',
+            'pdf'  => 'application/pdf',
+            default => (is_string($export->artifact_mime) && str_contains($export->artifact_mime, '/'))
+                ? $export->artifact_mime
+                : 'application/octet-stream',
+        };
+
+        $headers = [
+            'Content-Type'              => $mime,
+            'X-Content-Type-Options'    => 'nosniff',
         ];
 
         return Response::download(
@@ -166,4 +178,3 @@ final class ExportController extends Controller
         );
     }
 }
-
