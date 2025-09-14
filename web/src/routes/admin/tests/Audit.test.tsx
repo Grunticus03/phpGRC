@@ -26,7 +26,7 @@ describe("Admin Audit page", () => {
         return jsonResponse(["RBAC", "AUTH", "SYSTEM"]);
       }
 
-      if (url.includes("/api/audit?")) {
+      if (url.startsWith("/api/audit?")) {
         return jsonResponse({
           ok: true,
           items: [
@@ -56,7 +56,7 @@ describe("Admin Audit page", () => {
   it("loads categories and builds occurred_from/occurred_to query", async () => {
     render(<Audit />);
 
-    // Wait until the <select> renders (initially an <input> before categories load)
+    // Wait for categories to load and select to render
     const catSelect = await screen.findByRole("combobox", { name: "Category" });
     expect(catSelect.tagName.toLowerCase()).toBe("select");
     fireEvent.change(catSelect, { target: { value: "RBAC" } });
@@ -68,8 +68,9 @@ describe("Admin Audit page", () => {
     fireEvent.click(screen.getByRole("button", { name: "Apply" }));
 
     await waitFor(() => {
-      const hit = calls.find((u) => u.startsWith("/api/audit?"));
-      expect(hit).toBeTruthy();
+      const hits = calls.filter((u) => u.startsWith("/api/audit?"));
+      expect(hits.length).toBeGreaterThan(0);
+      const hit = hits[hits.length - 1]; // the request after Apply
       expect(hit).toContain("category=RBAC");
       expect(hit).toContain("occurred_from=2025-01-01T00%3A00%3A00Z");
       expect(hit).toContain("occurred_to=2025-01-02T23%3A59%3A59Z");
