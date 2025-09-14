@@ -23,8 +23,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with:
-          node-version: "20"
+        with: { node-version: "20" }
       - run: npx -y @redocly/cli@1.29.0 lint docs/api/openapi.yaml
 
   openapi_breaking:
@@ -35,15 +34,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
-      - name: Save HEAD spec
-        run: cp docs/api/openapi.yaml openapi.new.yaml
-      - name: Checkout BASE
-        uses: actions/checkout@v4
+      - run: cp docs/api/openapi.yaml openapi.new.yaml
+      - uses: actions/checkout@v4
         with:
           ref: ${{ github.base_ref }}
           path: base
       - id: check
-        name: Check base spec presence
         shell: bash
         run: |
           if [ -f base/docs/api/openapi.yaml ]; then
@@ -52,15 +48,13 @@ jobs:
           else
             echo "skip=true" >> "$GITHUB_OUTPUT"
           fi
-      - name: Run openapi-diff
-        if: steps.check.outputs.skip != 'true'
+      - if: steps.check.outputs.skip != 'true'
         run: |
           docker run --rm -v "$PWD":/spec openapitools/openapi-diff:2.0.0 \
             /spec/openapi.old.yaml /spec/openapi.new.yaml \
             --fail-on-incompatible \
             --html /spec/openapi-diff.html
-      - name: Upload diff report
-        if: steps.check.outputs.skip != 'true'
+      - if: steps.check.outputs.skip != 'true'
         uses: actions/upload-artifact@v4
         with:
           name: openapi-diff-report
@@ -79,20 +73,20 @@ jobs:
           extensions: mbstring, intl, pdo_mysql, pdo_sqlite, sqlite3, dom, xml, pcntl, posix, bcmath, fileinfo
           coverage: none
           tools: composer:v2
-      - name: Composer cache
-        uses: actions/cache@v4
+      - uses: actions/cache@v4
         with:
           path: ~/.composer/cache
           key: ${{ runner.os }}-composer-${{ hashFiles('api/composer.lock') }}
           restore-keys: ${{ runner.os }}-composer-
+      - name: Composer validate
+        run: composer validate --strict --no-check-publish
+      - name: Resolve lockfile (sync with composer.json)
+        run: composer update --no-interaction --prefer-dist --no-progress
       - name: Install deps
         run: composer install --no-interaction --prefer-dist
-      - name: Pint
-        run: vendor/bin/pint -v
-      - name: PHPStan
-        run: vendor/bin/phpstan analyse --memory-limit=-1
-      - name: Psalm
-        run: vendor/bin/psalm --no-cache --long-progress
+      - run: vendor/bin/pint -v
+      - run: vendor/bin/phpstan analyse --memory-limit=-1
+      - run: vendor/bin/psalm --no-cache --long-progress
       - name: Composer audit (prod only)
         run: composer audit --locked --no-dev
 
@@ -113,12 +107,13 @@ jobs:
           extensions: mbstring, intl, pdo_sqlite, sqlite3
           coverage: xdebug
           tools: composer:v2
-      - name: Composer cache
-        uses: actions/cache@v4
+      - uses: actions/cache@v4
         with:
           path: ~/.composer/cache
           key: ${{ runner.os }}-composer-${{ hashFiles('api/composer.lock') }}
           restore-keys: ${{ runner.os }}-composer-
+      - name: Resolve lockfile (sync with composer.json)
+        run: composer update --no-interaction --prefer-dist --no-progress
       - name: Install deps
         run: composer install --no-interaction --prefer-dist
       - name: Prepare Laravel dirs
@@ -156,8 +151,7 @@ jobs:
           else
             vendor/bin/phpunit --log-junit junit.xml --coverage-clover clover.xml
           fi
-      - name: Upload PHPUnit artifacts
-        if: always()
+      - if: always()
         uses: actions/upload-artifact@v4
         with:
           name: phpunit-${{ matrix.php }}
@@ -178,14 +172,16 @@ jobs:
           MYSQL_USER: phpgrc
           MYSQL_PASSWORD: secret
           MYSQL_ROOT_PASSWORD: secret
-        ports: [ "3306:3306" ]
+        ports: [ "3307:3306" ] # avoid host 3306 conflicts
         options: >-
-          --health-cmd="mysqladmin ping -h localhost -usecret -psecret"
+          --health-cmd="mysqladmin ping -uroot -psecret"
           --health-interval=10s
           --health-timeout=5s
-          --health-retries=20
+          --health-retries=30
     defaults: { run: { working-directory: api } }
     steps:
+      - name: Docker preflight
+        run: docker info
       - uses: actions/checkout@v4
       - uses: shivammathur/setup-php@v2
         with:
@@ -193,9 +189,17 @@ jobs:
           extensions: mbstring, intl, pdo_mysql
           coverage: none
           tools: composer:v2
-      - name: Install deps
-        run: composer install --no-interaction --prefer-dist
-      - name: .env.testing (MySQL)
+      - name: Resolve lockfile (sync with composer.json)
+        run: composer update --no-interaction --prefer-dist --no-progress
+      - run: composer install --no-interaction --prefer-dist
+      - name: Wait for MySQL
+        run: |
+          for i in {1..60}; do
+            mysqladmin ping -h 127.0.0.1 -P 3307 --protocol=tcp -uroot -psecret && break
+            sleep 1
+          done
+          mysql -h 127.0.0.1 -P 3307 -uroot -psecret -e "SELECT VERSION();"
+      - name: Write .env.testing (MySQL)
         run: |
           cat > .env.testing <<'EOF'
           APP_ENV=testing
@@ -203,7 +207,7 @@ jobs:
           APP_KEY=base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
           DB_CONNECTION=mysql
           DB_HOST=127.0.0.1
-          DB_PORT=3306
+          DB_PORT=3307
           DB_DATABASE=phpgrc_test
           DB_USERNAME=phpgrc
           DB_PASSWORD=secret
@@ -212,9 +216,27 @@ jobs:
           QUEUE_CONNECTION=sync
           FILESYSTEM_DISK=local
           EOF
-      - name: Migrate
-        run: php artisan migrate --force
+      - name: Migrate schema
+        env:
+          APP_ENV: testing
+          DB_CONNECTION: mysql
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3307
+          DB_DATABASE: phpgrc_test
+          DB_USERNAME: phpgrc
+          DB_PASSWORD: secret
+        run: |
+          php artisan config:clear
+          php artisan migrate --force
       - name: PHPUnit (smoke)
+        env:
+          APP_ENV: testing
+          DB_CONNECTION: mysql
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3307
+          DB_DATABASE: phpgrc_test
+          DB_USERNAME: phpgrc
+          DB_PASSWORD: secret
         run: vendor/bin/phpunit --testsuite=Feature --do-not-cache-result
 
   web:
@@ -230,20 +252,15 @@ jobs:
           cache: npm
           cache-dependency-path: web/package-lock.json
       - run: npm ci
-      - name: Typecheck
-        run: npm run typecheck
-      - name: Unit tests + coverage
-        run: npm run test:coverage
-      - name: Build
-        run: npm run build
-      - name: NPM audit (high+)
-        run: npm audit --audit-level=high
+      - run: npm run typecheck
+      - run: npm run test:coverage
+      - run: npm run build
+      - run: npm audit --audit-level=high
       - uses: actions/upload-artifact@v4
         with:
           name: web-dist
           path: web/dist
-      - name: Upload web coverage
-        if: always()
+      - if: always()
         uses: actions/upload-artifact@v4
         with:
           name: web-coverage
