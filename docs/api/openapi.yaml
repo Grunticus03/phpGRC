@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: phpGRC API
-  version: 0.4.6
+  version: 0.4.5
   license:
     identifier: MIT
     name: MIT
@@ -634,7 +634,10 @@ paths:
           schema: { type: string }
         - in: query
           name: ip
-          schema: { type: string, format: ipv4 }
+          schema:
+            oneOf:
+              - { type: string, format: ipv4 }
+              - { type: string, format: ipv6 }
       responses:
         '200':
           description: OK
@@ -647,7 +650,7 @@ paths:
     get:
       tags: [Audit]
       summary: List audit categories
-      description: Returns the set of valid audit categories.
+      description: Returns an array of supported audit categories.
       operationId: auditCategories
       security:
         - bearerAuth: []
@@ -658,14 +661,8 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                additionalProperties: false
-                properties:
-                  ok: { type: boolean }
-                  categories:
-                    type: array
-                    items: { type: string }
-                required: [ok, categories]
+                type: array
+                items: { type: string }
         '403': { $ref: '#/components/responses/Forbidden' }
 
   /audit/export.csv:
