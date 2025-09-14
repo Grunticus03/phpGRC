@@ -1018,10 +1018,10 @@ components:
         ok: { type: boolean, const: false }
         code: { type: string, enum: [ROLE_NOT_FOUND] }
         message: { type: string }
-        missing:
+        missing_roles:
           type: array
           items: { type: string, minLength: 2, maxLength: 64 }
-      required: [code, missing]
+      required: [code, missing_roles]
 
     SettingsEnvelope:
       type: object
