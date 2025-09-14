@@ -5,11 +5,13 @@ on:
     branches: [ main ]
     paths:
       - "api/**"
+      - "web/**"
       - "docs/api/**"
       - ".github/workflows/ci.yml"
   pull_request:
     paths:
       - "api/**"
+      - "web/**"
       - "docs/api/**"
       - ".github/workflows/ci.yml"
   workflow_dispatch:
@@ -76,25 +78,9 @@ jobs:
           path: openapi-diff.html
 
   api:
-    name: API checks
+    name: API checks (SQLite + static analysis)
     runs-on: self-hosted
     needs: [openapi] # breaking-change gate runs only on PRs
-    services:
-      mysql:
-        image: mysql:8.0
-        env:
-          MYSQL_ROOT_PASSWORD: root
-          MYSQL_DATABASE: phpgrc_test
-          MYSQL_USER: phpgrc
-          MYSQL_PASSWORD: secret
-        ports:
-          - 3306:3306
-        options: >-
-          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
-          --health-interval=10s
-          --health-timeout=5s
-          --health-retries=10
-
     defaults:
       run:
         working-directory: api
@@ -107,7 +93,7 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: "8.3"
-          extensions: mbstring, intl, pdo_mysql, dom, xml, pcntl, posix
+          extensions: mbstring, intl, pdo_mysql, pdo_sqlite, sqlite3, dom, xml, pcntl, posix, bcmath, fileinfo
           coverage: none
           tools: composer:v2
 
@@ -116,10 +102,6 @@ jobs:
           php -r 'echo "disable_functions=",ini_get("disable_functions"),PHP_EOL;'
           php -r 'echo "proc_open:",function_exists("proc_open")?"ok":"DISABLED",PHP_EOL;'
           php -r 'echo "pcntl:",extension_loaded("pcntl")?"on":"off",PHP_EOL;'
-          php -r 'echo "xdebug:",extension_loaded("xdebug")?"on":"off",PHP_EOL;'
-
-      - name: Install MySQL client
-        run: sudo apt-get update && sudo apt-get install -y mysql-client
 
       - name: Prepare Laravel dirs
         run: |
@@ -127,7 +109,7 @@ jobs:
             storage/app \
             storage/framework/cache storage/framework/sessions storage/framework/views \
             storage/logs
-          touch .env
+          :> storage/logs/laravel.log
 
       - name: Composer cache
         uses: actions/cache@v4
@@ -139,17 +121,23 @@ jobs:
       - name: Install deps
         run: composer install --no-interaction --prefer-dist
 
-      - name: Wait for MySQL and provision test DB
-        env:
-          MYSQL_PWD: root
+      - name: Create SQLite testing DB and env
         run: |
-          for i in {1..30}; do
-            mysql -h 127.0.0.1 -uroot -e "SELECT 1" && break
-            sleep 2
-          done
-          mysql -h 127.0.0.1 -uroot -e "CREATE DATABASE IF NOT EXISTS phpgrc_test CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;"
-          mysql -h 127.0.0.1 -uroot -e "CREATE USER IF NOT EXISTS 'phpgrc'@'%' IDENTIFIED BY 'secret';"
-          mysql -h 127.0.0.1 -uroot -e "GRANT ALL ON phpgrc_test.* TO 'phpgrc'@'%'; FLUSH PRIVILEGES;"
+          mkdir -p database
+          :> database/database.testing.sqlite
+          cat > .env.testing <<'EOF'
+          APP_ENV=testing
+          APP_DEBUG=false
+          APP_KEY=base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+          DB_CONNECTION=sqlite
+          DB_DATABASE=${{ github.workspace }}/api/database/database.testing.sqlite
+          CACHE_DRIVER=array
+          SESSION_DRIVER=array
+          QUEUE_CONNECTION=sync
+          FILESYSTEM_DISK=local
+          CORE_RBAC_ENABLED=false
+          CORE_RBAC_REQUIRE_AUTH=false
+          EOF
 
       - name: Pint
         run: vendor/bin/pint -v
@@ -162,12 +150,8 @@ jobs:
           APP_ENV: testing
           APP_DEBUG: "true"
           APP_KEY: base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
-          DB_CONNECTION: mysql
-          DB_HOST: 127.0.0.1
-          DB_PORT: "3306"
-          DB_DATABASE: phpgrc_test
-          DB_USERNAME: phpgrc
-          DB_PASSWORD: secret
+          DB_CONNECTION: sqlite
+          DB_DATABASE: ${{ github.workspace }}/api/database/database.testing.sqlite
           CACHE_DRIVER: array
           SESSION_DRIVER: array
           QUEUE_CONNECTION: sync
@@ -175,34 +159,49 @@ jobs:
           THREADS=$(nproc --all || echo 4)
           vendor/bin/psalm --threads="$THREADS" --scan-threads="$THREADS" --no-diff --long-progress
 
-      - name: Migrate (testing)
-        env:
-          APP_ENV: testing
-          APP_DEBUG: "true"
-          APP_KEY: base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
-          DB_CONNECTION: mysql
-          DB_HOST: 127.0.0.1
-          DB_PORT: "3306"
-          DB_DATABASE: phpgrc_test
-          DB_USERNAME: phpgrc
-          DB_PASSWORD: secret
-          CACHE_DRIVER: array
-          SESSION_DRIVER: array
-          QUEUE_CONNECTION: sync
-        run: php artisan migrate --no-interaction --force
+      - name: Clear and cache config
+        run: |
+          php artisan config:clear
+          php artisan config:cache
 
       - name: PHPUnit
-        env:
-          APP_ENV: testing
-          APP_DEBUG: "true"
-          APP_KEY: base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
-          DB_CONNECTION: mysql
-          DB_HOST: 127.0.0.1
-          DB_PORT: "3306"
-          DB_DATABASE: phpgrc_test
-          DB_USERNAME: phpgrc
-          DB_PASSWORD: secret
-          CACHE_DRIVER: array
-          SESSION_DRIVER: array
-          QUEUE_CONNECTION: sync
-        run: vendor/bin/phpunit
+        run: vendor/bin/phpunit --log-junit junit.xml
+
+      - name: Upload test artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phpunit-artifacts
+          path: |
+            api/junit.xml
+            api/storage/logs/*.log
+
+  web:
+    name: Web build (Vite)
+    runs-on: self-hosted
+    needs: [openapi]
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Upload web artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-dist
+          path: web/dist
