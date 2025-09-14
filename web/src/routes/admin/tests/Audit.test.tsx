@@ -13,13 +13,13 @@ function jsonResponse(body: unknown, init: ResponseInit = {}) {
 }
 
 describe("Admin Audit page", () => {
-  const originalFetch = global.fetch;
+  const originalFetch = globalThis.fetch as typeof fetch;
   let calls: string[] = [];
 
   beforeEach(() => {
     calls = [];
-    global.fetch = vi.fn(async (input: RequestInfo | URL) => {
-      const url = String(input);
+    globalThis.fetch = vi.fn(async (...args: any[]) => {
+      const url = String(args[0]);
       calls.push(url);
 
       if (url.includes("/api/audit/categories")) {
@@ -49,25 +49,21 @@ describe("Admin Audit page", () => {
   });
 
   afterEach(() => {
-    global.fetch = originalFetch;
+    globalThis.fetch = originalFetch;
     vi.restoreAllMocks();
   });
 
   it("loads categories and builds occurred_from/occurred_to query", async () => {
     render(<Audit />);
 
-    // Wait for categories to load and render select
     const catSelect = await screen.findByLabelText("Category");
     expect(catSelect.tagName.toLowerCase()).toBe("select");
-    // Choose a category
     fireEvent.change(catSelect, { target: { value: "RBAC" } });
 
-    // Set date range and limit
     fireEvent.change(screen.getByLabelText("From"), { target: { value: "2025-01-01" } });
     fireEvent.change(screen.getByLabelText("To"), { target: { value: "2025-01-02" } });
     fireEvent.change(screen.getByLabelText("Limit"), { target: { value: "25" } });
 
-    // Apply filters
     fireEvent.click(screen.getByRole("button", { name: "Apply" }));
 
     await waitFor(() => {
@@ -79,17 +75,16 @@ describe("Admin Audit page", () => {
       expect(hit).toContain("limit=25");
     });
 
-    // Table shows the row
     await screen.findByText("ULID001");
     await screen.findByText("rbac.user_role.attached");
   });
 
   it("falls back to text input if categories endpoint fails", async () => {
-    (global.fetch as any).mockImplementationOnce(async () => {
+    (globalThis.fetch as any).mockImplementationOnce(async () => {
       throw new Error("boom");
     });
-    (global.fetch as any).mockImplementationOnce(async (input: RequestInfo | URL) => {
-      const url = String(input);
+    (globalThis.fetch as any).mockImplementationOnce(async (...args: any[]) => {
+      const url = String(args[0]);
       calls.push(url);
       return jsonResponse({ ok: true, items: [], nextCursor: null });
     });

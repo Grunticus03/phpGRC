@@ -13,13 +13,14 @@ function jsonResponse(body: unknown, init: ResponseInit = {}) {
 }
 
 describe("Admin Settings page", () => {
-  const originalFetch = global.fetch;
+  const originalFetch = globalThis.fetch as typeof fetch;
   let postBody: any = null;
 
   beforeEach(() => {
     postBody = null;
-    global.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-      const url = String(input);
+    globalThis.fetch = vi.fn(async (...args: any[]) => {
+      const url = String(args[0]);
+      const init = (args[1] ?? {}) as RequestInit;
 
       if (url === "/api/admin/settings" && (!init || init.method === undefined)) {
         return jsonResponse({
@@ -28,7 +29,11 @@ describe("Admin Settings page", () => {
             core: {
               rbac: { enabled: true, roles: ["Admin", "Auditor", "Risk Manager", "User"], require_auth: false },
               audit: { enabled: true, retention_days: 365 },
-              evidence: { enabled: true, max_mb: 25, allowed_mime: ["application/pdf", "image/png", "image/jpeg", "text/plain"] },
+              evidence: {
+                enabled: true,
+                max_mb: 25,
+                allowed_mime: ["application/pdf", "image/png", "image/jpeg", "text/plain"],
+              },
               avatars: { enabled: true, size_px: 128, format: "webp" },
             },
           },
@@ -41,7 +46,6 @@ describe("Admin Settings page", () => {
         } catch {
           postBody = null;
         }
-        // Simulate stub-only behavior
         return jsonResponse({ ok: true, note: "stub-only" }, { status: 200 });
       }
 
@@ -50,33 +54,28 @@ describe("Admin Settings page", () => {
   });
 
   afterEach(() => {
-    global.fetch = originalFetch;
+    globalThis.fetch = originalFetch;
     vi.restoreAllMocks();
   });
 
   it("loads, submits, shows stub message, and sends contract-shaped body", async () => {
     render(<Settings />);
 
-    // Wait for initial load to finish
     await waitFor(() => expect(screen.queryByText("Loading")).not.toBeInTheDocument());
 
-    // Toggle Require Auth
     const requireAuth = screen.getByLabelText("Require Auth (Sanctum) for RBAC APIs") as HTMLInputElement;
     expect(requireAuth.checked).toBe(false);
     fireEvent.click(requireAuth);
     expect(requireAuth.checked).toBe(true);
 
-    // Change retention days
     const retention = screen.getByLabelText("Retention days") as HTMLInputElement;
     fireEvent.change(retention, { target: { value: "180" } });
     expect(retention.value).toBe("180");
 
-    // Submit
     fireEvent.click(screen.getByRole("button", { name: /save/i }));
 
     await screen.findByText("Validated. Not persisted (stub).");
 
-    // Body contains only the contract keys under core
     expect(postBody).toBeTruthy();
     expect(postBody).toHaveProperty("core");
 
@@ -86,9 +85,7 @@ describe("Admin Settings page", () => {
     expect(core).toHaveProperty("evidence");
     expect(core).toHaveProperty("avatars");
 
-    // rbac.require_auth toggled true
     expect(core.rbac.require_auth).toBe(true);
-    // audit.retention_days set to 180
     expect(core.audit.retention_days).toBe(180);
   });
 });
