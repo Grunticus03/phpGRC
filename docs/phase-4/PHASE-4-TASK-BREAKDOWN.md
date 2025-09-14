@@ -91,37 +91,65 @@
 - [x] Psalm/PHPStan/Pint clean
 - [x] PHPUnit green in CI
 - [x] Contracts frozen in `PHASE-4-SPEC.md` for delivered areas
+- [x] CI: Upload artifacts (`api/junit.xml`, `api/storage/logs/*.log`, `web/dist`)
+- [x] UX: Replace free-text Audit category with dropdown enum; normalize case
+- [x] UX: Surface 422 field-level errors inline on Settings forms
 - [ ] UX pass on admin screens (Phase 5)
-- [ ] CI: Protect `main` with required jobs (`openapi`, `openapi_breaking`, `api`, `web`) and linear history.
-- [ ] CI: Upload artifacts (`api/junit.xml`, `api/storage/logs/*.log`, `web/dist`).
-- [ ] CI: Add ParaTest and run with CPU parallelism.
-- [ ] CI: Add coverage (`--coverage-clover coverage.xml`) and upload/report.
-- [ ] CI: Add `composer audit` and `npm audit --audit-level=high`.
-- [ ] CI: Add Dependabot (Composer, npm, GitHub Actions).
-- [ ] CI: Add `actionlint` step to lint workflow YAML.
-- [ ] CI: Add PHP matrix (8.2, 8.3); optional MySQL integration job.
-- [ ] QA: Raise PHPStan level one notch; fix violations or baseline deltas.
-- [ ] QA: Raise Psalm level/config; keep threads; stabilize baseline.
-- [ ] QA: Enforce Pint/PHP-CS-Fixer ruleset in CI.
-- [ ] QA: Add ESLint + `tsc --noEmit` to `web` job; add Prettier check.
-- [ ] Config: Implement early boot merge of `/opt/phpgrc/shared/config.php` (prod overlay) with `.env` ignored in prod.
-- [ ] Config: Document all overlay keys; add redacted “effective-config fingerprint” endpoint.
-- [ ] Config: Ensure `config:cache` includes overlay in build/release steps.
-- [ ] UX: Replace free-text Audit category with dropdown enum; normalize case.
-- [ ] UX: Replace RBAC role text inputs with dropdown sourced from `/api/rbac/roles`.
-- [ ] UX: Surface 422 field-level errors inline on Settings forms.
-- [ ] UX: Add helper text/examples for filters; pre-validate on client.
-- [ ] Tests: Add RBAC idempotency tests (double attach/detach no-op).
-- [ ] Tests: Add replace-with-empty and diff assertions for audit `added/removed`.
-- [ ] Docs: Update OpenAPI error schemas for `ROLE_NOT_FOUND` and 422 arrays.
-- [ ] Release: Add tag-triggered GHCR image build and attach OpenAPI + web assets.
+- [ ] CI: Protect `main` with required jobs (`openapi`, `openapi_breaking`, `api`, `web`) and linear history
+- [ ] CI: Add ParaTest and run with CPU parallelism
+- [ ] CI: Add coverage (`--coverage-clover coverage.xml`) and upload/report; include vitest coverage/artifacts
+- [ ] CI: Add `composer audit` and `npm audit --audit-level=high`
+- [ ] CI: Add Dependabot (Composer, npm, GitHub Actions)
+- [ ] CI: Add `actionlint` step to lint workflow YAML
+- [ ] CI: Add PHP matrix (8.2, 8.3); optional MySQL integration job
+- [ ] QA: Raise PHPStan level one notch; fix violations or baseline deltas
+- [ ] QA: Raise Psalm level/config; keep threads; stabilize baseline
+- [ ] QA: Enforce Pint/PHP-CS-Fixer ruleset in CI
+- [ ] QA: Add ESLint + `tsc --noEmit` to `web` job; add Prettier check
+- [ ] Config: Implement early boot merge of `/opt/phpgrc/shared/config.php` (prod overlay) with `.env` ignored in prod
+- [ ] Config: Document overlay keys; add redacted “effective-config fingerprint” endpoint; ensure `config:cache` includes overlay
+- [ ] UX: Replace RBAC role text inputs with dropdown sourced from `/api/rbac/roles`
+- [ ] UX: Add helper text/examples for filters; pre-validate on client
+- [ ] Tests: Add RBAC idempotency tests (double attach; detach non-assigned no-op)
+- [ ] Tests: Add replace-with-empty and diff assertions for audit `added/removed`
+- [ ] Tests: Auth gate with `require_auth=true` (401 unauth, 200 authed; `actor_id` present when authed)
+- [ ] Tests: Audit verification of canonical+alias events and `RBAC` casing
+- [ ] Docs/OpenAPI: Add `/audit/categories` path and response schema
+- [ ] Docs/OpenAPI: Update 422 schemas for `ROLE_NOT_FOUND` and role-name constraints
+- [ ] Release: Tag-triggered GHCR image build; attach OpenAPI + web assets
 
 ---
 
-## Immediate Next Steps
-1. Minor UX polish on admin pages per `STYLEGUIDE.md`.
-2. OpenAPI/Swagger polish for Phase 5:
-   - [x] Serve YAML at `/api/openapi.yaml` and Swagger UI at `/api/docs`.
-   - [ ] Serve JSON at `/api/openapi.json`.
-   - [ ] Add at least one `4XX` response to `GET /docs` to silence Redocly.
-   - [ ] Wire Spectral lint into CI with a project ruleset.
+### Immediate Next Steps — merged and prioritized
+
+1. **OpenAPI/Swagger polish**
+   - [x] Serve YAML at `/api/openapi.yaml` and Swagger UI at `/api/docs`
+   - [ ] Serve JSON at `/api/openapi.json`
+   - [x] Add a 4XX response to `GET /docs` (present: `404`)
+   - [ ] Add `/audit/categories` to spec with schema; document RBAC 422 (`ROLE_NOT_FOUND`) and role-name constraints
+   - [ ] Wire Spectral (or Redocly rules) lint into CI
+
+2. **API & Tests**
+   - [ ] Feature test: `/api/audit/categories` returns enum list
+   - [ ] RBAC happy-path matrix: replace `[]`; attach twice; detach non-assigned
+   - [ ] RBAC edge cases: spaces/mixed case; >64 → 422; missing roles → 422
+   - [ ] Auth gate tests with `require_auth=true`
+   - [ ] Audit tests: canonical+alias pairs; category casing
+
+3. **Web UX**
+   - [ ] Admin › Audit: disable Apply during load; inline server errors; keep CSV link synced
+   - [ ] Admin › RBAC: replace role text inputs with dropdown from `/api/rbac/roles`
+
+4. **CI**
+   - [ ] Protect `main` with required jobs and linear history
+   - [ ] Add ParaTest; enable PHPUnit and vitest coverage; upload artifacts
+   - [ ] Add PHP 8.2 matrix and optional MySQL job
+   - [ ] Add `composer audit`, `npm audit`, Dependabot, and `actionlint`
+
+5. **Config**
+   - [ ] Implement `ConfigServiceProvider` for overlay merge (shared → app → `.env`)
+   - [ ] Add redacted effective-config fingerprint endpoint
+   - [ ] Ensure `config:cache` includes overlay
+
+6. **Release**
+   - [ ] Tag `v0.4.6`, build/push GHCR, attach `openapi.yaml` and `web/dist` artifacts

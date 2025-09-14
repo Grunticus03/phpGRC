@@ -731,3 +731,16 @@ Closeout
 - Phase/Step status: advance
 - Next action (you): Add ParaTest & coverage to CI; raise PHPStan/Psalm levels; implement `/opt/phpgrc/shared/config.php` overlay provider; add audit/role dropdowns in UI; document OpenAPI error schemas.
 - Next action (me): Enable branch protection with required checks; provision GHCR/Codecov/Dependabot; share any prod overlay values and UI enum lists to wire up.
+
+---
+
+### Session 2025-09-14: [Phase 4, API/Web — RBAC, Audit, Tests, CI]
+- Context: Align API contracts and Web UI; stabilize CI; add audit categories UX.
+- Goal: CI green with audit categories in UI, fixed typecheck/unit tests, and RBAC/audit routes stable.
+- Constraints: Keep prod-safe; no external dependencies beyond current stack; maintain stub-mode behaviors.
+
+### Closeout
+- Deliverables produced: updated Admin Audit page (category select, date params, CSV sync), `/api/audit/categories` route + handler, fixed web typecheck, passing web unit tests, CI pipeline green for API/Web/OpenAPI lint.
+- Phase/Step status: advance.
+- Next action (you): add OpenAPI path for `/audit/categories`; add feature tests for categories; extend RBAC and auth-gate tests; wire CI coverage and release job.
+- Next action (me): provide approval for OpenAPI changes, decide on release tagging (`v0.4.6`), and confirm production overlay approach.
