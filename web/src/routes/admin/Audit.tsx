@@ -189,4 +189,42 @@ export default function Audit(): JSX.Element {
       <div style={{ overflowX: "auto" }}>
         <table aria-label="Audit events" className="table">
           <thead>
-            <tr
+            <tr>
+              <th>ID</th>
+              <th>Timestamp</th>
+              <th>Category</th>
+              <th>Action</th>
+              <th>Actor</th>
+              <th>IP</th>
+              <th>Note</th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.length === 0 && state === "ok" ? (
+              <tr>
+                <td colSpan={7}>No results</td>
+              </tr>
+            ) : (
+              items.map((it, i) => {
+                const id = (it.id as string) || (it.ulid as string) || String(i);
+                const ts = it.occurred_at || it.created_at || it.ts || "";
+                const actor = it.actor_id ?? it.user_id ?? "";
+                return (
+                  <tr key={id}>
+                    <td>{id}</td>
+                    <td>{String(ts)}</td>
+                    <td>{String(it.category ?? "")}</td>
+                    <td>{String(it.action ?? "")}</td>
+                    <td>{String(actor)}</td>
+                    <td>{String(it.ip ?? "")}</td>
+                    <td>{String(it.note ?? "")}</td>
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
