@@ -6,8 +6,7 @@ import AdminIndex from "./routes/admin/index";
 import Settings from "./routes/admin/Settings";
 import Roles from "./routes/admin/Roles";
 import UserRoles from "./routes/admin/UserRoles";
-
-// Other feature stubs already present (optional wiring later)
+import Audit from "./routes/admin/Audit";
 
 const router = createHashRouter(
   createRoutesFromElements(
@@ -18,6 +17,7 @@ const router = createHashRouter(
         <Route path="settings" element={<Settings />} />
         <Route path="roles" element={<Roles />} />
         <Route path="user-roles" element={<UserRoles />} />
+        <Route path="audit" element={<Audit />} />
       </Route>
     </Route>
   )
