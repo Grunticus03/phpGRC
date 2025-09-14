@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Providers\AuthServiceProvider;
+use App\Providers\ConfigOverlayServiceProvider;
 use App\Providers\EventServiceProvider;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Application;
@@ -23,6 +24,8 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->redirectUsersTo(fn () => null);
     })
     ->withProviders([
+        // Load overlay before gates read config.
+        ConfigOverlayServiceProvider::class,
         AuthServiceProvider::class,
         EventServiceProvider::class,
     ])

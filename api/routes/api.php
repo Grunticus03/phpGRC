@@ -23,6 +23,7 @@ use App\Http\Controllers\OpenApiController;
 use App\Http\Middleware\BreakGlassGuard;
 use App\Http\Middleware\RbacMiddleware;
 use App\Http\Middleware\SetupGuard;
+use App\Services\Settings\SettingsService;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -52,6 +53,46 @@ Route::prefix('/setup')
  |--------------------------------------------------------------------------
 */
 Route::get('/health', fn () => response()->json(['ok' => true]));
+
+// Redacted effective-config fingerprint for ops sanity (not in OpenAPI).
+Route::get('/health/fingerprint', function (SettingsService $settings) {
+    $eff = $settings->effectiveConfig(); // contract-trimmed core only
+
+    $summary = [
+        'rbac' => [
+            'enabled'       => (bool) ($eff['core']['rbac']['enabled'] ?? false),
+            'require_auth'  => (bool) config('core.rbac.require_auth', false),
+            'roles_count'   => count((array) ($eff['core']['rbac']['roles'] ?? [])),
+        ],
+        'audit' => [
+            'enabled'        => (bool) ($eff['core']['audit']['enabled'] ?? false),
+            'retention_days' => (int) ($eff['core']['audit']['retention_days'] ?? 0),
+        ],
+        'evidence' => [
+            'enabled'            => (bool) ($eff['core']['evidence']['enabled'] ?? false),
+            'max_mb'             => (int) ($eff['core']['evidence']['max_mb'] ?? 0),
+            'allowed_mime_count' => count((array) ($eff['core']['evidence']['allowed_mime'] ?? [])),
+        ],
+        'avatars' => [
+            'enabled' => (bool) ($eff['core']['avatars']['enabled'] ?? false),
+            'size_px' => (int) ($eff['core']['avatars']['size_px'] ?? 0),
+            'format'  => (string) ($eff['core']['avatars']['format'] ?? ''),
+        ],
+    ];
+
+    $meta = (array) config('phpgrc.overlay', ['loaded' => false, 'path' => null, 'mtime' => null]);
+
+    return response()->json([
+        'ok'          => true,
+        'fingerprint' => 'sha256:' . hash('sha256', json_encode($summary, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)),
+        'overlay'     => [
+            'loaded' => (bool) ($meta['loaded'] ?? false),
+            'path'   => $meta['path'] ?? null,
+            'mtime'  => $meta['mtime'] ?? null,
+        ],
+        'summary'     => $summary,
+    ], 200);
+});
 
 /*
  |--------------------------------------------------------------------------
