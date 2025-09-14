@@ -124,6 +124,10 @@ jobs:
           DB_USERNAME=${DB_USER}
           DB_PASSWORD=${DB_PASS}
           DB_SOCKET=
+          CORE_RBAC_ENABLED=true
+          CORE_RBAC_MODE=db
+          CORE_RBAC_PERSISTENCE=true
+          CORE_RBAC_REQUIRE_AUTH=false
           
           SANCTUM_STATEFUL_DOMAINS=$(echo "${APP_URL}" | sed -E 's#https?://##;s#/$##')
           SESSION_DOMAIN=$(echo "${APP_URL}" | sed -E 's#https?://##;s#/$##')

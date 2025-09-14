@@ -36,15 +36,13 @@ final class UserRolesController extends Controller
 
         /** @var AuditLogger $logger */
         $logger = app(AuditLogger::class);
-
-        $actor = Auth::user();
+        $actor  = Auth::user();
         $actorId = ($actor instanceof User) ? $actor->id : null;
 
         try {
-            // Canonical event
             $logger->log([
                 'actor_id'    => $actorId,
-                'action'      => $action,              // rbac.user_role.replaced|attached|detached
+                'action'      => $action,
                 'category'    => 'RBAC',
                 'entity_type' => 'user',
                 'entity_id'   => (string) $target->id,
@@ -53,7 +51,6 @@ final class UserRolesController extends Controller
                 'meta'        => $meta,
             ]);
 
-            // Legacy aliases
             $alias = match ($action) {
                 'rbac.user_role.attached'  => 'role.attach',
                 'rbac.user_role.detached'  => 'role.detach',
@@ -74,26 +71,22 @@ final class UserRolesController extends Controller
                 ]);
             }
         } catch (\Throwable) {
-            // never fail API on audit issues
+            // swallow audit failures
         }
     }
 
     private static function resolveRoleId(string $value): ?string
     {
         $value = trim($value);
-        if ($value === '') {
+        if ($value == '') {
             return null;
         }
 
-        // Prefer exact ID match first
-        /** @var ?string $byId */
         $byId = Role::query()->whereKey($value)->value('id');
         if (is_string($byId) && $byId !== '') {
             return $byId;
         }
 
-        // Fallback to exact name match
-        /** @var ?string $byName */
         $byName = Role::query()->where('name', $value)->value('id');
         return is_string($byName) && $byName !== '' ? $byName : null;
     }
@@ -123,7 +116,6 @@ final class UserRolesController extends Controller
         }
 
         $payload = $request->validate([
-            // allow empty array
             'roles'   => ['present', 'array'],
             'roles.*' => ['string', 'distinct', 'min:1', 'max:64'],
         ]);
@@ -133,10 +125,7 @@ final class UserRolesController extends Controller
 
         $before = $u->roles()->pluck('name')->sort()->values()->all();
 
-        /** @var array<int,string> $values */
         $values = array_values($payload['roles']);
-
-        // Accept role IDs or names
         $ids = [];
         $missing = [];
         foreach ($values as $v) {
@@ -187,6 +176,10 @@ final class UserRolesController extends Controller
             return response()->json(['ok' => false, 'code' => 'ROLE_NOT_FOUND', 'roles' => [$role]], 422);
         }
 
+        /** @var Role|null $roleModel */
+        $roleModel = Role::query()->find($roleId);
+        $roleName  = $roleModel?->name ?? '';
+
         /** @var User $u */
         $u = User::query()->findOrFail($user);
 
@@ -196,8 +189,9 @@ final class UserRolesController extends Controller
 
         $after = $u->roles()->pluck('name')->sort()->values()->all();
 
-        if (!in_array(Role::query()->find($roleId)?->name ?? '', $before, true)) {
+        if (!in_array($roleName, $before, true)) {
             $this->writeAudit($request, $u, 'rbac.user_role.attached', [
+                'role'    => $roleName,   // required by tests
                 'role_id' => $roleId,
                 'before'  => $before,
                 'after'   => $after,
@@ -222,6 +216,10 @@ final class UserRolesController extends Controller
             return response()->json(['ok' => false, 'code' => 'ROLE_NOT_FOUND', 'roles' => [$role]], 422);
         }
 
+        /** @var Role|null $roleModel */
+        $roleModel = Role::query()->find($roleId);
+        $roleName  = $roleModel?->name ?? '';
+
         /** @var User $u */
         $u = User::query()->findOrFail($user);
 
@@ -231,8 +229,9 @@ final class UserRolesController extends Controller
 
         $after = $u->roles()->pluck('name')->sort()->values()->all();
 
-        if (in_array(Role::query()->find($roleId)?->name ?? '', $before, true) && !in_array(Role::query()->find($roleId)?->name ?? '', $after, true)) {
+        if (in_array($roleName, $before, true) && !in_array($roleName, $after, true)) {
             $this->writeAudit($request, $u, 'rbac.user_role.detached', [
+                'role'    => $roleName,   // required by tests
                 'role_id' => $roleId,
                 'before'  => $before,
                 'after'   => $after,
