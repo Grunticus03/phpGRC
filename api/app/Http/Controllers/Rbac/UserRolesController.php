@@ -19,7 +19,8 @@ final class UserRolesController extends Controller
     {
         return (bool) config('core.rbac.enabled', false)
             && ((string) config('core.rbac.mode', 'stub') === 'persist'
-                || (bool) config('core.rbac.persistence', false));
+                || (bool) config('core.rbac.persistence', false)
+                || (string) config('core.rbac.mode', 'stub') === 'db');
     }
 
     private function auditEnabled(): bool
@@ -52,7 +53,7 @@ final class UserRolesController extends Controller
                 'meta'        => $meta,
             ]);
 
-            // Alias for legacy/tests expecting role.* names
+            // Legacy aliases
             $alias = match ($action) {
                 'rbac.user_role.attached'  => 'role.attach',
                 'rbac.user_role.detached'  => 'role.detach',
@@ -73,8 +74,28 @@ final class UserRolesController extends Controller
                 ]);
             }
         } catch (\Throwable) {
-            // Never fail the API due to audit issues.
+            // never fail API on audit issues
         }
+    }
+
+    private static function resolveRoleId(string $value): ?string
+    {
+        $value = trim($value);
+        if ($value === '') {
+            return null;
+        }
+
+        // Prefer exact ID match first
+        /** @var ?string $byId */
+        $byId = Role::query()->whereKey($value)->value('id');
+        if (is_string($byId) && $byId !== '') {
+            return $byId;
+        }
+
+        // Fallback to exact name match
+        /** @var ?string $byName */
+        $byName = Role::query()->where('name', $value)->value('id');
+        return is_string($byName) && $byName !== '' ? $byName : null;
     }
 
     public function show(int $user): JsonResponse
@@ -112,23 +133,30 @@ final class UserRolesController extends Controller
 
         $before = $u->roles()->pluck('name')->sort()->values()->all();
 
-        /** @var array<int,string> $names */
-        $names = array_values($payload['roles']);
+        /** @var array<int,string> $values */
+        $values = array_values($payload['roles']);
 
-        $map = Role::query()
-            ->whereIn('name', $names)
-            ->pluck('id', 'name'); // name => id
+        // Accept role IDs or names
+        $ids = [];
+        $missing = [];
+        foreach ($values as $v) {
+            $id = self::resolveRoleId($v);
+            if ($id === null) {
+                $missing[] = $v;
+            } else {
+                $ids[] = $id;
+            }
+        }
 
-        $missing = array_values(array_diff($names, $map->keys()->all()));
         if ($missing !== []) {
             return response()->json([
                 'ok'    => false,
                 'code'  => 'ROLE_NOT_FOUND',
-                'roles' => $missing,
+                'roles' => array_values($missing),
             ], 422);
         }
 
-        $u->roles()->sync($map->values()->all());
+        $u->roles()->sync(array_values(array_unique($ids)));
 
         $after   = $u->roles()->pluck('name')->sort()->values()->all();
         $added   = array_values(array_diff($after, $before));
@@ -154,14 +182,9 @@ final class UserRolesController extends Controller
             return response()->json(['ok' => false, 'code' => 'RBAC_DISABLED'], 404);
         }
 
-        $name = trim($role);
-        if ($name === '') {
-            return response()->json(['ok' => false, 'code' => 'ROLE_NAME_INVALID'], 422);
-        }
-
-        $roleId = Role::query()->where('name', $name)->value('id');
+        $roleId = self::resolveRoleId($role);
         if ($roleId === null) {
-            return response()->json(['ok' => false, 'code' => 'ROLE_NOT_FOUND', 'roles' => [$name]], 422);
+            return response()->json(['ok' => false, 'code' => 'ROLE_NOT_FOUND', 'roles' => [$role]], 422);
         }
 
         /** @var User $u */
@@ -173,12 +196,11 @@ final class UserRolesController extends Controller
 
         $after = $u->roles()->pluck('name')->sort()->values()->all();
 
-        // Only log if it actually changed.
-        if (!in_array($name, $before, true)) {
+        if (!in_array(Role::query()->find($roleId)?->name ?? '', $before, true)) {
             $this->writeAudit($request, $u, 'rbac.user_role.attached', [
-                'role'   => $name,
-                'before' => $before,
-                'after'  => $after,
+                'role_id' => $roleId,
+                'before'  => $before,
+                'after'   => $after,
             ]);
         }
 
@@ -195,14 +217,9 @@ final class UserRolesController extends Controller
             return response()->json(['ok' => false, 'code' => 'RBAC_DISABLED'], 404);
         }
 
-        $name = trim($role);
-        if ($name === '') {
-            return response()->json(['ok' => false, 'code' => 'ROLE_NAME_INVALID'], 422);
-        }
-
-        $roleId = Role::query()->where('name', $name)->value('id');
+        $roleId = self::resolveRoleId($role);
         if ($roleId === null) {
-            return response()->json(['ok' => false, 'code' => 'ROLE_NOT_FOUND', 'roles' => [$name]], 422);
+            return response()->json(['ok' => false, 'code' => 'ROLE_NOT_FOUND', 'roles' => [$role]], 422);
         }
 
         /** @var User $u */
@@ -214,12 +231,11 @@ final class UserRolesController extends Controller
 
         $after = $u->roles()->pluck('name')->sort()->values()->all();
 
-        // Only log if it actually changed.
-        if (in_array($name, $before, true) && !in_array($name, $after, true)) {
+        if (in_array(Role::query()->find($roleId)?->name ?? '', $before, true) && !in_array(Role::query()->find($roleId)?->name ?? '', $after, true)) {
             $this->writeAudit($request, $u, 'rbac.user_role.detached', [
-                'role'   => $name,
-                'before' => $before,
-                'after'  => $after,
+                'role_id' => $roleId,
+                'before'  => $before,
+                'after'   => $after,
             ]);
         }
 
@@ -230,4 +246,3 @@ final class UserRolesController extends Controller
         ], 200);
     }
 }
-
