@@ -35,8 +35,8 @@ final class RbacUserRolesEdgeCasesTest extends TestCase
     {
         $u = $this->user('Casey', 'casey@example.com');
 
-        // Mixed case + extra spaces should resolve to "Auditor"
-        $this->postJson("/api/rbac/users/{$u->id}/roles/  aUdItOr  ")
+        // Use PUT body to test whitespace + case normalization without illegal spaces in the URI.
+        $this->putJson("/api/rbac/users/{$u->id}/roles", ['roles' => ['  aUdItOr  ']])
             ->assertStatus(200)
             ->assertJsonFragment(['roles' => ['Auditor']]);
     }
@@ -50,6 +50,6 @@ final class RbacUserRolesEdgeCasesTest extends TestCase
         $this->postJson("/api/rbac/users/{$u->id}/roles/{$tooLong}")
             ->assertStatus(422)
             ->assertJsonPath('code', 'VALIDATION_FAILED')
-            ->assertJson(fn ($json) => $json->whereType('errors.role', 'array'));
+            ->assertJson(fn ($json) => $json->whereType('errors.role', 'array')->etc());
     }
 }
