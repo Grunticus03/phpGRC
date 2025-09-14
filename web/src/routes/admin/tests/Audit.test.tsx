@@ -56,7 +56,8 @@ describe("Admin Audit page", () => {
   it("loads categories and builds occurred_from/occurred_to query", async () => {
     render(<Audit />);
 
-    const catSelect = await screen.findByLabelText("Category");
+    // Wait until the <select> renders (initially an <input> before categories load)
+    const catSelect = await screen.findByRole("combobox", { name: "Category" });
     expect(catSelect.tagName.toLowerCase()).toBe("select");
     fireEvent.change(catSelect, { target: { value: "RBAC" } });
 
