@@ -96,25 +96,25 @@
 - [x] UX: Surface 422 field-level errors inline on Settings forms
 - [ ] UX pass on admin screens (Phase 5)
 - [ ] CI: Protect `main` with required jobs (`openapi`, `openapi_breaking`, `api`, `web`) and linear history
-- [ ] CI: Add ParaTest and run with CPU parallelism
-- [ ] CI: Add coverage (`--coverage-clover coverage.xml`) and upload/report; include vitest coverage/artifacts
-- [ ] CI: Add `composer audit` and `npm audit --audit-level=high`
-- [ ] CI: Add Dependabot (Composer, npm, GitHub Actions)
-- [ ] CI: Add `actionlint` step to lint workflow YAML
+- [x] CI: Add ParaTest and run with CPU parallelism
+- [x] CI: Add coverage (`--coverage-clover coverage.xml`) and upload/report; include vitest coverage/artifacts
+- [x] CI: Add `composer audit` and `npm audit --audit-level=high`
+- [x] CI: Add Dependabot (Composer, npm, GitHub Actions)
+- [x] CI: Add `actionlint` step to lint workflow YAML
 - [ ] CI: Add PHP matrix (8.2, 8.3); optional MySQL integration job
 - [ ] QA: Raise PHPStan level one notch; fix violations or baseline deltas
 - [ ] QA: Raise Psalm level/config; keep threads; stabilize baseline
-- [ ] QA: Enforce Pint/PHP-CS-Fixer ruleset in CI
+- [x] QA: Enforce Pint/PHP-CS-Fixer ruleset in CI
 - [ ] QA: Add ESLint + `tsc --noEmit` to `web` job; add Prettier check
-- [ ] Config: Implement early boot merge of `/opt/phpgrc/shared/config.php` (prod overlay) with `.env` ignored in prod
-- [ ] Config: Document overlay keys; add redacted “effective-config fingerprint” endpoint; ensure `config:cache` includes overlay
+- [x] Config: Implement early boot merge of `/opt/phpgrc/shared/config.php` (prod overlay) with `.env` ignored in prod
+- [x] Config: Document overlay keys; add redacted “effective-config fingerprint” endpoint; ensure `config:cache` includes overlay
 - [ ] UX: Replace RBAC role text inputs with dropdown sourced from `/api/rbac/roles`
 - [ ] UX: Add helper text/examples for filters; pre-validate on client
-- [ ] Tests: Add RBAC idempotency tests (double attach; detach non-assigned no-op)
-- [ ] Tests: Add replace-with-empty and diff assertions for audit `added/removed`
-- [ ] Tests: Auth gate with `require_auth=true` (401 unauth, 200 authed; `actor_id` present when authed)
-- [ ] Tests: Audit verification of canonical+alias events and `RBAC` casing
-- [ ] Docs/OpenAPI: Add `/audit/categories` path and response schema
+- [x] Tests: Add RBAC idempotency tests (double attach; detach non-assigned no-op)
+- [x] Tests: Add replace-with-empty and diff assertions for audit `added/removed`
+- [x] Tests: Auth gate with `require_auth=true` (401 unauth, 200 authed; `actor_id` present when authed)
+- [x] Tests: Audit verification of canonical+alias events and `RBAC` casing
+- [x] Docs/OpenAPI: Add `/audit/categories` path and response schema
 - [ ] Docs/OpenAPI: Update 422 schemas for `ROLE_NOT_FOUND` and role-name constraints
 - [ ] Release: Tag-triggered GHCR image build; attach OpenAPI + web assets
 
@@ -127,14 +127,14 @@
    - [ ] Serve JSON at `/api/openapi.json`
    - [x] Add a 4XX response to `GET /docs` (present: `404`)
    - [ ] Add `/audit/categories` to spec with schema; document RBAC 422 (`ROLE_NOT_FOUND`) and role-name constraints
-   - [ ] Wire Spectral (or Redocly rules) lint into CI
+   - [x] Wire Spectral (or Redocly rules) lint into CI
 
 2. **API & Tests**
-   - [ ] Feature test: `/api/audit/categories` returns enum list
-   - [ ] RBAC happy-path matrix: replace `[]`; attach twice; detach non-assigned
-   - [ ] RBAC edge cases: spaces/mixed case; >64 → 422; missing roles → 422
-   - [ ] Auth gate tests with `require_auth=true`
-   - [ ] Audit tests: canonical+alias pairs; category casing
+   - [x] Feature test: `/api/audit/categories` returns enum list
+   - [x] RBAC happy-path matrix: replace `[]`; attach twice; detach non-assigned
+   - [x] RBAC edge cases: spaces/mixed case; >64 → 422; missing roles → 422
+   - [x] Auth gate tests with `require_auth=true`
+   - [x] Audit tests: canonical+alias pairs; category casing
 
 3. **Web UX**
    - [ ] Admin › Audit: disable Apply during load; inline server errors; keep CSV link synced
@@ -142,14 +142,14 @@
 
 4. **CI**
    - [ ] Protect `main` with required jobs and linear history
-   - [ ] Add ParaTest; enable PHPUnit and vitest coverage; upload artifacts
+   - [x] Add ParaTest; enable PHPUnit and vitest coverage; upload artifacts
    - [ ] Add PHP 8.2 matrix and optional MySQL job
-   - [ ] Add `composer audit`, `npm audit`, Dependabot, and `actionlint`
+   - [x] Add `composer audit`, `npm audit`, Dependabot, and `actionlint`
 
 5. **Config**
-   - [ ] Implement `ConfigServiceProvider` for overlay merge (shared → app → `.env`)
-   - [ ] Add redacted effective-config fingerprint endpoint
-   - [ ] Ensure `config:cache` includes overlay
+   - [x] Implement `ConfigServiceProvider` for overlay merge (shared → app → `.env`)
+   - [x] Add redacted effective-config fingerprint endpoint
+   - [x] Ensure `config:cache` includes overlay
 
 6. **Release**
    - [ ] Tag `v0.4.6`, build/push GHCR, attach `openapi.yaml` and `web/dist` artifacts
