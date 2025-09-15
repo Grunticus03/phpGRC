@@ -20,17 +20,4 @@
     <file name="stubs/laravel-sanctum-polyfill.php"/>
   </stubs>
 
-  <!-- Silence Psalm’s MissingOverrideAttribute for Laravel methods that cannot use #[Override] without breaking PHPStan -->
-  <issueHandlers>
-    <MissingOverrideAttribute errorLevel="suppress">
-      <filename="app/Console/Kernel.php"/>
-      <filename="app/Http/Requests/Admin/UpdateSettingsRequest.php"/>
-      <filename="app/Http/Requests/Avatar/StoreAvatarRequest.php"/>
-      <filename="app/Http/Requests/Evidence/StoreEvidenceRequest.php"/>
-      <filename="app/Http/Requests/Rbac/StoreRoleRequest.php"/>
-      <filename="app/Http/Responses/CsvStreamResponse.php"/>
-      <filename="app/Providers/ConfigOverlayServiceProvider.php"/>
-      <filename="app/Providers/EventServiceProvider.php"/>
-    </MissingOverrideAttribute>
-  </issueHandlers>
 </psalm>
