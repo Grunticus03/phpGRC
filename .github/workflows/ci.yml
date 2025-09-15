@@ -21,7 +21,7 @@ jobs:
     name: OpenAPI lint
     runs-on: self-hosted
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: actions/setup-node@v4
         with: { node-version: "20" }
       - run: npx -y @redocly/cli@1.29.0 lint docs/api/openapi.yaml
@@ -32,10 +32,10 @@ jobs:
     if: github.event_name == 'pull_request'
     needs: [openapi]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with: { fetch-depth: 0 }
       - run: cp docs/api/openapi.yaml openapi.new.yaml
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: ${{ github.base_ref }}
           path: base
@@ -66,7 +66,7 @@ jobs:
     needs: [openapi]
     defaults: { run: { working-directory: api } }
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: shivammathur/setup-php@v2
         with:
           php-version: "8.3"
@@ -100,7 +100,7 @@ jobs:
         php: ["8.3"]
     defaults: { run: { working-directory: api } }
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ matrix.php }}
@@ -185,7 +185,7 @@ jobs:
     steps:
       - name: Docker preflight
         run: docker info
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: shivammathur/setup-php@v2
         with:
           php-version: "8.3"
@@ -248,7 +248,7 @@ jobs:
     needs: [openapi]
     defaults: { run: { working-directory: web } }
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
