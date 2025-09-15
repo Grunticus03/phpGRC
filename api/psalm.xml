@@ -20,4 +20,16 @@
     <file name="stubs/laravel-sanctum-polyfill.php"/>
   </stubs>
 
+  <issueHandlers>
+    <MissingOverrideAttribute errorLevel="suppress">
+      <file name="app/Console/Kernel.php"/>
+      <file name="app/Http/Requests/Admin/UpdateSettingsRequest.php" />
+      <file name="app/Http/Requests/Avatar/StoreAvatarRequest.php" />
+      <file name="app/Http/Requests/Evidence/StoreEvidenceRequest.php" />
+      <file name="app/Http/Requests/Rbac/StoreRoleRequest.php" />
+      <file name="app/Http/Responses/CsvStreamResponse.php" />
+      <file name="app/Providers/ConfigOverlayServiceProvider.php" />
+      <file name="app/Providers/EventServiceProvider.php" />
+    </MissingOverrideAttribute>
+  </issueHandlers>
 </psalm>
