@@ -159,6 +159,53 @@ jobs:
             api/clover.xml
             api/storage/logs/*.log
 
+  api_paratest:
+    name: API tests (ParaTest, SQLite in-memory)
+    runs-on: self-hosted
+    needs: [api_static]
+    defaults: { run: { working-directory: api } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"
+          extensions: mbstring, intl, pdo_sqlite, sqlite3, pcntl, posix
+          coverage: none
+          tools: composer:v2
+      - uses: actions/cache@v4
+        with:
+          path: ~/.composer/cache
+          key: ${{ runner.os }}-composer-${{ hashFiles('api/composer.lock') }}
+          restore-keys: ${{ runner.os }}-composer-
+      - name: Resolve lockfile (sync with composer.json)
+        run: composer update --no-interaction --prefer-dist --no-progress
+      - name: Install deps
+        run: composer install --no-interaction --prefer-dist
+      - name: Prepare Laravel dirs
+        run: |
+          mkdir -p bootstrap/cache \
+            storage/app storage/framework/cache storage/framework/sessions storage/framework/views \
+            storage/logs
+          :> storage/logs/laravel.log
+      - name: Create .env.testing (:memory:)
+        run: |
+          cat > .env.testing <<'EOF'
+          APP_ENV=testing
+          APP_DEBUG=false
+          APP_KEY=base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+          DB_CONNECTION=sqlite
+          DB_DATABASE=:memory:
+          CACHE_DRIVER=array
+          SESSION_DRIVER=array
+          QUEUE_CONNECTION=sync
+          FILESYSTEM_DISK=local
+          EOF
+      - name: ParaTest
+        env:
+          APP_ENV: testing
+          XDEBUG_MODE: off
+        run: vendor/bin/paratest -p auto --runner=WrapperRunner --colors=always
+
   api_mysql:
     name: API tests (MySQL smoke, PHP 8.3)
     runs-on: self-hosted
