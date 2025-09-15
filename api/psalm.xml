@@ -2,9 +2,11 @@
 <psalm xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
        xmlns="https://getpsalm.org/schema/config"
        xsi:schemaLocation="https://getpsalm.org/schema/config vendor/vimeo/psalm/config.xsd"
+       errorLevel="8"
+       resolveFromConfigFile="true"
+       cacheDirectory="build/psalm"
+       findUnusedCode="false"
        hideExternalErrors="true">
-
-    <errorLevel type="8"/>
 
     <projectFiles>
         <directory name="app"/>
@@ -17,4 +19,10 @@
     <stubs>
         <file name="stubs/laravel-sanctum-polyfill.php"/>
     </stubs>
+
+    <issueHandlers>
+        <MissingOverrideAttribute errorLevel="info">
+            <directory name="app"/>
+        </MissingOverrideAttribute>
+    </issueHandlers>
 </psalm>
