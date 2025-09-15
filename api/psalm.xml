@@ -1,28 +1,37 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<psalm xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-       xmlns="https://getpsalm.org/schema/config"
-       xsi:schemaLocation="https://getpsalm.org/schema/config vendor/vimeo/psalm/config.xsd"
-       errorLevel="8"
-       resolveFromConfigFile="true"
-       cacheDirectory="build/psalm"
-       findUnusedCode="false"
-       hideExternalErrors="true">
+<psalm
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xmlns="https://getpsalm.org/schema/config"
+  xsi:schemaLocation="https://getpsalm.org/schema/config vendor/vimeo/psalm/config.xsd"
+  resolveFromConfigFile="true"
+  cacheDirectory="build/psalm"
+  findUnusedCode="false"
+>
+  <errorLevel type="8"/>
 
-    <projectFiles>
-        <directory name="app"/>
-    </projectFiles>
+  <projectFiles>
+    <directory name="app"/>
+  </projectFiles>
 
-    <plugins>
-        <pluginClass class="Psalm\LaravelPlugin\Plugin"/>
-    </plugins>
+  <plugins>
+    <pluginClass class="Psalm\LaravelPlugin\Plugin"/>
+  </plugins>
 
-    <stubs>
-        <file name="stubs/laravel-sanctum-polyfill.php"/>
-    </stubs>
+  <stubs>
+    <file name="stubs/laravel-sanctum-polyfill.php"/>
+  </stubs>
 
-    <issueHandlers>
-        <MissingOverrideAttribute errorLevel="info">
-            <directory name="app"/>
-        </MissingOverrideAttribute>
-    </issueHandlers>
+  <!-- Silence Psalm’s MissingOverrideAttribute for Laravel methods that cannot use #[Override] without breaking PHPStan -->
+  <issueHandlers>
+    <MissingOverrideAttribute errorLevel="suppress">
+      <file name="app/Console/Kernel.php"/>
+      <file name="app/Http/Requests/Admin/UpdateSettingsRequest.php"/>
+      <file name="app/Http/Requests/Avatar/StoreAvatarRequest.php"/>
+      <file name="app/Http/Requests/Evidence/StoreEvidenceRequest.php"/>
+      <file name="app/Http/Requests/Rbac/StoreRoleRequest.php"/>
+      <file name="app/Http/Responses/CsvStreamResponse.php"/>
+      <file name="app/Providers/ConfigOverlayServiceProvider.php"/>
+      <file name="app/Providers/EventServiceProvider.php"/>
+    </MissingOverrideAttribute>
+  </issueHandlers>
 </psalm>
