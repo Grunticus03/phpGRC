@@ -50,7 +50,7 @@ jobs:
           fi
       - if: steps.check.outputs.skip != 'true'
         run: |
-          docker run --rm -v "$PWD":/spec openapitools/openapi-diff:2.0.0 \
+          docker run --rm -v "$PWD":/spec openapitools/openapi-diff:2.1.0 \
             /spec/openapi.old.yaml /spec/openapi.new.yaml \
             --fail-on-incompatible \
             --html /spec/openapi-diff.html
@@ -122,7 +122,6 @@ jobs:
             storage/app storage/framework/cache storage/framework/sessions storage/framework/views \
             storage/logs database
           :> storage/logs/laravel.log
-          :> database/database.sqlite
       - name: Create .env.testing
         run: |
           cat > .env.testing <<'EOF'
@@ -130,30 +129,26 @@ jobs:
           APP_DEBUG=false
           APP_KEY=base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
           DB_CONNECTION=sqlite
-          DB_DATABASE=${{ github.workspace }}/api/database/database.sqlite
+          DB_DATABASE=:memory:
           CACHE_DRIVER=array
           SESSION_DRIVER=array
           QUEUE_CONNECTION=sync
           FILESYSTEM_DISK=local
           EOF
-      - name: PHPUnit (ParaTest when available)
+      - name: PHPUnit (no ParaTest on SQLite)
         env:
           APP_ENV: testing
           DB_CONNECTION: sqlite
-          DB_DATABASE: ${{ github.workspace }}/api/database/database.sqlite
+          DB_DATABASE: ':memory:'
           CACHE_DRIVER: array
           SESSION_DRIVER: array
           QUEUE_CONNECTION: sync
           FILESYSTEM_DISK: local
           XDEBUG_MODE: coverage
         run: |
-          if [ -x vendor/bin/paratest ]; then
-            vendor/bin/paratest -p auto --runner=WrapperRunner \
-              --coverage-clover clover.xml --coverage-filter app
-          else
-            vendor/bin/phpunit --log-junit junit.xml \
-              --coverage-clover clover.xml --coverage-filter app
-          fi
+          vendor/bin/phpunit --log-junit junit.xml \
+            --coverage-clover clover.xml \
+            --coverage-filter app
       - if: always()
         uses: actions/upload-artifact@v4
         with:
