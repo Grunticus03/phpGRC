@@ -145,11 +145,14 @@ jobs:
           SESSION_DRIVER: array
           QUEUE_CONNECTION: sync
           FILESYSTEM_DISK: local
+          XDEBUG_MODE: coverage
         run: |
           if [ -x vendor/bin/paratest ]; then
-            vendor/bin/paratest -p auto --runner=WrapperRunner --log-junit junit.xml --coverage-clover clover.xml
+            vendor/bin/paratest -p auto --runner=WrapperRunner \
+              --coverage-clover clover.xml --coverage-filter app
           else
-            vendor/bin/phpunit --log-junit junit.xml --coverage-clover clover.xml
+            vendor/bin/phpunit --log-junit junit.xml \
+              --coverage-clover clover.xml --coverage-filter app
           fi
       - if: always()
         uses: actions/upload-artifact@v4
@@ -209,4 +212,59 @@ jobs:
           DB_HOST=127.0.0.1
           DB_PORT=3307
           DB_DATABASE=phpgrc_test
-          D
+          DB_USERNAME=phpgrc
+          DB_PASSWORD=secret
+          CACHE_DRIVER=array
+          SESSION_DRIVER=array
+          QUEUE_CONNECTION=sync
+          FILESYSTEM_DISK=local
+          EOF
+      - name: Migrate schema
+        env:
+          APP_ENV: testing
+          DB_CONNECTION: mysql
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3307
+          DB_DATABASE: phpgrc_test
+          DB_USERNAME: phpgrc
+          DB_PASSWORD: secret
+        run: |
+          php artisan config:clear
+          php artisan migrate --force
+      - name: PHPUnit (smoke)
+        env:
+          APP_ENV: testing
+          DB_CONNECTION: mysql
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3307
+          DB_DATABASE: phpgrc_test
+          DB_USERNAME: phpgrc
+          DB_PASSWORD: secret
+        run: vendor/bin/phpunit --testsuite=Feature --do-not-cache-result
+
+  web:
+    name: Web build + tests + coverage + audit
+    runs-on: self-hosted
+    needs: [openapi]
+    defaults: { run: { working-directory: web } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run test:coverage
+      - run: npm run build
+      - run: npm audit --audit-level=high
+      - uses: actions/upload-artifact@v4
+        with:
+          name: web-dist
+          path: web/dist
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-coverage
+          path: web/coverage
