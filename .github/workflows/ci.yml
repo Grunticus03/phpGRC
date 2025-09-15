@@ -116,12 +116,13 @@ jobs:
         run: composer update --no-interaction --prefer-dist --no-progress
       - name: Install deps
         run: composer install --no-interaction --prefer-dist
-      - name: Prepare Laravel dirs
+      - name: Prepare Laravel dirs and SQLite file
         run: |
           mkdir -p bootstrap/cache \
             storage/app storage/framework/cache storage/framework/sessions storage/framework/views \
             storage/logs database
           :> storage/logs/laravel.log
+          :> database/database.sqlite
       - name: Create .env.testing
         run: |
           cat > .env.testing <<'EOF'
@@ -129,7 +130,7 @@ jobs:
           APP_DEBUG=false
           APP_KEY=base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
           DB_CONNECTION=sqlite
-          DB_DATABASE=:memory:
+          DB_DATABASE=${{ github.workspace }}/api/database/database.sqlite
           CACHE_DRIVER=array
           SESSION_DRIVER=array
           QUEUE_CONNECTION=sync
@@ -139,7 +140,7 @@ jobs:
         env:
           APP_ENV: testing
           DB_CONNECTION: sqlite
-          DB_DATABASE: ':memory:'
+          DB_DATABASE: ${{ github.workspace }}/api/database/database.sqlite
           CACHE_DRIVER: array
           SESSION_DRIVER: array
           QUEUE_CONNECTION: sync
