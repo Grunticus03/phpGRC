@@ -1,12 +1,13 @@
-<?xml version="1.0"?>
-<psalm
-    errorLevel="8"
-    resolveFromConfigFile="true"
-    cacheDirectory="build/psalm"
-    findUnusedCode="false"
->
+<?xml version="1.0" encoding="UTF-8"?>
+<psalm xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns="https://getpsalm.org/schema/config"
+       xsi:schemaLocation="https://getpsalm.org/schema/config vendor/vimeo/psalm/config.xsd"
+       hideExternalErrors="true">
+
+    <errorLevel type="8"/>
+
     <projectFiles>
-        <directory name="app" />
+        <directory name="app"/>
     </projectFiles>
 
     <plugins>
@@ -16,12 +17,4 @@
     <stubs>
         <file name="stubs/laravel-sanctum-polyfill.php"/>
     </stubs>
-
-    <issueHandlers>
-        <!-- Do not require #[\Override] in vendor code -->
-        <MissingOverrideAttribute errorLevel="suppress">
-            <directory name="vendor" />
-        </MissingOverrideAttribute>
-    </issueHandlers>
 </psalm>
-
