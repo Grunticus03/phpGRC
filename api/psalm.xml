@@ -23,14 +23,14 @@
   <!-- Silence Psalm’s MissingOverrideAttribute for Laravel methods that cannot use #[Override] without breaking PHPStan -->
   <issueHandlers>
     <MissingOverrideAttribute errorLevel="suppress">
-      <file name="app/Console/Kernel.php"/>
-      <file name="app/Http/Requests/Admin/UpdateSettingsRequest.php"/>
-      <file name="app/Http/Requests/Avatar/StoreAvatarRequest.php"/>
-      <file name="app/Http/Requests/Evidence/StoreEvidenceRequest.php"/>
-      <file name="app/Http/Requests/Rbac/StoreRoleRequest.php"/>
-      <file name="app/Http/Responses/CsvStreamResponse.php"/>
-      <file name="app/Providers/ConfigOverlayServiceProvider.php"/>
-      <file name="app/Providers/EventServiceProvider.php"/>
+      <filename="app/Console/Kernel.php"/>
+      <filename="app/Http/Requests/Admin/UpdateSettingsRequest.php"/>
+      <filename="app/Http/Requests/Avatar/StoreAvatarRequest.php"/>
+      <filename="app/Http/Requests/Evidence/StoreEvidenceRequest.php"/>
+      <filename="app/Http/Requests/Rbac/StoreRoleRequest.php"/>
+      <filename="app/Http/Responses/CsvStreamResponse.php"/>
+      <filename="app/Providers/ConfigOverlayServiceProvider.php"/>
+      <filename="app/Providers/EventServiceProvider.php"/>
     </MissingOverrideAttribute>
   </issueHandlers>
 </psalm>
