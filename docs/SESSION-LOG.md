@@ -744,3 +744,26 @@ Closeout
 - Phase/Step status: advance.
 - Next action (you): add OpenAPI path for `/audit/categories`; add feature tests for categories; extend RBAC and auth-gate tests; wire CI coverage and release job.
 - Next action (me): provide approval for OpenAPI changes, decide on release tagging (`v0.4.6`), and confirm production overlay approach.
+
+---
+
+### Session 2025-09-15: [Phase 4, CI Hardening] - Context: Stabilize pipelines and align environments - Goal: Green CI on self-hosted runners with PHP 8.3 baseline - Constraints: No product release this session; infra-focused
+
+• Adjusted CI to PHP 8.3 baseline only; removed PHP 8.2 matrices.
+• Synced composer.lock in CI (composer update) before install to avoid drift and missing packages.
+• Fixed PHPUnit/SQLite failures by creating api/database/database.sqlite and pointing DB_DATABASE to an absolute path via .env.testing; cleared caches as needed.
+• Added MySQL 8 service job: port 3307 mapping, wait-for-DB loop, migrate --force, and smoke Feature tests.
+• Resolved ParaTest coverage error by running PHPUnit for coverage and allowing ParaTest only when desired (no coverage), preventing job failure.
+• Fixed Psalm configuration (schema + element order) and removed problematic #[Override] attributes flagged by PHPStan.
+• Kept OpenAPI lint; guarded breaking-change gate with base-spec presence check and artifact upload; ensured correct volume paths.
+• Web CI runs typecheck, unit tests with coverage, build, and npm audit; artifacts uploaded.
+• Dependabot config validated (composer, npm, actions).
+• Runner Docker guidance documented: add runner user to docker group, restart services, optional preflight step; or switch actionlint to native binary to avoid Docker.
+
+### Closeout
+- Deliverables produced: Updated CI workflow(s), stable green runs, psalm.xml fix, PHPUnit env scaffolding, MySQL smoke job, documented runner Docker procedure, explicit Phase 4 checklists
+- Phase/Step status: advance
+- Next action (you): Enable branch protection with required jobs; decide on Codecov integration; merge OpenAPI 422/RBAC constraint updates; keep Dependabot PRs flowing
+- Next action (me): Prepare v0.4.6 release notes (when we’re ready), confirm whether to keep ParaTest in CI without coverage or switch fully to PHPUnit with coverage, and add the remaining RBAC/OpenAPI items to the spec and tests
+
+---
