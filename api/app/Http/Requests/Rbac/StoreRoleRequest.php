@@ -12,12 +12,14 @@ use Illuminate\Validation\Rule;
 
 final class StoreRoleRequest extends FormRequest
 {
+    #[\Override]
     public function authorize(): bool
     {
         // RBAC enforcement lands later; allow in Phase 4.
         return true;
     }
 
+    #[\Override]
     protected function prepareForValidation(): void
     {
         $name = $this->input('name');
@@ -35,6 +37,7 @@ final class StoreRoleRequest extends FormRequest
         return $flag || $mode === 'persist';
     }
 
+    #[\Override]
     public function rules(): array
     {
         $base = [
@@ -55,6 +58,7 @@ final class StoreRoleRequest extends FormRequest
         return $base;
     }
 
+    #[\Override]
     public function messages(): array
     {
         return [
@@ -67,6 +71,7 @@ final class StoreRoleRequest extends FormRequest
         ];
     }
 
+    #[\Override]
     protected function failedValidation(Validator $validator): void
     {
         throw new HttpResponseException(

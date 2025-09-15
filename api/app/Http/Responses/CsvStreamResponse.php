@@ -9,6 +9,7 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 final class CsvStreamResponse extends StreamedResponse
 {
+    #[\Override]
     public function prepare(Request $request): static
     {
         parent::prepare($request);
@@ -17,3 +18,4 @@ final class CsvStreamResponse extends StreamedResponse
         return $this;
     }
 }
+

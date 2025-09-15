@@ -14,6 +14,7 @@ final class UpdateSettingsRequest extends FormRequest
 {
     private bool $legacyPayload = false;
 
+    #[\Override]
     public function authorize(): bool
     {
         return true;
@@ -22,6 +23,7 @@ final class UpdateSettingsRequest extends FormRequest
     /**
      * Normalize legacy shape: { core: { ... } } -> top-level keys.
      */
+    #[\Override]
     protected function prepareForValidation(): void
     {
         $core = $this->input('core');
@@ -31,6 +33,7 @@ final class UpdateSettingsRequest extends FormRequest
         }
     }
 
+    #[\Override]
     public function rules(): array
     {
         $allowedMimes = (array) data_get(config('core'), 'evidence.allowed_mime', ['application/pdf']);
@@ -71,7 +74,8 @@ final class UpdateSettingsRequest extends FormRequest
      * - Legacy payloads: { errors: { <section>: { <field>: [...] } } }
      * - Spec payloads:   { ok:false, code:"VALIDATION_FAILED", errors:{...}, message:"..." }
      */
-    protected function failedValidation(Validator $validator)
+    #[\Override]
+    protected function failedValidation(Validator $validator): void
     {
         $fieldErrors = $validator->errors()->toArray();
 
@@ -103,3 +107,4 @@ final class UpdateSettingsRequest extends FormRequest
         ], 422));
     }
 }
+

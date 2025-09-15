@@ -9,6 +9,7 @@ use Illuminate\Support\ServiceProvider;
 
 final class ConfigOverlayServiceProvider extends ServiceProvider
 {
+    #[\Override]
     public function register(): void
     {
         $path = (string) config('core.setup.shared_config_path', '/opt/phpgrc/shared/config.php');
@@ -103,3 +104,4 @@ final class ConfigOverlayServiceProvider extends ServiceProvider
         config()->set('core', $core);
     }
 }
+

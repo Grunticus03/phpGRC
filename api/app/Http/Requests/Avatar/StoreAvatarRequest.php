@@ -10,11 +10,13 @@ use Illuminate\Http\Exceptions\HttpResponseException;
 
 final class StoreAvatarRequest extends FormRequest
 {
+    #[\Override]
     public function authorize(): bool
     {
         return true; // Auth elsewhere
     }
 
+    #[\Override]
     public function rules(): array
     {
         $format = strtolower((string) config('core.avatars.format', 'webp'));
@@ -30,6 +32,7 @@ final class StoreAvatarRequest extends FormRequest
         ];
     }
 
+    #[\Override]
     public function messages(): array
     {
         $format = strtolower((string) config('core.avatars.format', 'webp'));
@@ -42,6 +45,7 @@ final class StoreAvatarRequest extends FormRequest
         ];
     }
 
+    #[\Override]
     protected function failedValidation(Validator $validator): void
     {
         throw new HttpResponseException(
@@ -54,3 +58,4 @@ final class StoreAvatarRequest extends FormRequest
         );
     }
 }
+

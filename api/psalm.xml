@@ -16,4 +16,12 @@
     <stubs>
         <file name="stubs/laravel-sanctum-polyfill.php"/>
     </stubs>
+
+    <issueHandlers>
+        <!-- Do not require #[\Override] in vendor code -->
+        <MissingOverrideAttribute errorLevel="suppress">
+            <directory name="vendor" />
+        </MissingOverrideAttribute>
+    </issueHandlers>
 </psalm>
+

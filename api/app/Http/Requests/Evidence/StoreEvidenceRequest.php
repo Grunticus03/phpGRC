@@ -10,12 +10,14 @@ use Illuminate\Http\Exceptions\HttpResponseException;
 
 final class StoreEvidenceRequest extends FormRequest
 {
+    #[\Override]
     public function authorize(): bool
     {
         // RBAC enforcement deferred in Phase 4.
         return true;
     }
 
+    #[\Override]
     public function rules(): array
     {
         $maxMb   = (int) config('core.evidence.max_mb', 25);
@@ -31,6 +33,7 @@ final class StoreEvidenceRequest extends FormRequest
         ];
     }
 
+    #[\Override]
     public function messages(): array
     {
         return [
@@ -41,6 +44,7 @@ final class StoreEvidenceRequest extends FormRequest
         ];
     }
 
+    #[\Override]
     protected function failedValidation(Validator $validator): void
     {
         throw new HttpResponseException(response()->json([
@@ -50,6 +54,7 @@ final class StoreEvidenceRequest extends FormRequest
         ], 422));
     }
 
+    #[\Override]
     protected function failedAuthorization(): void
     {
         throw new HttpResponseException(response()->json([
@@ -58,3 +63,4 @@ final class StoreEvidenceRequest extends FormRequest
         ], 403));
     }
 }
+

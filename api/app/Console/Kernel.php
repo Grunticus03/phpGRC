@@ -17,6 +17,7 @@ final class Kernel extends ConsoleKernel
         AuditRetentionPurge::class,
     ];
 
+    #[\Override]
     protected function schedule(Schedule $schedule): void
     {
         if (!config('core.audit.enabled', true)) {
@@ -35,6 +36,7 @@ final class Kernel extends ConsoleKernel
             ->runInBackground();
     }
 
+    #[\Override]
     protected function commands(): void
     {
         $this->load(__DIR__ . '/Commands');
