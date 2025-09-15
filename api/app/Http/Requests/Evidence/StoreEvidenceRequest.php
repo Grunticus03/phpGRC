@@ -10,14 +10,11 @@ use Illuminate\Http\Exceptions\HttpResponseException;
 
 final class StoreEvidenceRequest extends FormRequest
 {
-    #[\Override]
     public function authorize(): bool
     {
-        // RBAC enforcement deferred in Phase 4.
         return true;
     }
 
-    #[\Override]
     public function rules(): array
     {
         $maxMb   = (int) config('core.evidence.max_mb', 25);
@@ -25,7 +22,6 @@ final class StoreEvidenceRequest extends FormRequest
             'application/pdf', 'image/png', 'image/jpeg', 'text/plain',
         ]);
 
-        // Laravel's "max" for files is in kilobytes.
         $maxKb = max(1, $maxMb) * 1024;
 
         return [

@@ -10,24 +10,22 @@ use Illuminate\Http\Exceptions\HttpResponseException;
 
 final class StoreAvatarRequest extends FormRequest
 {
-    #[\Override]
     public function authorize(): bool
     {
         return true; // Auth elsewhere
     }
 
-    #[\Override]
     public function rules(): array
     {
         $format = strtolower((string) config('core.avatars.format', 'webp'));
-        $maxKb  = (int) config('core.avatars.max_kb', 1024); // soft cap
+        $maxKb  = (int) config('core.avatars.max_kb', 1024);
 
         return [
             'file' => [
                 'required',
                 'file',
-                'mimes:' . $format, // Phase 4: extension gate only
-                'max:' . $maxKb,    // kilobytes
+                'mimes:' . $format,
+                'max:' . $maxKb,
             ],
         ];
     }

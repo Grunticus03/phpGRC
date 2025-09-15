@@ -12,10 +12,8 @@ use Illuminate\Validation\Rule;
 
 final class StoreRoleRequest extends FormRequest
 {
-    #[\Override]
     public function authorize(): bool
     {
-        // RBAC enforcement lands later; allow in Phase 4.
         return true;
     }
 
@@ -37,7 +35,6 @@ final class StoreRoleRequest extends FormRequest
         return $flag || $mode === 'persist';
     }
 
-    #[\Override]
     public function rules(): array
     {
         $base = [
@@ -47,7 +44,7 @@ final class StoreRoleRequest extends FormRequest
         if (!$this->persistenceEnabled()) {
             /** @var array<int,string> $existing */
             $existing = (array) config('core.rbac.roles', ['Admin', 'Auditor', 'Risk Manager', 'User']);
-            $base['name'][] = Rule::notIn($existing); // pretend-unique against config list
+            $base['name'][] = Rule::notIn($existing);
             return $base;
         }
 

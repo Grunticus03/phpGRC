@@ -14,7 +14,6 @@ final class UpdateSettingsRequest extends FormRequest
 {
     private bool $legacyPayload = false;
 
-    #[\Override]
     public function authorize(): bool
     {
         return true;
@@ -33,7 +32,6 @@ final class UpdateSettingsRequest extends FormRequest
         }
     }
 
-    #[\Override]
     public function rules(): array
     {
         $allowedMimes = (array) data_get(config('core'), 'evidence.allowed_mime', ['application/pdf']);
@@ -85,7 +83,6 @@ final class UpdateSettingsRequest extends FormRequest
             $parts   = explode('.', $key);
             $section = $parts[0] ?? '_';
             $field   = $parts[1] ?? $section;
-            // Collapse numeric indexes: evidence.allowed_mime.0 -> evidence.allowed_mime
             if (isset($parts[2]) && is_numeric($parts[2])) {
                 // keep $field from index 1
             }
