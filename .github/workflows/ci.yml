@@ -123,7 +123,7 @@ jobs:
             storage/logs database
           :> storage/logs/laravel.log
           :> database/database.sqlite
-      - name: Create .env.testing
+      - name: Create .env.testing (SQLite)
         run: |
           cat > .env.testing <<'EOF'
           APP_ENV=testing
@@ -136,6 +136,13 @@ jobs:
           QUEUE_CONNECTION=sync
           FILESYSTEM_DISK=local
           EOF
+      - name: Clear Laravel caches
+        env:
+          APP_ENV: testing
+        run: |
+          php artisan config:clear || true
+          php artisan cache:clear || true
+          rm -f bootstrap/cache/*.php || true
       - name: PHPUnit (no ParaTest on SQLite)
         env:
           APP_ENV: testing
@@ -200,6 +207,12 @@ jobs:
           QUEUE_CONNECTION=sync
           FILESYSTEM_DISK=local
           EOF
+      - name: Clear Laravel caches
+        env:
+          APP_ENV: testing
+        run: |
+          php artisan config:clear || true
+          rm -f bootstrap/cache/*.php || true
       - name: ParaTest
         env:
           APP_ENV: testing
@@ -238,13 +251,14 @@ jobs:
       - name: Resolve lockfile (sync with composer.json)
         run: composer update --no-interaction --prefer-dist --no-progress
       - run: composer install --no-interaction --prefer-dist
-      - name: Wait for MySQL
+      - name: Wait for MySQL (PDO probe)
+        shell: bash
         run: |
           for i in {1..60}; do
-            mysqladmin ping -h 127.0.0.1 -P 3307 --protocol=tcp -uroot -psecret && break
+            php -r 'try{$pdo=new PDO("mysql:host=127.0.0.1;port=3307","root","secret", [PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]); exit(0);}catch(Throwable $e){exit(1);}'; ec=$?
+            if [ $ec -eq 0 ]; then echo "MySQL ready"; break; fi
             sleep 1
           done
-          mysql -h 127.0.0.1 -P 3307 -uroot -psecret -e "SELECT VERSION();"
       - name: Write .env.testing (MySQL)
         run: |
           cat > .env.testing <<'EOF'
