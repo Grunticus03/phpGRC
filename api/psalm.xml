@@ -22,14 +22,14 @@
 
   <issueHandlers>
     <MissingOverrideAttribute errorLevel="suppress">
-      <name="app/Console/Kernel.php"/>
-      <name="app/Http/Requests/Admin/UpdateSettingsRequest.php" />
-      <name="app/Http/Requests/Avatar/StoreAvatarRequest.php" />
-      <name="app/Http/Requests/Evidence/StoreEvidenceRequest.php" />
-      <name="app/Http/Requests/Rbac/StoreRoleRequest.php" />
-      <name="app/Http/Responses/CsvStreamResponse.php" />
-      <name="app/Providers/ConfigOverlayServiceProvider.php" />
-      <name="app/Providers/EventServiceProvider.php" />
+      <file name="app/Console/Kernel.php" />
+      <file name="app/Http/Requests/Admin/UpdateSettingsRequest.php" />
+      <file name="app/Http/Requests/Avatar/StoreAvatarRequest.php" />
+      <file name="app/Http/Requests/Evidence/StoreEvidenceRequest.php" />
+      <file name="app/Http/Requests/Rbac/StoreRoleRequest.php" />
+      <file name="app/Http/Responses/CsvStreamResponse.php" />
+      <file name="app/Providers/ConfigOverlayServiceProvider.php" />
+      <file name="app/Providers/EventServiceProvider.php" />
     </MissingOverrideAttribute>
   </issueHandlers>
 </psalm>
