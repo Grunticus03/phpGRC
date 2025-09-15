@@ -194,9 +194,9 @@ jobs:
             storage/app storage/framework/cache storage/framework/sessions storage/framework/views \
             storage/logs
           :> storage/logs/laravel.log
-      - name: Create .env.testing (:memory:)
+      - name: Create test-only .env and .env.testing for SQLite memory
         run: |
-          cat > .env.testing <<'EOF'
+          tee .env > /dev/null <<'EOF'
           APP_ENV=testing
           APP_DEBUG=false
           APP_KEY=base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
@@ -207,6 +207,7 @@ jobs:
           QUEUE_CONNECTION=sync
           FILESYSTEM_DISK=local
           EOF
+          cp .env .env.testing
       - name: Clear Laravel caches
         env:
           APP_ENV: testing
@@ -216,6 +217,8 @@ jobs:
       - name: ParaTest
         env:
           APP_ENV: testing
+          DB_CONNECTION: sqlite
+          DB_DATABASE: ":memory:"
           XDEBUG_MODE: off
         run: vendor/bin/paratest -p auto --runner=WrapperRunner --colors=always
 
@@ -255,7 +258,7 @@ jobs:
         shell: bash
         run: |
           for i in {1..60}; do
-            php -r 'try{$pdo=new PDO("mysql:host=127.0.0.1;port=3307","root","secret", [PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]); exit(0);}catch(Throwable $e){exit(1);}'; ec=$?
+            php -r 'try{$pdo=new PDO("mysql:host=127.0.0.1;port=3307","root","secret",[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]);exit(0);}catch(Throwable $e){exit(1);}'; ec=$?
             if [ $ec -eq 0 ]; then echo "MySQL ready"; break; fi
             sleep 1
           done
