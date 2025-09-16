@@ -19,16 +19,12 @@ final class Role extends Model
 
     /**
      * @return BelongsToMany
+     * @phpstan-return BelongsToMany<\App\Models\User, $this>
      * @psalm-return BelongsToMany<\App\Models\User>
-     * @phpstan-return BelongsToMany<\App\Models\User, \App\Models\Role>
      */
     public function users(): BelongsToMany
     {
-        /** @var BelongsToMany $rel */
-        /** @psalm-var BelongsToMany<\App\Models\User> $rel */
-        /** @phpstan-var BelongsToMany<\App\Models\User, \App\Models\Role> $rel */
-        $rel = $this->belongsToMany(User::class, 'role_user', 'role_id', 'user_id');
-        return $rel;
+        return $this->belongsToMany(User::class, 'role_user', 'role_id', 'user_id');
     }
 }
 
