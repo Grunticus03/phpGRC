@@ -16,10 +16,6 @@ use Symfony\Component\HttpFoundation\Response;
 
 final class AuditExportController extends Controller
 {
-    /**
-     * CSV export of audit events. Same filters as list. No pagination.
-     * Content-Type must be exactly "text/csv".
-     */
     public function exportCsv(Request $request): Response
     {
         if (!config('core.audit.enabled', true)) {
@@ -69,24 +65,12 @@ final class AuditExportController extends Controller
         /** @var Builder<AuditEvent> $q */
         $q = AuditEvent::query();
 
-        if (is_string($data['category']) && $data['category'] !== '') {
-            $q->where('category', $data['category']);
-        }
-        if (is_string($data['action']) && $data['action'] !== '') {
-            $q->where('action', $data['action']);
-        }
-        if ($data['actor_id'] !== null && is_numeric($data['actor_id'])) {
-            $q->where('actor_id', (int) $data['actor_id']);
-        }
-        if (is_string($data['entity_type']) && $data['entity_type'] !== '') {
-            $q->where('entity_type', $data['entity_type']);
-        }
-        if (is_string($data['entity_id']) && $data['entity_id'] !== '') {
-            $q->where('entity_id', $data['entity_id']);
-        }
-        if (is_string($data['ip']) && $data['ip'] !== '') {
-            $q->where('ip', $data['ip']);
-        }
+        if (is_string($data['category']) && $data['category'] !== '')     { $q->where('category', $data['category']); }
+        if (is_string($data['action']) && $data['action'] !== '')         { $q->where('action', $data['action']); }
+        if ($data['actor_id'] !== null && is_numeric($data['actor_id']))  { $q->where('actor_id', (int) $data['actor_id']); }
+        if (is_string($data['entity_type']) && $data['entity_type'] !== '') { $q->where('entity_type', $data['entity_type']); }
+        if (is_string($data['entity_id']) && $data['entity_id'] !== '')   { $q->where('entity_id', $data['entity_id']); }
+        if (is_string($data['ip']) && $data['ip'] !== '')                 { $q->where('ip', $data['ip']); }
         if (is_string($data['occurred_from']) && $data['occurred_from'] !== '') {
             $q->where('occurred_at', '>=', Carbon::parse($data['occurred_from'])->utc());
         }
@@ -98,7 +82,7 @@ final class AuditExportController extends Controller
 
         $filename = 'audit-' . gmdate('Ymd\THis\Z') . '.csv';
         $headers  = [
-            'Content-Type'           => 'text/csv', // exact
+            'Content-Type'           => 'text/csv',
             'Content-Disposition'    => 'attachment; filename="'.$filename.'"',
             'X-Content-Type-Options' => 'nosniff',
             'Cache-Control'          => 'no-store, max-age=0',
@@ -116,7 +100,6 @@ final class AuditExportController extends Controller
                     /** @var \App\Models\AuditEvent $row */
                     $meta = $row->meta;
                     $metaStr = $meta === null ? '' : (string) json_encode($meta, JSON_UNESCAPED_SLASHES);
-
                     fputcsv($out, [
                         $row->id,
                         $row->occurred_at->toIso8601String(),
