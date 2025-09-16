@@ -16,17 +16,22 @@ use Symfony\Component\HttpFoundation\Response;
 
 final class AuditExportController extends Controller
 {
+    /**
+     * CSV export of audit events. Same filters as list. No pagination.
+     * Content-Type is exactly text/csv.
+     */
     public function exportCsv(Request $request): Response
     {
-        if (!config('core.audit.enabled', true)) {
-            return response()->json([
+        if (!\config('core.audit.enabled', true)) {
+            return \response()->json([
                 'ok'   => false,
                 'code' => 'AUDIT_NOT_ENABLED',
                 'note' => 'Audit disabled by configuration.',
             ], 400);
         }
 
-        $order = (string) ($request->query('order', 'desc')) === 'asc' ? 'asc' : 'desc';
+        $o = $request->query('order', 'desc');
+        $order = is_string($o) && $o === 'asc' ? 'asc' : 'desc';
 
         $data = [
             'order'         => $order,
@@ -54,7 +59,7 @@ final class AuditExportController extends Controller
 
         $v = Validator::make($data, $rules);
         if ($v->fails()) {
-            return response()->json([
+            return \response()->json([
                 'ok'      => false,
                 'message' => 'The given data was invalid.',
                 'code'    => 'VALIDATION_FAILED',
@@ -69,7 +74,8 @@ final class AuditExportController extends Controller
             $q->where('category', '=', (string) $data['category']);
         }
         if (is_string($data['action']) && $data['action'] !== '') {
-            $q->where('action', '=', (string) $data['action']);
+            // avoid callable-string confusion on "action"
+            $q->where('audit_events.action', '=', (string) $data['action']);
         }
         if ($data['actor_id'] !== null && is_numeric($data['actor_id'])) {
             $q->where('actor_id', '=', (int) $data['actor_id']);
@@ -102,6 +108,10 @@ final class AuditExportController extends Controller
 
         $callback = function () use ($q): void {
             $out = fopen('php://output', 'wb');
+            if ($out === false) {
+                return;
+            }
+
             fputcsv($out, [
                 'id','occurred_at','actor_id','action','category',
                 'entity_type','entity_id','ip','ua','meta_json'
@@ -112,6 +122,7 @@ final class AuditExportController extends Controller
                     /** @var \App\Models\AuditEvent $row */
                     $meta = $row->meta;
                     $metaStr = $meta === null ? '' : (string) json_encode($meta, JSON_UNESCAPED_SLASHES);
+
                     fputcsv($out, [
                         $row->id,
                         $row->occurred_at->toIso8601String(),
