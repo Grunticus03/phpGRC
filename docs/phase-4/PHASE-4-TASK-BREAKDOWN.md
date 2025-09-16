@@ -11,7 +11,7 @@
   - Each increment must pass CI guardrails.
   - Stubs advance to enforcement/persistence gradually.
   - Full traceability to Backlog IDs (CORE-003, CORE-004, CORE-006, CORE-007, CORE-008, CORE-010).
-- Last updated: 2025-09-13
+- Last updated: 2025-09-16
 
 ---
 
@@ -98,11 +98,9 @@
 - [x] CI: Add coverage (`--coverage-clover coverage.xml`) and upload/report; include vitest coverage/artifacts
 - [x] CI: Add `composer audit` and `npm audit --audit-level=high`
 - [x] CI: Add Dependabot (Composer, npm, GitHub Actions)
-- [ ] CI: Add `actionlint` step to lint workflow YAML
+- [x] CI: Add `actionlint` step to lint workflow YAML
 - [ ] QA: Raise PHPStan level one notch; fix violations or baseline deltas
 - [ ] QA: Raise Psalm level/config; keep threads; stabilize baseline
-- [x] QA: Enforce Pint/PHP-CS-Fixer ruleset in CI
-- [ ] QA: Add ESLint + `tsc --noEmit` to `web` job; add Prettier check
 - [x] Config: Implement early boot merge of `/opt/phpgrc/shared/config.php` (prod overlay) with `.env` ignored in prod
 - [x] Config: Document overlay keys; add redacted “effective-config fingerprint” endpoint; ensure `config:cache` includes overlay
 - [ ] UX: Replace RBAC role text inputs with dropdown sourced from `/api/rbac/roles`
@@ -120,7 +118,7 @@
 
 1. **OpenAPI/Swagger polish**
    - [x] Serve YAML at `/api/openapi.yaml` and Swagger UI at `/api/docs`
-   - [ ] Serve JSON at `/api/openapi.json`
+   - [x] Serve JSON at `/api/openapi.json`
    - [x] Add a 4XX response to `GET /docs` (present: `404`)
    - [x] Add `/audit/categories` to spec with schema; document RBAC 422 (`ROLE_NOT_FOUND`) and role-name constraints
    - [x] Wire Spectral (or Redocly rules) lint into CI
@@ -143,3 +141,4 @@
    - [x] Implement `ConfigServiceProvider` for overlay merge (shared → app → `.env`)
    - [x] Add redacted effective-config fingerprint endpoint
    - [x] Ensure `config:cache` includes overlay
+```

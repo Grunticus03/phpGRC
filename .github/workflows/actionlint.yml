@@ -8,16 +8,23 @@ on:
     paths: [ ".github/workflows/**" ]
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
-  lint:
+  actionlint:
     runs-on: self-hosted
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
-      - uses: reviewdog/action-actionlint@v1
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          reporter: github-pr-check
-          actionlint_flags: -color
 
-          
+      - name: Install actionlint (pinned)
+        run: |
+          set -euo pipefail
+          VER="v1.7.1"
+          curl -sSL https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash \
+            | bash -s -- -b ./bin "${VER}"
+          ./bin/actionlint --version
+
+      - name: Run actionlint
+        run: ./bin/actionlint -color
