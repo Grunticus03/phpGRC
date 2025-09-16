@@ -194,9 +194,9 @@ jobs:
             storage/app storage/framework/cache storage/framework/sessions storage/framework/views \
             storage/logs
           :> storage/logs/laravel.log
-      - name: Create .env.testing (:memory:)
+      - name: Force SQLite memory for all workers
         run: |
-          cat > .env.testing <<'EOF'
+          tee .env > /dev/null <<'EOF'
           APP_ENV=testing
           APP_DEBUG=false
           APP_KEY=base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
@@ -207,6 +207,7 @@ jobs:
           QUEUE_CONNECTION=sync
           FILESYSTEM_DISK=local
           EOF
+          cp .env .env.testing
       - name: Clear Laravel caches
         env:
           APP_ENV: testing
@@ -216,9 +217,10 @@ jobs:
       - name: Run in parallel (no coverage)
         env:
           APP_ENV: testing
+          DB_CONNECTION: sqlite
+          DB_DATABASE: ":memory:"
           XDEBUG_MODE: off
         run: php artisan test --parallel --no-coverage
-        # Laravel auto-uses .env.testing for this command
 
   api_mysql:
     name: API tests (MySQL smoke, PHP 8.3)
