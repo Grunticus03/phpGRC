@@ -100,6 +100,7 @@ Route::get('/health/fingerprint', function (SettingsService $settings) {
  |--------------------------------------------------------------------------
 */
 Route::get('/openapi.yaml', [OpenApiController::class, 'yaml']);
+Route::get('/openapi.json', [OpenApiController::class, 'json']);
 Route::get('/docs', function () {
     $html = <<<'HTML'
 <!doctype html>
