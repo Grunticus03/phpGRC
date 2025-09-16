@@ -65,12 +65,24 @@ final class AuditExportController extends Controller
         /** @var Builder<AuditEvent> $q */
         $q = AuditEvent::query();
 
-        if (is_string($data['category']) && $data['category'] !== '')     { $q->where('category', $data['category']); }
-        if (is_string($data['action']) && $data['action'] !== '')         { $q->where('action', $data['action']); }
-        if ($data['actor_id'] !== null && is_numeric($data['actor_id']))  { $q->where('actor_id', (int) $data['actor_id']); }
-        if (is_string($data['entity_type']) && $data['entity_type'] !== '') { $q->where('entity_type', $data['entity_type']); }
-        if (is_string($data['entity_id']) && $data['entity_id'] !== '')   { $q->where('entity_id', $data['entity_id']); }
-        if (is_string($data['ip']) && $data['ip'] !== '')                 { $q->where('ip', $data['ip']); }
+        if (is_string($data['category']) && $data['category'] !== '') {
+            $q->where('category', '=', (string) $data['category']);
+        }
+        if (is_string($data['action']) && $data['action'] !== '') {
+            $q->where('action', '=', (string) $data['action']);
+        }
+        if ($data['actor_id'] !== null && is_numeric($data['actor_id'])) {
+            $q->where('actor_id', '=', (int) $data['actor_id']);
+        }
+        if (is_string($data['entity_type']) && $data['entity_type'] !== '') {
+            $q->where('entity_type', '=', (string) $data['entity_type']);
+        }
+        if (is_string($data['entity_id']) && $data['entity_id'] !== '') {
+            $q->where('entity_id', '=', (string) $data['entity_id']);
+        }
+        if (is_string($data['ip']) && $data['ip'] !== '') {
+            $q->where('ip', '=', (string) $data['ip']);
+        }
         if (is_string($data['occurred_from']) && $data['occurred_from'] !== '') {
             $q->where('occurred_at', '>=', Carbon::parse($data['occurred_from'])->utc());
         }
