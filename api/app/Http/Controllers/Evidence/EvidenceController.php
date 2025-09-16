@@ -9,6 +9,7 @@ use App\Models\Evidence;
 use App\Services\Audit\AuditLogger;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
@@ -161,7 +162,7 @@ final class EvidenceController extends Controller
     {
         Gate::authorize('core.evidence.manage');
 
-        $limit = (int) $request->query('limit', 20);
+        $limit = (int) (($request->query('limit')) ?? '20');
         $limit = $limit < 1 ? 1 : ($limit > 100 ? 100 : $limit);
         $order = strtolower((string) $request->query('order', 'desc')) === 'asc' ? 'asc' : 'desc';
 
@@ -177,6 +178,7 @@ final class EvidenceController extends Controller
             }
         }
 
+        /** @var Builder<Evidence> $q */
         $q = Evidence::query()
             ->select(['id','owner_id','filename','mime','size_bytes','sha256','version','created_at']);
 
@@ -231,18 +233,19 @@ final class EvidenceController extends Controller
         $q->orderBy('created_at', $order)->orderBy('id', $order);
 
         if ($afterTs !== null && $afterId !== null) {
+            /** @psalm-suppress InvalidArgument */
             if ($order === 'desc') {
-                $q->where(function ($w) use ($afterTs, $afterId): void {
+                $q->where(function (Builder $w) use ($afterTs, $afterId): void {
                     $w->where('created_at', '<', $afterTs)
-                      ->orWhere(function ($z) use ($afterTs, $afterId): void {
+                      ->orWhere(function (Builder $z) use ($afterTs, $afterId): void {
                           $z->where('created_at', '=', $afterTs)
                             ->where('id', '<', $afterId);
                       });
                 });
             } else {
-                $q->where(function ($w) use ($afterTs, $afterId): void {
+                $q->where(function (Builder $w) use ($afterTs, $afterId): void {
                     $w->where('created_at', '>', $afterTs)
-                      ->orWhere(function ($z) use ($afterTs, $afterId): void {
+                      ->orWhere(function (Builder $z) use ($afterTs, $afterId): void {
                           $z->where('created_at', '=', $afterTs)
                             ->where('id', '>', $afterId);
                       });
@@ -267,9 +270,10 @@ final class EvidenceController extends Controller
             $nextCursor = base64_encode($ts.'|'.$last->id);
         }
 
-        $data = $rows->map(static function (Evidence $e): array {
-            /** @var CarbonInterface $createdAt */
-            $createdAt = $e->created_at;
+        $data = $rows->toBase()->map(function ($e): array {
+            /** @var mixed $createdAtRaw */
+            $createdAtRaw = $e->created_at ?? null;
+            $createdAt = $createdAtRaw instanceof CarbonInterface ? $createdAtRaw : Carbon::parse((string) $createdAtRaw);
             return [
                 'id'         => $e->id,
                 'owner_id'   => $e->owner_id,
@@ -280,7 +284,7 @@ final class EvidenceController extends Controller
                 'version'    => (int) $e->version,
                 'created_at' => $createdAt->toRfc3339String(),
             ];
-        });
+        })->values()->all();
 
         return response()->json([
             'ok'          => true,
@@ -326,3 +330,4 @@ final class EvidenceController extends Controller
         return str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $value);
     }
 }
+

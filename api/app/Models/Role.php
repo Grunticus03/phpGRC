@@ -18,12 +18,15 @@ final class Role extends Model
     protected $fillable = ['id', 'name'];
 
     /**
-     * @return \Illuminate\Database\Eloquent\Relations\BelongsToMany<\App\Models\User, \App\Models\Role>
+     * @return BelongsToMany<User>
+     * @phpstan-return BelongsToMany<User, Role>
      */
     public function users(): BelongsToMany
     {
-        /** @var \Illuminate\Database\Eloquent\Relations\BelongsToMany<\App\Models\User, \App\Models\Role> $rel */
+        /** @var BelongsToMany<User> $rel */
+        /** @phpstan-var BelongsToMany<User, Role> $rel */
         $rel = $this->belongsToMany(User::class, 'role_user', 'role_id', 'user_id');
         return $rel;
     }
 }
+

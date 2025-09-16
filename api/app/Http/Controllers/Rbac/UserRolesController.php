@@ -161,13 +161,14 @@ final class UserRolesController extends Controller
         $before = $u->roles()->pluck('name')->sort()->values()->all();
 
         // Normalize names and dedupe after normalization
-        $values   = array_values($payload['roles']);
+        /** @var list<string> $values */
+        $values   = array_map('strval', array_values($payload['roles']));
         $normSeen = [];
         $ids      = [];
         $missing  = [];
 
         foreach ($values as $v) {
-            $norm = self::normalizeRoleName((string) $v);
+            $norm = self::normalizeRoleName($v);
             // enforce max length after normalization
             $len = mb_strlen($norm, 'UTF-8');
             if ($len < 2 || $len > 64) {

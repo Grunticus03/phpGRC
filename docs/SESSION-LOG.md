@@ -780,3 +780,29 @@ SESSION-LOG.md entry
 - Phase/Step status: advance
 - Next action (you): Optionally add native `actionlint`
 - Next action (me): confirm Dependabot settings
+
+---
+
+## SESSION-LOG.md (entry to append)
+
+### Session 2025-09-15: [Phase 4, CI & API surface hardening]
+- Context: Bringing phpGRC Phase 4 routes/spec online, tightening CI (OpenAPI gates, static analysis, tests), and resolving toolchain issues.
+- Goal: Green CI across API/Web, OpenAPI parity with routes, deploy workflow, and address PHPStan/Psalm findings.
+- Constraints: Production-safe defaults; allow stub behavior where persistence not enabled; no breaking API changes without diff gate.
+
+### Closeout
+- Deliverables produced: 
+  - Updated API routes; OpenAPI v0.4.6; Swagger UI; health fingerprint
+  - CI workflows: main CI, web-ci, psalm-security, actionlint (fixed), deploy
+  - Dependabot config
+  - Web app scaffolding (Vite+React) with tests/coverage
+  - Static-analysis/type fixes (PHPStan generics, Psalm suppressions/typing)
+  - Lockfile strategies (Composer auto-sync; NPM CI fallback for stale lock)
+- Phase/Step status: Advance (Phase 4 core complete; polish in progress)
+- Next action (you):
+  - Confirm `Export` table has `progress`/artifact fields; adjust migration if needed
+  - Run full CI on a fresh branch to validate lockfile fallback path
+  - Sanity-test `/api/audit/export.csv` headers in browser (nosniff, exact `text/csv`)
+  - Smoke deploy via `deploy.yml` to staging with secrets set; validate `/api/health`
+- Next action (me):
+  - I’ll prepare a PR with the remaining Psalm-targeted annotations (Export model PHPDoc/casts; BelongsToMany docblocks; non-static closures) and the web lock auto-sync fallback in `web-ci`/`ci`.

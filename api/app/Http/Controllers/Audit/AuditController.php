@@ -94,14 +94,15 @@ final class AuditController extends Controller
         if ($data['entity_id'])    { $q->where('entity_id', $data['entity_id']); }
         if ($data['ip'])           { $q->where('ip', $data['ip']); }
         if ($data['occurred_from']) {
-            $q->where('occurred_at', '>=', \Illuminate\Support\Carbon::parse((string) $data['occurred_from'])->utc());
+            $q->where('occurred_at', '>=', Carbon::parse((string) $data['occurred_from'])->utc());
         }
         if ($data['occurred_to']) {
-            $q->where('occurred_at', '<=', \Illuminate\Support\Carbon::parse((string) $data['occurred_to'])->utc());
+            $q->where('occurred_at', '<=', Carbon::parse((string) $data['occurred_to'])->utc());
         }
 
         // Apply cursor window
         if ($cursorTs instanceof Carbon && is_string($cursorId) && $cursorId !== '') {
+            /** @psalm-suppress InvalidArgument */
             $q->where(function (Builder $w) use ($cursorTs, $cursorId, $order): void {
                 if ($order === 'desc') {
                     $w->where('occurred_at', '<', $cursorTs)

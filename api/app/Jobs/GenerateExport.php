@@ -57,12 +57,14 @@ final class GenerateExport implements ShouldQueue
             $path     = '';
 
             if ($export->type === 'csv') {
+                /** @var list<list<string>> $rows */
                 $rows = [
                     ['export_id', 'generated_at', 'type', 'param_count'],
                     [$export->id, $nowUtc, $export->type, (string) count($params)],
                 ];
                 foreach ($params as $k => $v) {
-                    $rows[] = ['param_key', (string) $k, 'param_value', is_scalar($v) ? (string) $v : json_encode($v, JSON_UNESCAPED_SLASHES)];
+                    $vv = is_scalar($v) ? (string) $v : (string) json_encode($v, JSON_UNESCAPED_SLASHES);
+                    $rows[] = ['param_key', (string) $k, 'param_value', $vv];
                 }
                 $artifact = self::toCsv($rows);
                 $mime     = 'text/csv';

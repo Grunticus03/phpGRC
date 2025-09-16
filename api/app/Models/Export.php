@@ -10,6 +10,22 @@ use Illuminate\Support\Str;
 /**
  * Phase 4: Export job record (scaffold).
  * Compatible with migration (id, type, params, status, progress, artifact_*, created_at, completed_at, failed_at).
+ *
+ * @property string $id
+ * @property string $type
+ * @property array<string,mixed>|null $params
+ * @property string $status
+ * @property int $progress
+ * @property string|null $artifact_disk
+ * @property string|null $artifact_path
+ * @property string|null $artifact_mime
+ * @property int|null $artifact_size
+ * @property string|null $artifact_sha256
+ * @property \Carbon\CarbonImmutable $created_at
+ * @property \Carbon\CarbonImmutable|null $completed_at
+ * @property \Carbon\CarbonImmutable|null $failed_at
+ * @property string|null $error_code
+ * @property string|null $error_note
  */
 final class Export extends Model
 {

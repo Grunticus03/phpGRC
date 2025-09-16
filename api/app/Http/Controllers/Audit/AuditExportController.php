@@ -103,7 +103,7 @@ final class AuditExportController extends Controller
                 foreach ($rows as $row) {
                     /** @var \App\Models\AuditEvent $row */
                     $meta = $row->meta;
-                    $metaStr = $meta === null ? '' : json_encode($meta, JSON_UNESCAPED_SLASHES);
+                    $metaStr = $meta === null ? '' : (string) json_encode($meta, JSON_UNESCAPED_SLASHES);
 
                     fputcsv($out, [
                         $row->id,

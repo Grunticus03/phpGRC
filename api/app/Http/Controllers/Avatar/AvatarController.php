@@ -23,7 +23,7 @@ final class AvatarController extends Controller
      */
     public function store(StoreAvatarRequest $request): JsonResponse
     {
-        if (! (bool) config('core.avatars.enabled', true)) {
+        if (!(bool) config('core.avatars.enabled', true)) {
             return response()->json([
                 'ok'   => false,
                 'code' => 'AVATAR_NOT_ENABLED',
@@ -46,7 +46,6 @@ final class AvatarController extends Controller
         $userId = (int) ($request->input('user_id') ?? $this->authUserId());
 
         // Queue background transcode + variant generation (32/64/<size_px>).
-        // Tests may force sync queue; production may run async.
         try {
             TranscodeAvatar::dispatch(
                 $userId,
@@ -60,10 +59,10 @@ final class AvatarController extends Controller
         }
 
         return response()->json([
-            'ok'   => false,
-            'note' => 'stub-only',
-            'queued' => $queued,
-            'file' => [
+            'ok'    => false,
+            'note'  => 'stub-only',
+            'queued'=> $queued,
+            'file'  => [
                 'original_name' => $file->getClientOriginalName(),
                 'mime'          => $file->getClientMimeType(),
                 'size_bytes'    => $file->getSize(),
@@ -85,7 +84,7 @@ final class AvatarController extends Controller
      */
     public function show(Request $request, int $user): Response
     {
-        if (! (bool) config('core.avatars.enabled', true)) {
+        if (!(bool) config('core.avatars.enabled', true)) {
             return response()->json([
                 'ok'   => false,
                 'code' => 'AVATAR_NOT_ENABLED',
@@ -94,7 +93,9 @@ final class AvatarController extends Controller
 
         $allowed = [32, 64, (int) config('core.avatars.size_px', 128)];
         sort($allowed);
-        $size = (int) $request->query('size', max($allowed));
+        // Request::query default must be string|array|null for Psalm. Then cast.
+        $sizeStr = (string) ($request->query('size') ?? (string) max($allowed));
+        $size = (int) $sizeStr;
         if (!in_array($size, $allowed, true)) {
             $size = max($allowed);
         }
@@ -102,7 +103,7 @@ final class AvatarController extends Controller
         $disk = Storage::disk('public');
         $rel  = "avatars/{$user}/avatar-{$size}.webp";
 
-        if (! $disk->exists($rel)) {
+        if (!$disk->exists($rel)) {
             return response()->json([
                 'ok'    => false,
                 'code'  => 'AVATAR_NOT_FOUND',

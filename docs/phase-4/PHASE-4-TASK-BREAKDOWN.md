@@ -118,7 +118,7 @@
 
 1. **OpenAPI/Swagger polish**
    - [x] Serve YAML at `/api/openapi.yaml` and Swagger UI at `/api/docs`
-   - [x] Serve JSON at `/api/openapi.json`
+   - [ ] Serve JSON at `/api/openapi.json`
    - [x] Add a 4XX response to `GET /docs` (present: `404`)
    - [x] Add `/audit/categories` to spec with schema; document RBAC 422 (`ROLE_NOT_FOUND`) and role-name constraints
    - [x] Wire Spectral (or Redocly rules) lint into CI
@@ -141,4 +141,4 @@
    - [x] Implement `ConfigServiceProvider` for overlay merge (shared → app → `.env`)
    - [x] Add redacted effective-config fingerprint endpoint
    - [x] Ensure `config:cache` includes overlay
-```
+
