@@ -194,20 +194,21 @@ jobs:
             storage/app storage/framework/cache storage/framework/sessions storage/framework/views \
             storage/logs
           :> storage/logs/laravel.log
-      - name: Create test-only .env and .env.testing for SQLite memory
+      - name: Create phpunit wrapper (forces SQLite :memory:)
         run: |
-          tee .env > /dev/null <<'EOF'
-          APP_ENV=testing
-          APP_DEBUG=false
-          APP_KEY=base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
-          DB_CONNECTION=sqlite
-          DB_DATABASE=:memory:
-          CACHE_DRIVER=array
-          SESSION_DRIVER=array
-          QUEUE_CONNECTION=sync
-          FILESYSTEM_DISK=local
-          EOF
-          cp .env .env.testing
+          cat > phpunit-paratest.sh <<'BASH'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          export APP_ENV=testing
+          export APP_DEBUG=0
+          export DB_CONNECTION=sqlite
+          export DB_DATABASE=":memory:"
+          export CACHE_DRIVER=array
+          export SESSION_DRIVER=array
+          export QUEUE_CONNECTION=sync
+          exec ./vendor/bin/phpunit "$@"
+          BASH
+          chmod +x phpunit-paratest.sh
       - name: Clear Laravel caches
         env:
           APP_ENV: testing
@@ -217,10 +218,8 @@ jobs:
       - name: ParaTest
         env:
           APP_ENV: testing
-          DB_CONNECTION: sqlite
-          DB_DATABASE: ":memory:"
           XDEBUG_MODE: off
-        run: vendor/bin/paratest -p auto --runner=WrapperRunner --colors=always
+        run: vendor/bin/paratest -p auto --runner=WrapperRunner --phpunit=./phpunit-paratest.sh --colors=always
 
   api_mysql:
     name: API tests (MySQL smoke, PHP 8.3)
