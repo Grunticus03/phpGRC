@@ -11,6 +11,8 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\Response as Resp;
 use Illuminate\Support\Facades\Validator;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -22,8 +24,8 @@ final class AuditExportController extends Controller
      */
     public function exportCsv(Request $request): Response
     {
-        if (!\config('core.audit.enabled', true)) {
-            return \response()->json([
+        if (!Config::get('core.audit.enabled', true)) {
+            return Resp::json([
                 'ok'   => false,
                 'code' => 'AUDIT_NOT_ENABLED',
                 'note' => 'Audit disabled by configuration.',
@@ -57,9 +59,10 @@ final class AuditExportController extends Controller
             'ip'            => ['nullable', 'ip'],
         ];
 
+        /** @var \Illuminate\Contracts\Validation\Validator $v */
         $v = Validator::make($data, $rules);
         if ($v->fails()) {
-            return \response()->json([
+            return Resp::json([
                 'ok'      => false,
                 'message' => 'The given data was invalid.',
                 'code'    => 'VALIDATION_FAILED',
@@ -71,23 +74,22 @@ final class AuditExportController extends Controller
         $q = AuditEvent::query();
 
         if (is_string($data['category']) && $data['category'] !== '') {
-            $q->where('category', '=', (string) $data['category']);
+            $q->where('category', '=', $data['category']);
         }
         if (is_string($data['action']) && $data['action'] !== '') {
-            // avoid callable-string confusion on "action"
-            $q->where('audit_events.action', '=', (string) $data['action']);
+            $q->where('audit_events.action', '=', $data['action']);
         }
         if ($data['actor_id'] !== null && is_numeric($data['actor_id'])) {
             $q->where('actor_id', '=', (int) $data['actor_id']);
         }
         if (is_string($data['entity_type']) && $data['entity_type'] !== '') {
-            $q->where('entity_type', '=', (string) $data['entity_type']);
+            $q->where('entity_type', '=', $data['entity_type']);
         }
         if (is_string($data['entity_id']) && $data['entity_id'] !== '') {
-            $q->where('entity_id', '=', (string) $data['entity_id']);
+            $q->where('entity_id', '=', $data['entity_id']);
         }
         if (is_string($data['ip']) && $data['ip'] !== '') {
-            $q->where('ip', '=', (string) $data['ip']);
+            $q->where('ip', '=', $data['ip']);
         }
         if (is_string($data['occurred_from']) && $data['occurred_from'] !== '') {
             $q->where('occurred_at', '>=', Carbon::parse($data['occurred_from'])->utc());
@@ -121,7 +123,7 @@ final class AuditExportController extends Controller
                 foreach ($rows as $row) {
                     /** @var \App\Models\AuditEvent $row */
                     $meta = $row->meta;
-                    $metaStr = $meta === null ? '' : (string) json_encode($meta, JSON_UNESCAPED_SLASHES);
+                    $metaStr = $meta === null ? '' : json_encode($meta, JSON_UNESCAPED_SLASHES);
 
                     fputcsv($out, [
                         $row->id,

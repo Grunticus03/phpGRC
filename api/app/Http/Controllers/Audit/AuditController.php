@@ -11,6 +11,8 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\Response as Resp;
 use Illuminate\Support\Facades\Validator;
 
 final class AuditController extends Controller
@@ -51,9 +53,10 @@ final class AuditController extends Controller
             'ip'            => ['nullable', 'ip'],
         ];
 
+        /** @var \Illuminate\Contracts\Validation\Validator $v */
         $v = Validator::make($data, $rules);
         if ($v->fails()) {
-            return \response()->json([
+            return Resp::json([
                 'ok'      => false,
                 'message' => 'The given data was invalid.',
                 'code'    => 'VALIDATION_FAILED',
@@ -77,29 +80,28 @@ final class AuditController extends Controller
             $limit = 2;
         }
 
-        $retentionDays = (int) \config('core.audit.retention_days', 365);
+        $retentionDays = (int) Config::get('core.audit.retention_days', 365);
 
         /** @var Builder<AuditEvent> $q */
         $q = AuditEvent::query();
 
         if (is_string($data['category']) && $data['category'] !== '') {
-            $q->where('category', '=', (string) $data['category']);
+            $q->where('category', '=', $data['category']);
         }
         if (is_string($data['action']) && $data['action'] !== '') {
-            // avoid callable-string confusion on "action"
-            $q->where('audit_events.action', '=', (string) $data['action']);
+            $q->where('audit_events.action', '=', $data['action']);
         }
         if ($data['actor_id'] !== null && is_numeric($data['actor_id'])) {
             $q->where('actor_id', '=', (int) $data['actor_id']);
         }
         if (is_string($data['entity_type']) && $data['entity_type'] !== '') {
-            $q->where('entity_type', '=', (string) $data['entity_type']);
+            $q->where('entity_type', '=', $data['entity_type']);
         }
         if (is_string($data['entity_id']) && $data['entity_id'] !== '') {
-            $q->where('entity_id', '=', (string) $data['entity_id']);
+            $q->where('entity_id', '=', $data['entity_id']);
         }
         if (is_string($data['ip']) && $data['ip'] !== '') {
-            $q->where('ip', '=', (string) $data['ip']);
+            $q->where('ip', '=', $data['ip']);
         }
         if (is_string($data['occurred_from']) && $data['occurred_from'] !== '') {
             $q->where('occurred_at', '>=', Carbon::parse($data['occurred_from'])->utc());
@@ -145,7 +147,7 @@ final class AuditController extends Controller
                 ? $this->encodeCursor($tail['occurred_at'], $tail['id'], $limit, $emittedNow)
                 : null;
 
-            return \response()->json([
+            return Resp::json([
                 'ok'              => true,
                 'note'            => 'stub-only',
                 '_categories'     => AuditCategories::ALL,
@@ -186,7 +188,7 @@ final class AuditController extends Controller
             ? $this->encodeCursor($tail['occurred_at'], $tail['id'], $limit, $emittedNow)
             : null;
 
-        return \response()->json([
+        return Resp::json([
             'ok'              => true,
             '_categories'     => AuditCategories::ALL,
             '_retention_days' => $retentionDays,
@@ -210,7 +212,7 @@ final class AuditController extends Controller
 
     public function categories(): JsonResponse
     {
-        return \response()->json([
+        return Resp::json([
             'ok' => true,
             'categories' => AuditCategories::ALL,
         ], 200);
@@ -231,7 +233,7 @@ final class AuditController extends Controller
             return true;
         }
         $page = $r->query('page');
-        return is_array($page) && array_key_exists('cursor', $page) && (string) $page['cursor'] !== '';
+        return is_array($page) && array_key_exists('cursor', $page) && is_string($page['cursor']) && $page['cursor'] !== '';
     }
 
     /**
@@ -287,14 +289,10 @@ final class AuditController extends Controller
                 $s .= str_repeat('=', 4 - $pad);
             }
             $decoded = base64_decode($s, true);
-            if ($decoded === false || !str_contains((string) $decoded, '|')) {
+            if ($decoded === false || !str_contains($decoded, '|')) {
                 return null;
             }
             $plain = $decoded;
-        }
-
-        if (!is_string($plain)) {
-            return null;
         }
 
         $parts = explode('|', $plain);
