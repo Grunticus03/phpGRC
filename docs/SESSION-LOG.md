@@ -767,3 +767,16 @@ Closeout
 - Next action (me): Prepare v0.4.6 release notes (when we’re ready), confirm whether to keep ParaTest in CI without coverage or switch fully to PHPUnit with coverage, and add the remaining RBAC/OpenAPI items to the spec and tests
 
 ---
+
+SESSION-LOG.md entry
+
+### Session 2025-09-15: [Phase 4, CI hardening + RBAC/OpenAPI alignment]
+- Context: Stabilize CI on self-hosted runners; align RBAC API behavior and OpenAPI contracts.
+- Goal: Achieve CI green on core jobs; finalize RBAC error shape; decide ParaTest path.
+- Constraints: Self-hosted runners; no branch protection; PHP 8.3 baseline; no ParaTest; security and quality-first.
+
+### Closeout
+- Deliverables produced: updated `.github/workflows/ci.yml`; updated `api/composer.json` (removed ParaTest); updated `api/phpunit.xml.dist`; updated `docs/api/openapi.yaml` (license fix; RBAC 422 modeling confirmed)
+- Phase/Step status: advance
+- Next action (you): Optionally add native `actionlint`
+- Next action (me): confirm Dependabot settings

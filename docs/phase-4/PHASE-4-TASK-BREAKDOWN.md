@@ -95,13 +95,10 @@
 - [x] UX: Replace free-text Audit category with dropdown enum; normalize case
 - [x] UX: Surface 422 field-level errors inline on Settings forms
 - [ ] UX pass on admin screens (Phase 5)
-- [ ] CI: Protect `main` with required jobs (`openapi`, `openapi_breaking`, `api`, `web`) and linear history
-- [x] CI: Add ParaTest and run with CPU parallelism
 - [x] CI: Add coverage (`--coverage-clover coverage.xml`) and upload/report; include vitest coverage/artifacts
 - [x] CI: Add `composer audit` and `npm audit --audit-level=high`
 - [x] CI: Add Dependabot (Composer, npm, GitHub Actions)
-- [x] CI: Add `actionlint` step to lint workflow YAML
-- [ ] CI: Add PHP matrix (8.2, 8.3); optional MySQL integration job
+- [ ] CI: Add `actionlint` step to lint workflow YAML
 - [ ] QA: Raise PHPStan level one notch; fix violations or baseline deltas
 - [ ] QA: Raise Psalm level/config; keep threads; stabilize baseline
 - [x] QA: Enforce Pint/PHP-CS-Fixer ruleset in CI
@@ -115,8 +112,7 @@
 - [x] Tests: Auth gate with `require_auth=true` (401 unauth, 200 authed; `actor_id` present when authed)
 - [x] Tests: Audit verification of canonical+alias events and `RBAC` casing
 - [x] Docs/OpenAPI: Add `/audit/categories` path and response schema
-- [ ] Docs/OpenAPI: Update 422 schemas for `ROLE_NOT_FOUND` and role-name constraints
-- [ ] Release: Tag-triggered GHCR image build; attach OpenAPI + web assets
+- [x] Docs/OpenAPI: Update 422 schemas for `ROLE_NOT_FOUND` and role-name constraints
 
 ---
 
@@ -126,7 +122,7 @@
    - [x] Serve YAML at `/api/openapi.yaml` and Swagger UI at `/api/docs`
    - [ ] Serve JSON at `/api/openapi.json`
    - [x] Add a 4XX response to `GET /docs` (present: `404`)
-   - [ ] Add `/audit/categories` to spec with schema; document RBAC 422 (`ROLE_NOT_FOUND`) and role-name constraints
+   - [x] Add `/audit/categories` to spec with schema; document RBAC 422 (`ROLE_NOT_FOUND`) and role-name constraints
    - [x] Wire Spectral (or Redocly rules) lint into CI
 
 2. **API & Tests**
@@ -141,15 +137,9 @@
    - [ ] Admin › RBAC: replace role text inputs with dropdown from `/api/rbac/roles`
 
 4. **CI**
-   - [ ] Protect `main` with required jobs and linear history
-   - [x] Add ParaTest; enable PHPUnit and vitest coverage; upload artifacts
-   - [ ] Add PHP 8.2 matrix and optional MySQL job
    - [x] Add `composer audit`, `npm audit`, Dependabot, and `actionlint`
 
 5. **Config**
    - [x] Implement `ConfigServiceProvider` for overlay merge (shared → app → `.env`)
    - [x] Add redacted effective-config fingerprint endpoint
    - [x] Ensure `config:cache` includes overlay
-
-6. **Release**
-   - [ ] Tag `v0.4.6`, build/push GHCR, attach `openapi.yaml` and `web/dist` artifacts
