@@ -94,7 +94,7 @@ final class AuditController extends Controller
             $q->where('occurred_at', '<=', Carbon::parse($data['occurred_to'])->utc());
         }
 
-        // Cursor window via whereRaw (no Closure)
+        // No Closure where(): use SQL condition
         if ($cursorTs instanceof Carbon && is_string($cursorId) && $cursorId !== '') {
             if ($order === 'desc') {
                 $q->whereRaw('(occurred_at < ?) OR (occurred_at = ? AND id < ?)', [$cursorTs, $cursorTs, $cursorId]);
