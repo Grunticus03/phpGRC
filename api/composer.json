@@ -9,7 +9,6 @@
     "laravel/sanctum": "^4.0"
   },
   "require-dev": {
-    "brianium/paratest": "^7.8",
     "enlightn/enlightn": "^2.10",
     "larastan/larastan": "^2.11",
     "laravel/pint": "^1.17",
@@ -48,7 +47,6 @@
       "@app:prepare"
     ],
     "test": "vendor/bin/phpunit",
-    "test:parallel": "vendor/bin/paratest -p auto --runner=WrapperRunner",
     "lint": "vendor/bin/pint -v",
     "stan": "vendor/bin/phpstan analyse --memory-limit=-1",
     "psalm": "vendor/bin/psalm --no-cache",

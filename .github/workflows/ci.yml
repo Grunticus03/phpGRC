@@ -143,7 +143,7 @@ jobs:
           php artisan config:clear || true
           php artisan cache:clear || true
           rm -f bootstrap/cache/*.php || true
-      - name: PHPUnit (no ParaTest on SQLite)
+      - name: PHPUnit
         env:
           APP_ENV: testing
           DB_CONNECTION: sqlite
@@ -165,62 +165,6 @@ jobs:
             api/junit.xml
             api/clover.xml
             api/storage/logs/*.log
-
-  api_paratest:
-    name: API tests (ParaTest via Artisan, SQLite file per worker)
-    runs-on: self-hosted
-    needs: [api_static]
-    defaults: { run: { working-directory: api } }
-    steps:
-      - uses: actions/checkout@v4
-      - uses: shivammathur/setup-php@v2
-        with:
-          php-version: "8.3"
-          extensions: mbstring, intl, pdo_sqlite, sqlite3, pcntl, posix
-          coverage: none
-          tools: composer:v2
-      - uses: actions/cache@v4
-        with:
-          path: ~/.composer/cache
-          key: ${{ runner.os }}-composer-${{ hashFiles('api/composer.lock') }}
-          restore-keys: ${{ runner.os }}-composer-
-      - name: Resolve lockfile (sync with composer.json)
-        run: composer update --no-interaction --prefer-dist --no-progress
-      - name: Install deps
-        run: composer install --no-interaction --prefer-dist
-      - name: Prepare Laravel dirs and base SQLite file
-        run: |
-          mkdir -p bootstrap/cache \
-            storage/app storage/framework/cache storage/framework/sessions storage/framework/views \
-            storage/logs database
-          :> storage/logs/laravel.log
-          :> database/database.sqlite
-      - name: Force SQLite file for parallel base
-        run: |
-          tee .env > /dev/null <<'EOF'
-          APP_ENV=testing
-          APP_DEBUG=false
-          APP_KEY=base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
-          DB_CONNECTION=sqlite
-          DB_DATABASE=${{ github.workspace }}/api/database/database.sqlite
-          CACHE_DRIVER=array
-          SESSION_DRIVER=array
-          QUEUE_CONNECTION=sync
-          FILESYSTEM_DISK=local
-          EOF
-          cp .env .env.testing
-      - name: Clear Laravel caches
-        env:
-          APP_ENV: testing
-        run: |
-          php artisan config:clear || true
-          rm -f bootstrap/cache/*.php || true
-      - name: Run in parallel (no coverage)
-        env:
-          APP_ENV: testing
-          XDEBUG_MODE: off
-        run: php artisan test --parallel --no-coverage
-        # Laravel clones database.sqlite to per-worker files using TEST_TOKEN
 
   api_mysql:
     name: API tests (MySQL smoke, PHP 8.3)
