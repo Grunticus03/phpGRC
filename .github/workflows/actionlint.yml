@@ -18,13 +18,18 @@ jobs:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
 
-      - name: Install actionlint (pinned)
+      - name: Install actionlint (script, pinned with fallback)
+        shell: bash
         run: |
           set -euo pipefail
-          VER="v1.7.1"
-          curl -sSL https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash \
-            | bash -s -- -b ./bin "${VER}"
-          ./bin/actionlint --version
+          mkdir -p .bin
+          curl -fsSL -o .bin/download-actionlint.bash \
+            https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash
+          # Try pinned version first; fall back to latest if unavailable.
+          bash .bin/download-actionlint.bash 1.7.1 .bin || \
+          bash .bin/download-actionlint.bash latest .bin
+          ./.bin/actionlint --version
 
       - name: Run actionlint
-        run: ./bin/actionlint -color
+        shell: bash
+        run: ./.bin/actionlint -color
