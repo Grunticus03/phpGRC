@@ -60,12 +60,14 @@ final class AuditController extends Controller
             ], 422);
         }
 
+        // Decode cursor (ts|id|limit|emittedCount)
         $decoded      = $cursorParam ? $this->decodeCursor((string) $cursorParam) : null;
         $cursorTs     = $decoded[0] ?? null;
         $cursorId     = $decoded[1] ?? null;
         $cursorLimit  = $decoded[2] ?? null;
         $priorEmitted = $decoded[3] ?? 0;
 
+        // Limit rules
         if ($limitParam !== null) {
             $limit = (int) $limitParam;
         } elseif ($cursorLimit !== null) {
@@ -94,23 +96,13 @@ final class AuditController extends Controller
             $q->where('occurred_at', '<=', Carbon::parse((string) $data['occurred_to'])->utc());
         }
 
+        // Cursor window without closures (quiet for Psalm)
         if ($cursorTs instanceof Carbon && is_string($cursorId) && $cursorId !== '') {
-            /** @psalm-suppress InvalidArgument */
-            $q->where(function (Builder $w) use ($cursorTs, $cursorId, $order): void {
-                if ($order === 'desc') {
-                    $w->where('occurred_at', '<', $cursorTs)
-                      ->orWhere(function (Builder $w2) use ($cursorTs, $cursorId): void {
-                          $w2->where('occurred_at', '=', $cursorTs)
-                             ->where('id', '<', $cursorId);
-                      });
-                } else {
-                    $w->where('occurred_at', '>', $cursorTs)
-                      ->orWhere(function (Builder $w2) use ($cursorTs, $cursorId): void {
-                          $w2->where('occurred_at', '=', $cursorTs)
-                             ->where('id', '>', $cursorId);
-                      });
-                }
-            });
+            if ($order === 'desc') {
+                $q->whereRaw('(occurred_at < ?) OR (occurred_at = ? AND id < ?)', [$cursorTs, $cursorTs, $cursorId]);
+            } else {
+                $q->whereRaw('(occurred_at > ?) OR (occurred_at = ? AND id > ?)', [$cursorTs, $cursorTs, $cursorId]);
+            }
         }
 
         $q->orderBy('occurred_at', $order)->orderBy('id', $order)->limit($limit);

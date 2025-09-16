@@ -29,14 +29,14 @@ final class User extends Authenticatable
 
     /**
      * @return BelongsToMany
-     * @psalm-return BelongsToMany<Role>
-     * @phpstan-return BelongsToMany<Role, User>
+     * @psalm-return BelongsToMany<\App\Models\Role>
+     * @phpstan-return BelongsToMany<\App\Models\Role, \App\Models\User>
      */
     public function roles(): BelongsToMany
     {
         /** @var BelongsToMany $rel */
-        /** @psalm-var BelongsToMany<Role> $rel */
-        /** @phpstan-var BelongsToMany<Role, User> $rel */
+        /** @psalm-var BelongsToMany<\App\Models\Role> $rel */
+        /** @phpstan-var BelongsToMany<\App\Models\Role, \App\Models\User> $rel */
         $rel = $this->belongsToMany(Role::class, 'role_user', 'user_id', 'role_id');
         return $rel;
     }
