@@ -28,7 +28,7 @@ final class Kernel extends ConsoleKernel
         $days = (int) config('core.audit.retention_days', 365);
         $days = max(30, min(730, $days));
 
-        $schedule->command("audit:purge --days={$days}")
+        $schedule->command("audit:purge --days={$days} --emit-summary")
             ->dailyAt('03:10')
             ->timezone('UTC')
             ->withoutOverlapping()

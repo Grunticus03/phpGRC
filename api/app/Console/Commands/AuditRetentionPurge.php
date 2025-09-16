@@ -16,7 +16,7 @@ final class AuditRetentionPurge extends Command
     /**
      * Purge audit_events older than N days.
      */
-    protected $signature = 'audit:purge {--days=} {--dry-run}';
+    protected $signature = 'audit:purge {--days=} {--dry-run} {--emit-summary}';
 
     protected $description = 'Delete audit events older than the configured retention window.';
 
@@ -91,31 +91,33 @@ final class AuditRetentionPurge extends Command
             }, 1);
         }
 
-        // Best-effort summary event (do not fail command if this write fails).
-        try {
-            $now = CarbonImmutable::now('UTC');
+        // Optional summary event (opt-in only).
+        if ($this->option('emit-summary')) {
+            try {
+                $now = CarbonImmutable::now('UTC');
 
-            AuditEvent::query()->create([
-                'id'           => (string) Str::ulid(),
-                'occurred_at'  => $now,
-                'actor_id'     => null,
-                'action'       => 'audit.retention.purged',
-                'category'     => 'AUDIT',
-                'entity_type'  => 'audit',
-                'entity_id'    => 'retention',
-                'ip'           => null,
-                'ua'           => null,
-                'meta'         => [
-                    'deleted'     => $deleted,
-                    'candidates'  => $totalCandidates,
-                    'cutoff_utc'  => $cutoff->toIso8601String(),
-                    'days'        => $days,
-                    'dry_run'     => false,
-                ],
-                'created_at'   => $now,
-            ]);
-        } catch (\Throwable $e) {
-            // Swallow silently per spec. We still report success of purge.
+                AuditEvent::query()->create([
+                    'id'           => (string) Str::ulid(),
+                    'occurred_at'  => $now,
+                    'actor_id'     => null,
+                    'action'       => 'audit.retention.purged',
+                    'category'     => 'AUDIT',
+                    'entity_type'  => 'audit',
+                    'entity_id'    => 'retention',
+                    'ip'           => null,
+                    'ua'           => null,
+                    'meta'         => [
+                        'deleted'     => $deleted,
+                        'candidates'  => $totalCandidates,
+                        'cutoff_utc'  => $cutoff->toIso8601String(),
+                        'days'        => $days,
+                        'dry_run'     => false,
+                    ],
+                    'created_at'   => $now,
+                ]);
+            } catch (\Throwable $e) {
+                // Swallow per spec.
+            }
         }
 
         $this->line($this->json([
