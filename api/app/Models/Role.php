@@ -18,12 +18,14 @@ final class Role extends Model
     protected $fillable = ['id', 'name'];
 
     /**
-     * @return BelongsToMany<User>
+     * @return BelongsToMany
+     * @psalm-return BelongsToMany<User>
      * @phpstan-return BelongsToMany<User, Role>
      */
     public function users(): BelongsToMany
     {
-        /** @var BelongsToMany<User> $rel */
+        /** @var BelongsToMany $rel */
+        /** @psalm-var BelongsToMany<User> $rel */
         /** @phpstan-var BelongsToMany<User, Role> $rel */
         $rel = $this->belongsToMany(User::class, 'role_user', 'role_id', 'user_id');
         return $rel;

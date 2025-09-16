@@ -94,30 +94,19 @@ final class AuditController extends Controller
         if ($data['entity_id'])    { $q->where('entity_id', $data['entity_id']); }
         if ($data['ip'])           { $q->where('ip', $data['ip']); }
         if ($data['occurred_from']) {
-            $q->where('occurred_at', '>=', Carbon::parse((string) $data['occurred_from'])->utc());
+            $q->where('occurred_at', '>=', \Illuminate\Support\Carbon::parse((string) $data['occurred_from'])->utc());
         }
         if ($data['occurred_to']) {
-            $q->where('occurred_at', '<=', Carbon::parse((string) $data['occurred_to'])->utc());
+            $q->where('occurred_at', '<=', \Illuminate\Support\Carbon::parse((string) $data['occurred_to'])->utc());
         }
 
-        // Apply cursor window
+        // Apply cursor window (use whereRaw to avoid Closure typing noise)
         if ($cursorTs instanceof Carbon && is_string($cursorId) && $cursorId !== '') {
-            /** @psalm-suppress InvalidArgument */
-            $q->where(function (Builder $w) use ($cursorTs, $cursorId, $order): void {
-                if ($order === 'desc') {
-                    $w->where('occurred_at', '<', $cursorTs)
-                      ->orWhere(function (Builder $w2) use ($cursorTs, $cursorId): void {
-                          $w2->where('occurred_at', '=', $cursorTs)
-                             ->where('id', '<', $cursorId);
-                      });
-                } else {
-                    $w->where('occurred_at', '>', $cursorTs)
-                      ->orWhere(function (Builder $w2) use ($cursorTs, $cursorId): void {
-                          $w2->where('occurred_at', '=', $cursorTs)
-                             ->where('id', '>', $cursorId);
-                      });
-                }
-            });
+            if ($order === 'desc') {
+                $q->whereRaw('(occurred_at < ?) OR (occurred_at = ? AND id < ?)', [$cursorTs, $cursorTs, $cursorId]);
+            } else {
+                $q->whereRaw('(occurred_at > ?) OR (occurred_at = ? AND id > ?)', [$cursorTs, $cursorTs, $cursorId]);
+            }
         }
 
         // Ordering and limit
