@@ -4,7 +4,7 @@ info:
   version: 0.4.6
   license:
     identifier: MIT
-    Name: MIT
+    name: MIT
   description: |
     OpenAPI 3.1 for phpGRC Phase 4.
     Contracts mirror current routes and response shapes.
