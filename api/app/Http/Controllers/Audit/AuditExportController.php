@@ -66,7 +66,7 @@ final class AuditExportController extends Controller
             ], 422);
         }
 
-        /** @var Builder $q */
+        /** @var Builder<AuditEvent> $q */
         $q = AuditEvent::query();
 
         if ($data['category'])     { $q->where('category', $data['category']); }
@@ -127,3 +127,4 @@ final class AuditExportController extends Controller
         return new CsvStreamResponse($callback, 200, $headers);
     }
 }
+

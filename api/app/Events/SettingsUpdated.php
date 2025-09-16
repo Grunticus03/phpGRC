@@ -16,7 +16,10 @@ final class SettingsUpdated
     use Dispatchable;
     use SerializesModels;
 
-    /** @param array<int, array{key:string, old:mixed, new:mixed, action:string}> $changes */
+    /**
+     * @param array<int, array{key:string, old:mixed, new:mixed, action:string}> $changes
+     * @param array<string,mixed> $context
+     */
     public function __construct(
         public readonly ?int $actorId,
         public readonly array $changes,

@@ -8,6 +8,7 @@ use Illuminate\Validation\Rules\Password;
 
 final class AdminCreateRequest extends FormRequest
 {
+    /** @return array<string,mixed> */
     public function rules(): array
     {
         $pw = Password::min(12)->mixedCase()->numbers()->symbols();

@@ -84,7 +84,7 @@ final class AuditController extends Controller
         $retentionDays = (int) config('core.audit.retention_days', 365);
 
         // Build query with filters
-        /** @var Builder $q */
+        /** @var Builder<AuditEvent> $q */
         $q = AuditEvent::query();
 
         if ($data['category'])     { $q->where('category', $data['category']); }
@@ -247,7 +247,7 @@ final class AuditController extends Controller
      * @param int $limit
      * @param 'asc'|'desc' $order
      * @param \Illuminate\Support\Carbon|null $cursorTs
-     * @return array<int, array{id:string,occurred_at:string,actor_id:int|null,action:string,category:string,entity_type:string,entity_id:string,ip:?string,ua:?string,meta:?array}>
+     * @return array<int, array{id:string,occurred_at:string,actor_id:int|null,action:string,category:string,entity_type:string,entity_id:string,ip:?string,ua:?string,meta:?array<string,mixed>}>
      */
     private function makeStubPage(int $limit, string $order, ?Carbon $cursorTs): array
     {
@@ -330,3 +330,4 @@ final class AuditController extends Controller
         return $s;
     }
 }
+

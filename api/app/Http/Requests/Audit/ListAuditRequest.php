@@ -13,6 +13,7 @@ final class ListAuditRequest extends FormRequest
         return true;
     }
 
+    /** @return array<string,mixed> */
     public function rules(): array
     {
         // Controller handles validation to match project 422 envelope.

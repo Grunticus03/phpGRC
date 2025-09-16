@@ -7,6 +7,7 @@ use Illuminate\Foundation\Http\FormRequest;
 
 final class TotpVerifyRequest extends FormRequest
 {
+    /** @return array<string,mixed> */
     public function rules(): array
     {
         return [

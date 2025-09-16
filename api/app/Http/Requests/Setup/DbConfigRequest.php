@@ -7,6 +7,7 @@ use Illuminate\Foundation\Http\FormRequest;
 
 final class DbConfigRequest extends FormRequest
 {
+    /** @return array<string,mixed> */
     public function rules(): array
     {
         return [

@@ -35,6 +35,7 @@ final class StoreRoleRequest extends FormRequest
         return $flag || $mode === 'persist';
     }
 
+    /** @return array<string,mixed> */
     public function rules(): array
     {
         $base = [
@@ -55,6 +56,7 @@ final class StoreRoleRequest extends FormRequest
         return $base;
     }
 
+    /** @return array<string,string> */
     #[\Override]
     public function messages(): array
     {

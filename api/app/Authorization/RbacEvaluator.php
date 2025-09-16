@@ -65,6 +65,7 @@ final class RbacEvaluator
 
     /**
      * Convenience for raw role checks in persist mode.
+     * @param array<int,string> $roles
      */
     public static function userHasAnyRole(?User $user, array $roles): bool
     {

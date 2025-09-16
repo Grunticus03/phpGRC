@@ -185,6 +185,7 @@ final class GenerateExport implements ShouldQueue
         }
     }
 
+    /** @return array<int,string> */
     public function tags(): array
     {
         return ['exports', 'export:' . $this->exportId];

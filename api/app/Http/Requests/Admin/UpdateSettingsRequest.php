@@ -32,6 +32,7 @@ final class UpdateSettingsRequest extends FormRequest
         }
     }
 
+    /** @return array<string,mixed> */
     public function rules(): array
     {
         $allowedMimes = (array) data_get(config('core'), 'evidence.allowed_mime', ['application/pdf']);

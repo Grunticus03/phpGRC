@@ -8,6 +8,7 @@ use Illuminate\Validation\Rule;
 
 final class SmtpRequest extends FormRequest
 {
+    /** @return array<string,mixed> */
     public function rules(): array
     {
         return [

@@ -15,6 +15,7 @@ final class StoreEvidenceRequest extends FormRequest
         return true;
     }
 
+    /** @return array<string,mixed> */
     public function rules(): array
     {
         $maxMb   = (int) config('core.evidence.max_mb', 25);
@@ -29,6 +30,7 @@ final class StoreEvidenceRequest extends FormRequest
         ];
     }
 
+    /** @return array<string,string> */
     #[\Override]
     public function messages(): array
     {

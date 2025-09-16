@@ -15,29 +15,24 @@ jobs:
     defaults: { run: { working-directory: web } }
     steps:
       - uses: actions/checkout@v4
-
       - name: Setup Node (cached)
         uses: actions/setup-node@v5
         with:
           node-version: "20"
           cache: "npm"
           cache-dependency-path: "web/package-lock.json"
-
       - name: Install deps
         run: npm ci
-
+      - name: ESLint
+        run: npm run lint
       - name: Typecheck
         run: npm run typecheck
-
       - name: Unit tests + coverage
         run: npm run test:coverage
-
       - name: Build
         run: npm run build
-
       - name: NPM audit (high+)
         run: npm audit --audit-level=high
-
       - name: Upload web coverage
         if: always()
         uses: actions/upload-artifact@v4

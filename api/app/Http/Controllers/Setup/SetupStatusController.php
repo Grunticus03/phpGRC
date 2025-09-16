@@ -68,6 +68,9 @@ final class SetupStatusController extends Controller
         ], 200);
     }
 
+    /**
+     * @param array<string,bool> $checks
+     */
     private function determineNextStep(array $checks): ?string
     {
         // Prereqs graph (CORE-001). If any required step missing, return that step. Otherwise null. :contentReference[oaicite:3]{index=3}

@@ -15,6 +15,7 @@ final class StoreAvatarRequest extends FormRequest
         return true; // Auth elsewhere
     }
 
+    /** @return array<string,mixed> */
     public function rules(): array
     {
         $format = strtolower((string) config('core.avatars.format', 'webp'));
@@ -30,6 +31,7 @@ final class StoreAvatarRequest extends FormRequest
         ];
     }
 
+    /** @return array<string,string> */
     #[\Override]
     public function messages(): array
     {

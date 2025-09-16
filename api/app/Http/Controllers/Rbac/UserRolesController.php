@@ -28,6 +28,9 @@ final class UserRolesController extends Controller
         return (bool) config('core.audit.enabled', true) && Schema::hasTable('audit_events');
     }
 
+    /**
+     * @param array<string,mixed> $meta
+     */
     private function writeAudit(Request $request, User $target, string $action, array $meta = []): void
     {
         if (!$this->auditEnabled()) {

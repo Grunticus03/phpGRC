@@ -203,7 +203,10 @@ final class SettingsService
         return $a === $b;
     }
 
-    /** @param array<int|string, mixed> $arr */
+    /**
+     * @param array<int|string, mixed> $arr
+     * @return array<int|string, mixed>
+     */
     private function normalizeArray(array $arr): array
     {
         $isAssoc = array_keys($arr) !== range(0, count($arr) - 1);
@@ -241,7 +244,10 @@ final class SettingsService
         return $json;
     }
 
-    /** @return array<string,mixed> */
+    /**
+     * @param array<string,mixed> $core
+     * @return array<string,mixed>
+     */
     private function filterForContract(array $core): array
     {
         $core = \Illuminate\Support\Arr::only($core, ['rbac', 'audit', 'evidence', 'avatars']);
@@ -275,3 +281,4 @@ final class SettingsService
         ], true);
     }
 }
+

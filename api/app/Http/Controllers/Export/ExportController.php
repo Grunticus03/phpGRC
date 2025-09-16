@@ -12,6 +12,7 @@ use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Response;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
+use Symfony\Component\HttpFoundation\Response as HttpResponse;
 
 final class ExportController extends Controller
 {
@@ -106,7 +107,7 @@ final class ExportController extends Controller
      * If persistence is active and export is completed, stream the artifact.
      * Otherwise, 404 EXPORT_NOT_READY (Phase 4 behavior).
      */
-    public function download(string $jobId)
+    public function download(string $jobId): HttpResponse
     {
         if (!$this->persistenceOn()) {
             return response()->json([
@@ -178,3 +179,4 @@ final class ExportController extends Controller
         );
     }
 }
+
