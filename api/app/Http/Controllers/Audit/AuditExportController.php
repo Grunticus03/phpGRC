@@ -86,7 +86,7 @@ final class AuditExportController extends Controller
 
         $filename = 'audit-' . gmdate('Ymd\THis\Z') . '.csv';
         $headers  = [
-            'Content-Type'           => 'text/csv', // exact
+            'Content-Type'           => 'text/csv',
             'Content-Disposition'    => 'attachment; filename="'.$filename.'"',
             'X-Content-Type-Options' => 'nosniff',
             'Cache-Control'          => 'no-store, max-age=0',

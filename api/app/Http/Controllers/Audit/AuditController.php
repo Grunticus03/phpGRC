@@ -18,12 +18,10 @@ final class AuditController extends Controller
 {
     public function index(ListAuditRequest $request): JsonResponse
     {
-        // Normalize inputs
         $order       = (string) ($request->query('order', 'desc')) === 'asc' ? 'asc' : 'desc';
         $limitParam  = $request->query('limit', $request->query('per_page', $request->query('perPage', $request->query('take'))));
         $cursorParam = $request->query('cursor', $request->query('nextCursor', $this->pageCursor($request)));
 
-        // Collect filters
         $data = [
             'order'          => $order,
             'limit'          => $limitParam,
@@ -38,7 +36,6 @@ final class AuditController extends Controller
             'ip'             => $request->query('ip'),
         ];
 
-        // Controller-level validation (tests expect our 422 envelope)
         $rules = [
             'order'         => ['in:asc,desc'],
             'limit'         => ['nullable', 'integer', 'between:1,100'],
@@ -63,27 +60,24 @@ final class AuditController extends Controller
             ], 422);
         }
 
-        // Decode cursor (ts|id|limit|emittedCount)
         $decoded      = $cursorParam ? $this->decodeCursor((string) $cursorParam) : null;
         $cursorTs     = $decoded[0] ?? null;
         $cursorId     = $decoded[1] ?? null;
         $cursorLimit  = $decoded[2] ?? null;
         $priorEmitted = $decoded[3] ?? 0;
 
-        // Limit rules to preserve existing paging behavior
         if ($limitParam !== null) {
             $limit = (int) $limitParam;
         } elseif ($cursorLimit !== null) {
             $limit = (int) $cursorLimit;
         } elseif ($this->hasAnyCursorParam($request)) {
-            $limit = 1; // second page default
+            $limit = 1;
         } else {
-            $limit = 2; // first page default
+            $limit = 2;
         }
 
         $retentionDays = (int) config('core.audit.retention_days', 365);
 
-        // Build query with filters
         /** @var Builder<AuditEvent> $q */
         $q = AuditEvent::query();
 
@@ -94,27 +88,35 @@ final class AuditController extends Controller
         if ($data['entity_id'])    { $q->where('entity_id', $data['entity_id']); }
         if ($data['ip'])           { $q->where('ip', $data['ip']); }
         if ($data['occurred_from']) {
-            $q->where('occurred_at', '>=', \Illuminate\Support\Carbon::parse((string) $data['occurred_from'])->utc());
+            $q->where('occurred_at', '>=', Carbon::parse((string) $data['occurred_from'])->utc());
         }
         if ($data['occurred_to']) {
-            $q->where('occurred_at', '<=', \Illuminate\Support\Carbon::parse((string) $data['occurred_to'])->utc());
+            $q->where('occurred_at', '<=', Carbon::parse((string) $data['occurred_to'])->utc());
         }
 
-        // Apply cursor window (use whereRaw to avoid Closure typing noise)
         if ($cursorTs instanceof Carbon && is_string($cursorId) && $cursorId !== '') {
-            if ($order === 'desc') {
-                $q->whereRaw('(occurred_at < ?) OR (occurred_at = ? AND id < ?)', [$cursorTs, $cursorTs, $cursorId]);
-            } else {
-                $q->whereRaw('(occurred_at > ?) OR (occurred_at = ? AND id > ?)', [$cursorTs, $cursorTs, $cursorId]);
-            }
+            /** @psalm-suppress InvalidArgument */
+            $q->where(function (Builder $w) use ($cursorTs, $cursorId, $order): void {
+                if ($order === 'desc') {
+                    $w->where('occurred_at', '<', $cursorTs)
+                      ->orWhere(function (Builder $w2) use ($cursorTs, $cursorId): void {
+                          $w2->where('occurred_at', '=', $cursorTs)
+                             ->where('id', '<', $cursorId);
+                      });
+                } else {
+                    $w->where('occurred_at', '>', $cursorTs)
+                      ->orWhere(function (Builder $w2) use ($cursorTs, $cursorId): void {
+                          $w2->where('occurred_at', '=', $cursorTs)
+                             ->where('id', '>', $cursorId);
+                      });
+                }
+            });
         }
 
-        // Ordering and limit
         $q->orderBy('occurred_at', $order)->orderBy('id', $order)->limit($limit);
 
         $rows = $q->get();
 
-        // Fallback to stub mode for empty datasets (keeps Phase 4 tests green)
         $noBusinessFilters =
             $data['category'] === null &&
             $data['action'] === null &&
@@ -126,7 +128,6 @@ final class AuditController extends Controller
             $data['ip'] === null;
 
         if ($rows->isEmpty() && $noBusinessFilters) {
-            // Finite stub dataset of 3 rows to satisfy cursor tests
             $TOTAL          = 3;
             $remaining      = $cursorTs ? max(0, $TOTAL - $priorEmitted) : $TOTAL;
             $effectiveLimit = min($limit, $remaining);
@@ -156,7 +157,6 @@ final class AuditController extends Controller
             ], 200);
         }
 
-        // Normal DB-backed response
         $items = [];
         foreach ($rows as $row) {
             /** @var AuditEvent $row */
@@ -232,8 +232,6 @@ final class AuditController extends Controller
     }
 
     /**
-     * Build a deterministic stub page continuing after $cursorTs.
-     *
      * @param int $limit
      * @param 'asc'|'desc' $order
      * @param \Illuminate\Support\Carbon|null $cursorTs
@@ -245,11 +243,9 @@ final class AuditController extends Controller
         $base = $cursorTs?->copy() ?? Carbon::now('UTC');
 
         for ($i = 0; $i < $limit; $i++) {
-            if ($order === 'asc') {
-                $ts = ($cursorTs ? $base->copy()->addSeconds($i + 1) : $base->copy()->addSeconds($i));
-            } else {
-                $ts = ($cursorTs ? $base->copy()->subSeconds($i + 1) : $base->copy()->subSeconds($i));
-            }
+            $ts = $order === 'asc'
+                ? ($cursorTs ? $base->copy()->addSeconds($i + 1) : $base->copy()->addSeconds($i))
+                : ($cursorTs ? $base->copy()->subSeconds($i + 1) : $base->copy()->subSeconds($i));
 
             $out[] = [
                 'id'          => $this->ulid(),
