@@ -1,272 +1,226 @@
-import { useEffect, useMemo, useState } from "react";
-import {
-  listRoles,
-  getUserRoles,
-  replaceUserRoles,
-  attachUserRole,
-  detachUserRole,
-  RoleListResponse,
-  UserRolesResponseOk,
-  UserRolesResponse,
-} from "../../lib/api/rbac";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 
-type LoadState =
-  | { kind: "idle" }
-  | { kind: "loading" }
-  | { kind: "loaded"; data: UserRolesResponseOk }
-  | { kind: "error"; message: string };
+type User = { id: number; name: string; email: string };
+type UserRolesEnvelope =
+  | { ok: true; user: User; roles: string[] }
+  | { ok: false; code: string; missing_roles?: string[] };
+type RolesListEnvelope = { ok: true; roles: string[] };
+
+function json<T>(res: Response): Promise<T> {
+  return res.json() as Promise<T>;
+}
 
 export default function UserRoles(): JSX.Element {
-  const [available, setAvailable] = useState<string[]>([]);
-  const [state, setState] = useState<LoadState>({ kind: "idle" });
-  const [userIdInput, setUserIdInput] = useState<string>("");
-  const [msg, setMsg] = useState<string | null>(null);
-  const [working, setWorking] = useState<boolean>(false);
-  const [pick, setPick] = useState<string>("");
+  const [allRoles, setAllRoles] = useState<string[]>([]);
+  const [loadingRoles, setLoadingRoles] = useState<boolean>(false);
 
+  const [userIdInput, setUserIdInput] = useState<string>("");
+  const [loadingUser, setLoadingUser] = useState<boolean>(false);
+  const [user, setUser] = useState<User | null>(null);
+  const [userRoles, setUserRoles] = useState<string[]>([]);
+
+  const [attachChoice, setAttachChoice] = useState<string>("");
+  const [msg, setMsg] = useState<string | null>(null);
+  const attachBtnRef = useRef<HTMLButtonElement | null>(null);
+
+  // Load role catalog once
   useEffect(() => {
-    void (async () => {
-      const res: RoleListResponse = await listRoles();
-      if (res.ok) setAvailable(res.roles);
-      else setMsg("Failed to load available roles.");
+    const ctl = new AbortController();
+    (async () => {
+      setLoadingRoles(true);
+      try {
+        const res = await fetch("/api/rbac/roles", {
+          method: "GET",
+          credentials: "same-origin",
+          signal: ctl.signal,
+        });
+        if (!res.ok) throw new Error(String(res.status));
+        const data = await json<RolesListEnvelope>(res);
+        if (data.ok) setAllRoles(data.roles ?? []);
+      } catch {
+        setMsg("Failed to load roles.");
+      } finally {
+        if (!ctl.signal.aborted) setLoadingRoles(false);
+      }
     })();
+    return () => ctl.abort();
   }, []);
 
-  const current = state.kind === "loaded" ? state.data : null;
-
-  const addChoices = useMemo(() => {
-    if (!current) return available;
-    const assigned = new Set(current.roles);
-    return available.filter((r) => !assigned.has(r));
-  }, [available, current]);
-
-  async function lookupUser(e: React.FormEvent) {
-    e.preventDefault();
+  async function loadUser() {
     setMsg(null);
-    setPick("");
-    setState({ kind: "loading" });
-    setWorking(true);
+    setUser(null);
+    setUserRoles([]);
+    const idNum = Number(userIdInput);
+    if (!Number.isInteger(idNum) || idNum <= 0) {
+      setMsg("Enter a valid User ID.");
+      return;
+    }
+    setLoadingUser(true);
     try {
-      const id = Number(userIdInput);
-      if (!Number.isInteger(id) || id < 1) {
-        setState({ kind: "error", message: "Enter a valid numeric user ID." });
-        return;
-      }
-      const res: UserRolesResponse = await getUserRoles(id);
-      if (res.ok) {
-        setState({ kind: "loaded", data: res });
-      } else if (res.code === "FORBIDDEN") {
-        setState({ kind: "error", message: "Forbidden." });
+      const res = await fetch(`/api/rbac/users/${idNum}/roles`, {
+        method: "GET",
+        credentials: "same-origin",
+      });
+      const data = await json<UserRolesEnvelope>(res);
+      if (res.ok && "ok" in data && data.ok) {
+        setUser(data.user);
+        setUserRoles(data.roles ?? []);
+        setAttachChoice("");
+        setMsg(null);
+        // focus attach for speed
+        queueMicrotask(() => attachBtnRef.current?.focus());
+      } else if (!res.ok && "code" in data) {
+        setMsg(`Error: ${data.code}`);
       } else {
-        setState({ kind: "error", message: "User not found or request failed." });
+        setMsg("Lookup failed.");
       }
+    } catch {
+      setMsg("Network error.");
     } finally {
-      setWorking(false);
+      setLoadingUser(false);
     }
   }
 
-  async function onReplace(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    if (!current) return;
-    setWorking(true);
+  const attachable = useMemo(
+    () => allRoles.filter((r) => !userRoles.includes(r)),
+    [allRoles, userRoles]
+  );
+
+  async function attachRole() {
+    if (!user) return;
+    if (!attachChoice) return;
     setMsg(null);
-    try {
-      const form = new FormData(e.currentTarget);
-      const roles = form.getAll("roles") as string[];
-      const res = await replaceUserRoles(current.user.id, roles);
-      if (res.ok) {
-        setState({ kind: "loaded", data: res });
-        setMsg("Replaced roles.");
-      } else if (res.code === "ROLE_NOT_FOUND") {
-        setMsg("One or more roles not found.");
-      } else if (res.code === "FORBIDDEN") {
-        setMsg("Forbidden.");
-      } else {
-        setMsg("Replace failed.");
-      }
-    } finally {
-      setWorking(false);
+    const res = await fetch(`/api/rbac/users/${user.id}/roles/${encodeURIComponent(attachChoice)}`, {
+      method: "POST",
+      credentials: "same-origin",
+    });
+    const data = await json<UserRolesEnvelope>(res);
+    if (res.ok && "ok" in data && data.ok) {
+      setUserRoles(data.roles ?? []);
+      setAttachChoice("");
+      setMsg("Role attached.");
+    } else if ("code" in data) {
+      setMsg(`Attach failed: ${data.code}`);
+    } else {
+      setMsg("Attach failed.");
     }
   }
 
-  async function onAttach() {
-    if (!current || !pick) return;
-    setWorking(true);
+  async function detachRole(role: string) {
+    if (!user) return;
     setMsg(null);
-    try {
-      const res = await attachUserRole(current.user.id, pick);
-      if (res.ok) {
-        setState({ kind: "loaded", data: res });
-        setPick("");
-        setMsg("Attached role.");
-      } else if (res.code === "ROLE_NOT_FOUND") {
-        setMsg("Role not found.");
-      } else if (res.code === "FORBIDDEN") {
-        setMsg("Forbidden.");
-      } else {
-        setMsg("Attach failed.");
-      }
-    } finally {
-      setWorking(false);
+    const res = await fetch(`/api/rbac/users/${user.id}/roles/${encodeURIComponent(role)}`, {
+      method: "DELETE",
+      credentials: "same-origin",
+    });
+    const data = await json<UserRolesEnvelope>(res);
+    if (res.ok && "ok" in data && data.ok) {
+      setUserRoles(data.roles ?? []);
+      setMsg("Role detached.");
+    } else if ("code" in data) {
+      setMsg(`Detach failed: ${data.code}`);
+    } else {
+      setMsg("Detach failed.");
     }
   }
-
-  async function onDetach(role: string) {
-    if (!current) return;
-    setWorking(true);
-    setMsg(null);
-    try {
-      const res = await detachUserRole(current.user.id, role);
-      if (res.ok) {
-        setState({ kind: "loaded", data: res });
-        setMsg("Detached role.");
-      } else if (res.code === "FORBIDDEN") {
-        setMsg("Forbidden.");
-      } else {
-        setMsg("Detach failed.");
-      }
-    } finally {
-      setWorking(false);
-    }
-  }
-
-  if (state.kind === "loading")
-    return (
-      <div className="container py-5" role="status" aria-live="polite" aria-busy="true">
-        <div className="spinner-border" aria-hidden="true"></div>
-        <span className="visually-hidden">Loading</span>
-      </div>
-    );
 
   return (
-    <main id="main" className="container py-3" role="main" aria-busy={working}>
+    <main className="container py-3">
       <h1 className="mb-3">User Roles</h1>
 
-      <form className="row gy-2 align-items-end mb-3" onSubmit={lookupUser} noValidate aria-busy={working}>
-        <div className="col-auto">
-          <label htmlFor="uid" className="form-label">
-            User ID
-          </label>
-          <input
-            id="uid"
-            className="form-control"
-            value={userIdInput}
-            inputMode="numeric"
-            onChange={(e) => setUserIdInput(e.currentTarget.value)}
-            placeholder="e.g., 1"
-            aria-describedby="uidHelp"
-          />
-          <div id="uidHelp" className="form-text">
-            Enter a numeric user ID.
+      <section aria-labelledby="lookup">
+        <h2 id="lookup" className="h5">Lookup</h2>
+        <div className="row g-2 align-items-end">
+          <div className="col-auto">
+            <label htmlFor="user_id" className="form-label">User ID</label>
+            <input
+              id="user_id"
+              type="number"
+              inputMode="numeric"
+              className="form-control"
+              value={userIdInput}
+              onChange={(e) => setUserIdInput(e.currentTarget.value)}
+              aria-describedby="user_id_help"
+            />
+            <div id="user_id_help" className="form-text">Enter a numeric user id.</div>
           </div>
-        </div>
-        <div className="col-auto">
-          <button className="btn btn-primary" type="submit" disabled={working}>
-            Load
-          </button>
-        </div>
-      </form>
-
-      <div aria-live="polite" role="status">
-        {msg && <div className="alert alert-info">{msg}</div>}
-      </div>
-
-      {state.kind === "error" && <div className="alert alert-warning" role="alert">{state.message}</div>}
-
-      {current && (
-        <div className="card p-3" aria-busy={working}>
-          <h2 className="h5 mb-3">User</h2>
-          <div className="mb-3">
-            <div>
-              <strong>ID:</strong> {current.user.id}
-            </div>
-            <div>
-              <strong>Name:</strong> {current.user.name}
-            </div>
-            <div>
-              <strong>Email:</strong> {current.user.email}
-            </div>
-          </div>
-
-          <h3 className="h6">Current roles</h3>
-          {current.roles.length === 0 ? (
-            <p className="text-muted">No roles assigned.</p>
-          ) : (
-            <ul className="list-group mb-3">
-              {current.roles.map((r) => (
-                <li key={r} className="list-group-item d-flex justify-content-between align-items-center">
-                  <span>{r}</span>
-                  <button
-                    type="button"
-                    className="btn btn-sm btn-outline-danger"
-                    onClick={() => void onDetach(r)}
-                    disabled={working}
-                    aria-label={`Detach ${r}`}
-                  >
-                    Detach
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-
-          <div className="mb-3 d-flex gap-2 align-items-end">
-            <div>
-              <label className="form-label" htmlFor="attachPick">
-                Attach role
-              </label>
-              <select
-                id="attachPick"
-                className="form-select"
-                value={pick}
-                onChange={(e) => setPick(e.target.value)}
-              >
-                <option value="">Select role…</option>
-                {addChoices.map((r) => (
-                  <option key={r} value={r}>
-                    {r}
-                  </option>
-                ))}
-              </select>
-            </div>
+          <div className="col-auto">
             <button
               type="button"
-              className="btn btn-secondary"
-              onClick={() => void onAttach()}
-              disabled={!pick || working}
+              className="btn btn-primary"
+              disabled={loadingUser}
+              onClick={loadUser}
             >
-              Attach
+              {loadingUser ? "Loading…" : "Load"}
             </button>
           </div>
-
-          <h3 className="h6">Replace roles</h3>
-          <form onSubmit={onReplace} noValidate aria-busy={working}>
-            <div className="row row-cols-1 row-cols-sm-2 row-cols-md-3 g-2">
-              {available.map((r) => {
-                const checked = current.roles.includes(r);
-                return (
-                  <div className="col" key={r}>
-                    <label className="form-check">
-                      <input
-                        className="form-check-input"
-                        type="checkbox"
-                        name="roles"
-                        value={r}
-                        defaultChecked={checked}
-                      />
-                      <span className="form-check-label">{r}</span>
-                    </label>
-                  </div>
-                );
-              })}
-            </div>
-            <div className="mt-3">
-              <button className="btn btn-primary" type="submit" disabled={working}>
-                Replace
-              </button>
-            </div>
-          </form>
         </div>
+      </section>
+
+      <div aria-live="polite" role="status" className="mt-3">
+        {msg && <div className="alert alert-info py-2 mb-2">{msg}</div>}
+      </div>
+
+      {user && (
+        <section className="mt-4" aria-labelledby="user_section">
+          <h2 id="user_section" className="h5">User</h2>
+          <div className="card mb-3">
+            <div className="card-body">
+              <p className="mb-1"><strong>ID:</strong> {user.id}</p>
+              <p className="mb-1"><strong>Name:</strong> {user.name}</p>
+              <p className="mb-3"><strong>Email:</strong> {user.email}</p>
+
+              <div className="mb-3">
+                <label htmlFor="attach_role" className="form-label">Attach role</label>
+                <div className="d-flex gap-2">
+                  <select
+                    id="attach_role"
+                    className="form-select"
+                    value={attachChoice}
+                    onChange={(e) => setAttachChoice(e.currentTarget.value)}
+                    disabled={loadingRoles || attachable.length === 0}
+                    aria-disabled={loadingRoles || attachable.length === 0}
+                  >
+                    <option value="">Select role…</option>
+                    {attachable.map((r) => (
+                      <option key={r} value={r}>{r}</option>
+                    ))}
+                  </select>
+                  <button
+                    ref={attachBtnRef}
+                    type="button"
+                    className="btn btn-success"
+                    onClick={attachRole}
+                    disabled={!attachChoice}
+                  >
+                    Attach
+                  </button>
+                </div>
+                {loadingRoles && <div className="form-text">Loading roles…</div>}
+              </div>
+
+              <div>
+                <h3 className="h6">Current roles</h3>
+                <ul className="list-unstyled" role="list">
+                  {userRoles.length === 0 && <li className="text-muted">None</li>}
+                  {userRoles.map((r) => (
+                    <li key={r} className="d-flex align-items-center justify-content-between border rounded p-2 mb-2">
+                      <span>{r}</span>
+                      <button
+                        type="button"
+                        className="btn btn-outline-danger btn-sm"
+                        onClick={() => detachRole(r)}
+                        aria-label={`Detach ${r}`}
+                      >
+                        Detach
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </div>
+        </section>
       )}
     </main>
   );
