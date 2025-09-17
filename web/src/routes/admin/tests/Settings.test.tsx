@@ -12,13 +12,22 @@ function jsonResponse(body: unknown, init: ResponseInit = {}) {
   });
 }
 
+type CoreBody = {
+  core: {
+    rbac: { require_auth: boolean };
+    audit: { retention_days: number };
+    evidence: unknown;
+    avatars: unknown;
+  };
+};
+
 describe("Admin Settings page", () => {
   const originalFetch = globalThis.fetch as typeof fetch;
-  let postBody: any = null;
+  let postBody: unknown = null;
 
   beforeEach(() => {
     postBody = null;
-    globalThis.fetch = vi.fn(async (...args: any[]) => {
+    globalThis.fetch = vi.fn(async (...args: Parameters<typeof fetch>) => {
       const url = String(args[0]);
       const init = (args[1] ?? {}) as RequestInit;
 
@@ -79,7 +88,7 @@ describe("Admin Settings page", () => {
     expect(postBody).toBeTruthy();
     expect(postBody).toHaveProperty("core");
 
-    const core = postBody.core;
+    const core = (postBody as CoreBody).core;
     expect(core).toHaveProperty("rbac");
     expect(core).toHaveProperty("audit");
     expect(core).toHaveProperty("evidence");

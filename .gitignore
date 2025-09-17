@@ -3,3 +3,4 @@
 composer.*
 psalm.xml
 /build/*
+/node_modules/*

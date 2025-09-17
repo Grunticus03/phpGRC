@@ -1,13 +1,14 @@
-import { useState } from "react";
+import { useState, type FormEvent } from "react";
 
-type Job = { jobId: string; type: string; status: string; progress: number };
+type ExportType = "csv" | "json" | "pdf";
+type Job = { jobId: string; type: ExportType; status: string; progress: number };
 
 export default function ExportsIndex(): JSX.Element {
-  const [type, setType] = useState<"csv" | "json" | "pdf">("csv");
+  const [type, setType] = useState<ExportType>("csv");
   const [jobs, setJobs] = useState<Job[]>([]);
   const [msg, setMsg] = useState<string | null>(null);
 
-  async function createJob(e: React.FormEvent) {
+  async function createJob(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setMsg(null);
     const res = await fetch("/api/exports", {
@@ -15,14 +16,18 @@ export default function ExportsIndex(): JSX.Element {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ type }),
     });
-    const json = await res.json();
-    if (json?.ok && json?.jobId) {
+    const json: unknown = await res.json();
+    const j = (json && typeof json === "object" ? (json as Record<string, unknown>) : null) ?? null;
+
+    if (j?.ok === true && typeof j.jobId === "string") {
+      const t: ExportType =
+        j.type === "csv" || j.type === "json" || j.type === "pdf" ? (j.type as ExportType) : type;
       setJobs((prev) => [
         ...prev,
-        { jobId: json.jobId, type: json.type, status: "pending", progress: 0 },
+        { jobId: j.jobId as string, type: t, status: "pending", progress: 0 },
       ]);
       setMsg("Job created (stub).");
-    } else if (json?.code === "EXPORT_TYPE_INVALID") {
+    } else if (j?.code === "EXPORT_TYPE_INVALID") {
       setMsg("Invalid export type.");
     } else {
       setMsg("Request completed.");
@@ -32,10 +37,20 @@ export default function ExportsIndex(): JSX.Element {
   async function refresh(jobId: string) {
     setMsg(null);
     const res = await fetch(`/api/exports/${encodeURIComponent(jobId)}/status`);
-    const json = await res.json();
-    if (json?.ok) {
+    const json: unknown = await res.json();
+    const j = (json && typeof json === "object" ? (json as Record<string, unknown>) : null) ?? null;
+
+    if (j?.ok === true) {
       setJobs((prev) =>
-        prev.map((j) => (j.jobId === jobId ? { ...j, status: json.status, progress: json.progress } : j)),
+        prev.map((job) =>
+          job.jobId === jobId
+            ? {
+                ...job,
+                status: typeof j.status === "string" ? j.status : job.status,
+                progress: typeof j.progress === "number" ? j.progress : job.progress,
+              }
+            : job
+        )
       );
     } else {
       setMsg("Failed to refresh job.");
@@ -50,7 +65,11 @@ export default function ExportsIndex(): JSX.Element {
       <form onSubmit={createJob} className="row gy-2 gx-2 align-items-end mb-3">
         <div className="col-auto">
           <label className="form-label">Type</label>
-          <select className="form-select" value={type} onChange={(e) => setType(e.currentTarget.value as any)}>
+          <select
+            className="form-select"
+            value={type}
+            onChange={(e) => setType(e.currentTarget.value as ExportType)}
+          >
             <option value="csv">csv</option>
             <option value="json">json</option>
             <option value="pdf">pdf</option>

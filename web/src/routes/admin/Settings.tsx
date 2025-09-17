@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 
 type CoreConfig = {
   rbac: { enabled: boolean; roles: string[]; require_auth: boolean };
@@ -10,6 +10,14 @@ type CoreConfig = {
 type ApiEnvelope =
   | { ok: true; config?: { core: Partial<CoreConfig> }; note?: string }
   | { ok: false; code: string; errors?: Record<string, string[]> };
+
+function isOkEnvelope(v: unknown): v is { ok: true; config?: { core: Partial<CoreConfig> }; note?: string } {
+  return !!(v && typeof v === "object" && (v as { ok?: unknown }).ok === true);
+}
+
+function isErrEnvelope(v: unknown): v is { ok: false; code: string; errors?: Record<string, string[]> } {
+  return !!(v && typeof v === "object" && (v as { ok?: unknown }).ok === false && typeof (v as { code?: unknown }).code === "string");
+}
 
 function FieldErrors({ msgs }: { msgs: string[] }) {
   if (!msgs || msgs.length === 0) return null;
@@ -78,9 +86,9 @@ export default function Settings(): JSX.Element {
           credentials: "same-origin",
           signal: ctl.signal,
         });
-        const json: ApiEnvelope = await res.json();
-        if (!ctl.signal.aborted && res.ok && (json as any)?.ok && (json as any)?.config?.core) {
-          const normalized = normalizeCore((json as any).config.core as Partial<CoreConfig>);
+        const json: unknown = await res.json();
+        if (!ctl.signal.aborted && res.ok && isOkEnvelope(json) && json.config?.core) {
+          const normalized = normalizeCore(json.config.core);
           setCore(normalized);
           setMsg(null);
         } else if (!ctl.signal.aborted) {
@@ -101,7 +109,7 @@ export default function Settings(): JSX.Element {
     return errors[key] ?? [];
   }
 
-  async function onSubmit(e: React.FormEvent) {
+  async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setMsg(null);
     setErrors({});
@@ -113,15 +121,15 @@ export default function Settings(): JSX.Element {
         credentials: "same-origin",
         body: JSON.stringify({ core }),
       });
-      const json: ApiEnvelope = await res.json();
+      const json: unknown = await res.json();
 
-      if (res.status === 422 && json && "code" in json && json.code === "VALIDATION_FAILED") {
+      if (res.status === 422 && isErrEnvelope(json) && json.code === "VALIDATION_FAILED") {
         setErrors(json.errors ?? {});
         setMsg("Validation failed.");
       } else if (res.status === 403) {
         setMsg("Forbidden.");
-      } else if (res.ok && "ok" in json && (json as any).ok) {
-        if ("note" in json && (json as any).note === "stub-only") {
+      } else if (res.ok && isOkEnvelope(json)) {
+        if (json.note === "stub-only") {
           setMsg("Validated. Not persisted (stub).");
         } else {
           setMsg("Saved.");

@@ -1,5 +1,5 @@
 /** @vitest-environment jsdom */
-import { describe, expect, it, beforeEach, afterEach, vi } from "vitest";
+import { describe, expect, it, beforeEach, afterEach, vi, type Mock } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import React from "react";
 import Audit from "../Audit";
@@ -18,7 +18,7 @@ describe("Admin Audit page", () => {
 
   beforeEach(() => {
     calls = [];
-    globalThis.fetch = vi.fn(async (...args: any[]) => {
+    globalThis.fetch = vi.fn(async (...args: Parameters<typeof fetch>) => {
       const url = String(args[0]);
       calls.push(url);
 
@@ -82,10 +82,10 @@ describe("Admin Audit page", () => {
   });
 
   it("falls back to text input if categories endpoint fails", async () => {
-    (globalThis.fetch as any).mockImplementationOnce(async () => {
+    (globalThis.fetch as unknown as Mock).mockImplementationOnce(async () => {
       throw new Error("boom");
     });
-    (globalThis.fetch as any).mockImplementationOnce(async (...args: any[]) => {
+    (globalThis.fetch as unknown as Mock).mockImplementationOnce(async (...args: Parameters<typeof fetch>) => {
       const url = String(args[0]);
       calls.push(url);
       return jsonResponse({ ok: true, items: [], nextCursor: null });

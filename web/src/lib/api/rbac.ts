@@ -45,7 +45,11 @@ export type UserRolesResponseErr = {
 
 export type UserRolesResponse = UserRolesResponseOk | UserRolesResponseErr;
 
-async function parseJson(res: Response): Promise<any> {
+function isObject(v: unknown): v is Record<string, unknown> {
+  return v !== null && typeof v === "object";
+}
+
+async function parseJson(res: Response): Promise<unknown> {
   try {
     return await res.json();
   } catch {
@@ -57,9 +61,17 @@ export async function listRoles(): Promise<RoleListResponse> {
   try {
     const res = await fetch("/api/rbac/roles", { credentials: "same-origin" });
     const json = await parseJson(res);
-    if (json && typeof json === "object" && Array.isArray(json.roles)) {
-      return { ok: true, roles: json.roles, note: typeof json.note === "string" ? json.note : undefined };
+
+    const roles =
+      isObject(json) && Array.isArray(json.roles) && json.roles.every((r) => typeof r === "string")
+        ? (json.roles as string[])
+        : [];
+
+    if (roles.length > 0) {
+      const note = isObject(json) && typeof json.note === "string" ? (json.note as string) : undefined;
+      return { ok: true, roles, note };
     }
+
     return { ok: false, roles: [], note: "invalid_response" };
   } catch {
     return { ok: false, roles: [], note: "network_error" };
@@ -76,19 +88,29 @@ export async function createRole(name: string): Promise<CreateRoleResult> {
     });
     const json = await parseJson(res);
 
-    if (res.status === 201 && json?.ok === true && json?.role?.id && json?.role?.name) {
+    const j = isObject(json) ? json : {};
+
+    // 201 Created
+    const role = isObject(j.role) ? j.role : undefined;
+    const roleId = isObject(role) && "id" in role ? String(role.id) : undefined;
+    const roleName = isObject(role) && "name" in role ? String(role.name) : undefined;
+    const okVal = j.ok === true;
+
+    if (res.status === 201 && okVal && roleId && roleName) {
       return {
         kind: "created",
         status: res.status,
-        roleId: String(json.role.id),
-        roleName: String(json.role.name),
+        roleId,
+        roleName,
         raw: json,
       };
     }
 
-    if ((res.status === 202 || res.status === 200 || res.status === 400) && json?.note === "stub-only") {
-      const accepted = json?.accepted?.name ?? name;
-      return { kind: "stub", status: res.status, acceptedName: String(accepted), raw: json };
+    // stub-only acceptance
+    const note = typeof j.note === "string" ? j.note : undefined;
+    if ((res.status === 202 || res.status === 200 || res.status === 400) && note === "stub-only") {
+      const accepted = isObject(j.accepted) && "name" in j.accepted ? String(j.accepted.name) : name;
+      return { kind: "stub", status: res.status, acceptedName: accepted, raw: json };
     }
 
     if (res.status === 422) {
@@ -98,7 +120,8 @@ export async function createRole(name: string): Promise<CreateRoleResult> {
       return { kind: "error", status: res.status, code: "FORBIDDEN", raw: json };
     }
 
-    return { kind: "error", status: res.status, code: json?.code, raw: json };
+    const code = typeof j.code === "string" ? j.code : undefined;
+    return { kind: "error", status: res.status, code, raw: json };
   } catch {
     return { kind: "error", status: 0, code: "NETWORK_ERROR" };
   }
@@ -110,10 +133,13 @@ export async function getUserRoles(userId: number): Promise<UserRolesResponse> {
       credentials: "same-origin",
     });
     const json = await parseJson(res);
-    if (res.ok && json?.ok) {
+    const j = isObject(json) ? json : {};
+    if (res.ok && j.ok === true) {
       return json as UserRolesResponseOk;
     }
-    return { ok: false, code: json?.code ?? "REQUEST_FAILED", message: json?.message };
+    const code = typeof j.code === "string" ? j.code : "REQUEST_FAILED";
+    const message = typeof j.message === "string" ? j.message : undefined;
+    return { ok: false, code, message };
   } catch {
     return { ok: false, code: "NETWORK_ERROR" };
   }
@@ -128,10 +154,13 @@ export async function replaceUserRoles(userId: number, roles: string[]): Promise
       body: JSON.stringify({ roles }),
     });
     const json = await parseJson(res);
-    if (res.ok && json?.ok) {
+    const j = isObject(json) ? json : {};
+    if (res.ok && j.ok === true) {
       return json as UserRolesResponseOk;
     }
-    return { ok: false, code: json?.code ?? "REQUEST_FAILED", message: json?.message };
+    const code = typeof j.code === "string" ? j.code : "REQUEST_FAILED";
+    const message = typeof j.message === "string" ? j.message : undefined;
+    return { ok: false, code, message };
   } catch {
     return { ok: false, code: "NETWORK_ERROR" };
   }
@@ -144,10 +173,13 @@ export async function attachUserRole(userId: number, roleName: string): Promise<
       { method: "POST", credentials: "same-origin" }
     );
     const json = await parseJson(res);
-    if (res.ok && json?.ok) {
+    const j = isObject(json) ? json : {};
+    if (res.ok && j.ok === true) {
       return json as UserRolesResponseOk;
     }
-    return { ok: false, code: json?.code ?? "REQUEST_FAILED", message: json?.message };
+    const code = typeof j.code === "string" ? j.code : "REQUEST_FAILED";
+    const message = typeof j.message === "string" ? j.message : undefined;
+    return { ok: false, code, message };
   } catch {
     return { ok: false, code: "NETWORK_ERROR" };
   }
@@ -160,10 +192,13 @@ export async function detachUserRole(userId: number, roleName: string): Promise<
       { method: "DELETE", credentials: "same-origin" }
     );
     const json = await parseJson(res);
-    if (res.ok && json?.ok) {
+    const j = isObject(json) ? json : {};
+    if (res.ok && j.ok === true) {
       return json as UserRolesResponseOk;
     }
-    return { ok: false, code: json?.code ?? "REQUEST_FAILED", message: json?.message };
+    const code = typeof j.code === "string" ? j.code : "REQUEST_FAILED";
+    const message = typeof j.message === "string" ? j.message : undefined;
+    return { ok: false, code, message };
   } catch {
     return { ok: false, code: "NETWORK_ERROR" };
   }

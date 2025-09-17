@@ -24,6 +24,17 @@ function buildQuery(params: Record<string, string | number | undefined>) {
   return qs.toString();
 }
 
+function isAbortError(err: unknown): boolean {
+  if (err instanceof DOMException) return err.name === "AbortError";
+  return typeof err === "object" && err !== null && (err as { name?: unknown }).name === "AbortError";
+}
+
+function getErrorMessage(err: unknown): string {
+  if (err instanceof Error) return err.message;
+  const msg = (err as { message?: unknown })?.message;
+  return typeof msg === "string" ? msg : "Request failed";
+}
+
 export default function Audit(): JSX.Element {
   const [category, setCategory] = useState("");
   const [action, setAction] = useState("");
@@ -62,20 +73,20 @@ export default function Audit(): JSX.Element {
         setError(`HTTP ${res.status}`);
         return;
       }
-      const data = await res.json();
+      const data: unknown = await res.json();
       const list: AuditItem[] = Array.isArray(data)
-        ? data
-        : Array.isArray(data.items)
-        ? data.items
-        : Array.isArray(data.data)
-        ? data.data
-        : [];
+        ? (data as AuditItem[])
+        : (data && typeof data === "object" && Array.isArray((data as Record<string, unknown>).items)
+            ? ((data as Record<string, unknown>).items as AuditItem[])
+            : (data && typeof data === "object" && Array.isArray((data as Record<string, unknown>).data)
+                ? ((data as Record<string, unknown>).data as AuditItem[])
+                : []));
       setItems(list);
       setState("ok");
-    } catch (e: any) {
-      if (e?.name === "AbortError") return;
+    } catch (err: unknown) {
+      if (isAbortError(err)) return;
       setState("error");
-      setError(e?.message ?? "Request failed");
+      setError(getErrorMessage(err));
     }
   }
 
@@ -89,8 +100,8 @@ export default function Audit(): JSX.Element {
     (async () => {
       try {
         const r = await fetch("/api/audit/categories");
-        const arr = await r.json();
-        if (!aborted && Array.isArray(arr)) setCategories(arr);
+        const arr: unknown = await r.json();
+        if (!aborted && Array.isArray(arr)) setCategories(arr.filter((x): x is string => typeof x === "string"));
       } catch {
         // ignore
       }

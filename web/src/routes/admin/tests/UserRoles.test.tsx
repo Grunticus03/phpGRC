@@ -5,7 +5,7 @@ import { MemoryRouter, Routes, Route } from "react-router-dom";
 import { vi } from "vitest";
 import UserRoles from "../UserRoles";
 
-const originalFetch = (globalThis as any).fetch;
+const originalFetch = globalThis.fetch as typeof fetch;
 
 function jsonResponse(status: number, body?: unknown) {
   return new Response(body !== undefined ? JSON.stringify(body) : null, {
@@ -25,7 +25,7 @@ function renderPage() {
 }
 
 afterEach(() => {
-  (globalThis as any).fetch = originalFetch;
+  globalThis.fetch = originalFetch;
   vi.restoreAllMocks();
 });
 
@@ -34,8 +34,8 @@ describe("Admin UserRoles page", () => {
     const user = userEvent.setup();
 
     const fetchMock = vi
-      .fn(async (input: any, init?: any) => {
-        const url = typeof input === "string" ? input : input.url;
+      .fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = typeof input === "string" ? input : (input as Request).url ?? String(input);
         const method = (init?.method ?? "GET").toUpperCase();
 
         // List roles
@@ -64,7 +64,7 @@ describe("Admin UserRoles page", () => {
         return jsonResponse(200, { ok: true });
       }) as unknown as typeof fetch;
 
-    (globalThis as any).fetch = fetchMock;
+    globalThis.fetch = fetchMock;
 
     renderPage();
 
