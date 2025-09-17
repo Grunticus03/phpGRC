@@ -22,13 +22,24 @@ final class AuditController extends Controller
         $orderParam = $request->query('order', 'desc');
         $order = is_string($orderParam) && $orderParam === 'asc' ? 'asc' : 'desc';
 
-        $limitParam  = $request->query('limit', $request->query('per_page', $request->query('perPage', $request->query('take'))));
-        $cursorParam = $request->query('cursor', $request->query('nextCursor', $this->pageCursor($request)));
+        // Normalize limit from known query keys; accept only numeric strings
+        $limitFromParam = null;
+        foreach (['limit', 'per_page', 'perPage', 'take'] as $k) {
+            $v = $request->query($k);
+            if (is_string($v) && $v !== '' && preg_match('/^\d+$/', $v) === 1) {
+                $limitFromParam = (int) $v;
+                break;
+            }
+        }
+
+        // Normalize cursor; accept only non-empty string
+        $cursorParamRaw = $request->query('cursor', $request->query('nextCursor', $this->pageCursor($request)));
+        $cursorFilter = is_string($cursorParamRaw) && $cursorParamRaw !== '' ? $cursorParamRaw : null;
 
         $data = [
             'order'          => $order,
-            'limit'          => $limitParam,
-            'cursor'         => $cursorParam,
+            'limit'          => $limitFromParam,
+            'cursor'         => $cursorFilter,
             'category'       => $request->query('category'),
             'action'         => $request->query('action'),
             'occurred_from'  => $request->query('occurred_from'),
@@ -64,16 +75,16 @@ final class AuditController extends Controller
             ], 422);
         }
 
-        $decoded      = $cursorParam ? $this->decodeCursor((string) $cursorParam) : null;
+        $decoded      = ($cursorFilter !== null) ? $this->decodeCursor($cursorFilter) : null;
         $cursorTs     = $decoded[0] ?? null;
         $cursorId     = $decoded[1] ?? null;
         $cursorLimit  = $decoded[2] ?? null;
         $priorEmitted = $decoded[3] ?? 0;
 
-        if ($limitParam !== null) {
-            $limit = (int) $limitParam;
+        if ($limitFromParam !== null) {
+            $limit = $limitFromParam;
         } elseif ($cursorLimit !== null) {
-            $limit = (int) $cursorLimit;
+            $limit = $cursorLimit;
         } elseif ($this->hasAnyCursorParam($request)) {
             $limit = 1;
         } else {
@@ -89,6 +100,7 @@ final class AuditController extends Controller
             $q->where('category', '=', $data['category']);
         }
         if (is_string($data['action']) && $data['action'] !== '') {
+            // qualify to avoid any reserved-word confusion
             $q->where('audit_events.action', '=', $data['action']);
         }
         if ($data['actor_id'] !== null && is_numeric($data['actor_id'])) {
@@ -142,7 +154,7 @@ final class AuditController extends Controller
             $emittedNow = $priorEmitted + count($items);
             $hasMore    = $emittedNow < $TOTAL;
 
-            $wantsPaging = ($limitParam !== null) || ($cursorParam !== null && $cursorParam !== '');
+            $wantsPaging = ($limitFromParam !== null) || ($cursorFilter !== null);
             $next        = ($wantsPaging && $tail && $hasMore)
                 ? $this->encodeCursor($tail['occurred_at'], $tail['id'], $limit, $emittedNow)
                 : null;
@@ -155,7 +167,7 @@ final class AuditController extends Controller
                 'filters'         => [
                     'order'  => $order,
                     'limit'  => $limit,
-                    'cursor' => $cursorParam ? (string) $cursorParam : null,
+                    'cursor' => $cursorFilter,
                 ],
                 'items'      => $items,
                 'nextCursor' => $next,
@@ -183,7 +195,7 @@ final class AuditController extends Controller
         $emittedNow = $priorEmitted + count($items);
         $hasMore    = count($items) === $limit;
 
-        $wantsPaging = ($limitParam !== null) || ($cursorParam !== null && $cursorParam !== '');
+        $wantsPaging = ($limitFromParam !== null) || ($cursorFilter !== null);
         $next        = ($wantsPaging && $tail && $hasMore)
             ? $this->encodeCursor($tail['occurred_at'], $tail['id'], $limit, $emittedNow)
             : null;
@@ -195,7 +207,7 @@ final class AuditController extends Controller
             'filters'         => [
                 'order'          => $order,
                 'limit'          => $limit,
-                'cursor'         => $cursorParam ? (string) $cursorParam : null,
+                'cursor'         => $cursorFilter,
                 'category'       => is_string($data['category']) ? $data['category'] : null,
                 'action'         => is_string($data['action']) ? $data['action'] : null,
                 'occurred_from'  => is_string($data['occurred_from']) ? $data['occurred_from'] : null,
@@ -289,10 +301,14 @@ final class AuditController extends Controller
                 $s .= str_repeat('=', 4 - $pad);
             }
             $decoded = base64_decode($s, true);
-            if ($decoded === false || !str_contains($decoded, '|')) {
+            if (!is_string($decoded) || !str_contains($decoded, '|')) {
                 return null;
             }
             $plain = $decoded;
+        }
+
+        if (!is_string($plain)) {
+            return null;
         }
 
         $parts = explode('|', $plain);
