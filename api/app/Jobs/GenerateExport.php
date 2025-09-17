@@ -12,6 +12,7 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Storage;
+use RuntimeException;
 use Throwable;
 
 /**
@@ -50,7 +51,8 @@ final class GenerateExport implements ShouldQueue
             Storage::disk($disk)->makeDirectory($dir);
 
             $nowUtc = CarbonImmutable::now('UTC')->format('c');
-            $params = (array) ($export->params ?? []);
+            /** @var array<string,mixed> $params */
+            $params = $export->params ?? [];
 
             $artifact = '';
             $mime     = '';
@@ -64,7 +66,7 @@ final class GenerateExport implements ShouldQueue
                 ];
                 foreach ($params as $k => $v) {
                     $vv = is_scalar($v) ? (string) $v : (string) json_encode($v, JSON_UNESCAPED_SLASHES);
-                    $rows[] = ['param_key', (string) $k, 'param_value', $vv];
+                    $rows[] = ['param_key', $k, 'param_value', $vv];
                 }
                 $artifact = self::toCsv($rows);
                 $mime     = 'text/csv';
@@ -76,7 +78,11 @@ final class GenerateExport implements ShouldQueue
                     'type'         => $export->type,
                     'params'       => $params,
                 ];
-                $artifact = (string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+                $json = json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+                if ($json === false) {
+                    throw new RuntimeException('json_encode failed');
+                }
+                $artifact = $json;
                 $mime     = 'application/json';
                 $path     = "{$dir}/{$export->id}.json";
             } elseif ($export->type === 'pdf') {

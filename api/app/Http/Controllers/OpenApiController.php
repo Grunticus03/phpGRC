@@ -18,13 +18,11 @@ final class OpenApiController extends BaseController
 
     public function json(): Response
     {
-        // Prefer a committed JSON file if present.
         $json = $this->tryLoadSpecJsonFile();
         if ($json !== null) {
             return response($json, 200, ['Content-Type' => 'application/json']);
         }
 
-        // Convert YAML → JSON at runtime.
         $yaml = $this->loadSpecYaml();
         try {
             /** @var array<string,mixed> $data */
@@ -40,15 +38,17 @@ final class OpenApiController extends BaseController
                 'code' => 'OPENAPI_CONVERT_FAILED',
                 'error' => $e->getMessage(),
             ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-            return response($fallback ?: '{"ok":false}', 500, ['Content-Type' => 'application/json']);
+
+            $payload = ($fallback === false) ? '{"ok":false}' : $fallback;
+            return response($payload, 500, ['Content-Type' => 'application/json']);
         }
     }
 
     private function loadSpecYaml(): string
     {
         $candidates = [
-            base_path('docs/api/openapi.yaml'),     // api/docs/api/openapi.yaml
-            base_path('../docs/api/openapi.yaml'),  // monorepo-root/docs/api/openapi.yaml
+            base_path('docs/api/openapi.yaml'),
+            base_path('../docs/api/openapi.yaml'),
         ];
 
         foreach ($candidates as $p) {
@@ -56,12 +56,11 @@ final class OpenApiController extends BaseController
             if ($real !== false && is_file($real)) {
                 $data = @file_get_contents($real);
                 if ($data !== false && $data !== '') {
-                    return (string) $data;
+                    return $data;
                 }
             }
         }
 
-        // Fallback scaffold ensures tests pass even if spec file is absent.
         return <<<YAML
 openapi: 3.1.0
 info:
@@ -91,7 +90,7 @@ YAML;
             if ($real !== false && is_file($real)) {
                 $data = @file_get_contents($real);
                 if ($data !== false && $data !== '') {
-                    return (string) $data;
+                    return $data;
                 }
             }
         }

@@ -7,7 +7,7 @@ use RuntimeException;
 
 /**
  * Atomic writer for shared DB config file.
- * Follows CORE-001 atomic write protocol. :contentReference[oaicite:6]{index=6}
+ * Follows CORE-001 atomic write protocol.
  */
 final class ConfigFileWriter
 {
@@ -73,7 +73,7 @@ final class ConfigFileWriter
         }
 
         // Validation after write: require file parse
-        $parsed = @include $targetPath;
+        $parsed = is_file($targetPath) ? (include $targetPath) : null;
         if (!is_array($parsed) || empty($parsed['driver']) || empty($parsed['host'])) {
             throw new RuntimeException('Post-write validation failed');
         }

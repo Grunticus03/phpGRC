@@ -84,7 +84,7 @@ final class ModuleManager
      */
     public function isEnabled(string $name): bool
     {
-        return (bool)($this->enabled[$name] ?? false);
+        return $this->enabled[$name] ?? false;
     }
 
     /**
@@ -122,3 +122,4 @@ final class ModuleManager
         $this->capabilities->clear();
     }
 }
+

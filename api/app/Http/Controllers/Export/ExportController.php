@@ -23,10 +23,7 @@ final class ExportController extends Controller
         return (bool) config('core.exports.enabled', false) && Schema::hasTable('exports');
     }
 
-    /**
-     * POST /api/exports (legacy)
-     * Body: { "type": "csv"|"json"|"pdf", "params": {...} }
-     */
+    /** POST /api/exports */
     public function create(Request $request): JsonResponse
     {
         $type = (string) $request->input('type', '');
@@ -63,10 +60,7 @@ final class ExportController extends Controller
         ], 202);
     }
 
-    /**
-     * POST /api/exports/{type}
-     * Body: { "params": {...} }
-     */
+    /** POST /api/exports/{type} */
     public function createType(Request $request, string $type): JsonResponse
     {
         if (!in_array($type, ['csv', 'json', 'pdf'], true)) {
@@ -102,11 +96,7 @@ final class ExportController extends Controller
         ], 202);
     }
 
-    /**
-     * GET /api/exports/{jobId}/download
-     * If persistence is active and export is completed, stream the artifact.
-     * Otherwise, 404 EXPORT_NOT_READY (Phase 4 behavior).
-     */
+    /** GET /api/exports/{jobId}/download */
     public function download(string $jobId): HttpResponse
     {
         if (!$this->persistenceOn()) {
@@ -133,12 +123,12 @@ final class ExportController extends Controller
                 'ok'        => false,
                 'code'      => 'EXPORT_FAILED',
                 'jobId'     => $export->id,
-                'errorCode' => (string) ($export->error_code ?? ''),
-                'errorNote' => (string) ($export->error_note ?? ''),
+                'errorCode' => $export->error_code ?? '',
+                'errorNote' => $export->error_note ?? '',
             ], 409);
         }
 
-        if ($export->status !== 'completed' || empty($export->artifact_path)) {
+        if ($export->status !== 'completed' || $export->artifact_path === null || $export->artifact_path === '') {
             return response()->json([
                 'ok'    => false,
                 'code'  => 'EXPORT_NOT_READY',
@@ -146,7 +136,10 @@ final class ExportController extends Controller
             ], 404);
         }
 
-        $disk = $export->artifact_disk ?: config('filesystems.default', 'local');
+        $disk = (is_string($export->artifact_disk) && $export->artifact_disk !== '')
+            ? $export->artifact_disk
+            : (string) config('filesystems.default', 'local');
+
         if (!Storage::disk($disk)->exists($export->artifact_path)) {
             return response()->json([
                 'ok'    => false,
@@ -157,7 +150,6 @@ final class ExportController extends Controller
 
         $filename = "export-{$export->id}." . $export->type;
 
-        // Canonicalize MIME to avoid framework-default surprises.
         $mime = match ($export->type) {
             'csv'  => 'text/csv; charset=UTF-8',
             'json' => 'application/json; charset=UTF-8',
@@ -168,8 +160,8 @@ final class ExportController extends Controller
         };
 
         $headers = [
-            'Content-Type'              => $mime,
-            'X-Content-Type-Options'    => 'nosniff',
+            'Content-Type'           => $mime,
+            'X-Content-Type-Options' => 'nosniff',
         ];
 
         return Response::download(

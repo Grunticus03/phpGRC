@@ -16,23 +16,22 @@ final class ConfigOverlayServiceProvider extends ServiceProvider
         $meta = ['loaded' => false, 'path' => null, 'mtime' => null];
 
         if (is_file($path) && is_readable($path)) {
-            /** @var mixed $raw */
+            /** @psalm-suppress UnresolvableInclude */
             $raw = require $path;
             if (is_array($raw)) {
                 $this->mergeCoreOverlay($raw);
                 $meta['loaded'] = true;
                 $meta['path']   = $path;
-                $meta['mtime']  = @filemtime($path) ?: null;
+
+                $mtime = @filemtime($path);
+                $meta['mtime']  = ($mtime === false) ? null : $mtime;
             }
         }
 
-        // Expose non-sensitive overlay meta for health fingerprint.
         config()->set('phpgrc.overlay', $meta);
     }
 
     /**
-     * Merge selected keys from overlay into config('core') with overlay precedence.
-     *
      * @param array<string,mixed> $overlay
      */
     private function mergeCoreOverlay(array $overlay): void
@@ -43,7 +42,6 @@ final class ConfigOverlayServiceProvider extends ServiceProvider
         /** @var array<string,mixed> $oCore */
         $oCore = (array) Arr::get($overlay, 'core', []);
 
-        // Only allow explicit contract keys to override.
         $allowed = [
             'rbac.enabled',
             'rbac.require_auth',
@@ -74,7 +72,6 @@ final class ConfigOverlayServiceProvider extends ServiceProvider
             }
         }
 
-        // Normalize types for booleans and integers commonly passed as strings.
         $bools = [
             'rbac.enabled', 'rbac.require_auth', 'audit.enabled',
             'evidence.enabled', 'avatars.enabled', 'exports.enabled',
@@ -93,7 +90,6 @@ final class ConfigOverlayServiceProvider extends ServiceProvider
             }
         }
 
-        // Ensure roles is an array of strings.
         $roles = (array) Arr::get($core, 'rbac.roles', []);
         $roles = array_values(array_filter(array_map(
             fn ($v) => is_string($v) ? trim($v) : null,

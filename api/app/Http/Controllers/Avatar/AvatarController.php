@@ -9,6 +9,7 @@ use App\Jobs\Avatar\TranscodeAvatar;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
@@ -32,6 +33,13 @@ final class AvatarController extends Controller
         }
 
         $file = $request->file('file');
+        if (!$file instanceof UploadedFile) {
+            return response()->json([
+                'ok'   => false,
+                'code' => 'AVATAR_NO_FILE',
+                'note' => 'stub-only',
+            ], 422);
+        }
 
         [$w, $h] = @getimagesize($file->getPathname()) ?: [null, null];
         if (!is_int($w) || !is_int($h)) {
@@ -43,7 +51,8 @@ final class AvatarController extends Controller
         }
 
         // Determine target user id: prefer explicit "user_id", else auth user, else 0.
-        $userId = (int) ($request->input('user_id') ?? $this->authUserId());
+        $userIdParam = $request->input('user_id');
+        $userId = is_numeric($userIdParam) ? (int) $userIdParam : $this->authUserId();
 
         // Queue background transcode + variant generation (32/64/<size_px>).
         try {
@@ -54,7 +63,6 @@ final class AvatarController extends Controller
             );
             $queued = true;
         } catch (\Throwable) {
-            // Do not fail the stub contract if queue is unavailable.
             $queued = false;
         }
 
@@ -93,9 +101,9 @@ final class AvatarController extends Controller
 
         $allowed = [32, 64, (int) config('core.avatars.size_px', 128)];
         sort($allowed);
-        // Request::query default must be string|array|null for Psalm. Then cast.
-        $sizeStr = (string) ($request->query('size') ?? (string) max($allowed));
-        $size = (int) $sizeStr;
+
+        $sizeParam = $request->query('size');
+        $size = is_numeric($sizeParam) ? (int) $sizeParam : max($allowed);
         if (!in_array($size, $allowed, true)) {
             $size = max($allowed);
         }

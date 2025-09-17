@@ -160,7 +160,6 @@ final class UserRolesController extends Controller
 
         $before = $u->roles()->pluck('name')->sort()->values()->all();
 
-        // Normalize names and dedupe after normalization
         /** @var list<string> $values */
         $values   = array_map('strval', array_values($payload['roles']));
         $normSeen = [];
@@ -169,7 +168,6 @@ final class UserRolesController extends Controller
 
         foreach ($values as $v) {
             $norm = self::normalizeRoleName($v);
-            // enforce max length after normalization
             $len = mb_strlen($norm, 'UTF-8');
             if ($len < 2 || $len > 64) {
                 return $this->validationError('roles', 'Each role must be between 2 and 64 characters after normalization.');
@@ -192,7 +190,7 @@ final class UserRolesController extends Controller
             return response()->json([
                 'ok'            => false,
                 'code'          => 'ROLE_NOT_FOUND',
-                'missing_roles' => array_values($missing),
+                'missing_roles' => $missing,
             ], 422);
         }
 
@@ -212,7 +210,7 @@ final class UserRolesController extends Controller
         return response()->json([
             'ok'    => true,
             'user'  => ['id' => $u->id, 'name' => $u->name, 'email' => $u->email],
-            'roles' => array_values($after),
+            'roles' => $after,
         ], 200);
     }
 
@@ -258,7 +256,7 @@ final class UserRolesController extends Controller
         return response()->json([
             'ok'    => true,
             'user'  => ['id' => $u->id, 'name' => $u->name, 'email' => $u->email],
-            'roles' => array_values($after),
+            'roles' => $after,
         ], 200);
     }
 
@@ -304,7 +302,7 @@ final class UserRolesController extends Controller
         return response()->json([
             'ok'    => true,
             'user'  => ['id' => $u->id, 'name' => $u->name, 'email' => $u->email],
-            'roles' => array_values($after),
+            'roles' => $after,
         ], 200);
     }
 }

@@ -14,7 +14,7 @@ final class AvatarProcessor
      *
      * @param int $userId
      * @param string $sourcePath
-     * @param int[] $sizes
+     * @param list<int> $sizes
      */
     public function process(int $userId, string $sourcePath, array $sizes): void
     {
@@ -49,11 +49,15 @@ final class AvatarProcessor
         $disk->makeDirectory($baseDir);
 
         foreach (array_unique($sizes) as $size) {
-            if (!is_int($size) || $size < 16 || $size > 1024) {
+            if ($size < 16 || $size > 1024) {
                 continue;
             }
 
             $dst = imagecreatetruecolor($size, $size);
+            if ($dst === false) {
+                continue;
+            }
+
             imagecopyresampled($dst, $src, 0, 0, $srcX, $srcY, $size, $size, $side, $side);
 
             $tmp = tmpfile();
@@ -62,8 +66,9 @@ final class AvatarProcessor
                 continue;
             }
 
+            /** @var array{uri:string} $meta */
             $meta = stream_get_meta_data($tmp);
-            $tmpPath = (string) $meta['uri'];
+            $tmpPath = $meta['uri'];
 
             if (!imagewebp($dst, $tmpPath, 80)) {
                 fclose($tmp);
@@ -72,7 +77,8 @@ final class AvatarProcessor
             }
 
             $rel = "{$baseDir}/avatar-{$size}.webp";
-            $disk->put($rel, file_get_contents($tmpPath) ?: '', 'public');
+            $bytes = @file_get_contents($tmpPath);
+            $disk->put($rel, $bytes !== false ? $bytes : '', 'public');
 
             fclose($tmp);
             imagedestroy($dst);

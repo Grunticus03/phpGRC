@@ -43,7 +43,6 @@ final class AuditLogger
             }
         }
 
-        // Trust type per PHPDoc; controllers/tests supply array|null.
         /** @var array<string,mixed>|null $meta */
         $meta = $event['meta'] ?? null;
 
@@ -52,10 +51,10 @@ final class AuditLogger
             'id'          => $id,
             'occurred_at' => $when,
             'actor_id'    => Arr::get($event, 'actor_id'),
-            'action'      => (string) $event['action'],
-            'category'    => (string) $event['category'],
-            'entity_type' => (string) $event['entity_type'],
-            'entity_id'   => (string) $event['entity_id'],
+            'action'      => $event['action'],
+            'category'    => $event['category'],
+            'entity_type' => $event['entity_type'],
+            'entity_id'   => $event['entity_id'],
             'ip'          => Arr::get($event, 'ip'),
             'ua'          => Arr::get($event, 'ua'),
             'meta'        => $meta,

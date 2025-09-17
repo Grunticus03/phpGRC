@@ -11,7 +11,7 @@ use Illuminate\Foundation\Console\Kernel as ConsoleKernel;
 final class Kernel extends ConsoleKernel
 {
     /**
-     * @var array<class-string>
+     * @var array<array-key, mixed>
      */
     protected $commands = [
         AuditRetentionPurge::class,

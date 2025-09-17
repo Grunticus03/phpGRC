@@ -27,8 +27,8 @@ final class SettingsController extends Controller
     public function update(UpdateSettingsRequest $request): JsonResponse
     {
         // Accept both shapes; keep only contract keys.
-        $raw       = (array) $request->all();
-        $validated = (array) $request->validated();
+        $raw       = $request->all();
+        $validated = $request->validated();
         $legacy    = is_array(Arr::get($raw, 'core')) ? (array) $raw['core'] : [];
         $accepted  = Arr::only($legacy + $validated, ['rbac', 'audit', 'evidence', 'avatars']);
 

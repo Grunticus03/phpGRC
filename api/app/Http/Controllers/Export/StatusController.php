@@ -26,8 +26,8 @@ final class StatusController extends Controller
             if ($export instanceof Export) {
                 return response()->json([
                     'ok'       => true,
-                    'status'   => (string) $export->status,
-                    'progress' => (int) ($export->progress ?? 0),
+                    'status'   => $export->status,
+                    'progress' => $export->progress,
                     'id'       => $export->id,
                     'jobId'    => $export->id,
                 ], 200);

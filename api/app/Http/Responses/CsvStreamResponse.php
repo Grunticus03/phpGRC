@@ -7,6 +7,9 @@ namespace App\Http\Responses;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
+/**
+ * @psalm-suppress PropertyNotSetInConstructor
+ */
 final class CsvStreamResponse extends StreamedResponse
 {
     #[\Override]

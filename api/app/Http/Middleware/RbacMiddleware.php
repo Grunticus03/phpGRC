@@ -18,10 +18,12 @@ final class RbacMiddleware
         $enabled = (bool) config('core.rbac.enabled', false);
         $request->attributes->set('rbac_enabled', $enabled);
 
-        $route = $request->route();
-        if (!$enabled || $route === null) {
+        if (!$enabled) {
             return $next($request);
         }
+
+        /** @var \Illuminate\Routing\Route $route */
+        $route = $request->route();
 
         // Capability flag blocks regardless of auth/rbac mode.
         $capKey = $route->defaults['capability'] ?? null;
@@ -41,34 +43,26 @@ final class RbacMiddleware
 
         $requireAuth = (bool) config('core.rbac.require_auth', false);
 
-        // Sanctum resolves user from PATs if present.
         Auth::shouldUse('sanctum');
+        /** @var User|null $user */
         $user = Auth::user();
 
-        // If auth is required, enforce presence. Else, anonymous passthrough.
         if (!$user) {
             if ($requireAuth) {
-                throw new AuthenticationException(); // 401 via handler
+                throw new AuthenticationException();
             }
-            // In stub or persist modes, when auth is not required, skip role/policy checks.
             return $next($request);
         }
 
-        // Enforce roles only when a user is present.
         if ($requiredRoles !== []) {
-            if ($user instanceof User && !$user->hasAnyRole($requiredRoles)) {
+            if (!$user->hasAnyRole($requiredRoles)) {
                 return response()->json(['ok' => false, 'code' => 'FORBIDDEN', 'message' => 'Forbidden'], 403);
             }
         }
 
-        // Enforce fine-grained policy when declared.
         $policy = $route->defaults['policy'] ?? null;
         if (is_string($policy) && $policy !== '') {
-            $subject = null;
-            if ($user instanceof User) {
-                $subject = $user;
-            }
-            if (!RbacEvaluator::allows($subject, $policy)) {
+            if (!RbacEvaluator::allows($user, $policy)) {
                 return response()->json(['ok' => false, 'code' => 'FORBIDDEN', 'message' => 'Forbidden'], 403);
             }
         }
@@ -76,4 +70,3 @@ final class RbacMiddleware
         return $next($request);
     }
 }
-

@@ -9,7 +9,6 @@ use Illuminate\Support\Str;
 
 /**
  * Phase 4: Export job record (scaffold).
- * Compatible with migration (id, type, params, status, progress, artifact_*, created_at, completed_at, failed_at).
  *
  * @property string $id
  * @property string $type
@@ -31,11 +30,8 @@ final class Export extends Model
 {
     protected $table = 'exports';
 
-    /** String PK (ULID). */
     public $incrementing = false;
     protected $keyType = 'string';
-
-    /** Manual timestamps; we manage created_at/completed_at/failed_at explicitly. */
     public $timestamps = false;
 
     /** @var array<int, string> */
@@ -57,7 +53,10 @@ final class Export extends Model
         'error_note',
     ];
 
-    /** @var array<string, string> */
+    /**
+     * @phpstan-var array<string,string>
+     * @psalm-var array<array-key, mixed>
+     */
     protected $casts = [
         'params'        => 'array',
         'progress'      => 'integer',
@@ -73,8 +72,6 @@ final class Export extends Model
     }
 
     /**
-     * Create a pending export.
-     *
      * @param array<string,mixed> $params
      */
     public static function createPending(string $type, array $params = []): self
@@ -114,4 +111,3 @@ final class Export extends Model
         $this->save();
     }
 }
-

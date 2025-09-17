@@ -11,7 +11,7 @@ use Illuminate\Foundation\Support\Providers\EventServiceProvider as ServiceProvi
 final class EventServiceProvider extends ServiceProvider
 {
     /**
-     * @var array<class-string, array<int, class-string>>
+     * @var array<string, array<int, string>>
      */
     protected $listen = [
         SettingsUpdated::class => [
