@@ -8,6 +8,7 @@ use App\Models\AuditEvent;
 use App\Models\Role;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
 
 final class RbacUserRolesAuditTest extends TestCase
@@ -33,8 +34,7 @@ final class RbacUserRolesAuditTest extends TestCase
 
     public function test_attach_emits_canonical_and_alias_events(): void
     {
-        /** @var User $u */
-        $u = User::factory()->create();
+        $u = $this->makeUser();
 
         $res = $this->postJson("/api/rbac/users/{$u->id}/roles/Auditor");
         $res->assertStatus(200)->assertJsonPath('ok', true);
@@ -68,8 +68,7 @@ final class RbacUserRolesAuditTest extends TestCase
 
     public function test_detach_emits_canonical_and_alias_events(): void
     {
-        /** @var User $u */
-        $u = User::factory()->create();
+        $u = $this->makeUser();
 
         // Ensure role attached first.
         $this->postJson("/api/rbac/users/{$u->id}/roles/Auditor")->assertStatus(200);
@@ -106,8 +105,7 @@ final class RbacUserRolesAuditTest extends TestCase
 
     public function test_replace_emits_canonical_and_alias_events(): void
     {
-        /** @var User $u */
-        $u = User::factory()->create();
+        $u = $this->makeUser();
 
         // Replace roles with a single Admin role.
         $res = $this->putJson("/api/rbac/users/{$u->id}/roles", [
@@ -142,5 +140,16 @@ final class RbacUserRolesAuditTest extends TestCase
         $this->assertArrayHasKey('added', $meta);
         $this->assertArrayHasKey('removed', $meta);
     }
+
+    private function makeUser(): User
+    {
+        $u = new User();
+        $u->name = 'Test User';
+        $u->email = 'user+' . uniqid('', true) . '@example.test';
+        $u->password = Hash::make('secret123!');
+        $u->save();
+
+        return $u;
+        }
 }
 
