@@ -7,9 +7,9 @@ type CoreConfig = {
   avatars: { enabled: boolean; size_px: number; format: string };
 };
 
-type ApiEnvelope =
-  | { ok: true; config?: { core: Partial<CoreConfig> }; note?: string }
-  | { ok: false; code: string; errors?: Record<string, string[]> };
+// type ApiEnvelope =
+//  | { ok: true; config?: { core: Partial<CoreConfig> }; note?: string }
+//  | { ok: false; code: string; errors?: Record<string, string[]> };
 
 function isOkEnvelope(v: unknown): v is { ok: true; config?: { core: Partial<CoreConfig> }; note?: string } {
   return !!(v && typeof v === "object" && (v as { ok?: unknown }).ok === true);
