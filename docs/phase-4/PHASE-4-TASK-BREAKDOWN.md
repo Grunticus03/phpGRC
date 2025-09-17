@@ -111,6 +111,12 @@
 - [x] Tests: Audit verification of canonical+alias events and `RBAC` casing
 - [x] Docs/OpenAPI: Add `/audit/categories` path and response schema
 - [x] Docs/OpenAPI: Update 422 schemas for `ROLE_NOT_FOUND` and role-name constraints
+- ——— Web Build/Type Infra (new) ———
+- [x] Web: Add runtime deps `react`, `react-dom`, `react-router-dom`
+- [x] Web: Resolve Node ESM warning by adding `"type": "module"` to `web/package.json`
+- [x] Web: Align TS config for Vite/React (`jsx: react-jsx`, `moduleResolution: bundler`, ESM interop)
+- [x] Web: `npm run typecheck` clean locally and in CI
+- [x] Web: ESLint clean without suppressions (removed unused import in `Settings.tsx`)
 
 ---
 
