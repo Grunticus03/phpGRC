@@ -806,3 +806,16 @@ SESSION-LOG.md entry
   - Smoke deploy via `deploy.yml` to staging with secrets set; validate `/api/health`
 - Next action (me):
   - I’ll prepare a PR with the remaining Psalm-targeted annotations (Export model PHPDoc/casts; BelongsToMany docblocks; non-static closures) and the web lock auto-sync fallback in `web-ci`/`ci`.
+
+---
+
+### Session 2025-09-16: [Phase 4, Build & Type Infrastructure]
+- Context: Stabilize React/Vite TS setup; fix router typings and ESM warning; get CI green.
+- Goal: Restore  ​tsc --noEmit​  and CI to passing without suppressions.
+- Constraints: No suppressions; minimal, correct configuration changes only.
+
+### Closeout
+- Deliverables produced: Updated package.json ( ​type: module​ , added runtime deps), finalized tsconfig.json (above), removed unused import in Settings.tsx, CI green.
+- Phase/Step status: advance
+- Next action (you): Add/verify CI steps for  ​lint​ ,  ​typecheck​ ,  ​test​ , coverage gate; optionally pin deps.
+- Next action (me): Prepare any router-related refactors or test additions if routes change; confirm local dev runs clean after fresh install.
