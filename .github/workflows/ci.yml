@@ -85,7 +85,7 @@ jobs:
       - name: Install deps
         run: composer install --no-interaction --prefer-dist
       - run: vendor/bin/pint -v
-      - run: vendor/bin/phpstan analyse --memory-limit=-1
+      - run: composer stan
       - run: vendor/bin/psalm --no-cache --long-progress
       - name: Composer audit (prod only)
         run: composer audit --locked --no-dev

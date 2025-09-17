@@ -18,7 +18,7 @@ final class SettingsController extends Controller
     {
         $effective = $this->settings->effectiveConfig();
 
-        return response()->json([
+        return new JsonResponse([
             'ok'     => true,
             'config' => ['core' => $effective['core']],
         ], 200);
@@ -44,7 +44,7 @@ final class SettingsController extends Controller
         }
 
         if (!$apply || !$this->settings->persistenceAvailable()) {
-            return response()->json([
+            return new JsonResponse([
                 'ok'       => true,
                 'applied'  => false,
                 'note'     => 'stub-only',
@@ -52,13 +52,16 @@ final class SettingsController extends Controller
             ], 200);
         }
 
+        $uid = auth()->id();
+        $actorId = is_int($uid) ? $uid : (is_string($uid) && ctype_digit($uid) ? (int) $uid : null);
+
         $result = $this->settings->apply(
             accepted: $accepted,
-            actorId: auth()->id() ?? null,
+            actorId: $actorId,
             context: ['origin' => 'admin.settings']
         );
 
-        return response()->json([
+        return new JsonResponse([
             'ok'       => true,
             'applied'  => true,
             'accepted' => $accepted,
@@ -66,3 +69,4 @@ final class SettingsController extends Controller
         ], 200);
     }
 }
+

@@ -11,6 +11,9 @@ use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
+/**
+ * @psalm-suppress PropertyNotSetInConstructor
+ */
 final class AuditRetentionPurge extends Command
 {
     /**
@@ -34,11 +37,18 @@ final class AuditRetentionPurge extends Command
             return self::SUCCESS;
         }
 
-        $daysOpt = $this->option('days');
-        $daysCfg = (int) (Config::get('core.audit.retention_days', 365));
-        $days    = $daysOpt !== null && $daysOpt !== ''
-            ? (int) $daysOpt
-            : $daysCfg;
+        $daysOptRaw = $this->option('days');
+        /** @var mixed $daysCfgRaw */
+        $daysCfgRaw = Config::get('core.audit.retention_days', 365);
+
+        $daysCfg = (is_int($daysCfgRaw) || (is_string($daysCfgRaw) && ctype_digit($daysCfgRaw)))
+            ? (int) $daysCfgRaw
+            : 365;
+
+        // CLI option is provided as string|null by Symfony Console; don’t check is_int().
+        $daysOpt = is_string($daysOptRaw) && ctype_digit($daysOptRaw) ? (int) $daysOptRaw : null;
+
+        $days = $daysOpt !== null ? $daysOpt : $daysCfg;
 
         if ($days < self::MIN_DAYS || $days > self::MAX_DAYS) {
             $this->error($this->json([
@@ -53,11 +63,13 @@ final class AuditRetentionPurge extends Command
         $cutoff = CarbonImmutable::now('UTC')->subDays($days);
 
         // Count candidates first.
-        $totalCandidates = (int) AuditEvent::query()
+        $totalCandidates = AuditEvent::query()
             ->where('occurred_at', '<', $cutoff)
             ->count();
 
-        if ($this->option('dry-run')) {
+        $dryRun = $this->option('dry-run') === true;
+
+        if ($dryRun) {
             $this->line($this->json([
                 'ok' => true,
                 'dry_run' => true,
@@ -92,12 +104,14 @@ final class AuditRetentionPurge extends Command
         }
 
         // Optional summary event (opt-in only).
-        if ($this->option('emit-summary')) {
+        $emitSummary = $this->option('emit-summary') === true;
+
+        if ($emitSummary) {
             try {
                 $now = CarbonImmutable::now('UTC');
 
                 AuditEvent::query()->create([
-                    'id'           => (string) Str::ulid(),
+                    'id'           => Str::ulid()->toBase32(), // string
                     'occurred_at'  => $now,
                     'actor_id'     => null,
                     'action'       => 'audit.retention.purged',
@@ -115,7 +129,7 @@ final class AuditRetentionPurge extends Command
                     ],
                     'created_at'   => $now,
                 ]);
-            } catch (\Throwable $e) {
+            } catch (\Throwable) {
                 // Swallow per spec.
             }
         }
@@ -136,7 +150,8 @@ final class AuditRetentionPurge extends Command
      */
     private function json(array $payload): string
     {
-        return json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        $json = json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        return $json !== false ? $json : '{}';
     }
 }
 

@@ -2,10 +2,11 @@ includes:
     - vendor/larastan/larastan/extension.neon
 
 parameters:
-    level: 6
+    level: 7
     paths:
         - app
     tmpDir: build/phpstan
     bootstrapFiles:
         - vendor/autoload.php
         - stubs/laravel-sanctum-polyfill.php
+    reportUnmatchedIgnoredErrors: true
