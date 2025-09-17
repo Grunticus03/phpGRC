@@ -832,3 +832,19 @@ SESSION-LOG.md entry
 - Phase/Step status: advance
 - Next action (you): Trial-raise PHPStan to level 7 on a branch; trial Psalm config tightening; add a targeted stub if any upstream PHPDoc conflicts reappear; add route check for `/api/openapi.json` if not already mapped.
 - Next action (me): Confirm routes for OpenAPI JSON; prep RBAC roles dropdown API contract for web; list any remaining admin UX polish items to schedule for Phase 5.
+
+---
+
+### Session 2025-09-17: Phase 4, RBAC Audit + Web User Roles
+- Context: Close out OpenAPI JSON, audit retention, RBAC audit writes, and admin User Roles UI
+- Goal: Land API + tests for RBAC audit events and wire a minimal roles UI; keep CI green
+- Constraints: Charter-first, full-file edits only, no suppressions, deterministic CI
+
+### Closeout
+- Deliverables produced: 
+  - API: RBAC controllers emit canonical+alias audit events; retention purge scheduled daily 03:10 UTC; OpenAPI JSON confirmed
+  - Tests (API): `RbacRoleCreateAuditTest.php`, `RbacUserRolesAuditTest.php` (no factories), existing `AuditListTest.php` green
+  - Web: `UserRoles.tsx` page; router entry; `UserRoles.test.tsx` mocking attach flow
+- Phase/Step status: advance
+- Next action (you): Implement Admin › Audit page polish (disable Apply during load, inline 422/403, sync CSV link); trial-raise Psalm and trim baseline
+- Next action (me): Provide `web/src/routes/admin/Audit.tsx` and any helpers it uses; provide `api/psalm.xml` (and current Psalm output if any)

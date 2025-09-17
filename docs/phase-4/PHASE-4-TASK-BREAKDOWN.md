@@ -99,11 +99,11 @@
 - [x] CI: Add `composer audit` and `npm audit --audit-level=high`
 - [x] CI: Add Dependabot (Composer, npm, GitHub Actions)
 - [x] CI: Add `actionlint` step to lint workflow YAML
-- [ ] QA: Raise PHPStan level one notch; fix violations or baseline deltas
+- [x] QA: Raise PHPStan level one notch; fix violations or baseline deltas
 - [ ] QA: Raise Psalm level/config; keep threads; stabilize baseline
 - [x] Config: Implement early boot merge of `/opt/phpgrc/shared/config.php` (prod overlay) with `.env` ignored in prod
 - [x] Config: Document overlay keys; add redacted “effective-config fingerprint” endpoint; ensure `config:cache` includes overlay
-- [ ] UX: Replace RBAC role text inputs with dropdown sourced from `/api/rbac/roles`
+- [x] UX: Replace RBAC role text inputs with dropdown sourced from `/api/rbac/roles`
 - [ ] UX: Add helper text/examples for filters; pre-validate on client
 - [x] Tests: Add RBAC idempotency tests (double attach; detach non-assigned no-op)
 - [x] Tests: Add replace-with-empty and diff assertions for audit `added/removed`
@@ -117,6 +117,7 @@
 - [x] Web: Align TS config for Vite/React (`jsx: react-jsx`, `moduleResolution: bundler`, ESM interop)
 - [x] Web: `npm run typecheck` clean locally and in CI
 - [x] Web: ESLint clean without suppressions (removed unused import in `Settings.tsx`)
+- [x] Web: Add Admin → User Roles screen with dropdown attach/detach; unit test with mocked fetch
 
 ---
 
@@ -124,7 +125,7 @@
 
 1. **OpenAPI/Swagger polish**
    - [x] Serve YAML at `/api/openapi.yaml` and Swagger UI at `/api/docs`
-   - [ ] Serve JSON at `/api/openapi.json`
+   - [x] Serve JSON at `/api/openapi.json`
    - [x] Add a 4XX response to `GET /docs` (present: `404`)
    - [x] Add `/audit/categories` to spec with schema; document RBAC 422 (`ROLE_NOT_FOUND`) and role-name constraints
    - [x] Wire Spectral (or Redocly rules) lint into CI
@@ -135,14 +136,11 @@
    - [x] RBAC edge cases: spaces/mixed case; >64 → 422; missing roles → 422
    - [x] Auth gate tests with `require_auth=true`
    - [x] Audit tests: canonical+alias pairs; category casing
-   - — Static analysis cleanup —
-   - [x] Controllers/services: null-safe request parsing, strict casting, ETag handling
-   - [x] Remove/relax invariant PHPDoc on `$hidden`/`$casts` to match framework variance
-   - [x] Eliminate risky casts/truthy checks noted by Psalm
+   - [x] Retention: schedule daily purge at 03:10 UTC; guard 30–730 days
 
 3. **Web UX**
    - [ ] Admin › Audit: disable Apply during load; inline server errors; keep CSV link synced
-   - [ ] Admin › RBAC: replace role text inputs with dropdown from `/api/rbac/roles`
+   - [x] Admin › RBAC: replace role text inputs with dropdown from `/api/rbac/roles`
 
 4. **CI**
    - [x] Add `composer audit`, `npm audit`, Dependabot, and `actionlint`
@@ -150,4 +148,4 @@
 5. **Config**
    - [x] Implement `ConfigServiceProvider` for overlay merge (shared → app → `.env`)
    - [x] Add redacted effective-config fingerprint endpoint
-   - [x] Ensure `config:cache` includes overlay
+   - [x] Ensure `config:cache` includes overlay 
