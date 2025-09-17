@@ -819,3 +819,16 @@ SESSION-LOG.md entry
 - Phase/Step status: advance
 - Next action (you): Add/verify CI steps for  ​lint​ ,  ​typecheck​ ,  ​test​ , coverage gate; optionally pin deps.
 - Next action (me): Prepare any router-related refactors or test additions if routes change; confirm local dev runs clean after fresh install.
+
+---
+
+### Session 2025-09-17: [Phase 4, API static analysis cleanup]
+- Context: Eliminate Psalm/PHPStan info-level noise; harden controllers and services for strict typing.
+- Goal: CI green with zero PHPStan errors and no Psalm infos in touched areas; no behavior or contract changes.
+- Constraints: No suppressions or baselines; keep existing contracts; security-first; full-file edits only.
+
+### Closeout
+- Deliverables produced: EvidenceController null-safe upload + query casting; AvatarController query casting; SettingsController JsonResponse + actorId normalization; ExportController strict checks; StatusController strict types; OpenApiController strict fallbacks; RbacMiddleware condition simplification; Export and User models docblocks adjusted for invariance; ConfigOverlayServiceProvider safe include + strict meta; AuditLogger param typing; AvatarProcessor GD safety; CI green.
+- Phase/Step status: advance
+- Next action (you): Trial-raise PHPStan to level 7 on a branch; trial Psalm config tightening; add a targeted stub if any upstream PHPDoc conflicts reappear; add route check for `/api/openapi.json` if not already mapped.
+- Next action (me): Confirm routes for OpenAPI JSON; prep RBAC roles dropdown API contract for web; list any remaining admin UX polish items to schedule for Phase 5.

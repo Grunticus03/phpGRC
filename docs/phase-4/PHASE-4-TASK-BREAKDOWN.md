@@ -135,6 +135,10 @@
    - [x] RBAC edge cases: spaces/mixed case; >64 → 422; missing roles → 422
    - [x] Auth gate tests with `require_auth=true`
    - [x] Audit tests: canonical+alias pairs; category casing
+   - — Static analysis cleanup —
+   - [x] Controllers/services: null-safe request parsing, strict casting, ETag handling
+   - [x] Remove/relax invariant PHPDoc on `$hidden`/`$casts` to match framework variance
+   - [x] Eliminate risky casts/truthy checks noted by Psalm
 
 3. **Web UX**
    - [ ] Admin › Audit: disable Apply during load; inline server errors; keep CSV link synced
@@ -147,4 +151,3 @@
    - [x] Implement `ConfigServiceProvider` for overlay merge (shared → app → `.env`)
    - [x] Add redacted effective-config fingerprint endpoint
    - [x] Ensure `config:cache` includes overlay
-
