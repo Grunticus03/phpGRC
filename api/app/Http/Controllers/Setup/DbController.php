@@ -22,12 +22,13 @@ final class DbController extends Controller
             return response()->json(['ok' => false, 'code' => 'SETUP_STEP_DISABLED'], 400);
         }
 
+        /** @var array{driver:string,host:string,port?:int,database:string,charset?:string,username:string,password?:string} $cfg */
         $cfg = $request->validated();
         $dsn = sprintf(
             '%s:host=%s;port=%d;dbname=%s;charset=%s',
             strtolower($cfg['driver']),
             $cfg['host'],
-            (int) ($cfg['port'] ?? 3306),
+            $cfg['port'] ?? 3306,
             $cfg['database'],
             strtolower($cfg['charset'] ?? 'utf8mb4')
         );
@@ -56,6 +57,7 @@ final class DbController extends Controller
             return response()->json(['ok' => false, 'code' => 'SETUP_STEP_DISABLED'], 400);
         }
 
+        /** @var array<string,mixed> $cfg */
         $cfg = $request->validated();
         try {
             $path = $writer->writeAtomic($cfg, (string) Config::get('core.setup.shared_config_path', '/opt/phpgrc/shared/config.php'));

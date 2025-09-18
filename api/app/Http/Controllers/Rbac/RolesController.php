@@ -17,33 +17,65 @@ final class RolesController extends Controller
 {
     private function persistenceEnabled(): bool
     {
-        /** @var bool $flag */
         $flag = (bool) config('core.rbac.persistence', false);
-        /** @var mixed $mode */
-        $mode = config('core.rbac.mode');
+        $mode = (string) config('core.rbac.mode', 'stub');
         return $flag || $mode === 'persist' || $mode === 'db';
     }
 
     public function index(): JsonResponse
     {
         if (!$this->persistenceEnabled()) {
-            /** @var array<int,string> $cfg */
-            $cfg = (array) config('core.rbac.roles', ['Admin', 'Auditor', 'Risk Manager', 'User']);
+            /** @var array<mixed> $cfgArr */
+            $cfgArr = (array) config('core.rbac.roles', ['Admin', 'Auditor', 'Risk Manager', 'User']);
+
+            /** @var list<string> $cfg */
+            $cfg = [];
+            /** @var mixed $item */
+            foreach ($cfgArr as $item) {
+                if (is_string($item)) {
+                    $cfg[] = $item;
+                }
+            }
+
+            if ($cfg === []) {
+                $cfg = ['Admin', 'Auditor', 'Risk Manager', 'User'];
+            }
+
             return response()->json([
                 'ok'    => true,
-                'roles' => array_values($cfg),
+                'roles' => $cfg,
             ], 200);
         }
 
-        /** @var array<int,string> $names */
+        /** @var list<string> $names */
         $names = [];
         if (Schema::hasTable('roles')) {
-            $names = Role::query()->orderBy('name')->pluck('name')->all();
+            /** @var list<string> $namesFromDb */
+            $namesFromDb = Role::query()
+                ->orderBy('name')
+                ->pluck('name')
+                ->filter(static fn ($v): bool => is_string($v))
+                ->values()
+                ->all();
+            $names = $namesFromDb;
         }
         if ($names === []) {
-            /** @var array<int,string> $fallback */
-            $fallback = (array) config('core.rbac.roles', ['Admin', 'Auditor', 'Risk Manager', 'User']);
-            $names    = array_values($fallback);
+            /** @var array<mixed> $fallbackArr */
+            $fallbackArr = (array) config('core.rbac.roles', ['Admin', 'Auditor', 'Risk Manager', 'User']);
+
+            /** @var list<string> $fallback */
+            $fallback = [];
+            /** @var mixed $item */
+            foreach ($fallbackArr as $item) {
+                if (is_string($item)) {
+                    $fallback[] = $item;
+                }
+            }
+
+            if ($fallback === []) {
+                $fallback = ['Admin', 'Auditor', 'Risk Manager', 'User'];
+            }
+            $names = $fallback;
         }
 
         return response()->json([
@@ -62,21 +94,25 @@ final class RolesController extends Controller
             ], 202);
         }
 
-        $name = $request->validated('name');
+        // Name is validated by the FormRequest; force string to avoid mixed.
+        $name = $request->string('name')->toString();
 
         // Base slug: role_<slug>
         $base = 'role_' . Str::slug($name, '_');
 
         // If base exists, find the highest suffix and increment.
         if (Role::query()->whereKey($base)->exists()) {
+            /** @var list<string> $siblings */
             $siblings = Role::query()
                 ->where('id', 'like', $base . '\_%')
                 ->pluck('id')
+                ->filter(static fn ($v): bool => is_string($v))
+                ->values()
                 ->all();
 
             $max = 0;
-            foreach ($siblings as $id) {
-                if (preg_match('/^' . preg_quote($base, '/') . '_(\d+)$/', $id, $m)) {
+            foreach ($siblings as $sibId) {
+                if (preg_match('/^' . preg_quote($base, '/') . '_(\d+)$/', $sibId, $m) === 1) {
                     $n = (int) $m[1];
                     if ($n > $max) {
                         $max = $n;
@@ -102,8 +138,8 @@ final class RolesController extends Controller
                 'category'    => 'RBAC',
                 'entity_type' => 'role',
                 'entity_id'   => $role->id,
-                'ip'          => request()->ip(),
-                'ua'          => request()->userAgent(),
+                'ip'          => $request->ip(),
+                'ua'          => $request->userAgent(),
                 'meta'        => ['name' => $role->name],
             ]);
         } catch (\Throwable) {
@@ -116,3 +152,4 @@ final class RolesController extends Controller
         ], 201);
     }
 }
+

@@ -53,9 +53,12 @@ final class ModuleManager
         $this->enabled[$name]   = (bool)($manifest['enabled'] ?? true);
 
         // Register declared capabilities in the central registry.
-        $caps = $manifest['capabilities'] ?? [];
+        /** @var array<mixed>|null $caps */
+        $caps = $manifest['capabilities'] ?? null;
         if (is_array($caps)) {
-            $this->capabilities->register($name, array_values($caps));
+            /** @var list<string> $capList */
+            $capList = array_values(array_filter($caps, 'is_string'));
+            $this->capabilities->register($name, $capList);
         }
     }
 

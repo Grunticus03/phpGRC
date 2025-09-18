@@ -27,9 +27,13 @@ final class SettingsController extends Controller
     public function update(UpdateSettingsRequest $request): JsonResponse
     {
         // Accept both shapes; keep only contract keys.
+        /** @var array<string,mixed> $raw */
         $raw       = $request->all();
+        /** @var array<string,mixed> $validated */
         $validated = $request->validated();
+        /** @var array<string,mixed> $legacy */
         $legacy    = is_array(Arr::get($raw, 'core')) ? (array) $raw['core'] : [];
+        /** @var array<string,mixed> $accepted */
         $accepted  = Arr::only($legacy + $validated, ['rbac', 'audit', 'evidence', 'avatars']);
 
         // Apply ONLY when an explicit flag is present and truthy (root or legacy core.apply).
@@ -37,6 +41,7 @@ final class SettingsController extends Controller
         if ($request->has('apply')) {
             $apply = $request->boolean('apply');
         } elseif (Arr::has($raw, 'core.apply')) {
+            /** @var mixed $v */
             $v = Arr::get($raw, 'core.apply');
             $apply = is_bool($v) ? $v
                 : (is_int($v) ? $v === 1

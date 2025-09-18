@@ -20,6 +20,7 @@ final class StoreRoleRequest extends FormRequest
     #[\Override]
     protected function prepareForValidation(): void
     {
+        /** @var mixed $name */
         $name = $this->input('name');
         if (is_string($name)) {
             $this->merge(['name' => trim($name)]);

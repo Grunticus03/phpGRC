@@ -38,6 +38,7 @@ final class ExportController extends Controller
         $validated = $request->validate([
             'params' => ['sometimes', 'array'],
         ]);
+        /** @var array<string,mixed> $params */
         $params = (array) ($validated['params'] ?? []);
 
         if ($this->persistenceOn()) {
@@ -74,6 +75,7 @@ final class ExportController extends Controller
         $validated = $request->validate([
             'params' => ['sometimes', 'array'],
         ]);
+        /** @var array<string,mixed> $params */
         $params = (array) ($validated['params'] ?? []);
 
         if ($this->persistenceOn()) {

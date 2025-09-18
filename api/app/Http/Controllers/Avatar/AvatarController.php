@@ -51,6 +51,7 @@ final class AvatarController extends Controller
         }
 
         // Determine target user id: prefer explicit "user_id", else auth user, else 0.
+        /** @var mixed $userIdParam */
         $userIdParam = $request->input('user_id');
         $userId = is_numeric($userIdParam) ? (int) $userIdParam : $this->authUserId();
 
@@ -133,6 +134,7 @@ final class AvatarController extends Controller
         /** @var Authenticatable|null $u */
         $u = Auth::user();
         if ($u && method_exists($u, 'getAuthIdentifier')) {
+            /** @var mixed $id */
             $id = $u->getAuthIdentifier();
             if (is_numeric($id)) {
                 return (int) $id;

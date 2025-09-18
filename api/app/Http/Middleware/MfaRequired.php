@@ -18,9 +18,14 @@ use Symfony\Component\HttpFoundation\Response;
  */
 final class MfaRequired
 {
+    /**
+     * @param \Closure(\Illuminate\Http\Request): \Symfony\Component\HttpFoundation\Response $next
+     */
     public function handle(Request $request, Closure $next): Response
     {
-        // TODO(Phase 2+): enforce MFA per role and route policy
-        return $next($request);
+        /** @var Response $resp */
+        $resp = $next($request);
+        return $resp;
     }
 }
+

@@ -14,7 +14,9 @@ final class AdminMfaController extends Controller
 {
     public function verify(TotpVerifyRequest $request): JsonResponse
     {
-        $code = $request->validated()['code'];
+        /** @var array{code:string} $data */
+        $data = $request->validated();
+        $code = $data['code'];
 
         if ($code !== '123456') {
             return response()->json(['ok' => false, 'code' => 'TOTP_CODE_INVALID'], 400);

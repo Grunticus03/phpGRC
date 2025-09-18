@@ -80,7 +80,6 @@ final class UserRolesController extends Controller
 
     private static function normalizeRoleName(string $value): string
     {
-        // Trim and collapse internal whitespace. Preserve punctuation.
         $trimmed = trim($value);
         return (string) preg_replace('/\s+/u', ' ', $trimmed);
     }
@@ -97,29 +96,34 @@ final class UserRolesController extends Controller
 
     private static function resolveRoleId(string $value): ?string
     {
-        // Accept ids, exact names, and names matched case-insensitively with whitespace normalization.
         $norm = self::normalizeRoleName($value);
 
-        // Try primary key by raw and normalized
-        foreach ([$value, $norm] as $candidate) {
+        foreach ($value === $norm ? [$value] : [$value, $norm] as $candidate) {
+            /** @var null|string $byId */
             $byId = Role::query()->whereKey($candidate)->value('id');
             if (is_string($byId) && $byId !== '') {
                 return $byId;
             }
         }
 
-        // Exact name match first
+        /** @var null|string $byExact */
         $byExact = Role::query()->where('name', $norm)->value('id');
         if (is_string($byExact) && $byExact !== '') {
             return $byExact;
         }
 
-        // Case-insensitive + collapsed-space comparison
         $target = mb_strtolower($norm, 'UTF-8');
         foreach (Role::query()->get(['id', 'name']) as $r) {
-            $candidate = mb_strtolower(self::normalizeRoleName((string) $r->name), 'UTF-8');
+            $nameAttr = $r->getAttribute('name');
+            $idAttr   = $r->getAttribute('id');
+
+            if (!is_string($nameAttr) || !is_string($idAttr)) {
+                continue;
+            }
+
+            $candidate = mb_strtolower(self::normalizeRoleName($nameAttr), 'UTF-8');
             if ($candidate === $target) {
-                return (string) $r->id;
+                return $idAttr;
             }
         }
 
@@ -135,6 +139,7 @@ final class UserRolesController extends Controller
         /** @var User $u */
         $u = User::query()->findOrFail($user);
 
+        /** @var list<string> $roles */
         $roles = $u->roles()->pluck('name')->values()->all();
 
         return response()->json([
@@ -150,6 +155,7 @@ final class UserRolesController extends Controller
             return response()->json(['ok' => false, 'code' => 'RBAC_DISABLED'], 404);
         }
 
+        /** @var array{roles:list<string>} $payload */
         $payload = $request->validate([
             'roles'   => ['present', 'array'],
             'roles.*' => ['string', 'distinct', 'min:2', 'max:64'],
@@ -158,17 +164,21 @@ final class UserRolesController extends Controller
         /** @var User $u */
         $u = User::query()->findOrFail($user);
 
+        /** @var list<string> $before */
         $before = $u->roles()->pluck('name')->sort()->values()->all();
 
         /** @var list<string> $values */
-        $values   = array_map('strval', array_values($payload['roles']));
+        $values   = array_map('strval', $payload['roles']);
+        /** @var array<string, true> $normSeen */
         $normSeen = [];
+        /** @var list<string> $ids */
         $ids      = [];
+        /** @var list<string> $missing */
         $missing  = [];
 
         foreach ($values as $v) {
             $norm = self::normalizeRoleName($v);
-            $len = mb_strlen($norm, 'UTF-8');
+            $len  = mb_strlen($norm, 'UTF-8');
             if ($len < 2 || $len > 64) {
                 return $this->validationError('roles', 'Each role must be between 2 and 64 characters after normalization.');
             }
@@ -180,7 +190,7 @@ final class UserRolesController extends Controller
 
             $id = self::resolveRoleId($norm);
             if ($id === null) {
-                $missing[] = $v; // report original input
+                $missing[] = $v;
             } else {
                 $ids[] = $id;
             }
@@ -196,8 +206,11 @@ final class UserRolesController extends Controller
 
         $u->roles()->sync(array_values(array_unique($ids)));
 
+        /** @var list<string> $after */
         $after   = $u->roles()->pluck('name')->sort()->values()->all();
+        /** @var list<string> $added */
         $added   = array_values(array_diff($after, $before));
+        /** @var list<string> $removed */
         $removed = array_values(array_diff($before, $after));
 
         $this->writeAudit($request, $u, 'rbac.user_role.replaced', [
@@ -231,20 +244,22 @@ final class UserRolesController extends Controller
             return response()->json(['ok' => false, 'code' => 'ROLE_NOT_FOUND', 'missing_roles' => [$role]], 422);
         }
 
-        /** @var Role|null $roleModel */
-        $roleModel = Role::query()->find($roleId);
-        $roleName  = $roleModel?->name ?? '';
+        /** @var null|string $rawName */
+        $rawName  = Role::query()->whereKey($roleId)->value('name');
+        $roleName = is_string($rawName) ? $rawName : '';
 
         /** @var User $u */
         $u = User::query()->findOrFail($user);
 
+        /** @var list<string> $before */
         $before = $u->roles()->pluck('name')->sort()->values()->all();
 
         $u->roles()->syncWithoutDetaching([$roleId]);
 
+        /** @var list<string> $after */
         $after = $u->roles()->pluck('name')->sort()->values()->all();
 
-        if (!in_array($roleName, $before, true)) {
+        if ($roleName !== '' && !in_array($roleName, $before, true)) {
             $this->writeAudit($request, $u, 'rbac.user_role.attached', [
                 'role'    => $roleName,
                 'role_id' => $roleId,
@@ -277,20 +292,22 @@ final class UserRolesController extends Controller
             return response()->json(['ok' => false, 'code' => 'ROLE_NOT_FOUND', 'missing_roles' => [$role]], 422);
         }
 
-        /** @var Role|null $roleModel */
-        $roleModel = Role::query()->find($roleId);
-        $roleName  = $roleModel?->name ?? '';
+        /** @var null|string $rawName */
+        $rawName  = Role::query()->whereKey($roleId)->value('name');
+        $roleName = is_string($rawName) ? $rawName : '';
 
         /** @var User $u */
         $u = User::query()->findOrFail($user);
 
+        /** @var list<string> $before */
         $before = $u->roles()->pluck('name')->sort()->values()->all();
 
         $u->roles()->detach([$roleId]);
 
+        /** @var list<string> $after */
         $after = $u->roles()->pluck('name')->sort()->values()->all();
 
-        if (in_array($roleName, $before, true) && !in_array($roleName, $after, true)) {
+        if ($roleName !== '' && in_array($roleName, $before, true) && !in_array($roleName, $after, true)) {
             $this->writeAudit($request, $u, 'rbac.user_role.detached', [
                 'role'    => $roleName,
                 'role_id' => $roleId,

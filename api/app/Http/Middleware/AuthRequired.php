@@ -13,9 +13,14 @@ use Symfony\Component\HttpFoundation\Response;
  */
 final class AuthRequired
 {
+    /**
+     * @param \Closure(\Illuminate\Http\Request): \Symfony\Component\HttpFoundation\Response $next
+     */
     public function handle(Request $request, Closure $next): Response
     {
-        // TODO: Enforce auth in Phase 2
-        return $next($request);
+        /** @var Response $resp */
+        $resp = $next($request);
+        return $resp;
     }
 }
+

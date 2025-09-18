@@ -13,18 +13,26 @@ final class ConfigOverlayServiceProvider extends ServiceProvider
     public function register(): void
     {
         $path = (string) config('core.setup.shared_config_path', '/opt/phpgrc/shared/config.php');
+
+        /** @var array{loaded:bool, path:null|string, mtime:null|int} $meta */
         $meta = ['loaded' => false, 'path' => null, 'mtime' => null];
 
         if (is_file($path) && is_readable($path)) {
-            /** @psalm-suppress UnresolvableInclude */
+            /**
+             * @psalm-suppress UnresolvableInclude
+             * @var mixed $raw
+             */
             $raw = require $path;
+
             if (is_array($raw)) {
-                $this->mergeCoreOverlay($raw);
+                /** @var array<string,mixed> $rawArr */
+                $rawArr = $raw;
+                $this->mergeCoreOverlay($rawArr);
                 $meta['loaded'] = true;
                 $meta['path']   = $path;
 
                 $mtime = @filemtime($path);
-                $meta['mtime']  = ($mtime === false) ? null : $mtime;
+                $meta['mtime'] = ($mtime === false) ? null : $mtime;
             }
         }
 
@@ -79,7 +87,11 @@ final class ConfigOverlayServiceProvider extends ServiceProvider
         ];
         foreach ($bools as $b) {
             if (Arr::has($core, $b)) {
-                Arr::set($core, $b, filter_var(Arr::get($core, $b), FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) ?? false);
+                Arr::set(
+                    $core,
+                    $b,
+                    filter_var(Arr::get($core, $b), FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) ?? false
+                );
             }
         }
 
@@ -90,11 +102,16 @@ final class ConfigOverlayServiceProvider extends ServiceProvider
             }
         }
 
-        $roles = (array) Arr::get($core, 'rbac.roles', []);
-        $roles = array_values(array_filter(array_map(
-            fn ($v) => is_string($v) ? trim($v) : null,
-            $roles
-        ), fn ($v) => $v !== null && $v !== ''));
+        /** @var array<int,mixed> $rolesRaw */
+        $rolesRaw = (array) Arr::get($core, 'rbac.roles', []);
+        /** @var array<int,string> $roles */
+        $roles = array_values(array_filter(
+            array_map(
+                static fn ($v): ?string => is_string($v) ? trim($v) : null,
+                $rolesRaw
+            ),
+            static fn (?string $v): bool => $v !== null && $v !== ''
+        ));
         Arr::set($core, 'rbac.roles', $roles);
 
         config()->set('core', $core);

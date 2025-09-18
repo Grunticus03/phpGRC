@@ -14,7 +14,7 @@ final class SmtpController extends Controller
 {
     public function store(SmtpRequest $request): JsonResponse
     {
-        // Phase-4 scopes persistence to DB-backed settings; for now just validate and echo. :contentReference[oaicite:5]{index=5}
+        /** @var array{host:string,port:int,secure:bool,fromEmail:string} $data */
         $data = $request->validated();
 
         return response()->json([

@@ -45,7 +45,7 @@ final class AuditRetentionPurge extends Command
             ? (int) $daysCfgRaw
             : 365;
 
-        // CLI option is provided as string|null by Symfony Console; don’t check is_int().
+        // CLI option is provided as string|null by Symfony Console.
         $daysOpt = is_string($daysOptRaw) && ctype_digit($daysOptRaw) ? (int) $daysOptRaw : null;
 
         $days = $daysOpt !== null ? $daysOpt : $daysCfg;
@@ -80,6 +80,7 @@ final class AuditRetentionPurge extends Command
             return self::SUCCESS;
         }
 
+        /** @var int $deleted */
         $deleted = 0;
 
         // Chunked hard-deletes by ID to avoid long-running transactions.
@@ -97,9 +98,11 @@ final class AuditRetentionPurge extends Command
             }
 
             DB::transaction(function () use ($ids, &$deleted): void {
-                $deleted += AuditEvent::query()
+                /** @var int $count */
+                $count = AuditEvent::query()
                     ->whereIn('id', $ids)
                     ->delete();
+                $deleted += $count;
             }, 1);
         }
 

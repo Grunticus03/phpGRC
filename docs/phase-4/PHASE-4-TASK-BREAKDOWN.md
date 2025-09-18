@@ -87,6 +87,7 @@
 
 ---
 
+// Phase 4 – Task Breakdown (updated)
 ## Session/Quality Gates
 - [x] Psalm/PHPStan/Pint clean
 - [x] PHPUnit green in CI
@@ -100,7 +101,7 @@
 - [x] CI: Add Dependabot (Composer, npm, GitHub Actions)
 - [x] CI: Add `actionlint` step to lint workflow YAML
 - [x] QA: Raise PHPStan level one notch; fix violations or baseline deltas
-- [ ] QA: Raise Psalm level/config; keep threads; stabilize baseline
+- [ ] QA: Raise Psalm level/config; keep threads; stabilize baseline  ⟵ **WIP (EvidenceController/SettingsService typing and model property annotations pending)**
 - [x] Config: Implement early boot merge of `/opt/phpgrc/shared/config.php` (prod overlay) with `.env` ignored in prod
 - [x] Config: Document overlay keys; add redacted “effective-config fingerprint” endpoint; ensure `config:cache` includes overlay
 - [x] UX: Replace RBAC role text inputs with dropdown sourced from `/api/rbac/roles`
@@ -119,33 +120,13 @@
 - [x] Web: ESLint clean without suppressions (removed unused import in `Settings.tsx`)
 - [x] Web: Add Admin → User Roles screen with dropdown attach/detach; unit test with mocked fetch
 
----
-
 ### Immediate Next Steps — merged and prioritized
-
-1. **OpenAPI/Swagger polish**
-   - [x] Serve YAML at `/api/openapi.yaml` and Swagger UI at `/api/docs`
-   - [x] Serve JSON at `/api/openapi.json`
-   - [x] Add a 4XX response to `GET /docs` (present: `404`)
-   - [x] Add `/audit/categories` to spec with schema; document RBAC 422 (`ROLE_NOT_FOUND`) and role-name constraints
-   - [x] Wire Spectral (or Redocly rules) lint into CI
-
-2. **API & Tests**
-   - [x] Feature test: `/api/audit/categories` returns enum list
-   - [x] RBAC happy-path matrix: replace `[]`; attach twice; detach non-assigned
-   - [x] RBAC edge cases: spaces/mixed case; >64 → 422; missing roles → 422
-   - [x] Auth gate tests with `require_auth=true`
-   - [x] Audit tests: canonical+alias pairs; category casing
-   - [x] Retention: schedule daily purge at 03:10 UTC; guard 30–730 days
-
-3. **Web UX**
+1. **Static Analysis (WIP)**
+   - Add/adjust docblocks and native types in `EvidenceController` and `SettingsService` (parameters, returns).
+   - Annotate Eloquent model `Evidence` properties (`@property string $id`, etc.) and casts variance.
+   - Align array shapes passed to `AuditLogger::log` with its contract.
+   - Remove redundant casts/null-coalesces flagged by Psalm/PHPStan.
+2. **Web UX**
    - [ ] Admin › Audit: disable Apply during load; inline server errors; keep CSV link synced
-   - [x] Admin › RBAC: replace role text inputs with dropdown from `/api/rbac/roles`
-
-4. **CI**
-   - [x] Add `composer audit`, `npm audit`, Dependabot, and `actionlint`
-
-5. **Config**
-   - [x] Implement `ConfigServiceProvider` for overlay merge (shared → app → `.env`)
-   - [x] Add redacted effective-config fingerprint endpoint
-   - [x] Ensure `config:cache` includes overlay 
+3. **QA**
+   - [ ] Raise Psalm level/config; stabilize baseline after above changes

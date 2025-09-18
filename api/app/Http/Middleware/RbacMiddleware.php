@@ -13,21 +13,31 @@ use Symfony\Component\HttpFoundation\Response;
 
 final class RbacMiddleware
 {
+    /**
+     * @param \Closure(\Illuminate\Http\Request): \Symfony\Component\HttpFoundation\Response $next
+     */
     public function handle(Request $request, Closure $next): Response
     {
         $enabled = (bool) config('core.rbac.enabled', false);
         $request->attributes->set('rbac_enabled', $enabled);
 
         if (!$enabled) {
-            return $next($request);
+            /** @var Response $resp */
+            $resp = $next($request);
+            return $resp;
         }
 
         /** @var \Illuminate\Routing\Route $route */
         $route = $request->route();
 
+        /** @var array<string,mixed> $defaults */
+        $defaults = $route->defaults;
+
         // Capability flag blocks regardless of auth/rbac mode.
-        $capKey = $route->defaults['capability'] ?? null;
-        if (is_string($capKey) && $capKey !== '') {
+        /** @var mixed $capAny */
+        $capAny = $defaults['capability'] ?? null;
+        $capKey = is_string($capAny) ? $capAny : null;
+        if ($capKey !== null && $capKey !== '') {
             $capEnabled = (bool) config('core.capabilities.' . $capKey, true);
             if (!$capEnabled) {
                 return response()->json([
@@ -38,8 +48,20 @@ final class RbacMiddleware
             }
         }
 
-        $declaredRoles = $route->defaults['roles'] ?? [];
-        $requiredRoles = is_string($declaredRoles) ? [$declaredRoles] : (array) $declaredRoles;
+        /** @var mixed $rolesAny */
+        $rolesAny = $defaults['roles'] ?? [];
+        /** @var list<string> $requiredRoles */
+        $requiredRoles = [];
+        if (is_string($rolesAny)) {
+            $requiredRoles = [$rolesAny];
+        } elseif (is_array($rolesAny)) {
+            /** @var mixed $r */
+            foreach ($rolesAny as $r) {
+                if (is_string($r)) {
+                    $requiredRoles[] = $r;
+                }
+            }
+        }
 
         $requireAuth = (bool) config('core.rbac.require_auth', false);
 
@@ -47,11 +69,13 @@ final class RbacMiddleware
         /** @var User|null $user */
         $user = Auth::user();
 
-        if (!$user) {
+        if ($user === null) {
             if ($requireAuth) {
                 throw new AuthenticationException();
             }
-            return $next($request);
+            /** @var Response $resp */
+            $resp = $next($request);
+            return $resp;
         }
 
         if ($requiredRoles !== []) {
@@ -60,13 +84,18 @@ final class RbacMiddleware
             }
         }
 
-        $policy = $route->defaults['policy'] ?? null;
-        if (is_string($policy) && $policy !== '') {
+        /** @var mixed $policyAny */
+        $policyAny = $defaults['policy'] ?? null;
+        $policy = is_string($policyAny) ? $policyAny : null;
+        if ($policy !== null && $policy !== '') {
             if (!RbacEvaluator::allows($user, $policy)) {
                 return response()->json(['ok' => false, 'code' => 'FORBIDDEN', 'message' => 'Forbidden'], 403);
             }
         }
 
-        return $next($request);
+        /** @var Response $resp */
+        $resp = $next($request);
+        return $resp;
     }
 }
+

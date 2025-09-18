@@ -51,8 +51,13 @@ final class GenerateExport implements ShouldQueue
             Storage::disk($disk)->makeDirectory($dir);
 
             $nowUtc = CarbonImmutable::now('UTC')->format('c');
-            /** @var array<string,mixed> $params */
-            $params = $export->params ?? [];
+
+            /** @var mixed $paramsRaw */
+            $paramsRaw = $export->params;
+            /**
+             * @var array<string, bool|int|float|string|array<array-key,mixed>|object|null> $params
+             */
+            $params = is_array($paramsRaw) ? $paramsRaw : [];
 
             $artifact = '';
             $mime     = '';
@@ -65,7 +70,10 @@ final class GenerateExport implements ShouldQueue
                     [$export->id, $nowUtc, $export->type, (string) count($params)],
                 ];
                 foreach ($params as $k => $v) {
-                    $vv = is_scalar($v) ? (string) $v : (string) json_encode($v, JSON_UNESCAPED_SLASHES);
+                    /** @var string $k */
+                    $vv = ($v === null || is_scalar($v))
+                        ? (string) $v
+                        : (string) json_encode($v, JSON_UNESCAPED_SLASHES);
                     $rows[] = ['param_key', $k, 'param_value', $vv];
                 }
                 $artifact = self::toCsv($rows);

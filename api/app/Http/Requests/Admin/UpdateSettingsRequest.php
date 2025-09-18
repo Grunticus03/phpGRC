@@ -25,16 +25,20 @@ final class UpdateSettingsRequest extends FormRequest
     #[\Override]
     protected function prepareForValidation(): void
     {
+        /** @var mixed $core */
         $core = $this->input('core');
         $this->legacyPayload = is_array($core);
         if ($this->legacyPayload) {
-            $this->merge(Arr::only($core, ['rbac', 'audit', 'evidence', 'avatars']));
+            /** @var array<string,mixed> $coreArr */
+            $coreArr = $core;
+            $this->merge(Arr::only($coreArr, ['rbac', 'audit', 'evidence', 'avatars']));
         }
     }
 
     /** @return array<string,mixed> */
     public function rules(): array
     {
+        /** @var array<int,string> $allowedMimes */
         $allowedMimes = (array) data_get(config('core'), 'evidence.allowed_mime', ['application/pdf']);
 
         return [
@@ -76,10 +80,14 @@ final class UpdateSettingsRequest extends FormRequest
     #[\Override]
     protected function failedValidation(Validator $validator): void
     {
+        /** @var array<string, list<string>> $fieldErrors */
         $fieldErrors = $validator->errors()->toArray();
 
-        // Build nested errors[section][field] so tests can assert errors.avatars.size_px, etc.
+        /** @var array<string, array<string, list<string>>> $errors */
         $errors = [];
+
+        /** @var string $key */
+        /** @var list<string> $messages */
         foreach ($fieldErrors as $key => $messages) {
             $parts   = explode('.', $key);
             $section = $parts[0] ?? '_';
@@ -87,8 +95,17 @@ final class UpdateSettingsRequest extends FormRequest
             if (isset($parts[2]) && is_numeric($parts[2])) {
                 // keep $field from index 1
             }
+
+            /** @var list<string> $existing */
             $existing = $errors[$section][$field] ?? [];
-            $errors[$section][$field] = array_values(array_unique(array_merge($existing, $messages)));
+
+            /** @var list<string> $merged */
+            $merged = array_merge($existing, $messages);
+
+            /** @var list<string> $unique */
+            $unique = array_values(array_unique($merged));
+
+            $errors[$section][$field] = $unique;
         }
 
         if ($this->legacyPayload) {

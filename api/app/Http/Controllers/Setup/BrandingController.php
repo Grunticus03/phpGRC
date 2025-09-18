@@ -14,6 +14,7 @@ final class BrandingController extends Controller
 {
     public function store(BrandingRequest $request): JsonResponse
     {
+        /** @var array<string,mixed> $data */
         $data = $request->validated();
         return response()->json(['ok' => true, 'branding' => $data], 200);
     }

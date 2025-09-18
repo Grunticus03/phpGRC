@@ -848,3 +848,17 @@ SESSION-LOG.md entry
 - Phase/Step status: advance
 - Next action (you): Implement Admin › Audit page polish (disable Apply during load, inline 422/403, sync CSV link); trial-raise Psalm and trim baseline
 - Next action (me): Provide `web/src/routes/admin/Audit.tsx` and any helpers it uses; provide `api/psalm.xml` (and current Psalm output if any)
+
+---
+
+### Session 2025-09-17: [Phase 4, Step: Static analysis hardening]
+- Context: Triaged Psalm/PHPStan issues focusing on `EvidenceController` and `SettingsService` typing/docblocks and nullability.
+- Goal: Get static analyzers to a clean or at least reduced-violation state; document concrete fix plan.
+- Constraints: Planning/triage only; no repo changes applied in this session.
+
+### Closeout
+- Deliverables produced: Triage notes; concrete fix list (typed params/returns, property annotations for Eloquent models, nullability cleanups, array-shape alignment for `AuditLogger::log`); decision to defer code changes.
+- Phase/Step status: partial
+- Next action (you): Apply the prepared changes in a branch (`phase4/psalm-phpstan-pass`), run Psalm/PHPStan locally, and capture before/after reports.
+- Next action (me): Push current branch state and grant a working CI link (or paste analyzer configs), plus confirm target Psalm/PHPStan levels and whether to allow baseline deltas.
+

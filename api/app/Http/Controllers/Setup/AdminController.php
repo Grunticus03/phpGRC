@@ -21,6 +21,7 @@ final class AdminController extends Controller
             return response()->json(['ok' => false, 'code' => 'ADMIN_EXISTS'], 409);
         }
 
+        /** @var array{name:string,email:string,password:string} $data */
         $data = $request->validated();
 
         $user = User::query()->create([
@@ -29,15 +30,16 @@ final class AdminController extends Controller
             'password' => Hash::make($data['password']),
         ]);
 
-        // Stub enrollment output per Phase-2/4 contracts. :contentReference[oaicite:4]{index=4}
+        // Stub enrollment output per Phase-2/4 contracts.
         $secret    = strtoupper(Str::random(32)); // not real base32; stub acceptable until MFA module persists
-        $issuer    = config('core.auth.mfa.totp.issuer', 'phpGRC');
+        $issuer    = (string) config('core.auth.mfa.totp.issuer', 'phpGRC');
         $account   = $user->email;
         $digits    = (int) config('core.auth.mfa.totp.digits', 6);
         $period    = (int) config('core.auth.mfa.totp.period', 30);
         $algorithm = (string) config('core.auth.mfa.totp.algorithm', 'SHA1');
 
-        $otpauthUri = sprintf('otpauth://totp/%s:%s?secret=%s&issuer=%s&digits=%d&period=%d&algorithm=%s',
+        $otpauthUri = sprintf(
+            'otpauth://totp/%s:%s?secret=%s&issuer=%s&digits=%d&period=%d&algorithm=%s',
             rawurlencode($issuer),
             rawurlencode($account),
             $secret,

@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Evidence;
 
-use App\Http\Requests\Evidence\StoreEvidenceRequest;
 use App\Models\Evidence;
 use App\Services\Audit\AuditLogger;
 use Carbon\Carbon;
@@ -23,7 +22,7 @@ use Symfony\Component\HttpFoundation\Response;
 
 final class EvidenceController extends Controller
 {
-    public function store(StoreEvidenceRequest $request, AuditLogger $audit): JsonResponse
+    public function store(Request $request, AuditLogger $audit): JsonResponse
     {
         Gate::authorize('core.evidence.manage');
 
@@ -36,13 +35,18 @@ final class EvidenceController extends Controller
             return response()->json(['ok' => false, 'code' => 'EVIDENCE_FILE_REQUIRED'], 422);
         }
 
-        $bytesRaw    = $uploaded->get();
-        $bytes       = is_string($bytesRaw) ? $bytesRaw : '';
-        $sha256      = hash('sha256', $bytes);
-        $ownerId     = (int) (Auth::id() ?? 0);
+        $bytesRaw     = $uploaded->get();
+        $bytes        = is_string($bytesRaw) ? $bytesRaw : '';
+        $sha256       = hash('sha256', $bytes);
+        $ownerId      = (int) (Auth::id() ?? 0);
         $originalName = $uploaded->getClientOriginalName();
-        $mime        = $uploaded->getClientMimeType();
-        $sizeBytes   = (int) $uploaded->getSize();
+
+        // Avoid null-coalesce on a value tools think is non-nullable
+        /** @var mixed $mimeTmp */
+        $mimeTmp = $uploaded->getClientMimeType();
+        $mime = (is_string($mimeTmp) && $mimeTmp !== '') ? $mimeTmp : 'application/octet-stream';
+
+        $sizeBytes    = (int) $uploaded->getSize();
 
         /** @var array{id:string,version:int} $saved */
         $saved = DB::transaction(function () use ($ownerId, $originalName, $mime, $sizeBytes, $sha256, $bytes): array {
@@ -71,8 +75,12 @@ final class EvidenceController extends Controller
         });
 
         if (config('core.audit.enabled', true) && Schema::hasTable('audit_events')) {
+            /** @var mixed $authId */
+            $authId  = $request->user()?->getAuthIdentifier();
+            $actorId = is_int($authId) ? $authId : (is_string($authId) && ctype_digit($authId) ? (int) $authId : null);
+
             $audit->log([
-                'actor_id'    => $request->user()?->id ?? null,
+                'actor_id'    => $actorId,
                 'action'      => 'evidence.upload',
                 'category'    => 'EVIDENCE',
                 'entity_type' => 'evidence',
@@ -140,8 +148,12 @@ final class EvidenceController extends Controller
         ];
 
         if (config('core.audit.enabled', true) && Schema::hasTable('audit_events')) {
+            /** @var mixed $authId */
+            $authId  = $request->user()?->getAuthIdentifier();
+            $actorId = is_int($authId) ? $authId : (is_string($authId) && ctype_digit($authId) ? (int) $authId : null);
+
             $audit->log([
-                'actor_id'    => $request->user()?->id ?? null,
+                'actor_id'    => $actorId,
                 'action'      => $request->isMethod('HEAD') ? 'evidence.head' : 'evidence.read',
                 'category'    => 'EVIDENCE',
                 'entity_type' => 'evidence',
@@ -151,9 +163,9 @@ final class EvidenceController extends Controller
                 'meta'        => [
                     'filename'   => $ev->filename,
                     'mime'       => $ev->mime,
-                    'size_bytes' => (int) $ev->size_bytes,
+                    'size_bytes' => $ev->size_bytes,
                     'sha256'     => $ev->sha256,
-                    'version'    => (int) $ev->version,
+                    'version'    => $ev->version,
                 ],
             ]);
         }
@@ -162,7 +174,8 @@ final class EvidenceController extends Controller
             return response('', 200, $headers);
         }
 
-        return response($ev->getAttribute('bytes'), 200, $headers);
+        $body = (string) $ev->getAttribute('bytes');
+        return response($body, 200, $headers);
     }
 
     public function index(Request $request): JsonResponse
@@ -291,17 +304,16 @@ final class EvidenceController extends Controller
         }
 
         $data = $rows->toBase()->map(function ($e): array {
-            /** @var mixed $createdAtRaw */
-            $createdAtRaw = $e->created_at ?? null;
-            $createdAt = $createdAtRaw instanceof CarbonInterface ? $createdAtRaw : Carbon::parse((string) $createdAtRaw);
+            /** @var CarbonInterface $createdAt */
+            $createdAt = $e->created_at;
             return [
                 'id'         => $e->id,
                 'owner_id'   => $e->owner_id,
                 'filename'   => $e->filename,
                 'mime'       => $e->mime,
-                'size_bytes' => (int) $e->size_bytes,
+                'size_bytes' => $e->size_bytes,
                 'sha256'     => $e->sha256,
-                'version'    => (int) $e->version,
+                'version'    => $e->version,
                 'created_at' => $createdAt->toRfc3339String(),
             ];
         })->values()->all();
@@ -350,3 +362,4 @@ final class EvidenceController extends Controller
         return str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $value);
     }
 }
+
