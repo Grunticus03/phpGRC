@@ -50,26 +50,29 @@ final class EvidenceApiTest extends TestCase
     }
 
     /** @test */
-    public function store_rejects_disallowed_mime_with_422(): void
+    public function store_accepts_arbitrary_mime_and_returns_201(): void
     {
-        $file = UploadedFile::fake()->create('malware.exe', 1, 'application/x-msdownload');
+        $file = UploadedFile::fake()->create('tool.exe', 1, 'application/x-msdownload');
 
         $this->post('/api/evidence', ['file' => $file])
-            ->assertStatus(422)
-            ->assertJsonPath('ok', false)
-            ->assertJsonPath('code', 'VALIDATION_FAILED');
+            ->assertStatus(201)
+            ->assertJsonPath('ok', true)
+            ->assertJsonPath('name', 'tool.exe')
+            ->assertJsonPath('mime', 'application/x-msdownload');
     }
 
     /** @test */
-    public function store_rejects_oversize_file_with_422(): void
+    public function store_ignores_configured_max_mb_and_accepts_large_file(): void
     {
-        Config::set('core.evidence.max_mb', 1); // 1 MB limit
+        // Even if configured, controller policy does not enforce size limits.
+        Config::set('core.evidence.max_mb', 1); // 1 MB
         $file = UploadedFile::fake()->create('big.pdf', 1024 + 1, 'application/pdf');
 
         $this->post('/api/evidence', ['file' => $file])
-            ->assertStatus(422)
-            ->assertJsonPath('ok', false)
-            ->assertJsonPath('code', 'VALIDATION_FAILED');
+            ->assertStatus(201)
+            ->assertJsonPath('ok', true)
+            ->assertJsonPath('name', 'big.pdf')
+            ->assertJsonPath('mime', 'application/pdf');
     }
 
     /** @test */
@@ -90,9 +93,9 @@ final class EvidenceApiTest extends TestCase
     /** @test */
     public function index_paginates_and_returns_next_cursor(): void
     {
-        $this->post('/api/evidence', ['file' => UploadedFile::fake()->create('a.txt', 1, 'text/plain')]);
-        $this->post('/api/evidence', ['file' => UploadedFile::fake()->create('b.txt', 1, 'text/plain')]);
-        $this->post('/api/evidence', ['file' => UploadedFile::fake()->create('c.txt', 1, 'text/plain')]);
+        $this->post('/api/evidence', ['file' => UploadedFile::fake()->createWithContent('a.txt', 'A', 'text/plain')]);
+        $this->post('/api/evidence', ['file' => UploadedFile::fake()->createWithContent('b.txt', 'B', 'text/plain')]);
+        $this->post('/api/evidence', ['file' => UploadedFile::fake()->createWithContent('c.txt', 'C', 'text/plain')]);
 
         $res = $this->getJson('/api/evidence?limit=2');
 

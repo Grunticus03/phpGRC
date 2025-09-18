@@ -10,42 +10,18 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Arr;
 
-/**
- * @psalm-type CoreFlags=array{
- *   rbac: array{enabled: bool},
- *   audit: array{enabled: bool},
- *   evidence: array{enabled: bool},
- *   avatars: array{enabled: bool},
- * }
- */
 final class SettingsController extends Controller
 {
     public function __construct(private readonly SettingsService $settings) {}
 
     public function index(): JsonResponse
     {
-        /** @var array<string,mixed> $effective */
+        /** @var array{core: array<string, mixed>} $effective */
         $effective = $this->settings->effectiveConfig();
-
-        /** @var CoreFlags $core */
-        $core = [
-            'rbac' => [
-                'enabled' => (bool) data_get($effective, 'core.rbac.enabled', true),
-            ],
-            'audit' => [
-                'enabled' => (bool) data_get($effective, 'core.audit.enabled', false),
-            ],
-            'evidence' => [
-                'enabled' => (bool) data_get($effective, 'core.evidence.enabled', true),
-            ],
-            'avatars' => [
-                'enabled' => (bool) data_get($effective, 'core.avatars.enabled', false),
-            ],
-        ];
 
         return new JsonResponse([
             'ok'     => true,
-            'config' => ['core' => $core],
+            'config' => $effective, // exposes core.rbac.roles, audit.retention_days, evidence.max_mb/allowed_mime, avatars.size_px/format
         ], 200);
     }
 

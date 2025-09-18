@@ -1,3 +1,4 @@
+# FILE: .github/workflows/ci.yml
 name: CI
 
 on:
@@ -139,6 +140,8 @@ jobs:
       - name: Clear Laravel caches
         env:
           APP_ENV: testing
+          CORE_SETUP_ENABLED: "false"
+          CORE_SETUP_SHARED_CONFIG_PATH: "/dev/null"
         run: |
           php artisan config:clear || true
           php artisan cache:clear || true
@@ -153,9 +156,11 @@ jobs:
           QUEUE_CONNECTION: sync
           FILESYSTEM_DISK: local
           XDEBUG_MODE: coverage
+          CORE_SETUP_ENABLED: "false"
+          CORE_SETUP_SHARED_CONFIG_PATH: "/dev/null"
         run: |
           vendor/bin/phpunit --log-junit junit.xml \
-            --coverage-clover clover.xml \
+            --coverage-clover coverage.xml \
             --coverage-filter app
       - if: always()
         uses: actions/upload-artifact@v4
@@ -163,7 +168,7 @@ jobs:
           name: phpunit-${{ matrix.php }}
           path: |
             api/junit.xml
-            api/clover.xml
+            api/coverage.xml
             api/storage/logs/*.log
 
   api_mysql:
@@ -232,6 +237,8 @@ jobs:
           DB_DATABASE: phpgrc_test
           DB_USERNAME: phpgrc
           DB_PASSWORD: secret
+          CORE_SETUP_ENABLED: "false"
+          CORE_SETUP_SHARED_CONFIG_PATH: "/dev/null"
         run: |
           php artisan config:clear
           php artisan migrate --force
@@ -244,6 +251,8 @@ jobs:
           DB_DATABASE: phpgrc_test
           DB_USERNAME: phpgrc
           DB_PASSWORD: secret
+          CORE_SETUP_ENABLED: "false"
+          CORE_SETUP_SHARED_CONFIG_PATH: "/dev/null"
         run: vendor/bin/phpunit --testsuite=Feature --do-not-cache-result
 
   web:
