@@ -19,7 +19,6 @@ jobs:
         with:
           ref: ${{ github.event.inputs.ref }}
 
-      # Build web UI in CI (optional; remove if no SPA)
       - name: Setup Node
         uses: actions/setup-node@v5
         with:
@@ -61,7 +60,6 @@ jobs:
             -e "ssh -p ${{ secrets.SSH_PORT }}" \
             ./ "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${RELEASE_DIR}/"
 
-          # if web/dist exists (CI build), ship it to public/
           if [ -d web/dist ]; then
             rsync -az -e "ssh -p ${{ secrets.SSH_PORT }}" \
               web/dist/ "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${RELEASE_DIR}/web/public/"
@@ -88,7 +86,6 @@ jobs:
           ROOT="${DEPLOY_PATH}"
           RELEASE_DIR="${ROOT}/releases/${TS}"
 
-          # quote for remote shell
           q() { printf %q "$1"; }
           export REMENV="ROOT=$(q "$ROOT") RELEASE_DIR=$(q "$RELEASE_DIR") \
           APP_URL=$(q "$APP_URL") APP_KEY=$(q "$APP_KEY") \
@@ -97,21 +94,16 @@ jobs:
           ssh -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" "$REMENV bash -seuo pipefail" <<'REMOTE'
           umask 027
 
-          # shared dirs (group setgid so new files inherit group)
           mkdir -p "$ROOT/shared/storage/app/public" "$ROOT/shared/bootstrap/cache"
-          # ensure directories are 2775; ignore failures on pre-existing dirs we don't own
           find "$ROOT/shared/storage" -type d -exec chmod 2775 {} \; || true
           find "$ROOT/shared/bootstrap" -type d -exec chmod 2775 {} \; || true
 
-          # Only adjust permissions for entries OWNED by current SSH user.
-          # This avoids chmod errors on files created by www-data (e.g., compiled views).
           me="$(whoami)"
           find "$ROOT/shared/storage" -type d -user "$me" -exec chmod g+rwXs {} + || true
           find "$ROOT/shared/storage" -type f -user "$me" -exec chmod g+rw {} + || true
           find "$ROOT/shared/bootstrap/cache" -type d -user "$me" -exec chmod g+rwXs {} + || true
           find "$ROOT/shared/bootstrap/cache" -type f -user "$me" -exec chmod g+rw {} + || true
 
-          # write .env once (idempotent)
           if [ ! -f "$ROOT/shared/api.env" ]; then
             cat > "$ROOT/shared/api.env" <<EOF
           APP_ENV=production
@@ -122,7 +114,6 @@ jobs:
           LOG_CHANNEL=stack
           LOG_LEVEL=info
 
-          # Force file-backed runtime stores to avoid DB table deps
           CACHE_STORE=file
           CACHE_DRIVER=file
           SESSION_DRIVER=file
@@ -146,12 +137,10 @@ jobs:
             chmod 640 "$ROOT/shared/api.env" || true
           fi
 
-          # link shared into release
           ln -sfn "$ROOT/shared/api.env"  "$RELEASE_DIR/api/.env"
           rm -rf "$RELEASE_DIR/api/storage"
           ln -sfn "$ROOT/shared/storage"  "$RELEASE_DIR/api/storage"
 
-          # minimal web public if no SPA built
           if [ ! -d "$RELEASE_DIR/web/public" ]; then
             mkdir -p "$RELEASE_DIR/web/public"
             cat > "$RELEASE_DIR/web/public/index.html" <<HTML
@@ -160,7 +149,6 @@ jobs:
           HTML
           fi
 
-          # SPA fallback .htaccess
           cat > "$RELEASE_DIR/web/public/.htaccess" <<'HT'
           RewriteEngine On
           RewriteCond %{REQUEST_FILENAME} !-f
@@ -178,13 +166,12 @@ jobs:
         run: |
           set -euo pipefail
           RELEASE_DIR="${DEPLOY_PATH}/releases/${TS}"
-          ssh -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" bash -seuo pipefail <<'REMOTE'
+          q() { printf %q "$1"; }
+          ssh -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" "RELEASE_DIR=$(q "$RELEASE_DIR") bash -seuo pipefail" <<'REMOTE'
           cd "$RELEASE_DIR/api"
 
-          # Ensure no stale cached config/routes/views from prior releases
           rm -f bootstrap/cache/*.php || true
 
-          # Composer on server; no-dev, optimized
           if command -v composer >/dev/null 2>&1; then
             composer install --no-dev --prefer-dist --optimize-autoloader -q
           else
@@ -192,22 +179,17 @@ jobs:
           fi
 
           php artisan storage:link || true
-
-          # Run migrations BEFORE cache clears/builds to satisfy any DB-backed stores if enabled later
           php artisan migrate --force || true
 
-          # Clear caches explicitly; force file store to avoid DB 'cache' table requirement
           php artisan config:clear || true
           php artisan route:clear || true
           php artisan view:clear || true
           php artisan cache:clear --store=file || true
 
-          # Rebuild caches
           php artisan config:cache
           php artisan route:cache
           if [ -d resources/views ]; then php artisan view:cache; fi
 
-          # perms for runtime inside THIS release only
           chown -R "$(whoami)":www-data bootstrap/cache storage || true
           chmod -R g+rwX bootstrap/cache storage || true
           REMOTE
