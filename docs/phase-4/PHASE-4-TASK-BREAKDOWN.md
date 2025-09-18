@@ -101,7 +101,7 @@
 - [x] CI: Add Dependabot (Composer, npm, GitHub Actions)
 - [x] CI: Add `actionlint` step to lint workflow YAML
 - [x] QA: Raise PHPStan level one notch; fix violations or baseline deltas
-- [ ] QA: Raise Psalm level/config; keep threads; stabilize baseline  ⟵ **WIP**
+- [x] QA: Raise Psalm level/config; keep threads; stabilize baseline  ⟵ **WIP**
 - [x] Config: Implement early boot merge of `/opt/phpgrc/shared/config.php` (prod overlay) with `.env` ignored in prod
 - [x] Config: Document overlay keys; add redacted “effective-config fingerprint” endpoint; ensure `config:cache` includes overlay
 - [x] UX: Replace RBAC role text inputs with dropdown sourced from `/api/rbac/roles`
