@@ -41,12 +41,11 @@ final class EvidenceController extends Controller
         $ownerId      = (int) (Auth::id() ?? 0);
         $originalName = $uploaded->getClientOriginalName();
 
-        // Avoid null-coalesce on a value tools think is non-nullable
         /** @var mixed $mimeTmp */
         $mimeTmp = $uploaded->getClientMimeType();
         $mime = (is_string($mimeTmp) && $mimeTmp !== '') ? $mimeTmp : 'application/octet-stream';
 
-        $sizeBytes    = (int) $uploaded->getSize();
+        $sizeBytes = (int) $uploaded->getSize();
 
         /** @var array{id:string,version:int} $saved */
         $saved = DB::transaction(function () use ($ownerId, $originalName, $mime, $sizeBytes, $sha256, $bytes): array {
@@ -79,12 +78,15 @@ final class EvidenceController extends Controller
             $authId  = $request->user()?->getAuthIdentifier();
             $actorId = is_int($authId) ? $authId : (is_string($authId) && ctype_digit($authId) ? (int) $authId : null);
 
+            /** @var non-empty-string $entityId */
+            $entityId = $this->nes($saved['id']);
+
             $audit->log([
                 'actor_id'    => $actorId,
                 'action'      => 'evidence.upload',
                 'category'    => 'EVIDENCE',
                 'entity_type' => 'evidence',
-                'entity_id'   => $saved['id'],
+                'entity_id'   => $entityId,
                 'ip'          => $request->ip(),
                 'ua'          => $request->userAgent(),
                 'meta'        => [
@@ -114,7 +116,7 @@ final class EvidenceController extends Controller
 
         /** @var Evidence|null $ev */
         $ev = Evidence::query()->find($id);
-        if (!$ev) {
+        if ($ev === null) {
             return response()->json(['ok' => false, 'code' => 'EVIDENCE_NOT_FOUND'], 404);
         }
 
@@ -152,12 +154,15 @@ final class EvidenceController extends Controller
             $authId  = $request->user()?->getAuthIdentifier();
             $actorId = is_int($authId) ? $authId : (is_string($authId) && ctype_digit($authId) ? (int) $authId : null);
 
+            /** @var non-empty-string $entityId */
+            $entityId = $this->nes($ev->id);
+
             $audit->log([
                 'actor_id'    => $actorId,
                 'action'      => $request->isMethod('HEAD') ? 'evidence.head' : 'evidence.read',
                 'category'    => 'EVIDENCE',
                 'entity_type' => 'evidence',
-                'entity_id'   => $ev->id,
+                'entity_id'   => $entityId,
                 'ip'          => $request->ip(),
                 'ua'          => $request->userAgent(),
                 'meta'        => [
@@ -303,20 +308,23 @@ final class EvidenceController extends Controller
             $nextCursor = base64_encode($ts.'|'.$last->id);
         }
 
-        $data = $rows->toBase()->map(function ($e): array {
-            /** @var CarbonInterface $createdAt */
-            $createdAt = $e->created_at;
-            return [
-                'id'         => $e->id,
-                'owner_id'   => $e->owner_id,
-                'filename'   => $e->filename,
-                'mime'       => $e->mime,
-                'size_bytes' => $e->size_bytes,
-                'sha256'     => $e->sha256,
-                'version'    => $e->version,
-                'created_at' => $createdAt->toRfc3339String(),
-            ];
-        })->values()->all();
+        $data = $rows->toBase()->map(
+            /** @return array{id:string,owner_id:int,filename:string,mime:string,size_bytes:int,sha256:string,version:int,created_at:string} */
+            function (Evidence $e): array {
+                /** @var CarbonInterface $createdAt */
+                $createdAt = $e->created_at;
+                return [
+                    'id'         => $e->id,
+                    'owner_id'   => $e->owner_id,
+                    'filename'   => $e->filename,
+                    'mime'       => $e->mime,
+                    'size_bytes' => $e->size_bytes,
+                    'sha256'     => $e->sha256,
+                    'version'    => $e->version,
+                    'created_at' => $createdAt->toRfc3339String(),
+                ];
+            }
+        )->values()->all();
 
         return response()->json([
             'ok'          => true,
@@ -354,12 +362,25 @@ final class EvidenceController extends Controller
     {
         $fallback = str_replace(['"', '\\'], ['%22', '\\\\'], $filename);
         $utf8 = rawurlencode($filename);
-        return 'attachment; filename="'.$fallback.'"; filename*=UTF-8\'\''.$utf8;
+        return sprintf('attachment; filename="%s"; filename*=UTF-8\'\'%s', $fallback, $utf8);
     }
+
+
 
     private function escapeLike(string $value): string
     {
         return str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $value);
     }
-}
 
+    /**
+     * Ensure non-empty string for static analysis.
+     * @return non-empty-string
+     */
+    private function nes(string $s): string
+    {
+        if ($s === '') {
+            throw new \LogicException('Expected non-empty string');
+        }
+        return $s;
+    }
+}

@@ -29,6 +29,7 @@ final class UserRolesController extends Controller
     }
 
     /**
+     * @param non-empty-string $action
      * @param array<string,mixed> $meta
      */
     private function writeAudit(Request $request, User $target, string $action, array $meta = []): void
@@ -42,13 +43,16 @@ final class UserRolesController extends Controller
         $actor   = Auth::user();
         $actorId = ($actor instanceof User) ? $actor->id : null;
 
+        /** @var non-empty-string $entityId */
+        $entityId = $this->nes((string) $target->id);
+
         try {
             $logger->log([
                 'actor_id'    => $actorId,
                 'action'      => $action,
                 'category'    => 'RBAC',
                 'entity_type' => 'user',
-                'entity_id'   => (string) $target->id,
+                'entity_id'   => $entityId,
                 'ip'          => $request->ip(),
                 'ua'          => $request->userAgent(),
                 'meta'        => $meta,
@@ -67,7 +71,7 @@ final class UserRolesController extends Controller
                     'action'      => $alias,
                     'category'    => 'RBAC',
                     'entity_type' => 'user',
-                    'entity_id'   => (string) $target->id,
+                    'entity_id'   => $entityId,
                     'ip'          => $request->ip(),
                     'ua'          => $request->userAgent(),
                     'meta'        => $meta,
@@ -322,5 +326,16 @@ final class UserRolesController extends Controller
             'roles' => $after,
         ], 200);
     }
-}
 
+    /**
+     * Ensure non-empty string for static analysis.
+     * @return non-empty-string
+     */
+    private function nes(string $s): string
+    {
+        if ($s === '') {
+            throw new \LogicException('Expected non-empty string');
+        }
+        return $s;
+    }
+}

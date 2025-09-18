@@ -132,12 +132,15 @@ final class RolesController extends Controller
             $logger  = app(AuditLogger::class);
             $actorId = Auth::id();
 
+            /** @var non-empty-string $entityId */
+            $entityId = $this->nes($role->id);
+
             $logger->log([
                 'actor_id'    => is_int($actorId) ? $actorId : null,
                 'action'      => 'rbac.role.created',
                 'category'    => 'RBAC',
                 'entity_type' => 'role',
-                'entity_id'   => $role->id,
+                'entity_id'   => $entityId,
                 'ip'          => $request->ip(),
                 'ua'          => $request->userAgent(),
                 'meta'        => ['name' => $role->name],
@@ -151,5 +154,16 @@ final class RolesController extends Controller
             'role' => ['id' => $role->id, 'name' => $role->name],
         ], 201);
     }
-}
 
+    /**
+     * Ensure non-empty string for static analysis.
+     * @return non-empty-string
+     */
+    private function nes(string $s): string
+    {
+        if ($s === '') {
+            throw new \LogicException('Expected non-empty string');
+        }
+        return $s;
+    }
+}

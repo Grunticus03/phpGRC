@@ -27,16 +27,21 @@ final class RbacMiddleware
             return $resp;
         }
 
-        /** @var \Illuminate\Routing\Route $route */
         $route = $request->route();
+        if (!$route instanceof \Illuminate\Routing\Route) {
+            /** @var Response $resp */
+            $resp = $next($request);
+            return $resp;
+        }
 
         /** @var array<string,mixed> $defaults */
         $defaults = $route->defaults;
 
         // Capability flag blocks regardless of auth/rbac mode.
-        /** @var mixed $capAny */
-        $capAny = $defaults['capability'] ?? null;
-        $capKey = is_string($capAny) ? $capAny : null;
+        $capKey = (isset($defaults['capability']) && is_string($defaults['capability']))
+            ? $defaults['capability']
+            : null;
+
         if ($capKey !== null && $capKey !== '') {
             $capEnabled = (bool) config('core.capabilities.' . $capKey, true);
             if (!$capEnabled) {
@@ -48,19 +53,14 @@ final class RbacMiddleware
             }
         }
 
-        /** @var mixed $rolesAny */
-        $rolesAny = $defaults['roles'] ?? [];
-        /** @var list<string> $requiredRoles */
         $requiredRoles = [];
-        if (is_string($rolesAny)) {
-            $requiredRoles = [$rolesAny];
-        } elseif (is_array($rolesAny)) {
-            /** @var mixed $r */
-            foreach ($rolesAny as $r) {
-                if (is_string($r)) {
-                    $requiredRoles[] = $r;
-                }
-            }
+        if (isset($defaults['roles']) && is_string($defaults['roles'])) {
+            $requiredRoles = [$defaults['roles']];
+        } elseif (isset($defaults['roles']) && is_array($defaults['roles'])) {
+            /** @var list<string> $requiredRoles */
+            $requiredRoles = array_values(
+                array_map('strval', array_filter($defaults['roles'], 'is_string'))
+            );
         }
 
         $requireAuth = (bool) config('core.rbac.require_auth', false);
@@ -78,19 +78,16 @@ final class RbacMiddleware
             return $resp;
         }
 
-        if ($requiredRoles !== []) {
-            if (!$user->hasAnyRole($requiredRoles)) {
-                return response()->json(['ok' => false, 'code' => 'FORBIDDEN', 'message' => 'Forbidden'], 403);
-            }
+        if ($requiredRoles !== [] && !$user->hasAnyRole($requiredRoles)) {
+            return response()->json(['ok' => false, 'code' => 'FORBIDDEN', 'message' => 'Forbidden'], 403);
         }
 
-        /** @var mixed $policyAny */
-        $policyAny = $defaults['policy'] ?? null;
-        $policy = is_string($policyAny) ? $policyAny : null;
-        if ($policy !== null && $policy !== '') {
-            if (!RbacEvaluator::allows($user, $policy)) {
-                return response()->json(['ok' => false, 'code' => 'FORBIDDEN', 'message' => 'Forbidden'], 403);
-            }
+        $policy = (isset($defaults['policy']) && is_string($defaults['policy']))
+            ? $defaults['policy']
+            : null;
+
+        if ($policy !== null && $policy !== '' && !RbacEvaluator::allows($user, $policy)) {
+            return response()->json(['ok' => false, 'code' => 'FORBIDDEN', 'message' => 'Forbidden'], 403);
         }
 
         /** @var Response $resp */
@@ -98,4 +95,3 @@ final class RbacMiddleware
         return $resp;
     }
 }
-
