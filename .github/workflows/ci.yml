@@ -1,4 +1,3 @@
-# FILE: .github/workflows/ci.yml
 name: CI
 
 on:
@@ -140,7 +139,6 @@ jobs:
       - name: Clear Laravel caches
         env:
           APP_ENV: testing
-          CORE_SETUP_ENABLED: "false"
           CORE_SETUP_SHARED_CONFIG_PATH: "/dev/null"
         run: |
           php artisan config:clear || true
@@ -156,7 +154,6 @@ jobs:
           QUEUE_CONNECTION: sync
           FILESYSTEM_DISK: local
           XDEBUG_MODE: coverage
-          CORE_SETUP_ENABLED: "false"
           CORE_SETUP_SHARED_CONFIG_PATH: "/dev/null"
         run: |
           vendor/bin/phpunit --log-junit junit.xml \
@@ -237,7 +234,6 @@ jobs:
           DB_DATABASE: phpgrc_test
           DB_USERNAME: phpgrc
           DB_PASSWORD: secret
-          CORE_SETUP_ENABLED: "false"
           CORE_SETUP_SHARED_CONFIG_PATH: "/dev/null"
         run: |
           php artisan config:clear
@@ -251,7 +247,6 @@ jobs:
           DB_DATABASE: phpgrc_test
           DB_USERNAME: phpgrc
           DB_PASSWORD: secret
-          CORE_SETUP_ENABLED: "false"
           CORE_SETUP_SHARED_CONFIG_PATH: "/dev/null"
         run: vendor/bin/phpunit --testsuite=Feature --do-not-cache-result
 

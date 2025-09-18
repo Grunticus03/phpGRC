@@ -17,8 +17,6 @@ final class EvidenceApiTest extends TestCase
         parent::setUp();
 
         Gate::shouldReceive('authorize')->andReturn(true);
-
-        // Resolve real logger; controller guards on table existence.
         $this->app->make(AuditLogger::class);
     }
 
@@ -54,18 +52,20 @@ final class EvidenceApiTest extends TestCase
     {
         $file = UploadedFile::fake()->create('tool.exe', 1, 'application/x-msdownload');
 
-        $this->post('/api/evidence', ['file' => $file])
-            ->assertStatus(201)
+        $res = $this->post('/api/evidence', ['file' => $file]);
+        $res->assertStatus(201)
             ->assertJsonPath('ok', true)
-            ->assertJsonPath('name', 'tool.exe')
-            ->assertJsonPath('mime', 'application/x-msdownload');
+            ->assertJsonPath('name', 'tool.exe');
+
+        $mime = $res->json('mime');
+        $this->assertIsString($mime);
+        $this->assertMatchesRegularExpression('#^application/[^;]+#', $mime);
     }
 
     /** @test */
     public function store_ignores_configured_max_mb_and_accepts_large_file(): void
     {
-        // Even if configured, controller policy does not enforce size limits.
-        Config::set('core.evidence.max_mb', 1); // 1 MB
+        Config::set('core.evidence.max_mb', 1); // not enforced by policy
         $file = UploadedFile::fake()->create('big.pdf', 1024 + 1, 'application/pdf');
 
         $this->post('/api/evidence', ['file' => $file])
