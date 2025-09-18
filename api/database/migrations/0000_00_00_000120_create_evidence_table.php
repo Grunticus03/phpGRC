@@ -19,10 +19,15 @@ return new class extends Migration {
             $table->string('sha256', 64);
             $table->unsignedInteger('version')->default(1);
             $table->binary('bytes');                         // upgraded to LONGBLOB below
-            $table->dateTimeTz('created_at')->useCurrent();
 
+            // Timestamps
+            $table->dateTimeTz('created_at')->useCurrent();
+            $table->dateTimeTz('updated_at')->useCurrent()->useCurrentOnUpdate();
+
+            // Indexes
             $table->index(['owner_id', 'filename']);
             $table->index('sha256');
+            $table->index(['created_at', 'id'], 'evidence_created_id_idx');
         });
 
         // Ensure capacity for 25MB+ uploads on MySQL by using LONGBLOB.

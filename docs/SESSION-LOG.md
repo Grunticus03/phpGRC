@@ -888,3 +888,20 @@ SESSION-LOG.md entry
 - Phase/Step status: advance.
 - Next action (you): run PHPUnit locally, capture failing tests with `--testdox --stop-on-failure`, export `api/junit.xml`, and list top failures with file:line.
 - Next action (me): prepare fixes per failure class (DB state, factories, timezones, strict comparisons), update tests or code, and re-run CI.
+
+---
+
+### Session 2025-09-17: [Phase 4, PHPUnit hardening]
+- Context: Evidence tests failing due to missing updated_at on sqlite; admin settings tests failing due to missing core defaults.
+- Goal: Unblock test suite by fixing schema and baseline config; align tests with no file-type/size limits.
+- Constraints: Keep Charter and STYLEGUIDE; prefer single authoritative migration; no background tasks.
+
+### Closeout
+- Deliverables produced: 
+  - Plan to fold updated_at and created_at+id index into 0000_00_00_000120_create_evidence_table.php and drop follow-up migrations.
+  - Guidance to use LONGBLOB on MySQL for bytes.
+  - Decision to allow all MIME types and sizes; tests expecting 422 will be updated.
+  - Action to add config/core.php with core.rbac.roles and feature toggles so admin settings tests pass.
+- Phase/Step status: advance
+- Next action (you): replace the create_evidence_table migration as specified, remove the extra two evidence migrations, add config/core.php, run `php artisan migrate:fresh`, then run `composer test -- --testdox` and share output.
+- Next action (me): triage any remaining failures, update tests to reflect unrestricted uploads, verify sqlite vs mysql driver selection under CI, and produce coverage and junit artifacts.
