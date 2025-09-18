@@ -101,7 +101,7 @@
 - [x] CI: Add Dependabot (Composer, npm, GitHub Actions)
 - [x] CI: Add `actionlint` step to lint workflow YAML
 - [x] QA: Raise PHPStan level one notch; fix violations or baseline deltas
-- [x] QA: Raise Psalm level/config; keep threads; stabilize baseline  ⟵ **WIP**
+- [x] QA: Raise Psalm level/config; keep threads; stabilize baseline
 - [x] Config: Implement early boot merge of `/opt/phpgrc/shared/config.php` (prod overlay) with `.env` ignored in prod
 - [x] Config: Document overlay keys; add redacted “effective-config fingerprint” endpoint; ensure `config:cache` includes overlay
 - [x] UX: Replace RBAC role text inputs with dropdown sourced from `/api/rbac/roles`
@@ -121,16 +121,15 @@
 - [x] Web: Add Admin → User Roles screen with dropdown attach/detach; unit test with mocked fetch
 
 ### Newly completed this session
-- [x] Settings: `/api/admin/settings` returns full `config.core.*` including `rbac.roles`.
-- [x] Tests: Evidence tests updated for unrestricted MIME/size; expect 201 instead of 422.
-- [x] Tests: Settings persistence rows store JSON literals; service decodes booleans/ints.
-- [x] CI: Setup checks stabilized with writable `CORE_SETUP_SHARED_CONFIG_PATH`; artifacts standardized (`coverage.xml`, `junit.xml`).
-- [x] Migrations: Evidence table consolidated with `updated_at` and `(created_at,id)` index; LONGBLOB on MySQL.
+- [x] QA: Psalm raised to level 1 with no new baseline.
+- [x] Audit: `AuditLogger::log` enforces non-empty keys; nullable fields normalized.
+- [x] RBAC: `RbacMiddleware` typed defaults/roles/policy; resolved PHPStan ternary/null-coalesce issues.
+- [x] Evidence: Controller asserts non-empty `entity_id`; fixed `Content-Disposition` header quoting; removed redundant casts.
+- [x] RBAC: `RolesController` audit uses non-empty `entity_id`.
+- [x] RBAC: `UserRolesController` audit uses non-empty `action` and `entity_id`; alias events preserved.
+- [x] Models: `Setting` casts docblock made psalm-invariant with suppression per Eloquent base type.
 
 ### Immediate Next Steps — merged and prioritized
-1. **Static Analysis cleanup**
-   - Raise Psalm level/config; add missing model property annotations; normalize array-shapes for `AuditLogger::log`.
-2. **RBAC UI**
-   - Begin role management UI scaffold and tests per Phase-4 spec.
-3. **QA**
-   - Verify deterministic factories and timestamps; keep baseline at zero regressions.
+1. **RBAC UI**: Begin role management UI scaffold and minimal integration tests; wire to `/api/rbac/roles` and user-roles endpoints.
+2. **Docs/OpenAPI**: Add/refresh RBAC endpoints and audit event shapes with non-empty constraints.
+3. **QA**: Sweep for remaining mixed in services; add narrow generics on collections where missing.

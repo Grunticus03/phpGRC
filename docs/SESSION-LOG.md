@@ -922,3 +922,23 @@ SESSION-LOG.md entry
 - Phase/Step status: advance
 - Next action (you): none — CI is green.
 - Next action (me): begin static analysis raise and docblock/type cleanup per Phase-4 QA plan; prep role management UI scaffold per Roadmap.
+
+---
+
+### Session 2025-09-18: Phase 4, Static analysis raise
+- Context: Harden static analysis and audit payload shapes; keep CI green.
+- Goal: Raise Psalm to level 1 and eliminate type violations in Audit + RBAC controllers.
+- Constraints: Full-file edits only; preserve existing behavior; zero baseline growth.
+
+### Closeout
+- Deliverables produced:
+  - Psalm level raised to 1 (`/api/psalm.xml`).
+  - `AuditLogger::log` shape tightened; nullable inputs normalized.
+  - `RbacMiddleware` fully typed; route defaults handling fixed.
+  - `EvidenceController` non-empty `entity_id` assertions; header quoting fix; redundant casts removed.
+  - `RolesController` audit asserts non-empty `entity_id`.
+  - `UserRolesController` audit asserts non-empty `action` and `entity_id`; alias events preserved.
+  - `Setting` model casts docblock made psalm-invariant.
+- Phase/Step status: advance
+- Next action (you): none; confirm if any additional Psalm plugins or rules should be enabled.
+- Next action (me): begin RBAC Role Management UI scaffold and minimal integration tests per Phase-4 spec.
