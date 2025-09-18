@@ -88,4 +88,63 @@ describe("Admin UserRoles page", () => {
       expect(within(list).getByText("Admin")).toBeInTheDocument();
     });
   });
+
+  test("performs detach flow", async () => {
+    const user = userEvent.setup();
+
+    const fetchMock = vi
+      .fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = typeof input === "string" ? input : (input as Request).url ?? String(input);
+        const method = (init?.method ?? "GET").toUpperCase();
+
+        // List roles
+        if (method === "GET" && /\/rbac\/roles\b/.test(url)) {
+          return jsonResponse(200, { ok: true, roles: ["Admin", "Auditor", "User"] });
+        }
+
+        // Lookup user with Admin + User
+        if (method === "GET" && /\/rbac\/users\/123\/roles\b/.test(url)) {
+          return jsonResponse(200, {
+            ok: true,
+            user: { id: 123, name: "Jane Admin", email: "jane@example.com" },
+            roles: ["Admin", "User"],
+          });
+        }
+
+        // Detach Admin
+        if (method === "DELETE" && /\/rbac\/users\/123\/roles\/Admin\b/.test(url)) {
+          return jsonResponse(200, {
+            ok: true,
+            user: { id: 123, name: "Jane Admin", email: "jane@example.com" },
+            roles: ["User"],
+          });
+        }
+
+        return jsonResponse(200, { ok: true });
+      }) as unknown as typeof fetch;
+
+    globalThis.fetch = fetchMock;
+
+    renderPage();
+
+    await user.type(screen.getByLabelText(/user id/i), "123");
+    await user.click(screen.getByRole("button", { name: /load/i }));
+
+    // Ensure Admin is initially present
+    await waitFor(() => {
+      const list = screen.getByRole("list");
+      expect(within(list).getByText("Admin")).toBeInTheDocument();
+    });
+
+    // Click Detach for Admin
+    const adminItem = within(screen.getByRole("list")).getByText("Admin").closest("li") as HTMLElement;
+    const detachBtn = within(adminItem).getByRole("button", { name: /detach/i });
+    await user.click(detachBtn);
+
+    // Admin should be gone
+    await waitFor(() => {
+      const list = screen.getByRole("list");
+      expect(within(list).queryByText("Admin")).toBeNull();
+    });
+  });
 });

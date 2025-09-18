@@ -656,7 +656,7 @@ paths:
           schema: { type: string }
         - in: query
           name: action
-          schema: { type: string }
+          schema: { type: string, minLength: 1 }
         - in: query
           name: occurred_from
           schema: { type: string, format: date-time }
@@ -671,7 +671,7 @@ paths:
           schema: { type: string }
         - in: query
           name: entity_id
-          schema: { type: string }
+          schema: { type: string, minLength: 1 }
         - in: query
           name: ip
           schema: { type: string, format: ipv4 }
@@ -1154,10 +1154,10 @@ components:
         occurred_at: { type: string, format: date-time }
         actor_id:
           type: [integer, 'null']
-        action: { type: string }
-        category: { type: string }
-        entity_type: { type: string }
-        entity_id: { type: string }
+        action: { type: string, minLength: 1 }
+        category: { type: string, minLength: 1 }
+        entity_type: { type: string, minLength: 1 }
+        entity_id: { type: string, minLength: 1 }
         ip:
           type: [string, 'null']
         ua:
@@ -1283,4 +1283,3 @@ components:
               type: array
               items: { type: integer }
             format: { type: string }
-

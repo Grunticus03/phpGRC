@@ -1,14 +1,15 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import {
+  listRoles,
+  getUserRoles,
+  attachUserRole,
+  detachUserRole,
+  type UserRolesResponse,
+  type UserRolesResponseOk,
+  type RoleListResponse,
+} from "../../lib/api/rbac";
 
 type User = { id: number; name: string; email: string };
-type UserRolesEnvelope =
-  | { ok: true; user: User; roles: string[] }
-  | { ok: false; code: string; missing_roles?: string[] };
-type RolesListEnvelope = { ok: true; roles: string[] };
-
-function json<T>(res: Response): Promise<T> {
-  return res.json() as Promise<T>;
-}
 
 export default function UserRoles(): JSX.Element {
   const [allRoles, setAllRoles] = useState<string[]>([]);
@@ -29,14 +30,10 @@ export default function UserRoles(): JSX.Element {
     (async () => {
       setLoadingRoles(true);
       try {
-        const res = await fetch("/api/rbac/roles", {
-          method: "GET",
-          credentials: "same-origin",
-          signal: ctl.signal,
-        });
-        if (!res.ok) throw new Error(String(res.status));
-        const data = await json<RolesListEnvelope>(res);
-        if (data.ok) setAllRoles(data.roles ?? []);
+        const res: RoleListResponse = await listRoles();
+        if (!ctl.signal.aborted && res.ok) {
+          setAllRoles(res.roles ?? []);
+        }
       } catch {
         setMsg("Failed to load roles.");
       } finally {
@@ -57,22 +54,16 @@ export default function UserRoles(): JSX.Element {
     }
     setLoadingUser(true);
     try {
-      const res = await fetch(`/api/rbac/users/${idNum}/roles`, {
-        method: "GET",
-        credentials: "same-origin",
-      });
-      const data = await json<UserRolesEnvelope>(res);
-      if (res.ok && "ok" in data && data.ok) {
-        setUser(data.user);
-        setUserRoles(data.roles ?? []);
+      const res: UserRolesResponse = await getUserRoles(idNum);
+      if (res.ok) {
+        const ok = res as UserRolesResponseOk;
+        setUser(ok.user);
+        setUserRoles(ok.roles ?? []);
         setAttachChoice("");
         setMsg(null);
-        // focus attach for speed
         queueMicrotask(() => attachBtnRef.current?.focus());
-      } else if (!res.ok && "code" in data) {
-        setMsg(`Error: ${data.code}`);
       } else {
-        setMsg("Lookup failed.");
+        setMsg(`Error: ${res.code}`);
       }
     } catch {
       setMsg("Network error.");
@@ -90,18 +81,17 @@ export default function UserRoles(): JSX.Element {
     if (!user) return;
     if (!attachChoice) return;
     setMsg(null);
-    const res = await fetch(`/api/rbac/users/${user.id}/roles/${encodeURIComponent(attachChoice)}`, {
-      method: "POST",
-      credentials: "same-origin",
-    });
-    const data = await json<UserRolesEnvelope>(res);
-    if (res.ok && "ok" in data && data.ok) {
-      setUserRoles(data.roles ?? []);
-      setAttachChoice("");
-      setMsg("Role attached.");
-    } else if ("code" in data) {
-      setMsg(`Attach failed: ${data.code}`);
-    } else {
+    try {
+      const res = await attachUserRole(user.id, attachChoice);
+      if (res.ok) {
+        const ok = res as UserRolesResponseOk;
+        setUserRoles(ok.roles ?? []);
+        setAttachChoice("");
+        setMsg("Role attached.");
+      } else {
+        setMsg(`Attach failed: ${res.code}`);
+      }
+    } catch {
       setMsg("Attach failed.");
     }
   }
@@ -109,17 +99,16 @@ export default function UserRoles(): JSX.Element {
   async function detachRole(role: string) {
     if (!user) return;
     setMsg(null);
-    const res = await fetch(`/api/rbac/users/${user.id}/roles/${encodeURIComponent(role)}`, {
-      method: "DELETE",
-      credentials: "same-origin",
-    });
-    const data = await json<UserRolesEnvelope>(res);
-    if (res.ok && "ok" in data && data.ok) {
-      setUserRoles(data.roles ?? []);
-      setMsg("Role detached.");
-    } else if ("code" in data) {
-      setMsg(`Detach failed: ${data.code}`);
-    } else {
+    try {
+      const res = await detachUserRole(user.id, role);
+      if (res.ok) {
+        const ok = res as UserRolesResponseOk;
+        setUserRoles(ok.roles ?? []);
+        setMsg("Role detached.");
+      } else {
+        setMsg(`Detach failed: ${res.code}`);
+      }
+    } catch {
       setMsg("Detach failed.");
     }
   }
