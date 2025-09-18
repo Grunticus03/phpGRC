@@ -14,7 +14,7 @@ use Illuminate\Support\Str;
  * @property string $type
  * @property array<string,mixed>|null $params
  * @property string $status
- * @property int $progress
+ * @property int|null $progress
  * @property string|null $artifact_disk
  * @property string|null $artifact_path
  * @property string|null $artifact_mime
@@ -89,25 +89,32 @@ final class Export extends Model
     public function markRunning(): void
     {
         $this->status = 'running';
-        $this->progress = max((int) ($this->progress ?? 0), 10);
+
+        /** @var mixed $p */
+        $p = $this->getAttribute('progress');
+        /** @var int $prev */
+        $prev = is_int($p) ? $p : 0;
+
+        $this->progress = max($prev, 10);
         $this->save();
     }
 
     public function markCompleted(): void
     {
-        $this->status = 'completed';
-        $this->progress = 100;
+        $this->status       = 'completed';
+        $this->progress     = 100;
         $this->completed_at = now()->toImmutable();
         $this->save();
     }
 
     public function markFailed(string $code = 'INTERNAL_ERROR', string $note = ''): void
     {
-        $this->status = 'failed';
-        $this->progress = 0;
+        $this->status    = 'failed';
+        $this->progress  = 0;
         $this->failed_at = now()->toImmutable();
         $this->error_code = $code;
         $this->error_note = $note;
         $this->save();
     }
 }
+
