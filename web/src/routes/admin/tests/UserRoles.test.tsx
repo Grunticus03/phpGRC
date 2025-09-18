@@ -68,21 +68,16 @@ describe("Admin UserRoles page", () => {
 
     renderPage();
 
-    // Page heading
     expect(await screen.findByRole("heading", { name: /user roles/i })).toBeInTheDocument();
 
-    // Enter user id and load
     await user.type(screen.getByLabelText(/user id/i), "123");
     await user.click(screen.getByRole("button", { name: /load/i }));
 
-    // User card appears
     await screen.findByRole("heading", { level: 2, name: /^User$/ });
 
-    // Pick Admin and attach
     await user.selectOptions(screen.getByLabelText(/attach role/i), "Admin");
     await user.click(screen.getByRole("button", { name: /attach/i }));
 
-    // Assert Admin is present in current roles list
     await waitFor(() => {
       const list = screen.getByRole("list");
       expect(within(list).getByText("Admin")).toBeInTheDocument();
@@ -97,12 +92,10 @@ describe("Admin UserRoles page", () => {
         const url = typeof input === "string" ? input : (input as Request).url ?? String(input);
         const method = (init?.method ?? "GET").toUpperCase();
 
-        // List roles
         if (method === "GET" && /\/rbac\/roles\b/.test(url)) {
           return jsonResponse(200, { ok: true, roles: ["Admin", "Auditor", "User"] });
         }
 
-        // Lookup user with Admin + User
         if (method === "GET" && /\/rbac\/users\/123\/roles\b/.test(url)) {
           return jsonResponse(200, {
             ok: true,
@@ -111,7 +104,6 @@ describe("Admin UserRoles page", () => {
           });
         }
 
-        // Detach Admin
         if (method === "DELETE" && /\/rbac\/users\/123\/roles\/Admin\b/.test(url)) {
           return jsonResponse(200, {
             ok: true,
@@ -130,21 +122,125 @@ describe("Admin UserRoles page", () => {
     await user.type(screen.getByLabelText(/user id/i), "123");
     await user.click(screen.getByRole("button", { name: /load/i }));
 
-    // Ensure Admin is initially present
     await waitFor(() => {
       const list = screen.getByRole("list");
       expect(within(list).getByText("Admin")).toBeInTheDocument();
     });
 
-    // Click Detach for Admin
     const adminItem = within(screen.getByRole("list")).getByText("Admin").closest("li") as HTMLElement;
     const detachBtn = within(adminItem).getByRole("button", { name: /detach/i });
     await user.click(detachBtn);
 
-    // Admin should be gone
     await waitFor(() => {
       const list = screen.getByRole("list");
       expect(within(list).queryByText("Admin")).toBeNull();
+    });
+  });
+
+  test("replaces roles successfully", async () => {
+    const user = userEvent.setup();
+
+    const fetchMock = vi
+      .fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = typeof input === "string" ? input : (input as Request).url ?? String(input);
+        const method = (init?.method ?? "GET").toUpperCase();
+
+        // catalog
+        if (method === "GET" && /\/rbac\/roles\b/.test(url)) {
+          return jsonResponse(200, { ok: true, roles: ["Admin", "Auditor", "User"] });
+        }
+        // lookup with initial role User
+        if (method === "GET" && /\/rbac\/users\/123\/roles\b/.test(url)) {
+          return jsonResponse(200, {
+            ok: true,
+            user: { id: 123, name: "Jane Admin", email: "jane@example.com" },
+            roles: ["User"],
+          });
+        }
+        // replace to Admin only
+        if (method === "PUT" && /\/rbac\/users\/123\/roles\b/.test(url)) {
+          return jsonResponse(200, {
+            ok: true,
+            user: { id: 123, name: "Jane Admin", email: "jane@example.com" },
+            roles: ["Admin"],
+          });
+        }
+        return jsonResponse(200, { ok: true });
+      }) as unknown as typeof fetch;
+
+    globalThis.fetch = fetchMock;
+
+    renderPage();
+
+    await user.type(screen.getByLabelText(/user id/i), "123");
+    await user.click(screen.getByRole("button", { name: /load/i }));
+    await screen.findByRole("heading", { level: 2, name: /^User$/ });
+
+    const multi = screen.getByLabelText(/replace roles/i) as HTMLSelectElement;
+
+    // Deselect "User", select "Admin"
+    await user.deselectOptions(multi, "User");
+    await user.selectOptions(multi, "Admin");
+
+    await user.click(screen.getByRole("button", { name: /^replace$/i }));
+
+    await waitFor(() => {
+      const list = screen.getByRole("list");
+      expect(within(list).getByText("Admin")).toBeInTheDocument();
+      expect(within(list).queryByText("User")).toBeNull();
+      expect(screen.getByText(/roles replaced\./i)).toBeInTheDocument();
+    });
+  });
+
+  test("replace surfaces ROLE_NOT_FOUND with message", async () => {
+    const user = userEvent.setup();
+
+    const fetchMock = vi
+      .fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = typeof input === "string" ? input : (input as Request).url ?? String(input);
+        const method = (init?.method ?? "GET").toUpperCase();
+
+        if (method === "GET" && /\/rbac\/roles\b/.test(url)) {
+          // include "Manager" so UI can select it
+          return jsonResponse(200, { ok: true, roles: ["Admin", "Manager", "User"] });
+        }
+        if (method === "GET" && /\/rbac\/users\/123\/roles\b/.test(url)) {
+          return jsonResponse(200, {
+            ok: true,
+            user: { id: 123, name: "Jane Admin", email: "jane@example.com" },
+            roles: ["User"],
+          });
+        }
+        if (method === "PUT" && /\/rbac\/users\/123\/roles\b/.test(url)) {
+          // API says unknown role; include message listing missing roles
+          return jsonResponse(422, {
+            ok: false,
+            code: "ROLE_NOT_FOUND",
+            message: "Unknown roles: Manager",
+            missing_roles: ["Manager"],
+          });
+        }
+        return jsonResponse(200, { ok: true });
+      }) as unknown as typeof fetch;
+
+    globalThis.fetch = fetchMock;
+
+    renderPage();
+
+    await user.type(screen.getByLabelText(/user id/i), "123");
+    await user.click(screen.getByRole("button", { name: /load/i }));
+    await screen.findByRole("heading", { level: 2, name: /^User$/ });
+
+    const multi = screen.getByLabelText(/replace roles/i) as HTMLSelectElement;
+    await user.deselectOptions(multi, "User");
+    await user.selectOptions(multi, "Manager"); // not actually valid on server
+
+    await user.click(screen.getByRole("button", { name: /^replace$/i }));
+
+    await waitFor(() => {
+      const alert = screen.getByRole("status");
+      expect(within(alert).getByText(/replace failed: role_not_found/i)).toBeInTheDocument();
+      expect(within(alert).getByText(/unknown roles: manager/i)).toBeInTheDocument();
     });
   });
 });

@@ -4,6 +4,7 @@ import {
   getUserRoles,
   attachUserRole,
   detachUserRole,
+  replaceUserRoles,
   type UserRolesResponse,
   type UserRolesResponseOk,
   type RoleListResponse,
@@ -21,10 +22,12 @@ export default function UserRoles(): JSX.Element {
   const [userRoles, setUserRoles] = useState<string[]>([]);
 
   const [attachChoice, setAttachChoice] = useState<string>("");
+  const [replaceSelection, setReplaceSelection] = useState<string[]>([]);
+  const [replaceBusy, setReplaceBusy] = useState<boolean>(false);
+
   const [msg, setMsg] = useState<string | null>(null);
   const attachBtnRef = useRef<HTMLButtonElement | null>(null);
 
-  // Load role catalog once
   useEffect(() => {
     const ctl = new AbortController();
     (async () => {
@@ -47,6 +50,7 @@ export default function UserRoles(): JSX.Element {
     setMsg(null);
     setUser(null);
     setUserRoles([]);
+    setReplaceSelection([]);
     const idNum = Number(userIdInput);
     if (!Number.isInteger(idNum) || idNum <= 0) {
       setMsg("Enter a valid User ID.");
@@ -58,12 +62,14 @@ export default function UserRoles(): JSX.Element {
       if (res.ok) {
         const ok = res as UserRolesResponseOk;
         setUser(ok.user);
-        setUserRoles(ok.roles ?? []);
+        const roles = ok.roles ?? [];
+        setUserRoles(roles);
+        setReplaceSelection(roles);
         setAttachChoice("");
         setMsg(null);
         queueMicrotask(() => attachBtnRef.current?.focus());
       } else {
-        setMsg(`Error: ${res.code}`);
+        setMsg(`Error: ${res.code}${res.message ? " - " + res.message : ""}`);
       }
     } catch {
       setMsg("Network error.");
@@ -85,11 +91,13 @@ export default function UserRoles(): JSX.Element {
       const res = await attachUserRole(user.id, attachChoice);
       if (res.ok) {
         const ok = res as UserRolesResponseOk;
-        setUserRoles(ok.roles ?? []);
+        const roles = ok.roles ?? [];
+        setUserRoles(roles);
+        setReplaceSelection(roles);
         setAttachChoice("");
         setMsg("Role attached.");
       } else {
-        setMsg(`Attach failed: ${res.code}`);
+        setMsg(`Attach failed: ${res.code}${res.message ? " - " + res.message : ""}`);
       }
     } catch {
       setMsg("Attach failed.");
@@ -103,13 +111,51 @@ export default function UserRoles(): JSX.Element {
       const res = await detachUserRole(user.id, role);
       if (res.ok) {
         const ok = res as UserRolesResponseOk;
-        setUserRoles(ok.roles ?? []);
+        const roles = ok.roles ?? [];
+        setUserRoles(roles);
+        setReplaceSelection(roles);
         setMsg("Role detached.");
       } else {
-        setMsg(`Detach failed: ${res.code}`);
+        setMsg(`Detach failed: ${res.code}${res.message ? " - " + res.message : ""}`);
       }
     } catch {
       setMsg("Detach failed.");
+    }
+  }
+
+  function onReplaceSelectChange(e: React.ChangeEvent<HTMLSelectElement>) {
+    const opts = Array.from(e.currentTarget.options);
+    const selected = opts.filter((o) => o.selected).map((o) => o.value);
+    setReplaceSelection(selected);
+  }
+
+  function arraysEqualUnordered(a: string[], b: string[]): boolean {
+    if (a.length !== b.length) return false;
+    const sa = [...a].sort();
+    const sb = [...b].sort();
+    for (let i = 0; i < sa.length; i++) if (sa[i] !== sb[i]) return false;
+    return true;
+  }
+
+  async function doReplace() {
+    if (!user) return;
+    setMsg(null);
+    setReplaceBusy(true);
+    try {
+      const res = await replaceUserRoles(user.id, replaceSelection);
+      if (res.ok) {
+        const ok = res as UserRolesResponseOk;
+        const roles = ok.roles ?? [];
+        setUserRoles(roles);
+        setReplaceSelection(roles);
+        setMsg("Roles replaced.");
+      } else {
+        setMsg(`Replace failed: ${res.code}${res.message ? " - " + res.message : ""}`);
+      }
+    } catch {
+      setMsg("Replace failed.");
+    } finally {
+      setReplaceBusy(false);
     }
   }
 
@@ -188,7 +234,7 @@ export default function UserRoles(): JSX.Element {
                 {loadingRoles && <div className="form-text">Loading roles…</div>}
               </div>
 
-              <div>
+              <div className="mb-4">
                 <h3 className="h6">Current roles</h3>
                 <ul className="list-unstyled" role="list">
                   {userRoles.length === 0 && <li className="text-muted">None</li>}
@@ -206,6 +252,47 @@ export default function UserRoles(): JSX.Element {
                     </li>
                   ))}
                 </ul>
+              </div>
+
+              <div>
+                <label htmlFor="replace_roles" className="form-label">Replace roles</label>
+                <div className="row g-2">
+                  <div className="col-12 col-md-8">
+                    <select
+                      id="replace_roles"
+                      className="form-select"
+                      multiple
+                      size={Math.max(4, Math.min(8, allRoles.length || 4))}
+                      value={replaceSelection}
+                      onChange={onReplaceSelectChange}
+                      aria-describedby="replace_help"
+                    >
+                      {allRoles.map((r) => (
+                        <option key={r} value={r}>{r}</option>
+                      ))}
+                    </select>
+                    <div id="replace_help" className="form-text">
+                      Select one or more roles. Use Ctrl/Cmd-click to toggle selections.
+                    </div>
+                  </div>
+                  <div className="col-12 col-md-4 d-flex align-items-start">
+                    <button
+                      type="button"
+                      className="btn btn-warning"
+                      onClick={doReplace}
+                      disabled={
+                        replaceBusy ||
+                        arraysEqualUnordered(replaceSelection, userRoles)
+                      }
+                      aria-busy={replaceBusy}
+                    >
+                      {replaceBusy ? "Replacing…" : "Replace"}
+                    </button>
+                  </div>
+                </div>
+                <p className="text-muted mt-2 mb-0">
+                  Replaces the user&apos;s roles with exactly the selected set.
+                </p>
               </div>
             </div>
           </div>
