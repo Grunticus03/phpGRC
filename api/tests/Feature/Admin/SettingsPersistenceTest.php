@@ -14,10 +14,10 @@ final class SettingsPersistenceTest extends TestCase
 
     public function test_index_returns_effective_config(): void
     {
-        // Given an override
+        // Persist an override row using JSON-encoded value for contract correctness.
         Setting::query()->create([
             'key'   => 'core.audit.enabled',
-            'value' => false,
+            'value' => 'false', // JSON literal; service decodes to boolean false
             'type'  => 'json',
         ]);
 
@@ -55,10 +55,10 @@ final class SettingsPersistenceTest extends TestCase
 
     public function test_update_partial_does_not_touch_other_overrides(): void
     {
-        // Preload a different override.
+        // Preload a different override using JSON-encoded integer.
         Setting::query()->create([
             'key'   => 'core.evidence.max_mb',
-            'value' => 50,
+            'value' => '50',
             'type'  => 'json',
         ]);
 
@@ -79,4 +79,3 @@ final class SettingsPersistenceTest extends TestCase
         ]);
     }
 }
-

@@ -65,7 +65,7 @@ final class EvidenceApiTest extends TestCase
     /** @test */
     public function store_ignores_configured_max_mb_and_accepts_large_file(): void
     {
-        Config::set('core.evidence.max_mb', 1); // not enforced by policy
+        Config::set('core.evidence.max_mb', 1);
         $file = UploadedFile::fake()->create('big.pdf', 1024 + 1, 'application/pdf');
 
         $this->post('/api/evidence', ['file' => $file])

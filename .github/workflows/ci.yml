@@ -123,6 +123,7 @@ jobs:
             storage/logs database
           :> storage/logs/laravel.log
           :> database/database.sqlite
+          :> storage/setup-config.php
       - name: Create .env.testing (SQLite)
         run: |
           cat > .env.testing <<'EOF'
@@ -139,7 +140,8 @@ jobs:
       - name: Clear Laravel caches
         env:
           APP_ENV: testing
-          CORE_SETUP_SHARED_CONFIG_PATH: "/dev/null"
+          CORE_SETUP_ENABLED: "true"
+          CORE_SETUP_SHARED_CONFIG_PATH: "${{ github.workspace }}/api/storage/setup-config.php"
         run: |
           php artisan config:clear || true
           php artisan cache:clear || true
@@ -154,7 +156,8 @@ jobs:
           QUEUE_CONNECTION: sync
           FILESYSTEM_DISK: local
           XDEBUG_MODE: coverage
-          CORE_SETUP_SHARED_CONFIG_PATH: "/dev/null"
+          CORE_SETUP_ENABLED: "true"
+          CORE_SETUP_SHARED_CONFIG_PATH: "${{ github.workspace }}/api/storage/setup-config.php"
         run: |
           vendor/bin/phpunit --log-junit junit.xml \
             --coverage-clover coverage.xml \
@@ -234,7 +237,8 @@ jobs:
           DB_DATABASE: phpgrc_test
           DB_USERNAME: phpgrc
           DB_PASSWORD: secret
-          CORE_SETUP_SHARED_CONFIG_PATH: "/dev/null"
+          CORE_SETUP_ENABLED: "true"
+          CORE_SETUP_SHARED_CONFIG_PATH: "${{ github.workspace }}/api/storage/setup-config.php"
         run: |
           php artisan config:clear
           php artisan migrate --force
@@ -247,7 +251,8 @@ jobs:
           DB_DATABASE: phpgrc_test
           DB_USERNAME: phpgrc
           DB_PASSWORD: secret
-          CORE_SETUP_SHARED_CONFIG_PATH: "/dev/null"
+          CORE_SETUP_ENABLED: "true"
+          CORE_SETUP_SHARED_CONFIG_PATH: "${{ github.workspace }}/api/storage/setup-config.php"
         run: vendor/bin/phpunit --testsuite=Feature --do-not-cache-result
 
   web:
