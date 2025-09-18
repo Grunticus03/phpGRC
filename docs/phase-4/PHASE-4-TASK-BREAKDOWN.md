@@ -101,7 +101,7 @@
 - [x] CI: Add Dependabot (Composer, npm, GitHub Actions)
 - [x] CI: Add `actionlint` step to lint workflow YAML
 - [x] QA: Raise PHPStan level one notch; fix violations or baseline deltas
-- [ ] QA: Raise Psalm level/config; keep threads; stabilize baseline  ⟵ **WIP (EvidenceController/SettingsService typing and model property annotations pending)**
+- [ ] QA: Raise Psalm level/config; keep threads; stabilize baseline  ⟵ **WIP (EvidenceController only)**
 - [x] Config: Implement early boot merge of `/opt/phpgrc/shared/config.php` (prod overlay) with `.env` ignored in prod
 - [x] Config: Document overlay keys; add redacted “effective-config fingerprint” endpoint; ensure `config:cache` includes overlay
 - [x] UX: Replace RBAC role text inputs with dropdown sourced from `/api/rbac/roles`
@@ -121,12 +121,13 @@
 - [x] Web: Add Admin → User Roles screen with dropdown attach/detach; unit test with mocked fetch
 
 ### Immediate Next Steps — merged and prioritized
-1. **Static Analysis (WIP)**
-   - Add/adjust docblocks and native types in `EvidenceController` and `SettingsService` (parameters, returns).
-   - Annotate Eloquent model `Evidence` properties (`@property string $id`, etc.) and casts variance.
-   - Align array shapes passed to `AuditLogger::log` with its contract.
-   - Remove redundant casts/null-coalesces flagged by Psalm/PHPStan.
-2. **Web UX**
-   - [ ] Admin › Audit: disable Apply during load; inline server errors; keep CSV link synced
+1. **PHPUnit Failures (focus)**
+   - Run `composer test` with `--testdox --coverage-clover coverage.xml`.
+   - Capture `api/junit.xml` and top failing tests with file:line and messages.
+   - Verify `.env.testing` DB, migrations, factories, seeders, and timezones.
+   - Fix failures (transactional tests, factories, assertions), rerun until green.
+2. **Static Analysis cleanup**
+   - Finish `EvidenceController` typing if any issues remain.
 3. **QA**
-   - [ ] Raise Psalm level/config; stabilize baseline after above changes
+   - Raise Psalm level/config after tests are green; freeze baseline.
+

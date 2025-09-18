@@ -862,3 +862,29 @@ SESSION-LOG.md entry
 - Next action (you): Apply the prepared changes in a branch (`phase4/psalm-phpstan-pass`), run Psalm/PHPStan locally, and capture before/after reports.
 - Next action (me): Push current branch state and grant a working CI link (or paste analyzer configs), plus confirm target Psalm/PHPStan levels and whether to allow baseline deltas.
 
+---
+
+### Session 2025-09-17: Phase 4, Static Analysis Hardening
+- Context: Clean Psalm/PHPStan across RBAC controllers, middleware, models, jobs, and requests.
+- Goal: Remove mixed/undefined property issues and align payloads with `AuditLogger::log`.
+- Constraints: Back-end code only. No schema changes.
+
+### Closeout
+- Deliverables produced:
+  - `app/Models/User.php`: relation generics, `@property-read $roles`, builder generics; Psalm/PHPStan clean.
+  - `app/Http/Controllers/Rbac/RolesController.php`: typed config reads, filtered string roles, removed redundant casts; clean.
+  - `app/Http/Middleware/BreakGlassGuard.php`: strict audit payload (typed `actor_id`, `meta`); clean.
+  - `app/Http/Middleware/RbacMiddleware.php`: route defaults typed, roles list normalized, array-shape to `hasAnyRole`; clean.
+  - `app/Services/Modules/ModuleManager.php`: guarded `$caps` and filtered `string[]`; clean.
+  - `app/Models/Evidence.php`: casts variance docblocks reconciled for Psalm/PHPStan; clean.
+  - `app/Services/Settings/SettingsService.php`: key/value typing across diff/merge paths; removed mixed assignments; clean.
+  - `app/Jobs/GenerateExport.php`: params/CSV typing; clean.
+  - `app/Providers/ConfigOverlayServiceProvider.php`: guarded include with suppression and typed overlay merge; clean.
+  - `app/Http/Requests/Admin/UpdateSettingsRequest.php`: typed error-envelope build; clean.
+  - `app/Http/Requests/Evidence/StoreEvidenceRequest.php`: fixed class/namespace, override attributes; clean.
+  - `app/Http/Requests/Rbac/StoreRoleRequest.php`: typed `prepareForValidation()` input; clean.
+  - `app/Http/Controllers/Rbac/UserRolesController.php`: normalized ID/name fetches and array shapes; annotated inline where needed.
+  - `app/Models/Export.php`: removed cast-based contradictions; typed progress update; clean.
+- Phase/Step status: advance.
+- Next action (you): run PHPUnit locally, capture failing tests with `--testdox --stop-on-failure`, export `api/junit.xml`, and list top failures with file:line.
+- Next action (me): prepare fixes per failure class (DB state, factories, timezones, strict comparisons), update tests or code, and re-run CI.

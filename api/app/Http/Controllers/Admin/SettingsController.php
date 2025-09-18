@@ -10,23 +10,47 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Arr;
 
+/**
+ * @psalm-type CoreFlags=array{
+ *   rbac: array{enabled: bool},
+ *   audit: array{enabled: bool},
+ *   evidence: array{enabled: bool},
+ *   avatars: array{enabled: bool},
+ * }
+ */
 final class SettingsController extends Controller
 {
     public function __construct(private readonly SettingsService $settings) {}
 
     public function index(): JsonResponse
     {
+        /** @var array<string,mixed> $effective */
         $effective = $this->settings->effectiveConfig();
+
+        /** @var CoreFlags $core */
+        $core = [
+            'rbac' => [
+                'enabled' => (bool) data_get($effective, 'core.rbac.enabled', true),
+            ],
+            'audit' => [
+                'enabled' => (bool) data_get($effective, 'core.audit.enabled', false),
+            ],
+            'evidence' => [
+                'enabled' => (bool) data_get($effective, 'core.evidence.enabled', true),
+            ],
+            'avatars' => [
+                'enabled' => (bool) data_get($effective, 'core.avatars.enabled', false),
+            ],
+        ];
 
         return new JsonResponse([
             'ok'     => true,
-            'config' => ['core' => $effective['core']],
+            'config' => ['core' => $core],
         ], 200);
     }
 
     public function update(UpdateSettingsRequest $request): JsonResponse
     {
-        // Accept both shapes; keep only contract keys.
         /** @var array<string,mixed> $raw */
         $raw       = $request->all();
         /** @var array<string,mixed> $validated */
@@ -36,7 +60,6 @@ final class SettingsController extends Controller
         /** @var array<string,mixed> $accepted */
         $accepted  = Arr::only($legacy + $validated, ['rbac', 'audit', 'evidence', 'avatars']);
 
-        // Apply ONLY when an explicit flag is present and truthy (root or legacy core.apply).
         $apply = false;
         if ($request->has('apply')) {
             $apply = $request->boolean('apply');
@@ -74,4 +97,3 @@ final class SettingsController extends Controller
         ], 200);
     }
 }
-
