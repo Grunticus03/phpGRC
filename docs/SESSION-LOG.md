@@ -905,3 +905,20 @@ SESSION-LOG.md entry
 - Phase/Step status: advance
 - Next action (you): replace the create_evidence_table migration as specified, remove the extra two evidence migrations, add config/core.php, run `php artisan migrate:fresh`, then run `composer test -- --testdox` and share output.
 - Next action (me): triage any remaining failures, update tests to reflect unrestricted uploads, verify sqlite vs mysql driver selection under CI, and produce coverage and junit artifacts.
+
+---
+
+### Session 2025-09-18: Phase 4 — PHPUnit stabilization & CI fixes
+- Context: PHPUnit failures in Settings and Evidence; setup checks failing in CI due to shared-config path; defaults needed to surface `core.rbac.roles`.
+- Goal: Get PHPUnit green locally and in CI; align Settings envelope; enforce unrestricted Evidence policy in tests; stabilize setup tests in CI.
+- Constraints: Follow Charter/Playbook; full-file outputs only; no scope creep beyond Phase-4 spec.
+
+### Closeout
+- Deliverables produced: 
+  - Updated `/api/app/Http/Controllers/Admin/SettingsController.php` to return full `effectiveConfig` (`config.core.*`, including `rbac.roles`).
+  - Rewrote `/api/tests/Feature/EvidenceApiTest.php` to reflect unrestricted MIME/size policy and loosen MIME subtype assertion.
+  - Fixed `/api/tests/Feature/Admin/SettingsPersistenceTest.php` to store JSON literals (`'false'`, `'50'`) for correct decode.
+  - Hardened `.github/workflows/ci.yml`: enabled setup checks and pointed `CORE_SETUP_SHARED_CONFIG_PATH` to a writable repo path; standardized `coverage.xml` artifact.
+- Phase/Step status: advance
+- Next action (you): none — CI is green.
+- Next action (me): begin static analysis raise and docblock/type cleanup per Phase-4 QA plan; prep role management UI scaffold per Roadmap.

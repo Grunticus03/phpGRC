@@ -101,7 +101,7 @@
 - [x] CI: Add Dependabot (Composer, npm, GitHub Actions)
 - [x] CI: Add `actionlint` step to lint workflow YAML
 - [x] QA: Raise PHPStan level one notch; fix violations or baseline deltas
-- [ ] QA: Raise Psalm level/config; keep threads; stabilize baseline  ⟵ **WIP (EvidenceController only)**
+- [ ] QA: Raise Psalm level/config; keep threads; stabilize baseline  ⟵ **WIP**
 - [x] Config: Implement early boot merge of `/opt/phpgrc/shared/config.php` (prod overlay) with `.env` ignored in prod
 - [x] Config: Document overlay keys; add redacted “effective-config fingerprint” endpoint; ensure `config:cache` includes overlay
 - [x] UX: Replace RBAC role text inputs with dropdown sourced from `/api/rbac/roles`
@@ -120,14 +120,17 @@
 - [x] Web: ESLint clean without suppressions (removed unused import in `Settings.tsx`)
 - [x] Web: Add Admin → User Roles screen with dropdown attach/detach; unit test with mocked fetch
 
-### Immediate Next Steps — merged and prioritized
-1. **PHPUnit Failures (focus)**
-   - Run `composer test` with `--testdox --coverage-clover coverage.xml`.
-   - Capture `api/junit.xml` and top failing tests with file:line and messages.
-   - Verify `.env.testing` DB, migrations, factories, seeders, and timezones.
-   - Fix failures (transactional tests, factories, assertions), rerun until green.
-2. **Static Analysis cleanup**
-   - Finish `EvidenceController` typing if any issues remain.
-3. **QA**
-   - Raise Psalm level/config after tests are green; freeze baseline.
+### Newly completed this session
+- [x] Settings: `/api/admin/settings` returns full `config.core.*` including `rbac.roles`.
+- [x] Tests: Evidence tests updated for unrestricted MIME/size; expect 201 instead of 422.
+- [x] Tests: Settings persistence rows store JSON literals; service decodes booleans/ints.
+- [x] CI: Setup checks stabilized with writable `CORE_SETUP_SHARED_CONFIG_PATH`; artifacts standardized (`coverage.xml`, `junit.xml`).
+- [x] Migrations: Evidence table consolidated with `updated_at` and `(created_at,id)` index; LONGBLOB on MySQL.
 
+### Immediate Next Steps — merged and prioritized
+1. **Static Analysis cleanup**
+   - Raise Psalm level/config; add missing model property annotations; normalize array-shapes for `AuditLogger::log`.
+2. **RBAC UI**
+   - Begin role management UI scaffold and tests per Phase-4 spec.
+3. **QA**
+   - Verify deterministic factories and timestamps; keep baseline at zero regressions.
