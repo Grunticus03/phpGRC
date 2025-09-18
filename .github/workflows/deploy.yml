@@ -1,4 +1,3 @@
-# @phpgrc:/.github/workflows/deploy.yml
 name: Deploy to Server (Manual)
 
 on:
@@ -98,10 +97,19 @@ jobs:
           ssh -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" "$REMENV bash -seuo pipefail" <<'REMOTE'
           umask 027
 
-          # shared dirs/ownership (group www-data so Apache/PHP can write)
+          # shared dirs (group setgid so new files inherit group)
           mkdir -p "$ROOT/shared/storage/app/public" "$ROOT/shared/bootstrap/cache"
+          # ensure directories are 2775; ignore failures on pre-existing dirs we don't own
           find "$ROOT/shared/storage" -type d -exec chmod 2775 {} \; || true
-          chmod -R g+rwX "$ROOT/shared/bootstrap/cache" "$ROOT/shared/storage"
+          find "$ROOT/shared/bootstrap" -type d -exec chmod 2775 {} \; || true
+
+          # Only adjust permissions for entries OWNED by current SSH user.
+          # This avoids chmod errors on files created by www-data (e.g., compiled views).
+          me="$(whoami)"
+          find "$ROOT/shared/storage" -type d -user "$me" -exec chmod g+rwXs {} + || true
+          find "$ROOT/shared/storage" -type f -user "$me" -exec chmod g+rw {} + || true
+          find "$ROOT/shared/bootstrap/cache" -type d -user "$me" -exec chmod g+rwXs {} + || true
+          find "$ROOT/shared/bootstrap/cache" -type f -user "$me" -exec chmod g+rw {} + || true
 
           # write .env once (idempotent)
           if [ ! -f "$ROOT/shared/api.env" ]; then
@@ -135,7 +143,7 @@ jobs:
           SANCTUM_STATEFUL_DOMAINS=$(echo "${APP_URL}" | sed -E 's#https?://##;s#/$##')
           SESSION_DOMAIN=$(echo "${APP_URL}" | sed -E 's#https?://##;s#/$##')
           EOF
-            chmod 640 "$ROOT/shared/api.env"
+            chmod 640 "$ROOT/shared/api.env" || true
           fi
 
           # link shared into release
@@ -170,7 +178,7 @@ jobs:
         run: |
           set -euo pipefail
           RELEASE_DIR="${DEPLOY_PATH}/releases/${TS}"
-          ssh -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" bash -seuo pipefail <<REMOTE
+          ssh -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" bash -seuo pipefail <<'REMOTE'
           cd "$RELEASE_DIR/api"
 
           # Ensure no stale cached config/routes/views from prior releases
@@ -199,7 +207,7 @@ jobs:
           php artisan route:cache
           if [ -d resources/views ]; then php artisan view:cache; fi
 
-          # perms for runtime
+          # perms for runtime inside THIS release only
           chown -R "$(whoami)":www-data bootstrap/cache storage || true
           chmod -R g+rwX bootstrap/cache storage || true
           REMOTE
