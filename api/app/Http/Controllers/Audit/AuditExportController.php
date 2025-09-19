@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Audit;
 
-use App\Http\Responses\CsvStreamResponse;
 use App\Models\AuditEvent;
 use App\Support\Audit\AuditCategories;
 use Illuminate\Database\Eloquent\Builder;
@@ -108,43 +107,47 @@ final class AuditExportController extends Controller
             'Cache-Control'          => 'no-store, max-age=0',
         ];
 
-        $callback = function () use ($q): void {
-            $out = fopen('php://output', 'wb');
-            if ($out === false) {
-                return;
-            }
+        /** @var resource|false $fh */
+        $fh = fopen('php://temp', 'wb');
+        if ($fh === false) {
+            return Resp::make('', 500, $headers);
+        }
 
-            fputcsv($out, [
-                'id','occurred_at','actor_id','action','category',
-                'entity_type','entity_id','ip','ua','meta_json'
+        fputcsv($fh, [
+            'id','occurred_at','actor_id','action','category',
+            'entity_type','entity_id','ip','ua','meta_json'
+        ]);
+
+        /** @var \Illuminate\Database\Eloquent\Collection<int, \App\Models\AuditEvent> $rows */
+        $rows = $q->get();
+
+        foreach ($rows as $row) {
+            /** @var \App\Models\AuditEvent $row */
+            /** @var array<string,mixed>|null $meta */
+            $meta = $row->meta;
+            $json = $meta === null ? '' : json_encode($meta, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+            $metaStr = ($json === false) ? '' : $json;
+
+            fputcsv($fh, [
+                $row->id,
+                $row->occurred_at->toIso8601String(),
+                $row->actor_id,
+                $row->action,
+                $row->category,
+                $row->entity_type,
+                $row->entity_id,
+                $row->ip,
+                $row->ua,
+                $metaStr,
             ]);
+        }
 
-            $q->chunk(1000, function ($rows) use ($out): void {
-                foreach ($rows as $row) {
-                    /** @var \App\Models\AuditEvent $row */
-                    $meta = $row->meta;
-                    $metaStr = $meta === null ? '' : json_encode($meta, JSON_UNESCAPED_SLASHES);
+        rewind($fh);
+        $csvRaw = stream_get_contents($fh);
+        $csv = ($csvRaw === false) ? '' : $csvRaw;
+        fclose($fh);
 
-                    fputcsv($out, [
-                        $row->id,
-                        $row->occurred_at->toIso8601String(),
-                        $row->actor_id,
-                        $row->action,
-                        $row->category,
-                        $row->entity_type,
-                        $row->entity_id,
-                        $row->ip,
-                        $row->ua,
-                        $metaStr,
-                    ]);
-                }
-            });
-
-            fflush($out);
-            fclose($out);
-        };
-
-        return new CsvStreamResponse($callback, 200, $headers);
+        return Resp::make($csv, 200, $headers);
     }
 }
 
