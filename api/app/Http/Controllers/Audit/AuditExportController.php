@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Audit;
 
+use App\Http\Responses\CsvResponse;
 use App\Models\AuditEvent;
 use App\Support\Audit\AuditCategories;
 use Illuminate\Database\Eloquent\Builder;
@@ -110,7 +111,7 @@ final class AuditExportController extends Controller
         /** @var resource|false $fh */
         $fh = fopen('php://temp', 'wb');
         if ($fh === false) {
-            return Resp::make('', 500, $headers);
+            return new CsvResponse('', 500, $headers);
         }
 
         fputcsv($fh, [
@@ -118,11 +119,10 @@ final class AuditExportController extends Controller
             'entity_type','entity_id','ip','ua','meta_json'
         ]);
 
-        /** @var \Illuminate\Database\Eloquent\Collection<int, \App\Models\AuditEvent> $rows */
+        /** @var \Illuminate\Database\Eloquent\Collection<int,\App\Models\AuditEvent> $rows */
         $rows = $q->get();
 
         foreach ($rows as $row) {
-            /** @var \App\Models\AuditEvent $row */
             /** @var array<string,mixed>|null $meta */
             $meta = $row->meta;
             $json = $meta === null ? '' : json_encode($meta, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
@@ -147,7 +147,7 @@ final class AuditExportController extends Controller
         $csv = ($csvRaw === false) ? '' : $csvRaw;
         fclose($fh);
 
-        return Resp::make($csv, 200, $headers);
+        return new CsvResponse($csv, 200, $headers);
     }
 }
 

@@ -5,19 +5,22 @@ declare(strict_types=1);
 namespace App\Http\Responses;
 
 use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\HttpFoundation\StreamedResponse;
+use Symfony\Component\HttpFoundation\Response;
 
 /**
- * @psalm-suppress PropertyNotSetInConstructor
+ * Response that preserves "Content-Type: text/csv" without an auto-appended charset.
  */
-final class CsvStreamResponse extends StreamedResponse
+final class CsvResponse extends Response
 {
     #[\Override]
     public function prepare(Request $request): static
     {
-        parent::prepare($request);
-        // Force exact MIME without charset.
-        $this->headers->set('Content-Type', 'text/csv', true);
+        // Ensure exact header; prevent charset injection.
+        $this->headers->set('Content-Type', 'text/csv');
+        // Suppress charset handling inside parent::prepare by clearing charset.
+        /** @psalm-suppress InaccessibleProperty */
+        $this->charset = null;
+
         return $this;
     }
 }
