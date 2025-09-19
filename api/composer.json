@@ -12,6 +12,7 @@
   },
   "require-dev": {
     "enlightn/enlightn": "^2.10",
+    "fakerphp/faker": "^1.23",
     "larastan/larastan": "^2.11",
     "laravel/pint": "^1.17",
     "mockery/mockery": "^1.6",
