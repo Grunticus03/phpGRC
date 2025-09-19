@@ -7,6 +7,7 @@
 - **Version:** OpenAPI info.version 0.4.6
 - **Goal:** Lock contracts, payloads, config keys, and persistence behaviors for Settings, RBAC, Audit, Evidence, Exports, Avatars.
 - **Constraints:** CI guardrails intact; deterministic outputs; stub-path preserved when persistence disabled via config.
+- **Static analysis:** PHPStan level 9 enforced in CI.
 
 ---
 
@@ -112,6 +113,7 @@ Setup: SETUP_ALREADY_COMPLETED, SETUP_STEP_DISABLED, DB_CONFIG_INVALID, DB_WRITE
     ~~~json
     { "ok": true, "roles": ["Admin","Auditor","Risk Manager","User"] }
     ~~~
+
 
 - `POST /api/rbac/roles`
   - Request:
@@ -329,12 +331,14 @@ Setup: SETUP_ALREADY_COMPLETED, SETUP_STEP_DISABLED, DB_CONFIG_INVALID, DB_WRITE
       { "ok": false, "code": "EXPORT_TYPE_UNSUPPORTED" }
       ~~~
 
+
 - Status:
   - `GET /api/exports/{jobId}/status`
   - Response:
     ~~~json
     { "ok": true, "status": "queued|running|done|failed" }
     ~~~
+
 
 - Download:
   - `GET /api/exports/{jobId}/download`

@@ -57,6 +57,7 @@
 - [x] CSV large-dataset smoke for SQLite
 - [x] Ops docs: retention runbook + audit config notes
 - [x] OpenAPI 0.4.6 validated and served
+- [x] Static analysis: PHPStan level 9 enforced in CI
 
 ---
 
@@ -92,4 +93,5 @@
 - ✅ Audit & Evidence persistence complete; CSV export streaming with bounded memory.
 - ✅ Exports model and generation complete.
 - ✅ CI lint (Redocly) and breaking-change gate (openapi-diff).
+- ✅ Static analysis: PHPStan level 9 enforced in CI.
 - ⏳ Fine-grained RBAC policies move to Phase 5.
