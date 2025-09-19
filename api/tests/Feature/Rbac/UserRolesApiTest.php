@@ -77,7 +77,11 @@ final class UserRolesApiTest extends TestCase
 
         $this->actingAs($admin, 'sanctum');
 
-        $res = $this->postJson("/api/rbac/users/{$u->id}/roles/  auDItor  ");
+        // Use URL-encoded spaces so Symfony accepts the URI.
+        $rawRole = '  auDItor  ';
+        $seg     = rawurlencode($rawRole);
+
+        $res = $this->postJson("/api/rbac/users/{$u->id}/roles/{$seg}");
         $res->assertStatus(200)
             ->assertJson(['ok' => true])
             ->assertSeeText('Auditor');
@@ -94,6 +98,7 @@ final class UserRolesApiTest extends TestCase
         $this->assertIsArray($meta);
         $this->assertSame('Auditor', $meta['role'] ?? null);
 
+        // Idempotent: second attach does not create another canonical audit event.
         $res2 = $this->postJson("/api/rbac/users/{$u->id}/roles/Auditor");
         $res2->assertStatus(200);
         $this->assertSame(1, AuditEvent::query()
@@ -124,6 +129,7 @@ final class UserRolesApiTest extends TestCase
 
         $this->assertSame(1, $canon);
 
+        // Detaching again is a no-op and does not add another audit.
         $res2 = $this->deleteJson("/api/rbac/users/{$u->id}/roles/Auditor");
         $res2->assertStatus(200);
         $this->assertSame(1, AuditEvent::query()
@@ -225,7 +231,10 @@ final class UserRolesApiTest extends TestCase
 
     public function test_require_auth_true_returns_401_when_unauthenticated(): void
     {
-        // Flip config, then reboot app so route stack picks up auth:sanctum.
+        // Ensure SQLite even after app refresh.
+        putenv('DB_CONNECTION=sqlite');
+        putenv('DB_DATABASE=:memory:');
+
         config([
             'core.rbac.require_auth' => true,
             'core.rbac.enabled'      => true,
@@ -234,9 +243,14 @@ final class UserRolesApiTest extends TestCase
             'core.audit.enabled'     => true,
         ]);
 
+        // Reboot app to rebuild route stack with auth:sanctum.
         $this->refreshApplication();
 
-        // Re-run migrations and seed after reboot.
+        // Force DB to sqlite on the new container.
+        $this->app['config']->set('database.default', 'sqlite');
+        $this->app['config']->set('database.connections.sqlite.database', ':memory:');
+
+        // Fresh schema + seed in the rebooted app.
         $this->artisan('migrate', ['--force' => true]);
         $this->seed(TestRbacSeeder::class);
 
