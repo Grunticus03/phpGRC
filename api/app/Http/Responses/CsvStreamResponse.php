@@ -28,10 +28,11 @@ final class CsvStreamResponse extends StreamedResponse
     #[\Override]
     public function prepare(Request $request): static
     {
+        // Force exact header and skip parent prepare to avoid charset suffix.
         $this->headers->set('Content-Type', 'text/csv');
         /** @psalm-suppress InaccessibleProperty */
-        $this->charset = null;
-        return parent::prepare($request);
+        $this->charset = '';
+        return $this;
     }
 
     #[\Override]
