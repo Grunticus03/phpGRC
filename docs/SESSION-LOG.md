@@ -968,3 +968,20 @@ SESSION-LOG.md entry
 - Phase/Step status: advance
 - Next action (you): Provide `/docs/api/openapi.yaml` so I update 422 `ROLE_NOT_FOUND` schema and RBAC endpoints/examples to match behavior.
 - Next action (me): Update OpenAPI and docs once provided; run static analyzers and keep CI green.
+
+---
+
+### Session 2025-09-19: Phase 4, Audit API hardening
+- Context: Audit list and CSV export failing on bulk insert meta casting and Content-Type; CI otherwise green.
+- Goal: Normalize `meta` on bulk inserts, enforce exact `text/csv`, make tests green without loosening contracts.
+- Constraints: Follow Charter/Playbook; full files only; no scope creep beyond Audit list/export.
+
+### Closeout
+- Deliverables produced:
+  - `/api/app/Database/AuditEventBuilder.php` (custom Eloquent builder; JSON-encodes `meta` for insert/insertOrIgnore/insertGetId`)
+  - `/api/app/Models/AuditEvent.php` (`newEloquentBuilder()` override with #[Override]; generics-safe phpdoc)
+  - `/api/app/Http/Responses/CsvStreamResponse.php` (streamed response, exact `Content-Type: text/csv`, test-friendly `getContent()`)
+  - `/api/app/Http/Controllers/Audit/AuditExportController.php` (streamed CSV using `CsvStreamResponse`; headers fixed; validation/gating intact)
+- Phase/Step status: advance
+- Next action (you): run full CI including MySQL job; tag v0.4.6 notes for Audit fixes; confirm OpenAPI 0.4.6 examples for `/audit` and `/audit/export.csv`.
+- Next action (me): prepare retention purge tests and small OpenAPI tweaks; propose minimal controller refactors if tests expose shape gaps.

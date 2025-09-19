@@ -87,7 +87,7 @@
 
 ---
 
-// Phase 4 – Task Breakdown (updated)
+//// Phase 4 – Task Breakdown (updated)
 ## Session/Quality Gates
 - [x] Psalm/PHPStan/Pint clean
 - [x] PHPUnit green in CI
@@ -135,14 +135,14 @@
 - [x] Manual deployment verified to dev
 
 ### Newly completed this session
-- [x] Roles.tsx page and create-role flow
-- [x] UserRoles.tsx with attach/detach/replace and status/a11y
-- [x] Vitest suites for Roles and UserRoles
-- [x] rbac.ts helpers for list/create/get/attach/detach/replace
-- [x] OpenAPI tightened for audit non-empty fields
-- [x] Deploy workflow fixes (perms + env), manual deploy green
+- [x] Audit: Custom builder `AuditEventBuilder` to JSON-encode `meta` on bulk inserts
+- [x] Audit: Model wired to custom builder with #[Override]; static analysis clean
+- [x] Audit: Streamed CSV export via `CsvStreamResponse` with exact `text/csv`
+- [x] Audit: Export controller uses streamed response; headers fixed; chunking acceptable via `get()`
+- [x] Tests: `AuditApiTest` filters green; `AuditCsvExportTest` headers/body assertions green
 
 ### Immediate Next Steps — merged and prioritized
-1. **Backend tests**: Feature tests for RBAC attach/detach/replace with audit assertions; seeders/factories; unknown-role and normalization paths.
-2. **Docs/OpenAPI**: Ensure RBAC examples reflect case-insensitive name normalization and `ROLE_NOT_FOUND.missing_roles`.
-3. **Services sweep**: Quick pass for lingering mixed/shape issues and narrow generics on collections.
+1. **Audit retention**: tests for purge job and scheduler (UTC 03:10 default), honoring `core.audit.retention_days`.
+2. **OpenAPI**: confirm examples for `/audit` and `/audit/export.csv` match emitted shapes, including header note for `text/csv`.
+3. **Perf**: switch CSV iteration to `$q->cursor()` with memory cap test; ensure identical output.
+4. **Docs**: add developer note on `Builder::insert` bypassing casts and rationale for custom builder.
