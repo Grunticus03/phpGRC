@@ -1030,3 +1030,19 @@ SESSION-LOG.md entry
 - Phase/Step status: Phase 4 frozen; CI green.
 - Next action (you): Provide `/api/phpstan.neon(.dist)`, `/api/phpstan-baseline.neon` (if present), `/api/composer.json`, and CI workflow running PHPStan; optionally run `composer phpstan -- --level=9 --error-format=raw` and paste output.
 - Next action (me): Raise PHPStan to Level 9 with zero regressions; update config/baseline/workflow; fix violations; keep CI green; then advise on tagging v0.4.6.
+
+---
+
+### Session 2025-09-19: [Phase 4, Docs Freeze + Static Analysis Cleanup]
+- Context: Locked Phase-4 contracts; resolved Psalm/PHPStan findings; ensured CI green; refreshed Phase-4 SPEC and ROADMAP.
+- Goal: Finalize Phase-4 deliverables (docs + code quality) without breaking contracts.
+- Constraints: No breaking API changes; guardrails on (PHPStan lvl 9, Psalm clean); deterministic outputs; stub paths preserved.
+
+### Closeout
+- Deliverables produced: 
+  - Updated docs: `docs/phase-4/PHASE-4-SPEC.md`, `docs/ROADMAP.md`
+  - Static analysis fixes across controllers/services (typed config reads, safe casts, defensive checks)
+  - CI status: ✅ green (Psalm/PHPStan clean)
+- Phase/Step status: advance (Phase-4 frozen; ready to roll into Phase-5 items)
+- Next action (you): Prep Phase-5 scaffolds (PolicyMap overrides exposure, evaluator hardening plan, dashboard/report shortlist, OpenAPI diff gate review).
+- Next action (me): Provide any Phase-5 policy keys & role mappings to seed, initial dashboard KPIs, and UX notes for role-management hardening.
