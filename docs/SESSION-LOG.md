@@ -1017,3 +1017,16 @@ SESSION-LOG.md entry
 - Phase/Step status: Phase 4 frozen.
 - Next action (you): Apply freeze markers to PHASE-4-SPEC.md and ROADMAP.md; append this entry to SESSION-LOG.md.
 - Next action (me): Provide those three files so you can write full-file updates; confirm if tag v0.4.6 should be cut now.
+
+---
+
+### Session 2025-09-19: Phase 4 — Freeze, tests, docs
+- Context: Stub-path audit test, CSV streaming smoke, ops docs, OpenAPI 0.4.6 validation; Phase 4 frozen and merged to main.
+- Goal: Close session; queue PHPStan Level 9 ratchet for next.
+- Constraints: CI green; full-file outputs; no schema mutation in tests.
+
+### Closeout
+- Deliverables produced: AuditStubPathTest; AuditCsvExportSmokeTest; OpenApiContractSmokeTest; AUDIT-RETENTION-RUNBOOK.md; AUDIT-CONFIG-NOTES.md; PHASE-4-SPEC.md (frozen); ROADMAP.md (Phase 4 complete); phase-4 task breakdown updated.
+- Phase/Step status: Phase 4 frozen; CI green.
+- Next action (you): Provide `/api/phpstan.neon(.dist)`, `/api/phpstan-baseline.neon` (if present), `/api/composer.json`, and CI workflow running PHPStan; optionally run `composer phpstan -- --level=9 --error-format=raw` and paste output.
+- Next action (me): Raise PHPStan to Level 9 with zero regressions; update config/baseline/workflow; fix violations; keep CI green; then advise on tagging v0.4.6.
