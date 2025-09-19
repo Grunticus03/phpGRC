@@ -44,20 +44,25 @@ final class ModuleManager
      */
     public function load(array $manifest): void
     {
-        $name = (string)($manifest['name'] ?? '');
+        /** @var mixed $nameRaw */
+        $nameRaw = $manifest['name'] ?? null;
+        $name = is_string($nameRaw) ? $nameRaw : '';
         if ($name === '') {
             // Stub: silently ignore invalid; real code will throw.
             return;
         }
-        $this->manifests[$name] = $manifest;
-        $this->enabled[$name]   = (bool)($manifest['enabled'] ?? true);
 
-        // Register declared capabilities in the central registry.
-        /** @var array<mixed>|null $caps */
-        $caps = $manifest['capabilities'] ?? null;
-        if (is_array($caps)) {
+        $this->manifests[$name] = $manifest;
+
+        /** @var mixed $enabledRaw */
+        $enabledRaw = $manifest['enabled'] ?? true;
+        $this->enabled[$name] = filter_var($enabledRaw, FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) ?? true;
+
+        /** @var mixed $capsRaw */
+        $capsRaw = $manifest['capabilities'] ?? null;
+        if (is_array($capsRaw)) {
             /** @var list<string> $capList */
-            $capList = array_values(array_filter($caps, 'is_string'));
+            $capList = array_values(array_filter($capsRaw, 'is_string'));
             $this->capabilities->register($name, $capList);
         }
     }
@@ -69,17 +74,21 @@ final class ModuleManager
      */
     public function manifest(string $name): ?array
     {
-        return $this->manifests[$name] ?? null;
+        /** @var array<string,mixed>|null $m */
+        $m = $this->manifests[$name] ?? null;
+        return $m;
     }
 
     /**
      * List known module names.
      *
-     * @return string[]
+     * @return list<string>
      */
     public function list(): array
     {
-        return array_keys($this->manifests);
+        /** @var list<string> $names */
+        $names = array_keys($this->manifests);
+        return $names;
     }
 
     /**
@@ -107,10 +116,20 @@ final class ModuleManager
      */
     public function attach(ModuleInterface $module): void
     {
+        /** @var array<string,mixed> $man */
+        $man = $module->manifest();
+
+        /** @var mixed $versionRaw */
+        $versionRaw = $man['version'] ?? null;
+        $version = is_string($versionRaw) && $versionRaw !== '' ? $versionRaw : '0.0.0';
+
+        /** @var list<string> $caps */
+        $caps = $module->capabilities();
+
         $this->load([
             'name'         => $module->name(),
-            'version'      => $module->manifest()['version'] ?? '0.0.0',
-            'capabilities' => $module->capabilities(),
+            'version'      => $version,
+            'capabilities' => $caps,
             'enabled'      => $module->isEnabled(),
         ]);
     }

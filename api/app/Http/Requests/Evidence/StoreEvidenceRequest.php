@@ -21,7 +21,7 @@ final class StoreEvidenceRequest extends FormRequest
 
         /** @var mixed $maxMbRaw */
         $maxMbRaw = data_get(config('core'), 'evidence.max_mb', 10);
-        $maxMb = is_int($maxMbRaw) ? $maxMbRaw : (int) $maxMbRaw;
+        $maxMb = is_int($maxMbRaw) ? $maxMbRaw : (is_string($maxMbRaw) && ctype_digit($maxMbRaw) ? (int) $maxMbRaw : 10);
         /** @var int $maxKb */
         $maxKb = max(1, $maxMb) * 1024;
 

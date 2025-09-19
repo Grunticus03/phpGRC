@@ -17,10 +17,19 @@ final class UserRolesController extends Controller
 {
     private function rbacActive(): bool
     {
-        return (bool) config('core.rbac.enabled', false)
-            && ((string) config('core.rbac.mode', 'stub') === 'persist'
-                || (bool) config('core.rbac.persistence', false)
-                || (string) config('core.rbac.mode', 'stub') === 'db');
+        /** @var mixed $enabledRaw */
+        $enabledRaw = config('core.rbac.enabled');
+        $enabled = filter_var($enabledRaw, FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) ?? false;
+
+        /** @var mixed $modeRaw */
+        $modeRaw = config('core.rbac.mode');
+        $mode = is_string($modeRaw) ? $modeRaw : 'stub';
+
+        /** @var mixed $persistRaw */
+        $persistRaw = config('core.rbac.persistence');
+        $persist = filter_var($persistRaw, FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) ?? false;
+
+        return $enabled && ($mode === 'persist' || $persist === true || $mode === 'db');
     }
 
     private function auditEnabled(): bool
@@ -328,7 +337,6 @@ final class UserRolesController extends Controller
     }
 
     /**
-     * Ensure non-empty string for static analysis.
      * @return non-empty-string
      */
     private function nes(string $s): string
@@ -339,3 +347,4 @@ final class UserRolesController extends Controller
         return $s;
     }
 }
+

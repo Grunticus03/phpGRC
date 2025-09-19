@@ -18,8 +18,16 @@ final class StoreAvatarRequest extends FormRequest
     /** @return array<string,mixed> */
     public function rules(): array
     {
-        $format = strtolower((string) config('core.avatars.format', 'webp'));
-        $maxKb  = (int) config('core.avatars.max_kb', 1024);
+        /** @var mixed $formatRaw */
+        $formatRaw = config('core.avatars.format');
+        $format = is_string($formatRaw) && $formatRaw !== '' ? strtolower($formatRaw) : 'webp';
+
+        /** @var mixed $maxKbRaw */
+        $maxKbRaw = config('core.avatars.max_kb');
+        $maxKb = is_int($maxKbRaw) ? $maxKbRaw : (is_numeric($maxKbRaw) ? (int) $maxKbRaw : 1024);
+        if ($maxKb < 1) {
+            $maxKb = 1;
+        }
 
         return [
             'file' => [
@@ -35,7 +43,9 @@ final class StoreAvatarRequest extends FormRequest
     #[\Override]
     public function messages(): array
     {
-        $format = strtolower((string) config('core.avatars.format', 'webp'));
+        /** @var mixed $formatRaw */
+        $formatRaw = config('core.avatars.format');
+        $format = is_string($formatRaw) && $formatRaw !== '' ? strtolower($formatRaw) : 'webp';
 
         return [
             'file.required' => 'Avatar file is required.',

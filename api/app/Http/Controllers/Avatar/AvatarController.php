@@ -24,7 +24,8 @@ final class AvatarController extends Controller
      */
     public function store(StoreAvatarRequest $request): JsonResponse
     {
-        if (!(bool) config('core.avatars.enabled', true)) {
+        $enabled = self::boolFrom(config('core.avatars.enabled'), true);
+        if (!$enabled) {
             return response()->json([
                 'ok'   => false,
                 'code' => 'AVATAR_NOT_ENABLED',
@@ -50,30 +51,35 @@ final class AvatarController extends Controller
             ], 422);
         }
 
-        // Determine target user id: prefer explicit "user_id", else auth user, else 0.
-        /** @var mixed $userIdParam */
-        $userIdParam = $request->input('user_id');
-        $userId = is_numeric($userIdParam) ? (int) $userIdParam : $this->authUserId();
+        /** @var mixed $userIdParamRaw */
+        $userIdParamRaw = $request->input('user_id');
+        $userId = is_int($userIdParamRaw)
+            ? $userIdParamRaw
+            : ((is_string($userIdParamRaw) && ctype_digit($userIdParamRaw)) ? (int) $userIdParamRaw : $this->authUserId());
 
-        // Queue background transcode + variant generation (32/64/<size_px>).
+        $sizePx = self::intFrom(config('core.avatars.size_px'), 128);
+        $format = strtolower(self::stringFrom(config('core.avatars.format'), 'webp'));
+
         try {
             TranscodeAvatar::dispatch(
                 $userId,
                 $file->getPathname(),
-                (int) config('core.avatars.size_px', 128)
+                $sizePx
             );
             $queued = true;
         } catch (\Throwable) {
             $queued = false;
         }
 
+        $mimeOut = $file->getClientMimeType();
+
         return response()->json([
-            'ok'    => false,
-            'note'  => 'stub-only',
-            'queued'=> $queued,
-            'file'  => [
+            'ok'     => false,
+            'note'   => 'stub-only',
+            'queued' => $queued,
+            'file'   => [
                 'original_name' => $file->getClientOriginalName(),
-                'mime'          => $file->getClientMimeType(),
+                'mime'          => $mimeOut,
                 'size_bytes'    => $file->getSize(),
                 'width'         => $w,
                 'height'        => $h,
@@ -81,8 +87,8 @@ final class AvatarController extends Controller
             ],
             'target' => [
                 'user_id' => $userId,
-                'sizes'   => [32, 64, (int) config('core.avatars.size_px', 128)],
-                'format'  => (string) config('core.avatars.format', 'webp'),
+                'sizes'   => [32, 64, $sizePx],
+                'format'  => $format,
             ],
         ], 202);
     }
@@ -93,18 +99,20 @@ final class AvatarController extends Controller
      */
     public function show(Request $request, int $user): Response
     {
-        if (!(bool) config('core.avatars.enabled', true)) {
+        $enabled = self::boolFrom(config('core.avatars.enabled'), true);
+        if (!$enabled) {
             return response()->json([
                 'ok'   => false,
                 'code' => 'AVATAR_NOT_ENABLED',
             ], 400);
         }
 
-        $allowed = [32, 64, (int) config('core.avatars.size_px', 128)];
+        $sizePx  = self::intFrom(config('core.avatars.size_px'), 128);
+        $allowed = [32, 64, $sizePx];
         sort($allowed);
 
         $sizeParam = $request->query('size');
-        $size = is_numeric($sizeParam) ? (int) $sizeParam : max($allowed);
+        $size = (is_scalar($sizeParam) && is_numeric($sizeParam)) ? (int) $sizeParam : max($allowed);
         if (!in_array($size, $allowed, true)) {
             $size = max($allowed);
         }
@@ -114,10 +122,10 @@ final class AvatarController extends Controller
 
         if (!$disk->exists($rel)) {
             return response()->json([
-                'ok'    => false,
-                'code'  => 'AVATAR_NOT_FOUND',
-                'user'  => $user,
-                'size'  => $size,
+                'ok'   => false,
+                'code' => 'AVATAR_NOT_FOUND',
+                'user' => $user,
+                'size' => $size,
             ], 404);
         }
 
@@ -134,13 +142,60 @@ final class AvatarController extends Controller
         /** @var Authenticatable|null $u */
         $u = Auth::user();
         if ($u && method_exists($u, 'getAuthIdentifier')) {
-            /** @var mixed $id */
-            $id = $u->getAuthIdentifier();
-            if (is_numeric($id)) {
-                return (int) $id;
+            /** @var mixed $rawId */
+            $rawId = $u->getAuthIdentifier();
+            if (is_int($rawId)) {
+                return $rawId;
+            }
+            if (is_string($rawId) && ctype_digit($rawId)) {
+                return (int) $rawId;
             }
         }
         return 0;
+    }
+
+    private static function boolFrom(mixed $value, bool $default = false): bool
+    {
+        if (is_bool($value)) {
+            return $value;
+        }
+        if (is_int($value)) {
+            return $value !== 0;
+        }
+        if (is_string($value)) {
+            $v = filter_var($value, FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE);
+            return $v ?? $default;
+        }
+        return $default;
+    }
+
+    private static function intFrom(mixed $value, int $default = 0): int
+    {
+        if (is_int($value)) {
+            return $value;
+        }
+        if (is_string($value)) {
+            $t = trim($value);
+            if ($t !== '' && preg_match('/^-?\d+$/', $t) === 1) {
+                return (int) $t;
+            }
+        }
+        if (is_float($value)) {
+            return (int) $value;
+        }
+        return $default;
+    }
+
+    private static function stringFrom(mixed $value, string $default = ''): string
+    {
+        if (is_string($value) && $value !== '') {
+            return $value;
+        }
+        if (is_scalar($value)) {
+            $s = (string) $value;
+            return $s !== '' ? $s : $default;
+        }
+        return $default;
     }
 }
 

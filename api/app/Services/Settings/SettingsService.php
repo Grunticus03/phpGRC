@@ -248,20 +248,19 @@ final class SettingsService
             /** @var mixed $keyAttrRaw */
             $keyAttrRaw = $row->getAttribute('key');
             if (!is_string($keyAttrRaw)) {
-                // Skip invalid rows defensively
                 continue;
             }
-            /** @var string $keyAttr */
             $keyAttr = $keyAttrRaw;
 
             /** @var mixed $valueRaw */
             $valueRaw = $row->getAttribute('value');
-
-            /** @var string $valAttr */
-            $valAttr = is_string($valueRaw) ? $valueRaw : (string) $valueRaw;
+            if (!is_string($valueRaw)) {
+                // Skip invalid non-string payloads defensively.
+                continue;
+            }
 
             /** @var mixed $decoded */
-            $decoded = json_decode($valAttr, true);
+            $decoded = json_decode($valueRaw, true);
 
             /** @psalm-suppress MixedAssignment */
             $out[$keyAttr] = $decoded;

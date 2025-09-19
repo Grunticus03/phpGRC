@@ -21,10 +21,16 @@ final class SetupStatusController extends Controller
             return response()->json(['ok' => false, 'code' => 'SETUP_STEP_DISABLED'], 400);
         }
 
-        $dbConfigPath = (string) Config::get('core.setup.shared_config_path', '/opt/phpgrc/shared/config.php');
+        $defaultPath = '/opt/phpgrc/shared/config.php';
+        /** @var mixed $dbCfgPathRaw */
+        $dbCfgPathRaw = Config::get('core.setup.shared_config_path', $defaultPath);
+        $dbConfigPath = is_string($dbCfgPathRaw) && $dbCfgPathRaw !== '' ? $dbCfgPathRaw : $defaultPath;
         $dbConfigured = is_file($dbConfigPath);
 
-        $appKeyPresent = (string) config('app.key', '') !== '';
+        /** @var mixed $appKeyRaw */
+        $appKeyRaw = config('app.key');
+        $appKey = is_string($appKeyRaw) ? $appKeyRaw : '';
+        $appKeyPresent = $appKey !== '';
 
         $schemaInit = false;
         try {
@@ -73,7 +79,7 @@ final class SetupStatusController extends Controller
      */
     private function determineNextStep(array $checks): ?string
     {
-        // Prereqs graph (CORE-001). If any required step missing, return that step. Otherwise null. :contentReference[oaicite:3]{index=3}
+        // Prereqs graph (CORE-001). If any required step missing, return that step. Otherwise null.
         if (!$checks['db_config'])        return 'db_config';
         if (!$checks['app_key'])          return 'app_key';
         if (!$checks['schema_init'])      return 'schema_init';

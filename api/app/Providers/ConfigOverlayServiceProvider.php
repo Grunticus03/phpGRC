@@ -12,7 +12,10 @@ final class ConfigOverlayServiceProvider extends ServiceProvider
     #[\Override]
     public function register(): void
     {
-        $path = (string) config('core.setup.shared_config_path', '/opt/phpgrc/shared/config.php');
+        $defaultPath = '/opt/phpgrc/shared/config.php';
+        /** @var mixed $pathRaw */
+        $pathRaw = config('core.setup.shared_config_path', $defaultPath);
+        $path = is_string($pathRaw) && $pathRaw !== '' ? $pathRaw : $defaultPath;
 
         /** @var array{loaded:bool, path:null|string, mtime:null|int} $meta */
         $meta = ['loaded' => false, 'path' => null, 'mtime' => null];
@@ -87,18 +90,20 @@ final class ConfigOverlayServiceProvider extends ServiceProvider
         ];
         foreach ($bools as $b) {
             if (Arr::has($core, $b)) {
-                Arr::set(
-                    $core,
-                    $b,
-                    filter_var(Arr::get($core, $b), FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) ?? false
-                );
+                /** @var mixed $cur */
+                $cur = Arr::get($core, $b);
+                $bool = filter_var($cur, FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) ?? false;
+                Arr::set($core, $b, $bool);
             }
         }
 
         $ints = ['audit.retention_days', 'evidence.max_mb', 'avatars.size_px'];
         foreach ($ints as $i) {
             if (Arr::has($core, $i)) {
-                Arr::set($core, $i, (int) Arr::get($core, $i));
+                /** @var mixed $cur */
+                $cur = Arr::get($core, $i);
+                $int = is_int($cur) ? $cur : (is_numeric($cur) ? (int) $cur : 0);
+                Arr::set($core, $i, $int);
             }
         }
 

@@ -20,12 +20,13 @@ final class Kernel extends ConsoleKernel
     #[\Override]
     protected function schedule(Schedule $schedule): void
     {
-        if (!config('core.audit.enabled', true)) {
+        $enabled = self::boolFrom(config('core.audit.enabled'), true);
+        if (!$enabled) {
             return;
         }
 
         // Clamp to [30, 730] days to prevent accidental data loss.
-        $days = (int) config('core.audit.retention_days', 365);
+        $days = self::intFrom(config('core.audit.retention_days'), 365);
         $days = max(30, min(730, $days));
 
         $schedule->command("audit:purge --days={$days} --emit-summary")
@@ -43,8 +44,41 @@ final class Kernel extends ConsoleKernel
 
         $console = base_path('routes/console.php');
         if (is_file($console)) {
+            /** @psalm-suppress UnresolvableInclude */
             require $console;
         }
+    }
+
+    private static function boolFrom(mixed $value, bool $default = false): bool
+    {
+        if (is_bool($value)) {
+            return $value;
+        }
+        if (is_int($value)) {
+            return $value !== 0;
+        }
+        if (is_string($value)) {
+            $v = filter_var($value, FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE);
+            return $v ?? $default;
+        }
+        return $default;
+    }
+
+    private static function intFrom(mixed $value, int $default = 0): int
+    {
+        if (is_int($value)) {
+            return $value;
+        }
+        if (is_string($value)) {
+            $t = trim($value);
+            if ($t !== '' && preg_match('/^-?\d+$/', $t) === 1) {
+                return (int) $t;
+            }
+        }
+        if (is_float($value)) {
+            return (int) $value;
+        }
+        return $default;
     }
 }
 

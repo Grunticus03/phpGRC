@@ -17,8 +17,14 @@ final class RolesController extends Controller
 {
     private function persistenceEnabled(): bool
     {
-        $flag = (bool) config('core.rbac.persistence', false);
-        $mode = (string) config('core.rbac.mode', 'stub');
+        /** @var mixed $flagRaw */
+        $flagRaw = config('core.rbac.persistence');
+        $flag = filter_var($flagRaw, FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) ?? false;
+
+        /** @var mixed $modeRaw */
+        $modeRaw = config('core.rbac.mode');
+        $mode = is_string($modeRaw) ? $modeRaw : 'stub';
+
         return $flag || $mode === 'persist' || $mode === 'db';
     }
 
@@ -94,13 +100,10 @@ final class RolesController extends Controller
             ], 202);
         }
 
-        // Name is validated by the FormRequest; force string to avoid mixed.
         $name = $request->string('name')->toString();
 
-        // Base slug: role_<slug>
         $base = 'role_' . Str::slug($name, '_');
 
-        // If base exists, find the highest suffix and increment.
         if (Role::query()->whereKey($base)->exists()) {
             /** @var list<string> $siblings */
             $siblings = Role::query()
@@ -126,7 +129,6 @@ final class RolesController extends Controller
 
         $role = Role::query()->create(['id' => $id, 'name' => $name]);
 
-        // Audit
         try {
             /** @var AuditLogger $logger */
             $logger  = app(AuditLogger::class);
@@ -146,7 +148,7 @@ final class RolesController extends Controller
                 'meta'        => ['name' => $role->name],
             ]);
         } catch (\Throwable) {
-            // never fail on audit
+            // ignore audit errors
         }
 
         return response()->json([
@@ -156,7 +158,6 @@ final class RolesController extends Controller
     }
 
     /**
-     * Ensure non-empty string for static analysis.
      * @return non-empty-string
      */
     private function nes(string $s): string
@@ -167,3 +168,4 @@ final class RolesController extends Controller
         return $s;
     }
 }
+

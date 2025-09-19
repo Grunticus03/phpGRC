@@ -91,7 +91,7 @@ final class AuditController extends Controller
             $limit = 2;
         }
 
-        $retentionDays = (int) Config::get('core.audit.retention_days', 365);
+        $retentionDays = self::intFrom(Config::get('core.audit.retention_days'), 365);
 
         /** @var Builder<AuditEvent> $q */
         $q = AuditEvent::query();
@@ -335,6 +335,23 @@ final class AuditController extends Controller
             $s .= $alphabet[random_int(0, 31)];
         }
         return $s;
+    }
+
+    private static function intFrom(mixed $value, int $default = 0): int
+    {
+        if (is_int($value)) {
+            return $value;
+        }
+        if (is_string($value)) {
+            $t = trim($value);
+            if ($t !== '' && preg_match('/^-?\d+$/', $t) === 1) {
+                return (int) $t;
+            }
+        }
+        if (is_float($value)) {
+            return (int) $value;
+        }
+        return $default;
     }
 }
 

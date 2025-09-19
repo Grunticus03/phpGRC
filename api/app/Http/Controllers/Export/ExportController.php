@@ -9,7 +9,7 @@ use App\Services\Export\ExportService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
-use Illuminate\Support\Facades\Response;
+use Illuminate\Support\Facades\Response as Resp;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\Response as HttpResponse;
@@ -26,7 +26,9 @@ final class ExportController extends Controller
     /** POST /api/exports */
     public function create(Request $request): JsonResponse
     {
-        $type = (string) $request->input('type', '');
+        /** @var mixed $typeIn */
+        $typeIn = $request->input('type');
+        $type   = is_string($typeIn) ? $typeIn : '';
         if (!in_array($type, ['csv', 'json', 'pdf'], true)) {
             return response()->json([
                 'ok'   => false,
@@ -138,9 +140,17 @@ final class ExportController extends Controller
             ], 404);
         }
 
+        /** @var mixed $cfgDiskRaw */
+        $cfgDiskRaw = config('core.exports.disk');
+        $cfgDisk    = is_string($cfgDiskRaw) && $cfgDiskRaw !== '' ? $cfgDiskRaw : null;
+
+        /** @var mixed $fsDefaultRaw */
+        $fsDefaultRaw = config('filesystems.default', 'local');
+        $fsDefault    = is_string($fsDefaultRaw) && $fsDefaultRaw !== '' ? $fsDefaultRaw : 'local';
+
         $disk = (is_string($export->artifact_disk) && $export->artifact_disk !== '')
             ? $export->artifact_disk
-            : (string) config('filesystems.default', 'local');
+            : ($cfgDisk ?? $fsDefault);
 
         if (!Storage::disk($disk)->exists($export->artifact_path)) {
             return response()->json([
@@ -166,7 +176,7 @@ final class ExportController extends Controller
             'X-Content-Type-Options' => 'nosniff',
         ];
 
-        return Response::download(
+        return Resp::download(
             Storage::disk($disk)->path($export->artifact_path),
             $filename,
             $headers

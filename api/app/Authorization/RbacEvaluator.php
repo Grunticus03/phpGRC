@@ -15,18 +15,53 @@ final class RbacEvaluator
 {
     public static function enabled(): bool
     {
-        return (bool) config('core.rbac.enabled', false);
+        /** @var mixed $raw */
+        $raw = config('core.rbac.enabled');
+        if (is_bool($raw)) {
+            return $raw;
+        }
+        if (is_string($raw)) {
+            $v = filter_var($raw, FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE);
+            return $v ?? false;
+        }
+        if (is_int($raw)) {
+            return $raw !== 0;
+        }
+        return false;
     }
 
     public static function requireAuth(): bool
     {
-        return (bool) config('core.rbac.require_auth', false);
+        /** @var mixed $raw */
+        $raw = config('core.rbac.require_auth');
+        if (is_bool($raw)) {
+            return $raw;
+        }
+        if (is_string($raw)) {
+            $v = filter_var($raw, FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE);
+            return $v ?? false;
+        }
+        if (is_int($raw)) {
+            return $raw !== 0;
+        }
+        return false;
     }
 
     public static function persistenceEnabled(): bool
     {
-        $mode        = (string) config('core.rbac.mode', 'stub');
-        $persistence = (bool) (config('core.rbac.persistence', false) ?? false);
+        /** @var mixed $modeRaw */
+        $modeRaw = config('core.rbac.mode');
+        $mode = is_string($modeRaw) && $modeRaw !== '' ? $modeRaw : 'stub';
+
+        /** @var mixed $persistenceRaw */
+        $persistenceRaw = config('core.rbac.persistence');
+        $persistence = match (true) {
+            is_bool($persistenceRaw)   => $persistenceRaw,
+            is_string($persistenceRaw) => (filter_var($persistenceRaw, FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) ?? false),
+            is_int($persistenceRaw)    => $persistenceRaw !== 0,
+            default                    => false,
+        };
+
         return $mode === 'persist' || $persistence === true;
     }
 
@@ -84,4 +119,3 @@ final class RbacEvaluator
         return $user->hasAnyRole($roles);
     }
 }
-

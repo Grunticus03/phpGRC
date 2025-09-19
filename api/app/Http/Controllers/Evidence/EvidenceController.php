@@ -31,32 +31,39 @@ final class EvidenceController extends Controller
         }
 
         $uploaded = $request->file('file');
-        if (!($uploaded instanceof UploadedFile)) {
+        if (!$uploaded instanceof UploadedFile) {
             return response()->json(['ok' => false, 'code' => 'EVIDENCE_FILE_REQUIRED'], 422);
         }
 
-        $bytesRaw     = $uploaded->get();
-        $bytes        = is_string($bytesRaw) ? $bytesRaw : '';
-        $sha256       = hash('sha256', $bytes);
-        $ownerId      = (int) (Auth::id() ?? 0);
+        /** @var string|false $bytesMaybe */
+        $bytesMaybe = $uploaded->get();
+        if (!is_string($bytesMaybe)) {
+            /** @var string|false $fallback */
+            $fallback = @file_get_contents($uploaded->getPathname());
+            $bytesMaybe = is_string($fallback) ? $fallback : '';
+        }
+        $bytes  = $bytesMaybe;
+        $sha256 = hash('sha256', $bytes);
+
+        $ownerId      = self::toIntOrZero(Auth::id());
         $originalName = $uploaded->getClientOriginalName();
+        $mime         = $uploaded->getClientMimeType(); // Symfony UploadedFile returns string
 
-        /** @var mixed $mimeTmp */
-        $mimeTmp = $uploaded->getClientMimeType();
-        $mime = (is_string($mimeTmp) && $mimeTmp !== '') ? $mimeTmp : 'application/octet-stream';
-
-        $sizeBytes = (int) $uploaded->getSize();
+        /** @var int|null $sizeMaybe */
+        $sizeMaybe = $uploaded->getSize();
+        $sizeBytes = is_int($sizeMaybe) ? $sizeMaybe : 0;
 
         /** @var array{id:string,version:int} $saved */
         $saved = DB::transaction(function () use ($ownerId, $originalName, $mime, $sizeBytes, $sha256, $bytes): array {
-            $currentMax = (int) Evidence::query()
+            /** @var int|string|false|null $maxRaw */
+            $maxRaw = Evidence::query()
                 ->where('owner_id', $ownerId)
                 ->where('filename', $originalName)
                 ->lockForUpdate()
                 ->max('version');
 
-            $version = $currentMax + 1;
-            $id = 'ev_' . (string) Str::ulid();
+            $version = self::intFromDbMax($maxRaw) + 1;
+            $id      = 'ev_' . (string) Str::ulid();
 
             Evidence::query()->create([
                 'id'         => $id,
@@ -74,9 +81,7 @@ final class EvidenceController extends Controller
         });
 
         if (config('core.audit.enabled', true) && Schema::hasTable('audit_events')) {
-            /** @var mixed $authId */
-            $authId  = $request->user()?->getAuthIdentifier();
-            $actorId = is_int($authId) ? $authId : (is_string($authId) && ctype_digit($authId) ? (int) $authId : null);
+            $actorId = self::toIntOrNull($request->user()?->getAuthIdentifier());
 
             /** @var non-empty-string $entityId */
             $entityId = $this->nes($saved['id']);
@@ -123,7 +128,7 @@ final class EvidenceController extends Controller
         $etag = '"' . $ev->sha256 . '"';
 
         // Optional hash verification: ?sha256=<hex>
-        $shaQ = $request->query('sha256', '');
+        $shaQ         = $request->query('sha256', '');
         $providedHash = is_string($shaQ) ? strtolower($shaQ) : '';
         if ($providedHash !== '' && !hash_equals($ev->sha256, $providedHash)) {
             return response()->json([
@@ -135,24 +140,22 @@ final class EvidenceController extends Controller
         }
 
         $inmRaw = $request->headers->get('If-None-Match');
-        $inm = is_string($inmRaw) ? $inmRaw : '';
+        $inm    = is_string($inmRaw) ? $inmRaw : '';
         if ($inm !== '' && $this->etagMatches($etag, $inm)) {
             return response()->noContent(304);
         }
 
         $headers = [
-            'Content-Type'            => $ev->mime,
-            'Content-Length'          => (string) $ev->size_bytes,
-            'ETag'                    => $etag,
-            'Content-Disposition'     => $this->contentDisposition($ev->filename),
-            'X-Content-Type-Options'  => 'nosniff',
-            'X-Checksum-SHA256'       => $ev->sha256,
+            'Content-Type'           => $ev->mime,
+            'Content-Length'         => (string) $ev->size_bytes,
+            'ETag'                   => $etag,
+            'Content-Disposition'    => $this->contentDisposition($ev->filename),
+            'X-Content-Type-Options' => 'nosniff',
+            'X-Checksum-SHA256'      => $ev->sha256,
         ];
 
         if (config('core.audit.enabled', true) && Schema::hasTable('audit_events')) {
-            /** @var mixed $authId */
-            $authId  = $request->user()?->getAuthIdentifier();
-            $actorId = is_int($authId) ? $authId : (is_string($authId) && ctype_digit($authId) ? (int) $authId : null);
+            $actorId = self::toIntOrNull($request->user()?->getAuthIdentifier());
 
             /** @var non-empty-string $entityId */
             $entityId = $this->nes($ev->id);
@@ -179,7 +182,7 @@ final class EvidenceController extends Controller
             return response('', 200, $headers);
         }
 
-        $body = (string) $ev->getAttribute('bytes');
+        $body = is_string($ev->getAttribute('bytes')) ? (string) $ev->getAttribute('bytes') : '';
         return response($body, 200, $headers);
     }
 
@@ -188,24 +191,24 @@ final class EvidenceController extends Controller
         Gate::authorize('core.evidence.manage');
 
         $limitRaw = $request->query('limit');
-        $limit = (is_scalar($limitRaw) && is_numeric($limitRaw)) ? (int) $limitRaw : 20;
-        $limit = $limit < 1 ? 1 : ($limit > 100 ? 100 : $limit);
+        $limit    = (is_scalar($limitRaw) && is_numeric($limitRaw)) ? (int) $limitRaw : 20;
+        $limit    = $limit < 1 ? 1 : ($limit > 100 ? 100 : $limit);
 
         $orderQ = $request->query('order', 'desc');
-        $order = is_string($orderQ) && strtolower($orderQ) === 'asc' ? 'asc' : 'desc';
+        $order  = is_string($orderQ) && strtolower($orderQ) === 'asc' ? 'asc' : 'desc';
 
-        $cursorQ = $request->query('cursor', '');
-        $cursor = is_string($cursorQ) ? $cursorQ : '';
-        $afterTs = null;
-        $afterId = null;
+        $cursorQ  = $request->query('cursor', '');
+        $cursor   = is_string($cursorQ) ? $cursorQ : '';
+        $afterTs  = null;
+        $afterId  = null;
         if ($cursor !== '') {
             $decoded = base64_decode($cursor, true);
             if (is_string($decoded)) {
                 $parts = explode('|', $decoded, 2);
                 if (count($parts) === 2) {
                     [$tsStr, $cid] = $parts;
-                    $afterTs = $tsStr;
-                    $afterId = $cid;
+                    $afterTs       = $tsStr;
+                    $afterId       = $cid;
                 }
             }
         }
@@ -214,20 +217,20 @@ final class EvidenceController extends Controller
         $q = Evidence::query()
             ->select(['id','owner_id','filename','mime','size_bytes','sha256','version','created_at']);
 
-        // Filters
-        $ownerId = $request->query('owner_id');
-        if ($ownerId !== null && is_numeric($ownerId)) {
-            $q->where('owner_id', '=', (int) $ownerId);
+        $ownerIdParam  = $request->query('owner_id');
+        $ownerIdFilter = (is_scalar($ownerIdParam) && is_numeric($ownerIdParam)) ? (int) $ownerIdParam : null;
+        if ($ownerIdFilter !== null) {
+            $q->where('owner_id', '=', $ownerIdFilter);
         }
 
         $filenameQ = $request->query('filename', '');
-        $filename = is_string($filenameQ) ? trim($filenameQ) : '';
+        $filename  = is_string($filenameQ) ? trim($filenameQ) : '';
         if ($filename !== '') {
             $q->where('filename', 'like', '%'.$this->escapeLike($filename).'%');
         }
 
         $mimeQ = $request->query('mime', '');
-        $mime = is_string($mimeQ) ? trim($mimeQ) : '';
+        $mime  = is_string($mimeQ) ? trim($mimeQ) : '';
         if ($mime !== '') {
             if (str_ends_with($mime, '/*')) {
                 $prefix = substr($mime, 0, -2);
@@ -238,34 +241,44 @@ final class EvidenceController extends Controller
         }
 
         $shaExactQ = $request->query('sha256', '');
-        $shaExact = is_string($shaExactQ) ? strtolower(trim($shaExactQ)) : '';
+        $shaExact  = is_string($shaExactQ) ? strtolower(trim($shaExactQ)) : '';
         if ($shaExact !== '') {
             $q->where('sha256', '=', $shaExact);
         }
         $shaPrefixQ = $request->query('sha256_prefix', '');
-        $shaPrefix = is_string($shaPrefixQ) ? strtolower(trim($shaPrefixQ)) : '';
+        $shaPrefix  = is_string($shaPrefixQ) ? strtolower(trim($shaPrefixQ)) : '';
         if ($shaPrefix !== '') {
             $q->where('sha256', 'like', $this->escapeLike($shaPrefix).'%');
         }
 
-        $vFrom = $request->query('version_from');
-        if ($vFrom !== null && is_numeric($vFrom)) {
-            $q->where('version', '>=', (int) $vFrom);
+        $vFromParam = $request->query('version_from');
+        $vFrom      = (is_scalar($vFromParam) && is_numeric($vFromParam)) ? (int) $vFromParam : null;
+        if ($vFrom !== null) {
+            $q->where('version', '>=', $vFrom);
         }
-        $vTo = $request->query('version_to');
-        if ($vTo !== null && is_numeric($vTo)) {
-            $q->where('version', '<=', (int) $vTo);
+        $vToParam = $request->query('version_to');
+        $vTo      = (is_scalar($vToParam) && is_numeric($vToParam)) ? (int) $vToParam : null;
+        if ($vTo !== null) {
+            $q->where('version', '<=', $vTo);
         }
 
         $createdFromQ = $request->query('created_from', '');
-        $createdFrom = is_string($createdFromQ) ? $createdFromQ : '';
+        $createdFrom  = is_string($createdFromQ) ? $createdFromQ : '';
         if ($createdFrom !== '') {
-            try { $dt = Carbon::parse($createdFrom); $q->where('created_at', '>=', $dt); } catch (\Throwable) {}
+            try {
+                $dt = Carbon::parse($createdFrom);
+                $q->where('created_at', '>=', $dt);
+            } catch (\Throwable) {
+            }
         }
         $createdToQ = $request->query('created_to', '');
-        $createdTo = is_string($createdToQ) ? $createdToQ : '';
+        $createdTo  = is_string($createdToQ) ? $createdToQ : '';
         if ($createdTo !== '') {
-            try { $dt = Carbon::parse($createdTo); $q->where('created_at', '<=', $dt); } catch (\Throwable) {}
+            try {
+                $dt = Carbon::parse($createdTo);
+                $q->where('created_at', '<=', $dt);
+            } catch (\Throwable) {
+            }
         }
 
         $q->orderBy('created_at', $order)->orderBy('id', $order);
@@ -303,8 +316,8 @@ final class EvidenceController extends Controller
             /** @var Evidence $last */
             $last = $rows->last();
             /** @var CarbonInterface $createdAt */
-            $createdAt = $last->created_at;
-            $ts = $createdAt->format('Y-m-d H:i:s');
+            $createdAt  = $last->created_at;
+            $ts         = $createdAt->format('Y-m-d H:i:s');
             $nextCursor = base64_encode($ts.'|'.$last->id);
         }
 
@@ -327,20 +340,20 @@ final class EvidenceController extends Controller
         )->values()->all();
 
         return response()->json([
-            'ok'          => true,
-            'filters'     => [
-                'order'          => $order,
-                'limit'          => $limit,
-                'owner_id'       => $ownerId !== null && is_numeric($ownerId) ? (int) $ownerId : null,
-                'filename'       => $filename !== '' ? $filename : null,
-                'mime'           => $mime !== '' ? $mime : null,
-                'sha256'         => $shaExact !== '' ? $shaExact : null,
-                'sha256_prefix'  => $shaPrefix !== '' ? $shaPrefix : null,
-                'version_from'   => $vFrom !== null && is_numeric($vFrom) ? (int) $vFrom : null,
-                'version_to'     => $vTo !== null && is_numeric($vTo) ? (int) $vTo : null,
-                'created_from'   => $createdFrom !== '' ? $createdFrom : null,
-                'created_to'     => $createdTo !== '' ? $createdTo : null,
-                'cursor'         => $cursor !== '' ? $cursor : null,
+            'ok'      => true,
+            'filters' => [
+                'order'         => $order,
+                'limit'         => $limit,
+                'owner_id'      => $ownerIdFilter,
+                'filename'      => $filename !== '' ? $filename : null,
+                'mime'          => $mime !== '' ? $mime : null,
+                'sha256'        => $shaExact !== '' ? $shaExact : null,
+                'sha256_prefix' => $shaPrefix !== '' ? $shaPrefix : null,
+                'version_from'  => $vFrom,
+                'version_to'    => $vTo,
+                'created_from'  => $createdFrom !== '' ? $createdFrom : null,
+                'created_to'    => $createdTo !== '' ? $createdTo : null,
+                'cursor'        => $cursor !== '' ? $cursor : null,
             ],
             'data'        => $data,
             'next_cursor' => $nextCursor,
@@ -361,11 +374,10 @@ final class EvidenceController extends Controller
     private function contentDisposition(string $filename): string
     {
         $fallback = str_replace(['"', '\\'], ['%22', '\\\\'], $filename);
-        $utf8 = rawurlencode($filename);
-        return sprintf('attachment; filename="%s"; filename*=UTF-8\'\'%s', $fallback, $utf8);
+        $utf8     = rawurlencode($filename);
+        $value    = 'attachment; filename="' . $fallback . '"; filename*=UTF-8\'\'' . $utf8;
+        return $value;
     }
-
-
 
     private function escapeLike(string $value): string
     {
@@ -373,7 +385,6 @@ final class EvidenceController extends Controller
     }
 
     /**
-     * Ensure non-empty string for static analysis.
      * @return non-empty-string
      */
     private function nes(string $s): string
@@ -383,4 +394,20 @@ final class EvidenceController extends Controller
         }
         return $s;
     }
+
+    private static function toIntOrNull(mixed $v): ?int
+    {
+        return is_int($v) ? $v : ((is_string($v) && ctype_digit($v)) ? (int) $v : null);
+    }
+
+    private static function toIntOrZero(mixed $v): int
+    {
+        return is_int($v) ? $v : ((is_string($v) && ctype_digit($v)) ? (int) $v : 0);
+    }
+
+    private static function intFromDbMax(mixed $v): int
+    {
+        return is_int($v) ? $v : ((is_string($v) && ctype_digit($v)) ? (int) $v : 0);
+    }
 }
+

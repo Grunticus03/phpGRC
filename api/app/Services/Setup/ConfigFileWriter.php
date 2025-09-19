@@ -25,16 +25,28 @@ final class ConfigFileWriter
 
         $tmp = $dir . '/.' . basename($targetPath) . '.' . bin2hex(random_bytes(6)) . '.tmp';
 
+        $driver = is_string($db['driver'] ?? null) ? strtolower((string) $db['driver']) : 'mysql';
+        $host   = is_string($db['host'] ?? null) ? (string) $db['host'] : '127.0.0.1';
+        $port   = is_int($db['port'] ?? null)
+            ? (int) $db['port']
+            : ((is_string($db['port'] ?? null) && ctype_digit((string) $db['port'])) ? (int) $db['port'] : 3306);
+        $database  = is_string($db['database'] ?? null) ? (string) $db['database'] : 'phpgrc';
+        $username  = is_string($db['username'] ?? null) ? (string) $db['username'] : 'root';
+        $password  = is_string($db['password'] ?? null) ? (string) $db['password'] : '';
+        $charset   = is_string($db['charset'] ?? null) ? strtolower((string) $db['charset']) : 'utf8mb4';
+        $collation = is_string($db['collation'] ?? null) ? strtolower((string) $db['collation']) : 'utf8mb4_unicode_ci';
+        $options   = is_array($db['options'] ?? null) ? (array) $db['options'] : [];
+
         $payload = "<?php\nreturn " . var_export([
-            'driver'   => strtolower((string) $db['driver']),
-            'host'     => (string) $db['host'],
-            'port'     => (int) ($db['port'] ?? 3306),
-            'database' => (string) $db['database'],
-            'username' => (string) $db['username'],
-            'password' => (string) ($db['password'] ?? ''),
-            'charset'  => strtolower((string) ($db['charset'] ?? 'utf8mb4')),
-            'collation'=> strtolower((string) ($db['collation'] ?? 'utf8mb4_unicode_ci')),
-            'options'  => (array)  ($db['options'] ?? []),
+            'driver'   => $driver,
+            'host'     => $host,
+            'port'     => $port,
+            'database' => $database,
+            'username' => $username,
+            'password' => $password,
+            'charset'  => $charset,
+            'collation'=> $collation,
+            'options'  => $options,
         ], true) . ";\n";
 
         $fh = @fopen($tmp, 'wb');
@@ -73,6 +85,7 @@ final class ConfigFileWriter
         }
 
         // Validation after write: require file parse
+        /** @var mixed $parsed */
         $parsed = is_file($targetPath) ? (include $targetPath) : null;
         if (!is_array($parsed) || empty($parsed['driver']) || empty($parsed['host'])) {
             throw new RuntimeException('Post-write validation failed');

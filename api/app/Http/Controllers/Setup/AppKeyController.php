@@ -19,7 +19,10 @@ final class AppKeyController extends Controller
             return response()->json(['ok' => false, 'code' => 'SETUP_STEP_DISABLED'], 400);
         }
 
-        if ((string) config('app.key', '') !== '') {
+        /** @var mixed $keyRaw */
+        $keyRaw = config('app.key');
+        $key = is_string($keyRaw) ? $keyRaw : '';
+        if ($key !== '') {
             return response()->json(['ok' => false, 'code' => 'APP_KEY_EXISTS'], 409);
         }
 
@@ -31,4 +34,3 @@ final class AppKeyController extends Controller
         return response()->json(['ok' => true], 200);
     }
 }
-

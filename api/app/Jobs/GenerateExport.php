@@ -46,8 +46,18 @@ final class GenerateExport implements ShouldQueue
                 $export->save();
             }
 
-            $disk = (string) config('core.exports.disk', config('filesystems.default', 'local'));
-            $dir  = trim((string) config('core.exports.dir', 'exports'), '/');
+            /** @var mixed $fsDefaultRaw */
+            $fsDefaultRaw = config('filesystems.default', 'local');
+            $fsDefault = is_string($fsDefaultRaw) && $fsDefaultRaw !== '' ? $fsDefaultRaw : 'local';
+
+            /** @var mixed $diskRaw */
+            $diskRaw = config('core.exports.disk');
+            $disk = is_string($diskRaw) && $diskRaw !== '' ? $diskRaw : $fsDefault;
+
+            /** @var mixed $dirRaw */
+            $dirRaw = config('core.exports.dir');
+            $dir = is_string($dirRaw) && $dirRaw !== '' ? trim($dirRaw, '/') : 'exports';
+
             Storage::disk($disk)->makeDirectory($dir);
 
             $nowUtc = CarbonImmutable::now('UTC')->format('c');

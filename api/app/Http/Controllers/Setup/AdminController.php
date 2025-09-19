@@ -31,12 +31,25 @@ final class AdminController extends Controller
         ]);
 
         // Stub enrollment output per Phase-2/4 contracts.
-        $secret    = strtoupper(Str::random(32)); // not real base32; stub acceptable until MFA module persists
-        $issuer    = (string) config('core.auth.mfa.totp.issuer', 'phpGRC');
-        $account   = $user->email;
-        $digits    = (int) config('core.auth.mfa.totp.digits', 6);
-        $period    = (int) config('core.auth.mfa.totp.period', 30);
-        $algorithm = (string) config('core.auth.mfa.totp.algorithm', 'SHA1');
+        $secret = strtoupper(Str::random(32)); // not real base32; stub acceptable until MFA module persists
+
+        /** @var mixed $issuerRaw */
+        $issuerRaw = config('core.auth.mfa.totp.issuer');
+        $issuer = is_string($issuerRaw) && $issuerRaw !== '' ? $issuerRaw : 'phpGRC';
+
+        $account = $user->email;
+
+        /** @var mixed $digitsRaw */
+        $digitsRaw = config('core.auth.mfa.totp.digits');
+        $digits = is_int($digitsRaw) ? $digitsRaw : (is_numeric($digitsRaw) ? (int) $digitsRaw : 6);
+
+        /** @var mixed $periodRaw */
+        $periodRaw = config('core.auth.mfa.totp.period');
+        $period = is_int($periodRaw) ? $periodRaw : (is_numeric($periodRaw) ? (int) $periodRaw : 30);
+
+        /** @var mixed $algorithmRaw */
+        $algorithmRaw = config('core.auth.mfa.totp.algorithm');
+        $algorithm = is_string($algorithmRaw) && $algorithmRaw !== '' ? $algorithmRaw : 'SHA1';
 
         $otpauthUri = sprintf(
             'otpauth://totp/%s:%s?secret=%s&issuer=%s&digits=%d&period=%d&algorithm=%s',
@@ -50,9 +63,9 @@ final class AdminController extends Controller
         );
 
         return response()->json([
-            'ok'    => true,
-            'totp'  => compact('issuer', 'account', 'secret', 'digits', 'period', 'algorithm', 'otpauthUri'),
-            'user'  => ['id' => $user->id, 'email' => $user->email, 'name' => $user->name],
+            'ok'   => true,
+            'totp' => compact('issuer', 'account', 'secret', 'digits', 'period', 'algorithm', 'otpauthUri'),
+            'user' => ['id' => $user->id, 'email' => $user->email, 'name' => $user->name],
         ], 200);
     }
 }

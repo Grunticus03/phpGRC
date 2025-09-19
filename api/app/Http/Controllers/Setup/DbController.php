@@ -22,15 +22,26 @@ final class DbController extends Controller
             return response()->json(['ok' => false, 'code' => 'SETUP_STEP_DISABLED'], 400);
         }
 
-        /** @var array{driver:string,host:string,port?:int,database:string,charset?:string,username:string,password?:string} $cfg */
+        /** @var array{driver:string,host:string,port?:int|string,database:string,charset?:string,username:string,password?:string} $cfg */
         $cfg = $request->validated();
+
+        $portRaw = $cfg['port'] ?? null;
+        $port = is_int($portRaw)
+            ? $portRaw
+            : (is_string($portRaw) && ctype_digit($portRaw) ? (int) $portRaw : 3306);
+
+        $driver  = strtolower($cfg['driver']);
+        $host    = $cfg['host'];
+        $dbName  = $cfg['database'];
+        $charset = strtolower($cfg['charset'] ?? 'utf8mb4');
+
         $dsn = sprintf(
             '%s:host=%s;port=%d;dbname=%s;charset=%s',
-            strtolower($cfg['driver']),
-            $cfg['host'],
-            $cfg['port'] ?? 3306,
-            $cfg['database'],
-            strtolower($cfg['charset'] ?? 'utf8mb4')
+            $driver,
+            $host,
+            $port,
+            $dbName,
+            $charset
         );
 
         try {
@@ -59,12 +70,17 @@ final class DbController extends Controller
 
         /** @var array<string,mixed> $cfg */
         $cfg = $request->validated();
+
+        $defaultPath = '/opt/phpgrc/shared/config.php';
+        /** @var mixed $pathRaw */
+        $pathRaw = Config::get('core.setup.shared_config_path', $defaultPath);
+        $targetPath = is_string($pathRaw) && $pathRaw !== '' ? $pathRaw : $defaultPath;
+
         try {
-            $path = $writer->writeAtomic($cfg, (string) Config::get('core.setup.shared_config_path', '/opt/phpgrc/shared/config.php'));
+            $path = $writer->writeAtomic($cfg, $targetPath);
             return response()->json(['ok' => true, 'path' => $path], 200);
         } catch (Throwable $e) {
             return response()->json(['ok' => false, 'code' => 'DB_WRITE_FAILED', 'error' => $e->getMessage()], 500);
         }
     }
 }
-
