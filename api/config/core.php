@@ -8,7 +8,7 @@ return [
         'stub_only' => filter_var(env('CORE_SETTINGS_STUB_ONLY', true), FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) ?? true,
     ],
 
-    // Setup Wizard (bugfix scope) :contentReference[oaicite:8]{index=8}
+    // Setup Wizard (bugfix scope)
     'setup' => [
         'enabled'            => filter_var(env('CORE_SETUP_ENABLED', true), FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) ?? true,
         'shared_config_path' => env('CORE_SETUP_SHARED_CONFIG_PATH', '/opt/phpgrc/shared/config.php'),
@@ -46,6 +46,16 @@ return [
             'Auditor',
             'Risk Manager',
             'User',
+        ],
+        // PolicyMap defaults; override via overlay config.
+        'policies' => [
+            'core.settings.manage'   => ['Admin'],
+            'core.audit.view'        => ['Admin', 'Auditor'],
+            'core.evidence.view'     => ['Admin', 'Auditor'],
+            'core.evidence.manage'   => ['Admin'],
+            'core.exports.generate'  => ['Admin'],
+            'rbac.roles.manage'      => ['Admin'],
+            'rbac.user_roles.manage' => ['Admin'],
         ],
     ],
 
@@ -89,4 +99,3 @@ return [
         'dir'     => env('CORE_EXPORTS_DIR', 'exports'),
     ],
 ];
-

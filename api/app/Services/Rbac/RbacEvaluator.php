@@ -16,13 +16,53 @@ final class RbacEvaluator
     }
 
     /**
+     * Static convenience for middleware.
+     */
+    public static function allows(?User $user, string $policy): bool
+    {
+        /** @var self $svc */
+        $svc = app(self::class);
+        return $svc->allowsUserPolicy($user, $policy);
+    }
+
+    /**
+     * Policy evaluation with stub/persist semantics.
+     */
+    public function allowsUserPolicy(?User $user, string $policy): bool
+    {
+        if (!$this->isEnabled()) {
+            return true; // RBAC disabled => skip
+        }
+
+        /** @var mixed $modeVal */
+        $modeVal = config('core.rbac.mode');
+        $mode = is_string($modeVal) ? $modeVal : 'stub';
+
+        // Treat "1", 1, "true", "on", "yes" as true
+        $persist = ($mode === 'persist') || self::boolish(config('core.rbac.persistence'));
+
+        if (!$persist) {
+            return true; // stub mode allows
+        }
+
+        $allowedRoles = PolicyMap::rolesForPolicy($policy);
+        if ($allowedRoles === null) {
+            // Unknown policy key in persist => deny
+            return false;
+        }
+
+        return $this->userHasAnyRole($user, $allowedRoles);
+    }
+
+    /**
      * @param array<int,string> $roles
      */
     public function userHasAnyRole(?User $user, array $roles): bool
     {
-        if (!$user) {
+        if ($user === null) {
             return false;
         }
+
         // If User model exposes hasAnyRole(), use it. Else fall back to names lookup.
         if (method_exists($user, 'hasAnyRole')) {
             /** @var callable $fn */
@@ -49,12 +89,14 @@ final class RbacEvaluator
      */
     public function userHasCapability(?User $user, string $capKey): bool
     {
-        if (!$user) {
+        if ($user === null) {
             return false;
         }
 
         // Global feature switch first. If disabled, deny.
-        if (!(bool) config('core.capabilities.' . $capKey, true)) {
+        /** @var mixed $capVal */
+        $capVal = config('core.capabilities.' . $capKey);
+        if (!is_bool($capVal) || $capVal === false) {
             return false;
         }
 
@@ -78,4 +120,23 @@ final class RbacEvaluator
 
         return false;
     }
+
+    /**
+     * Coerce mixed to boolean with common truthy strings/numbers.
+     */
+    private static function boolish(mixed $v): bool
+    {
+        if (is_bool($v)) {
+            return $v;
+        }
+        if (is_int($v)) {
+            return $v === 1;
+        }
+        if (is_string($v)) {
+            $t = strtolower(trim($v));
+            return in_array($t, ['1', 'true', 'on', 'yes'], true);
+        }
+        return false;
+    }
 }
+

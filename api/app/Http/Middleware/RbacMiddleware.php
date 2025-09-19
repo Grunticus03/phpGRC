@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace App\Http\Middleware;
 
-use App\Authorization\RbacEvaluator;
+use App\Services\Rbac\RbacEvaluator;
 use App\Models\User;
 use Closure;
 use Illuminate\Auth\AuthenticationException;
@@ -43,8 +43,8 @@ final class RbacMiddleware
             : null;
 
         if ($capKey !== null && $capKey !== '') {
-            $capEnabled = (bool) config('core.capabilities.' . $capKey, true);
-            if (!$capEnabled) {
+            $capEnabled = config('core.capabilities.' . $capKey);
+            if (!is_bool($capEnabled) || $capEnabled === false) {
                 return response()->json([
                     'ok'         => false,
                     'code'       => 'CAPABILITY_DISABLED',
@@ -95,3 +95,4 @@ final class RbacMiddleware
         return $resp;
     }
 }
+
