@@ -5,6 +5,5 @@ psalm.xml
 /build/*
 /node_modules/*
 .fake
-api/database/database.sqlite
-api/storage/framework/testing/disks/local/exports/01K5H465FAJFB6PCZ78SK93XPV.pdf
+api/storage/framework/testing/disks/local/exports/*.pdf
 api/database/*.sqlite

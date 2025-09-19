@@ -7,3 +7,5 @@
 /bootstrap/cache/*.php
 /api/.env
 /build/*
+/storage/framework/testing/disks/local/exports/*.pdf
+/database/*.sqlite
