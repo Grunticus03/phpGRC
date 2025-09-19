@@ -108,7 +108,9 @@ final class AuditExportController extends Controller
             'Cache-Control'          => 'no-store, max-age=0',
         ];
 
-        $callback = function () use ($q): void {
+        $useCursor = (bool) Config::get('core.audit.csv_use_cursor', true);
+
+        $callback = function () use ($q, $useCursor): void {
             $out = fopen('php://output', 'wb');
             if ($out === false) {
                 return;
@@ -119,10 +121,10 @@ final class AuditExportController extends Controller
                 'entity_type','entity_id','ip','ua','meta_json'
             ]);
 
-            /** @var \Illuminate\Database\Eloquent\Collection<int,\App\Models\AuditEvent> $rows */
-            $rows = $q->get();
+            /** @var iterable<int,\App\Models\AuditEvent> $iter */
+            $iter = $useCursor ? $q->cursor() : $q->get();
 
-            foreach ($rows as $row) {
+            foreach ($iter as $row) {
                 /** @var array<string,mixed>|null $meta */
                 $meta = $row->meta;
                 $json = $meta === null ? '' : json_encode($meta, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);

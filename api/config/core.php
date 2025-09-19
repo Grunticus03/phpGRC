@@ -61,6 +61,8 @@ return [
     'audit' => [
         'enabled' => env('CORE_AUDIT_ENABLED', true),
         'retention_days' => env('CORE_AUDIT_RETENTION_DAYS', 365),
+        // CSV export iteration mode: true = cursor(), false = get()
+        'csv_use_cursor' => filter_var(env('CORE_AUDIT_CSV_USE_CURSOR', true), FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) ?? true,
     ],
 
     'evidence' => [

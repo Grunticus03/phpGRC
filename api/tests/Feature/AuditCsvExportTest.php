@@ -22,7 +22,7 @@ final class AuditCsvExportTest extends TestCase
         config()->set('core.rbac.enabled', false);
         config()->set('core.rbac.require_auth', false);
 
-        // Seed a few rows
+        // Seed deterministic rows
         $this->insertEvent([
             'occurred_at' => Carbon::parse('2025-02-01T00:00:00Z'),
             'category'    => 'RBAC',
@@ -49,15 +49,28 @@ final class AuditCsvExportTest extends TestCase
         $res->assertHeader('content-disposition');      // filename present
         $res->assertHeader('x-content-type-options', 'nosniff');
 
-        // Streamed responses must be read via streamedContent()
         $csv = $res->streamedContent();
         $this->assertIsString($csv);
 
-        // Header row present
         $this->assertStringContainsString('id,occurred_at,actor_id,action,category,entity_type,entity_id,ip,ua,meta_json', $csv);
-
-        // At least one RBAC row present
         $this->assertStringContainsString('rbac.user_role.attached,RBAC,user', $csv);
+    }
+
+    public function test_csv_cursor_parity_byte_identical(): void
+    {
+        // Legacy path: get()
+        config()->set('core.audit.csv_use_cursor', false);
+        $resA = $this->get('/api/audit/export.csv?order=asc');
+        $resA->assertStatus(200);
+        $bodyA = $resA->streamedContent();
+
+        // Cursor path: cursor()
+        config()->set('core.audit.csv_use_cursor', true);
+        $resB = $this->get('/api/audit/export.csv?order=asc');
+        $resB->assertStatus(200);
+        $bodyB = $resB->streamedContent();
+
+        $this->assertSame($bodyA, $bodyB, 'CSV bytes must be identical between get() and cursor() iteration');
     }
 
     /**
@@ -86,3 +99,4 @@ final class AuditCsvExportTest extends TestCase
         return $ev;
     }
 }
+
