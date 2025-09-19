@@ -955,3 +955,16 @@ SESSION-LOG.md entry
 - Phase/Step status: advance
 - Next action (you): Draft backend feature tests for RBAC attach/detach/replace with audit assertions; prepare test seeders/factories; outline controller audit invariants.
 - Next action (me): Provide backend files for edit (routes, controllers, models, factories/seeders, phpunit config) so you can add tests and assertions.
+
+---
+
+### Session 2025-09-19: Phase 4 — RBAC API tests
+- Context: Implemented backend feature tests for user role attach/detach/replace with audit checks. Added factories and test seeder.
+- Goal: Green CI with coverage of normalization, errors, and audit invariants.
+- Constraints: Follow Charter; no controller rewrites beyond gaps uncovered by tests.
+
+### Closeout
+- Deliverables produced: UserRolesApiTest, factories (User/Role/AuditEvent), TestRbacSeeder, composer dev dep for Faker, minor test fixes.
+- Phase/Step status: advance
+- Next action (you): Provide `/docs/api/openapi.yaml` so I update 422 `ROLE_NOT_FOUND` schema and RBAC endpoints/examples to match behavior.
+- Next action (me): Update OpenAPI and docs once provided; run static analyzers and keep CI green.
