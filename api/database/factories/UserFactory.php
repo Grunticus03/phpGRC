@@ -12,14 +12,16 @@ final class UserFactory extends Factory
 {
     protected $model = User::class;
 
+    /** @var int */
+    private static int $seq = 0;
+
     public function definition(): array
     {
-        $name = $this->faker->name();
+        $n = ++self::$seq;
 
         return [
-            'name' => $name,
-            'email' => $this->faker->unique()->safeEmail(),
-            // Deterministic test password.
+            'name' => "Test User {$n}",
+            'email' => sprintf('user%04d@example.test', $n),
             'password' => bcrypt('secret'),
             'remember_token' => Str::random(10),
         ];

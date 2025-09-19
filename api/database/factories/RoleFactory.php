@@ -12,9 +12,14 @@ final class RoleFactory extends Factory
 {
     protected $model = Role::class;
 
+    /** @var int */
+    private static int $seq = 0;
+
     public function definition(): array
     {
-        $name = ucfirst($this->faker->unique()->word()) . ' ' . ucfirst($this->faker->unique()->word());
+        $n = ++self::$seq;
+        $name = "Role {$n}";
+
         return [
             'id'   => 'role_' . Str::slug($name, '_'),
             'name' => $name,
