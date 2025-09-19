@@ -7,22 +7,41 @@ info:
     Contracts for phpGRC Phase 4. Scope includes Settings, RBAC, Audit, Evidence, Exports, Avatars, and Setup.
     When `core.rbac.require_auth=true`, endpoints guarded by RBAC require authentication first (401).
     When RBAC is disabled, user–role endpoints return 404 with `RBAC_DISABLED`.
+  license:
+    identifier: MIT
+    name: MIT
 servers:
   - url: /api
 tags:
   - name: Health
+    description: Liveness and environment fingerprints.
   - name: OpenAPI
+    description: Spec discovery.
   - name: Auth
+    description: Authentication primitives.
   - name: Settings
+    description: Admin-config snapshots and updates.
   - name: RBAC
+    description: Role catalog and user-role mappings.
   - name: Audit
+    description: Audit trail list and export.
   - name: Evidence
+    description: Evidence storage and retrieval.
   - name: Exports
+    description: Export job creation, status, and downloads.
   - name: Avatars
+    description: User avatar upload and retrieval.
   - name: Setup
+    description: First-run setup workflow.
+
+security:
+  - sanctum: []
+
 paths:
   /health:
     get:
+      operationId: healthProbe
+      security: []   # public
       tags: [Health]
       summary: Health probe
       responses:
@@ -35,9 +54,12 @@ paths:
                 required: [ok]
                 properties:
                   ok: { type: boolean, const: true }
-
+        '404':
+          description: Not Found
   /health/fingerprint:
     get:
+      operationId: healthFingerprint
+      security: []   # public
       tags: [Health]
       summary: Deployment fingerprint and enabled-feature summary
       responses:
@@ -47,9 +69,13 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HealthFingerprintResponse'
+        '404':
+          description: Not Found
 
   /openapi.yaml:
     get:
+      operationId: openapiYaml
+      security: []   # public
       tags: [OpenAPI]
       summary: OpenAPI YAML
       responses:
@@ -58,9 +84,13 @@ paths:
           content:
             application/yaml:
               schema: { type: string }
+        '404':
+          description: Not Found
 
   /openapi.json:
     get:
+      operationId: openapiJson
+      security: []   # public
       tags: [OpenAPI]
       summary: OpenAPI JSON
       responses:
@@ -69,9 +99,12 @@ paths:
           content:
             application/json:
               schema: { type: object, additionalProperties: true }
+        '404':
+          description: Not Found
 
   /admin/settings:
     get:
+      operationId: settingsGet
       tags: [Settings]
       summary: Get settings snapshot
       responses:
@@ -86,6 +119,7 @@ paths:
         '403':
           $ref: '#/components/responses/Forbidden'
     post:
+      operationId: settingsUpdate
       tags: [Settings]
       summary: Update settings (spec or legacy shape)
       requestBody:
@@ -116,6 +150,7 @@ paths:
 
   /rbac/roles:
     get:
+      operationId: rbacRolesList
       tags: [RBAC]
       summary: List role catalog
       responses:
@@ -130,6 +165,7 @@ paths:
         '403':
           $ref: '#/components/responses/Forbidden'
     post:
+      operationId: rbacRolesCreate
       tags: [RBAC]
       summary: Create role (persist) or accept (stub-only)
       requestBody:
@@ -166,6 +202,7 @@ paths:
         schema: { type: integer, minimum: 1 }
         description: Numeric user ID.
     get:
+      operationId: userRolesGet
       tags: [RBAC]
       summary: Get roles for a user
       responses:
@@ -182,6 +219,7 @@ paths:
         '404':
           $ref: '#/components/responses/RbacDisabled'
     put:
+      operationId: userRolesReplace
       tags: [RBAC]
       summary: Replace roles for a user
       requestBody:
@@ -226,6 +264,7 @@ paths:
           Role identifier. Accepts role **name** or role **id** (e.g., `role_admin`).
           If the name contains spaces, it **must** be URL-encoded in the path segment.
     post:
+      operationId: userRoleAttach
       tags: [RBAC]
       summary: Attach a role to a user by name or id
       responses:
@@ -250,6 +289,7 @@ paths:
                   - $ref: '#/components/schemas/RoleNotFoundError'
                   - $ref: '#/components/schemas/ValidationFailed'
     delete:
+      operationId: userRoleDetach
       tags: [RBAC]
       summary: Detach a role from a user by name or id
       responses:
@@ -276,6 +316,7 @@ paths:
 
   /audit:
     get:
+      operationId: auditList
       tags: [Audit]
       summary: List audit events
       parameters:
@@ -306,6 +347,7 @@ paths:
 
   /audit/categories:
     get:
+      operationId: auditCategories
       tags: [Audit]
       summary: List audit categories
       responses:
@@ -330,6 +372,7 @@ paths:
 
   /audit/export.csv:
     get:
+      operationId: auditExportCsv
       tags: [Audit]
       summary: Export audit events as CSV
       parameters:
@@ -357,6 +400,7 @@ paths:
 
   /evidence:
     get:
+      operationId: evidenceList
       tags: [Evidence]
       summary: List evidence items
       parameters:
@@ -402,6 +446,7 @@ paths:
         '403':
           $ref: '#/components/responses/Forbidden'
     post:
+      operationId: evidenceUpload
       tags: [Evidence]
       summary: Upload evidence
       requestBody:
@@ -431,6 +476,7 @@ paths:
         required: true
         schema: { type: string, minLength: 2 }
     get:
+      operationId: evidenceDownload
       tags: [Evidence]
       summary: Download evidence
       parameters:
@@ -461,6 +507,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorSimple'
     head:
+      operationId: evidenceHead
       tags: [Evidence]
       summary: HEAD same as GET without body
       responses:
@@ -473,6 +520,7 @@ paths:
 
   /exports:
     post:
+      operationId: exportsCreateLegacy
       tags: [Exports]
       summary: Create export (legacy)
       requestBody:
@@ -497,6 +545,7 @@ paths:
 
   /exports/{type}:
     post:
+      operationId: exportsCreateByType
       tags: [Exports]
       summary: Create export by type
       parameters:
@@ -528,6 +577,7 @@ paths:
 
   /exports/{jobId}/status:
     get:
+      operationId: exportStatus
       tags: [Exports]
       summary: Export job status
       parameters:
@@ -549,6 +599,7 @@ paths:
 
   /exports/{jobId}/download:
     get:
+      operationId: exportDownload
       tags: [Exports]
       summary: Download export artifact
       parameters:
@@ -577,6 +628,8 @@ paths:
 
   /avatar:
     post:
+      operationId: avatarUpload
+      security: []   # public in Phase 4 scaffold
       tags: [Avatars]
       summary: Upload user avatar (Phase 4 stub)
       requestBody:
@@ -621,6 +674,8 @@ paths:
         required: true
         schema: { type: integer, minimum: 1 }
     get:
+      operationId: avatarGet
+      security: []   # public
       tags: [Avatars]
       summary: Get avatar image
       parameters:
@@ -648,6 +703,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorSimple'
     head:
+      operationId: avatarHead
+      security: []   # public
       tags: [Avatars]
       summary: HEAD avatar
       responses:
@@ -658,6 +715,8 @@ paths:
 
   /setup/status:
     get:
+      operationId: setupStatus
+      security: []   # public (guarded server-side)
       tags: [Setup]
       summary: Setup wizard status
       responses:
@@ -667,9 +726,13 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SetupStatusResponse'
+        '400':
+          description: SETUP_STEP_DISABLED
 
   /setup/db/test:
     post:
+      operationId: setupDbTest
+      security: []   # public (guarded server-side)
       tags: [Setup]
       summary: Test database connection
       requestBody:
@@ -692,6 +755,8 @@ paths:
 
   /setup/db/write:
     post:
+      operationId: setupDbWrite
+      security: []   # public (guarded server-side)
       tags: [Setup]
       summary: Write DB config to shared path
       requestBody:
@@ -719,6 +784,8 @@ paths:
 
   /setup/app-key:
     post:
+      operationId: setupAppKey
+      security: []   # public (guarded server-side)
       tags: [Setup]
       summary: Generate app key (stub if commands disabled)
       responses:
@@ -745,6 +812,8 @@ paths:
 
   /setup/schema/init:
     post:
+      operationId: setupSchemaInit
+      security: []   # public (guarded server-side)
       tags: [Setup]
       summary: Run migrations (stub if commands disabled)
       responses:
@@ -762,7 +831,9 @@ paths:
                 required: [ok, note]
                 properties:
                   ok: { type: boolean, const: true }
-                  note: { type:string, const: stub-only }
+                  note: { type: string, const: stub-only }
+        '400':
+          description: SETUP_STEP_DISABLED
         '500':
           description: SCHEMA_INIT_FAILED
           content:
@@ -771,6 +842,8 @@ paths:
 
   /setup/admin:
     post:
+      operationId: setupAdminCreate
+      security: []   # public (guarded server-side)
       tags: [Setup]
       summary: Create first admin
       requestBody:
@@ -793,6 +866,8 @@ paths:
 
   /setup/admin/totp/verify:
     post:
+      operationId: setupAdminTotpVerify
+      security: []   # public (guarded server-side)
       tags: [Setup]
       summary: Verify admin TOTP during setup
       requestBody:
@@ -818,6 +893,8 @@ paths:
 
   /setup/smtp:
     post:
+      operationId: setupSmtp
+      security: []   # public (guarded server-side)
       tags: [Setup]
       summary: Configure SMTP
       requestBody:
@@ -841,6 +918,8 @@ paths:
 
   /setup/idp:
     post:
+      operationId: setupIdp
+      security: []   # public (guarded server-side)
       tags: [Setup]
       summary: Configure Identity Provider (optional)
       requestBody:
@@ -864,6 +943,8 @@ paths:
 
   /setup/branding:
     post:
+      operationId: setupBranding
+      security: []   # public (guarded server-side)
       tags: [Setup]
       summary: Configure branding
       requestBody:
@@ -887,6 +968,8 @@ paths:
 
   /setup/finish:
     post:
+      operationId: setupFinish
+      security: []   # public (guarded server-side)
       tags: [Setup]
       summary: Complete setup wizard
       responses:
@@ -895,6 +978,8 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Ok' }
+        '400':
+          description: SETUP_STEP_DISABLED
 
 components:
   securitySchemes:
@@ -949,7 +1034,8 @@ components:
     Cursor:
       name: cursor
       in: query
-      schema: { type: string, nullable: true }
+      schema:
+        type: [string, 'null']
 
   responses:
     Unauthenticated:
@@ -990,8 +1076,8 @@ components:
       properties:
         ok: { type: boolean, const: false }
         code: { type: string }
-        message: { type: string, nullable: true }
-        note: { type: string, nullable: true }
+        message: { type: [string, 'null'] }
+        note: { type: [string, 'null'] }
 
     Unauthenticated:
       allOf:
@@ -1120,16 +1206,18 @@ components:
       properties:
         id: { type: string }
         occurred_at: { type: string, format: date-time }
-        actor_id: { type: integer, nullable: true }
+        actor_id: { type: [integer, 'null'] }
         action: { type: string }
         category:
           type: string
           enum: [SYSTEM, RBAC, AUTH, SETTINGS, EXPORTS, EVIDENCE, AVATARS, AUDIT]
         entity_type: { type: string }
         entity_id: { type: string }
-        ip: { type: string, nullable: true }
-        ua: { type: string, nullable: true }
-        meta: { type: object, nullable: true, additionalProperties: true }
+        ip: { type: [string, 'null'] }
+        ua: { type: [string, 'null'] }
+        meta:
+          type: [object, 'null']
+          additionalProperties: true
 
     AuditListResponse:
       type: object
@@ -1148,7 +1236,7 @@ components:
         items:
           type: array
           items: { $ref: '#/components/schemas/AuditEvent' }
-        nextCursor: { type: string, nullable: true }
+        nextCursor: { type: [string, 'null'] }
 
     AuditListStubResponse:
       allOf:
@@ -1171,7 +1259,7 @@ components:
           items:
             type: object
             additionalProperties: true
-        next_cursor: { type: string, nullable: true }
+        next_cursor: { type: [string, 'null'] }
 
     EvidenceUploadRequest:
       type: object
@@ -1210,7 +1298,7 @@ components:
         ok: { type: boolean, const: true }
         jobId: { type: string }
         type: { type: string, enum: [csv, json, pdf] }
-        note: { type: string, nullable: true }
+        note: { type: [string, 'null'] }
 
     ExportStatusResponse:
       type: object
@@ -1300,7 +1388,7 @@ components:
       required: [ok]
       properties:
         ok: { type: boolean, const: true }
-        applied: { type: boolean, nullable: true }
+        applied: { type: [boolean, 'null'] }
         changes:
           type: object
           additionalProperties: true
@@ -1317,8 +1405,8 @@ components:
           type: object
           properties:
             loaded: { type: boolean }
-            path: { type: string, nullable: true }
-            mtime: { type: string, nullable: true }
+            path: { type: [string, 'null'] }
+            mtime: { type: [string, 'null'] }
         summary:
           type: object
           properties:
@@ -1353,8 +1441,7 @@ components:
         ok: { type: boolean, const: true }
         setupComplete: { type: boolean }
         nextStep:
-          type: string
-          nullable: true
+          type: [string, 'null']
           enum: [db_config, app_key, schema_init, admin_seed, admin_mfa_verify, null]
         checks:
           type: object
