@@ -1004,3 +1004,16 @@ SESSION-LOG.md entry
 - Phase/Step status: advance
 - Next action (you): none
 - Next action (me): prepare stub-only response test inputs; confirm no further OpenAPI deltas
+
+---
+
+### Session 2025-09-19: Phase 4 — Freeze & Final QA
+- Context: Stub-path audit test, CSV streaming smoke, ops docs, OpenAPI 0.4.6 smoke.
+- Goal: Freeze Phase 4 contracts and tests.
+- Constraints: Full-file outputs; no schema mutation in tests.
+
+### Closeout
+- Deliverables produced: AuditStubPathTest (non-destructive), AuditCsvExportSmokeTest, OpenApiContractSmokeTest, AUDIT-RETENTION-RUNBOOK.md, AUDIT-CONFIG-NOTES.md.
+- Phase/Step status: Phase 4 frozen.
+- Next action (you): Apply freeze markers to PHASE-4-SPEC.md and ROADMAP.md; append this entry to SESSION-LOG.md.
+- Next action (me): Provide those three files so you can write full-file updates; confirm if tag v0.4.6 should be cut now.

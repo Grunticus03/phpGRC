@@ -141,10 +141,11 @@
 - [x] CSV: switch export iteration to `$q->cursor()` with config `core.audit.csv_use_cursor`; byte-identical regression vs `get()`
 - [x] Config: add `core.audit.csv_use_cursor` default true
 - [x] Docs/OpenAPI: examples for `/audit` and `/audit/export.csv`; CSV header notes; stub-only example when no business filters
+- [x] Tests: `AuditStubPathTest` for stub-only response when persistence disabled and no business filters
+- [x] Tests: `AuditCsvExportSmokeTest` for large dataset CSV streaming in SQLite
+- [x] Docs: `docs/ops/AUDIT-RETENTION-RUNBOOK.md` and `docs/ops/AUDIT-CONFIG-NOTES.md`
+- [x] Tests: `OpenApiContractSmokeTest` validating OpenAPI 0.4.6 anchors
 
-### Immediate Next Steps — merged and prioritized
-1. **Audit stub path**: add test to assert stub-only response shape when persistence disabled and no business filters.
-2. **CSV large-fixture smoke**: stress-stream export in CI SQLite to guard regressions.
-3. **Ops docs**: retention runbook and env knobs (`CORE_AUDIT_RETENTION_DAYS`, schedule window).
-4. **Close Phase 4**: confirm no further OpenAPI deltas; tag and freeze.
-
+### Phase 4 Close
+- Frozen on 2025-09-19. No further work tracked here.
+- Remaining UX polish and fine-grained RBAC policies move to Phase 5 kickoff.

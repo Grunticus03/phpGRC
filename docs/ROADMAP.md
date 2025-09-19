@@ -39,28 +39,32 @@
 
 ---
 
-## Phase 4 — Core app usable ⏳ IN PROGRESS
+## Phase 4 — Core app usable ✅ COMPLETE (frozen 2025-09-19)
 - [x] Settings — echo + validation stubs
 - [x] RBAC — Sanctum PAT guard; route enforcement; JSON 401/403 contract
 - [x] RBAC — role IDs standardized to human-readable slugs
 - [x] RBAC — admin UI for role list/create and user-role assign
 - [x] Audit — listing, categories helper, retention echo
-- [x] Audit — CSV export with exact `Content-Type: text/csv`
+- [x] Audit — CSV export with exact `Content-Type: text/csv` and cursor streaming
 - [x] Evidence — multipart validate (size/mime via config)
 - [x] Evidence persistence: DB storage + sha256 + listing + headers + conditional GET + hash verification
 - [x] Audit persistence: write path + retention enforcement (≤ 2 years)
 - [x] API docs for Settings/Audit/Evidence + common errors
 - [x] Feature tests for Settings/Audit/Evidence + RBAC middleware tagging
-- [ ] RBAC fine-grained policies (PolicyMap/Evaluator)
 - [x] Exports job model + generation (CSV/JSON/PDF) + download with headers
 - [x] Settings persistence + audit logging of applied changes
+- [x] Stub-path audit response covered by tests
+- [x] CSV large-dataset smoke for SQLite
+- [x] Ops docs: retention runbook + audit config notes
+- [x] OpenAPI 0.4.6 validated and served
 
 ---
 
-## Phase 5 — Swagger + dashboards
+## Phase 5 — Swagger + dashboards + RBAC policies
 - [x] OpenAPI served at `/api/openapi.yaml` and Swagger UI at `/api/docs`
 - [x] OpenAPI lint in CI (Redocly)
 - [x] Breaking-change gate (openapi-diff) in CI
+- [ ] Fine-grained RBAC policies (PolicyMap/Evaluator) and role management UI hardening
 - [ ] Predefined reports & dashboards
 - [ ] Admin/User docs baseline
 
@@ -82,11 +86,10 @@
 
 ---
 
-### Current Status (as of 2025-09-13)
-- ✅ CI green on main; all tests passing.
+### Current Status (as of 2025-09-19)
+- ✅ Phase 4 frozen; CI green; contracts locked; OpenAPI 0.4.6 validated.
 - ✅ RBAC enforcement active; admin UI shipped.
-- ✅ Audit & Evidence persistence complete; CSV export headers exact.
+- ✅ Audit & Evidence persistence complete; CSV export streaming with bounded memory.
 - ✅ Exports model and generation complete.
-- ✅ OpenAPI served at `/api/openapi.yaml`; Swagger UI at `/api/docs`.
 - ✅ CI lint (Redocly) and breaking-change gate (openapi-diff).
-- ⏳ Fine-grained RBAC policies remain.
+- ⏳ Fine-grained RBAC policies move to Phase 5.

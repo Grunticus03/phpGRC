@@ -1,8 +1,10 @@
 # Phase 4 — Core App Usable Spec
 
 ## Instruction Preamble
-- **Date:** 2025-09-13
+- **Date:** 2025-09-19
 - **Phase:** 4
+- **Status:** FROZEN as of 2025-09-19
+- **Version:** OpenAPI info.version 0.4.6
 - **Goal:** Lock contracts, payloads, config keys, and persistence behaviors for Settings, RBAC, Audit, Evidence, Exports, Avatars.
 - **Constraints:** CI guardrails intact; deterministic outputs; stub-path preserved when persistence disabled via config.
 
@@ -18,7 +20,9 @@ core.rbac.roles: [Admin, Auditor, Risk Manager, User]
 core.rbac.policies: { }  _(optional override; see Fine-grained Policies)_
 
 core.audit.enabled: true  
-core.audit.retention_days: 365
+core.audit.persistence: true  
+core.audit.retention_days: 365  
+core.audit.csv_use_cursor: true
 
 core.evidence.enabled: true  
 core.evidence.max_mb: 25  
@@ -47,7 +51,8 @@ Notes:
 - **RBAC disabled behavior:** user–role endpoints return `404` with `{ "ok": false, "code": "RBAC_DISABLED" }`.
 - Evidence default max 25 MB.
 - Avatars canonical size 128 px, WEBP only.
-- Audit retention capped at 2 years.
+- Audit retention capped at 2 years. Purge clamps to [30, 730] days at runtime.
+- Audit CSV export streams with DB cursor when `core.audit.csv_use_cursor=true`.
 - Exports write artifacts under configured disk/dir.
 - **Queue:** tests force `queue.default=sync`; production may use any Laravel-supported queue.
 - **Setup Wizard:** Only database connection config is written to disk at `core.setup.shared_config_path`. All other settings persist in DB. Redirect-to-setup behavior outside this spec.
@@ -236,7 +241,7 @@ Setup: SETUP_ALREADY_COMPLETED, SETUP_STEP_DISABLED, DB_CONFIG_INVALID, DB_WRITE
   - Optional `?sha256=<hex>` enforces hash match and returns `412 EVIDENCE_HASH_MISMATCH` when mismatched.
   - Honors `If-None-Match` for conditional GET (`304` when matched).
   - `HEAD` returns headers only.
-- RBAC: list/view → `["Admin","Auditor"]`; upload → `["Admin"]` and policy `core.evidence.manage`.
+  - RBAC: list/view → `["Admin","Auditor"]`; upload → `["Admin"]` and policy `core.evidence.manage`.
 
 ---
 
@@ -266,7 +271,7 @@ Setup: SETUP_ALREADY_COMPLETED, SETUP_STEP_DISABLED, DB_CONFIG_INVALID, DB_WRITE
       "nextCursor": "ey4uLg"
     }
     ~~~
-  - Response (stub path for empty DB and no business filters):
+  - Response (stub path when `core.audit.persistence=false` and no business filters):
     ~~~json
     {
       "ok": true,
@@ -291,7 +296,7 @@ Setup: SETUP_ALREADY_COMPLETED, SETUP_STEP_DISABLED, DB_CONFIG_INVALID, DB_WRITE
     - `Cache-Control: no-store, max-age=0`
   - Columns:
     - `id, occurred_at, actor_id, action, category, entity_type, entity_id, ip, ua, meta_json`
-  - CSV format: RFC 4180 quoting via `fputcsv`.
+  - CSV format: RFC 4180 quoting via `fputcsv`. Cursor streaming when configured.
 
 **Audit — Canonical Events (RBAC)**
 - `rbac.role.created` (meta: `{ "name": "<Role Name>" }`)
@@ -330,6 +335,7 @@ Setup: SETUP_ALREADY_COMPLETED, SETUP_STEP_DISABLED, DB_CONFIG_INVALID, DB_WRITE
     ~~~json
     { "ok": true, "status": "queued|running|done|failed" }
     ~~~
+
 - Download:
   - `GET /api/exports/{jobId}/download`
   - Responses:
