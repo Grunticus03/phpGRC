@@ -985,3 +985,22 @@ SESSION-LOG.md entry
 - Phase/Step status: advance
 - Next action (you): run full CI including MySQL job; tag v0.4.6 notes for Audit fixes; confirm OpenAPI 0.4.6 examples for `/audit` and `/audit/export.csv`.
 - Next action (me): prepare retention purge tests and small OpenAPI tweaks; propose minimal controller refactors if tests expose shape gaps.
+
+---
+
+### Session 2025-09-19: [Phase 4, Audit retention + CSV perf + OpenAPI]
+- Context: Audit retention policy, CSV export performance, OpenAPI 0.4.6 confirmations
+- Goal: Ship purge job + tests, switch CSV to cursor with byte parity, document examples and headers
+- Constraints: Charter-first, no API changes, UTC semantics, tests must pass in CI
+
+### Closeout
+- Deliverables produced: 
+  - Console: `audit:purge` command with clamp, dry-run, emit-summary
+  - Schedule: daily 03:10 UTC gated by `core.audit.enabled`
+  - Tests: `AuditRetentionTest` (cutoff N−1/N/N+1, idempotency, dry-run, emit-summary, schedule checks)
+  - CSV: exporter switched to `cursor()` behind `core.audit.csv_use_cursor`; parity test added
+  - Config: `core.audit.csv_use_cursor` toggle
+  - Docs: `/audit` and `/audit/export.csv` OpenAPI examples + CSV header notes
+- Phase/Step status: advance
+- Next action (you): none
+- Next action (me): prepare stub-only response test inputs; confirm no further OpenAPI deltas

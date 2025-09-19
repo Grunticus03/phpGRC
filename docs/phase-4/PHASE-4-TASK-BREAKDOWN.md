@@ -135,14 +135,16 @@
 - [x] Manual deployment verified to dev
 
 ### Newly completed this session
-- [x] Audit: Custom builder `AuditEventBuilder` to JSON-encode `meta` on bulk inserts
-- [x] Audit: Model wired to custom builder with #[Override]; static analysis clean
-- [x] Audit: Streamed CSV export via `CsvStreamResponse` with exact `text/csv`
-- [x] Audit: Export controller uses streamed response; headers fixed; chunking acceptable via `get()`
-- [x] Tests: `AuditApiTest` filters green; `AuditCsvExportTest` headers/body assertions green
+- [x] Audit: `audit:purge` retention command with chunked deletes, clamp [30, 730], dry-run, optional emit-summary event
+- [x] Schedule: register purge daily at 03:10 UTC when `core.audit.enabled=true`; Kernel wired; schedule tests via reflection
+- [x] Tests: `AuditRetentionTest` covering N−1/N/N+1 cutoff behavior, idempotency, dry-run candidates, emit-summary
+- [x] CSV: switch export iteration to `$q->cursor()` with config `core.audit.csv_use_cursor`; byte-identical regression vs `get()`
+- [x] Config: add `core.audit.csv_use_cursor` default true
+- [x] Docs/OpenAPI: examples for `/audit` and `/audit/export.csv`; CSV header notes; stub-only example when no business filters
 
 ### Immediate Next Steps — merged and prioritized
-1. **Audit retention**: tests for purge job and scheduler (UTC 03:10 default), honoring `core.audit.retention_days`.
-2. **OpenAPI**: confirm examples for `/audit` and `/audit/export.csv` match emitted shapes, including header note for `text/csv`.
-3. **Perf**: switch CSV iteration to `$q->cursor()` with memory cap test; ensure identical output.
-4. **Docs**: add developer note on `Builder::insert` bypassing casts and rationale for custom builder.
+1. **Audit stub path**: add test to assert stub-only response shape when persistence disabled and no business filters.
+2. **CSV large-fixture smoke**: stress-stream export in CI SQLite to guard regressions.
+3. **Ops docs**: retention runbook and env knobs (`CORE_AUDIT_RETENTION_DAYS`, schedule window).
+4. **Close Phase 4**: confirm no further OpenAPI deltas; tag and freeze.
+
