@@ -112,24 +112,37 @@
 - [x] Tests: Audit verification of canonical+alias events and `RBAC` casing
 - [x] Docs/OpenAPI: Add `/audit/categories` path and response schema
 - [x] Docs/OpenAPI: Update 422 schemas for `ROLE_NOT_FOUND` and role-name constraints
-- ——— Web Build/Type Infra (new) ———
+- [x] Docs/OpenAPI: Enforce non-empty-string for `audit.action` and `audit.entity_id`
+
+——— Web Build/Type Infra ———
 - [x] Web: Add runtime deps `react`, `react-dom`, `react-router-dom`
 - [x] Web: Resolve Node ESM warning by adding `"type": "module"` to `web/package.json`
 - [x] Web: Align TS config for Vite/React (`jsx: react-jsx`, `moduleResolution: bundler`, ESM interop)
 - [x] Web: `npm run typecheck` clean locally and in CI
-- [x] Web: ESLint clean without suppressions (removed unused import in `Settings.tsx`)
-- [x] Web: Add Admin → User Roles screen with dropdown attach/detach; unit test with mocked fetch
+- [x] Web: ESLint clean without suppressions
+
+——— Web: Admin UI ———
+- [x] Admin → Roles screen (list + create), with tests
+- [x] Admin → User Roles screen (lookup + attach/detach), with tests
+- [x] User Roles: Replace-all roles multi-select flow, with tests
+- [x] Router/Nav wiring for Admin routes
+
+——— Deploy ———
+- [x] GitHub Actions manual deploy via SSH/rsync with SPA build upload
+- [x] Shared storage perms hardened (setgid dirs; only chmod entries owned by SSH user)
+- [x] Remote env export fixed for `set -u` (`RELEASE_DIR` unbound variable)
+- [x] Atomic current symlink switch and health check
+- [x] Manual deployment verified to dev
 
 ### Newly completed this session
-- [x] QA: Psalm raised to level 1 with no new baseline.
-- [x] Audit: `AuditLogger::log` enforces non-empty keys; nullable fields normalized.
-- [x] RBAC: `RbacMiddleware` typed defaults/roles/policy; resolved PHPStan ternary/null-coalesce issues.
-- [x] Evidence: Controller asserts non-empty `entity_id`; fixed `Content-Disposition` header quoting; removed redundant casts.
-- [x] RBAC: `RolesController` audit uses non-empty `entity_id`.
-- [x] RBAC: `UserRolesController` audit uses non-empty `action` and `entity_id`; alias events preserved.
-- [x] Models: `Setting` casts docblock made psalm-invariant with suppression per Eloquent base type.
+- [x] Roles.tsx page and create-role flow
+- [x] UserRoles.tsx with attach/detach/replace and status/a11y
+- [x] Vitest suites for Roles and UserRoles
+- [x] rbac.ts helpers for list/create/get/attach/detach/replace
+- [x] OpenAPI tightened for audit non-empty fields
+- [x] Deploy workflow fixes (perms + env), manual deploy green
 
 ### Immediate Next Steps — merged and prioritized
-1. **RBAC UI**: Begin role management UI scaffold and minimal integration tests; wire to `/api/rbac/roles` and user-roles endpoints.
-2. **Docs/OpenAPI**: Add/refresh RBAC endpoints and audit event shapes with non-empty constraints.
-3. **QA**: Sweep for remaining mixed in services; add narrow generics on collections where missing.
+1. **Backend tests**: Feature tests for RBAC attach/detach/replace with audit assertions; seeders/factories; unknown-role and normalization paths.
+2. **Docs/OpenAPI**: Ensure RBAC examples reflect case-insensitive name normalization and `ROLE_NOT_FOUND.missing_roles`.
+3. **Services sweep**: Quick pass for lingering mixed/shape issues and narrow generics on collections.

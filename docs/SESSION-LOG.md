@@ -942,3 +942,16 @@ SESSION-LOG.md entry
 - Phase/Step status: advance
 - Next action (you): none; confirm if any additional Psalm plugins or rules should be enabled.
 - Next action (me): begin RBAC Role Management UI scaffold and minimal integration tests per Phase-4 spec.
+
+---
+
+### Session 2025-09-18: Phase 4, RBAC UI scaffold + dev deploy
+- Context: RBAC UI screens and OpenAPI constraints; deploy workflow failing on server perms/env.
+- Goal: Ship Roles and User Roles UI with tests; add replace-all flow; fix deploy workflow; keep CI green.
+- Constraints: Charter-first; full-file outputs; security and a11y; no scope creep.
+
+### Closeout
+- Deliverables produced: Roles.tsx page; UserRoles.tsx with attach/detach/replace; vitest suites for Roles and UserRoles; rbac.ts API helpers; OpenAPI updates for non-empty audit fields; GitHub Actions deploy workflow hardened (perms + env export); manual deployment verified.
+- Phase/Step status: advance
+- Next action (you): Draft backend feature tests for RBAC attach/detach/replace with audit assertions; prepare test seeders/factories; outline controller audit invariants.
+- Next action (me): Provide backend files for edit (routes, controllers, models, factories/seeders, phpunit config) so you can add tests and assertions.
