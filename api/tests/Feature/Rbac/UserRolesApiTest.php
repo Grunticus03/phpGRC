@@ -20,12 +20,13 @@ final class UserRolesApiTest extends TestCase
     {
         parent::setUp();
 
+        // Require auth from initial boot so routes include auth:sanctum.
         config([
             'core.rbac.enabled'      => true,
             'core.rbac.mode'         => 'persist',
             'core.rbac.persistence'  => true,
             'core.audit.enabled'     => true,
-            'core.rbac.require_auth' => false,
+            'core.rbac.require_auth' => true,
         ]);
 
         $this->seed(TestRbacSeeder::class);
@@ -204,6 +205,7 @@ final class UserRolesApiTest extends TestCase
 
     public function test_rbac_disabled_returns_404(): void
     {
+        // Temporarily disable RBAC and ensure 404 from controller.
         config(['core.rbac.enabled' => false]);
 
         $admin = $this->makeAdmin();
@@ -231,31 +233,9 @@ final class UserRolesApiTest extends TestCase
 
     public function test_require_auth_true_returns_401_when_unauthenticated(): void
     {
-        // Ensure SQLite even after app refresh.
-        putenv('DB_CONNECTION=sqlite');
-        putenv('DB_DATABASE=:memory:');
-
-        config([
-            'core.rbac.require_auth' => true,
-            'core.rbac.enabled'      => true,
-            'core.rbac.mode'         => 'persist',
-            'core.rbac.persistence'  => true,
-            'core.audit.enabled'     => true,
-        ]);
-
-        // Reboot app to rebuild route stack with auth:sanctum.
-        $this->refreshApplication();
-
-        // Force DB to sqlite on the new container.
-        $this->app['config']->set('database.default', 'sqlite');
-        $this->app['config']->set('database.connections.sqlite.database', ':memory:');
-
-        // Fresh schema + seed in the rebooted app.
-        $this->artisan('migrate', ['--force' => true]);
-        $this->seed(TestRbacSeeder::class);
-
         $u = \Database\Factories\UserFactory::new()->create();
 
+        // No actingAs here.
         $res = $this->postJson("/api/rbac/users/{$u->id}/roles/Auditor");
         $res->assertStatus(401);
     }
