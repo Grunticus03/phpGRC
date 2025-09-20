@@ -70,7 +70,7 @@ jobs:
       - uses: shivammathur/setup-php@v2
         with:
           php-version: "8.3"
-          extensions: mbstring, intl, pdo_mysql, pdo_sqlite, sqlite3, dom, xml, pcntl, posix, bcmath, fileinfo
+          extensions: mbstring, intl, pdo_mysql, dom, xml, pcntl, posix, bcmath, fileinfo
           coverage: none
           tools: composer:v2
       - uses: actions/cache@v4
@@ -90,89 +90,8 @@ jobs:
       - name: Composer audit (prod only)
         run: composer audit --locked --no-dev
 
-  api_tests:
-    name: API tests (SQLite, PHP 8.3) + coverage
-    runs-on: self-hosted
-    needs: [api_static]
-    strategy:
-      fail-fast: false
-      matrix:
-        php: ["8.3"]
-    defaults: { run: { working-directory: api } }
-    steps:
-      - uses: actions/checkout@v4
-      - uses: shivammathur/setup-php@v2
-        with:
-          php-version: ${{ matrix.php }}
-          extensions: mbstring, intl, pdo_sqlite, sqlite3
-          coverage: xdebug
-          tools: composer:v2
-      - uses: actions/cache@v4
-        with:
-          path: ~/.composer/cache
-          key: ${{ runner.os }}-composer-${{ hashFiles('api/composer.lock') }}
-          restore-keys: ${{ runner.os }}-composer-
-      - name: Resolve lockfile (sync with composer.json)
-        run: composer update --no-interaction --prefer-dist --no-progress
-      - name: Install deps
-        run: composer install --no-interaction --prefer-dist
-      - name: Prepare Laravel dirs and SQLite file
-        run: |
-          mkdir -p bootstrap/cache \
-            storage/app storage/framework/cache storage/framework/sessions storage/framework/views \
-            storage/logs database
-          :> storage/logs/laravel.log
-          :> database/database.sqlite
-          :> storage/setup-config.php
-      - name: Create .env.testing (SQLite)
-        run: |
-          cat > .env.testing <<'EOF'
-          APP_ENV=testing
-          APP_DEBUG=false
-          APP_KEY=base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
-          DB_CONNECTION=sqlite
-          DB_DATABASE=${{ github.workspace }}/api/database/database.sqlite
-          CACHE_DRIVER=array
-          SESSION_DRIVER=array
-          QUEUE_CONNECTION=sync
-          FILESYSTEM_DISK=local
-          EOF
-      - name: Clear Laravel caches
-        env:
-          APP_ENV: testing
-          CORE_SETUP_ENABLED: "true"
-          CORE_SETUP_SHARED_CONFIG_PATH: "${{ github.workspace }}/api/storage/setup-config.php"
-        run: |
-          php artisan config:clear || true
-          php artisan cache:clear || true
-          rm -f bootstrap/cache/*.php || true
-      - name: PHPUnit
-        env:
-          APP_ENV: testing
-          DB_CONNECTION: sqlite
-          DB_DATABASE: ${{ github.workspace }}/api/database/database.sqlite
-          CACHE_DRIVER: array
-          SESSION_DRIVER: array
-          QUEUE_CONNECTION: sync
-          FILESYSTEM_DISK: local
-          XDEBUG_MODE: coverage
-          CORE_SETUP_ENABLED: "true"
-          CORE_SETUP_SHARED_CONFIG_PATH: "${{ github.workspace }}/api/storage/setup-config.php"
-        run: |
-          vendor/bin/phpunit --log-junit junit.xml \
-            --coverage-clover coverage.xml \
-            --coverage-filter app
-      - if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: phpunit-${{ matrix.php }}
-          path: |
-            api/junit.xml
-            api/coverage.xml
-            api/storage/logs/*.log
-
   api_mysql:
-    name: API tests (MySQL smoke, PHP 8.3)
+    name: API tests (MySQL, PHP 8.3) + coverage
     runs-on: self-hosted
     needs: [api_static]
     services:
@@ -198,7 +117,7 @@ jobs:
         with:
           php-version: "8.3"
           extensions: mbstring, intl, pdo_mysql
-          coverage: none
+          coverage: xdebug
           tools: composer:v2
       - name: Resolve lockfile (sync with composer.json)
         run: composer update --no-interaction --prefer-dist --no-progress
@@ -228,6 +147,13 @@ jobs:
           QUEUE_CONNECTION=sync
           FILESYSTEM_DISK=local
           EOF
+      - name: Prepare Laravel dirs
+        run: |
+          mkdir -p bootstrap/cache \
+            storage/app storage/framework/cache storage/framework/sessions storage/framework/views \
+            storage/logs
+          :> storage/logs/laravel.log
+          :> storage/setup-config.php
       - name: Migrate schema
         env:
           APP_ENV: testing
@@ -242,7 +168,7 @@ jobs:
         run: |
           php artisan config:clear
           php artisan migrate --force
-      - name: PHPUnit (smoke)
+      - name: PHPUnit (full)
         env:
           APP_ENV: testing
           DB_CONNECTION: mysql
@@ -253,7 +179,19 @@ jobs:
           DB_PASSWORD: secret
           CORE_SETUP_ENABLED: "true"
           CORE_SETUP_SHARED_CONFIG_PATH: "${{ github.workspace }}/api/storage/setup-config.php"
-        run: vendor/bin/phpunit --testsuite=Feature --do-not-cache-result
+          XDEBUG_MODE: coverage
+        run: |
+          vendor/bin/phpunit --log-junit junit.xml \
+            --coverage-clover coverage.xml \
+            --coverage-filter app
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phpunit-mysql-8.3
+          path: |
+            api/junit.xml
+            api/coverage.xml
+            api/storage/logs/*.log
 
   web:
     name: Web build + tests + coverage + audit

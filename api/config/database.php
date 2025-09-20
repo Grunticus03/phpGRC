@@ -5,7 +5,7 @@ declare(strict_types=1);
 /**
  * Database configuration for phpGRC (Laravel 11).
  * Prefers shared config at /opt/phpgrc/shared/config.php.
- * Falls back to .env, then to SQLite.
+ * Falls back to .env, defaulting to MySQL.
  */
 
 $shared = [];
@@ -20,21 +20,14 @@ if (is_file($sharedPath)) {
 
 $dbc = $shared['db'] ?? [];
 
-$defaultDriver = $dbc['driver'] ?? env('DB_CONNECTION', 'sqlite');
+// Default to MySQL when nothing provided.
+$defaultDriver = $dbc['driver'] ?? env('DB_CONNECTION', 'mysql');
 
 return [
 
     'default' => $defaultDriver,
 
     'connections' => [
-
-        'sqlite' => [
-            'driver'                  => 'sqlite',
-            'url'                     => env('DATABASE_URL'),
-            'database'                => $dbc['sqlite_path'] ?? database_path('database.sqlite'),
-            'prefix'                  => '',
-            'foreign_key_constraints' => true,
-        ],
 
         'mysql' => [
             'driver'         => 'mysql',
@@ -74,6 +67,4 @@ return [
     ],
 
     'migrations' => 'migrations',
-
-    // Redis left default; can be configured via config/cache.php if needed.
 ];

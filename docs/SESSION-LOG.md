@@ -1059,3 +1059,29 @@ SESSION-LOG.md entry
 - Phase/Step status: advance
 - Next action (you): Implement middleware audit events for denies; add `/api/dashboard/kpis` contract and tests; wire brute-force auth rate limiting knobs per earlier notes.
 - Next action (me): Confirm final `core.rbac.policies` map for Phase-5, confirm audit event names for denies, and approve KPI endpoint shape.
+
+---
+
+### Session 2025-09-20: [Phase 5, KPIs + Brute-force Guard]
+- Context: Implemented two KPIs and auth brute-force rate limiting. Wired internal metrics endpoint and RBAC gates. Drove tests and static analysis to green.
+- Goal: Admin-only `/api/dashboard/kpis` returning RBAC denies and evidence freshness; BruteForceGuard with audit; CI green.
+- Constraints: OpenAPI 0.4.6 unchanged. Persist vs stub semantics intact. Admin-only access to metrics.
+
+### Closeout
+- Deliverables produced: 
+  - `Auth\BruteForceGuard` middleware (session/ip strategies, lock responses, audit `auth.login.failed|locked`).
+  - Route updates: guard on `/api/auth/login`; new `/api/dashboard/kpis` with `roles:["Admin"]` and `policy:"core.metrics.view"`.
+  - `MetricsController`, `RbacDeniesCalculator`, `EvidenceFreshnessCalculator`.
+  - Feature tests: `BruteForceGuardTest`, `DashboardKpisTest`. 
+  - Static analysis fixes in calculators and controller; CI green.
+- Phase/Step status: advance
+- Next action (you): 
+  - Frontend dashboard widgets for KPIs.
+  - Add Auditor 403 feature test for `/api/dashboard/kpis` in persist mode.
+  - Propose migration for `audit_events` composite indexes.
+  - Add defaults for `core.auth.bruteforce.*` and `core.auth.session_cookie.name` in `config/core.php`.
+  - Docs edits (Phase-5 files, README, SETTINGS).
+- Next action (me): 
+  - Provide SPA files to modify and approve KPI widget designs.
+  - Confirm final deny-label map for UI chips.
+  - Approve DB index migration plan and config defaults.

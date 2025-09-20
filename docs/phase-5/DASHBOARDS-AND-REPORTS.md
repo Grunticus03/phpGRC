@@ -1,9 +1,9 @@
 # Phase 5 — Dashboards and Reports
 
 ## Preamble
-- Date: 2025-09-19
-- Phase: 5 (prep)
-- Goal: shortlist KPIs, define data sources, outline contracts. No OpenAPI change yet.
+- Date: 2025-09-20
+- Phase: 5 (active)
+- Goal: implement first two KPIs server-side and expose via an internal endpoint without changing OpenAPI.
 
 ## Constraints
 - OpenAPI 0.4.6 must not change until the diff plan is approved.
@@ -13,13 +13,13 @@
 ---
 
 ## KPI shortlist (pick 2 to implement first)
-1) **Evidence freshness**
+1) **Evidence freshness** ✅
    - Definition: percent of evidence items with `updated_at` older than N days.
    - Default N: 30.
    - Slice: overall and by MIME type.
    - Outcome: trend 30/60/90 days.
 
-2) **RBAC denies rate**
+2) **RBAC denies rate** ✅
    - Definition: share of requests producing `RBAC` deny actions over total audited requests.
    - Actions: `rbac.deny.unauthenticated|capability|role|policy|unknown_policy`.
    - Window: last 7 days, with daily buckets.
@@ -37,7 +37,7 @@
    - Definition: number of users per role; highlight users with zero roles.
    - Use-case: entitlement hygiene.
 
-**Proposed first two:** (1) Evidence freshness, (2) RBAC denies rate.
+**Implemented first two:** (1) Evidence freshness, (2) RBAC denies rate.
 
 ---
 
@@ -70,16 +70,46 @@ No “findings” or “control coverage” KPIs are proposed in Phase 5 to avoi
 
 ---
 
-## Data contracts (no new endpoints yet)
-- App will compute KPIs server-side via existing repositories/services and expose to the SPA through **existing** endpoints or internal views until the OpenAPI diff is approved.
-- When authorized to change OpenAPI, add:
+## Data contracts
+- **Internal endpoint (Phase-5, not in OpenAPI):**
+  - `GET /api/dashboard/kpis`
+  - RBAC: `roles:["Admin"]`, `policy:"core.metrics.view"`.
+  - Response:
+    ```json
+    {
+      "ok": true,
+      "data": {
+        "rbac_denies": {
+          "window_days": 7,
+          "from": "YYYY-MM-DD",
+          "to": "YYYY-MM-DD",
+          "denies": 0,
+          "total": 0,
+          "rate": 0.0,
+          "daily": [{"date":"YYYY-MM-DD","denies":0,"total":0,"rate":0.0}]
+        },
+        "evidence_freshness": {
+          "days": 30,
+          "total": 0,
+          "stale": 0,
+          "percent": 0.0,
+          "by_mime": [{"mime":"application/pdf","total":0,"stale":0,"percent":0.0}]
+        }
+      },
+      "meta": {
+        "generated_at": "ISO-8601",
+        "window": {"rbac_days":7,"fresh_days":30}
+      }
+    }
+    ```
+- **Future (post-diff approval):**
   - `GET /api/metrics/evidence/freshness?days=30`
   - `GET /api/metrics/rbac/denies?window=7d&bucket=day`
   - `GET /api/metrics/audit/volume?window=30d&bucket=day`
   - `GET /api/metrics/exports/summary?window=30d`
   - `GET /api/metrics/roles/distribution`
-- All metrics endpoints:
-  - Require `roles:["Admin"]` and policy key `core.audit.view` (or dedicated `core.metrics.view` if added later).
+- All metrics endpoints (present/future):
+  - Admin-only. Require `core.metrics.view` (or `core.audit.view` if consolidated).
   - Return `{ ok:boolean, data:..., meta:{generated_at, window} }`.
 
 ---
@@ -88,6 +118,7 @@ No “findings” or “control coverage” KPIs are proposed in Phase 5 to avoi
 - RBAC enforced via middleware; unauthenticated → login; forbidden → custom 403.
 - Charts: line (trend), bar (categories), single number tiles.
 - Label map for audit actions: show human-readable text plus code chip.
+- Default ranges: RBAC 7d; Evidence freshness days param default 30.
 
 ---
 

@@ -17,6 +17,7 @@
   - `strategy: ip|session` (default session)
   - `window_seconds`, `max_attempts` (default 900s, 5)
   - Session cookie drops on first attempt.
+  - Lock emits 429 with Retry-After; audited as `auth.login.locked`.
 
 ## Audit
 - Emit `RBAC` denies with canonical actions.
@@ -28,10 +29,11 @@
 - UI shows human labels with action code chip.
 
 ## Dashboards
-- Implement 2 KPIs first: Evidence freshness, RBAC denies rate.
-- Seed data fixtures for audit/evidence.
-- Feature tests cover 401/403 and data correctness.
-- Performance check documented.
+- Implement 2 KPIs first: Evidence freshness, RBAC denies rate. ✅
+- Internal endpoint `GET /api/dashboard/kpis` (Admin-only) without OpenAPI change. ✅
+- Seed data fixtures for audit/evidence. ✅
+- Feature tests cover 401/403 and data correctness. ✅
+- Performance check documented. ✅
 
 ## Evidence & Exports (smoke)
 - Upload tests for allowed MIME and size ignoring config in Phase-4 stubs.
@@ -50,10 +52,10 @@
 - Override to `[]` → stub allows, persist denies.
 
 ## Docs
-- Update ROADMAP and PHASE-5 notes.
-- Add dashboards contract and examples.
-- Session log updated with decisions and KPI choices.
+- Update ROADMAP and Phase-5 notes. ✅
+- Add dashboards contract and examples. ✅
+- Session log updated with decisions and KPI choices. ✅
 
 ## Sign-off
 - Security review note.
-- Release notes drafted. 
+- Release notes drafted.
