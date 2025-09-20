@@ -71,12 +71,46 @@
 
 ---
 
+## Phase 5.5 — Theming & Layout
+- [ ] Bootswatch theme set shipped; default **Slate**; light/dark toggle; respects system when no user choice.
+- [ ] No-FOUC boot: early `<html data-theme data-mode>` script using cookie; SSR-safe.
+- [ ] Design tokens & presets:
+  - Color: full picker (wheel, hex, RGB, eyedropper). Persist RGBA.
+  - Shadow: `none | default | light | heavy | custom(validated)`.
+  - Spacing: `narrow | default | wide`.
+  - Type scale: `small | medium | large`.
+  - Motion: `full | limited | none`.
+- [ ] Admin Theme Configurator with live preview, AA contrast guardrails, strict validation (422 on unsafe).
+- [ ] Per-user theme and token overrides; admin “force global” still allows light/dark if available.
+- [ ] RBAC: only `role_admin` or permission `admin.theme` can change global settings/import themes.
+- [ ] Branding: primary/secondary/header/footer logos, favicon, title text; SVG sanitized; ≤ 5 MB each; defaults applied.
+- [ ] Global layout:
+  - Top navbar lists core modules; brand logo top-left acts as Home; sizing rules enforced.
+  - Sidebar holds non-core modules; collapsible; user-resizable (min 50px, max 50% viewport).
+  - Sidebar customization mode (long-press): Save/Cancel/Default/Exit; merge rules for new modules; per-user persistence.
+  - User profile menu on right with profile/lock/logout entries (lock UX routed; full behavior Phase 6).
+- [ ] Settings & APIs:
+  - Global: `GET/PUT /settings/ui`, `POST/DELETE /settings/ui/brand-assets`.
+  - Per-user: `GET/PUT /me/prefs/ui`.
+  - Themes: `GET /settings/ui/themes`, `POST /settings/ui/themes/import`, `PUT/DELETE /settings/ui/themes/{slug}`.
+- [ ] Theme pack import:
+  - Accept `.zip` ≤ 50 MB; allow `.css .scss .woff2 .png .jpg .jpeg .webp .svg .map .js .html`.
+  - JS/HTML stored but not executed in 5.5; scrubbed; manifest recorded; rate-limit 5/10min/admin.
+  - Safe unzip (no traversal/symlinks; depth ≤10; files ≤2000; ratio guard).
+  - Delete always permitted; users fall back to default; purge disk; audit.
+- [ ] Tests: unit/feature for settings, prefs, RBAC, audits; Playwright snapshots for Slate/Flatly/Darkly; e2e for theme switch, override, sidebar flow.
+- [ ] A11y: WCAG 2.2 AA, focus-visible, reduced motion honored; import shows “A11y warnings” if contrast risky.
+- [ ] Notices: Bootstrap/Bootswatch licenses added to NOTICE.
+
+---
+
 ## Phase 6 — Integrations
 - [ ] Integration Bus MVP (connectors, pipelines, transforms, observability)
 - [ ] External Auth providers (OIDC/SAML/LDAP/Entra)
 - [ ] Asset ingestion (CMDB, cloud, IPAM)
 - [ ] Indicator framework
 - [ ] BCP/DRP workflows, Vendor inventory, Incident logging
+- [ ] Optional: sandboxed theme-pack JS/HTML enablement (separate origin/CSP)
 
 ---
 
@@ -94,4 +128,5 @@
 - ✅ Exports model and generation complete.
 - ✅ CI lint (Redocly) and breaking-change gate (openapi-diff).
 - ✅ Static analysis: PHPStan level 9 enforced in CI.
-- ⏳ Fine-grained RBAC policies move to Phase 5.
+- ⏳ Phase 5 in progress: fine-grained RBAC policies and dashboards.
+- 🔜 Phase 5.5 planned: theming/layout scope accepted; see BACKLOG and SPEC.

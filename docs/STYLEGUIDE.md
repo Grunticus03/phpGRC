@@ -50,3 +50,50 @@
 - Enforce `X-Content-Type-Options: nosniff` on file responses.
 - Validate and clamp all pagination and filter parameters.
 - Favor deny-by-default for policies; allow-by-default only in stub modes defined by spec.
+
+## Design Tokens & Theming (Phase 5.5)
+- Token categories exposed:
+  - `color` (RGBA; primary/secondary/surface/text/semantic)
+  - `shadow` presets: `none | default | light | heavy | custom(validated box-shadow)`
+  - `spacing` presets: `narrow | default | wide` (base 4/8/12 px)
+  - `typeScale` presets: `small | medium | large` (1.125/1.20/1.25)
+  - `motion` presets: `none | limited | full` (durations clamped; large effects off for `none`)
+- CSS variables:
+  - Names: `--ui-color-*, --ui-shadow-*, --ui-space-*, --ui-type-scale, --ui-motion-*`
+  - Theme CSS loads first, variables override last; no arbitrary CSS text in settings.
+- Boot sequence:
+  - Inline boot script reads cookie and sets `<html data-theme data-mode>` before CSS to prevent FOUC.
+- Bootswatch:
+  - Ship full set. Default theme is `slate`. Only one stylesheet is active at a time.
+  - App’s Bootstrap JS continues to function. Third-party theme JS is not executed in 5.5.
+
+## Global Layout (Phase 5.5)
+- Header:
+  - Brand logo top-left. Acts as Home. ~16px vertical padding. ≥40px tall.
+  - Core modules in horizontal navbar (alphabetical by default).
+  - User menu top-right with profile/lock/logout.
+- Sidebar:
+  - Contains non-core modules. Collapsible. Resizable between 50px and 50% viewport width.
+  - Customization mode via long press:
+    - Buttons: Save, Cancel, Default, Exit (unsaved-change prompt).
+    - New modules append alphabetically below user-defined block.
+- Accessibility:
+  - WCAG 2.2 AA contrast enforced. `:focus-visible` visible. Honors `prefers-reduced-motion`.
+
+## Branding (Phase 5.5)
+- Assets:
+  - Primary, Secondary, Header, Footer logos; Favicon; Title text.
+  - Allowed types: svg/png/jpg/jpeg/webp. Max 5 MB each. SVG sanitized. MIME sniff required.
+- Defaults:
+  - Favicon derived from Primary if not supplied.
+  - Footer uses Primary when Footer absent unless disabled.
+  - Title text default: `phpGRC — <module>`.
+
+## Theme Pack Import (Phase 5.5)
+- Upload `.zip` ≤ 50 MB. Allowed entries: `.css .scss .woff2 .png .jpg .jpeg .webp .svg .map .js .html`.
+- JS/HTML stored but not executed in 5.5; scrubbed and recorded in manifest.
+- Safe unzip: no traversal/symlinks; depth ≤10; files ≤2000; compression ratio guard.
+- Rate limit: 5 imports per 10 minutes per admin.
+- Licenses:
+  - License file required in the pack; record `name` and path in manifest and NOTICE updates.
+

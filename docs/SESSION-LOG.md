@@ -1085,3 +1085,21 @@ SESSION-LOG.md entry
   - Provide SPA files to modify and approve KPI widget designs.
   - Confirm final deny-label map for UI chips.
   - Approve DB index migration plan and config defaults.
+
+---
+
+### Session 2025-09-19: [Phase 5, Dashboards & Metrics + Auth BF Guard + CI]
+- Context: Finalized KPI calculators/services, wired controller, hardened middleware/audit, and aligned CI to MySQL-only.
+- Goal: Get CI green, lock Phase-5 prep docs, and leave a clean handoff.
+- Constraints: OpenAPI 0.4.6 unchanged; Phase-4 RBAC semantics intact; Admin-only access; drop SQLite from scope.
+
+### Closeout
+- Deliverables produced:
+  - Metrics: `EvidenceFreshnessCalculator`, `RbacDeniesCalculator`, `MetricsService::snapshot()`, `MetricsController@index` with strict typing & Psalm/PHPStan-clean outputs.
+  - Auth: `BruteForceGuard` middleware (session/ip strategies, lock/429 path, single audit per outcome).
+  - Tests: Unit/Feature tests for calculators and guard; deterministic seeding; fixed daily bucket/window edge cases.
+  - CI: Removed SQLite test matrix; retained MySQL smoke; updated `.env.testing`/`database.php` defaults; tightened caches.
+  - Docs: Phase-5 KPI shortlists, PolicyMap semantics & grid, PR checklist, ROADMAP status; formatting fixes.
+- Phase/Step status: advance
+- Next action (you): Open PRs for Phase-5 UI wiring (tiles/series), add perf seed fixtures, and prepare OpenAPI diff for metrics endpoints once approved.
+- Next action (me): Review/approve PRs, confirm PolicyMap overrides for prod, and prioritize which two KPI widgets ship first in the web app.

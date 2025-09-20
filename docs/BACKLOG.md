@@ -147,8 +147,131 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 
 ---
 
-## ⚠️ Risks
+## 🎨 UI / Theming (Phase 5.5)
 
+### THEME-001 — Bootswatch Runtime Themes
+**Description:** Ship full Bootswatch set; default Slate; light/dark toggle; system preference fallback.  
+**Acceptance Criteria:**
+- One theme stylesheet loaded at runtime
+- `<html data-theme data-mode>` set before CSS to avoid FOUC
+- User choice persisted; admin override respected but still allows light/dark if available  
+**Phase:** 5.5  
+**Step:** 1  
+**Dependencies:** CORE-003  
+**Status:** Planned
+
+---
+
+### THEME-002 — Theme Configurator (Admin)
+**Description:** Admin UI to adjust tokens with live preview and guardrails.  
+**Acceptance Criteria:**
+- Tokens: color (picker & RGBA), shadow preset or validated custom, spacing preset, type scale preset, motion preset
+- AA contrast validation on save
+- Audits: `ui.theme.updated`, `ui.theme.overrides.updated`
+- RBAC: `role_admin` or `admin.theme` required  
+**Phase:** 5.5  
+**Step:** 2  
+**Dependencies:** THEME-001  
+**Status:** Planned
+
+---
+
+### THEME-003 — Per-user UI Preferences
+**Description:** Allow user-level theme and allowed token overrides.  
+**Acceptance Criteria:**
+- `GET/PUT /me/prefs/ui` persists `theme`, `mode`, `overrides`, `sidebar` settings
+- Guardrails identical to admin
+- Admin “force global” disables theme select but not light/dark for supported themes  
+**Phase:** 5.5  
+**Step:** 3  
+**Dependencies:** THEME-001  
+**Status:** Planned
+
+---
+
+### THEME-004 — Branding & Logos
+**Description:** Manage primary/secondary/header/footer logos, favicon, and title text.  
+**Acceptance Criteria:**
+- Upload types: svg/png/jpg/jpeg/webp; ≤ 5 MB; MIME sniff; SVG sanitized
+- Favicon generated if absent
+- Header/footer logo defaults applied per spec
+- Audit `ui.brand.updated`  
+**Phase:** 5.5  
+**Step:** 4  
+**Dependencies:** CORE-003  
+**Status:** Planned
+
+---
+
+### THEME-005 — Global Layout
+**Description:** Standardize header/navbar, sidebar, and profile menu.  
+**Acceptance Criteria:**
+- Core modules in top navbar; non-core in sidebar
+- Sidebar: collapsible, resizable (50px–50% viewport), customization mode with Save/Cancel/Default/Exit
+- Merge rules for unseen modules; per-user persistence
+- Branding logo placement and sizing per spec  
+**Phase:** 5.5  
+**Step:** 5  
+**Dependencies:** THEME-001  
+**Status:** Planned
+
+---
+
+### THEME-006 — Theme Pack Import
+**Description:** Admin imports `.zip` packs (Bootswatch/StartBootstrap/BootstrapMade).  
+**Acceptance Criteria:**
+- Accept ≤ 50 MB zip; safe unzip; file allowlist
+- JS/HTML stored but not executed in 5.5; scrubbed; manifest written
+- Endpoints: import/list/update/delete; rate-limit 5/10min/admin
+- Delete purges disk/DB and falls-back users to default; audited  
+**Phase:** 5.5  
+**Step:** 6  
+**Dependencies:** THEME-002  
+**Status:** Planned
+
+---
+
+### THEME-007 — Settings & APIs
+**Description:** Settings schema and endpoints for global UI and per-user prefs.  
+**Acceptance Criteria:**
+- `/settings/ui`, `/me/prefs/ui`, `/settings/ui/brand-assets`, `/settings/ui/themes*`
+- 422 invalid token; 413 oversize; 415 bad MIME
+- OpenAPI documented; tests for RBAC and audits  
+**Phase:** 5.5  
+**Step:** 7  
+**Dependencies:** THEME-002, THEME-006  
+**Status:** Planned
+
+---
+
+### THEME-008 — Accessibility & Quality Gates
+**Description:** Enforce a11y and visual baselines across themes.  
+**Acceptance Criteria:**
+- WCAG 2.2 AA contrast across key components
+- prefers-reduced-motion respected
+- Playwright snapshots for Slate/Flatly/Darkly
+- Human QA checklist executed and stored  
+**Phase:** 5.5  
+**Step:** 8  
+**Dependencies:** THEME-001  
+**Status:** Planned
+
+---
+
+### THEME-009 — No-FOUC Boot Script
+**Description:** Early theme application to prevent flash of unstyled content.  
+**Acceptance Criteria:**
+- Cookie read and `<html>` attributes set before CSS
+- Degrades safely when cookie absent
+- Tested in SSR and SPA reloads  
+**Phase:** 5.5  
+**Step:** 1  
+**Dependencies:** THEME-001  
+**Status:** Planned
+
+---
+
+## ⚠️ Risks
 ### RISK-001 — Risk Register
 **Description:** Capture and categorize risks.  
 **Acceptance Criteria:**
@@ -186,7 +309,6 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 ---
 
 ## 📑 Compliance
-
 ### COMP-001 — Regulatory Library
 **Description:** Catalog of regulations/frameworks.  
 **Acceptance Criteria:**
@@ -212,7 +334,6 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 ---
 
 ## 🔍 Audits
-
 ### AUD-001 — Audit Universe
 **Description:** Audit areas, plans, scheduling.  
 **Acceptance Criteria:**
@@ -226,7 +347,6 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 ---
 
 ## 📜 Policies
-
 ### POL-001 — Policy Library
 **Description:** Policy drafts, approvals, publishing, attestations.  
 **Acceptance Criteria:**
@@ -240,7 +360,6 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 ---
 
 ## 🚨 Incidents
-
 ### INC-001 — Incident Logging
 **Description:** Classification, triage, escalation, closure.  
 **Acceptance Criteria:**
@@ -254,7 +373,6 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 ---
 
 ## 🏢 Vendors
-
 ### VEN-001 — Vendor Inventory
 **Description:** Centralized vendor catalog, risk tiering.  
 **Acceptance Criteria:**
@@ -268,7 +386,6 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 ---
 
 ## 🛡 Cyber
-
 ### CYB-001 — Cyber Metrics
 **Description:** Integrate vulnerability scanners, SIEM, endpoint tools.  
 **Acceptance Criteria:**
@@ -282,7 +399,6 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 ---
 
 ## 🌐 BCP
-
 ### BCP-001 — BCP/DRP Management
 **Description:** Business impact analysis, recovery objectives, crisis workflows.  
 **Acceptance Criteria:**
@@ -296,7 +412,6 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 ---
 
 ## 📊 Reporting
-
 ### REP-001 — Dashboards & Reports
 **Description:** Role-based dashboards, risk heatmaps, compliance scorecards.  
 **Acceptance Criteria:**
@@ -310,7 +425,6 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 ---
 
 ## 🔮 Future
-
 - **FUT-001 — Task & Workflow Management**  
   Unified tasks across modules; approvals/remediation.  
   **Status:** Planned

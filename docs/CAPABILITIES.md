@@ -14,13 +14,10 @@ Consumers must degrade gracefully if providers are absent.
 | core.audit.log           | Core        | All modules                 | **Phase 4 implemented** (DB-backed, retention job, strict params, listing filters, RBAC events)|
 | core.evidence.manage     | Core        | Risks, Compliance, Audits   | **Phase 4 implemented** (persist + SHA-256 + versioning + listing + HEAD/ETag)                 |
 | core.exports             | Core        | Reporting                   | **Phase 4 implemented** (job/status/download; CSV/JSON/PDF; gated by capability)               |
-| risks.read/write         | Risks       | Audits, Compliance, Reports | Phase 3 stubs                                                                                   |
-| risks.scoring            | Risks       | Reporting                   | Phase 3 stubs                                                                                   |
-| risks.treatment          | Risks       | Workflows (future)          | Phase 3 stubs                                                                                   |
-| compliance.controls      | Compliance  | Risks, Audits, Policies     | Phase 3 stubs                                                                                   |
-| compliance.regulations   | Compliance  | Reporting                   | Phase 3 stubs                                                                                   |
-| audits.plan/manage       | Audits      | Risks, Compliance, Reports  | Phase 3 stubs                                                                                   |
-| policies.manage          | Policies    | Compliance, Risks           | Phase 3 stubs                                                                                   |
+| ui.theme.manage          | Core        | Web SPA, Admin              | **Phase 5.5 planned** (Bootswatch switcher, tokens, admin override, per-user prefs)            |
+| ui.theme.import          | Core        | Admin                       | **Phase 5.5 planned** (zip import with scrub, manifest, delete/purge, audits, rate-limit)      |
+| ui.branding.manage       | Core        | Web SPA, Exports            | **Phase 5.5 planned** (logos, favicon, title text, validations)                                |
+| ui.prefs                 | Core        | Web SPA                     | **Phase 5.5 planned** (per-user theme/mode/overrides/sidebar)                                  |
 | reporting.dashboards     | Reporting   | All modules                 | Phase 5 target                                                                                  |
 | incidents.manage         | Incidents   | Risks, BCP, Reporting       | Phase 6 target                                                                                  |
 | vendors.manage           | Vendors     | Risks, Reporting            | Phase 6 target                                                                                  |
@@ -29,6 +26,6 @@ Consumers must degrade gracefully if providers are absent.
 | tasks.assign             | Future: Tasks       | Risks, Audits, Incidents   | Future                                                                                          |
 | vendors.portal           | Future: VendorPortal| Vendor Risk              | Future                                                                                          |
 | assets.registry          | Future: Assets     | Risks, Incidents, KRIs     | Future                                                                                          |
-| indicators.manage        | Future: Indicators | Reporting, Risks, Compliance| Future                                                                                         |
+| indicators.manage        | Future: Indicators | Reporting, Risks, Compliance| Future                                                                                          |
 | cases.manage             | Future: Cases      | Compliance, HR, Legal      | Future                                                                                          |
 | integrations.bus         | Future: Bus        | Assets, Indicators, Cyber  | Future                                                                                          |
