@@ -22,8 +22,7 @@
     <env name="APP_DEBUG" value="true"/>
     <env name="APP_KEY" value="base64:p8c6k2M2mKb0Q2c9m4b1y6c7Cqv2Cqk3s9q1p6r8t0I="/>
 
-    <!-- DB config supplied by .env.testing or CI environment (MySQL in CI). -->
-
+    <!-- DB comes from .env.testing (e.g., MySQL). -->
     <env name="CACHE_DRIVER" value="array"/>
     <env name="SESSION_DRIVER" value="array"/>
     <env name="QUEUE_CONNECTION" value="sync"/>
