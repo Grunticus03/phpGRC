@@ -1046,3 +1046,16 @@ SESSION-LOG.md entry
 - Phase/Step status: advance (Phase-4 frozen; ready to roll into Phase-5 items)
 - Next action (you): Prep Phase-5 scaffolds (PolicyMap overrides exposure, evaluator hardening plan, dashboard/report shortlist, OpenAPI diff gate review).
 - Next action (me): Provide any Phase-5 policy keys & role mappings to seed, initial dashboard KPIs, and UX notes for role-management hardening.
+
+---
+
+### Session 2025-09-19: [Phase 5, RBAC PolicyMap & Enforcement]
+- Context: Locked PolicyMap semantics, normalized role tokens, and enforced policy gate in persist mode; fixed middleware, config, and tests.
+- Goal: Decide precedence (policy over roles), align evaluator/middleware, and get CI green with docs updated.
+- Constraints: No OpenAPI 0.4.6 breaks; keep stub vs persist behavior consistent; static analysis as CI gate.
+
+### Closeout
+- Deliverables produced: Updated RbacMiddleware; updated RbacEvaluator with token normalization; PolicyMap defaults/effective/roleCatalog with auditing; core config tweaks (testing auth exception); routes capability gating; fixed tests (RbacMiddlewarePoliciesTest); Phase-5 docs (POLICYMAP-NOTES.md, DASHBOARDS.md, PHASE-5-PR-CHECKLIST.md).
+- Phase/Step status: advance
+- Next action (you): Implement middleware audit events for denies; add `/api/dashboard/kpis` contract and tests; wire brute-force auth rate limiting knobs per earlier notes.
+- Next action (me): Confirm final `core.rbac.policies` map for Phase-5, confirm audit event names for denies, and approve KPI endpoint shape.
