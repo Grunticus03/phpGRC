@@ -13,6 +13,10 @@ use Symfony\Component\HttpFoundation\Response;
 
 final class RbacMiddleware
 {
+    public function __construct(private readonly RbacEvaluator $evaluator)
+    {
+    }
+
     /**
      * @param \Closure(\Illuminate\Http\Request): \Symfony\Component\HttpFoundation\Response $next
      */
@@ -78,16 +82,23 @@ final class RbacMiddleware
             return $resp;
         }
 
-        if ($requiredRoles !== [] && !$user->hasAnyRole($requiredRoles)) {
+        // Enforce route roles when present.
+        if ($requiredRoles !== [] && !$this->evaluator->userHasAnyRole($user, $requiredRoles)) {
             return response()->json(['ok' => false, 'code' => 'FORBIDDEN', 'message' => 'Forbidden'], 403);
         }
 
+        // Enforce policy ALWAYS when present (even if roles passed).
         $policy = (isset($defaults['policy']) && is_string($defaults['policy']))
             ? $defaults['policy']
             : null;
 
-        if ($policy !== null && $policy !== '' && !RbacEvaluator::allows($user, $policy)) {
-            return response()->json(['ok' => false, 'code' => 'FORBIDDEN', 'message' => 'Forbidden'], 403);
+        if ($policy !== null && $policy !== '') {
+            $policyAllowed = RbacEvaluator::allows($user, $policy);
+            $request->attributes->set('rbac_policy_allowed', $policyAllowed);
+
+            if (!$policyAllowed) {
+                return response()->json(['ok' => false, 'code' => 'FORBIDDEN', 'message' => 'Forbidden'], 403);
+            }
         }
 
         /** @var Response $resp */

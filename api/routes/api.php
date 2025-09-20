@@ -255,7 +255,8 @@ Route::get('/audit/categories', [AuditController::class, 'categories'])
 Route::get('/audit/export.csv', [AuditExportController::class, 'exportCsv'])
     ->middleware($rbacStack)
     ->defaults('roles', ['Admin', 'Auditor'])
-    ->defaults('policy', 'core.audit.view');
+    ->defaults('policy', 'core.audit.view')
+    ->defaults('capability', 'core.audit.export');
 
 /*
  |--------------------------------------------------------------------------
@@ -270,7 +271,8 @@ Route::prefix('/evidence')
             ->defaults('policy', 'core.evidence.view');
         Route::post('/', [EvidenceController::class, 'store'])
             ->defaults('roles', ['Admin'])
-            ->defaults('policy', 'core.evidence.manage');
+            ->defaults('policy', 'core.evidence.manage')
+            ->defaults('capability', 'core.evidence.upload');
         Route::match(['GET','HEAD'], '/{id}', [EvidenceController::class, 'show'])
             ->defaults('roles', ['Admin', 'Auditor'])
             ->defaults('policy', 'core.evidence.view');
@@ -284,3 +286,4 @@ Route::prefix('/evidence')
 Route::post('/avatar', [AvatarController::class, 'store']);
 Route::match(['GET','HEAD'], '/avatar/{user}', [AvatarController::class, 'show'])
     ->whereNumber('user');
+

@@ -63,22 +63,28 @@ final class RbacEvaluator
             return false;
         }
 
-        // If User model exposes hasAnyRole(), use it. Else fall back to names lookup.
-        if (method_exists($user, 'hasAnyRole')) {
-            /** @var callable $fn */
-            $fn = [$user, 'hasAnyRole'];
-            /** @var bool $ok */
-            $ok = $fn($roles);
-            return $ok;
+        /** @var Collection<int,string> $namesCol */
+        $namesCol = $user->roles()->pluck('name');
+
+        /** @var array<string, true> $userTokens */
+        $userTokens = [];
+        foreach ($namesCol as $n) {
+            $tok = self::normalizeToken($n);
+            if ($tok !== '') {
+                $userTokens[$tok] = true;
+            }
+        }
+        if ($userTokens === []) {
+            return false;
         }
 
-        /** @var Collection<int,string> $names */
-        $names = $user->roles()->pluck('name');
         foreach ($roles as $r) {
-            if ($names->containsStrict($r)) {
+            $tok = self::normalizeToken($r);
+            if ($tok !== '' && isset($userTokens[$tok])) {
                 return true;
             }
         }
+
         return false;
     }
 
@@ -107,7 +113,7 @@ final class RbacEvaluator
         $roles = $user->roles()->pluck('name');
 
         foreach ($roles as $roleName) {
-            $caps = $map[$roleName] ?? [];
+            $caps = $map[self::normalizeToken($roleName)] ?? [];
             if (PolicyMap::hasWildcard($caps)) {
                 return true;
             }
@@ -137,6 +143,28 @@ final class RbacEvaluator
             return in_array($t, ['1', 'true', 'on', 'yes'], true);
         }
         return false;
+    }
+
+    /**
+     * Normalize role tokens to match PolicyMap:
+     * - trim
+     * - collapse internal whitespace to single space
+     * - replace spaces with underscore
+     * - allow ^[\p{L}\p{N}_-]{2,64}$, then lowercase
+     */
+    private static function normalizeToken(string $name): string
+    {
+        $name = trim($name);
+        if ($name === '') {
+            return '';
+        }
+        $collapsed = preg_replace('/\s+/', ' ', $name);
+        $name = is_string($collapsed) ? $collapsed : $name;
+        $name = str_replace(' ', '_', $name);
+        if (!preg_match('/^[\p{L}\p{N}_-]{2,64}$/u', $name)) {
+            return '';
+        }
+        return mb_strtolower($name);
     }
 }
 

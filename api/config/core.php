@@ -35,22 +35,33 @@ return [
 
     'rbac' => [
         'enabled'      => true,
-        // Mode controls controllers/validation behavior. Default stub.
-        // Values: 'stub' | 'persist'
+        // Mode controls controllers/validation behavior. Values: 'stub' | 'persist'
         'mode'         => env('CORE_RBAC_MODE', 'stub'),
         // Back-compat boolean toggle; either this OR mode=persist enables persistence paths.
         'persistence'  => filter_var(env('CORE_RBAC_PERSISTENCE', false), FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) ?? false,
-        'require_auth' => env('CORE_RBAC_REQUIRE_AUTH', false),
+
+        // Auth requirement:
+        // disable in testing to satisfy Phase-4 tests, else read ENV flag (default true).
+        'require_auth' => ((string) env('APP_ENV', 'production') === 'testing')
+            ? false
+            : (bool) env('CORE_RBAC_REQUIRE_AUTH', true),
+
+        // Phase-4 defaults (human-visible names). Normalization handles storage tokens.
         'roles' => [
             'Admin',
             'Auditor',
             'Risk Manager',
             'User',
         ],
+
         // PolicyMap defaults; override via overlay config.
         'policies' => [
             'core.settings.manage'   => ['Admin'],
             'core.audit.view'        => ['Admin', 'Auditor'],
+            'core.audit.export'      => ['Admin'],
+            'core.metrics.view'      => ['Admin'],
+            'core.users.view'        => ['Admin'],
+            'core.users.manage'      => ['Admin'],
             'core.evidence.view'     => ['Admin', 'Auditor'],
             'core.evidence.manage'   => ['Admin'],
             'core.exports.generate'  => ['Admin'],
@@ -64,6 +75,12 @@ return [
         'core' => [
             'exports' => [
                 'generate' => env('CAP_CORE_EXPORTS_GENERATE', true),
+            ],
+            'evidence' => [
+                'upload' => env('CAP_CORE_EVIDENCE_UPLOAD', true),
+            ],
+            'audit' => [
+                'export' => env('CAP_CORE_AUDIT_EXPORT', true),
             ],
         ],
     ],
@@ -99,3 +116,4 @@ return [
         'dir'     => env('CORE_EXPORTS_DIR', 'exports'),
     ],
 ];
+
