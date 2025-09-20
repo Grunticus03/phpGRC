@@ -1103,3 +1103,16 @@ SESSION-LOG.md entry
 - Phase/Step status: advance
 - Next action (you): Open PRs for Phase-5 UI wiring (tiles/series), add perf seed fixtures, and prepare OpenAPI diff for metrics endpoints once approved.
 - Next action (me): Review/approve PRs, confirm PolicyMap overrides for prod, and prioritize which two KPI widgets ship first in the web app.
+
+---
+
+### Session 2025-09-20: [Phase 5, KPIs endpoint hardening]
+- Context: Internal KPIs endpoint + guard; stabilize tests; wire basic SPA.
+- Goal: CI green with auth + computation tests; dedupe audit indexes; ship web fetch/render.
+- Constraints: OpenAPI 0.4.6 unchanged; Admin-only; perf target ≤200ms; no schema changes.
+
+### Closeout
+- Deliverables produced: deduped audit index migration; robust DashboardKpisAuthTest + DashboardKpisComputationTest; BruteForceGuard defaults in core.php; /dashboard/kpis route; web router/Nav/dashboard + metrics client; docs regenerated.
+- Phase/Step status: advance
+- Next action (you): approve Auditor visibility (stay Admin-only?), approve audit action label map, confirm prod DB indexes
+- Next action (me): normalize evidence percent to 0–100 and tighten tests; add SPA 403 screen and label map; doc note on perf limits
