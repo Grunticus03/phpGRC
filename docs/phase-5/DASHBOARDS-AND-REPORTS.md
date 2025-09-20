@@ -13,37 +13,37 @@
 ---
 
 ## KPI shortlist (pick 2 to implement first)
-1) **Evidence freshness** ✅
-   - Definition: percent of evidence items with `updated_at` older than N days.
-   - Default N: 30.
-   - Slice: overall and by MIME type.
-   - Outcome: trend 30/60/90 days.
+1) **Evidence freshness** ✅  
+   Definition: percent of evidence items with `updated_at` older than N days.  
+   Default N: 30.  
+   Slice: overall and by MIME type.  
+   Outcome: trend 30/60/90 days.
 
-2) **RBAC denies rate** ✅
-   - Definition: share of requests producing `RBAC` deny actions over total audited requests.
-   - Actions: `rbac.deny.unauthenticated|capability|role|policy|unknown_policy`.
-   - Window: last 7 days, with daily buckets.
+2) **RBAC denies rate** ✅  
+   Definition: share of requests producing `RBAC` deny actions over total audited requests.  
+   Actions: `rbac.deny.unauthenticated|capability|role|policy|unknown_policy`.  
+   Window: last 7 days, with daily buckets.
 
-3) **Audit event volume**
-   - Definition: count of audit events per category per day.
-   - Categories: `AUTH`, `RBAC`, `EXPORTS`, others present.
-   - Use-case: anomaly detection and capacity.
+3) **Audit event volume**  
+   Definition: count of audit events per category per day.  
+   Categories: `AUTH`, `RBAC`, `EXPORTS`, others present.  
+   Use-case: anomaly detection and capacity.
 
-4) **Export success and latency**
-   - Definition: success rate of export jobs and median time-to-complete.
-   - Window: last 30 days; grouped by export type.
+4) **Export success and latency**  
+   Definition: success rate of export jobs and median time-to-complete.  
+   Window: last 30 days; grouped by export type.
 
-5) **Role distribution**
-   - Definition: number of users per role; highlight users with zero roles.
-   - Use-case: entitlement hygiene.
+5) **Role distribution**  
+   Definition: number of users per role; highlight users with zero roles.  
+   Use-case: entitlement hygiene.
 
 **Implemented first two:** (1) Evidence freshness, (2) RBAC denies rate.
 
 ---
 
 ## Data sources (Phase-4 available)
-- `audit_events` (model: `App\Models\AuditEvent`)
-  - Fields: `occurred_at`, `category`, `action`, `actor_id|null`, `entity_type`, `entity_id`, `ip|null`, `ua|null`, `meta?`
+- `audit_events` (model: `App\Models\AuditEvent`)  
+  Fields: `occurred_at`, `category`, `action`, `actor_id|null`, `entity_type`, `entity_id`, `ip|null`, `ua|null`, `meta?`
 - `exports` tables (backed by existing export job tracking; reuse controllers `ExportController`,`StatusController`)
 - `evidence` tables (Phase 4 persisted evidence; `created_at`, `updated_at`, `mime`, `size`)
 - `users`, `roles`, `role_user` (or equivalent pivot)
@@ -71,46 +71,47 @@ No “findings” or “control coverage” KPIs are proposed in Phase 5 to avoi
 ---
 
 ## Data contracts
-- **Internal endpoint (Phase-5, not in OpenAPI):**
-  - `GET /api/dashboard/kpis`
-  - RBAC: `roles:["Admin"]`, `policy:"core.metrics.view"`.
-  - Response:
-    ```json
-    {
-      "ok": true,
-      "data": {
-        "rbac_denies": {
-          "window_days": 7,
-          "from": "YYYY-MM-DD",
-          "to": "YYYY-MM-DD",
-          "denies": 0,
-          "total": 0,
-          "rate": 0.0,
-          "daily": [{"date":"YYYY-MM-DD","denies":0,"total":0,"rate":0.0}]
-        },
-        "evidence_freshness": {
-          "days": 30,
-          "total": 0,
-          "stale": 0,
-          "percent": 0.0,
-          "by_mime": [{"mime":"application/pdf","total":0,"stale":0,"percent":0.0}]
-        }
-      },
-      "meta": {
-        "generated_at": "ISO-8601",
-        "window": {"rbac_days":7,"fresh_days":30}
-      }
+**Internal endpoint (Phase-5, not in OpenAPI):**
+- `GET /api/dashboard/kpis`  
+  RBAC: `roles:["Admin"]`, `policy:"core.metrics.view"`.
+
+Response:
+```json
+{
+  "ok": true,
+  "data": {
+    "rbac_denies": {
+      "window_days": 7,
+      "from": "YYYY-MM-DD",
+      "to": "YYYY-MM-DD",
+      "denies": 0,
+      "total": 0,
+      "rate": 0.0,
+      "daily": [{"date":"YYYY-MM-DD","denies":0,"total":0,"rate":0.0}]
+    },
+    "evidence_freshness": {
+      "days": 30,
+      "total": 0,
+      "stale": 0,
+      "percent": 0.0,
+      "by_mime": [{"mime":"application/pdf","total":0,"stale":0,"percent":0.0}]
     }
-    ```
-- **Future (post-diff approval):**
-  - `GET /api/metrics/evidence/freshness?days=30`
-  - `GET /api/metrics/rbac/denies?window=7d&bucket=day`
-  - `GET /api/metrics/audit/volume?window=30d&bucket=day`
-  - `GET /api/metrics/exports/summary?window=30d`
-  - `GET /api/metrics/roles/distribution`
-- All metrics endpoints (present/future):
-  - Admin-only. Require `core.metrics.view` (or `core.audit.view` if consolidated).
-  - Return `{ ok:boolean, data:..., meta:{generated_at, window} }`.
+  },
+  "meta": {
+    "generated_at": "ISO-8601",
+    "window": {"rbac_days":7,"fresh_days":30}
+  }
+}
+```
+
+**Future (post-diff approval):**
+- `GET /api/metrics/evidence/freshness?days=30`
+- `GET /api/metrics/rbac/denies?window=7d&bucket=day`
+- `GET /api/metrics/audit/volume?window=30d&bucket=day`
+- `GET /api/metrics/exports/summary?window=30d`
+- `GET /api/metrics/roles/distribution`
+
+All metrics endpoints (present/future) are Admin-only and require `core.metrics.view` (or `core.audit.view` if consolidated). Responses use `{ ok:boolean, data:..., meta:{generated_at, window} }`.
 
 ---
 
@@ -125,5 +126,5 @@ No “findings” or “control coverage” KPIs are proposed in Phase 5 to avoi
 ## Acceptance criteria (for each KPI)
 - Correctness: values match SQL spot-checks on seed data.
 - Security: 401/403 paths verified; no data leakage to non-admin roles.
-- Performance: each KPI call ≤ 200ms on 10k-row `audit_events` test data.
+- Performance: each KPI call ≤ 200 ms on 10k-row `audit_events` test data.
 - Tests: feature tests for role/policy gates; unit tests for calculations.

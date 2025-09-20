@@ -35,21 +35,40 @@ export type Kpis = {
   evidence_freshness: EvidenceFreshness;
 };
 
+type ApiEnvelope<T> = {
+  ok: boolean;
+  data: T;
+  meta?: unknown;
+  code?: string;
+  errors?: Record<string, string[]>;
+};
+
 export async function fetchKpis(signal?: AbortSignal): Promise<Kpis> {
   const res = await fetch('/api/dashboard/kpis', {
     method: 'GET',
     credentials: 'include',
-    headers: { 'Accept': 'application/json' },
+    headers: { Accept: 'application/json' },
     signal,
   });
 
-  if (res.status === 403) {
-    throw new Error('forbidden');
-  }
-  if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throw new Error(text || `error ${res.status}`);
+  if (res.status === 403) throw new Error('forbidden');
+
+  const text = await res.text();
+  if (!res.ok) throw new Error(text || `error ${res.status}`);
+
+  // Parse once, then unwrap if envelope-shaped.
+  const json: unknown = text ? JSON.parse(text) : null;
+
+  if (json && typeof json === 'object' && 'ok' in json && 'data' in json) {
+    const env = json as ApiEnvelope<Kpis>;
+    if (env.ok !== true) {
+      const detail =
+        env.code ??
+        (env.errors ? Object.keys(env.errors).map(k => `${k}: ${env.errors?.[k]?.join(', ')}`).join('; ') : '');
+      throw new Error(detail || 'request_failed');
+    }
+    return env.data;
   }
 
-  return res.json() as Promise<Kpis>;
+  return json as Kpis;
 }
