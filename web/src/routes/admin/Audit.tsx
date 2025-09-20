@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { listCategories } from "../../lib/api/audit";
+import { actionInfo } from "../../lib/auditLabels";
 
 type AuditItem = {
   id?: string;
@@ -53,6 +54,28 @@ function parse422(json: unknown): FieldErrors {
   return out;
 }
 
+function chipStyle(variant: "neutral" | "success" | "warning" | "danger"): React.CSSProperties {
+  const base: React.CSSProperties = {
+    display: "inline-block",
+    fontSize: "0.85rem",
+    padding: "0.15rem 0.5rem",
+    borderRadius: "999px",
+    border: "1px solid transparent",
+    lineHeight: 1.2,
+    whiteSpace: "nowrap",
+  };
+  switch (variant) {
+    case "success":
+      return { ...base, color: "#0f5132", backgroundColor: "#d1e7dd", borderColor: "#badbcc" };
+    case "warning":
+      return { ...base, color: "#664d03", backgroundColor: "#fff3cd", borderColor: "#ffecb5" };
+    case "danger":
+      return { ...base, color: "#842029", backgroundColor: "#f8d7da", borderColor: "#f5c2c7" };
+    default:
+      return { ...base, color: "#0c5460", backgroundColor: "#e2f0f3", borderColor: "#bee5eb" };
+  }
+}
+
 export default function Audit(): JSX.Element {
   const [category, setCategory] = useState("");
   const [action, setAction] = useState("");
@@ -86,7 +109,6 @@ export default function Audit(): JSX.Element {
 
   const isDateOrderValid = useMemo(() => {
     if (!dateFrom || !dateTo) return true;
-    // Compare as YYYY-MM-DD strings which sort lexicographically
     return dateFrom <= dateTo;
   }, [dateFrom, dateTo]);
 
@@ -102,7 +124,6 @@ export default function Audit(): JSX.Element {
       ctrl.current = new AbortController();
       const res = await fetch(`/api/audit?${query}`, { signal: ctrl.current.signal, credentials: "same-origin" });
       if (!res.ok) {
-        // Attempt to read JSON error for 422s
         let msg = `HTTP ${res.status}`;
         try {
           const j = (await res.json().catch(() => null)) as unknown;
@@ -140,7 +161,6 @@ export default function Audit(): JSX.Element {
 
   useEffect(() => {
     void (async () => {
-      // Initial categories
       const ab = new AbortController();
       try {
         const arr = await listCategories(ab.signal);
@@ -148,7 +168,6 @@ export default function Audit(): JSX.Element {
       } finally {
         // no-op
       }
-      // Initial load
       await load();
       return () => ab.abort();
     })();
@@ -336,12 +355,20 @@ export default function Audit(): JSX.Element {
                 const id = (it.id as string) || (it.ulid as string) || String(i);
                 const ts = it.created_at || it.ts || "";
                 const user = it.user_id ?? it.actor_id ?? "";
+                const cat = String(it.category ?? "");
+                const act = String(it.action ?? "");
+                const info = actionInfo(act, cat);
                 return (
                   <tr key={id}>
                     <td>{id}</td>
                     <td>{String(ts)}</td>
-                    <td>{String(it.category ?? "")}</td>
-                    <td>{String(it.action ?? "")}</td>
+                    <td>{info.category || cat}</td>
+                    <td>
+                      <span style={chipStyle(info.variant)} aria-label={`${info.label} (${act})`}>
+                        {info.label}
+                      </span>
+                      <div style={{ fontFamily: "monospace", fontSize: "0.8rem", opacity: 0.8 }}>{act}</div>
+                    </td>
                     <td>{String(user)}</td>
                     <td>{String(it.ip ?? "")}</td>
                     <td>{String(it.note ?? "")}</td>
