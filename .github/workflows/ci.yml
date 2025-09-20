@@ -93,7 +93,7 @@ jobs:
   api_mysql:
     name: API tests (MySQL, PHP 8.3) + coverage
     runs-on: self-hosted
-    needs: [api_static]
+    needs: [openapi]
     services:
       mysql:
         image: mysql:8.0
