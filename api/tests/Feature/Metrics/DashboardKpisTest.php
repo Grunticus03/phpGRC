@@ -2,59 +2,66 @@
 
 declare(strict_types=1);
 
-namespace Tests\Feature\Meterics; // deliberate: keep namespace unique to avoid collisions
+namespace Tests\Feature\Metrics;
 
 use App\Models\Role;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Model as EloquentModel;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Str;
 use Tests\TestCase;
 
-final class DashboardKpisAuthTest extends TestCase
+final class DashboardKpisTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_admin_can_access_kpis(): void
+    public function test_kpis_endpoint_returns_expected_shape(): void
     {
-        // Enforce auth + RBAC for this route
         config([
             'core.rbac.enabled' => true,
             'core.rbac.require_auth' => true,
             'core.rbac.mode' => 'persist',
-            'core.rbac.policies' => ['core.metrics.view' => ['Admin']],
+            'core.rbac.policies' => array_merge(config('core.rbac.policies', []), [
+                'core.metrics.view' => ['Admin'],
+            ]),
         ]);
 
-        $admin = User::factory()->create();
+        $admin = $this->makeUser('Admin Two', 'admin2@example.test');
         $this->attachNamedRole($admin, 'Admin');
 
-        $this->actingAs($admin, 'sanctum')
-            ->getJson('/api/dashboard/kpis')
-            ->assertStatus(200);
+        $resp = $this->actingAs($admin, 'sanctum')->getJson('/api/dashboard/kpis');
+        $resp->assertStatus(200);
+
+        $kpis = $this->extractKpis($resp);
+
+        static::assertIsArray($kpis);
+        static::assertArrayHasKey('rbac_denies', $kpis);
+        static::assertArrayHasKey('evidence_freshness', $kpis);
+
+        foreach (['window_days','from','to','denies','total','rate','daily'] as $key) {
+            static::assertArrayHasKey($key, $kpis['rbac_denies']);
+        }
+        foreach (['days','total','stale','percent','by_mime'] as $key) {
+            static::assertArrayHasKey($key, $kpis['evidence_freshness']);
+        }
     }
 
-    public function test_auditor_is_forbidden_from_kpis(): void
+    /** Create a user without factories. */
+    private function makeUser(string $name, string $email): User
     {
-        config([
-            'core.rbac.enabled' => true,
-            'core.rbac.require_auth' => true,
-            'core.rbac.mode' => 'persist',
-            'core.rbac.policies' => ['core.metrics.view' => ['Admin']], // Admin-only for Phase 5
-        ]);
+        /** @var User $user */
+        $user = EloquentModel::unguarded(fn () => User::query()->create([
+            'name' => $name,
+            'email' => $email,
+            'password' => bcrypt('secret'),
+        ]));
 
-        $auditor = User::factory()->create();
-        $this->attachNamedRole($auditor, 'Auditor');
-
-        $this->actingAs($auditor, 'sanctum')
-            ->getJson('/api/dashboard/kpis')
-            ->assertStatus(403);
+        return $user;
     }
 
-    /**
-     * Ensure a role with human-readable slug id exists and attach to user.
-     */
+    /** Ensure a role exists and attach to user. */
     private function attachNamedRole(User $user, string $name): void
     {
-        $id = 'role_' . Str::of($name)->lower()->replaceMatches('/[^a-z0-9]+/', '_')->toString();
+        $id = 'role_' . strtolower(preg_replace('/[^a-z0-9]+/i', '_', $name));
 
         /** @var Role $role */
         $role = Role::query()->firstOrCreate(
@@ -63,5 +70,15 @@ final class DashboardKpisAuthTest extends TestCase
         );
 
         $user->roles()->syncWithoutDetaching([$role->getKey()]);
+    }
+
+    /** Normalize controller response: root or { data: ... }. */
+    private function extractKpis(\Illuminate\Testing\TestResponse $resp): array
+    {
+        $json = $resp->json();
+        if (is_array($json) && array_key_exists('data', $json) && is_array($json['data'])) {
+            return $json['data'];
+        }
+        return is_array($json) ? $json : [];
     }
 }

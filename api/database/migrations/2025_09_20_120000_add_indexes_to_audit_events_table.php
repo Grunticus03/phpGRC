@@ -14,11 +14,26 @@ return new class extends Migration
             return;
         }
 
-        Schema::table('audit_events', function (Blueprint $table): void {
-            // Composite indexes for metrics queries
-            $table->index(['category', 'occurred_at'], 'idx_audit_cat_occurred_at');
-            $table->index(['action', 'occurred_at'], 'idx_audit_action_occurred_at');
-        });
+        // Create each index independently; ignore duplicates.
+        try {
+            Schema::table('audit_events', function (Blueprint $table): void {
+                $table->index(['category', 'occurred_at'], 'idx_audit_cat_occurred_at');
+            });
+        } catch (\Illuminate\Database\QueryException $e) {
+            if (stripos($e->getMessage(), 'Duplicate key name') === false) {
+                throw $e;
+            }
+        }
+
+        try {
+            Schema::table('audit_events', function (Blueprint $table): void {
+                $table->index(['action', 'occurred_at'], 'idx_audit_action_occurred_at');
+            });
+        } catch (\Illuminate\Database\QueryException $e) {
+            if (stripos($e->getMessage(), 'Duplicate key name') === false) {
+                throw $e;
+            }
+        }
     }
 
     public function down(): void
@@ -27,9 +42,21 @@ return new class extends Migration
             return;
         }
 
-        Schema::table('audit_events', function (Blueprint $table): void {
-            $table->dropIndex('idx_audit_cat_occurred_at');
-            $table->dropIndex('idx_audit_action_occurred_at');
-        });
+        // Drop if present; ignore missing.
+        try {
+            Schema::table('audit_events', function (Blueprint $table): void {
+                $table->dropIndex('idx_audit_cat_occurred_at');
+            });
+        } catch (\Throwable $e) {
+            // no-op
+        }
+
+        try {
+            Schema::table('audit_events', function (Blueprint $table): void {
+                $table->dropIndex('idx_audit_action_occurred_at');
+            });
+        } catch (\Throwable $e) {
+            // no-op
+        }
     }
 };
