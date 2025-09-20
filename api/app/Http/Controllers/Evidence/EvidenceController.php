@@ -400,12 +400,18 @@ final class EvidenceController extends Controller
         return is_int($v) ? $v : ((is_string($v) && ctype_digit($v)) ? (int) $v : null);
     }
 
-    private static function toIntOrZero(mixed $v): int
+    /**
+     * @param int|null|string $v
+     */
+    private static function toIntOrZero(int|string|null $v): int
     {
         return is_int($v) ? $v : ((is_string($v) && ctype_digit($v)) ? (int) $v : 0);
     }
 
-    private static function intFromDbMax(mixed $v): int
+    /**
+     * @param false|int|null|string $v
+     */
+    private static function intFromDbMax(int|string|false|null $v): int
     {
         return is_int($v) ? $v : ((is_string($v) && ctype_digit($v)) ? (int) $v : 0);
     }

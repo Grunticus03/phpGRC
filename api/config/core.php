@@ -31,6 +31,20 @@ return [
         'break_glass' => [
             'enabled' => env('CORE_AUTH_BREAK_GLASS_ENABLED', false),
         ],
+
+        // Brute-force guard knobs (Phase 5)
+        'bruteforce' => [
+            'enabled'        => filter_var(env('CORE_AUTH_BF_ENABLED', true), FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) ?? true,
+            'strategy'       => env('CORE_AUTH_BF_STRATEGY', 'session'), // 'session' | 'ip'
+            'window_seconds' => (int) env('CORE_AUTH_BF_WINDOW_SECONDS', 900),
+            'max_attempts'   => (int) env('CORE_AUTH_BF_MAX_ATTEMPTS', 5),
+            'lock_http_status' => (int) env('CORE_AUTH_BF_LOCK_HTTP_STATUS', 429),
+        ],
+
+        // Cookie used by session strategy
+        'session_cookie' => [
+            'name' => env('CORE_AUTH_SESSION_COOKIE_NAME', 'phpgrc_auth_attempt'),
+        ],
     ],
 
     'rbac' => [

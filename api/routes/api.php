@@ -17,9 +17,11 @@ use App\Http\Controllers\Avatar\AvatarController;
 use App\Http\Controllers\Evidence\EvidenceController;
 use App\Http\Controllers\Export\ExportController;
 use App\Http\Controllers\Export\StatusController;
+use App\Http\Controllers\Metrics\MetricsController;
 use App\Http\Controllers\Rbac\RolesController;
 use App\Http\Controllers\Rbac\UserRolesController;
 use App\Http\Controllers\OpenApiController;
+use App\Http\Middleware\Auth\BruteForceGuard;
 use App\Http\Middleware\BreakGlassGuard;
 use App\Http\Middleware\RbacMiddleware;
 use App\Http\Middleware\SetupGuard;
@@ -134,7 +136,8 @@ HTML;
  | Auth placeholders (Phase 2 scaffolding)
  |--------------------------------------------------------------------------
 */
-Route::post('/auth/login',  [LoginController::class,  'login']);
+Route::post('/auth/login',  [LoginController::class,  'login'])
+    ->middleware(BruteForceGuard::class);
 Route::post('/auth/logout', [LogoutController::class, 'logout']);
 Route::get('/auth/me',      [MeController::class,     'me']);
 
@@ -179,6 +182,19 @@ Route::prefix('/admin')
         Route::patch('/settings', [SettingsController::class, 'update'])
             ->defaults('roles', ['Admin'])
             ->defaults('policy', 'core.settings.manage');
+    });
+
+/*
+ |--------------------------------------------------------------------------
+ | Dashboard KPIs (internal, no OpenAPI change)
+ |--------------------------------------------------------------------------
+*/
+Route::prefix('/dashboard')
+    ->middleware($rbacStack)
+    ->group(function (): void {
+        Route::get('/kpis', [MetricsController::class, 'index'])
+            ->defaults('roles', ['Admin'])
+            ->defaults('policy', 'core.metrics.view');
     });
 
 /*

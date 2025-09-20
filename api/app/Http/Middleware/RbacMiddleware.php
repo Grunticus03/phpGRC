@@ -15,6 +15,8 @@ use Symfony\Component\HttpFoundation\Response;
 
 final class RbacMiddleware
 {
+    private const ATTR_DENY_AUDITED = 'rbac_deny_audit_emitted';
+
     public function __construct(
         private readonly RbacEvaluator $evaluator,
         private readonly AuditLogger $audit
@@ -172,6 +174,10 @@ final class RbacMiddleware
     private function auditDeny(Request $request, ?User $user, string $action, array $extraMeta = []): void
     {
         try {
+            if ($request->attributes->get(self::ATTR_DENY_AUDITED) === true) {
+                return;
+            }
+
             /** @var \Illuminate\Routing\Route|null $routeObj */
             $routeObj    = $request->route();
             $routeName   = null;
@@ -213,6 +219,8 @@ final class RbacMiddleware
                 'ua'          => $request->userAgent(),
                 'meta'        => $meta,
             ]);
+
+            $request->attributes->set(self::ATTR_DENY_AUDITED, true);
         } catch (\Throwable) {
             // Intentionally swallow audit errors.
         }
