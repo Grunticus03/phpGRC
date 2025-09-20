@@ -13,6 +13,9 @@ export default function Nav(): JSX.Element {
           <NavLink to="/" className="navbar-brand" aria-label="phpGRC home">
             phpGRC
           </NavLink>
+          <NavLink to="/dashboard" className={linkCls}>
+            Dashboard
+          </NavLink>
           <NavLink to="/admin" className={linkCls}>
             Admin
           </NavLink>

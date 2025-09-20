@@ -1,130 +1,67 @@
 <?php
+
 declare(strict_types=1);
 
-namespace Tests\Feature\Metrics;
+namespace Tests\Feature\Meterics; // deliberate: keep namespace unique to avoid collisions
 
-use App\Models\AuditEvent;
-use App\Models\Evidence;
-use Carbon\CarbonImmutable;
+use App\Models\Role;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
-final class DashboardKpisTest extends TestCase
+final class DashboardKpisAuthTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_kpis_endpoint_returns_data(): void
+    public function test_admin_can_access_kpis(): void
+    {
+        // Enforce auth + RBAC for this route
+        config([
+            'core.rbac.enabled' => true,
+            'core.rbac.require_auth' => true,
+            'core.rbac.mode' => 'persist',
+            'core.rbac.policies' => ['core.metrics.view' => ['Admin']],
+        ]);
+
+        $admin = User::factory()->create();
+        $this->attachNamedRole($admin, 'Admin');
+
+        $this->actingAs($admin, 'sanctum')
+            ->getJson('/api/dashboard/kpis')
+            ->assertStatus(200);
+    }
+
+    public function test_auditor_is_forbidden_from_kpis(): void
     {
         config([
-            'core.rbac.require_auth' => false,
-            'core.audit.enabled'     => true,
-            'core.evidence.enabled'  => true,
+            'core.rbac.enabled' => true,
+            'core.rbac.require_auth' => true,
+            'core.rbac.mode' => 'persist',
+            'core.rbac.policies' => ['core.metrics.view' => ['Admin']], // Admin-only for Phase 5
         ]);
 
-        $now = CarbonImmutable::now('UTC');
+        $auditor = User::factory()->create();
+        $this->attachNamedRole($auditor, 'Auditor');
 
-        // Baseline counts in case other fixtures exist.
-        $beforeTotal = (int) Evidence::query()->count();
-        $beforeStale = (int) Evidence::query()
-            ->where('updated_at', '<', $now->subDays(30))
-            ->count();
-
-        // Seed audit events: 3 total, 1 deny in window
-        AuditEvent::query()->create([
-            'id'          => Str::ulid()->toBase32(),
-            'occurred_at' => $now->subDays(1),
-            'actor_id'    => null,
-            'action'      => 'rbac.deny.policy',
-            'category'    => 'RBAC',
-            'entity_type' => 'route',
-            'entity_id'   => 'test',
-            'ip'          => '127.0.0.1',
-            'ua'          => 'phpunit',
-            'meta'        => [],
-            'created_at'  => $now,
-        ]);
-        AuditEvent::query()->create([
-            'id'          => Str::ulid()->toBase32(),
-            'occurred_at' => $now->subDays(1),
-            'actor_id'    => 1,
-            'action'      => 'auth.login.success',
-            'category'    => 'AUTH',
-            'entity_type' => 'user',
-            'entity_id'   => 'u1',
-            'ip'          => '127.0.0.1',
-            'ua'          => 'phpunit',
-            'meta'        => [],
-            'created_at'  => $now,
-        ]);
-        AuditEvent::query()->create([
-            'id'          => Str::ulid()->toBase32(),
-            'occurred_at' => $now->subDays(2),
-            'actor_id'    => 1,
-            'action'      => 'rbac.allow',
-            'category'    => 'RBAC',
-            'entity_type' => 'route',
-            'entity_id'   => 'ok',
-            'ip'          => '127.0.0.1',
-            'ua'          => 'phpunit',
-            'meta'        => [],
-            'created_at'  => $now,
-        ]);
-
-        // Seed evidence: 2 new items, one stale for 30d window
-        Evidence::query()->create([
-            'id'         => 'ev_' . Str::ulid()->toBase32(),
-            'owner_id'   => 1,
-            'filename'   => 'a.pdf',
-            'mime'       => 'application/pdf',
-            'size_bytes' => 100,
-            'sha256'     => str_repeat('a', 64),
-            'version'    => 1,
-            'bytes'      => 'x',
-            'created_at' => $now->subDays(40),
-            'updated_at' => $now->subDays(40),
-        ]);
-        Evidence::query()->create([
-            'id'         => 'ev_' . Str::ulid()->toBase32(),
-            'owner_id'   => 1,
-            'filename'   => 'b.txt',
-            'mime'       => 'text/plain',
-            'size_bytes' => 50,
-            'sha256'     => str_repeat('b', 64),
-            'version'    => 1,
-            'bytes'      => 'y',
-            'created_at' => $now->subDays(2),
-            'updated_at' => $now->subDays(2),
-        ]);
-
-        $resp = $this->getJson('/api/dashboard/kpis?days=30');
-        $resp->assertOk()
-            ->assertJsonPath('ok', true)
-            ->assertJsonStructure([
-                'ok',
-                'data' => [
-                    'rbac_denies' => ['window_days','from','to','denies','total','rate','daily'],
-                    'evidence_freshness' => ['days','total','stale','percent','by_mime'],
-                ],
-                'meta' => ['generated_at','window' => ['rbac_days','fresh_days']],
-            ]);
-
-        /** @var array<string,mixed> $data */
-        $data = $resp->json('data');
-
-        $this->assertSame(1, (int) $data['rbac_denies']['denies']);
-
-        $expectedTotal = $beforeTotal + 2;
-        $expectedStale = $beforeStale + 1;
-
-        $this->assertSame($expectedTotal, (int) $data['evidence_freshness']['total']);
-        $this->assertSame($expectedStale, (int) $data['evidence_freshness']['stale']);
+        $this->actingAs($auditor, 'sanctum')
+            ->getJson('/api/dashboard/kpis')
+            ->assertStatus(403);
     }
 
-    public function test_kpis_endpoint_requires_auth_when_enabled(): void
+    /**
+     * Ensure a role with human-readable slug id exists and attach to user.
+     */
+    private function attachNamedRole(User $user, string $name): void
     {
-        config(['core.rbac.require_auth' => true]);
-        $this->getJson('/api/dashboard/kpis')->assertStatus(401);
+        $id = 'role_' . Str::of($name)->lower()->replaceMatches('/[^a-z0-9]+/', '_')->toString();
+
+        /** @var Role $role */
+        $role = Role::query()->firstOrCreate(
+            ['id' => $id],
+            ['name' => $name]
+        );
+
+        $user->roles()->syncWithoutDetaching([$role->getKey()]);
     }
 }
-

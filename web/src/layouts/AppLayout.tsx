@@ -5,7 +5,7 @@ export default function AppLayout(): JSX.Element {
   return (
     <>
       <Nav />
-      <main className="container">
+      <main id="main" className="container">
         <Outlet />
       </main>
     </>
