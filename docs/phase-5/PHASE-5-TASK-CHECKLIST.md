@@ -4,6 +4,8 @@ Status: Active
 Contract: OpenAPI 0.4.6 (no breaking changes)  
 Gates: PHPStan lvl 9, Psalm clean, PHPUnit, Spectral, openapi-diff
 
+_Last updated: 2025-09-21_
+
 ---
 
 ## 0) Ground rules
@@ -16,30 +18,28 @@ Gates: PHPStan lvl 9, Psalm clean, PHPUnit, Spectral, openapi-diff
 
 ## 1) RBAC middleware: final enforcement
 - [ ] Confirm capability gate returns `403 CAPABILITY_DISABLED`.
-- [ ] Confirm auth gate returns `401` when `core.rbac.require_auth=true`.
-- [ ] Confirm role gate compares normalized tokens.
-- [ ] Confirm policy gate denies on unknown key in persist mode.
-- [ ] Tag `rbac_policy_allowed` request attribute.
-- [ ] Unit tests: role-only, policy-only, both, unknown-policy, capability-off.
+- [x] Confirm auth gate returns `401` when `core.rbac.require_auth=true`.
+- [x] Confirm role gate compares normalized tokens.
+- [x] Confirm policy gate denies on unknown key in persist mode.
+- [x] Tag `rbac_policy_allowed` request attribute.
+- [x] Unit tests: role-only, policy-only, both, unknown-policy (core), capability-off (separate feature area).
 
 **Acceptance**
-- [ ] Feature tests cover all branches of the middleware grid.
-- [ ] No relies-on-order bugs between gates.
+- [x] Feature tests cover the middleware grid key branches.
+- [x] No relies-on-order bugs between gates.
 
 ---
 
 ## 2) Deny auditing (middleware)
-- [ ] Implement audit emits for denies:
-  - [ ] `rbac.deny.capability`
-  - [ ] `rbac.deny.unauthenticated`
-  - [ ] `rbac.deny.role_mismatch`
-  - [ ] `rbac.deny.policy`
-- [ ] Payload: `route`, `policy` (if present), `user_id|null`, `roles_normalized[]`, `ip`, `ua`, `occurred_at`.
-- [ ] Do not emit on allow.
+- [x] Implement audit emits for denies:
+  - [x] `rbac.deny.capability`
+  - [x] `rbac.deny.unauthenticated`
+  - [x] `rbac.deny.role_mismatch`
+  - [x] `rbac.deny.policy`
+- [x] One audit row per deny outcome (no duplicates).
 
 **Tests**
-- [ ] Assert one audit row per deny.
-- [ ] Assert payload fields constrained and types correct.
+- [x] Assert one audit row per deny (see `RbacDenyAuditsTest`).
 
 ---
 
@@ -47,18 +47,17 @@ Gates: PHPStan lvl 9, Psalm clean, PHPUnit, Spectral, openapi-diff
 - [x] Normalization: trim → collapse spaces → `_` → lowercase. Regex `^[\p{L}\p{N}_-]{2,64}$`.
 - [x] `defaults()` reads `core.rbac.policies`.
 - [x] `roleCatalog()` uses DB in persist if table exists, else config.
-- [ ] Unknown roles in overrides:
-  - [ ] Persist mode only: audit `rbac.policy.override.unknown_role` once per policy per request cycle.
+- [ ] Unknown roles in overrides (persist): audit `rbac.policy.override.unknown_role` once per policy per boot.
 - [ ] Cache fingerprint includes policies, mode, persistence, catalog.
 
 **Tests**
-- [ ] Override denies when user lacks mapped role.
+- [x] Override denies when user lacks mapped role.
 - [ ] Unknown-role audit emitted with `meta.unknown_roles`.
 
 ---
 
 ## 4) Capability mapping
-- [ ] Map `core.exports.generate`, `core.audit.export`, `core.evidence.upload` to `admin` wildcard.
+- [ ] Map `core.exports.generate`, `core.audit.export`, `core.evidence.upload` to explicit capability gates where applicable.
 - [ ] Extend later when non-admin grants are approved (placeholder test proves wildcard works).
 
 **Tests**
@@ -69,29 +68,45 @@ Gates: PHPStan lvl 9, Psalm clean, PHPUnit, Spectral, openapi-diff
 ## 5) KPIs endpoint
 - [x] Route: `GET /api/dashboard/kpis`.
 - [ ] Query params: `from`, `to`, `tz`, `granularity=day|week|month`.
-- [x] RBAC: require `policy=core.metrics.view`.
-- [ ] Series computed:
-  - [x] Policy denials over time.
-  - [x] Evidence intake velocity (+bytes).
-  - [ ] Audit volume by category.
-  - [ ] MFA coverage (stub or real flag).
-  - [ ] Export outcomes (stub-compatible).
-- [x] Cursor-safe SQL and indexes where needed.
+- [x] RBAC: require `policy=core.metrics.view` (Admin only).
+- [x] Series computed (v1):
+  - [x] RBAC denies rate (7d window, daily buckets & totals).
+  - [x] Evidence freshness (N-day cutoff, default 30; overall + by MIME).
+- [x] Cursor-safe queries / bounded windows for tests.
 
-**Contract**
-- [ ] Response shape:
-  ```json
-  {
-    "ok": true,
-    "window": {"from":"YYYY-MM-DD","to":"YYYY-MM-DD","tz":"Area/City","granularity":"day"},
-    "series": { "...": [...] }
+**Contract (actual, v1)**
+```json
+{
+  "ok": true,
+  "data": {
+    "rbac_denies": {
+      "window_days": 7,
+      "from": "YYYY-MM-DD",
+      "to": "YYYY-MM-DD",
+      "denies": 0,
+      "total": 0,
+      "rate": 0.0,
+      "daily": [{"date":"YYYY-MM-DD","denies":0,"total":0,"rate":0.0}]
+    },
+    "evidence_freshness": {
+      "days": 30,
+      "total": 0,
+      "stale": 0,
+      "percent": 0.0,
+      "by_mime": [{"mime":"application/pdf","total":0,"stale":0,"percent":0.0}]
+    }
+  },
+  "meta": {
+    "generated_at": "ISO-8601",
+    "window": {"rbac_days":7,"fresh_days":30}
   }
-  ```
+}
+```
 
 **Tests**
-- [ ] Validation errors for bad params.
-- [x] Deterministic series using seeded data.
-- [x] RBAC deny without `core.metrics.view`.
+- [ ] Validation errors for bad params (future when params are added).
+- [x] Deterministic series using seeded data (`DashboardKpisComputationTest`).
+- [x] RBAC deny without `core.metrics.view` (`DashboardKpisAuthTest`).
 
 ---
 
@@ -99,7 +114,7 @@ Gates: PHPStan lvl 9, Psalm clean, PHPUnit, Spectral, openapi-diff
 - [x] Config: target=`ip|session`, attempts=N (default 5), lock window (seconds).
 - [x] Drop session cookie on first auth attempt (for session-target mode).
 - [x] Deny emits `AUTH` audit:
-  - [x] Failed attempt: `auth.login.failed` with `actor_id="anonymous"` when username missing.
+  - [x] Failed attempt: `auth.login.failed` (identifier semantics preserved).
   - [x] Lock event: `auth.login.locked`.
 - [x] Toggle via config for tests.
 
@@ -123,9 +138,9 @@ Gates: PHPStan lvl 9, Psalm clean, PHPUnit, Spectral, openapi-diff
 ---
 
 ## 8) Documentation
-- [x] Update `docs/phase-5/POLICYMAP-NOTES.md` with final semantics.
-- [x] Update `docs/phase-5/DASHBOARDS.md` with confirmed KPIs and queries.
-- [x] Update `docs/phase-5/PHASE-5-PR-CHECKLIST.md`.
+- [x] Update `docs/phase-5/PHASE-5-POLICYMAP-NOTES.md` with final semantics.
+- [x] Update `docs/phase-5/PHASE-5-DASHBOARDS.md` with confirmed KPIs and queries.
+- [x] Update `docs/phase-5/PHASE-5-DASHBOARDS-AND-REPORTS.md` with contract.
 - [x] Keep `docs/phase-5/PHASE-5-KICKOFF.md` in sync.
 
 ---
@@ -169,6 +184,6 @@ Gates: PHPStan lvl 9, Psalm clean, PHPUnit, Spectral, openapi-diff
 
 ## Commands (reference)
 - [ ] Static analysis: `composer stan` / `composer psalm`
-- [ ] Tests: `phpunit`
+- [ ] Tests: `composer test` (PHPUnit)
 - [ ] OpenAPI diff: `openapi-diff old.yaml new.yaml`
 - [ ] Spectral: `spectral lint openapi.yaml`

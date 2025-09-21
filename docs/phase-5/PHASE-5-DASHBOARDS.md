@@ -3,12 +3,14 @@
 ## KPIs (v1)
 1) **RBAC denies rate** ✅
    - Metric: share of RBAC deny actions over total audited requests.
-   - Window: last 7 days, daily buckets.
-   - Source: `audit_events` (category=RBAC, action LIKE `rbac.deny.%`).
+   - Window: default from `core.metrics.rbac_denies.window_days` (fallback 7), daily buckets.
+   - Deny actions: `rbac.deny.capability`, `rbac.deny.unauthenticated`, `rbac.deny.role_mismatch`, `rbac.deny.policy`.
+   - Source: `audit_events` (categories `RBAC` and `AUTH` for denominator).
 
 2) **Evidence freshness** ✅
    - Metric: % of evidence items with `updated_at` older than N days.
-   - Default N: 30; slice by MIME.
+   - Default N: from `core.metrics.evidence_freshness.days` (fallback 30); slice by MIME.
+   - API percent in `[0,1]` (client may render as `%`).
    - Source: `evidence` table.
 
 3) **Policy denials over time**
@@ -67,6 +69,9 @@
 ## Contract
 - **Internal** `GET /api/dashboard/kpis`
   - RBAC: `policy: core.metrics.view`, `roles:["Admin"]`.
+  - Query params:
+    - `days` → evidence freshness threshold (clamped 1–365, default from config or 30).
+    - `rbac_days` → RBAC denies window (clamped 1–365, default from config or 7).
   - Response:
     - `rbac_denies: {window_days,from,to,denies,total,rate,daily[{date,denies,total,rate}]}`
     - `evidence_freshness: {days,total,stale,percent,by_mime[{mime,total,stale,percent}]}`
@@ -74,12 +79,12 @@
 
 ## RBAC
 - `core.metrics.view` required for KPIs.
-- Deny if `capabilities.core.audit.export=false` for CSV export widgets (future).
+- CSV export widgets (future) must respect `capabilities.core.audit.export`.
 
 ## UI notes
+- Current UI renders two KPI tiles and a by-MIME table.
 - Default range: RBAC 7 days; Evidence freshness 30 days.
-- Granularity auto from window (day/week/month) when we add more series.
-- CSV export per widget (future), same filters.
+- Granularity auto from window (day/week/month) when more series are added.
 
 ## Performance
 - Target ≤ 200ms on 10k `audit_events`.

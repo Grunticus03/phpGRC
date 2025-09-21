@@ -106,6 +106,16 @@ return [
         'csv_use_cursor' => filter_var(env('CORE_AUDIT_CSV_USE_CURSOR', true), FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) ?? true,
     ],
 
+    // Phase-5 KPI defaults
+    'metrics' => [
+        'evidence_freshness' => [
+            'days' => (int) env('CORE_METRICS_EVIDENCE_FRESHNESS_DAYS', 30),
+        ],
+        'rbac_denies' => [
+            'window_days' => (int) env('CORE_METRICS_RBAC_DENIES_WINDOW_DAYS', 7),
+        ],
+    ],
+
     'evidence' => [
         'enabled' => env('CORE_EVIDENCE_ENABLED', true),
         'max_mb' => env('CORE_EVIDENCE_MAX_MB', 25),
@@ -128,18 +138,6 @@ return [
         'enabled' => env('CORE_EXPORTS_ENABLED', true),
         'disk'    => env('CORE_EXPORTS_DISK', env('FILESYSTEM_DISK', 'local')),
         'dir'     => env('CORE_EXPORTS_DIR', 'exports'),
-    ],
-
-    // Metrics defaults (Phase 5)
-    'metrics' => [
-        'rbac_denies' => [
-            // Rolling window in days for RBAC denies rate
-            'window_days' => (int) env('CORE_METRICS_RBAC_DAYS', 7),
-        ],
-        'evidence_freshness' => [
-            // Threshold days after which evidence is considered stale
-            'days' => (int) env('CORE_METRICS_EVIDENCE_DAYS', 30),
-        ],
     ],
 ];
 

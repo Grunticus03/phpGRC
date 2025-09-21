@@ -10,35 +10,38 @@
 
 ## RBAC and Auth
 - `core.rbac.policies` updates documented in RBAC notes.
-- Middleware denies return 403 with custom permission page when RBAC enabled.
-- `/api/rbac/*` returns 404 only when RBAC is disabled.
+- Middleware denies return 403 JSON when RBAC enabled; one audit per denied request.
+- `/api/rbac/*` routes remain registered; access enforced via middleware.
 - Auth brute-force settings wired:
   - `core.auth.bruteforce.enabled`
   - `strategy: ip|session` (default session)
   - `window_seconds`, `max_attempts` (default 900s, 5)
   - Session cookie drops on first attempt.
-  - Lock emits 429 with Retry-After; audited as `auth.login.locked`.
+  - Lock emits configured status (default 429) with `Retry-After`; audited as `auth.bruteforce.locked`.
 
 ## Audit
-- Emit `RBAC` denies with canonical actions.
-- Emit `AUTH` events: `auth.login.success|failed|logout|break_glass.*`.
+- Emit `RBAC` denies with canonical actions:
+  - `rbac.deny.capability`, `rbac.deny.unauthenticated`, `rbac.deny.role_mismatch`, `rbac.deny.policy`.
+- Emit `AUTH` events: `auth.login.success|failed|logout|break_glass.*`, `auth.bruteforce.locked`.
+- PolicyMap override safety: unknown roles in overrides audited as `rbac.policy.override.unknown_role` with `meta.unknown_roles`.
 - `actor_id` rules:
-  - `"anonymous"` only when no identifier provided.
-  - `null` when identifier provided but auth fails.
-  - user ULID on success.
-- UI shows human labels with action code chip.
+  - `null` when unauthenticated or auth fails.
+  - user id on success.
 
 ## Dashboards
 - Implement 2 KPIs first: Evidence freshness, RBAC denies rate. ✅
 - Internal endpoint `GET /api/dashboard/kpis` (Admin-only) without OpenAPI change. ✅
+- Defaults read from config with safe fallbacks:
+  - `core.metrics.evidence_freshness.days` → fallback 30
+  - `core.metrics.rbac_denies.window_days` → fallback 7
 - Seed data fixtures for audit/evidence. ✅
 - Feature tests cover 401/403 and data correctness. ✅
 - Performance check documented. ✅
 
 ## Evidence & Exports (smoke)
-- Upload tests for allowed MIME and size ignoring config in Phase-4 stubs.
+- Evidence upload tests for allowed MIME and size (per Phase-4 contract).
 - Export create/status tests for csv/json/pdf stubs.
-- CSV export toggled by `capabilities.core.audit.export`.
+- CSV export enabled by `capabilities.core.audit.export`; header `Content-Type: text/csv; charset=UTF-8`.
 
 ## Config + Ops
 - Runtime reads use config. `.env` only at bootstrap.
@@ -52,8 +55,8 @@
 - Override to `[]` → stub allows, persist denies.
 
 ## Docs
-- Update ROADMAP and Phase-5 notes. ✅
-- Add dashboards contract and examples. ✅
+- ROADMAP and Phase-5 notes updated. ✅
+- Dashboards contract and examples added. ✅
 - Session log updated with decisions and KPI choices. ✅
 
 ## Sign-off

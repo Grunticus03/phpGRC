@@ -1185,3 +1185,24 @@ SESSION-LOG.md entry
 - Phase/Step status: Phase-4 contracts locked; CI green.
 - Next action (you): Mark the schema-drift workflow as a required status check in branch protection.
 - Next action (me): Begin Phase-5 KPI instrumentation and RBAC deny audit hooks per Phase-5 docs.
+
+---
+
+### Session 2025-09-21: [Phase 5, KPIs v1 + RBAC deny audits]
+- Context: Implement RBAC deny auditing, KPI computations, and dashboard exposure without OpenAPI breaks
+- Goal: Emit one audit per denied request and ship `/metrics/dashboard` returning RBAC denies + evidence freshness with minimal web stubs
+- Constraints: Keep one-audit-per-request invariant; additive-only API; static analysis clean; tests green
+
+### Closeout
+- Deliverables produced:
+  - RBAC deny audits in middleware with single-emission guard and structured meta
+  - KPI services and controller: RBAC denies rate (rolling window) and evidence freshness (threshold, by-MIME)
+  - Configurable defaults (`core.metrics.*`) with safe parsing
+  - `/api/metrics/dashboard` alias + existing `/api/dashboard/kpis`
+  - React dashboard KPI stub + tests; Admin pages unchanged
+  - KPI docs: `/api/docs/METRICS_DASHBOARD.md`
+  - Fixed CSV export header to `text/csv; charset=UTF-8`
+  - CI, PHPStan L9, Psalm clean; frontend eslint fixed
+- Phase/Step status: advance
+- Next action (you): confirm default thresholds (evidence freshness days, denies window) and any additional MIME types
+- Next action (me): add small sparkline for daily denies, tighten action label map coverage, and extend KPI tests for param overrides
