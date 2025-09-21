@@ -1116,3 +1116,23 @@ SESSION-LOG.md entry
 - Phase/Step status: advance
 - Next action (you): approve Auditor visibility (stay Admin-only?), approve audit action label map, confirm prod DB indexes
 - Next action (me): normalize evidence percent to 0–100 and tighten tests; add SPA 403 screen and label map; doc note on perf limits
+
+---
+
+### Session 2025-09-21: [Phase 4, Drift & fixes]
+- Context: Align DB schema, API contracts, and CI with new FK rules and server-generated evidence IDs.
+- Goal: Enforce FKs, make `evidence.id` server-generated, unblock tests by authenticating requests, and restore CI green.
+- Constraints: Charter-first, full-file edits only, security-first, no scope creep.
+
+### Closeout
+- Deliverables produced: 
+  - New FK migration (`evidence.owner_id → users.id`, `avatars.user_id → users.id`, cascade delete).
+  - `Evidence` model hook to auto-generate `ev_<ULID>` IDs.
+  - `User` model: factories enabled + static analyzer generics/docblocks fixed.
+  - Tests updated to authenticate (Sanctum) and authorize (Gate) before using Evidence API.
+  - OpenAPI spec repaired (unresolved refs), lint clean.
+  - `docs/db/schema.md` snapshot reflecting current migrations.
+  - CI passes end-to-end.
+- Phase/Step status: advance
+- Next action (you): add DB-doc drift check to CI (schema snapshot vs `docs/db/schema.md`) and add cascade-delete test for `users → evidence`.
+- Next action (me): provide controller and route files touching Evidence endpoints for a quick contract review; flag any prod rows with `owner_id=0` so we can clean before rollout.
