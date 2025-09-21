@@ -1,10 +1,11 @@
+<?php
 #!/usr/bin/env php
-<?php declare(strict_types=1);
+declare(strict_types=1);
 
 /**
  * phpGRC Schema Doc Generator
  * Renders a deterministic Markdown snapshot of the current MySQL schema.
- * Output is compared to docs/db/schema.md in CI to detect drift.
+ * Output is compared to docs/db/SCHEMA.md in CI to detect drift.
  *
  * Usage (from /api): php scripts/schema_docgen.php > ../docs/db/schema.live.md
  */
@@ -28,9 +29,25 @@ echo "- All times UTC.\n\n";
 echo "---\n\n";
 echo "## Tables\n\n";
 
+// Skip framework/infra tables we do not document in SCHEMA.md
+$skip = [
+    'migrations',
+    'failed_jobs',
+    'jobs',
+    'job_batches',
+    'password_reset_tokens',
+    'cache',
+    'cache_locks',
+    'sessions',
+    'telescope_entries',
+    'telescope_entries_tags',
+    'telescope_monitoring',
+    'personal_access_tokens',
+];
+
 /** @var array<int, string> $tables */
 $tables = array_map(
-    fn($r) => $r->TABLE_NAME,
+    fn($r) => (string)$r->TABLE_NAME,
     $conn->select(
         "SELECT TABLE_NAME
          FROM information_schema.TABLES
@@ -39,6 +56,9 @@ $tables = array_map(
         [$db]
     )
 );
+
+// Filter skipped tables
+$tables = array_values(array_filter($tables, fn(string $t) => !in_array($t, $skip, true)));
 
 foreach ($tables as $table) {
     echo "### `{$table}`\n\n";
@@ -57,6 +77,7 @@ foreach ($tables as $table) {
         $col = (string)$c->COLUMN_NAME;
         $typ = (string)$c->COLUMN_TYPE;
         $nul = ((string)$c->IS_NULLABLE) === 'YES' ? '✗' : '✓';
+
         // Normalize defaults: NULL → NULL, numeric → as-is, strings → quoted
         $defRaw = $c->COLUMN_DEFAULT;
         $def = 'NULL';
@@ -72,7 +93,7 @@ foreach ($tables as $table) {
                 }
             }
         }
-        $xtr = trim((string)$c->EXTRA) !== '' ? (string)$c->EXTRA : '—';
+        $xtr = ($c->EXTRA !== null && trim((string)$c->EXTRA) !== '') ? (string)$c->EXTRA : '—';
         echo "| {$col} | {$typ} | {$nul} | {$def} | {$xtr} |\n";
     }
     echo "\n";
@@ -121,16 +142,22 @@ foreach ($tables as $table) {
     if ($fks !== []) {
         $byFk = [];
         foreach ($fks as $fk) {
-            $byFk[$fk->name]['cols'][] = $fk->col;
-            $byFk[$fk->name]['ref'] = [$fk->ref_table, $fk->ref_col];
-            $byFk[$fk->name]['on_update'] = $fk->on_update;
-            $byFk[$fk->name]['on_delete'] = $fk->on_delete;
+            $name = (string)$fk->name;
+            if (!isset($byFk[$name])) {
+                $byFk[$name] = [
+                    'cols' => [],
+                    'ref' => [(string)$fk->ref_table, (string)$fk->ref_col],
+                    'on_update' => (string)$fk->on_update,
+                    'on_delete' => (string)$fk->on_delete,
+                ];
+            }
+            $byFk[$name]['cols'][] = (string)$fk->col;
         }
         foreach ($byFk as $name => $meta) {
             [$rt, $rc] = $meta['ref'];
             $cols = implode(', ', $meta['cols']);
-            $upd  = strtoupper((string)$meta['on_update']);
-            $del  = strtoupper((string)$meta['on_delete']);
+            $upd  = strtoupper($meta['on_update']);
+            $del  = strtoupper($meta['on_delete']);
             echo "- `FOREIGN KEY {$name} ({$cols}) REFERENCES {$rt}({$rc}) ON UPDATE {$upd} ON DELETE {$del}`\n";
         }
         echo "\n";

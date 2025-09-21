@@ -1,4 +1,3 @@
-# FILE: .github/workflows/schema-drift.yml
 name: schema-drift
 
 on:
@@ -52,7 +51,7 @@ jobs:
           done
           echo "MySQL did not become ready"; exit 1
 
-      - name: Migrate database
+      - name: Reset and migrate database
         working-directory: api
         env:
           DB_CONNECTION: mysql
@@ -62,7 +61,7 @@ jobs:
           DB_USERNAME: root
           DB_PASSWORD: root
         run: |
-          php artisan migrate --force
+          php artisan migrate:fresh --force
 
       - name: Generate live schema doc
         working-directory: api
@@ -76,11 +75,16 @@ jobs:
         run: |
           php scripts/schema_docgen.php > ../docs/db/schema.live.md
 
-      - name: Diff live vs committed schema
+      - name: Prepare table-only sections
+        run: |
+          awk '/^## Tables/{flag=1} flag' docs/db/SCHEMA.md > /tmp/SCHEMA.tables.md
+          awk '/^## Tables/{flag=1} flag' docs/db/schema.live.md > /tmp/schema.live.tables.md
+
+      - name: Diff live vs committed schema (tables only)
         run: |
           set -e
-          if ! diff -u docs/db/SCHEMA.md docs/db/schema.live.md; then
-            echo "::error ::Schema drift detected. Update docs/db/SCHEMA.md to match current migrations."
+          if ! diff -u /tmp/SCHEMA.tables.md /tmp/schema.live.tables.md; then
+            echo "::error ::Schema drift detected in table structure. Update docs/db/SCHEMA.md to match current migrations."
             exit 2
           fi
 
