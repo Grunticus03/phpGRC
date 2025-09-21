@@ -6,7 +6,7 @@ declare(strict_types=1);
 
 $root = dirname(__DIR__);
 $migrationsDir = $root . '/api/database/migrations';
-$schemaPath = $root . '/docs/db/SCHEMA.md';
+$schemaPath = $root . '/docs/db/DB-SCHEMA.md';
 
 if (!is_dir($migrationsDir)) {
     fwrite(STDERR, "ERR: migrations dir not found: $migrationsDir\n");
@@ -86,7 +86,7 @@ if (preg_match_all('/^###\\s+([a-z0-9_]+)\\s*$/mi', $schema, $tm, PREG_SET_ORDER
 // check presence
 foreach ($tables as $t => $meta) {
     if (!array_key_exists($t, $docTables)) {
-        $errors[] = "Missing table section in SCHEMA.md: {$t} (from {$meta['source']})";
+        $errors[] = "Missing table section in DB-SCHEMA.md: {$t} (from {$meta['source']})";
         continue;
     }
     // columns
@@ -94,7 +94,7 @@ foreach ($tables as $t => $meta) {
     foreach ($expected as $c) {
         if ($c === 'timestamps' || $c === 'timestampsTz') continue; // not explicit
         if (!isset($docTables[$t][$c])) {
-            $errors[] = "Missing column in SCHEMA.md: {$t}.{$c}";
+            $errors[] = "Missing column in DB-SCHEMA.md: {$t}.{$c}";
         }
     }
 }
