@@ -1,12 +1,14 @@
 # phpGRC Settings Guide
+Scope: **UI settings only**. Core Phase-4 Evidence uploads ignore MIME and size validation by policy.
+
 Canonical runtime settings. Stored in DB unless noted. Avatars and theme pack files are on disk.
 
 ## Conventions
 - Keys use dot.case.
 - All writes validate and return `422 VALIDATION_FAILED` on errors.
-- File uploads: MIME sniff + extension; `415` on mismatch.
-- Size caps return `413 PAYLOAD_TOO_LARGE`.
 - Additive changes only; breaking changes require a major version.
+
+> File-upload rules below apply to **UI features** (branding and theme packs), not Evidence uploads in Phase 4.
 
 ## Storage
 - Global settings: DB table `ui_settings` (key → JSON value).
@@ -60,9 +62,9 @@ id, type, path, size, mime, sha256, uploaded_by, created_at
   - `limited` ~50% durations, no large parallax
   - `full` standard durations (150–300 ms)
 
-### Validation rules
-- Reject unknown tokens or invalid values with `422`.
-- Color AA contrast check across primary surfaces and interactive states.
+### Validation rules for UI assets
+- Branding uploads: MIME sniff + extension; `415` on mismatch. Max 5 MB per file.
+- Theme-pack import: zip ≤ 50 MB; see Theme Packs section.
 - Clamp `sidebar.width` to **min 50 px** and **max 50%** of viewport.
 - Enforce types for logos (see Branding) and sizes.
 

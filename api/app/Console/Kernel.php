@@ -20,21 +20,22 @@ final class Kernel extends ConsoleKernel
     #[\Override]
     protected function schedule(Schedule $schedule): void
     {
+        // Register only when enabled (tests assert omission when disabled).
         $enabled = self::boolFrom(config('core.audit.enabled'), true);
         if (!$enabled) {
             return;
         }
 
-        // Clamp to [30, 730] days to prevent accidental data loss.
-        $days = self::intFrom(config('core.audit.retention_days'), 365);
-        $days = max(30, min(730, $days));
+        $days = self::clampDays(self::intFrom(config('core.audit.retention_days'), 365));
 
-        $schedule->command("audit:purge --days={$days} --emit-summary")
+        $event = $schedule->command("audit:purge --days={$days} --emit-summary")
             ->dailyAt('03:10')
-            ->timezone('UTC')
-            ->withoutOverlapping()
-            ->onOneServer()
-            ->runInBackground();
+            ->timezone('UTC');
+
+        // Avoid DB-backed cache locks during tests.
+        if (!app()->environment('testing')) {
+            $event->withoutOverlapping()->onOneServer()->runInBackground();
+        }
     }
 
     #[\Override]
@@ -47,6 +48,17 @@ final class Kernel extends ConsoleKernel
             /** @psalm-suppress UnresolvableInclude */
             require $console;
         }
+    }
+
+    private static function clampDays(int $days): int
+    {
+        if ($days < 30) {
+            return 30;
+        }
+        if ($days > 730) {
+            return 730;
+        }
+        return $days;
     }
 
     private static function boolFrom(mixed $value, bool $default = false): bool
@@ -64,6 +76,9 @@ final class Kernel extends ConsoleKernel
         return $default;
     }
 
+    /**
+     * Normalize numeric-ish values into an int.
+     */
     private static function intFrom(mixed $value, int $default = 0): int
     {
         if (is_int($value)) {
@@ -77,6 +92,9 @@ final class Kernel extends ConsoleKernel
         }
         if (is_float($value)) {
             return (int) $value;
+        }
+        if (is_bool($value)) {
+            return $value ? 1 : 0;
         }
         return $default;
     }

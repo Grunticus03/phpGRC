@@ -1,3 +1,4 @@
+# FILE: /docs/PHASE-4-SPEC.md
 # Phase 4 — Core App Usable Spec
 
 ## Instruction Preamble
@@ -26,8 +27,8 @@ core.audit.retention_days: 365
 core.audit.csv_use_cursor: true
 
 core.evidence.enabled: true  
-core.evidence.max_mb: 25  
-core.evidence.allowed_mime: [application/pdf, image/png, image/jpeg, text/plain]
+core.evidence.max_mb: 25 _(not enforced in Phase 4)_  
+core.evidence.allowed_mime: [application/pdf, image/png, image/jpeg, text/plain] _(not enforced in Phase 4)_
 
 core.avatars.enabled: true  
 core.avatars.size_px: 128  
@@ -50,14 +51,14 @@ Notes:
 - Policy evaluation uses `PolicyMap` + `RbacEvaluator`. In stub mode, policies allow. In persist mode, unknown policies deny.
 - Persistence path for RBAC catalog and assignments is active when `core.rbac.mode=persist` **or** `core.rbac.persistence=true`.
 - **RBAC disabled behavior:** user–role endpoints return `404` with `{ "ok": false, "code": "RBAC_DISABLED" }`.
-- Evidence default max 25 MB.
+- **Evidence validation policy (Phase 4):** the store requires a file only. MIME family and size caps are **not** enforced in Phase 4. These settings are accepted and surfaced but not validated server-side.
 - Avatars canonical size 128 px, WEBP only.
 - Audit retention capped at 2 years. Purge clamps to [30, 730] days at runtime.
 - Audit CSV export streams with DB cursor when `core.audit.csv_use_cursor=true`.
 - Exports write artifacts under configured disk/dir.
 - **Queue:** tests force `queue.default=sync`; production may use any Laravel-supported queue.
 - **Setup Wizard:** Only database connection config is written to disk at `core.setup.shared_config_path`. All other settings persist in DB. Redirect-to-setup behavior outside this spec.
-- **OpenAPI:** served at `GET /api/openapi.yaml`; Swagger UI at `GET /api/docs`.
+- **OpenAPI:** served at `GET /api/openapi.yaml`; docs viewer is Redocly at `GET /api/docs`.
 
 ---
 
@@ -230,9 +231,9 @@ Setup: SETUP_ALREADY_COMPLETED, SETUP_STEP_DISABLED, DB_CONFIG_INVALID, DB_WRITE
     - `cursor` `base64("Y-m-d H:i:s|<id>")`
   - Response:
     ~~~json
-    { "ok": true, "filters": {...}, "data": [ { "id":"ev_...","owner_id":1,"filename":"...", "mime":"...", "size_bytes":123, "sha256":"...", "version":1, "created_at":"2025-09-12T00:00:00Z" } ], "next_cursor": "..." }
+    { "ok": true, "filters": {...}, "data": [ { "id":"ev_...","owner_id":1,"filename":"...", "mime":"...", "size":123, "sha256":"...", "version":1, "created_at":"2025-09-12T00:00:00Z" } ], "next_cursor": "..." }
     ~~~
-- `POST /api/evidence` — create; stores file, sha256, metadata; validates size/mime.
+- `POST /api/evidence` — create; stores the uploaded file and metadata; **Phase 4 policy:** requires `file` only and returns `422 VALIDATION_FAILED` when `file` is missing. No MIME or max-size enforcement in Phase 4.
 - `GET|HEAD /api/evidence/{id}` — download with headers:
   - `Content-Type: <stored mime>`
   - `Content-Length: <bytes>`
@@ -281,8 +282,8 @@ Setup: SETUP_ALREADY_COMPLETED, SETUP_STEP_DISABLED, DB_CONFIG_INVALID, DB_WRITE
       "_categories": ["SYSTEM","RBAC","AUTH","SETTINGS","EXPORTS","EVIDENCE","AVATARS","AUDIT"],
       "_retention_days": 365,
       "filters": {"order":"desc","limit":2,"cursor":null},
-      "items": [ { "...": "three deterministic stub events ..." } ],
-      "nextCursor": "..."
+      "items": [],
+      "nextCursor": null
     }
     ~~~
 - RBAC: view requires roles `["Admin","Auditor"]` and policy `core.audit.view`.
@@ -429,9 +430,10 @@ Setup: SETUP_ALREADY_COMPLETED, SETUP_STEP_DISABLED, DB_CONFIG_INVALID, DB_WRITE
 
 ## Retention
 
-- Command: `php artisan audit:purge [--days=N] [--dry-run]`
+- Command: `php artisan audit:purge [--days=N] [--dry-run] [--emit-summary]`
   - On invalid `N` (<30 or >730) the command exits non-zero and prints `AUDIT_RETENTION_INVALID`.
-  - Deletes rows with `occurred_at < now_utc - N days`.
+  - Deletes rows with `occurred_at < now_utc - N days` in chunks.
+  - Optional `--emit-summary` appends a summary audit event.
 - Scheduler:
   - Runs daily at **03:10 UTC** when `core.audit.enabled=true`.
   - Scheduler clamps configured days to **[30, 730]**.
