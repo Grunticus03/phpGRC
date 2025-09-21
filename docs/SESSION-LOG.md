@@ -1167,3 +1167,21 @@ SESSION-LOG.md entry
 - Phase/Step status: advance.
 - Next action (you): open PR to update `docs/PHASE-4-SPEC.md` to “file-only” Evidence policy; align `docs/SETTINGS.md` to current Phase-4 core keys; add role attach/detach/replace audit assertions.
 - Next action (me): provide `docs/PHASE-4-SPEC.md` and `docs/SETTINGS.md` for direct edits; confirm Evidence policy = no MIME/size validation in Phase 4.
+
+---
+
+### Session 2025-09-21: Phase 4 — Docs + Contracts Guarding
+- Context: Align docs and OpenAPI with Phase-4 Evidence policy; add audit emission tests and spec guards.
+- Goal: Lock “size only” Evidence contract and assert RBAC role-change audit events.
+- Constraints: Deterministic CI; no API breaking changes.
+
+### Closeout
+- Deliverables produced:
+  - Updated `docs/phase-4/PHASE-4-SPEC.md` and `docs/SETTINGS.md` to Phase-4 “file-only” Evidence and scheduler details.
+  - `api/tests/Feature/RbacUserRolesAuditTest.php` (attach/detach/replace canonical audit events).
+  - OpenAPI examples refreshed for Evidence (`size` only).
+  - `api/tests/Feature/OpenApiEvidenceContractTest.php` (no `size_bytes` anywhere).
+  - `api/tests/Feature/AuditStubOnlyResponseTest.php` (stub-only response path).
+- Phase/Step status: Phase-4 contracts locked; CI green.
+- Next action (you): Mark the schema-drift workflow as a required status check in branch protection.
+- Next action (me): Begin Phase-5 KPI instrumentation and RBAC deny audit hooks per Phase-5 docs.
