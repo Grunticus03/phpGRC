@@ -219,6 +219,19 @@ Route::prefix('/dashboard')
 
 /*
  |--------------------------------------------------------------------------
+ | Metrics dashboard alias (Phase 5 — internal, additive)
+ |--------------------------------------------------------------------------
+*/
+Route::prefix('/metrics')
+    ->middleware($rbacStack)
+    ->group(function (): void {
+        Route::get('/dashboard', [MetricsController::class, 'index'])
+            ->defaults('roles', ['Admin'])
+            ->defaults('policy', 'core.metrics.view');
+    });
+
+/*
+ |--------------------------------------------------------------------------
  | Exports (Phase 4) — enforce RBAC; creation also gated by capability
  |--------------------------------------------------------------------------
 */

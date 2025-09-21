@@ -198,14 +198,33 @@ final class RbacMiddleware
             $path     = '/' . ltrim($request->path(), '/');
             $entityId = $method . ' ' . $path; // stable, non-empty
 
+            /** @var list<string>|null $rolesUser */
+            $rolesUser = null;
+            if ($user !== null) {
+                /** @var array<int,mixed> $names */
+                $names = $user->roles()->pluck('name')->all();
+                /** @var list<string> $namesStr */
+                $namesStr = array_values(array_filter($names, 'is_string'));
+                $rolesUser = [];
+                foreach ($namesStr as $n) {
+                    $tok = $this->normalizeToken($n);
+                    if ($tok !== '') {
+                        $rolesUser[] = $tok;
+                    }
+                }
+            }
+
             $meta = array_filter([
                 'reason'         => $extraMeta['reason']         ?? null,          // capability|unauthenticated|role|policy
                 'policy'         => $extraMeta['policy']         ?? null,
                 'capability'     => $extraMeta['capability']     ?? null,
                 'required_roles' => $extraMeta['required_roles'] ?? null,          // list<string>|null
+                'roles_user'     => $rolesUser,                                   // list<string>|null
                 'rbac_mode'      => $extraMeta['rbac_mode']      ?? null,          // stub|persist
                 'route_name'     => $routeName,
                 'route_action'   => $routeAction,
+                'route'          => $path,
+                'method'         => $method,
                 'request_id'     => (string) Str::ulid(),
             ], static fn ($v) => $v !== null);
 
@@ -224,6 +243,28 @@ final class RbacMiddleware
         } catch (\Throwable) {
             // Intentionally swallow audit errors.
         }
+    }
+
+    /**
+     * Normalize role token for meta:
+     * - trim
+     * - collapse internal whitespace to single space
+     * - replace spaces with underscore
+     * - allow ^[\p{L}\p{N}_-]{2,64}$, then lowercase
+     */
+    private function normalizeToken(string $name): string
+    {
+        $name = trim($name);
+        if ($name === '') {
+            return '';
+        }
+        $collapsed = preg_replace('/\s+/', ' ', $name);
+        $name = is_string($collapsed) ? $collapsed : $name;
+        $name = str_replace(' ', '_', $name);
+        if (!preg_match('/^[\p{L}\p{N}_-]{2,64}$/u', $name)) {
+            return '';
+        }
+        return mb_strtolower($name);
     }
 }
 
