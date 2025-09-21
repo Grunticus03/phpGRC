@@ -19,18 +19,14 @@ final class EvidenceRetrieveTest extends TestCase
     {
         parent::setUp();
 
+        // Enable feature and satisfy authz
         config()->set('core.evidence.enabled', true);
         config()->set('core.rbac.enabled', false);
-        config()->set('core.rbac.require_auth', false);
 
         Gate::define('core.evidence.manage', fn (User $u) => true);
 
-        $user = User::query()->create([
-            'name' => 'Retriever',
-            'email' => 'retriever@example.test',
-            'password' => bcrypt('x'),
-        ]);
-        Sanctum::actingAs($user);
+        $u = User::factory()->create();
+        Sanctum::actingAs($u);
     }
 
     private function uploadSample(string $name = 'small.txt', string $mime = 'text/plain', string $body = "hello\n"): array
@@ -108,3 +104,4 @@ final class EvidenceRetrieveTest extends TestCase
         $this->call('HEAD', '/api/evidence/ev_DOES_NOT_EXIST')->assertStatus(404);
     }
 }
+

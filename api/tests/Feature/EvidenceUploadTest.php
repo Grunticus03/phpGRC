@@ -19,18 +19,11 @@ final class EvidenceUploadTest extends TestCase
     {
         parent::setUp();
 
-        config()->set('core.evidence.enabled', true);
         config()->set('core.rbac.enabled', false);
-        config()->set('core.rbac.require_auth', false);
-
         Gate::define('core.evidence.manage', fn (User $u) => true);
 
-        $user = User::query()->create([
-            'name' => 'Uploader',
-            'email' => 'uploader@example.test',
-            'password' => bcrypt('x'),
-        ]);
-        Sanctum::actingAs($user);
+        $u = User::factory()->create();
+        Sanctum::actingAs($u);
     }
 
     public function test_upload_disabled_returns_400(): void
@@ -74,3 +67,4 @@ final class EvidenceUploadTest extends TestCase
         ]);
     }
 }
+
