@@ -1,4 +1,3 @@
-# docs/api/openapi.yaml
 openapi: 3.1.0
 info:
   title: phpGRC API
@@ -41,7 +40,7 @@ paths:
   /health:
     get:
       operationId: healthProbe
-      security: []
+      security: []   # public
       tags: [Health]
       summary: Health probe
       responses:
@@ -59,7 +58,7 @@ paths:
   /health/fingerprint:
     get:
       operationId: healthFingerprint
-      security: []
+      security: []   # public
       tags: [Health]
       summary: Deployment fingerprint and enabled-feature summary
       responses:
@@ -68,14 +67,14 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HealthFingerprintResponse'
+                $ref: '#//schemas/HealthFingerprintResponse'
         '404':
           description: Not Found
 
   /openapi.yaml:
     get:
       operationId: openapiYaml
-      security: []
+      security: []   # public
       tags: [OpenAPI]
       summary: OpenAPI YAML
       responses:
@@ -90,7 +89,7 @@ paths:
   /openapi.json:
     get:
       operationId: openapiJson
-      security: []
+      security: []   # public
       tags: [OpenAPI]
       summary: OpenAPI JSON
       responses:
@@ -113,11 +112,11 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SettingsGetResponse'
+                $ref: '#//schemas/SettingsGetResponse'
         '401':
-          $ref: '#/components/responses/Unauthenticated'
+          $ref: '#//responses/Unauthenticated'
         '403':
-          $ref: '#/components/responses/Forbidden'
+          $ref: '#//responses/Forbidden'
     post:
       operationId: settingsUpdate
       tags: [Settings]
@@ -128,21 +127,21 @@ paths:
           application/json:
             schema:
               oneOf:
-                - $ref: '#/components/schemas/SettingsUpdateSpecShape'
-                - $ref: '#/components/schemas/SettingsUpdateLegacyShape'
+                - $ref: '#//schemas/SettingsUpdateSpecShape'
+                - $ref: '#//schemas/SettingsUpdateLegacyShape'
       responses:
         '200':
           description: Applied
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SettingsPostResponse'
+                $ref: '#//schemas/SettingsPostResponse'
         '401':
-          $ref: '#/components/responses/Unauthenticated'
+          $ref: '#//responses/Unauthenticated'
         '403':
-          $ref: '#/components/responses/Forbidden'
+          $ref: '#//responses/Forbidden'
         '422':
-          $ref: '#/components/responses/ValidationFailed'
+          $ref: '#//responses/ValidationFailed'
     put:
       $ref: '#/paths/~1admin~1settings/post'
     patch:
@@ -159,11 +158,11 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RoleListResponse'
+                $ref: '#//schemas/RoleListResponse'
         '401':
-          $ref: '#/components/responses/Unauthenticated'
+          $ref: '#//responses/Unauthenticated'
         '403':
-          $ref: '#/components/responses/Forbidden'
+          $ref: '#//responses/Forbidden'
     post:
       operationId: rbacRolesCreate
       tags: [RBAC]
@@ -173,26 +172,26 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/RoleCreateRequest'
+              $ref: '#//schemas/RoleCreateRequest'
       responses:
         '201':
           description: Created (persist path)
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RoleCreateResponse'
+                $ref: '#//schemas/RoleCreateResponse'
         '202':
           description: Accepted (stub-only path)
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RoleCreateAccepted'
+                $ref: '#//schemas/RoleCreateAccepted'
         '401':
-          $ref: '#/components/responses/Unauthenticated'
+          $ref: '#//responses/Unauthenticated'
         '403':
-          $ref: '#/components/responses/Forbidden'
+          $ref: '#//responses/Forbidden'
         '422':
-          $ref: '#/components/responses/ValidationFailed'
+          $ref: '#//responses/ValidationFailed'
 
   /rbac/users/{user}/roles:
     parameters:
@@ -211,13 +210,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UserRolesResponse'
+                $ref: '#//schemas/UserRolesResponse'
         '401':
-          $ref: '#/components/responses/Unauthenticated'
+          $ref: '#//responses/Unauthenticated'
         '403':
-          $ref: '#/components/responses/Forbidden'
+          $ref: '#//responses/Forbidden'
         '404':
-          $ref: '#/components/responses/RbacDisabled'
+          $ref: '#//responses/RbacDisabled'
     put:
       operationId: userRolesReplace
       tags: [RBAC]
@@ -227,28 +226,28 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/RoleReplaceRequest'
+              $ref: '#//schemas/RoleReplaceRequest'
       responses:
         '200':
           description: Replaced
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UserRolesResponse'
+                $ref: '#//schemas/UserRolesResponse'
         '401':
-          $ref: '#/components/responses/Unauthenticated'
+          $ref: '#//responses/Unauthenticated'
         '403':
-          $ref: '#/components/responses/Forbidden'
+          $ref: '#//responses/Forbidden'
         '404':
-          $ref: '#/components/responses/RbacDisabled'
+          $ref: '#//responses/RbacDisabled'
         '422':
           description: Validation failed or unknown roles
           content:
             application/json:
               schema:
                 oneOf:
-                  - $ref: '#/components/schemas/ValidationFailed'
-                  - $ref: '#/components/schemas/RoleNotFoundError'
+                  - $ref: '#//schemas/ValidationFailed'
+                  - $ref: '#//schemas/RoleNotFoundError'
 
   /rbac/users/{user}/roles/{role}:
     parameters:
@@ -273,21 +272,21 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UserRolesResponse'
+                $ref: '#//schemas/UserRolesResponse'
         '401':
-          $ref: '#/components/responses/Unauthenticated'
+          $ref: '#//responses/Unauthenticated'
         '403':
-          $ref: '#/components/responses/Forbidden'
+          $ref: '#//responses/Forbidden'
         '404':
-          $ref: '#/components/responses/RbacDisabled'
+          $ref: '#//responses/RbacDisabled'
         '422':
           description: Unknown role or invalid input
           content:
             application/json:
               schema:
                 oneOf:
-                  - $ref: '#/components/schemas/RoleNotFoundError'
-                  - $ref: '#/components/schemas/ValidationFailed'
+                  - $ref: '#//schemas/RoleNotFoundError'
+                  - $ref: '#//schemas/ValidationFailed'
     delete:
       operationId: userRoleDetach
       tags: [RBAC]
@@ -298,21 +297,21 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UserRolesResponse'
+                $ref: '#//schemas/UserRolesResponse'
         '401':
-          $ref: '#/components/responses/Unauthenticated'
+          $ref: '#//responses/Unauthenticated'
         '403':
-          $ref: '#/components/responses/Forbidden'
+          $ref: '#//responses/Forbidden'
         '404':
-          $ref: '#/components/responses/RbacDisabled'
+          $ref: '#//responses/RbacDisabled'
         '422':
           description: Unknown role or invalid input
           content:
             application/json:
               schema:
                 oneOf:
-                  - $ref: '#/components/schemas/RoleNotFoundError'
-                  - $ref: '#/components/schemas/ValidationFailed'
+                  - $ref: '#//schemas/RoleNotFoundError'
+                  - $ref: '#//schemas/ValidationFailed'
 
   /audit:
     get:
@@ -322,17 +321,17 @@ paths:
       description: |
         Returns persisted events when persistence is enabled. Returns an empty stub payload when persistence is disabled and no business filters are applied.
       parameters:
-        - { $ref: '#/components/parameters/AuditCategory' }
-        - { $ref: '#/components/parameters/AuditAction' }
-        - { $ref: '#/components/parameters/OccurredFrom' }
-        - { $ref: '#/components/parameters/OccurredTo' }
-        - { $ref: '#/components/parameters/ActorId' }
-        - { $ref: '#/components/parameters/EntityType' }
-        - { $ref: '#/components/parameters/EntityId' }
-        - { $ref: '#/components/parameters/AuditIp' }
-        - { $ref: '#/components/parameters/Order' }
-        - { $ref: '#/components/parameters/Limit' }
-        - { $ref: '#/components/parameters/Cursor' }
+        - { $ref: '#//parameters/AuditCategory' }
+        - { $ref: '#//parameters/AuditAction' }
+        - { $ref: '#//parameters/OccurredFrom' }
+        - { $ref: '#//parameters/OccurredTo' }
+        - { $ref: '#//parameters/ActorId' }
+        - { $ref: '#//parameters/EntityType' }
+        - { $ref: '#//parameters/EntityId' }
+        - { $ref: '#//parameters/AuditIp' }
+        - { $ref: '#//parameters/Order' }
+        - { $ref: '#//parameters/Limit' }
+        - { $ref: '#//parameters/Cursor' }
       responses:
         '200':
           description: OK (persist or stub path)
@@ -340,14 +339,14 @@ paths:
             application/json:
               schema:
                 oneOf:
-                  - $ref: '#/components/schemas/AuditListResponse'
-                  - $ref: '#/components/schemas/AuditListStubResponse'
+                  - $ref: '#//schemas/AuditListResponse'
+                  - $ref: '#//schemas/AuditListStubResponse'
               examples:
                 persist_example:
                   summary: Persisted results with filters
                   value:
                     ok: true
-                    _categories: [SYSTEM, RBAC, AUTH, SETTINGS, EXPORTS, EVIDENCE, AVATARS, AUDIT, TEST]
+                    _categories: [SYSTEM, RBAC, AUTH, SETTINGS, EXPORTS, EVIDENCE, AVATARS, AUDIT]
                     _retention_days: 365
                     filters: { category: RBAC, order: desc }
                     items:
@@ -366,16 +365,16 @@ paths:
                   summary: Stub-only shape when DB disabled and no business filters
                   value:
                     ok: true
-                    _categories: [SYSTEM, RBAC, AUTH, SETTINGS, EXPORTS, EVIDENCE, AVATARS, AUDIT, TEST]
+                    _categories: [SYSTEM, RBAC, AUTH, SETTINGS, EXPORTS, EVIDENCE, AVATARS, AUDIT]
                     _retention_days: 365
                     filters: {}
                     items: []
                     nextCursor: null
                     note: stub-only
         '401':
-          $ref: '#/components/responses/Unauthenticated'
+          $ref: '#//responses/Unauthenticated'
         '403':
-          $ref: '#/components/responses/Forbidden'
+          $ref: '#//responses/Forbidden'
 
   /audit/categories:
     get:
@@ -396,11 +395,11 @@ paths:
                     type: array
                     items:
                       type: string
-                      enum: [SYSTEM, RBAC, AUTH, SETTINGS, EXPORTS, EVIDENCE, AVATARS, AUDIT, TEST]
+                      enum: [SYSTEM, RBAC, AUTH, SETTINGS, EXPORTS, EVIDENCE, AVATARS, AUDIT]
         '401':
-          $ref: '#/components/responses/Unauthenticated'
+          $ref: '#//responses/Unauthenticated'
         '403':
-          $ref: '#/components/responses/Forbidden'
+          $ref: '#//responses/Forbidden'
 
   /audit/export.csv:
     get:
@@ -413,15 +412,15 @@ paths:
         - `X-Content-Type-Options: nosniff`
         - `Cache-Control: no-store, max-age=0`
       parameters:
-        - { $ref: '#/components/parameters/AuditCategory' }
-        - { $ref: '#/components/parameters/AuditAction' }
-        - { $ref: '#/components/parameters/OccurredFrom' }
-        - { $ref: '#/components/parameters/OccurredTo' }
-        - { $ref: '#/components/parameters/ActorId' }
-        - { $ref: '#/components/parameters/EntityType' }
-        - { $ref: '#/components/parameters/EntityId' }
-        - { $ref: '#/components/parameters/AuditIp' }
-        - { $ref: '#/components/parameters/Order' }
+        - { $ref: '#//parameters/AuditCategory' }
+        - { $ref: '#//parameters/AuditAction' }
+        - { $ref: '#//parameters/OccurredFrom' }
+        - { $ref: '#//parameters/OccurredTo' }
+        - { $ref: '#//parameters/ActorId' }
+        - { $ref: '#//parameters/EntityType' }
+        - { $ref: '#//parameters/EntityId' }
+        - { $ref: '#//parameters/AuditIp' }
+        - { $ref: '#//parameters/Order' }
       responses:
         '200':
           description: CSV file
@@ -450,9 +449,9 @@ paths:
                     id,occurred_at,actor_id,action,category,entity_type,entity_id,ip,ua,meta_json
                     01JWZZ0W9W7XN2R5P1R3FAW0VQ,2025-02-01T00:00:00+00:00,42,rbac.user_role.attached,RBAC,user,10,127.0.0.1,phpgrc-tests,{"role":"role_auditor"}
         '401':
-          $ref: '#/components/responses/Unauthenticated'
+          $ref: '#//responses/Unauthenticated'
         '403':
-          $ref: '#/components/responses/Forbidden'
+          $ref: '#//responses/Forbidden'
 
   /evidence:
     get:
@@ -487,20 +486,20 @@ paths:
         - name: created_to
           in: query
           schema: { type: string, format: date-time }
-        - { $ref: '#/components/parameters/Order' }
-        - { $ref: '#/components/parameters/Limit' }
-        - { $ref: '#/components/parameters/Cursor' }
+        - { $ref: '#//parameters/Order' }
+        - { $ref: '#//parameters/Limit' }
+        - { $ref: '#//parameters/Cursor' }
       responses:
         '200':
           description: OK
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/EvidenceListResponse'
+                $ref: '#//schemas/EvidenceListResponse'
         '401':
-          $ref: '#/components/responses/Unauthenticated'
+          $ref: '#//responses/Unauthenticated'
         '403':
-          $ref: '#/components/responses/Forbidden'
+          $ref: '#//responses/Forbidden'
     post:
       operationId: evidenceUpload
       tags: [Evidence]
@@ -510,20 +509,20 @@ paths:
         content:
           multipart/form-data:
             schema:
-              $ref: '#/components/schemas/EvidenceUploadRequest'
+              $ref: '#//schemas/EvidenceUploadRequest'
       responses:
         '201':
           description: Created
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/EvidenceCreateResponse'
+                $ref: '#//schemas/EvidenceCreateResponse'
         '401':
-          $ref: '#/components/responses/Unauthenticated'
+          $ref: '#//responses/Unauthenticated'
         '403':
-          $ref: '#/components/responses/Forbidden'
+          $ref: '#//responses/Forbidden'
         '422':
-          $ref: '#/components/responses/ValidationFailed'
+          $ref: '#//responses/ValidationFailed'
 
   /evidence/{id}:
     parameters:
@@ -551,9 +550,9 @@ paths:
         '304':
           description: Not Modified
         '401':
-          $ref: '#/components/responses/Unauthenticated'
+          $ref: '#//responses/Unauthenticated'
         '403':
-          $ref: '#/components/responses/Forbidden'
+          $ref: '#//responses/Forbidden'
         '404':
           description: Not Found
         '412':
@@ -561,7 +560,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorSimple'
+                $ref: '#//schemas/ErrorSimple'
     head:
       operationId: evidenceHead
       tags: [Evidence]
@@ -584,20 +583,20 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ExportCreateLegacyRequest'
+              $ref: '#//schemas/ExportCreateLegacyRequest'
       responses:
         '200':
-          description: Created/Pending
+          description: Created/Queued
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ExportCreateResponse'
+                $ref: '#//schemas/ExportCreateResponse'
         '401':
-          $ref: '#/components/responses/Unauthenticated'
+          $ref: '#//responses/Unauthenticated'
         '403':
-          $ref: '#/components/responses/Forbidden'
+          $ref: '#//responses/Forbidden'
         '422':
-          $ref: '#/components/responses/ValidationFailed'
+          $ref: '#//responses/ValidationFailed'
 
   /exports/{type}:
     post:
@@ -616,20 +615,20 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ExportCreateTypeRequest'
+              $ref: '#//schemas/ExportCreateTypeRequest'
       responses:
         '200':
-          description: Created/Pending
+          description: Created/Queued
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ExportCreateResponse'
+                $ref: '#//schemas/ExportCreateResponse'
         '401':
-          $ref: '#/components/responses/Unauthenticated'
+          $ref: '#//responses/Unauthenticated'
         '403':
-          $ref: '#/components/responses/Forbidden'
+          $ref: '#//responses/Forbidden'
         '422':
-          $ref: '#/components/responses/ValidationFailed'
+          $ref: '#//responses/ValidationFailed'
 
   /exports/{jobId}/status:
     get:
@@ -647,11 +646,11 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ExportStatusResponse'
+                $ref: '#//schemas/ExportStatusResponse'
         '401':
-          $ref: '#/components/responses/Unauthenticated'
+          $ref: '#//responses/Unauthenticated'
         '403':
-          $ref: '#/components/responses/Forbidden'
+          $ref: '#//responses/Forbidden'
 
   /exports/{jobId}/download:
     get:
@@ -672,20 +671,20 @@ paths:
                 type: string
                 format: binary
         '401':
-          $ref: '#/components/responses/Unauthenticated'
+          $ref: '#//responses/Unauthenticated'
         '403':
-          $ref: '#/components/responses/Forbidden'
+          $ref: '#//responses/Forbidden'
         '404':
           description: EXPORT_NOT_FOUND or artifact missing
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorSimple'
+                $ref: '#//schemas/ErrorSimple'
 
   /avatar:
     post:
       operationId: avatarUpload
-      security: []
+      security: []   # public in Phase 4 scaffold
       tags: [Avatars]
       summary: Upload user avatar (Phase 4 stub)
       requestBody:
@@ -715,13 +714,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorSimple'
+                $ref: '#//schemas/ErrorSimple'
         '422':
           description: AVATAR_VALIDATION_FAILED
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorSimple'
+                $ref: '#//schemas/ErrorSimple'
 
   /avatar/{user}:
     parameters:
@@ -731,7 +730,7 @@ paths:
         schema: { type: integer, minimum: 1 }
     get:
       operationId: avatarGet
-      security: []
+      security: []   # public
       tags: [Avatars]
       summary: Get avatar image
       parameters:
@@ -751,16 +750,16 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorSimple'
+                $ref: '#//schemas/ErrorSimple'
         '404':
           description: AVATAR_NOT_FOUND
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorSimple'
+                $ref: '#//schemas/ErrorSimple'
     head:
       operationId: avatarHead
-      security: []
+      security: []   # public
       tags: [Avatars]
       summary: HEAD avatar
       responses:
@@ -772,7 +771,7 @@ paths:
   /setup/status:
     get:
       operationId: setupStatus
-      security: []
+      security: []   # public (guarded server-side)
       tags: [Setup]
       summary: Setup wizard status
       responses:
@@ -781,14 +780,14 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SetupStatusResponse'
+                $ref: '#//schemas/SetupStatusResponse'
         '400':
           description: SETUP_STEP_DISABLED
 
   /setup/db/test:
     post:
       operationId: setupDbTest
-      security: []
+      security: []   # public (guarded server-side)
       tags: [Setup]
       summary: Test database connection
       requestBody:
@@ -796,23 +795,23 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/SetupDbTestRequest'
+              $ref: '#//schemas/SetupDbTestRequest'
       responses:
         '200':
           description: OK
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/Ok' }
+              schema: { $ref: '#//schemas/Ok' }
         '422':
           description: DB_CONFIG_INVALID
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/ErrorSimple' }
+              schema: { $ref: '#//schemas/ErrorSimple' }
 
   /setup/db/write:
     post:
       operationId: setupDbWrite
-      security: []
+      security: []   # public (guarded server-side)
       tags: [Setup]
       summary: Write DB config to shared path
       requestBody:
@@ -820,7 +819,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/SetupDbWriteRequest'
+              $ref: '#//schemas/SetupDbWriteRequest'
       responses:
         '200':
           description: Wrote config
@@ -836,12 +835,12 @@ paths:
           description: SETUP_STEP_DISABLED
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/ErrorSimple' }
+              schema: { $ref: '#//schemas/ErrorSimple' }
 
   /setup/app-key:
     post:
       operationId: setupAppKey
-      security: []
+      security: []   # public (guarded server-side)
       tags: [Setup]
       summary: Generate app key (stub if commands disabled)
       responses:
@@ -849,7 +848,7 @@ paths:
           description: Generated
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/Ok' }
+              schema: { $ref: '#//schemas/Ok' }
         '202':
           description: Stub-only
           content:
@@ -864,12 +863,12 @@ paths:
           description: APP_KEY_EXISTS
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/ErrorSimple' }
+              schema: { $ref: '#//schemas/ErrorSimple' }
 
   /setup/schema/init:
     post:
       operationId: setupSchemaInit
-      security: []
+      security: []   # public (guarded server-side)
       tags: [Setup]
       summary: Run migrations (stub if commands disabled)
       responses:
@@ -877,7 +876,7 @@ paths:
           description: OK
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/Ok' }
+              schema: { $ref: '#//schemas/Ok' }
         '202':
           description: Stub-only
           content:
@@ -894,12 +893,12 @@ paths:
           description: SCHEMA_INIT_FAILED
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/ErrorSimple' }
+              schema: { $ref: '#//schemas/ErrorSimple' }
 
   /setup/admin:
     post:
       operationId: setupAdminCreate
-      security: []
+      security: []   # public (guarded server-side)
       tags: [Setup]
       summary: Create first admin
       requestBody:
@@ -907,23 +906,23 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/SetupAdminRequest'
+              $ref: '#//schemas/SetupAdminRequest'
       responses:
         '200':
           description: OK
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/Ok' }
+              schema: { $ref: '#//schemas/Ok' }
         '409':
           description: ADMIN_EXISTS
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/ErrorSimple' }
+              schema: { $ref: '#//schemas/ErrorSimple' }
 
   /setup/admin/totp/verify:
     post:
       operationId: setupAdminTotpVerify
-      security: []
+      security: []   # public (guarded server-side)
       tags: [Setup]
       summary: Verify admin TOTP during setup
       requestBody:
@@ -940,17 +939,17 @@ paths:
           description: OK
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/Ok' }
+              schema: { $ref: '#//schemas/Ok' }
         '400':
           description: TOTP_CODE_INVALID
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/ErrorSimple' }
+              schema: { $ref: '#//schemas/ErrorSimple' }
 
   /setup/smtp:
     post:
       operationId: setupSmtp
-      security: []
+      security: []   # public (guarded server-side)
       tags: [Setup]
       summary: Configure SMTP
       requestBody:
@@ -965,17 +964,17 @@ paths:
           description: OK
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/Ok' }
+              schema: { $ref: '#//schemas/Ok' }
         '422':
           description: SMTP validation failed
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/ErrorSimple' }
+              schema: { $ref: '#//schemas/ErrorSimple' }
 
   /setup/idp:
     post:
       operationId: setupIdp
-      security: []
+      security: []   # public (guarded server-side)
       tags: [Setup]
       summary: Configure Identity Provider (optional)
       requestBody:
@@ -990,17 +989,17 @@ paths:
           description: OK
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/Ok' }
+              schema: { $ref: '#//schemas/Ok' }
         '400':
           description: IDP_UNSUPPORTED
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/ErrorSimple' }
+              schema: { $ref: '#//schemas/ErrorSimple' }
 
   /setup/branding:
     post:
       operationId: setupBranding
-      security: []
+      security: []   # public (guarded server-side)
       tags: [Setup]
       summary: Configure branding
       requestBody:
@@ -1015,17 +1014,17 @@ paths:
           description: OK
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/Ok' }
+              schema: { $ref: '#//schemas/Ok' }
         '422':
           description: BRANDING_INVALID
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/ErrorSimple' }
+              schema: { $ref: '#//schemas/ErrorSimple' }
 
   /setup/finish:
     post:
       operationId: setupFinish
-      security: []
+      security: []   # public (guarded server-side)
       tags: [Setup]
       summary: Complete setup wizard
       responses:
@@ -1033,11 +1032,11 @@ paths:
           description: OK
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/Ok' }
+              schema: { $ref: '#//schemas/Ok' }
         '400':
           description: SETUP_STEP_DISABLED
 
-components:
+:
   securitySchemes:
     sanctum:
       type: http
@@ -1050,7 +1049,7 @@ components:
       in: query
       schema:
         type: string
-        enum: [SYSTEM, RBAC, AUTH, SETTINGS, EXPORTS, EVIDENCE, AVATARS, AUDIT, TEST]
+        enum: [SYSTEM, RBAC, AUTH, SETTINGS, EXPORTS, EVIDENCE, AVATARS, AUDIT]
       example: RBAC
     AuditAction:
       name: action
@@ -1110,25 +1109,25 @@ components:
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/Unauthenticated'
+            $ref: '#//schemas/Unauthenticated'
     Forbidden:
       description: Forbidden
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/ForbiddenError'
+            $ref: '#//schemas/ForbiddenError'
     ValidationFailed:
       description: Validation errors
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/ValidationFailed'
+            $ref: '#//schemas/ValidationFailed'
     RbacDisabled:
       description: RBAC disabled
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/RbacDisabledError'
+            $ref: '#//schemas/RbacDisabledError'
 
   schemas:
     Ok:
@@ -1148,7 +1147,7 @@ components:
 
     Unauthenticated:
       allOf:
-        - $ref: '#/components/schemas/ErrorSimple'
+        - $ref: '#//schemas/ErrorSimple'
         - type: object
           properties:
             code:
@@ -1157,7 +1156,7 @@ components:
 
     ForbiddenError:
       allOf:
-        - $ref: '#/components/schemas/ErrorSimple'
+        - $ref: '#//schemas/ErrorSimple'
         - type: object
           properties:
             code:
@@ -1238,7 +1237,7 @@ components:
         ok: { type: boolean, const: false }
         note: { type: string, const: stub-only }
         accepted:
-          $ref: '#/components/schemas/RoleCreateRequest'
+          $ref: '#//schemas/RoleCreateRequest'
 
     User:
       type: object
@@ -1253,7 +1252,7 @@ components:
       required: [ok, user, roles]
       properties:
         ok: { type: boolean, const: true }
-        user: { $ref: '#/components/schemas/User' }
+        user: { $ref: '#//schemas/User' }
         roles:
           type: array
           items: { type: string, minLength: 2, maxLength: 64 }
@@ -1277,7 +1276,7 @@ components:
         action: { type: string }
         category:
           type: string
-          enum: [SYSTEM, RBAC, AUTH, SETTINGS, EXPORTS, EVIDENCE, AVATARS, AUDIT, TEST]
+          enum: [SYSTEM, RBAC, AUTH, SETTINGS, EXPORTS, EVIDENCE, AVATARS, AUDIT]
         entity_type: { type: string }
         entity_id: { type: string }
         ip: { type: [string, 'null'] }
@@ -1295,19 +1294,19 @@ components:
           type: array
           items:
             type: string
-            enum: [SYSTEM, RBAC, AUTH, SETTINGS, EXPORTS, EVIDENCE, AVATARS, AUDIT, TEST]
+            enum: [SYSTEM, RBAC, AUTH, SETTINGS, EXPORTS, EVIDENCE, AVATARS, AUDIT]
         _retention_days: { type: integer, minimum: 30, maximum: 730 }
         filters:
           type: object
           additionalProperties: true
         items:
           type: array
-          items: { $ref: '#/components/schemas/AuditEvent' }
+          items: { $ref: '#//schemas/AuditEvent' }
         nextCursor: { type: [string, 'null'] }
 
     AuditListStubResponse:
       allOf:
-        - $ref: '#/components/schemas/AuditListResponse'
+        - $ref: '#//schemas/AuditListResponse'
         - type: object
           required: [note]
           properties:
@@ -1372,7 +1371,7 @@ components:
       required: [ok, status]
       properties:
         ok: { type: boolean, const: true }
-        status: { type: string, enum: [pending, running, completed, failed] }
+        status: { type: string, enum: [queued, running, done, failed] }
 
     SettingsGetResponse:
       type: object
@@ -1448,7 +1447,7 @@ components:
       type: object
       properties:
         core:
-          $ref: '#/components/schemas/SettingsUpdateSpecShape'
+          $ref: '#//schemas/SettingsUpdateSpecShape'
 
     SettingsPostResponse:
       type: object
@@ -1460,7 +1459,7 @@ components:
           type: object
           additionalProperties: true
         config:
-          $ref: '#/components/schemas/SettingsGetResponse/properties/config'
+          $ref: '#//schemas/SettingsGetResponse/properties/config'
 
     HealthFingerprintResponse:
       type: object
@@ -1500,3 +1499,48 @@ components:
                 enabled: { type: boolean }
                 size_px: { type: integer }
                 format: { type: string }
+
+    SetupStatusResponse:
+      type: object
+      required: [ok, setupComplete, nextStep, checks]
+      properties:
+        ok: { type: boolean, const: true }
+        setupComplete: { type: boolean }
+        nextStep:
+          type: [string, 'null']
+          enum: [db_config, app_key, schema_init, admin_seed, admin_mfa_verify, null]
+        checks:
+          type: object
+          properties:
+            db_config: { type: boolean }
+            app_key: { type: boolean }
+            schema_init: { type: boolean }
+            admin_seed: { type: boolean }
+            admin_mfa_verify: { type: boolean }
+            smtp: { type: boolean }
+            idp: { type: boolean }
+            branding: { type: boolean }
+
+    SetupDbTestRequest:
+      type: object
+      required: [driver, host, port, database, username, password]
+      properties:
+        driver: { type: string, enum: [mysql, pgsql, sqlite, sqlsrv] }
+        host: { type: string }
+        port: { type: integer }
+        database: { type: string }
+        username: { type: string }
+        password: { type: string }
+
+    SetupDbWriteRequest:
+      allOf:
+        - $ref: '#//schemas/SetupDbTestRequest'
+
+    SetupAdminRequest:
+      type: object
+      required: [name, email, password, password_confirmation]
+      properties:
+        name: { type: string, minLength: 2 }
+        email: { type: string, format: email }
+        password: { type: string, minLength: 8 }
+        password_confirmation: { type: string, minLength: 8 }
