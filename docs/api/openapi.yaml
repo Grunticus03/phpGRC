@@ -9,6 +9,11 @@ info:
   license:
     identifier: MIT
     name: MIT
+  x-logo:
+    url: "https://172.16.0.46:8000/images/phpGRC-light-horizontal.webp"
+    backgroundColor: "#FFFFFF"
+    altText: "phpGRC"
+    href: "https://172.16.0.46:8000/api/docs"
 servers:
   - url: /api
 tags:
