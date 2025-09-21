@@ -12,11 +12,11 @@ else
 fi
 
 changed_migrations=$(git diff --name-only --diff-filter=ACMRTUXB "${DIFF_RANGE}" -- api/database/migrations || true)
-changed_schema=$(git diff --name-only --diff-filter=ACMRTUXB "${DIFF_RANGE}" -- docs/db/SCHEMA.md || true)
+changed_schema=$(git diff --name-only --diff-filter=ACMRTUXB "${DIFF_RANGE}" -- docs/db/DB-SCHEMA.md || true)
 
 if [[ -n "${changed_migrations}" ]]; then
   if [[ -z "${changed_schema}" ]]; then
-    echo "ERROR: Migrations changed but docs/db/SCHEMA.md did not."
+    echo "ERROR: Migrations changed but docs/db/DB-SCHEMA.md did not."
     echo "Changed migration files:"
     echo "${changed_migrations}"
     exit 2
