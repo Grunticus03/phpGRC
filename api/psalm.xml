@@ -13,9 +13,6 @@
     <directory name="app"/>
     <ignoreFiles>
         <directory name="vendor" />
-        <directory name="bootstrap/cache" />
-        <directory name="storage" />
-        <directory name="build" />
     </ignoreFiles>
   </projectFiles>
 
