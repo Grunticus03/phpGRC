@@ -42,10 +42,6 @@ type RawEvidenceFreshness = Omit<EvidenceFreshness, "percent" | "by_mime"> & {
 };
 
 type RawRbacDenies = RbacDenies; // already 0..1 rate
-type RawKpis = {
-  rbac_denies: RawRbacDenies;
-  evidence_freshness: RawEvidenceFreshness;
-};
 
 function toPct(n: unknown): number {
   const v = typeof n === "number" && isFinite(n) ? n : 0;
@@ -54,7 +50,7 @@ function toPct(n: unknown): number {
 }
 
 function normalize(raw: unknown): Kpis {
-  const root = (raw && typeof raw === "object" ? raw as Record<string, unknown> : {}) as {
+  const root = (raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {}) as {
     rbac_denies?: RawRbacDenies;
     evidence_freshness?: RawEvidenceFreshness;
   };

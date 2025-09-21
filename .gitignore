@@ -8,3 +8,4 @@ psalm.xml
 api/storage/framework/testing/disks/local/exports/*.pdf
 api/database/*.sqlite
 api/database/database.sqlite-journal
+node_modules
