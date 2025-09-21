@@ -219,16 +219,13 @@ Route::prefix('/dashboard')
 
 /*
  |--------------------------------------------------------------------------
- | Metrics alias (Phase 5) — additive, same payload as /dashboard/kpis
+ | Metrics alias (additive, same controller)
  |--------------------------------------------------------------------------
 */
-Route::prefix('/metrics')
+Route::get('/metrics/dashboard', [MetricsController::class, 'index'])
     ->middleware($rbacStack)
-    ->group(function (): void {
-        Route::get('/dashboard', [MetricsController::class, 'index'])
-            ->defaults('roles', ['Admin'])
-            ->defaults('policy', 'core.metrics.view');
-    });
+    ->defaults('roles', ['Admin'])
+    ->defaults('policy', 'core.metrics.view');
 
 /*
  |--------------------------------------------------------------------------

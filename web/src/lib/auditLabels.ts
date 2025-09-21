@@ -13,12 +13,12 @@ const byAction: Record<string, ActionInfo> = {
   "auth.mfa.totp.verified":    { label: "TOTP verified", category: "AUTH", variant: "success" },
   "auth.bruteforce.locked":    { label: "Brute force locked", category: "AUTH", variant: "danger" },
 
-  // RBAC denies
-  "rbac.deny.unauthenticated": { label: "Denied: unauthenticated", category: "RBAC", variant: "warning" },
-  "rbac.deny.role":            { label: "Denied: role check", category: "RBAC", variant: "warning" },
-  "rbac.deny.policy":          { label: "Denied: policy check", category: "RBAC", variant: "warning" },
-  "rbac.deny.capability":      { label: "Denied: capability check", category: "RBAC", variant: "warning" },
-  "rbac.deny.unknown_policy":  { label: "Denied: unknown policy", category: "RBAC", variant: "warning" },
+  // RBAC denies (Phase-5 middleware emits these)
+  "rbac.deny.unauthenticated": { label: "Denied: unauthenticated", category: "RBAC", variant: "danger" },
+  "rbac.deny.role_mismatch":   { label: "Denied: role", category: "RBAC", variant: "danger" },
+  "rbac.deny.policy":          { label: "Denied: policy", category: "RBAC", variant: "danger" },
+  "rbac.deny.capability":      { label: "Denied: capability", category: "RBAC", variant: "danger" },
+  "rbac.deny.unknown_policy":  { label: "Denied: unknown policy", category: "RBAC", variant: "danger" },
 
   // RBAC role/user changes
   "rbac.user_role.attached":   { label: "Role attached", category: "RBAC", variant: "success" },
@@ -68,7 +68,7 @@ export function actionInfo(action: string, category?: string): ActionInfo {
 
   // Pattern helpers
   if (action.startsWith("rbac.deny.")) {
-    return { label: "Denied: RBAC", category: "RBAC", variant: "warning" };
+    return { label: "Denied: RBAC", category: "RBAC", variant: "danger" };
   }
   if (action.startsWith("rbac.user_role.")) {
     return { label: "User role changed", category: "RBAC", variant: "neutral" };

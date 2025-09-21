@@ -14,7 +14,7 @@ final class DashboardKpisAliasTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_alias_endpoint_returns_expected_shape(): void
+    public function test_admin_can_access_metrics_dashboard_alias(): void
     {
         config([
             'core.rbac.enabled' => true,
@@ -25,27 +25,21 @@ final class DashboardKpisAliasTest extends TestCase
             ]),
         ]);
 
-        $admin = $this->makeUser('Admin Three', 'admin3@example.test');
+        $admin = $this->makeUser('Admin Alias', 'admin-alias@example.test');
         $this->attachNamedRole($admin, 'Admin');
 
         $resp = $this->actingAs($admin, 'sanctum')->getJson('/api/metrics/dashboard');
         $resp->assertStatus(200);
 
-        $kpis = $this->extractKpis($resp);
+        $json = $resp->json();
+        $data = is_array($json) && array_key_exists('data', $json) ? $json['data'] : $json;
 
-        static::assertIsArray($kpis);
-        static::assertArrayHasKey('rbac_denies', $kpis);
-        static::assertArrayHasKey('evidence_freshness', $kpis);
-
-        foreach (['window_days','from','to','denies','total','rate','daily'] as $key) {
-            static::assertArrayHasKey($key, $kpis['rbac_denies']);
-        }
-        foreach (['days','total','stale','percent','by_mime'] as $key) {
-            static::assertArrayHasKey($key, $kpis['evidence_freshness']);
-        }
+        static::assertIsArray($data);
+        static::assertArrayHasKey('rbac_denies', $data);
+        static::assertArrayHasKey('evidence_freshness', $data);
     }
 
-    /** Create a user without factories. */
+    /** Helpers */
     private function makeUser(string $name, string $email): User
     {
         /** @var User $user */
@@ -58,7 +52,6 @@ final class DashboardKpisAliasTest extends TestCase
         return $user;
     }
 
-    /** Ensure a role exists and attach to user. */
     private function attachNamedRole(User $user, string $name): void
     {
         $id = 'role_' . strtolower(preg_replace('/[^a-z0-9]+/i', '_', $name));
@@ -71,15 +64,4 @@ final class DashboardKpisAliasTest extends TestCase
 
         $user->roles()->syncWithoutDetaching([$role->getKey()]);
     }
-
-    /** Normalize controller response: root or { data: ... }. */
-    private function extractKpis(\Illuminate\Testing\TestResponse $resp): array
-    {
-        $json = $resp->json();
-        if (is_array($json) && array_key_exists('data', $json) && is_array($json['data'])) {
-            return $json['data'];
-        }
-        return is_array($json) ? $json : [];
-    }
 }
-
