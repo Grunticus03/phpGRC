@@ -1,25 +1,50 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { fetchKpis, type Kpis } from "../../lib/api/metrics";
 
 function pct(n: number): string {
-  // Clamp and format 1 decimal place
   const v = Math.max(0, Math.min(100, n * (n <= 1 ? 100 : 1)));
   return `${v.toFixed(1)}%`;
+}
+
+function clampDays(n: number): number {
+  const v = Math.trunc(Number.isFinite(n) ? n : 0);
+  return Math.max(1, Math.min(365, v));
 }
 
 export default function Kpis(): JSX.Element {
   const [data, setData] = useState<Kpis | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState<boolean>(false);
 
-  useEffect(() => {
-    const ctrl = new AbortController();
-    fetchKpis(ctrl.signal)
-      .then(setData)
-      .catch((e) => setError(e?.message || "error"));
-    return () => ctrl.abort();
+  // Form state (defaults aligned with server config defaults)
+  const [rbacDays, setRbacDays] = useState<number>(7);
+  const [freshDays, setFreshDays] = useState<number>(30);
+
+  const canSubmit = useMemo(() => !loading && rbacDays >= 1 && freshDays >= 1, [loading, rbacDays, freshDays]);
+
+  const load = useCallback(async (opts?: { rbac_days?: number; days?: number }) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const ctrl = new AbortController();
+      const k = await fetchKpis(ctrl.signal, opts);
+      setData(k);
+      // sync inputs with returned meta-equivalents
+      setRbacDays(k.rbac_denies.window_days);
+      setFreshDays(k.evidence_freshness.days);
+    } catch (e: unknown) {
+      setError((e as { message?: string })?.message || "error");
+      setData(null);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  if (error === 'forbidden') {
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  if (error === "forbidden") {
     return (
       <section aria-labelledby="kpi-title">
         <h1 id="kpi-title">Dashboard</h1>
@@ -50,8 +75,50 @@ export default function Kpis(): JSX.Element {
   const e = data.evidence_freshness;
 
   return (
-    <section aria-labelledby="kpi-title">
+    <section aria-labelledby="kpi-title" aria-busy={loading}>
       <h1 id="kpi-title">Dashboard</h1>
+
+      <form
+        onSubmit={(ev) => {
+          ev.preventDefault();
+          void load({ rbac_days: clampDays(rbacDays), days: clampDays(freshDays) });
+        }}
+        className="card mb-3"
+        aria-label="KPI window controls"
+        style={{ padding: "0.75rem", display: "grid", gap: "0.75rem", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}
+      >
+        <div>
+          <label htmlFor="rbac_days" className="form-label">RBAC window (days)</label>
+          <input
+            id="rbac_days"
+            type="number"
+            min={1}
+            max={365}
+            step={1}
+            className="form-control"
+            value={rbacDays}
+            onChange={(e) => setRbacDays(clampDays(Number(e.currentTarget.value || 0)))}
+          />
+        </div>
+        <div>
+          <label htmlFor="fresh_days" className="form-label">Evidence stale threshold (days)</label>
+          <input
+            id="fresh_days"
+            type="number"
+            min={1}
+            max={365}
+            step={1}
+            className="form-control"
+            value={freshDays}
+            onChange={(e) => setFreshDays(clampDays(Number(e.currentTarget.value || 0)))}
+          />
+        </div>
+        <div style={{ alignSelf: "end" }}>
+          <button className="btn btn-primary" type="submit" disabled={!canSubmit} aria-disabled={!canSubmit}>
+            {loading ? "Loading…" : "Apply"}
+          </button>
+        </div>
+      </form>
 
       <div className="kpi-grid" style={{ display: "grid", gap: "1rem", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))" }}>
         <article className="card" aria-labelledby="kpi-denies-title">

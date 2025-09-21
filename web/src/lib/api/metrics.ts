@@ -93,13 +93,28 @@ function normalize(raw: unknown): Kpis {
   return { rbac_denies: denies, evidence_freshness: evidence };
 }
 
+function buildQuery(params: Record<string, string | number | undefined>): string {
+  const qs = new URLSearchParams();
+  Object.entries(params).forEach(([k, v]) => {
+    if (v !== undefined && String(v).length > 0) qs.set(k, String(v));
+  });
+  const s = qs.toString();
+  return s ? `?${s}` : "";
+}
+
 /**
  * Fetch KPI snapshot from /api/dashboard/kpis.
+ * Optional params: { rbac_days, days }.
  * Returns normalized KPIs with percent fields scaled to 0..100 for UI.
- * Throws Error('forbidden') on 403 to let the page render an access message.
+ * Throws Error('forbidden') on 403.
  */
-export async function fetchKpis(signal?: AbortSignal): Promise<Kpis> {
-  const res = await fetch("/api/dashboard/kpis", {
+export async function fetchKpis(signal?: AbortSignal, opts?: { rbac_days?: number; days?: number }): Promise<Kpis> {
+  const query = buildQuery({
+    rbac_days: typeof opts?.rbac_days === "number" ? Math.max(1, Math.min(365, Math.trunc(opts.rbac_days))) : undefined,
+    days: typeof opts?.days === "number" ? Math.max(1, Math.min(365, Math.trunc(opts.days))) : undefined,
+  });
+
+  const res = await fetch(`/api/dashboard/kpis${query}`, {
     credentials: "same-origin",
     signal,
   });

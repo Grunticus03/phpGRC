@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 import React from "react";
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import Kpis from "../Kpis";
 
 const originalFetch = globalThis.fetch as typeof fetch;
@@ -19,7 +19,7 @@ describe("Dashboard KPIs", () => {
     globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
       const url = typeof input === "string" ? input : (input as Request).url ?? String(input);
 
-      if (url === "/api/dashboard/kpis") {
+      if (url.startsWith("/api/dashboard/kpis")) {
         return json({
           ok: true,
           data: {
@@ -44,7 +44,7 @@ describe("Dashboard KPIs", () => {
               days: 30,
               total: 10,
               stale: 5,
-              percent: 0.5, // API may return 0..1; UI normalizes to %
+              percent: 0.5,
               by_mime: [
                 { mime: "application/pdf", total: 4, stale: 2, percent: 0.5 },
                 { mime: "image/png", total: 6, stale: 3, percent: 0.5 },
@@ -70,13 +70,8 @@ describe("Dashboard KPIs", () => {
       expect(screen.queryByText("Loading…")).not.toBeInTheDocument();
     });
 
-    // RBAC denies rate shows 25.0%
     expect(screen.getByLabelText("deny-rate").textContent).toContain("25.0%");
-
-    // Evidence freshness shows 50.0%
     expect(screen.getByLabelText("stale-percent").textContent).toContain("50.0%");
-
-    // MIME rows
     expect(screen.getByText("application/pdf")).toBeInTheDocument();
     expect(screen.getByText("image/png")).toBeInTheDocument();
   });
@@ -84,7 +79,7 @@ describe("Dashboard KPIs", () => {
   it("shows forbidden message on 403", async () => {
     globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
       const url = typeof input === "string" ? input : (input as Request).url ?? String(input);
-      if (url === "/api/dashboard/kpis") {
+      if (url.startsWith("/api/dashboard/kpis")) {
         return json({ ok: false, code: "FORBIDDEN" }, { status: 403 });
       }
       return json({ ok: true });
@@ -93,5 +88,45 @@ describe("Dashboard KPIs", () => {
     render(<Kpis />);
 
     await screen.findByText("You do not have access to KPIs.");
+  });
+
+  it("applies rbac_days and days in query when submitting", async () => {
+    const calls: string[] = [];
+    globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
+      const url = typeof input === "string" ? input : (input as Request).url ?? String(input);
+      if (url.startsWith("/api/dashboard/kpis")) {
+        calls.push(url);
+        return json({
+          ok: true,
+          data: {
+            rbac_denies: { window_days: 14, from: "2025-01-01", to: "2025-01-14", denies: 10, total: 40, rate: 0.25, daily: [] },
+            evidence_freshness: { days: 45, total: 10, stale: 5, percent: 0.5, by_mime: [] },
+          },
+        });
+      }
+      return json({ ok: true });
+    }) as unknown as typeof fetch;
+
+    render(<Kpis />);
+
+    await waitFor(() => {
+      expect(screen.queryByText("Loading…")).not.toBeInTheDocument();
+    });
+
+    const rbac = screen.getByLabelText("RBAC window (days)") as HTMLInputElement;
+    const fresh = screen.getByLabelText("Evidence stale threshold (days)") as HTMLInputElement;
+
+    fireEvent.change(rbac, { target: { value: "14" } });
+    fireEvent.change(fresh, { target: { value: "45" } });
+
+    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+
+    await waitFor(() => {
+      const last = calls[calls.length - 1] || "";
+      expect(last).toContain("/api/dashboard/kpis?rbac_days=14&days=45");
+    });
+
+    expect((screen.getByLabelText("RBAC window (days)") as HTMLInputElement).value).toBe("14");
+    expect((screen.getByLabelText("Evidence stale threshold (days)") as HTMLInputElement).value).toBe("45");
   });
 });
