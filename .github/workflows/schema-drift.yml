@@ -8,6 +8,7 @@ on:
 jobs:
   drift:
     runs-on: self-hosted
+
     services:
       mysql:
         image: mysql:8.0
@@ -34,6 +35,7 @@ jobs:
         with:
           php-version: '8.3'
           tools: composer:v2
+          extensions: pdo_mysql
           coverage: none
 
       - name: Install API dependencies
@@ -43,13 +45,13 @@ jobs:
           cp -n .env.example .env || true
           php artisan key:generate
 
-      - name: Wait for MySQL
+      - name: Wait for MySQL (TCP check)
         run: |
-          for i in {1..60}; do
-            if mysqladmin ping -h 127.0.0.1 -P3307 -uroot -proot --silent; then exit 0; fi
+          for i in {1..120}; do
+            if (echo > /dev/tcp/127.0.0.1/3307) >/dev/null 2>&1; then exit 0; fi
             sleep 1
           done
-          echo "MySQL did not become ready"; exit 1
+          echo "MySQL not reachable on 127.0.0.1:3307"; exit 1
 
       - name: Reset and migrate database
         working-directory: api
@@ -88,7 +90,6 @@ jobs:
           set -e
           if ! diff -u /tmp/schema.doc.norm /tmp/schema.live.norm; then
             echo "::error ::Schema drift detected in structure. Update docs/db/SCHEMA.md (or migrations) to reconcile."
-            echo "Tip: download artifacts to review live snapshot and normalized views."
             exit 2
           fi
 
