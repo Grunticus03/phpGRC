@@ -129,5 +129,17 @@ return [
         'disk'    => env('CORE_EXPORTS_DISK', env('FILESYSTEM_DISK', 'local')),
         'dir'     => env('CORE_EXPORTS_DIR', 'exports'),
     ],
+
+    // Metrics defaults (Phase 5)
+    'metrics' => [
+        'rbac_denies' => [
+            // Rolling window in days for RBAC denies rate
+            'window_days' => (int) env('CORE_METRICS_RBAC_DAYS', 7),
+        ],
+        'evidence_freshness' => [
+            // Threshold days after which evidence is considered stale
+            'days' => (int) env('CORE_METRICS_EVIDENCE_DAYS', 30),
+        ],
+    ],
 ];
 
