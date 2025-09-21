@@ -1136,3 +1136,16 @@ SESSION-LOG.md entry
 - Phase/Step status: advance
 - Next action (you): add DB-doc drift check to CI (schema snapshot vs `docs/db/schema.md`) and add cascade-delete test for `users → evidence`.
 - Next action (me): provide controller and route files touching Evidence endpoints for a quick contract review; flag any prod rows with `owner_id=0` so we can clean before rollout.
+
+---
+
+### Session 2025-09-21: [Phase 4, Evidence API contract]
+- Context: Evidence endpoints needed contract alignment and stricter typing
+- Goal: Lock `size` in API, update OpenAPI, adjust controller, add tests, keep CI green
+- Constraints: Follow Charter; no breaking DB schema; security + high-quality coding
+
+### Closeout
+- Deliverables produced: Updated OpenAPI (`Evidence`, `EvidenceCreateResponse`, 400 `EVIDENCE_NOT_ENABLED`); controller now returns `size` and accepts any MIME/size; `show`/`index` use `core.evidence.view`; validation returns `VALIDATION_FAILED` shape; feature tests covering contract and validation; OpenAPI contract guard workflow
+- Phase/Step status: advance
+- Next action (you): add schema drift check against `docs/db/schema.md`; add cascade delete test `users → evidence`; backfill FK pre-deploy check
+- Next action (me): provide any schema snapshot tooling preferences; confirm no MIME/size enforcement for Phase 4; prep seed data for cascade test
