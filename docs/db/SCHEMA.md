@@ -1,287 +1,240 @@
-# docs/db/SCHEMA.md
-# phpGRC — Database Schema (mirror of migrations)
+# phpGRC Database Schema
 
-**Source of truth:** Laravel migrations in `/api/database/migrations`.  
-**Scope date:** 2025-09-20.  
-**Note:** This document mirrors structure. Business rules live in services, middleware, and OpenAPI.
+Snapshot generated from migrations in `api/database/migrations` as of 2025-09-21.
 
----
-
-## Conventions
-
-- **IDs**
-  - `users.id`: `BIGINT` auto-increment.
-  - `roles.id`: string PK, human-readable slug `^role_[a-z0-9_]+(_[0-9]+)?$`, length ≤191.
-  - `audit_events.id`: ULID 26 chars.
-  - `exports.id`: ULID 26 chars.
-  - `evidence.id`: string, auto-generated as `ev_<ULID>`.
-  - `avatars.id`: string (stub).
-- **Timestamps**
-  - `*_at` use `datetime` or `datetimeTz` per migration. Audit uses immutable in model casts.
-- **FKs**
-  - Enforced:
-    - `role_user.user_id` → `users.id` (cascade delete)
-    - `role_user.role_id` → `roles.id` (cascade delete)
-    - `evidence.owner_id` → `users.id` (cascade delete)
-    - `avatars.user_id` → `users.id` (cascade delete)
-- **RBAC**
-  - Pivot table `role_user` has composite PK (`user_id`,`role_id`).
+- SQL dialect: targets MySQL 8.0+
+- Time zones: `timestampsTz` / `dateTimeTz` store UTC.  
+- IDs:
+  - `users.id`: `BIGINT UNSIGNED` auto-increment.
+  - `roles.id`: human-readable `VARCHAR(191)` primary key (e.g., `role_admin`).
+  - `audit_events.id` and `exports.id`: 26-char ULID strings.
+  - `evidence.id`: server-generated `ev_<ULID>` (prefix `ev_` + 26-char ULID).
+  - `avatars.id`: string PK (scaffold).
+- Notation: `✓` = NOT NULL, `✗` = NULL allowed. Sizes shown are MySQL effective lengths.
 
 ---
 
 ## Tables
 
-### users
-From: `0000_00_00_000000_create_users_table.php`
+### `users`
+**Purpose:** Auth users.
 
-| Column          | Type            | Null | Default    | Key            | Notes                       |
-|-----------------|-----------------|------|------------|----------------|-----------------------------|
-| id              | BIGINT UNSIGNED | NO   | auto inc   | PK             |                             |
-| name            | VARCHAR(255)    | YES  |            |                |                             |
-| email           | VARCHAR(255)    | NO   |            | UNIQUE         |                             |
-| password        | VARCHAR(255)    | NO   |            |                |                             |
-| remember_token  | VARCHAR(100)    | YES  |            |                | Laravel helper              |
-| created_at      | TIMESTAMP       | YES  |            |                |                             |
-| updated_at      | TIMESTAMP       | YES  |            |                |                             |
+| Column           | Type                 | Null | Default     | Notes                    |
+|------------------|----------------------|------|-------------|--------------------------|
+| id               | BIGINT UNSIGNED      | ✓    | AUTO_INC    | PK                       |
+| name             | VARCHAR(255)         | ✗    | NULL        |                          |
+| email            | VARCHAR(255)         | ✓    | —           | UNIQUE                   |
+| password         | VARCHAR(255)         | ✓    | —           |                          |
+| remember_token   | VARCHAR(100)         | ✗    | NULL        |                          |
+| created_at       | TIMESTAMP            | ✗    | NULL        |                          |
+| updated_at       | TIMESTAMP            | ✗    | NULL        |                          |
 
----
-
-### personal_access_tokens
-From: `0000_00_00_000001_create_personal_access_tokens_table.php`
-
-| Column         | Type            | Null | Default | Key     | Notes                                     |
-|----------------|-----------------|------|---------|---------|-------------------------------------------|
-| id             | BIGINT UNSIGNED | NO   | auto    | PK      |                                           |
-| tokenable_type | VARCHAR(255)    | NO   |         | INDEX   | via `morphs('tokenable')`                 |
-| tokenable_id   | BIGINT UNSIGNED | NO   |         | INDEX   |                                           |
-| name           | VARCHAR(255)    | NO   |         |         |                                           |
-| token          | VARCHAR(64)     | NO   |         | UNIQUE  |                                           |
-| abilities      | TEXT            | YES  |         |         | JSON string                                |
-| last_used_at   | TIMESTAMP       | YES  |         |         |                                           |
-| expires_at     | TIMESTAMP       | YES  |         |         |                                           |
-| created_at     | TIMESTAMP       | YES  |         |         |                                           |
-| updated_at     | TIMESTAMP       | YES  |         |         |                                           |
+**Indexes & Constraints**
+- `PRIMARY KEY (id)`
+- `UNIQUE (email)`
 
 ---
 
-### roles
-From: `0000_00_00_000100_create_roles_table.php`
+### `personal_access_tokens`
+**Purpose:** Sanctum tokens.
 
-| Column     | Type          | Null | Default | Key   | Notes                         |
-|------------|---------------|------|---------|-------|-------------------------------|
-| id         | VARCHAR(191)  | NO   |         | PK    | e.g., `role_admin`            |
-| name       | VARCHAR(255)  | NO   |         | UNIQUE| Human name                    |
-| created_at | TIMESTAMPTZ   | YES  |         |       |                               |
-| updated_at | TIMESTAMPTZ   | YES  |         |       |                               |
+| Column          | Type                 | Null | Default | Notes                             |
+|-----------------|----------------------|------|---------|-----------------------------------|
+| id              | BIGINT UNSIGNED      | ✓    | AUTO_INC| PK                                |
+| tokenable_type  | VARCHAR(255)         | ✓    | —       | morphs                            |
+| tokenable_id    | BIGINT UNSIGNED      | ✓    | —       | morphs                            |
+| name            | VARCHAR(255)         | ✓    | —       |                                   |
+| token           | VARCHAR(64)          | ✓    | —       | UNIQUE                            |
+| abilities       | TEXT                 | ✗    | NULL    |                                   |
+| last_used_at    | TIMESTAMP            | ✗    | NULL    |                                   |
+| expires_at      | TIMESTAMP            | ✗    | NULL    |                                   |
+| created_at      | TIMESTAMP            | ✗    | NULL    |                                   |
+| updated_at      | TIMESTAMP            | ✗    | NULL    |                                   |
 
----
-
-### role_user
-From: `0000_00_00_000101_create_role_user_table.php`
-
-| Column  | Type              | Null | Default | Key                  | Notes                 |
-|---------|-------------------|------|---------|----------------------|-----------------------|
-| user_id | BIGINT UNSIGNED   | NO   |         | FK→users.id, INDEX   | cascade on delete     |
-| role_id | VARCHAR(191)      | NO   |         | FK→roles.id, INDEX   | cascade on delete     |
-
-- Primary Key: (`user_id`,`role_id`)
-
----
-
-### audit_events
-From: `0000_00_00_000110_create_audit_events_table.php`, `2025_09_20_000000_add_indexes_to_audit_events_table.php`
-
-| Column       | Type            | Null | Default         | Key                             | Notes                          |
-|--------------|-----------------|------|-----------------|---------------------------------|--------------------------------|
-| id           | VARCHAR(26)     | NO   |                 | PK                              | ULID                           |
-| occurred_at  | TIMESTAMPTZ     | NO   |                 | INDEX                           | Event time                     |
-| actor_id     | BIGINT UNSIGNED | YES  |                 | INDEX                           | Optional user id (no FK)       |
-| action       | VARCHAR(191)    | NO   |                 | INDEX                           | Canonical verb dotted path     |
-| category     | VARCHAR(64)     | NO   |                 | INDEX                           | See enums below                |
-| entity_type  | VARCHAR(128)    | NO   |                 | INDEX                           | e.g., `user`                   |
-| entity_id    | VARCHAR(191)    | NO   |                 | INDEX                           | Target identifier              |
-| ip           | VARCHAR(45)     | YES  |                 |                                 | IPv4/IPv6                      |
-| ua           | VARCHAR(255)    | YES  |                 |                                 | User-Agent                     |
-| meta         | JSON            | YES  |                 |                                 | Arbitrary                      |
-| created_at   | TIMESTAMPTZ     | NO   | CURRENT_TIMESTAMP |                               | Insert time                    |
-
-Indexes:
-- `INDEX(ae_occurred_id_idx) ON (occurred_at, id)`
-- `INDEX idx_audit_cat_occurred_at ON (category, occurred_at)`
-- `INDEX idx_audit_action_occurred_at ON (action, occurred_at)`
-
-Model casts:
-- `occurred_at`, `created_at`: immutable datetime
-- `meta`: array
+**Indexes & Constraints**
+- `PRIMARY KEY (id)`
+- `UNIQUE (token)`
+- `INDEX tokenable_type_tokenable_id (tokenable_type, tokenable_id)`
 
 ---
 
-### evidence
-From: `0000_00_00_000120_create_evidence_table.php`, `2025_09_20_000100_add_foreign_keys_to_evidence_and_avatars.php`
+### `roles`
+**Purpose:** Role catalog.
 
-| Column      | Type             | Null | Default           | Key           | Notes                                             |
-|-------------|------------------|------|-------------------|---------------|---------------------------------------------------|
-| id          | VARCHAR(255)     | NO   |                   | PK            | auto-generated `ev_<ULID>`                        |
-| owner_id    | BIGINT UNSIGNED  | NO   |                   | FK→users.id   | enforced, cascade on delete                       |
-| filename    | VARCHAR(255)     | NO   |                   | INDEX         | with owner_id idx                                 |
-| mime        | VARCHAR(128)     | NO   |                   |               |                                                   |
-| size_bytes  | BIGINT UNSIGNED  | NO   |                   |               |                                                   |
-| sha256      | VARCHAR(64)      | NO   |                   | INDEX         |                                                   |
-| version     | INT UNSIGNED     | NO   | 1                 |               |                                                   |
-| bytes       | BLOB (MySQL LONGBLOB) | NO |               |               | upgraded to LONGBLOB on MySQL via raw statement   |
-| created_at  | TIMESTAMPTZ      | NO   | CURRENT_TIMESTAMP | INDEX         | with id idx                                       |
-| updated_at  | TIMESTAMPTZ      | NO   | CURRENT_TIMESTAMP |               | on update current                                 |
+| Column     | Type          | Null | Default | Notes                 |
+|------------|---------------|------|---------|-----------------------|
+| id         | VARCHAR(191)  | ✓    | —       | PK, human-readable    |
+| name       | VARCHAR(255)  | ✓    | —       | UNIQUE                |
+| created_at | TIMESTAMP TZ  | ✗    | NULL    |                       |
+| updated_at | TIMESTAMP TZ  | ✗    | NULL    |                       |
 
-Indexes:
-- `(owner_id, filename)`
-- `(sha256)`
-- `evidence_created_id_idx` on `(created_at, id)`
-
-Model casts: `owner_id`, `size_bytes`, `version` ints; `bytes` string; `created_at`,`updated_at` datetime.
+**Indexes & Constraints**
+- `PRIMARY KEY (id)`
+- `UNIQUE (name)`
 
 ---
 
-### avatars
-From: `0000_00_00_000130_create_avatars_table.php`, `2025_09_20_000100_add_foreign_keys_to_evidence_and_avatars.php`
+### `role_user`
+**Purpose:** User↔Role mapping.
 
-| Column      | Type             | Null | Default | Key             | Notes                                  |
-|-------------|------------------|------|---------|-----------------|----------------------------------------|
-| id          | VARCHAR(255)     | NO   |         | PK              | stub                                   |
-| user_id     | BIGINT UNSIGNED  | NO   |         | UNIQUE, FK→users.id | enforced, cascade on delete         |
-| path        | VARCHAR(255)     | NO   |         |                 | storage path (deferred)                |
-| mime        | VARCHAR(64)      | NO   |         |                 |                                        |
-| size_bytes  | BIGINT UNSIGNED  | NO   |         |                 |                                        |
-| width       | INT UNSIGNED     | NO   |         |                 | pixels                                 |
-| height      | INT UNSIGNED     | NO   |         |                 | pixels                                 |
-| created_at  | TIMESTAMPTZ      | YES  |         |                 |                                        |
-| updated_at  | TIMESTAMPTZ      | YES  |         |                 |                                        |
+| Column  | Type          | Null | Default | Notes                      |
+|---------|---------------|------|---------|----------------------------|
+| user_id | BIGINT UNSIGNED | ✓  | —       | FK → `users(id)` CASCADE   |
+| role_id | VARCHAR(191)  | ✓    | —       | FK → `roles(id)` CASCADE   |
+
+**Indexes & Constraints**
+- `PRIMARY KEY (user_id, role_id)`
+- `FOREIGN KEY role_user_user_id_fk (user_id) REFERENCES users(id) ON DELETE CASCADE`
+- `FOREIGN KEY role_user_role_id_fk (role_id) REFERENCES roles(id) ON DELETE CASCADE`
 
 ---
 
-### exports
-From: `0000_00_00_000140_create_exports_table.php`
+### `audit_events`
+**Purpose:** Immutable audit trail.
 
-| Column           | Type            | Null | Default           | Key     | Notes                                    |
-|------------------|-----------------|------|-------------------|---------|------------------------------------------|
-| id               | VARCHAR(26)     | NO   |                   | PK      | ULID                                      |
-| type             | VARCHAR(16)     | NO   |                   |         | `csv` \| `json` \| `pdf`                 |
-| params           | JSON            | YES  |                   |         | request parameters                        |
-| status           | VARCHAR(32)     | NO   |                   | INDEX   | `pending` \| `running` \| `completed` \| `failed` |
-| progress         | TINYINT UNSIGNED| NO   | 0                 |         | 0–100                                     |
-| artifact_disk    | VARCHAR(64)     | YES  |                   |         |                                          |
-| artifact_path    | VARCHAR(191)    | YES  |                   |         |                                          |
-| artifact_mime    | VARCHAR(191)    | YES  |                   |         |                                          |
-| artifact_size    | BIGINT UNSIGNED | YES  |                   |         |                                          |
-| artifact_sha256  | VARCHAR(64)     | YES  |                   |         |                                          |
-| created_at       | TIMESTAMPTZ     | NO   | CURRENT_TIMESTAMP |         |                                          |
-| completed_at     | TIMESTAMPTZ     | YES  |                   |         |                                          |
-| failed_at        | TIMESTAMPTZ     | YES  |                   |         |                                          |
-| error_code       | VARCHAR(64)     | YES  |                   |         |                                          |
-| error_note       | VARCHAR(191)    | YES  |                   |         |                                          |
+| Column       | Type           | Null | Default     | Notes                                               |
+|--------------|----------------|------|-------------|-----------------------------------------------------|
+| id           | CHAR(26)       | ✓    | —           | ULID PK                                             |
+| occurred_at  | DATETIME TZ    | ✓    | —           | indexed                                             |
+| actor_id     | BIGINT UNSIGNED| ✗    | NULL        | optional, indexed                                   |
+| action       | VARCHAR(191)   | ✓    | —           | indexed                                             |
+| category     | VARCHAR(64)    | ✓    | —           | indexed; see Categories below                       |
+| entity_type  | VARCHAR(128)   | ✓    | —           | indexed                                             |
+| entity_id    | VARCHAR(191)   | ✓    | —           | indexed                                             |
+| ip           | VARCHAR(45)    | ✗    | NULL        | IPv4/IPv6                                           |
+| ua           | VARCHAR(255)   | ✗    | NULL        |                                                     |
+| meta         | JSON           | ✗    | NULL        | arbitrary key/values                                |
+| created_at   | DATETIME TZ    | ✓    | CURRENT     | record creation time                                |
 
-Indexes:
-- `(status, type)`
+**Indexes & Constraints**
+- `PRIMARY KEY (id)`
+- `INDEX (occurred_at)`
+- `INDEX (actor_id)`
+- `INDEX (action)`
+- `INDEX (category)`
+- `INDEX (entity_type)`
+- `INDEX (entity_id)`
+- `INDEX ae_occurred_id_idx (occurred_at, id)`  *(pagination aid)*
+- `INDEX idx_audit_cat_occurred_at (category, occurred_at)`  *(added 2025-09-20)*
+- `INDEX idx_audit_action_occurred_at (action, occurred_at)` *(added 2025-09-20)*
 
-Model helpers:
-- `createPending(type, params=[])` → status `pending`, progress 0.
-- `markRunning()` → status `running`, progress ≥10.
-- `markCompleted()` → status `completed`, progress 100.
-- `markFailed(code='INTERNAL_ERROR', note='')` → status `failed`.
-
----
-
-### core_settings
-From: `2025_09_04_000001_create_core_settings_table.php`
-
-| Column     | Type             | Null | Default | Key | Notes                                         |
-|------------|------------------|------|---------|-----|-----------------------------------------------|
-| key        | VARCHAR(255)     | NO   |         | PK  | string PK for cross-driver upsert             |
-| value      | LONGTEXT         | NO   |         |     | JSON string (app encodes/decodes)             |
-| type       | VARCHAR(16)      | NO   | 'json'  |     | discriminator                                  |
-| updated_by | BIGINT UNSIGNED  | YES  |         |     | user id (logical)                              |
-| created_at | TIMESTAMP        | YES  |         |     |                                               |
-| updated_at | TIMESTAMP        | YES  |         |     |                                               |
-
-Model casts: `value` string passthrough; `updated_by` int.
+**Categories (application-level, not enforced in DB)**
+`SYSTEM, RBAC, AUTH, SETTINGS, EXPORTS, EVIDENCE, AVATARS, AUDIT`
 
 ---
 
-### (No-op) users_and_auth_tables
-From: `2025_09_04_000002_create_users_and_auth_tables.php`  
-Stub only (no DDL).
+### `evidence`
+**Purpose:** Binary evidence storage.
+
+| Column      | Type                 | Null | Default | Notes                                              |
+|-------------|----------------------|------|---------|----------------------------------------------------|
+| id          | VARCHAR(255)         | ✓    | —       | `ev_<ULID>` PK (server-generated)                  |
+| owner_id    | BIGINT UNSIGNED      | ✓    | —       | FK → `users(id)` CASCADE                           |
+| filename    | VARCHAR(255)         | ✓    | —       |                                                    |
+| mime        | VARCHAR(128)         | ✓    | —       |                                                    |
+| size_bytes  | BIGINT UNSIGNED      | ✓    | —       |                                                    |
+| sha256      | CHAR(64)             | ✓    | —       | hex string                                         |
+| version     | INT UNSIGNED         | ✓    | 1       |                                                    |
+| bytes       | BLOB (LONGBLOB on MySQL) | ✓ | —   | body; migration upgrades to `LONGBLOB` on MySQL    |
+| created_at  | DATETIME TZ          | ✓    | CURRENT |                                                    |
+| updated_at  | DATETIME TZ          | ✓    | CURRENT ON UPDATE |                                          |
+
+**Indexes & Constraints**
+- `PRIMARY KEY (id)`
+- `INDEX evidence_owner_filename_idx (owner_id, filename)`
+- `INDEX sha256 (sha256)`
+- `INDEX evidence_created_id_idx (created_at, id)`
+- `FOREIGN KEY evidence_owner_id_fk (owner_id) REFERENCES users(id) ON DELETE CASCADE`
 
 ---
 
-## Seed data
+### `avatars`
+**Purpose:** User avatar metadata (Phase 4 scaffold).
 
-From: `Database\Seeders\RolesSeeder`, `TestRbacSeeder`
+| Column      | Type                 | Null | Default | Notes                                |
+|-------------|----------------------|------|---------|--------------------------------------|
+| id          | VARCHAR(255)         | ✓    | —       | PK                                   |
+| user_id     | BIGINT UNSIGNED      | ✓    | —       | UNIQUE, FK → `users(id)` CASCADE     |
+| path        | VARCHAR(255)         | ✓    | —       | storage path (deferred)              |
+| mime        | VARCHAR(64)          | ✓    | —       |                                      |
+| size_bytes  | BIGINT UNSIGNED      | ✓    | —       |                                      |
+| width       | INT UNSIGNED         | ✓    | —       | px                                   |
+| height      | INT UNSIGNED         | ✓    | —       | px                                   |
+| created_at  | DATETIME TZ          | ✓    | NULL    |                                      |
+| updated_at  | DATETIME TZ          | ✓    | NULL    |                                      |
 
-- Roles inserted if RBAC persistence enabled or tests running:
-  - `role_admin` → `Admin`
-  - `role_auditor` → `Auditor`
-  - `role_risk_mgr` → `Risk Manager`
-  - `role_user` → `User`
-
----
-
-## Factories (shapes)
-
-- `Database\Factories\UserFactory`
-  - `name`: `Test User ####`
-  - `email`: `user####@example.test`
-  - `password`: bcrypt('secret')
-- `Database\Factories\RoleFactory`
-  - `id`: `role_<slug(name)>`
-  - `name`: `Role N` or provided via `named()`
-- `Database\Factories\AuditEventFactory`
-  - `id`: ULID
-  - `occurred_at`: now UTC
-  - `actor_id`: null
-  - `action`: `test.event`
-  - `category`: `TEST`  (enum value present in spec)
-  - `entity_type`: `test`
-  - `entity_id`: ULID
-  - `ip`: `127.0.0.1`
-  - `ua`: `phpunit`
-  - `meta`: `[]`
-  - `created_at`: now UTC
+**Indexes & Constraints**
+- `PRIMARY KEY (id)`
+- `UNIQUE (user_id)`
+- `FOREIGN KEY avatars_user_id_fk (user_id) REFERENCES users(id) ON DELETE CASCADE`
 
 ---
 
-## Enumerations and constants inventory
+### `exports`
+**Purpose:** Export job tracking.
 
-**OpenAPI**
+| Column          | Type              | Null | Default | Notes                                              |
+|-----------------|-------------------|------|---------|----------------------------------------------------|
+| id              | CHAR(26)          | ✓    | —       | ULID PK                                            |
+| type            | VARCHAR(16)       | ✓    | —       | `csv` \| `json` \| `pdf`                           |
+| params          | JSON              | ✗    | NULL    | request parameters                                 |
+| status          | VARCHAR(32)       | ✓    | —       | `pending` \| `running` \| `completed` \| `failed`  |
+| progress        | TINYINT UNSIGNED  | ✓    | 0       | 0–100                                              |
+| artifact_disk   | VARCHAR(64)       | ✗    | NULL    |                                                    |
+| artifact_path   | VARCHAR(191)      | ✗    | NULL    |                                                    |
+| artifact_mime   | VARCHAR(191)      | ✗    | NULL    |                                                    |
+| artifact_size   | BIGINT UNSIGNED   | ✗    | NULL    |                                                    |
+| artifact_sha256 | CHAR(64)          | ✗    | NULL    |                                                    |
+| created_at      | DATETIME TZ       | ✓    | CURRENT |                                                    |
+| completed_at    | DATETIME TZ       | ✗    | NULL    |                                                    |
+| failed_at       | DATETIME TZ       | ✗    | NULL    |                                                    |
+| error_code      | VARCHAR(64)       | ✗    | NULL    |                                                    |
+| error_note      | VARCHAR(191)      | ✗    | NULL    |                                                    |
 
-- `AuditCategory`: `SYSTEM | RBAC | AUTH | SETTINGS | EXPORTS | EVIDENCE | AVATARS | AUDIT | TEST`
-- `Order`: `asc | desc`
-- `Avatar size`: `32 | 64 | 128`
-- `Export type`: `csv | json | pdf`
-- `Export status`: `pending | running | completed | failed`
-- `Setup nextStep`: `db_config | app_key | schema_init | admin_seed | admin_mfa_verify | null`
-- `DB driver`: `mysql | pgsql | sqlite | sqlsrv`
+**Indexes & Constraints**
+- `PRIMARY KEY (id)`
+- `INDEX exports_status_type_idx (status, type)`
 
-**PHP code**
+---
 
-- `Export::markFailed()` default error code: `"INTERNAL_ERROR"`.
-- `RolesSeeder` role IDs: `role_admin`, `role_auditor`, `role_risk_mgr`, `role_user`.
+### `core_settings`
+**Purpose:** Persisted application settings.
+
+| Column      | Type           | Null | Default | Notes                                  |
+|-------------|----------------|------|---------|----------------------------------------|
+| key         | VARCHAR(255)   | ✓    | —       | PK                                     |
+| value       | LONGTEXT       | ✓    | —       | JSON stored as text                    |
+| type        | VARCHAR(16)    | ✓    | 'json'  | discriminator                          |
+| updated_by  | BIGINT UNSIGNED| ✗    | NULL    | optional user id (no FK)               |
+| created_at  | TIMESTAMP      | ✗    | NULL    |                                        |
+| updated_at  | TIMESTAMP      | ✗    | NULL    |                                        |
+
+**Indexes & Constraints**
+- `PRIMARY KEY (key)`
 
 ---
 
-## Drift resolved
+## Relationships
 
-- Export status aligned to DB/model: `pending|running|completed|failed`.
-- Test category `TEST` added to Audit category enum.
-- Foreign keys enforced for `evidence.owner_id` and `avatars.user_id`.
-- Evidence ID auto-generated as `ev_<ULID>`.
+- `users (1) ──< role_user >── (N) roles`
+- `users (1) ──< evidence (N)` *(cascade delete)*
+- `users (1) ── avatars (1)` *(unique, cascade delete)*
+- `audit_events`: no FKs; `actor_id` is informational.
+- `core_settings.updated_by`: informational only, no FK.
+
+---
+
+## Engine Notes
+
+- **MySQL**
+  - `evidence.bytes` is upgraded to `LONGBLOB` for ≥25 MB payloads.
+  - FK names may differ per platform; shown names are canonical.
 
 ---
 
-## CI guardrail (doc drift)
+## Recent Changes
 
-Add two checks:
-1) Fail when migrations change but `/docs/db/SCHEMA.md` does not.  
-2) Lint that SCHEMA lists every created table and expected columns.
+- **FKs:** `evidence.owner_id → users(id)` and `avatars.user_id → users(id)` with `ON DELETE CASCADE`.  
+- **IDs:** `evidence.id` is now server-generated `ev_<ULID>` and not user-controlled.  
+- **Audit indexes:** composite indexes on `(category, occurred_at)` and `(action, occurred_at)`.
 
-Wire the two scripts below into CI.
-
----
