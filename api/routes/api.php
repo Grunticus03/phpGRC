@@ -98,7 +98,7 @@ Route::get('/health/fingerprint', function (SettingsService $settings) {
 
 /*
  |--------------------------------------------------------------------------
- | OpenAPI spec (public) + Swagger UI
+ | OpenAPI + Redoc UI
  |--------------------------------------------------------------------------
 */
 Route::get('/openapi.yaml', [OpenApiController::class, 'yaml']);
@@ -118,10 +118,38 @@ Route::get('/docs', function () {
     <script src="https://cdn.redoc.ly/redoc/latest/bundles/redoc.standalone.js"></script>
   </body>
 </html>
-
 HTML;
     return response($html, 200, ['Content-Type' => 'text/html; charset=UTF-8']);
 });
+
+/*
+SwaggerUI Alternative
+Route::get('/docs', function () {
+    $html = <<<'HTML'
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8"/>
+    <title>phpGRC API Docs</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css"/>
+    <style>body{margin:0} #ui{max-width:100%}</style>
+  </head>
+  <body>
+    <div id="ui"></div>
+    <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
+    <script>
+      window.ui = SwaggerUIBundle({
+        url: '/api/openapi.yaml',
+        dom_id: '#ui',
+        deepLinking: true,
+        presets: [SwaggerUIBundle.presets.apis],
+      });
+    </script>
+  </body>
+</html>
+HTML;
+*/
 
 /*
  |--------------------------------------------------------------------------
