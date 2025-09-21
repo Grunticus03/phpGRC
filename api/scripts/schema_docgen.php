@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 /**
  * phpGRC Schema Doc Generator
- * Renders a deterministic Markdown snapshot of the current MySQL schema.
- * Output is compared to docs/db/SCHEMA.md in CI to detect drift.
+ * Deterministic Markdown snapshot of current MySQL schema.
+ * Compared in CI after normalization.
  *
- * Usage (from /api): php scripts/schema_docgen.php > ../docs/db/schema.live.md
+ * Usage: php scripts/schema_docgen.php > ../docs/db/schema.live.md
  */
 
 use Illuminate\Support\Facades\DB;
@@ -29,20 +29,11 @@ echo "- All times UTC.\n\n";
 echo "---\n\n";
 echo "## Tables\n\n";
 
-// Skip framework/infra tables we do not document in SCHEMA.md
+// Skip framework/infra tables not documented
 $skip = [
-    'migrations',
-    'failed_jobs',
-    'jobs',
-    'job_batches',
-    'password_reset_tokens',
-    'cache',
-    'cache_locks',
-    'sessions',
-    'telescope_entries',
-    'telescope_entries_tags',
-    'telescope_monitoring',
-    'personal_access_tokens',
+    'migrations','failed_jobs','jobs','job_batches','password_reset_tokens',
+    'cache','cache_locks','sessions','telescope_entries','telescope_entries_tags',
+    'telescope_monitoring','personal_access_tokens',
 ];
 
 /** @var array<int, string> $tables */
@@ -57,7 +48,6 @@ $tables = array_map(
     )
 );
 
-// Filter skipped tables
 $tables = array_values(array_filter($tables, fn(string $t) => !in_array($t, $skip, true)));
 
 foreach ($tables as $table) {
@@ -75,19 +65,18 @@ foreach ($tables as $table) {
     echo "|-------:|------|------|---------|-------|\n";
     foreach ($columns as $c) {
         $col = (string)$c->COLUMN_NAME;
-        $typ = (string)$c->COLUMN_TYPE;
+        $typ = strtolower((string)$c->COLUMN_TYPE);
         $nul = ((string)$c->IS_NULLABLE) === 'YES' ? '✗' : '✓';
 
-        // Normalize defaults: NULL → NULL, numeric → as-is, strings → quoted
         $defRaw = $c->COLUMN_DEFAULT;
         $def = 'NULL';
         if ($defRaw !== null) {
             if (is_numeric($defRaw)) {
                 $def = (string)$defRaw;
             } elseif (is_string($defRaw)) {
-                // CURRENT_TIMESTAMP and similar stay unquoted
-                if (preg_match('/^(CURRENT_TIMESTAMP|CURRENT_DATE|CURRENT_TIME)(\(\))?$/i', $defRaw)) {
-                    $def = strtoupper($defRaw);
+                $u = strtoupper($defRaw);
+                if (preg_match('/^(CURRENT_TIMESTAMP|CURRENT_DATE|CURRENT_TIME)(\(\))?$/', $u)) {
+                    $def = $u;
                 } else {
                     $def = "'" . str_replace("'", "\\'", $defRaw) . "'";
                 }
@@ -98,10 +87,8 @@ foreach ($tables as $table) {
     }
     echo "\n";
 
-    // Primary key and indexes
     $indexes = $conn->select("SHOW INDEX FROM `{$table}`");
     if ($indexes !== []) {
-        // Group by Key_name, then order by Non_unique asc, Seq_in_index asc
         $byKey = [];
         foreach ($indexes as $idx) {
             $key = (string)$idx->Key_name;
@@ -122,10 +109,9 @@ foreach ($tables as $table) {
         echo "\n";
     }
 
-    // Foreign keys
     $fks = $conn->select(
         "SELECT k.CONSTRAINT_NAME AS name,
-                k.COLUMN_NAME      AS col,
+                k.COLUMN_NAME AS col,
                 k.REFERENCED_TABLE_NAME AS ref_table,
                 k.REFERENCED_COLUMN_NAME AS ref_col,
                 rc.UPDATE_RULE AS on_update,

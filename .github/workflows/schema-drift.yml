@@ -7,7 +7,7 @@ on:
 
 jobs:
   drift:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     services:
       mysql:
         image: mysql:8.0
@@ -75,22 +75,29 @@ jobs:
         run: |
           php scripts/schema_docgen.php > ../docs/db/schema.live.md
 
-      - name: Prepare table-only sections
+      - name: Normalize docs SCHEMA.md
         run: |
-          awk '/^## Tables/{flag=1} flag' docs/db/SCHEMA.md > /tmp/SCHEMA.tables.md
-          awk '/^## Tables/{flag=1} flag' docs/db/schema.live.md > /tmp/schema.live.tables.md
+          php api/scripts/schema_normalize.php docs/db/SCHEMA.md > /tmp/schema.doc.norm
 
-      - name: Diff live vs committed schema (tables only)
+      - name: Normalize live schema
+        run: |
+          php api/scripts/schema_normalize.php docs/db/schema.live.md > /tmp/schema.live.norm
+
+      - name: Diff normalized structures
         run: |
           set -e
-          if ! diff -u /tmp/SCHEMA.tables.md /tmp/schema.live.tables.md; then
-            echo "::error ::Schema drift detected in table structure. Update docs/db/SCHEMA.md to match current migrations."
+          if ! diff -u /tmp/schema.doc.norm /tmp/schema.live.norm; then
+            echo "::error ::Schema drift detected in structure. Update docs/db/SCHEMA.md (or migrations) to reconcile."
+            echo "Tip: download artifacts to review live snapshot and normalized views."
             exit 2
           fi
 
-      - name: Upload live schema (on drift)
+      - name: Upload artifacts (on drift)
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: schema-live-md
-          path: docs/db/schema.live.md
+          name: schema-artifacts
+          path: |
+            docs/db/schema.live.md
+            /tmp/schema.doc.norm
+            /tmp/schema.live.norm
