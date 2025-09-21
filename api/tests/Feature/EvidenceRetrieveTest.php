@@ -4,13 +4,34 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Gate;
+use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
 final class EvidenceRetrieveTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        config()->set('core.evidence.enabled', true);
+        config()->set('core.rbac.enabled', false);
+        config()->set('core.rbac.require_auth', false);
+
+        Gate::define('core.evidence.manage', fn (User $u) => true);
+
+        $user = User::query()->create([
+            'name' => 'Retriever',
+            'email' => 'retriever@example.test',
+            'password' => bcrypt('x'),
+        ]);
+        Sanctum::actingAs($user);
+    }
 
     private function uploadSample(string $name = 'small.txt', string $mime = 'text/plain', string $body = "hello\n"): array
     {
@@ -67,9 +88,9 @@ final class EvidenceRetrieveTest extends TestCase
 
     public function test_list_paginates_with_cursor(): void
     {
-        $a = $this->uploadSample('doc.txt', 'text/plain', "a\n");
+        $this->uploadSample('doc.txt', 'text/plain', "a\n");
         usleep(1000);
-        $b = $this->uploadSample('doc.txt', 'text/plain', "b\n");
+        $this->uploadSample('doc.txt', 'text/plain', "b\n");
 
         $r1 = $this->get('/api/evidence?limit=1')->assertOk();
         $this->assertCount(1, $r1->json('data'));

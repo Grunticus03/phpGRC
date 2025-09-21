@@ -7,12 +7,16 @@ on:
       - "api/**"
       - "web/**"
       - "docs/api/**"
+      - "docs/db/**"
+      - "scripts/**"
       - ".github/workflows/**"
   pull_request:
     paths:
       - "api/**"
       - "web/**"
       - "docs/api/**"
+      - "docs/db/**"
+      - "scripts/**"
       - ".github/workflows/**"
   workflow_dispatch:
 
@@ -60,10 +64,29 @@ jobs:
           name: openapi-diff-report
           path: openapi-diff.html
 
+  schema_docs:
+    name: Schema docs drift + linter
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"
+          coverage: none
+      - name: Make scripts executable
+        run: chmod +x scripts/check-migration-doc-drift.sh
+      - name: Check migration/doc drift
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: ./scripts/check-migration-doc-drift.sh
+      - name: Lint schema doc against migrations
+        run: php scripts/lint-schema-doc.php
+
   api_static:
     name: API static checks + audit
     runs-on: self-hosted
-    needs: [openapi]
+    needs: [openapi, schema_docs]
     defaults: { run: { working-directory: api } }
     steps:
       - uses: actions/checkout@v4
@@ -93,7 +116,7 @@ jobs:
   api_mysql:
     name: API tests (MySQL, PHP 8.3) + coverage
     runs-on: self-hosted
-    needs: [openapi]
+    needs: [openapi, schema_docs]
     services:
       mysql:
         image: mysql:8.0

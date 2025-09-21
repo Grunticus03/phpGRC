@@ -4,19 +4,40 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Models\User;
 use App\Services\Audit\AuditLogger;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Gate;
+use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
 final class EvidenceApiTest extends TestCase
 {
+    use RefreshDatabase;
+
     protected function setUp(): void
     {
         parent::setUp();
 
-        Gate::shouldReceive('authorize')->andReturn(true);
+        // Feature + RBAC config to avoid 403s
+        config()->set('core.evidence.enabled', true);
+        config()->set('core.rbac.enabled', false);
+        config()->set('core.rbac.require_auth', false);
+
+        // Authorization always allowed for tests
+        Gate::define('core.evidence.manage', fn (User $u) => true);
+
+        // Authenticated user for owner_id FK
+        $user = User::query()->create([
+            'name' => 'Tester',
+            'email' => 'tester@example.test',
+            'password' => bcrypt('x'),
+        ]);
+        Sanctum::actingAs($user);
+
+        // Ensure AuditLogger is bound
         $this->app->make(AuditLogger::class);
     }
 
@@ -109,7 +130,7 @@ final class EvidenceApiTest extends TestCase
     public function show_returns_bytes_and_headers_for_get(): void
     {
         $upload  = UploadedFile::fake()->createWithContent('doc.txt', 'DOC', 'text/plain');
-        $created = $this->post('/api/evidence', ['file' => $upload])->json();
+        $created = $this->post('/api/evidence', ['file' => $upload])->assertCreated()->json();
 
         $id  = $created['id'];
         $sha = $created['sha256'];
@@ -131,7 +152,7 @@ final class EvidenceApiTest extends TestCase
     public function head_returns_headers_only(): void
     {
         $upload  = UploadedFile::fake()->createWithContent('head.txt', 'HEAD', 'text/plain');
-        $created = $this->post('/api/evidence', ['file' => $upload])->json();
+        $created = $this->post('/api/evidence', ['file' => $upload])->assertCreated()->json();
 
         $id  = $created['id'];
         $sha = $created['sha256'];
@@ -152,7 +173,7 @@ final class EvidenceApiTest extends TestCase
     public function get_with_if_none_match_returns_304(): void
     {
         $upload  = UploadedFile::fake()->createWithContent('etag.txt', 'ETAG', 'text/plain');
-        $created = $this->post('/api/evidence', ['file' => $upload])->json();
+        $created = $this->post('/api/evidence', ['file' => $upload])->assertCreated()->json();
 
         $id  = $created['id'];
         $sha = $created['sha256'];

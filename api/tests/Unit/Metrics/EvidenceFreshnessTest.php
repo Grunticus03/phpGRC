@@ -4,19 +4,29 @@ declare(strict_types=1);
 namespace Tests\Unit\Metrics;
 
 use App\Models\Evidence;
+use App\Models\User;
 use App\Services\Metrics\EvidenceFreshnessCalculator;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Str;
 use Tests\TestCase;
 
 final class EvidenceFreshnessTest extends TestCase
 {
     use RefreshDatabase;
 
+    private int $ownerId;
+
     public function test_compute_freshness_and_breakdown(): void
     {
         $now = CarbonImmutable::now('UTC')->startOfDay();
+
+        // Create an owner to satisfy FK
+        $owner = User::query()->create([
+            'name' => 'Owner',
+            'email' => 'owner@example.test',
+            'password' => bcrypt('x'),
+        ]);
+        $this->ownerId = (int) $owner->id;
 
         // Stale: 40d old (pdf)
         $this->evidence('application/pdf', $now->subDays(40));
@@ -33,7 +43,6 @@ final class EvidenceFreshnessTest extends TestCase
         $this->assertSame(2, $out['stale']);
         $this->assertEquals(2/3, $out['percent']);
 
-        // by_mime has deterministic sort order
         $this->assertIsArray($out['by_mime']);
         $this->assertNotEmpty($out['by_mime']);
 
@@ -59,8 +68,8 @@ final class EvidenceFreshnessTest extends TestCase
     private function evidence(string $mime, CarbonImmutable $updatedAt): void
     {
         Evidence::query()->create([
-            'id'         => Str::ulid()->toBase32(),
-            'owner_id'   => 1,
+            // id omitted -> model autogenerates ev_<ULID>
+            'owner_id'   => $this->ownerId,
             'filename'   => 'seed.txt',
             'mime'       => $mime,
             'size_bytes' => 123,
@@ -72,4 +81,3 @@ final class EvidenceFreshnessTest extends TestCase
         ]);
     }
 }
-

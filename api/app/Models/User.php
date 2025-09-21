@@ -17,15 +17,37 @@ use Laravel\Sanctum\PersonalAccessToken;
  * @property string $name
  * @property string $email
  * @property-read EloquentCollection<int,\App\Models\Role> $roles
+ *
+ * @use \Laravel\Sanctum\HasApiTokens<\Laravel\Sanctum\PersonalAccessToken>
+ * @psalm-suppress MissingTemplateParam
  */
 final class User extends Authenticatable
 {
-    /** @use HasApiTokens<PersonalAccessToken> */
     use HasApiTokens;
     use Notifiable;
 
     /** @var array<int, string> */
     protected $fillable = ['name', 'email', 'password'];
+
+    /**
+     * Allow tests using `User::factory()` without HasFactory generics.
+     * @param int|null $count
+     * @param array<string,mixed> $state
+     * @return \Database\Factories\UserFactory
+     */
+    public static function factory($count = null, $state = [])
+    {
+        $factory = \Database\Factories\UserFactory::new();
+        if ($count !== null) {
+            $factory = $factory->count($count);
+        }
+        if (!empty($state)) {
+            /** @var array<string,mixed> $stateArr */
+            $stateArr = $state;
+            $factory = $factory->state($stateArr);
+        }
+        return $factory;
+    }
 
     /**
      * @phpstan-var array<int, string>
@@ -34,8 +56,6 @@ final class User extends Authenticatable
     protected $hidden = ['password', 'remember_token'];
 
     /**
-     * Relation: user ↔ roles.
-     *
      * @return BelongsToMany
      * @phpstan-return BelongsToMany<\App\Models\Role,\App\Models\User>
      * @psalm-return BelongsToMany<\App\Models\Role>
@@ -43,7 +63,7 @@ final class User extends Authenticatable
      */
     public function roles(): BelongsToMany
     {
-        /** @var BelongsToMany<\App\Models\Role,\App\Models\User> $rel */ // phpstan
+        /** @var BelongsToMany<\App\Models\Role,\App\Models\User> $rel */
         $rel = $this->belongsToMany(Role::class, 'role_user', 'user_id', 'role_id');
         return $rel;
     }
@@ -63,16 +83,13 @@ final class User extends Authenticatable
             }
         }
 
-        /** @var BelongsToMany<\App\Models\Role,\App\Models\User> $rel */ // phpstan
         /** @psalm-suppress TooManyTemplateParams */
         $rel = $this->roles();
 
         /** @var EloquentBuilder<\App\Models\Role> $qb */
         $qb = $rel->getQuery();
 
-        /** @var bool $exists */
-        $exists = $qb->whereRaw('LOWER(name) = LOWER(?)', [$roleName])->exists();
-        return $exists;
+        return $qb->whereRaw('LOWER(name) = LOWER(?)', [$roleName])->exists();
     }
 
     /**
@@ -88,4 +105,3 @@ final class User extends Authenticatable
         return false;
     }
 }
-

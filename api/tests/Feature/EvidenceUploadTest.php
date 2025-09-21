@@ -4,13 +4,34 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Gate;
+use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
 final class EvidenceUploadTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        config()->set('core.evidence.enabled', true);
+        config()->set('core.rbac.enabled', false);
+        config()->set('core.rbac.require_auth', false);
+
+        Gate::define('core.evidence.manage', fn (User $u) => true);
+
+        $user = User::query()->create([
+            'name' => 'Uploader',
+            'email' => 'uploader@example.test',
+            'password' => bcrypt('x'),
+        ]);
+        Sanctum::actingAs($user);
+    }
 
     public function test_upload_disabled_returns_400(): void
     {

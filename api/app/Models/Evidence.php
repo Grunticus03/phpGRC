@@ -1,4 +1,5 @@
 <?php
+// api/app/Models/Evidence.php
 
 declare(strict_types=1);
 
@@ -6,6 +7,7 @@ namespace App\Models;
 
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Str;
 
 /**
  * @property string $id
@@ -21,10 +23,7 @@ use Illuminate\Database\Eloquent\Model;
  */
 final class Evidence extends Model
 {
-    /** @var bool */
     public $incrementing = false;
-
-    /** @var string */
     protected $keyType = 'string';
 
     /** @var array<int,string> */
@@ -42,9 +41,8 @@ final class Evidence extends Model
     ];
 
     /**
-     * @psalm-suppress NonInvariantDocblockPropertyType
-     * @psalm-var array<array-key,mixed>
      * @phpstan-var array<string,string>
+     * @psalm-suppress NonInvariantDocblockPropertyType
      */
     protected $casts = [
         'owner_id'   => 'integer',
@@ -54,5 +52,22 @@ final class Evidence extends Model
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];
-}
 
+    /**
+     * Ensure IDs are generated server-side and not user-controlled.
+     */
+    #[\Override]
+    protected static function booted(): void
+    {
+        static::creating(function (self $model): void {
+            /** @var mixed $attr */
+            $attr = $model->getAttribute('id');
+            /** @var string|null $id */
+            $id = is_string($attr) ? $attr : null;
+
+            if ($id === null || $id === '') {
+                $model->setAttribute('id', 'ev_' . (string) Str::ulid());
+            }
+        });
+    }
+}

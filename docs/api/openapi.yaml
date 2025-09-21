@@ -1,3 +1,4 @@
+# docs/api/openapi.yaml
 openapi: 3.1.0
 info:
   title: phpGRC API
@@ -40,7 +41,7 @@ paths:
   /health:
     get:
       operationId: healthProbe
-      security: []   # public
+      security: []
       tags: [Health]
       summary: Health probe
       responses:
@@ -58,7 +59,7 @@ paths:
   /health/fingerprint:
     get:
       operationId: healthFingerprint
-      security: []   # public
+      security: []
       tags: [Health]
       summary: Deployment fingerprint and enabled-feature summary
       responses:
@@ -74,7 +75,7 @@ paths:
   /openapi.yaml:
     get:
       operationId: openapiYaml
-      security: []   # public
+      security: []
       tags: [OpenAPI]
       summary: OpenAPI YAML
       responses:
@@ -89,7 +90,7 @@ paths:
   /openapi.json:
     get:
       operationId: openapiJson
-      security: []   # public
+      security: []
       tags: [OpenAPI]
       summary: OpenAPI JSON
       responses:
@@ -346,7 +347,7 @@ paths:
                   summary: Persisted results with filters
                   value:
                     ok: true
-                    _categories: [SYSTEM, RBAC, AUTH, SETTINGS, EXPORTS, EVIDENCE, AVATARS, AUDIT]
+                    _categories: [SYSTEM, RBAC, AUTH, SETTINGS, EXPORTS, EVIDENCE, AVATARS, AUDIT, TEST]
                     _retention_days: 365
                     filters: { category: RBAC, order: desc }
                     items:
@@ -365,7 +366,7 @@ paths:
                   summary: Stub-only shape when DB disabled and no business filters
                   value:
                     ok: true
-                    _categories: [SYSTEM, RBAC, AUTH, SETTINGS, EXPORTS, EVIDENCE, AVATARS, AUDIT]
+                    _categories: [SYSTEM, RBAC, AUTH, SETTINGS, EXPORTS, EVIDENCE, AVATARS, AUDIT, TEST]
                     _retention_days: 365
                     filters: {}
                     items: []
@@ -395,7 +396,7 @@ paths:
                     type: array
                     items:
                       type: string
-                      enum: [SYSTEM, RBAC, AUTH, SETTINGS, EXPORTS, EVIDENCE, AVATARS, AUDIT]
+                      enum: [SYSTEM, RBAC, AUTH, SETTINGS, EXPORTS, EVIDENCE, AVATARS, AUDIT, TEST]
         '401':
           $ref: '#/components/responses/Unauthenticated'
         '403':
@@ -586,7 +587,7 @@ paths:
               $ref: '#/components/schemas/ExportCreateLegacyRequest'
       responses:
         '200':
-          description: Created/Queued
+          description: Created/Pending
           content:
             application/json:
               schema:
@@ -618,7 +619,7 @@ paths:
               $ref: '#/components/schemas/ExportCreateTypeRequest'
       responses:
         '200':
-          description: Created/Queued
+          description: Created/Pending
           content:
             application/json:
               schema:
@@ -684,7 +685,7 @@ paths:
   /avatar:
     post:
       operationId: avatarUpload
-      security: []   # public in Phase 4 scaffold
+      security: []
       tags: [Avatars]
       summary: Upload user avatar (Phase 4 stub)
       requestBody:
@@ -730,7 +731,7 @@ paths:
         schema: { type: integer, minimum: 1 }
     get:
       operationId: avatarGet
-      security: []   # public
+      security: []
       tags: [Avatars]
       summary: Get avatar image
       parameters:
@@ -759,7 +760,7 @@ paths:
                 $ref: '#/components/schemas/ErrorSimple'
     head:
       operationId: avatarHead
-      security: []   # public
+      security: []
       tags: [Avatars]
       summary: HEAD avatar
       responses:
@@ -771,7 +772,7 @@ paths:
   /setup/status:
     get:
       operationId: setupStatus
-      security: []   # public (guarded server-side)
+      security: []
       tags: [Setup]
       summary: Setup wizard status
       responses:
@@ -787,7 +788,7 @@ paths:
   /setup/db/test:
     post:
       operationId: setupDbTest
-      security: []   # public (guarded server-side)
+      security: []
       tags: [Setup]
       summary: Test database connection
       requestBody:
@@ -811,7 +812,7 @@ paths:
   /setup/db/write:
     post:
       operationId: setupDbWrite
-      security: []   # public (guarded server-side)
+      security: []
       tags: [Setup]
       summary: Write DB config to shared path
       requestBody:
@@ -840,7 +841,7 @@ paths:
   /setup/app-key:
     post:
       operationId: setupAppKey
-      security: []   # public (guarded server-side)
+      security: []
       tags: [Setup]
       summary: Generate app key (stub if commands disabled)
       responses:
@@ -868,7 +869,7 @@ paths:
   /setup/schema/init:
     post:
       operationId: setupSchemaInit
-      security: []   # public (guarded server-side)
+      security: []
       tags: [Setup]
       summary: Run migrations (stub if commands disabled)
       responses:
@@ -898,7 +899,7 @@ paths:
   /setup/admin:
     post:
       operationId: setupAdminCreate
-      security: []   # public (guarded server-side)
+      security: []
       tags: [Setup]
       summary: Create first admin
       requestBody:
@@ -922,7 +923,7 @@ paths:
   /setup/admin/totp/verify:
     post:
       operationId: setupAdminTotpVerify
-      security: []   # public (guarded server-side)
+      security: []
       tags: [Setup]
       summary: Verify admin TOTP during setup
       requestBody:
@@ -949,7 +950,7 @@ paths:
   /setup/smtp:
     post:
       operationId: setupSmtp
-      security: []   # public (guarded server-side)
+      security: []
       tags: [Setup]
       summary: Configure SMTP
       requestBody:
@@ -974,7 +975,7 @@ paths:
   /setup/idp:
     post:
       operationId: setupIdp
-      security: []   # public (guarded server-side)
+      security: []
       tags: [Setup]
       summary: Configure Identity Provider (optional)
       requestBody:
@@ -999,7 +1000,7 @@ paths:
   /setup/branding:
     post:
       operationId: setupBranding
-      security: []   # public (guarded server-side)
+      security: []
       tags: [Setup]
       summary: Configure branding
       requestBody:
@@ -1024,7 +1025,7 @@ paths:
   /setup/finish:
     post:
       operationId: setupFinish
-      security: []   # public (guarded server-side)
+      security: []
       tags: [Setup]
       summary: Complete setup wizard
       responses:
@@ -1049,7 +1050,7 @@ components:
       in: query
       schema:
         type: string
-        enum: [SYSTEM, RBAC, AUTH, SETTINGS, EXPORTS, EVIDENCE, AVATARS, AUDIT]
+        enum: [SYSTEM, RBAC, AUTH, SETTINGS, EXPORTS, EVIDENCE, AVATARS, AUDIT, TEST]
       example: RBAC
     AuditAction:
       name: action
@@ -1276,7 +1277,7 @@ components:
         action: { type: string }
         category:
           type: string
-          enum: [SYSTEM, RBAC, AUTH, SETTINGS, EXPORTS, EVIDENCE, AVATARS, AUDIT]
+          enum: [SYSTEM, RBAC, AUTH, SETTINGS, EXPORTS, EVIDENCE, AVATARS, AUDIT, TEST]
         entity_type: { type: string }
         entity_id: { type: string }
         ip: { type: [string, 'null'] }
@@ -1294,7 +1295,7 @@ components:
           type: array
           items:
             type: string
-            enum: [SYSTEM, RBAC, AUTH, SETTINGS, EXPORTS, EVIDENCE, AVATARS, AUDIT]
+            enum: [SYSTEM, RBAC, AUTH, SETTINGS, EXPORTS, EVIDENCE, AVATARS, AUDIT, TEST]
         _retention_days: { type: integer, minimum: 30, maximum: 730 }
         filters:
           type: object
@@ -1371,7 +1372,7 @@ components:
       required: [ok, status]
       properties:
         ok: { type: boolean, const: true }
-        status: { type: string, enum: [queued, running, done, failed] }
+        status: { type: string, enum: [pending, running, completed, failed] }
 
     SettingsGetResponse:
       type: object
@@ -1499,49 +1500,3 @@ components:
                 enabled: { type: boolean }
                 size_px: { type: integer }
                 format: { type: string }
-
-    SetupStatusResponse:
-      type: object
-      required: [ok, setupComplete, nextStep, checks]
-      properties:
-        ok: { type: boolean, const: true }
-        setupComplete: { type: boolean }
-        nextStep:
-          type: [string, 'null']
-          enum: [db_config, app_key, schema_init, admin_seed, admin_mfa_verify, null]
-        checks:
-          type: object
-          properties:
-            db_config: { type: boolean }
-            app_key: { type: boolean }
-            schema_init: { type: boolean }
-            admin_seed: { type: boolean }
-            admin_mfa_verify: { type: boolean }
-            smtp: { type: boolean }
-            idp: { type: boolean }
-            branding: { type: boolean }
-
-    SetupDbTestRequest:
-      type: object
-      required: [driver, host, port, database, username, password]
-      properties:
-        driver: { type: string, enum: [mysql, pgsql, sqlite, sqlsrv] }
-        host: { type: string }
-        port: { type: integer }
-        database: { type: string }
-        username: { type: string }
-        password: { type: string }
-
-    SetupDbWriteRequest:
-      allOf:
-        - $ref: '#/components/schemas/SetupDbTestRequest'
-
-    SetupAdminRequest:
-      type: object
-      required: [name, email, password, password_confirmation]
-      properties:
-        name: { type: string, minLength: 2 }
-        email: { type: string, format: email }
-        password: { type: string, minLength: 8 }
-        password_confirmation: { type: string, minLength: 8 }
-
