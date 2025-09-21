@@ -8,11 +8,11 @@ declare(strict_types=1);
  * - Harmonizes case for types and CURRENT_* defaults.
  * - Drops narrative lines like "**Purpose:**" and extra columns beyond Default.
  *
- * Usage: php api/scripts/schema_normalize.php docs/db/SCHEMA.md > /tmp/schema.norm
+ * Usage: php api/scripts/schema_normalize.php docs/db/DB-SCHEMA.md > /tmp/schema.norm
  */
 
 if ($argc < 2) {
-    fwrite(STDERR, "Usage: php schema_normalize.php <schema.md>\n");
+    fwrite(STDERR, "Usage: php schema_normalize.php <DB-SCHEMA.md>\n");
     exit(1);
 }
 

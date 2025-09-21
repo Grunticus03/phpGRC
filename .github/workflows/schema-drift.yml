@@ -77,9 +77,9 @@ jobs:
         run: |
           php scripts/schema_docgen.php > ../docs/db/schema.live.md
 
-      - name: Normalize docs SCHEMA.md
+      - name: Normalize docs DB-SCHEMA.md
         run: |
-          php api/scripts/schema_normalize.php docs/db/SCHEMA.md > /tmp/schema.doc.norm
+          php api/scripts/schema_normalize.php docs/db/DB-SCHEMA.md > /tmp/schema.doc.norm
 
       - name: Normalize live schema
         run: |
@@ -89,7 +89,7 @@ jobs:
         run: |
           set -e
           if ! diff -u /tmp/schema.doc.norm /tmp/schema.live.norm; then
-            echo "::error ::Schema drift detected in structure. Update docs/db/SCHEMA.md (or migrations) to reconcile."
+            echo "::error ::Schema drift detected in structure. Update docs/db/DB-SCHEMA.md (or migrations) to reconcile."
             exit 2
           fi
 
