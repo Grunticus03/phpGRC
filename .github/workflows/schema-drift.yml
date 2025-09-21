@@ -79,8 +79,8 @@ jobs:
       - name: Diff live vs committed schema
         run: |
           set -e
-          if ! diff -u docs/db/schema.md docs/db/schema.live.md; then
-            echo "::error ::Schema drift detected. Update docs/db/schema.md to match current migrations."
+          if ! diff -u docs/db/SCHEMA.md docs/db/schema.live.md; then
+            echo "::error ::Schema drift detected. Update docs/db/SCHEMA.md to match current migrations."
             exit 2
           fi
 

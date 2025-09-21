@@ -1119,7 +1119,7 @@ SESSION-LOG.md entry
 
 ---
 
-### Session 2025-09-21: [Phase 4, Drift & fixes]
+### Session 2025-09-21: [Phase 5, Drift & fixes]
 - Context: Align DB schema, API contracts, and CI with new FK rules and server-generated evidence IDs.
 - Goal: Enforce FKs, make `evidence.id` server-generated, unblock tests by authenticating requests, and restore CI green.
 - Constraints: Charter-first, full-file edits only, security-first, no scope creep.
@@ -1139,7 +1139,7 @@ SESSION-LOG.md entry
 
 ---
 
-### Session 2025-09-21: [Phase 4, Evidence API contract]
+### Session 2025-09-21: [Phase 5, Evidence API contract]
 - Context: Evidence endpoints needed contract alignment and stricter typing
 - Goal: Lock `size` in API, update OpenAPI, adjust controller, add tests, keep CI green
 - Constraints: Follow Charter; no breaking DB schema; security + high-quality coding
