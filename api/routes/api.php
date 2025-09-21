@@ -219,7 +219,7 @@ Route::prefix('/dashboard')
 
 /*
  |--------------------------------------------------------------------------
- | Metrics dashboard alias (Phase 5 — internal, additive)
+ | Metrics alias (Phase 5) — additive, same payload as /dashboard/kpis
  |--------------------------------------------------------------------------
 */
 Route::prefix('/metrics')
@@ -335,4 +335,3 @@ Route::prefix('/evidence')
 Route::post('/avatar', [AvatarController::class, 'store']);
 Route::match(['GET','HEAD'], '/avatar/{user}', [AvatarController::class, 'show'])
     ->whereNumber('user');
-

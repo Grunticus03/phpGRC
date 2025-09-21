@@ -18,26 +18,22 @@ final class MetricsController extends Controller
         RbacDeniesCalculator $rbacDenies,
         EvidenceFreshnessCalculator $evidenceFreshness,
     ): JsonResponse {
-        /** @var mixed $freshCfg */
-        $freshCfg = config('core.metrics.evidence_freshness.days');
-        /** @var mixed $rbacCfg */
-        $rbacCfg = config('core.metrics.rbac_denies.window_days');
-
-        $freshDefault = $this->intFromConfig($freshCfg, 30);
-        $rbacDefault  = $this->intFromConfig($rbacCfg, 7);
-
-        /** @var array<string>|string|null $freshParam */
+        /** @var array<string>|string|int|null $freshParam */
         $freshParam = $request->query('days');
-        /** @var array<string>|string|null $rbacParam */
-        $rbacParam  = $request->query('rbac_days');
+        /** @var array<string>|string|int|null $rbacParam */
+        $rbacParam = $request->query('rbac_days');
 
-        $freshDays = $freshDefault;
-        if (is_string($freshParam) && ctype_digit($freshParam)) {
+        $freshDays = 30;
+        if (is_int($freshParam)) {
+            $freshDays = max(1, min(365, $freshParam));
+        } elseif (is_string($freshParam) && ctype_digit($freshParam)) {
             $freshDays = max(1, min(365, (int) $freshParam));
         }
 
-        $rbacDays = $rbacDefault;
-        if (is_string($rbacParam) && ctype_digit($rbacParam)) {
+        $rbacDays = 7;
+        if (is_int($rbacParam)) {
+            $rbacDays = max(1, min(365, $rbacParam));
+        } elseif (is_string($rbacParam) && ctype_digit($rbacParam)) {
             $rbacDays = max(1, min(365, (int) $rbacParam));
         }
 
@@ -67,19 +63,4 @@ final class MetricsController extends Controller
             ],
         ], 200);
     }
-
-    /**
-     * Safe int parse for mixed config values.
-     */
-    private function intFromConfig(mixed $val, int $fallback): int
-    {
-        if (is_int($val)) {
-            return $val;
-        }
-        if (is_string($val) && ctype_digit($val)) {
-            return (int) $val;
-        }
-        return $fallback;
-    }
 }
-
