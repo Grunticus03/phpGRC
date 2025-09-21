@@ -1,11 +1,7 @@
 openapi: 3.1.0
 info:
-  title: phpGRC API
+  title: phpGRC
   version: 0.4.6
-  description: |
-    Contracts for phpGRC Phase 4. Scope includes Settings, RBAC, Audit, Evidence, Exports, Avatars, and Setup.
-    When `core.rbac.require_auth=true`, endpoints guarded by RBAC require authentication first (401).
-    When RBAC is disabled, user–role endpoints return 404 with `RBAC_DISABLED`.
   license:
     identifier: MIT
     name: MIT
