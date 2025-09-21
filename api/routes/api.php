@@ -106,27 +106,19 @@ Route::get('/openapi.json', [OpenApiController::class, 'json']);
 Route::get('/docs', function () {
     $html = <<<'HTML'
 <!doctype html>
-<html>
+<html lang="en">
   <head>
-    <meta charset="utf-8"/>
-    <title>phpGRC API Docs</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1"/>
-    <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css"/>
-    <style>body{margin:0} #ui{max-width:100%}</style>
+    <meta charset="utf-8">
+    <title>phpGRC API</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <style>html,body,redoc{height:100%}body{margin:0}</style>
   </head>
   <body>
-    <div id="ui"></div>
-    <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
-    <script>
-      window.ui = SwaggerUIBundle({
-        url: '/api/openapi.yaml',
-        dom_id: '#ui',
-        deepLinking: true,
-        presets: [SwaggerUIBundle.presets.apis],
-      });
-    </script>
+    <redoc spec-url="/api/openapi.json"></redoc>
+    <script src="https://cdn.redoc.ly/redoc/latest/bundles/redoc.standalone.js"></script>
   </body>
 </html>
+
 HTML;
     return response($html, 200, ['Content-Type' => 'text/html; charset=UTF-8']);
 });

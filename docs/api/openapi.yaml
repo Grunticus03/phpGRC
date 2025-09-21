@@ -553,6 +553,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/EvidenceCreateResponse'
+        '400':
+          description: EVIDENCE_NOT_ENABLED
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorSimple'
         '401':
           $ref: '#/components/responses/Unauthenticated'
         '403':

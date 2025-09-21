@@ -17,6 +17,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -30,24 +31,36 @@ final class EvidenceController extends Controller
             return response()->json(['ok' => false, 'code' => 'EVIDENCE_NOT_ENABLED'], 400);
         }
 
-        $uploaded = $request->file('file');
-        if (!$uploaded instanceof UploadedFile) {
-            return response()->json(['ok' => false, 'code' => 'EVIDENCE_FILE_REQUIRED'], 422);
+        // Accept arbitrary mime and size; only require a file.
+        $v = Validator::make($request->all(), [
+            'file' => ['required', 'file'],
+        ]);
+        if ($v->fails()) {
+            return response()->json([
+                'ok'      => false,
+                'code'    => 'VALIDATION_FAILED',
+                'message' => 'Validation failed',
+                'errors'  => $v->errors()->toArray(),
+            ], 422);
         }
+
+        /** @var UploadedFile $uploaded */
+        $uploaded = $request->file('file');
 
         /** @var string|false $bytesMaybe */
         $bytesMaybe = $uploaded->get();
         if (!is_string($bytesMaybe)) {
             /** @var string|false $fallback */
-            $fallback = @file_get_contents($uploaded->getPathname());
+            $fallback   = @file_get_contents($uploaded->getPathname());
             $bytesMaybe = is_string($fallback) ? $fallback : '';
         }
+        /** @var string $bytes */
         $bytes  = $bytesMaybe;
         $sha256 = hash('sha256', $bytes);
 
         $ownerId      = self::toIntOrZero(Auth::id());
         $originalName = $uploaded->getClientOriginalName();
-        $mime         = $uploaded->getClientMimeType(); // Symfony UploadedFile returns string
+        $mime         = $uploaded->getClientMimeType();
 
         /** @var int|null $sizeMaybe */
         $sizeMaybe = $uploaded->getSize();
@@ -117,7 +130,7 @@ final class EvidenceController extends Controller
 
     public function show(Request $request, string $id, AuditLogger $audit): Response
     {
-        Gate::authorize('core.evidence.manage');
+        Gate::authorize('core.evidence.view');
 
         /** @var Evidence|null $ev */
         $ev = Evidence::query()->find($id);
@@ -127,7 +140,6 @@ final class EvidenceController extends Controller
 
         $etag = '"' . $ev->sha256 . '"';
 
-        // Optional hash verification: ?sha256=<hex>
         $shaQ         = $request->query('sha256', '');
         $providedHash = is_string($shaQ) ? strtolower($shaQ) : '';
         if ($providedHash !== '' && !hash_equals($ev->sha256, $providedHash)) {
@@ -188,7 +200,7 @@ final class EvidenceController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        Gate::authorize('core.evidence.manage');
+        Gate::authorize('core.evidence.view');
 
         $limitRaw = $request->query('limit');
         $limit    = (is_scalar($limitRaw) && is_numeric($limitRaw)) ? (int) $limitRaw : 20;
@@ -379,8 +391,7 @@ final class EvidenceController extends Controller
     {
         $fallback = str_replace(['"', '\\'], ['%22', '\\\\'], $filename);
         $utf8     = rawurlencode($filename);
-        $value    = 'attachment; filename="' . $fallback . '"; filename*=UTF-8\'\'' . $utf8;
-        return $value;
+        return 'attachment; filename="' . $fallback . '"; filename*=UTF-8\'\'' . $utf8;
     }
 
     private function escapeLike(string $value): string
