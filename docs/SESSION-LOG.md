@@ -1149,3 +1149,21 @@ SESSION-LOG.md entry
 - Phase/Step status: advance
 - Next action (you): add schema drift check against `docs/db/schema.md`; add cascade delete test `users → evidence`; backfill FK pre-deploy check
 - Next action (me): provide any schema snapshot tooling preferences; confirm no MIME/size enforcement for Phase 4; prep seed data for cascade test
+
+---
+
+### Session 2025-09-21: [Phase 4, Schema-drift + Audit purge scheduler]
+- Context: CI schema snapshot drift and daily audit-retention scheduling.
+- Goal: Get CI green; register purge job with tests; resolve Psalm issues.
+- Constraints: Deterministic outputs; no background locks in tests; Charter-aligned edits only.
+
+### Closeout
+- Deliverables produced:
+  - `.github/workflows/schema-drift.yml` updated to install mysql-client; live snapshot vs `docs/db/SCHEMA.md` guard passing.
+  - `api/scripts/schema_docgen.php` used; `docs/db/SCHEMA.md` regenerated to live format.
+  - `api/app/Console/Kernel.php` now registers `audit:purge --days=<clamped> --emit-summary` at 03:10 UTC; omitted when `core.audit.enabled=false`; skips overlapping/one-server locks in `testing`.
+  - `api/tests/Feature/Console/AuditRetentionPurgeTest.php` added/fixed to assert schedule and purge behavior.
+  - Psalm warning fixed; PHPStan level 9 holds; CI green on self-hosted runner.
+- Phase/Step status: advance.
+- Next action (you): open PR to update `docs/PHASE-4-SPEC.md` to “file-only” Evidence policy; align `docs/SETTINGS.md` to current Phase-4 core keys; add role attach/detach/replace audit assertions.
+- Next action (me): provide `docs/PHASE-4-SPEC.md` and `docs/SETTINGS.md` for direct edits; confirm Evidence policy = no MIME/size validation in Phase 4.

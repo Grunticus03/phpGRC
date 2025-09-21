@@ -1,14 +1,14 @@
-# FILE: /docs/PHASE-4-SPEC.md
+# docs/phase-4/PHASE-4-SPEC.md
 # Phase 4 — Core App Usable Spec
 
 ## Instruction Preamble
-- **Date:** 2025-09-19
+- **Date:** 2025-09-21
 - **Phase:** 4
-- **Status:** FROZEN as of 2025-09-19
+- **Status:** FROZEN as of 2025-09-21
 - **Version:** OpenAPI info.version 0.4.6
 - **Goal:** Lock contracts, payloads, config keys, and persistence behaviors for Settings, RBAC, Audit, Evidence, Exports, Avatars.
 - **Constraints:** CI guardrails intact; deterministic outputs; stub-path preserved when persistence disabled via config.
-- **Static analysis:** PHPStan level 9 enforced in CI.
+- **Static analysis:** PHPStan level 9 enforced in CI; Psalm warnings resolved.
 
 ---
 
@@ -51,14 +51,16 @@ Notes:
 - Policy evaluation uses `PolicyMap` + `RbacEvaluator`. In stub mode, policies allow. In persist mode, unknown policies deny.
 - Persistence path for RBAC catalog and assignments is active when `core.rbac.mode=persist` **or** `core.rbac.persistence=true`.
 - **RBAC disabled behavior:** user–role endpoints return `404` with `{ "ok": false, "code": "RBAC_DISABLED" }`.
-- **Evidence validation policy (Phase 4):** the store requires a file only. MIME family and size caps are **not** enforced in Phase 4. These settings are accepted and surfaced but not validated server-side.
+- **Evidence validation policy (Phase 4):** the store requires a **file only**. MIME family and size caps are **not** enforced in Phase 4. These settings are accepted and surfaced but not validated server-side.
 - Avatars canonical size 128 px, WEBP only.
-- Audit retention capped at 2 years. Purge clamps to [30, 730] days at runtime.
+- Audit retention capped at 2 years. Purge **clamps** to [30, 730] days at runtime.
 - Audit CSV export streams with DB cursor when `core.audit.csv_use_cursor=true`.
 - Exports write artifacts under configured disk/dir.
 - **Queue:** tests force `queue.default=sync`; production may use any Laravel-supported queue.
 - **Setup Wizard:** Only database connection config is written to disk at `core.setup.shared_config_path`. All other settings persist in DB. Redirect-to-setup behavior outside this spec.
-- **OpenAPI:** served at `GET /api/openapi.yaml`; docs viewer is Redocly at `GET /api/docs`.
+- **OpenAPI:** served at `GET /api/openapi.yaml`; docs viewer is Redocly at `GET /api/docs`. CI runs Spectral lint and an OpenAPI diff gate against 0.4.6.
+- **Evidence OpenAPI invariant:** all Evidence schemas and examples expose `size` only. Any `size_bytes` exposure is a regression blocked by CI.
+- **Schema snapshot:** `docs/db/SCHEMA.md` is canonical; CI compares live DB to this snapshot.
 
 ---
 
@@ -100,6 +102,11 @@ Setup: SETUP_ALREADY_COMPLETED, SETUP_STEP_DISABLED, DB_CONFIG_INVALID, DB_WRITE
 - Add `->defaults('policy', '<policy.key>')` to a route. Middleware enforces after capability and role checks.
 - Creation of Exports additionally supports `->defaults('capability', 'core.exports.generate')` for capability gating.
 
+**RBAC audit (canonical + aliases)**
+- Canonical: `rbac.role.created`, `rbac.user_role.attached`, `rbac.user_role.detached`, `rbac.user_role.replaced`
+- Aliases (legacy/tests): `role.created`, `role.attach`, `role.detach`, `role.replace`
+- Exactly **one** audit per action with non-empty `category`, `action`, `entity_id`.
+
 ---
 
 ## Endpoints and Contracts
@@ -114,7 +121,6 @@ Setup: SETUP_ALREADY_COMPLETED, SETUP_STEP_DISABLED, DB_CONFIG_INVALID, DB_WRITE
     ~~~json
     { "ok": true, "roles": ["Admin","Auditor","Risk Manager","User"] }
     ~~~
-
 
 - `POST /api/rbac/roles`
   - Request:
@@ -137,7 +143,7 @@ Setup: SETUP_ALREADY_COMPLETED, SETUP_STEP_DISABLED, DB_CONFIG_INVALID, DB_WRITE
 **Role ID Contract**
 - Human-readable slug ID shown in UI/API.
 - Format: `role_<slug>`, lowercase ASCII, `_` separator.
-- Collision suffix: `_<N>` where `N` starts at 1 and increments to avoid ID collisions.
+- Collision suffix: `_<N>` starting at 1 to avoid ID collisions.
 
 ---
 
@@ -332,7 +338,6 @@ Setup: SETUP_ALREADY_COMPLETED, SETUP_STEP_DISABLED, DB_CONFIG_INVALID, DB_WRITE
       { "ok": false, "code": "EXPORT_TYPE_UNSUPPORTED" }
       ~~~
 
-
 - Status:
   - `GET /api/exports/{jobId}/status`
   - Response:
@@ -431,12 +436,13 @@ Setup: SETUP_ALREADY_COMPLETED, SETUP_STEP_DISABLED, DB_CONFIG_INVALID, DB_WRITE
 ## Retention
 
 - Command: `php artisan audit:purge [--days=N] [--dry-run] [--emit-summary]`
-  - On invalid `N` (<30 or >730) the command exits non-zero and prints `AUDIT_RETENTION_INVALID`.
+  - The command **clamps** `N` to `[30, 730]` and proceeds with exit code `0`.
   - Deletes rows with `occurred_at < now_utc - N days` in chunks.
   - Optional `--emit-summary` appends a summary audit event.
 - Scheduler:
-  - Runs daily at **03:10 UTC** when `core.audit.enabled=true`.
-  - Scheduler clamps configured days to **[30, 730]**.
+  - Registers **`audit:purge --days=<clamped> --emit-summary`** daily at **03:10 UTC** when `core.audit.enabled=true`.
+  - Omitted entirely when `core.audit.enabled=false`.
+  - In the `testing` environment, scheduler locks are disabled to avoid requiring DB-backed mutex tables.
 
 ---
 
