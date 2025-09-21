@@ -82,7 +82,7 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 **Acceptance Criteria:**  
 - `audit_events` table
 - API listing with filters, bounds, and cursor pagination
-- CSV export with `Content-Type: text/csv`
+- CSV export with `Content-Type: text/csv; charset=UTF-8`
 - Retention purge job (≤ 2 years) + scheduler
 - RBAC + categories helper  
 **Phase:** 4  
@@ -420,7 +420,7 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 **Phase:** 5  
 **Step:** 2  
 **Dependencies:** CORE-008, RISK-002, COMP-002, AUD-001  
-**Status:** Planned
+**Status:** In Progress (KPI v1 shipped: Evidence Freshness, RBAC Denies Rate; internal `GET /api/dashboard/kpis`; SPA tiles in Dashboard route)
 
 ---
 
