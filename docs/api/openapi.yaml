@@ -1501,6 +1501,32 @@ components:
               type: string
               const: stub-only
 
+    Evidence:
+      type: object
+      required: [id, owner_id, filename, mime, size, sha256, version, created_at]
+      properties:
+        id:
+          type: string
+        owner_id:
+          type: integer
+          minimum: 1
+        filename:
+          type: string
+        mime:
+          type: string
+        size:
+          type: integer
+          minimum: 0
+        sha256:
+          type: string
+          pattern: '^[A-Fa-f0-9]{64}$'
+        version:
+          type: integer
+          minimum: 1
+        created_at:
+          type: string
+          format: date-time
+
     EvidenceListResponse:
       type: object
       required: [ok, data]
@@ -1514,8 +1540,7 @@ components:
         data:
           type: array
           items:
-            type: object
-            additionalProperties: true
+            $ref: '#/components/schemas/Evidence'
         next_cursor:
           oneOf:
             - type: string
@@ -1540,10 +1565,12 @@ components:
           type: string
         sha256:
           type: string
+          pattern: '^[A-Fa-f0-9]{64}$'
         mime:
           type: string
-        size_bytes:
+        size:
           type: integer
+          minimum: 0
 
     ExportCreateLegacyRequest:
       type: object

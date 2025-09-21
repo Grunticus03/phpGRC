@@ -322,7 +322,11 @@ final class EvidenceController extends Controller
         }
 
         $data = $rows->toBase()->map(
-            /** @return array{id:string,owner_id:int,filename:string,mime:string,size_bytes:int,sha256:string,version:int,created_at:string} */
+            /**
+             * @return array{
+             *   id:string,owner_id:int,filename:string,mime:string,size:int,sha256:string,version:int,created_at:string
+             * }
+             */
             function (Evidence $e): array {
                 /** @var CarbonInterface $createdAt */
                 $createdAt = $e->created_at;
@@ -331,7 +335,7 @@ final class EvidenceController extends Controller
                     'owner_id'   => $e->owner_id,
                     'filename'   => $e->filename,
                     'mime'       => $e->mime,
-                    'size_bytes' => $e->size_bytes,
+                    'size'       => $e->size_bytes,
                     'sha256'     => $e->sha256,
                     'version'    => $e->version,
                     'created_at' => $createdAt->toRfc3339String(),
@@ -416,4 +420,3 @@ final class EvidenceController extends Controller
         return is_int($v) ? $v : ((is_string($v) && ctype_digit($v)) ? (int) $v : 0);
     }
 }
-
