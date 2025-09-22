@@ -1,19 +1,40 @@
-// FILE: web/src/lib/audit/actionInfo.ts
 export type ActionInfo = {
   label: string;
   aria: string;
   category: "RBAC";
 };
 
+/**
+ * Canonical RBAC deny variants and common synonyms.
+ * Keep labels short and consistent. Aria uses full sentences.
+ */
 const MAP: Record<string, ActionInfo> = {
-  "rbac.deny.require_auth": {
-    label: "Access denied: authentication required",
-    aria: "Access denied because authentication is required",
+  // Canonical
+  "rbac.deny.capability": {
+    label: "Access denied: capability disabled",
+    aria: "Access denied because the requested capability is disabled",
     category: "RBAC",
   },
   "rbac.deny.unauthenticated": {
     label: "Access denied: unauthenticated",
     aria: "Access denied because the user is not authenticated",
+    category: "RBAC",
+  },
+  "rbac.deny.role_mismatch": {
+    label: "Access denied: role mismatch",
+    aria: "Access denied because a required role is missing or does not match",
+    category: "RBAC",
+  },
+  "rbac.deny.policy": {
+    label: "Access denied: policy check failed",
+    aria: "Access denied because a required policy is not satisfied",
+    category: "RBAC",
+  },
+
+  // Synonyms kept for compatibility
+  "rbac.deny.require_auth": {
+    label: "Access denied: authentication required",
+    aria: "Access denied because authentication is required",
     category: "RBAC",
   },
   "rbac.deny.unauthorized": {
@@ -31,7 +52,8 @@ const MAP: Record<string, ActionInfo> = {
     aria: "Access denied because a required role is missing",
     category: "RBAC",
   },
-  // Policy-specific denies: enumerate common policies explicitly
+
+  // Explicit policy names we know are emitted frequently
   "rbac.deny.policy.core.metrics.view": {
     label: "Access denied: metrics view policy",
     aria: "Access denied because policy core.metrics.view is not satisfied",
@@ -45,12 +67,6 @@ const MAP: Record<string, ActionInfo> = {
   "rbac.deny.policy.core.evidence.view": {
     label: "Access denied: evidence view policy",
     aria: "Access denied because policy core.evidence.view is not satisfied",
-    category: "RBAC",
-  },
-  // Generic policy deny
-  "rbac.deny.policy": {
-    label: "Access denied: policy check failed",
-    aria: "Access denied because a required policy is not satisfied",
     category: "RBAC",
   },
 };
@@ -70,7 +86,8 @@ function fallback(action: string): ActionInfo {
 export function actionInfo(action: string): ActionInfo {
   const key = String(action || "").trim();
   if (key in MAP) return MAP[key];
-  // Try prefix-specific mapping for rbac.deny.policy.<name>
+
+  // Prefix mapping for rbac.deny.policy.<name>
   if (key.startsWith("rbac.deny.policy.")) {
     const policy = key.slice("rbac.deny.policy.".length);
     return {
@@ -78,7 +95,8 @@ export function actionInfo(action: string): ActionInfo {
       aria: `Access denied because policy ${policy} is not satisfied`,
       category: "RBAC",
     };
-  }
+    }
+
   return fallback(key);
 }
 

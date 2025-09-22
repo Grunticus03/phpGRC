@@ -27,6 +27,7 @@
 - `actor_id` rules:
   - `null` when unauthenticated or auth fails.
   - user id on success.
+- UI label mapping for `rbac.deny.*` integrated via `web/src/lib/audit/actionInfo.ts` with tests. ✅
 
 ## Dashboards
 - Implement 2 KPIs first: Evidence freshness, RBAC denies rate. ✅
@@ -37,6 +38,8 @@
 - Seed data fixtures for audit/evidence. ✅
 - Feature tests cover 401/403 and data correctness. ✅
 - Performance check documented. ✅
+- Frontend: adjustable windows wired to query. ✅
+- Frontend: sparkline for daily RBAC denies series rendered in the card. ✅
 
 ## Evidence & Exports (smoke)
 - Evidence upload tests for allowed MIME and size (per Phase-4 contract).
@@ -58,6 +61,8 @@
 - ROADMAP and Phase-5 notes updated. ✅
 - Dashboards contract and examples added. ✅
 - Session log updated with decisions and KPI choices. ✅
+- OpenAPI descriptions note KPI defaults and clamping. ✅
+- Ops runbook added at `docs/OPS.md`. ✅
 
 ## Sign-off
 - Security review note.

@@ -1,8 +1,24 @@
-# FILE: docs/api/openapi.yaml
 openapi: 3.1.0
 info:
   title: phpGRC
   version: 0.4.6
+  description: |
+    ## Notes: Metrics KPIs (internal, no schema change)
+    The dashboard KPIs for RBAC denies and Evidence freshness are served by an internal endpoint and are **not part of this OpenAPI** by design.
+
+    - Endpoint: `GET /api/dashboard/kpis` (admin-only). An alias may exist at `/api/metrics/dashboard`. These paths are intentionally omitted from the public spec.
+    - Defaults (env → config):
+      - `CORE_METRICS_EVIDENCE_FRESHNESS_DAYS=30` → `config('core.metrics.evidence_freshness.days')`
+      - `CORE_METRICS_RBAC_DENIES_WINDOW_DAYS=7` → `config('core.metrics.rbac_denies.window_days')`
+    - Query params accepted by the endpoint (documented here for operator clarity, not as an OpenAPI contract):
+      - `days` and `rbac_days` are clamped to **1..365**. Non-numeric or missing values fall back to configured defaults.
+    - AuthZ:
+      - Requires policy `core.metrics.view`. On failure, returns **403** and emits exactly one `RBAC` audit with `rbac.deny.policy.core.metrics.view`.
+    - Response shape (summary):
+      - `rbac_denies`: `{ window_days, from, to, denies, total, rate, daily[] }` where `rate` is `0..1`.
+      - `evidence_freshness`: `{ days, total, stale, percent, by_mime[] }` where `percent` may be `0..1` or `0..100`; the web client normalizes to `0..100`.
+
+    These notes document operational behavior and defaults only. No public API stability is implied for these paths.
   license:
     identifier: MIT
     name: MIT
@@ -1243,32 +1259,6 @@ components:
           - type: string
           - type: 'null'
       example: null
-
-    # --- Metrics notes (additive documentation only; endpoints intentionally omitted in 0.4.6) ---
-    MetricsRbacDays:
-      name: rbac_days
-      in: query
-      schema:
-        type: integer
-        minimum: 1
-        maximum: 365
-      description: |
-        Optional rolling window (days) for RBAC denies KPI.
-        Values are clamped to [1, 365]. If omitted or non-numeric, the server default applies.
-        Default: **7** (driven by `config('core.metrics.rbac_denies.window_days')`, commonly mapped from `CORE_METRICS_RBAC_DENIES_WINDOW_DAYS`).
-      example: 7
-    MetricsDays:
-      name: days
-      in: query
-      schema:
-        type: integer
-        minimum: 1
-        maximum: 365
-      description: |
-        Optional stale threshold (days) for Evidence freshness KPI.
-        Values are clamped to [1, 365]. If omitted or non-numeric, the server default applies.
-        Default: **30** (driven by `config('core.metrics.evidence_freshness.days')`, commonly mapped from `CORE_METRICS_EVIDENCE_FRESHNESS_DAYS`).
-      example: 30
 
   responses:
     Unauthenticated:

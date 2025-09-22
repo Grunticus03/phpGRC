@@ -1,46 +1,85 @@
+// FILE: web/src/routes/dashboard/Kpis.tsx
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { fetchKpis, type Kpis } from "../../lib/api/metrics";
-import { Sparkline } from "../../components/charts/Sparkline";
-import DaysSelector from "../../components/inputs/DaysSelector";
-import { toSparkPointsFromDenies, clampWindows, windowLabel, sparkAriaLabel } from "../../lib/metrics/transform";
 
 function pct(n: number): string {
   const v = Math.max(0, Math.min(100, n * (n <= 1 ? 100 : 1)));
   return `${v.toFixed(1)}%`;
 }
 
-const EMPTY_KPIS: Kpis = {
-  rbac_denies: { window_days: 7, from: "", to: "", denies: 0, total: 0, rate: 0, daily: [] },
-  evidence_freshness: { days: 30, total: 0, stale: 0, percent: 0, by_mime: [] },
-};
+function clampDays(n: number): number {
+  const v = Math.trunc(Number.isFinite(n) ? n : 0);
+  return Math.max(1, Math.min(365, v));
+}
+
+function Sparkline({
+  values,
+  height = 40,
+  strokeWidth = 2,
+  ariaLabel,
+}: {
+  values: number[];
+  height?: number;
+  strokeWidth?: number;
+  ariaLabel?: string;
+}): JSX.Element | null {
+  const n = values.length;
+  if (n === 0) return null;
+
+  // Normalize to 0..1 if values look like 0..100
+  const maxVal = Math.max(...values);
+  const normalized = maxVal > 1 ? values.map((v) => v / 100) : values;
+
+  const w = Math.max(1, n - 1);
+  const min = Math.min(...normalized);
+  const max = Math.max(...normalized);
+  const span = Math.max(1e-6, max - min);
+
+  const points = normalized.map((v, i) => {
+    const x = (i / Math.max(1, n - 1)) * w;
+    const y = height - ((v - min) / span) * height;
+    return `${x.toFixed(2)},${y.toFixed(2)}`;
+  });
+
+  const d = `M ${points[0]} L ${points.slice(1).join(" ")}`;
+
+  return (
+    <svg
+      viewBox={`0 0 ${w} ${height}`}
+      preserveAspectRatio="none"
+      width="100%"
+      height={height}
+      role="img"
+      aria-label={ariaLabel ?? "sparkline"}
+      style={{ display: "block" }}
+    >
+      <title>{ariaLabel ?? "sparkline"}</title>
+      <path d={d} fill="none" stroke="currentColor" strokeWidth={strokeWidth} />
+    </svg>
+  );
+}
 
 export default function Kpis(): JSX.Element {
   const [data, setData] = useState<Kpis | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
 
+  // Form state (defaults aligned with server config defaults)
   const [rbacDays, setRbacDays] = useState<number>(7);
   const [freshDays, setFreshDays] = useState<number>(30);
 
-  const canSubmit = !loading && rbacDays >= 1 && freshDays >= 1;
-
-  const k = data ?? EMPTY_KPIS;
-  const d = k.rbac_denies;
-  const e = k.evidence_freshness;
-
-  const sparkPoints = useMemo(() => toSparkPointsFromDenies(d), [d]);
-  const aria = useMemo(() => sparkAriaLabel(d), [d]);
-  const winLabel = useMemo(() => windowLabel(k), [k]);
+  const canSubmit = useMemo(() => !loading && rbacDays >= 1 && freshDays >= 1, [loading, rbacDays, freshDays]);
 
   const load = useCallback(async (opts?: { rbac_days?: number; days?: number }) => {
     setLoading(true);
     setError(null);
     try {
       const ctrl = new AbortController();
-      const kpis = await fetchKpis(ctrl.signal, opts);
-      setData(kpis);
-      setRbacDays(kpis.rbac_denies.window_days);
-      setFreshDays(kpis.evidence_freshness.days);
+      const k = await fetchKpis(ctrl.signal, opts);
+      setData(k);
+      // sync inputs with returned meta-equivalents
+      setRbacDays(k.rbac_denies.window_days);
+      setFreshDays(k.evidence_freshness.days);
     } catch (e: unknown) {
       setError((e as { message?: string })?.message || "error");
       setData(null);
@@ -80,6 +119,9 @@ export default function Kpis(): JSX.Element {
     );
   }
 
+  const d = data.rbac_denies;
+  const e = data.evidence_freshness;
+
   return (
     <section aria-labelledby="kpi-title" aria-busy={loading}>
       <h1 id="kpi-title">Dashboard</h1>
@@ -87,49 +129,65 @@ export default function Kpis(): JSX.Element {
       <form
         onSubmit={(ev) => {
           ev.preventDefault();
-          const opts = clampWindows({ rbac_days: rbacDays, days: freshDays });
-          void load(opts);
+          void load({ rbac_days: clampDays(rbacDays), days: clampDays(freshDays) });
         }}
         className="card mb-3"
         aria-label="KPI window controls"
-        style={{ padding: "0.75rem", display: "grid", gap: "0.75rem", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))" }}
+        style={{ padding: "0.75rem", display: "grid", gap: "0.75rem", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}
       >
-        <DaysSelector
-          id="rbac_days"
-          label="RBAC window (days)"
-          value={rbacDays}
-          onChange={setRbacDays}
-          disabled={loading}
-        />
-        <DaysSelector
-          id="fresh_days"
-          label="Evidence stale threshold (days)"
-          value={freshDays}
-          onChange={setFreshDays}
-          disabled={loading}
-        />
-        <div style={{ alignSelf: "end", display: "flex", gap: 12, alignItems: "center" }}>
-          <small aria-live="polite" aria-atomic="true">{winLabel}</small>
+        <div>
+          <label htmlFor="rbac_days" className="form-label">RBAC window (days)</label>
+          <input
+            id="rbac_days"
+            type="number"
+            min={1}
+            max={365}
+            step={1}
+            className="form-control"
+            value={rbacDays}
+            onChange={(e) => setRbacDays(clampDays(Number(e.currentTarget.value || 0)))}
+          />
+        </div>
+        <div>
+          <label htmlFor="fresh_days" className="form-label">Evidence stale threshold (days)</label>
+          <input
+            id="fresh_days"
+            type="number"
+            min={1}
+            max={365}
+            step={1}
+            className="form-control"
+            value={freshDays}
+            onChange={(e) => setFreshDays(clampDays(Number(e.currentTarget.value || 0)))}
+          />
+        </div>
+        <div style={{ alignSelf: "end" }}>
           <button className="btn btn-primary" type="submit" disabled={!canSubmit} aria-disabled={!canSubmit}>
             {loading ? "Loading…" : "Apply"}
           </button>
         </div>
       </form>
 
-      <div className="kpi-grid" style={{ display: "grid", gap: "1rem", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))" }}>
+      <div className="kpi-grid" style={{ display: "grid", gap: "1rem", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))" }}>
         <article className="card" aria-labelledby="kpi-denies-title">
-          <div className="card-body" style={{ display: "grid", gap: 8 }}>
+          <div className="card-body">
             <h2 id="kpi-denies-title" className="card-title">RBAC Denies Rate</h2>
             <p aria-label="deny-rate" style={{ fontSize: "2rem", margin: 0 }}>{pct(d.rate)}</p>
-            <Sparkline data={sparkPoints} width={160} height={36} ariaLabel={aria} />
             <p style={{ margin: 0 }}>
               Window: {d.window_days}d · Denies: {d.denies} / {d.total}
             </p>
+            <div aria-hidden="true" style={{ marginTop: "0.5rem" }}>
+              <Sparkline
+                values={d.daily.map((row) => row.rate)}
+                ariaLabel="Daily RBAC denies rate sparkline"
+                height={36}
+              />
+            </div>
           </div>
         </article>
 
         <article className="card" aria-labelledby="kpi-evidence-title">
-          <div className="card-body" style={{ display: "grid", gap: 8 }}>
+          <div className="card-body">
             <h2 id="kpi-evidence-title" className="card-title">Evidence Freshness</h2>
             <p aria-label="stale-percent" style={{ fontSize: "2rem", margin: 0 }}>{e.percent.toFixed(1)}%</p>
             <p style={{ margin: 0 }}>

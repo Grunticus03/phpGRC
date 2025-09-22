@@ -104,9 +104,13 @@ _Last updated: 2025-09-21_
 ```
 
 **Tests**
-- [ ] Validation errors for bad params (future when params are added).
+- [x] Validation/clamping for `days` and `rbac_days` (negative-path).
 - [x] Deterministic series using seeded data (`DashboardKpisComputationTest`).
 - [x] RBAC deny without `core.metrics.view` (`DashboardKpisAuthTest`).
+
+**UI**
+- [x] Controls for `rbac_days` and `days` wired to query.
+- [x] Sparkline for daily RBAC denies series in card.
 
 ---
 
@@ -142,6 +146,7 @@ _Last updated: 2025-09-21_
 - [x] Update `docs/phase-5/PHASE-5-DASHBOARDS.md` with confirmed KPIs and queries.
 - [x] Update `docs/phase-5/PHASE-5-DASHBOARDS-AND-REPORTS.md` with contract.
 - [x] Keep `docs/phase-5/PHASE-5-KICKOFF.md` in sync.
+- [x] Add `docs/OPS.md` runbook.
 
 ---
 
