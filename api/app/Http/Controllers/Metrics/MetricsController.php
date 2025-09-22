@@ -26,20 +26,8 @@ final class MetricsController extends Controller
         $freshDefault = $this->intFromConfig($freshCfg, 30);
         $rbacDefault  = $this->intFromConfig($rbacCfg, 7);
 
-        /** @var array<string>|string|null $freshParam */
-        $freshParam = $request->query('days');
-        /** @var array<string>|string|null $rbacParam */
-        $rbacParam  = $request->query('rbac_days');
-
-        $freshDays = $freshDefault;
-        if (is_string($freshParam) && ctype_digit($freshParam)) {
-            $freshDays = max(1, min(365, (int) $freshParam));
-        }
-
-        $rbacDays = $rbacDefault;
-        if (is_string($rbacParam) && ctype_digit($rbacParam)) {
-            $rbacDays = max(1, min(365, (int) $rbacParam));
-        }
+        $freshDays = $this->clampQueryInt($request, 'days', $freshDefault, 1, 365);
+        $rbacDays  = $this->clampQueryInt($request, 'rbac_days', $rbacDefault, 1, 365);
 
         /** @var array{
          *   window_days:int, from:non-empty-string, to:non-empty-string, denies:int, total:int, rate:float,
@@ -68,17 +56,45 @@ final class MetricsController extends Controller
         ], 200);
     }
 
-    /**
-     * Safe int parse for mixed config values.
-     */
+    /** Safe int parse for mixed config values with clamp. */
     private function intFromConfig(mixed $val, int $fallback): int
     {
+        $n = $fallback;
         if (is_int($val)) {
-            return $val;
+            $n = $val;
+        } elseif (is_string($val) && ctype_digit($val)) {
+            $n = (int) $val;
         }
-        if (is_string($val) && ctype_digit($val)) {
-            return (int) $val;
+        return max(1, min(365, $n));
+    }
+
+    /** Accepts string or array query params. Falls back to default, then clamps. */
+    private function clampQueryInt(Request $req, string $key, int $default, int $min, int $max): int
+    {
+        /** @var mixed $raw */
+        $raw = $req->query($key);
+
+        $val = null;
+        if (is_array($raw)) {
+            /** @var mixed $first */
+            $first = $raw[0] ?? null;
+            $val = is_string($first) ? trim($first) : null;
+        } elseif (is_string($raw)) {
+            $val = trim($raw);
         }
-        return $fallback;
+
+        $n = $default;
+        if (is_string($val) && preg_match('/^-?\d+$/', $val) === 1) {
+            $n = (int) $val;
+        }
+
+        if ($n < $min) {
+            $n = $min;
+        } elseif ($n > $max) {
+            $n = $max;
+        }
+
+        return $n;
     }
 }
+

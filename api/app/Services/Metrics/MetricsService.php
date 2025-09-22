@@ -42,6 +42,9 @@ final class MetricsService
      */
     public function snapshot(int $deniesWindowDays = 7, int $freshnessDays = 30): array
     {
+        $rbacDays  = self::clampDays($deniesWindowDays);
+        $freshDays = self::clampDays($freshnessDays);
+
         /** @var array{
          *   window_days:int,
          *   from: non-empty-string,
@@ -52,7 +55,7 @@ final class MetricsService
          *   daily: list<array{date: non-empty-string, denies:int, total:int, rate:float}>
          * } $rbac
          */
-        $rbac = $this->rbacDenies->compute($deniesWindowDays);
+        $rbac = $this->rbacDenies->compute($rbacDays);
 
         /** @var array{
          *   days:int,
@@ -62,11 +65,19 @@ final class MetricsService
          *   by_mime: list<array{mime: non-empty-string, total:int, stale:int, percent:float}>
          * } $fresh
          */
-        $fresh = $this->evidenceFreshness->compute($freshnessDays);
+        $fresh = $this->evidenceFreshness->compute($freshDays);
 
         return [
             'rbac_denies'        => $rbac,
             'evidence_freshness' => $fresh,
         ];
     }
+
+    private static function clampDays(int $n): int
+    {
+        if ($n < 1) return 1;
+        if ($n > 365) return 365;
+        return $n;
+    }
 }
+

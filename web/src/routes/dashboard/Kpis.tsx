@@ -1,4 +1,6 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import Sparkline from "../../components/charts/Sparkline";
+import DaysSelector from "../../components/inputs/DaysSelector";
 
 type RbacDaily = { date: string; denies: number; total: number; rate: number };
 type RbacDenies = {
@@ -34,21 +36,7 @@ type Snapshot = {
 
 function asPercent(value: number): number {
   if (!isFinite(value)) return 0;
-  // Accept both fractional (0..1) and percent (0..100) inputs.
   return value <= 1 ? value * 100 : value;
-}
-
-function sparklinePath(values: number[], w = 100, h = 24): string {
-  if (values.length === 0) return `M0 ${h} L${w} ${h}`;
-  const max = Math.max(...values, 1);
-  const step = values.length > 1 ? w / (values.length - 1) : w;
-  let d = "";
-  values.forEach((v, i) => {
-    const x = i * step;
-    const y = h - (max === 0 ? 0 : (v / max) * h);
-    d += (i === 0 ? "M" : " L") + x.toFixed(2) + " " + y.toFixed(2);
-  });
-  return d;
 }
 
 export default function Kpis(): JSX.Element {
@@ -60,7 +48,7 @@ export default function Kpis(): JSX.Element {
 
   const denyRatePct = useMemo(() => {
     const v = data?.rbac?.rate ?? 0;
-    return `${(v * 100).toFixed(1)}%`;
+    return `${asPercent(v).toFixed(1)}%`;
   }, [data]);
 
   const stalePct = useMemo(() => {
@@ -97,7 +85,6 @@ export default function Kpis(): JSX.Element {
           const r = json.data.rbac_denies;
           const f = json.data.evidence_freshness;
           setData({ rbac: r, fresh: f });
-          // Seed form defaults from server once (if provided)
           const win = json.meta?.window;
           if (typeof win?.rbac_days === "number") setRbacDays(win.rbac_days);
           if (typeof win?.fresh_days === "number") setFreshDays(win.fresh_days);
@@ -128,29 +115,21 @@ export default function Kpis(): JSX.Element {
     <div className="container py-3">
       <h1 className="mb-3">Dashboard KPIs</h1>
 
-      <form className="row g-2 align-items-end mb-3" onSubmit={onSubmit} aria-label="kpi-overrides">
+      <form className="row g-3 align-items-end mb-3" onSubmit={onSubmit} aria-label="kpi-overrides">
         <div className="col-auto">
-          <label htmlFor="rbacDays" className="form-label mb-0">RBAC window (days)</label>
-          <input
+          <DaysSelector
             id="rbacDays"
-            type="number"
-            min={1}
-            max={365}
-            className="form-control"
+            label="RBAC window (days)"
             value={rbacDays}
-            onChange={(e) => setRbacDays(Math.max(1, Math.min(365, Number(e.target.value) || 1)))}
+            onChange={setRbacDays}
           />
         </div>
         <div className="col-auto">
-          <label htmlFor="freshDays" className="form-label mb-0">Evidence stale threshold (days)</label>
-          <input
+          <DaysSelector
             id="freshDays"
-            type="number"
-            min={1}
-            max={365}
-            className="form-control"
+            label="Evidence stale threshold (days)"
             value={freshDays}
-            onChange={(e) => setFreshDays(Math.max(1, Math.min(365, Number(e.target.value) || 1)))}
+            onChange={setFreshDays}
           />
         </div>
         <div className="col-auto">
@@ -172,22 +151,14 @@ export default function Kpis(): JSX.Element {
                   <div className="text-muted small">
                     {data.rbac.denies} denies / {data.rbac.total} total in {data.rbac.window_days}d
                   </div>
-                  {/* Sparkline */}
                   <div className="mt-2">
-                    <svg
-                      aria-label="RBAC denies sparkline"
-                      width="100%"
-                      height="24"
-                      viewBox="0 0 100 24"
-                      role="img"
-                    >
-                      <path
-                        d={sparklinePath(data.rbac.daily.map(d => d.denies))}
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="1"
-                      />
-                    </svg>
+                    <Sparkline
+                      values={(data.rbac.daily ?? []).map(d => d.denies)}
+                      ariaLabel="RBAC denies sparkline"
+                      width={160}
+                      height={24}
+                      strokeWidth={1}
+                    />
                   </div>
                 </div>
               </div>
