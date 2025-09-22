@@ -47,12 +47,12 @@ _Last updated: 2025-09-21_
 - [x] Normalization: trim → collapse spaces → `_` → lowercase. Regex `^[\p{L}\p{N}_-]{2,64}$`.
 - [x] `defaults()` reads `core.rbac.policies`.
 - [x] `roleCatalog()` uses DB in persist if table exists, else config.
-- [ ] Unknown roles in overrides (persist): audit `rbac.policy.override.unknown_role` once per policy per boot.
-- [ ] Cache fingerprint includes policies, mode, persistence, catalog.
+- [x] Unknown roles in overrides (persist): audit `rbac.policy.override.unknown_role` once per policy per boot.
+- [x] Cache fingerprint includes policies, mode, persistence, catalog.
 
 **Tests**
 - [x] Override denies when user lacks mapped role.
-- [ ] Unknown-role audit emitted with `meta.unknown_roles`.
+- [x] Unknown-role audit emitted with `meta.unknown_roles`.
 
 ---
 
@@ -104,7 +104,7 @@ _Last updated: 2025-09-21_
 ```
 
 **Tests**
-- [x] Validation/clamping for `days` and `rbac_days` (negative-path).
+- [ ] Validation errors for bad params (future when params are added).
 - [x] Deterministic series using seeded data (`DashboardKpisComputationTest`).
 - [x] RBAC deny without `core.metrics.view` (`DashboardKpisAuthTest`).
 
