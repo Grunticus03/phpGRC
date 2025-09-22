@@ -17,6 +17,9 @@ final class PolicyMap
     private static ?string $cacheKey = null;
 
     /**
+     * Tracks which policies have already emitted the unknown-role audit
+     * during this PHP process lifetime (i.e., this "boot").
+     *
      * @var array<string, true>
      */
     private static array $auditedUnknownRoles = [];
@@ -114,7 +117,6 @@ final class PolicyMap
 
         self::$cache = $normalized;
         self::$cacheKey = $fingerprint;
-        self::$auditedUnknownRoles = [];
 
         return $normalized;
     }
@@ -298,4 +300,3 @@ final class PolicyMap
         return false;
     }
 }
-
