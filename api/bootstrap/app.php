@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Providers\AuthServiceProvider;
 use App\Providers\ConfigOverlayServiceProvider;
 use App\Providers\EventServiceProvider;
+use App\Providers\SettingsServiceProvider;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -26,6 +27,8 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withProviders([
         // Load overlay before gates read config.
         ConfigOverlayServiceProvider::class,
+        // Load DB-backed overrides early.
+        SettingsServiceProvider::class,
         AuthServiceProvider::class,
         EventServiceProvider::class,
     ])

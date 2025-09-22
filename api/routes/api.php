@@ -213,7 +213,7 @@ Route::prefix('/admin')
 Route::prefix('/dashboard')
     ->middleware($rbacStack)
     ->group(function (): void {
-        Route::get('/kpis', [MetricsController::class, 'index'])
+        Route::get('/kpis', [MetricsController::class, 'kpis'])
             ->defaults('roles', ['Admin'])
             ->defaults('policy', 'core.metrics.view');
     });
