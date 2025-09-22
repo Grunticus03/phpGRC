@@ -1,3 +1,4 @@
+# FILE: docs/api/openapi.yaml
 openapi: 3.1.0
 info:
   title: phpGRC
@@ -1242,6 +1243,32 @@ components:
           - type: string
           - type: 'null'
       example: null
+
+    # --- Metrics notes (additive documentation only; endpoints intentionally omitted in 0.4.6) ---
+    MetricsRbacDays:
+      name: rbac_days
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 365
+      description: |
+        Optional rolling window (days) for RBAC denies KPI.
+        Values are clamped to [1, 365]. If omitted or non-numeric, the server default applies.
+        Default: **7** (driven by `config('core.metrics.rbac_denies.window_days')`, commonly mapped from `CORE_METRICS_RBAC_DENIES_WINDOW_DAYS`).
+      example: 7
+    MetricsDays:
+      name: days
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 365
+      description: |
+        Optional stale threshold (days) for Evidence freshness KPI.
+        Values are clamped to [1, 365]. If omitted or non-numeric, the server default applies.
+        Default: **30** (driven by `config('core.metrics.evidence_freshness.days')`, commonly mapped from `CORE_METRICS_EVIDENCE_FRESHNESS_DAYS`).
+      example: 30
 
   responses:
     Unauthenticated:

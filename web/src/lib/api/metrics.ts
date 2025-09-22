@@ -1,3 +1,4 @@
+// FILE: web/src/lib/api/metrics.ts
 export type RbacDaily = {
   date: string;          // YYYY-MM-DD
   denies: number;
@@ -50,13 +51,13 @@ function toPct(n: unknown): number {
 }
 
 function normalize(raw: unknown): Kpis {
-  const root = (raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {}) as {
-    rbac_denies?: RawRbacDenies;
-    evidence_freshness?: RawEvidenceFreshness;
-  };
+  const root =
+    raw && typeof raw === "object"
+      ? (raw as { rbac_denies?: RawRbacDenies; evidence_freshness?: RawEvidenceFreshness })
+      : {};
 
-  const rd = root.rbac_denies as RawRbacDenies;
-  const ev = root.evidence_freshness as RawEvidenceFreshness;
+  const rd = root.rbac_denies as RawRbacDenies | undefined;
+  const ev = root.evidence_freshness as RawEvidenceFreshness | undefined;
 
   const evidence: EvidenceFreshness = {
     days: Number(ev?.days ?? 30),
@@ -64,7 +65,7 @@ function normalize(raw: unknown): Kpis {
     stale: Number(ev?.stale ?? 0),
     percent: toPct(ev?.percent ?? 0),
     by_mime: Array.isArray(ev?.by_mime)
-      ? (ev!.by_mime as RawEvidenceByMime[]).map((row) => ({
+      ? (ev.by_mime as RawEvidenceByMime[]).map((row) => ({
           mime: String(row.mime ?? ""),
           total: Number(row.total ?? 0),
           stale: Number(row.stale ?? 0),
@@ -81,11 +82,11 @@ function normalize(raw: unknown): Kpis {
     total: Number(rd?.total ?? 0),
     rate: Math.max(0, Math.min(1, Number(rd?.rate ?? 0))),
     daily: Array.isArray(rd?.daily)
-      ? rd!.daily.map((d) => ({
-          date: String((d as RbacDaily).date ?? ""),
-          denies: Number((d as RbacDaily).denies ?? 0),
-          total: Number((d as RbacDaily).total ?? 0),
-          rate: Math.max(0, Math.min(1, Number((d as RbacDaily).rate ?? 0))),
+      ? (rd.daily as RbacDaily[]).map((d) => ({
+          date: String(d.date ?? ""),
+          denies: Number(d.denies ?? 0),
+          total: Number(d.total ?? 0),
+          rate: Math.max(0, Math.min(1, Number(d.rate ?? 0))),
         }))
       : [],
   };
@@ -108,10 +109,19 @@ function buildQuery(params: Record<string, string | number | undefined>): string
  * Returns normalized KPIs with percent fields scaled to 0..100 for UI.
  * Throws Error('forbidden') on 403.
  */
-export async function fetchKpis(signal?: AbortSignal, opts?: { rbac_days?: number; days?: number }): Promise<Kpis> {
+export async function fetchKpis(
+  signal?: AbortSignal,
+  opts?: { rbac_days?: number; days?: number }
+): Promise<Kpis> {
   const query = buildQuery({
-    rbac_days: typeof opts?.rbac_days === "number" ? Math.max(1, Math.min(365, Math.trunc(opts.rbac_days))) : undefined,
-    days: typeof opts?.days === "number" ? Math.max(1, Math.min(365, Math.trunc(opts.days))) : undefined,
+    rbac_days:
+      typeof opts?.rbac_days === "number"
+        ? Math.max(1, Math.min(365, Math.trunc(opts.rbac_days)))
+        : undefined,
+    days:
+      typeof opts?.days === "number"
+        ? Math.max(1, Math.min(365, Math.trunc(opts.days)))
+        : undefined,
   });
 
   const res = await fetch(`/api/dashboard/kpis${query}`, {
