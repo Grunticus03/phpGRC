@@ -1206,3 +1206,40 @@ SESSION-LOG.md entry
 - Phase/Step status: advance
 - Next action (you): confirm default thresholds (evidence freshness days, denies window) and any additional MIME types
 - Next action (me): add small sparkline for daily denies, tighten action label map coverage, and extend KPI tests for param overrides
+
+---
+
+### Session 2025-09-21: Phase 5 — Release hygiene & roadmap sync
+- Context: After landing KPIs v1 (RBAC denies rate, evidence freshness), RBAC deny audits, and brute-force guard, we need docs alignment.
+- Goal: Update ROADMAP status and capture Phase-5 checklists so release notes can be drafted cleanly.
+- Constraints: Docs-only; no API or schema changes; CI stays green.
+
+# Closeout
+- Deliverables produced:
+  - ROADMAP.md updated (Phase-4 evidence policy clarified; Phase-5 progress & current-status date bumped to 2025-09-21).
+  - Phase-5 checklists present (`docs/phase-5/PHASE-5-PR-CHECKLIST.md`, `docs/phase-5/PHASE-5-TASK-CHECKLIST.md`).
+  - OPS.md regenerated previously; no further changes required in this step.
+- Phase/Step status: advance
+- Next action (you): Mark schema-drift and OpenAPI lint as required checks; decide whether to tag `v0.4.6` now or after initial dashboard UI tiles land.
+- Next action (me): Draft release notes outline for `v0.4.6` (highlights: deny-audit invariants, KPIs v1, brute-force guard); propose test matrix for KPI param overrides (days/window/tz).
+
+---
+
+### Session 2025-09-21: [Phase 5, RBAC policy map endpoint + static analysis cleanup]
+- Context: Hardened `/rbac/policies` + `/rbac/policies/effective` responses and types; resolved PHPStan/Psalm issues; aligned routes with tests.
+- Goal: Green on `PolicyMapEffectiveApiTest` and zero type errors for `PolicyController`.
+- Constraints: Keep CI green; no OpenAPI/contract breaks; roles lowercased; avoid unrelated code changes.
+
+### Closeout
+- Deliverables produced: 
+  - `PolicyController` with `show()` and `effective()` returning normalized policies.
+  - Added `generated_at` (and `ts`) timestamp fields; consistent JSON shapes.
+  - Safe merges via `normalizePolicies()` / `mergePolicies()`; string-list coercion.
+  - Route wiring for `/api/rbac/policies` and `/api/rbac/policies/effective` with RBAC defaults.
+  - Psalm/PHPStan annotations to eliminate mixed/iteration/type errors in controller.
+- Phase/Step status: partial (one test assertion on `generated_at` needed final verify).
+- Next action (you): 
+  - Re-run tests after ensuring `show()` (and `effective()`) include top-level `generated_at`.
+  - Confirm routes match test expectations and RBAC defaults remain intact.
+- Next action (me): 
+  - If any failures persist, I’ll prepare a minimal patch ensuring `generated_at` is added in both endpoints and recheck Psalm/PHPStan for zero mixed-type findings.

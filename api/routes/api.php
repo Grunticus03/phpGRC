@@ -20,6 +20,7 @@ use App\Http\Controllers\Export\StatusController;
 use App\Http\Controllers\Metrics\MetricsController;
 use App\Http\Controllers\Rbac\RolesController;
 use App\Http\Controllers\Rbac\UserRolesController;
+use App\Http\Controllers\Rbac\PolicyController;
 use App\Http\Controllers\OpenApiController;
 use App\Http\Middleware\Auth\BruteForceGuard;
 use App\Http\Middleware\BreakGlassGuard;
@@ -284,6 +285,10 @@ Route::prefix('/rbac')
             ->whereNumber('user')
             ->defaults('roles', ['Admin'])
             ->defaults('policy', 'rbac.user_roles.manage');
+
+        Route::get('/policies/effective', [PolicyController::class, 'effective'])
+            ->defaults('roles', ['Admin'])
+            ->defaults('policy', 'core.rbac.view');
     });
 
 /*

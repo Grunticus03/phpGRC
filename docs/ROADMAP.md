@@ -46,7 +46,7 @@
 - [x] RBAC — admin UI for role list/create and user-role assign
 - [x] Audit — listing, categories helper, retention echo
 - [x] Audit — CSV export with exact `Content-Type: text/csv` and cursor streaming
-- [x] Evidence — multipart validate (size/mime via config)
+- [x] Evidence — file uploads accepted (Phase-4 policy: no MIME/size validation)
 - [x] Evidence persistence: DB storage + sha256 + listing + headers + conditional GET + hash verification
 - [x] Audit persistence: write path + retention enforcement (≤ 2 years)
 - [x] API docs for Settings/Audit/Evidence + common errors
@@ -65,8 +65,11 @@
 - [x] OpenAPI served at `/api/openapi.yaml` and Swagger UI at `/api/docs`
 - [x] OpenAPI lint in CI (Redocly)
 - [x] Breaking-change gate (openapi-diff) in CI
+- [x] RBAC deny audits emitted by middleware (one per denied request)
+- [x] KPIs v1 (admin-only): RBAC denies rate (rolling window), Evidence freshness (threshold + by-MIME)
+- [x] Auth brute-force guard (session/IP strategies) with `auth.login.failed|locked` audits
 - [ ] Fine-grained RBAC policies (PolicyMap/Evaluator) and role management UI hardening
-- [ ] Predefined reports & dashboards
+- [ ] Predefined reports & dashboards (beyond KPIs v1)
 - [ ] Admin/User docs baseline
 
 ---
@@ -121,12 +124,12 @@
 
 ---
 
-### Current Status (as of 2025-09-19)
+### Current Status (as of 2025-09-21)
 - ✅ Phase 4 frozen; CI green; contracts locked; OpenAPI 0.4.6 validated.
 - ✅ RBAC enforcement active; admin UI shipped.
 - ✅ Audit & Evidence persistence complete; CSV export streaming with bounded memory.
 - ✅ Exports model and generation complete.
 - ✅ CI lint (Redocly) and breaking-change gate (openapi-diff).
 - ✅ Static analysis: PHPStan level 9 enforced in CI.
-- ⏳ Phase 5 in progress: fine-grained RBAC policies and dashboards.
+- ⏳ Phase 5 in progress: KPIs v1 shipped (denies rate, evidence freshness), deny-audit invariants enforced, brute-force guard in place.
 - 🔜 Phase 5.5 planned: theming/layout scope accepted; see BACKLOG and SPEC.

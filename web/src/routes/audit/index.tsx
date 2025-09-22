@@ -1,12 +1,11 @@
 import { useEffect, useState } from "react";
-import { actionInfo } from "../../lib/audit/actionInfo";
+import { actionInfo, actionA11yLabel } from "../../lib/audit/actionInfo";
 
 type AuditEvent = {
   id: string;
   occurred_at: string;
   actor_id: number | null;
   action: string;
-  category?: string;
   entity_type: string;
   entity_id: string;
   ip?: string | null;
@@ -26,7 +25,7 @@ export default function AuditIndex(): JSX.Element {
       try {
         const res = await fetch("/api/audit?limit=20", { credentials: "same-origin" });
         const json = await res.json();
-        if (json?.ok && Array.isArray(json.items)) setEvents(json.items as AuditEvent[]);
+        if (json?.ok && Array.isArray(json.items)) setEvents(json.items);
         else setMsg("Failed to load audit events.");
       } catch {
         setMsg("Network error.");
@@ -57,12 +56,19 @@ export default function AuditIndex(): JSX.Element {
               </tr>
             </thead>
             <tbody>
-              {events.map((e) => {
+              {events.map(e => {
                 const info = actionInfo(e.action);
                 return (
                   <tr key={e.id}>
                     <td>{e.occurred_at}</td>
-                    <td aria-label={info.aria} title={e.action}>{info.label}</td>
+                    <td>
+                      <span
+                        title={e.action}
+                        aria-label={actionA11yLabel(e.action)}
+                      >
+                        {info.label}
+                      </span>
+                    </td>
                     <td>{`${e.entity_type}:${e.entity_id}`}</td>
                     <td>{e.actor_id ?? "-"}</td>
                     <td>{e.ip ?? "-"}</td>

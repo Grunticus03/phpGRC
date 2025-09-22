@@ -1,179 +1,242 @@
-/* FILE: web/src/routes/dashboard/Kpis.tsx */
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { fetchKpis, type Kpis } from "../../lib/api/metrics";
-import Sparkline from "../../components/charts/Sparkline";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 
-function pct(n: number): string {
-  const v = Math.max(0, Math.min(100, n * (n <= 1 ? 100 : 1)));
-  return `${v.toFixed(1)}%`;
+type RbacDaily = { date: string; denies: number; total: number; rate: number };
+type RbacDenies = {
+  window_days: number;
+  from: string;
+  to: string;
+  denies: number;
+  total: number;
+  rate: number;
+  daily: RbacDaily[];
+};
+
+type MimeRow = { mime: string; total: number; stale: number; percent: number };
+type EvidenceFreshness = {
+  days: number;
+  total: number;
+  stale: number;
+  percent: number; // may be 0..1 or 0..100 depending on backend
+  by_mime: MimeRow[];
+};
+
+type Snapshot = {
+  ok: boolean;
+  data?: {
+    rbac_denies: RbacDenies;
+    evidence_freshness: EvidenceFreshness;
+  };
+  meta?: {
+    generated_at: string;
+    window?: { rbac_days?: number; fresh_days?: number };
+  };
+};
+
+function asPercent(value: number): number {
+  if (!isFinite(value)) return 0;
+  // Accept both fractional (0..1) and percent (0..100) inputs.
+  return value <= 1 ? value * 100 : value;
 }
 
-function clampDays(n: number): number {
-  const v = Math.trunc(Number.isFinite(n) ? n : 0);
-  return Math.max(1, Math.min(365, v));
+function sparklinePath(values: number[], w = 100, h = 24): string {
+  if (values.length === 0) return `M0 ${h} L${w} ${h}`;
+  const max = Math.max(...values, 1);
+  const step = values.length > 1 ? w / (values.length - 1) : w;
+  let d = "";
+  values.forEach((v, i) => {
+    const x = i * step;
+    const y = h - (max === 0 ? 0 : (v / max) * h);
+    d += (i === 0 ? "M" : " L") + x.toFixed(2) + " " + y.toFixed(2);
+  });
+  return d;
 }
 
 export default function Kpis(): JSX.Element {
-  const [data, setData] = useState<Kpis | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState<boolean>(false);
-
-  // Form state (defaults aligned with server config defaults)
+  const [loading, setLoading] = useState(true);
+  const [msg, setMsg] = useState<string | null>(null);
   const [rbacDays, setRbacDays] = useState<number>(7);
   const [freshDays, setFreshDays] = useState<number>(30);
+  const [data, setData] = useState<{ rbac: RbacDenies; fresh: EvidenceFreshness } | null>(null);
 
-  const canSubmit = useMemo(() => !loading && rbacDays >= 1 && freshDays >= 1, [loading, rbacDays, freshDays]);
+  const denyRatePct = useMemo(() => {
+    const v = data?.rbac?.rate ?? 0;
+    return `${(v * 100).toFixed(1)}%`;
+  }, [data]);
 
-  const load = useCallback(async (opts?: { rbac_days?: number; days?: number }) => {
+  const stalePct = useMemo(() => {
+    const v = data?.fresh?.percent ?? 0;
+    return `${asPercent(v).toFixed(1)}%`;
+  }, [data]);
+
+  const mimeRows = useMemo(() => {
+    return (data?.fresh?.by_mime ?? []).map((m) => ({
+      ...m,
+      _pctDisplay: `${asPercent(m.percent).toFixed(1)}%`,
+    }));
+  }, [data]);
+
+  async function load(snapshotParams?: { rbac_days?: number; days?: number }) {
     setLoading(true);
-    setError(null);
+    setMsg(null);
     try {
-      const ctrl = new AbortController();
-      const k = await fetchKpis(ctrl.signal, opts);
-      setData(k);
-      // sync inputs with returned meta-equivalents
-      setRbacDays(k.rbac_denies.window_days);
-      setFreshDays(k.evidence_freshness.days);
-    } catch (e: unknown) {
-      setError((e as { message?: string })?.message || "error");
+      const qs = new URLSearchParams();
+      const rd = snapshotParams?.rbac_days ?? rbacDays;
+      const fd = snapshotParams?.days ?? freshDays;
+      if (rd) qs.set("rbac_days", String(rd));
+      if (fd) qs.set("days", String(fd));
+      const res = await fetch(`/api/dashboard/kpis?${qs.toString()}`, { credentials: "same-origin" });
+      if (res.status === 401) {
+        setMsg("You must log in to view KPIs.");
+        setData(null);
+      } else if (res.status === 403) {
+        setMsg("You do not have access to KPIs.");
+        setData(null);
+      } else {
+        const json = (await res.json()) as Snapshot;
+        if (json?.ok && json.data) {
+          const r = json.data.rbac_denies;
+          const f = json.data.evidence_freshness;
+          setData({ rbac: r, fresh: f });
+          // Seed form defaults from server once (if provided)
+          const win = json.meta?.window;
+          if (typeof win?.rbac_days === "number") setRbacDays(win.rbac_days);
+          if (typeof win?.fresh_days === "number") setFreshDays(win.fresh_days);
+        } else {
+          setMsg("Failed to load KPIs.");
+          setData(null);
+        }
+      }
+    } catch {
+      setMsg("Network error.");
       setData(null);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  // Safe derived values kept outside conditional returns to keep hook order stable.
-  const d = data?.rbac_denies ?? { window_days: 0, denies: 0, total: 0, rate: 0, daily: [] };
-  const e = data?.evidence_freshness ?? { days: 0, total: 0, stale: 0, percent: 0, by_mime: [] };
-  const sparkValues: number[] = Array.isArray(d.daily) ? d.daily.map((row) => row.rate) : [];
-
-  if (error === "forbidden") {
-    return (
-      <section aria-labelledby="kpi-title">
-        <h1 id="kpi-title">Dashboard</h1>
-        <p role="alert">You do not have access to KPIs.</p>
-      </section>
-    );
-  }
-
-  if (error) {
-    return (
-      <section aria-labelledby="kpi-title">
-        <h1 id="kpi-title">Dashboard</h1>
-        <p role="alert">Failed to load KPIs: {error}</p>
-      </section>
-    );
-  }
-
-  if (!data) {
-    return (
-      <section aria-labelledby="kpi-title">
-        <h1 id="kpi-title">Dashboard</h1>
-        <p>Loading…</p>
-      </section>
-    );
+  function onSubmit(e: FormEvent) {
+    e.preventDefault();
+    void load({ rbac_days: rbacDays, days: freshDays });
   }
 
   return (
-    <section aria-labelledby="kpi-title" aria-busy={loading}>
-      <h1 id="kpi-title">Dashboard</h1>
+    <div className="container py-3">
+      <h1 className="mb-3">Dashboard KPIs</h1>
 
-      <form
-        onSubmit={(ev) => {
-          ev.preventDefault();
-          void load({ rbac_days: clampDays(rbacDays), days: clampDays(freshDays) });
-        }}
-        className="card mb-3"
-        aria-label="KPI window controls"
-        style={{ padding: "0.75rem", display: "grid", gap: "0.75rem", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}
-      >
-        <div>
-          <label htmlFor="rbac_days" className="form-label">RBAC window (days)</label>
+      <form className="row g-2 align-items-end mb-3" onSubmit={onSubmit} aria-label="kpi-overrides">
+        <div className="col-auto">
+          <label htmlFor="rbacDays" className="form-label mb-0">RBAC window (days)</label>
           <input
-            id="rbac_days"
+            id="rbacDays"
             type="number"
             min={1}
             max={365}
-            step={1}
             className="form-control"
             value={rbacDays}
-            onChange={(e) => setRbacDays(clampDays(Number(e.currentTarget.value || 0)))}
+            onChange={(e) => setRbacDays(Math.max(1, Math.min(365, Number(e.target.value) || 1)))}
           />
         </div>
-        <div>
-          <label htmlFor="fresh_days" className="form-label">Evidence stale threshold (days)</label>
+        <div className="col-auto">
+          <label htmlFor="freshDays" className="form-label mb-0">Evidence stale threshold (days)</label>
           <input
-            id="fresh_days"
+            id="freshDays"
             type="number"
             min={1}
             max={365}
-            step={1}
             className="form-control"
             value={freshDays}
-            onChange={(e) => setFreshDays(clampDays(Number(e.currentTarget.value || 0)))}
+            onChange={(e) => setFreshDays(Math.max(1, Math.min(365, Number(e.target.value) || 1)))}
           />
         </div>
-        <div style={{ alignSelf: "end" }}>
-          <button className="btn btn-primary" type="submit" disabled={!canSubmit} aria-disabled={!canSubmit}>
-            {loading ? "Loading…" : "Apply"}
-          </button>
+        <div className="col-auto">
+          <button type="submit" className="btn btn-primary">Apply</button>
         </div>
       </form>
 
-      <div className="kpi-grid" style={{ display: "grid", gap: "1rem", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))" }}>
-        <article className="card" aria-labelledby="kpi-denies-title">
-          <div className="card-body">
-            <h2 id="kpi-denies-title" className="card-title">RBAC Denies Rate</h2>
-            <p aria-label="deny-rate" style={{ fontSize: "2rem", margin: 0 }}>{pct(d.rate)}</p>
-            <p style={{ margin: 0 }}>
-              Window: {d.window_days}d · Denies: {d.denies} / {d.total}
-            </p>
-            <div className="mt-2" aria-hidden={sparkValues.length === 0}>
-              <Sparkline
-                values={sparkValues}
-                width={240}
-                height={40}
-                strokeWidth={2}
-                ariaLabel="RBAC denies sparkline"
-                className="text-primary"
-              />
+      {loading && <p>Loading…</p>}
+      {!loading && msg && <div className="alert alert-warning" role="alert">{msg}</div>}
+
+      {!loading && !msg && data && (
+        <>
+          <div className="row g-3">
+            <div className="col-sm-6 col-lg-3">
+              <div className="card h-100">
+                <div className="card-body">
+                  <div className="text-muted small">RBAC deny rate</div>
+                  <div aria-label="deny-rate" className="display-6">{denyRatePct}</div>
+                  <div className="text-muted small">
+                    {data.rbac.denies} denies / {data.rbac.total} total in {data.rbac.window_days}d
+                  </div>
+                  {/* Sparkline */}
+                  <div className="mt-2">
+                    <svg
+                      aria-label="RBAC denies sparkline"
+                      width="100%"
+                      height="24"
+                      viewBox="0 0 100 24"
+                      role="img"
+                    >
+                      <path
+                        d={sparklinePath(data.rbac.daily.map(d => d.denies))}
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1"
+                      />
+                    </svg>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="col-sm-6 col-lg-3">
+              <div className="card h-100">
+                <div className="card-body">
+                  <div className="text-muted small">Stale evidence</div>
+                  <div aria-label="stale-percent" className="display-6">{stalePct}</div>
+                  <div className="text-muted small">
+                    {data.fresh.stale} / {data.fresh.total} items &gt;{data.fresh.days}d
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
-        </article>
 
-        <article className="card" aria-labelledby="kpi-evidence-title">
-          <div className="card-body">
-            <h2 id="kpi-evidence-title" className="card-title">Evidence Freshness</h2>
-            <p aria-label="stale-percent" style={{ fontSize: "2rem", margin: 0 }}>{e.percent.toFixed(1)}%</p>
-            <p style={{ margin: 0 }}>
-              Stale &gt; {e.days}d · {e.stale} of {e.total}
-            </p>
-          </div>
-        </article>
-      </div>
+          <h2 className="h5 mt-4">Evidence by MIME</h2>
+          {mimeRows.length === 0 ? (
+            <p className="text-muted">No evidence.</p>
+          ) : (
+            <div className="table-responsive">
+              <table className="table table-sm table-striped">
+                <thead>
+                  <tr>
+                    <th>MIME</th>
+                    <th className="text-end">Total</th>
+                    <th className="text-end">Stale</th>
+                    <th className="text-end">Percent</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {mimeRows.map((m) => (
+                    <tr key={m.mime}>
+                      <td>{m.mime}</td>
+                      <td className="text-end">{m.total}</td>
+                      <td className="text-end">{m.stale}</td>
+                      <td className="text-end">{m._pctDisplay}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
 
-      <div style={{ marginTop: "1.5rem" }}>
-        <h3>By MIME</h3>
-        <table className="table" role="table">
-          <thead>
-            <tr><th>Type</th><th>Total</th><th>Stale</th><th>% Stale</th></tr>
-          </thead>
-          <tbody>
-            {e.by_mime.map((row) => (
-              <tr key={row.mime}>
-                <td>{row.mime}</td>
-                <td>{row.total}</td>
-                <td>{row.stale}</td>
-                <td>{row.percent.toFixed(1)}%</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </section>
+          <p className="text-muted mt-3">Admin-only. Computation bounded by server defaults.</p>
+        </>
+      )}
+    </div>
   );
 }
