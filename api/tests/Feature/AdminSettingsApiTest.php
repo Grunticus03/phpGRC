@@ -66,25 +66,27 @@ final class AdminSettingsApiTest extends TestCase
     public function update_rejects_invalid_role_entries(): void
     {
         $payload = [
+            'apply' => true,
             'rbac' => [
-                'roles' => ['Admin', ''], // empty role should fail
+                'roles' => ['Admin', ''],
             ],
         ];
 
         $this->postJson('/api/admin/settings', $payload)
             ->assertStatus(422)
             ->assertJsonStructure([
-                'errors' => ['rbac' => []], // nested error paths present
+                'errors' => ['rbac' => []],
             ]);
     }
 
     /** @test */
-    public function legacy_shape_rejects_disallowed_mime_and_uses_legacy_error_envelope(): void
+    public function legacy_shape_rejects_disallowed_mime_and_returns_errors_block(): void
     {
         $payload = [
             'core' => [
+                'apply' => true,
                 'evidence' => [
-                    'allowed_mime' => ['application/x-msdownload'], // not in allowed list
+                    'allowed_mime' => ['application/x-msdownload'],
                 ],
             ],
         ];
@@ -93,14 +95,14 @@ final class AdminSettingsApiTest extends TestCase
 
         $res->assertStatus(422)
             ->assertJsonStructure(['errors' => ['evidence' => []]])
-            ->assertJsonMissingPath('ok') // legacy path should not include ok/code
-            ->assertJsonMissingPath('code');
+            ->assertJsonPath('code', 'VALIDATION_FAILED');
     }
 
     /** @test */
     public function update_rejects_avatar_size_other_than_128(): void
     {
         $payload = [
+            'apply' => true,
             'avatars' => [
                 'size_px' => 256,
             ],
@@ -115,6 +117,7 @@ final class AdminSettingsApiTest extends TestCase
     public function update_rejects_avatar_format_other_than_webp(): void
     {
         $payload = [
+            'apply' => true,
             'avatars' => [
                 'format' => 'png',
             ],
@@ -128,19 +131,18 @@ final class AdminSettingsApiTest extends TestCase
     /** @test */
     public function update_rejects_audit_retention_out_of_range(): void
     {
-        // too low
-        $this->postJson('/api/admin/settings', ['audit' => ['retention_days' => 0]])
+        $this->postJson('/api/admin/settings', ['apply' => true, 'audit' => ['retention_days' => 0]])
             ->assertStatus(422);
 
-        // too high
-        $this->postJson('/api/admin/settings', ['audit' => ['retention_days' => 10000]])
+        $this->postJson('/api/admin/settings', ['apply' => true, 'audit' => ['retention_days' => 10000]])
             ->assertStatus(422);
     }
 
     /** @test */
     public function update_rejects_evidence_max_mb_below_min(): void
     {
-        $this->postJson('/api/admin/settings', ['evidence' => ['max_mb' => 0]])
+        $this->postJson('/api/admin/settings', ['apply' => true, 'evidence' => ['max_mb' => 0]])
             ->assertStatus(422);
     }
 }
+

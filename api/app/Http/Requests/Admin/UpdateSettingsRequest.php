@@ -1,125 +1,240 @@
 <?php
-
 declare(strict_types=1);
 
 namespace App\Http\Requests\Admin;
 
-use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Contracts\Validation\Validator;
+use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\Exceptions\HttpResponseException;
-use Illuminate\Support\Arr;
-use Illuminate\Validation\Rule;
 
 final class UpdateSettingsRequest extends FormRequest
 {
-    private bool $legacyPayload = false;
+    #[\Override]
+    protected function prepareForValidation(): void
+    {
+        /** @var array<string,mixed>|null $core */
+        $core = $this->input('core');
+
+        if (is_array($core)) {
+            /** @var array<string,mixed> $merge */
+            $merge = [];
+
+            foreach (['rbac', 'audit', 'evidence', 'avatars', 'metrics'] as $section) {
+                if (array_key_exists($section, $core) && is_array($core[$section])) {
+                    /** @var array<string,mixed> $sectionVal */
+                    $sectionVal = $core[$section];
+                    $merge[$section] = $sectionVal;
+                }
+            }
+
+            if (array_key_exists('apply', $core)) {
+                /** @var mixed $applyVal */
+                $applyVal  = $core['apply'];
+                $applyNorm = is_bool($applyVal) ? $applyVal
+                    : (is_int($applyVal) ? $applyVal === 1
+                    : (is_string($applyVal) ? in_array(strtolower($applyVal), ['1','true','on','yes'], true) : null));
+                if ($applyNorm !== null) {
+                    $merge['apply'] = $applyNorm;
+                }
+            }
+
+            if ($merge !== []) {
+                $this->merge($merge);
+            }
+        }
+    }
 
     public function authorize(): bool
     {
         return true;
     }
 
-    /**
-     * Normalize legacy shape: { core: { ... } } -> top-level keys.
-     */
-    #[\Override]
-    protected function prepareForValidation(): void
-    {
-        /** @var mixed $core */
-        $core = $this->input('core');
-        $this->legacyPayload = is_array($core);
-        if ($this->legacyPayload) {
-            /** @var array<string,mixed> $coreArr */
-            $coreArr = $core;
-            $this->merge(Arr::only($coreArr, ['rbac', 'audit', 'evidence', 'avatars']));
-        }
-    }
-
     /** @return array<string,mixed> */
     public function rules(): array
     {
-        /** @var array<int,string> $allowedMimes */
-        $allowedMimes = (array) data_get(config('core'), 'evidence.allowed_mime', ['application/pdf']);
+        /** @var list<string> $allowedMime */
+        $allowedMime = [
+            'application/pdf',
+            'image/png',
+            'image/jpeg',
+            'image/webp',
+            'text/plain',
+        ];
 
         return [
-            // RBAC
             'rbac'                 => ['sometimes', 'array'],
             'rbac.enabled'         => ['sometimes', 'boolean'],
-            'rbac.require_auth'    => ['sometimes', 'boolean'],
             'rbac.roles'           => ['sometimes', 'array', 'min:1'],
-            'rbac.roles.*'         => ['string', 'min:1', 'max:64'],
+            'rbac.roles.*'         => ['string', 'min:2', 'max:64'],
 
-            // Audit
             'audit'                => ['sometimes', 'array'],
             'audit.enabled'        => ['sometimes', 'boolean'],
             'audit.retention_days' => ['sometimes', 'integer', 'min:1', 'max:730'],
 
-            // Evidence
             'evidence'                => ['sometimes', 'array'],
             'evidence.enabled'        => ['sometimes', 'boolean'],
             'evidence.max_mb'         => ['sometimes', 'integer', 'min:1'],
-            'evidence.allowed_mime'   => ['sometimes', 'array'],
-            'evidence.allowed_mime.*' => ['string', Rule::in($allowedMimes)],
+            'evidence.allowed_mime'   => ['sometimes', 'array', 'min:1'],
+            'evidence.allowed_mime.*' => ['string', 'in:' . implode(',', $allowedMime)],
 
-            // Avatars
             'avatars'         => ['sometimes', 'array'],
             'avatars.enabled' => ['sometimes', 'boolean'],
-            'avatars.size_px' => ['sometimes', Rule::in([128])],
-            'avatars.format'  => ['sometimes', Rule::in(['webp'])],
+            'avatars.size_px' => ['sometimes', 'integer', 'in:128'],
+            'avatars.format'  => ['sometimes', 'string', 'in:webp'],
 
-            // Optional switch to apply changes (default false)
+            // DB-backed metrics settings exposed via Admin UI
+            'metrics'                                      => ['sometimes', 'array'],
+            'metrics.core.metrics.cache_ttl_seconds'       => ['sometimes', 'integer', 'min:1'],
+            'metrics.core.metrics.evidence_freshness.days' => ['sometimes', 'integer', 'min:1', 'max:365'],
+            'metrics.core.metrics.rbac_denies.window_days' => ['sometimes', 'integer', 'min:1', 'max:365'],
+
             'apply' => ['sometimes', 'boolean'],
         ];
     }
 
-    /**
-     * Validation error envelopes:
-     * - Legacy payloads: { errors: { <section>: { <field>: [...] } } }
-     * - Spec payloads:   { ok:false, code:"VALIDATION_FAILED", errors:{...}, message:"..." }
-     */
+    /** @return array<string,string> */
+    #[\Override]
+    public function messages(): array
+    {
+        return [
+            'rbac.roles.min'                => 'At least one role must be provided.',
+            'rbac.roles.*.min'              => 'Role names must be at least :min characters.',
+            'rbac.roles.*.max'              => 'Role names may not be greater than :max characters.',
+            'audit.retention_days.min'      => 'Retention must be at least :min day.',
+            'audit.retention_days.max'      => 'Retention may not exceed :max days.',
+            'evidence.max_mb.min'           => 'Maximum size must be at least :min MB.',
+            'evidence.allowed_mime.*.in'    => 'One or more MIME types are not allowed.',
+            'avatars.size_px.in'            => 'Avatar size must be 128px.',
+            'avatars.format.in'             => 'Avatar format must be WEBP.',
+        ];
+    }
+
     #[\Override]
     protected function failedValidation(Validator $validator): void
     {
-        /** @var array<string, list<string>> $fieldErrors */
-        $fieldErrors = $validator->errors()->toArray();
+        /** @var array<string,list<string>> $flat */
+        $flat = $validator->errors()->toArray();
 
-        /** @var array<string, array<string, list<string>>> $errors */
-        $errors = [];
+        /**
+         * @psalm-param array<string, list<string>> $src
+         * @psalm-return array<string, mixed>
+         */
+        $nest = static function (array $src): array {
+            /** @var array<string,mixed> $out */
+            $out = [];
 
-        /** @var string $key */
-        /** @var list<string> $messages */
-        foreach ($fieldErrors as $key => $messages) {
-            $parts   = explode('.', $key);
-            $section = $parts[0] ?? '_';
-            $field   = $parts[1] ?? $section;
-            if (isset($parts[2]) && is_numeric($parts[2])) {
-                // keep $field from index 1
+            /** @var list<string> $messages */
+            foreach ($src as $key => $messages) {
+                /** @var string $key */
+                $key = (string) $key;
+
+                /** @var list<string> $errsList */
+                $errsList = [];
+                foreach ($messages as $message) {
+                    $errsList[] = $message;
+                }
+
+                /** @var list<string> $parts */
+                $parts = explode('.', $key);
+
+                /** @var array<string,mixed> $ref */
+                $ref =& $out;
+                foreach ($parts as $i => $p) {
+                    if ($i === count($parts) - 1) {
+                        $ref[$p] = $errsList;
+                    } else {
+                        if (!isset($ref[$p]) || !is_array($ref[$p])) {
+                            $ref[$p] = [];
+                        }
+                        /** @var array<string,mixed> $child */
+                        $child =& $ref[$p];
+                        $ref   =& $child;
+                        unset($child);
+                    }
+                }
+                unset($ref);
             }
+            return $out;
+        };
 
-            /** @var list<string> $existing */
-            $existing = $errors[$section][$field] ?? [];
+        /**
+         * Collapse numeric-index children (int or numeric-string keys) into a list of strings.
+         *
+         * @psalm-param array<string,mixed> $node
+         * @psalm-return array<string,mixed>
+         */
+        $collapse = static function (array $node) use (&$collapse): array {
+            /** @var array<string,mixed> $out */
+            $out = [];
 
-            /** @var list<string> $merged */
-            $merged = array_merge($existing, $messages);
+            /** @var mixed $v */
+            foreach ($node as $k => $v) {
+                /** @var string $k */
+                if (is_array($v)) {
+                    /** @var array<int|string,mixed> $vArr */
+                    $vArr = $v;
 
-            /** @var list<string> $unique */
-            $unique = array_values(array_unique($merged));
+                    /** @var list<int|string> $keys */
+                    $keys = array_keys($vArr);
 
-            $errors[$section][$field] = $unique;
-        }
+                    $allNumish = $keys !== [] && array_reduce(
+                        $keys,
+                        /**
+                         * @param bool $acc
+                        */
+                        static fn (bool $acc, $kk): bool =>
+                            $acc && (is_int($kk) || ctype_digit((string) $kk)),
+                        true
+                    );
 
-        if ($this->legacyPayload) {
-            throw new HttpResponseException(response()->json([
-                'errors' => $errors,
-            ], 422));
-        }
+                    if ($allNumish) {
+                        /** @var list<string> $merged */
+                        $merged = [];
+                        /** @var mixed $vv */
+                        foreach ($vArr as $vv) {
+                            if (is_array($vv)) {
+                                /** @var array<int|string,mixed> $vvArr */
+                                $vvArr = $vv;
+                                /** @var mixed $msg */
+                                foreach ($vvArr as $msg) {
+                                    if (is_string($msg)) {
+                                        $merged[] = $msg;
+                                    }
+                                }
+                            } elseif (is_string($vv)) {
+                                $merged[] = $vv;
+                            }
+                        }
+                        $out[$k] = $merged;
+                    } else {
+                        /** @var array<array-key,mixed> $assoc */
+                        $assoc = $vArr;
+                        /** @var array<string,mixed> $rec */
+                        $rec = $collapse($assoc);
+                        $out[$k] = $rec;
+                    }
+                } else {
+                    if (is_string($v)) {
+                        $out[$k] = $v;
+                    } elseif (is_int($v) || is_float($v) || is_bool($v) || $v === null) {
+                        $out[$k] = (string) $v;
+                    } else {
+                        $out[$k] = '';
+                    }
+                }
+            }
+            return $out;
+        };
 
-        throw new HttpResponseException(response()->json([
+        $grouped = $collapse($nest($flat));
+
+        $payload = [
             'ok'      => false,
             'code'    => 'VALIDATION_FAILED',
-            'errors'  => $errors,
-            'message' => $validator->errors()->first(),
-        ], 422));
+            'message' => 'Validation failed.',
+            'errors'  => $grouped,
+        ];
+
+        throw new HttpResponseException(response()->json($payload, 422));
     }
 }
-

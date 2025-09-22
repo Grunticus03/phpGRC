@@ -23,14 +23,15 @@ type CoreBody = {
 
 describe("Admin Settings page", () => {
   const originalFetch = globalThis.fetch as typeof fetch;
-  let postBody: unknown = null;
+  let putBody: unknown = null;
 
   beforeEach(() => {
-    postBody = null;
+    putBody = null;
     globalThis.fetch = vi.fn(async (...args: Parameters<typeof fetch>) => {
       const url = String(args[0]);
       const init = (args[1] ?? {}) as RequestInit;
 
+      // GET effective settings (DB-backed in app, but mocked here)
       if (url === "/api/admin/settings" && (!init || init.method === undefined)) {
         return jsonResponse({
           ok: true,
@@ -44,17 +45,20 @@ describe("Admin Settings page", () => {
                 allowed_mime: ["application/pdf", "image/png", "image/jpeg", "text/plain"],
               },
               avatars: { enabled: true, size_px: 128, format: "webp" },
+              // metrics come from DB in-app; not asserted here
             },
           },
         });
       }
 
-      if (url === "/api/admin/settings" && init?.method === "POST") {
+      // PUT settings (create/update)
+      if (url === "/api/admin/settings" && init?.method === "PUT") {
         try {
-          postBody = JSON.parse(String(init.body ?? "{}"));
+          putBody = JSON.parse(String(init.body ?? "{}"));
         } catch {
-          postBody = null;
+          putBody = null;
         }
+        // Return stub-only note to trigger expected message
         return jsonResponse({ ok: true, note: "stub-only" }, { status: 200 });
       }
 
@@ -85,10 +89,10 @@ describe("Admin Settings page", () => {
 
     await screen.findByText("Validated. Not persisted (stub).");
 
-    expect(postBody).toBeTruthy();
-    expect(postBody).toHaveProperty("core");
+    expect(putBody).toBeTruthy();
+    expect(putBody).toHaveProperty("core");
 
-    const core = (postBody as CoreBody).core;
+    const core = (putBody as CoreBody).core;
     expect(core).toHaveProperty("rbac");
     expect(core).toHaveProperty("audit");
     expect(core).toHaveProperty("evidence");

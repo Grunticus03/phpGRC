@@ -52,6 +52,12 @@ const MAP: Record<string, ActionInfo> = {
     aria: "Access denied because a required role is missing",
     category: "RBAC",
   },
+  // Seeded test variant
+  "rbac.deny.role": {
+    label: "Access denied: role mismatch",
+    aria: "Access denied because a required role is missing or does not match",
+    category: "RBAC",
+  },
 
   // Explicit policy names we know are emitted frequently
   "rbac.deny.policy.core.metrics.view": {
@@ -72,9 +78,10 @@ const MAP: Record<string, ActionInfo> = {
 };
 
 function fallback(action: string): ActionInfo {
+  const key = String(action || "").trim();
   return {
-    label: `Access denied: ${action}`,
-    aria: `Access denied due to ${action}`,
+    label: `Access denied: ${key}`,
+    aria: `Access denied due to ${key}`,
     category: "RBAC",
   };
 }
@@ -95,14 +102,17 @@ export function actionInfo(action: string): ActionInfo {
       aria: `Access denied because policy ${policy} is not satisfied`,
       category: "RBAC",
     };
-    }
+  }
+
+  // Generic prefix mapping for rbac.deny.role.*
+  if (key.startsWith("rbac.deny.role.")) {
+    return MAP["rbac.deny.role"];
+  }
 
   return fallback(key);
 }
 
-/**
- * Accessibility helper for screen readers.
- */
+/** Accessibility helper for screen readers. */
 export function actionA11yLabel(action: string): string {
   return actionInfo(action).aria;
 }

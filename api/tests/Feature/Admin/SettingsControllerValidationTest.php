@@ -11,6 +11,7 @@ final class SettingsControllerValidationTest extends TestCase
     public function test_rejects_invalid_avatars_size(): void
     {
         $payload = [
+            'apply' => true,
             'avatars' => ['enabled' => true, 'size_px' => 96, 'format' => 'webp'],
             'rbac' => ['enabled' => true, 'roles' => ['Admin']],
             'audit' => ['enabled' => true, 'retention_days' => 365],
@@ -25,6 +26,7 @@ final class SettingsControllerValidationTest extends TestCase
     public function test_rejects_non_webp_avatar_format(): void
     {
         $payload = [
+            'apply' => true,
             'avatars' => ['enabled' => true, 'size_px' => 128, 'format' => 'png'],
             'rbac' => ['enabled' => true, 'roles' => ['Admin']],
             'audit' => ['enabled' => true, 'retention_days' => 365],
@@ -39,6 +41,7 @@ final class SettingsControllerValidationTest extends TestCase
     public function test_rejects_audit_retention_out_of_range_low(): void
     {
         $payload = [
+            'apply' => true,
             'audit' => ['enabled' => true, 'retention_days' => 0],
             'rbac' => ['enabled' => true, 'roles' => ['Admin']],
             'evidence' => ['enabled' => true, 'max_mb' => 25, 'allowed_mime' => ['application/pdf']],
@@ -53,6 +56,7 @@ final class SettingsControllerValidationTest extends TestCase
     public function test_rejects_audit_retention_out_of_range_high(): void
     {
         $payload = [
+            'apply' => true,
             'audit' => ['enabled' => true, 'retention_days' => 9999],
             'rbac' => ['enabled' => true, 'roles' => ['Admin']],
             'evidence' => ['enabled' => true, 'max_mb' => 25, 'allowed_mime' => ['application/pdf']],
@@ -67,6 +71,7 @@ final class SettingsControllerValidationTest extends TestCase
     public function test_rejects_evidence_max_mb_too_small(): void
     {
         $payload = [
+            'apply' => true,
             'evidence' => ['enabled' => true, 'max_mb' => 0, 'allowed_mime' => ['application/pdf']],
             'rbac' => ['enabled' => true, 'roles' => ['Admin']],
             'audit' => ['enabled' => true, 'retention_days' => 365],
@@ -81,10 +86,11 @@ final class SettingsControllerValidationTest extends TestCase
     public function test_rejects_disallowed_evidence_mime(): void
     {
         $payload = [
+            'apply' => true,
             'evidence' => [
                 'enabled' => true,
                 'max_mb' => 25,
-                'allowed_mime' => ['application/x-msdownload'] // not in allowed list
+                'allowed_mime' => ['application/x-msdownload']
             ],
             'rbac' => ['enabled' => true, 'roles' => ['Admin']],
             'audit' => ['enabled' => true, 'retention_days' => 365],
@@ -100,6 +106,7 @@ final class SettingsControllerValidationTest extends TestCase
     {
         $tooLong = str_repeat('A', 65);
         $payload = [
+            'apply' => true,
             'rbac' => ['enabled' => true, 'roles' => ['Admin', $tooLong]],
             'audit' => ['enabled' => true, 'retention_days' => 365],
             'evidence' => ['enabled' => true, 'max_mb' => 25, 'allowed_mime' => ['application/pdf']],
@@ -115,6 +122,7 @@ final class SettingsControllerValidationTest extends TestCase
     {
         $payload = [
             'core' => [
+                'apply' => true,
                 'avatars' => ['enabled' => true, 'size_px' => 256, 'format' => 'jpeg'],
                 'audit' => ['enabled' => true, 'retention_days' => 0],
                 'evidence' => ['enabled' => true, 'max_mb' => 0, 'allowed_mime' => ['application/x-msdownload']],
@@ -131,6 +139,8 @@ final class SettingsControllerValidationTest extends TestCase
                      ->has('errors.evidence.max_mb')
                      ->has('errors.evidence.allowed_mime')
                      ->has('errors.rbac.roles')
+                     ->etc()
             );
     }
 }
+

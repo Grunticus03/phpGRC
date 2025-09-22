@@ -21,7 +21,7 @@ final class SettingsController extends Controller
 
         return new JsonResponse([
             'ok'     => true,
-            'config' => $effective, // exposes core.rbac.roles, audit.retention_days, evidence.max_mb/allowed_mime, avatars.size_px/format
+            'config' => $effective, // includes core.metrics (cache_ttl_seconds, evidence_freshness.days, rbac_denies.window_days)
         ], 200);
     }
 
@@ -31,10 +31,13 @@ final class SettingsController extends Controller
         $raw       = $request->all();
         /** @var array<string,mixed> $validated */
         $validated = $request->validated();
+
+        // Accept both spec shape (top-level) and legacy shape (under core.*)
         /** @var array<string,mixed> $legacy */
         $legacy    = is_array(Arr::get($raw, 'core')) ? (array) $raw['core'] : [];
+
         /** @var array<string,mixed> $accepted */
-        $accepted  = Arr::only($legacy + $validated, ['rbac', 'audit', 'evidence', 'avatars']);
+        $accepted  = Arr::only($legacy + $validated, ['rbac', 'audit', 'evidence', 'avatars', 'metrics']);
 
         $apply = false;
         if ($request->has('apply')) {

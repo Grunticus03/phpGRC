@@ -17,7 +17,7 @@ final class SettingsValidationTest extends TestCase
 
     public function test_invalid_roles_rejected(): void
     {
-        $payload = ['rbac' => ['roles' => []]];
+        $payload = ['apply' => true, 'rbac' => ['roles' => []]];
         $this->postJson('/api/admin/settings', $payload)
             ->assertStatus(422)
             ->assertJsonFragment(['code' => 'VALIDATION_FAILED']);
@@ -25,7 +25,7 @@ final class SettingsValidationTest extends TestCase
 
     public function test_invalid_audit_retention_rejected(): void
     {
-        $payload = ['audit' => ['retention_days' => 0]];
+        $payload = ['apply' => true, 'audit' => ['retention_days' => 0]];
         $this->postJson('/api/admin/settings', $payload)
             ->assertStatus(422)
             ->assertJsonFragment(['code' => 'VALIDATION_FAILED']);
@@ -33,7 +33,7 @@ final class SettingsValidationTest extends TestCase
 
     public function test_invalid_avatars_constraints_rejected(): void
     {
-        $payload = ['avatars' => ['size_px' => 64, 'format' => 'png']];
+        $payload = ['apply' => true, 'avatars' => ['size_px' => 64, 'format' => 'png']];
         $this->postJson('/api/admin/settings', $payload)
             ->assertStatus(422)
             ->assertJsonFragment(['code' => 'VALIDATION_FAILED']);
@@ -41,7 +41,7 @@ final class SettingsValidationTest extends TestCase
 
     public function test_evidence_allowed_mime_must_be_subset(): void
     {
-        $payload = ['evidence' => ['allowed_mime' => ['application/zip']]];
+        $payload = ['apply' => true, 'evidence' => ['allowed_mime' => ['application/zip']]];
         $this->postJson('/api/admin/settings', $payload)
             ->assertStatus(422)
             ->assertJsonFragment(['code' => 'VALIDATION_FAILED']);
@@ -65,3 +65,4 @@ final class SettingsValidationTest extends TestCase
             ]);
     }
 }
+

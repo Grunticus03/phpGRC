@@ -4,50 +4,115 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Metrics;
 
-use App\Services\Metrics\EvidenceFreshnessCalculator;
-use App\Services\Metrics\RbacDeniesCalculator;
+use App\Http\Controllers\Controller;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Routing\Controller;
+use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\DB;
 
 final class MetricsController extends Controller
 {
-    public function index(
-        Request $request,
-        RbacDeniesCalculator $rbacDenies,
-        EvidenceFreshnessCalculator $evidenceFreshness,
-    ): JsonResponse {
-        /** @var mixed $freshCfg */
-        $freshCfg = config('core.metrics.evidence_freshness.days');
-        /** @var mixed $rbacCfg */
-        $rbacCfg = config('core.metrics.rbac_denies.window_days');
+    /**
+     * Back-compat for routes that still point to MetricsController@index.
+     */
+    public function index(Request $request): JsonResponse
+    {
+        return $this->kpis($request);
+    }
 
-        $freshDefault = $this->intFromConfig($freshCfg, 30);
-        $rbacDefault  = $this->intFromConfig($rbacCfg, 7);
+    public function kpis(Request $request): JsonResponse
+    {
+        $defaultFresh = $this->cfgInt('core.metrics.evidence_freshness.days', 30);
+        $defaultRbac  = $this->cfgInt('core.metrics.rbac_denies.window_days', 7);
 
-        $freshDays = $this->clampQueryInt($request, 'days', $freshDefault, 1, 365);
-        $rbacDays  = $this->clampQueryInt($request, 'rbac_days', $rbacDefault, 1, 365);
+        $freshDays = $this->parseWindow($request->query('days'), $defaultFresh);
+        $rbacDays  = $this->parseWindow($request->query('rbac_days'), $defaultRbac);
 
-        /** @var array{
-         *   window_days:int, from:non-empty-string, to:non-empty-string, denies:int, total:int, rate:float,
-         *   daily:list<array{date:non-empty-string, denies:int, total:int, rate:float}>
-         * } $rbac
-         */
-        $rbac = $rbacDenies->compute($rbacDays);
+        $to   = CarbonImmutable::now('UTC')->startOfDay();
+        $from = $to->subDays($rbacDays - 1);
 
-        /** @var array{
-         *   days:int,total:int,stale:int,percent:float,
-         *   by_mime:list<array{mime:non-empty-string,total:int,stale:int,percent:float}>
-         * } $fresh
-         */
-        $fresh = $evidenceFreshness->compute($freshDays);
+        // RBAC/AUTH totals
+        $rbacTotal = DB::table('audit_events')
+            ->whereIn('category', ['RBAC', 'AUTH'])
+            ->whereBetween('occurred_at', [$from, $to->endOfDay()])
+            ->count();
 
-        return response()->json([
+        $rbacDenies = DB::table('audit_events')
+            ->where('category', 'RBAC')
+            ->where('action', 'like', 'rbac.deny.%')
+            ->whereBetween('occurred_at', [$from, $to->endOfDay()])
+            ->count();
+
+        $rate = $rbacTotal > 0 ? ($rbacDenies / $rbacTotal) : 0.0;
+
+        $daily = DB::table('audit_events')
+            ->selectRaw("DATE(occurred_at) as d")
+            ->selectRaw("SUM(CASE WHEN action LIKE 'rbac.deny.%' THEN 1 ELSE 0 END) as denies")
+            ->selectRaw("COUNT(*) as total")
+            ->whereIn('category', ['RBAC', 'AUTH'])
+            ->whereBetween('occurred_at', [$from, $to->endOfDay()])
+            ->groupBy('d')
+            ->orderBy('d')
+            ->get()
+            ->map(static function ($row): array {
+                $denies = is_numeric($row->denies ?? null) ? (int) $row->denies : 0;
+                $total  = is_numeric($row->total ?? null)  ? (int) $row->total  : 0;
+                $r      = $total > 0 ? $denies / $total : 0.0;
+                return [
+                    'date'   => (string) ($row->d ?? ''),
+                    'denies' => $denies,
+                    'total'  => $total,
+                    'rate'   => $r,
+                ];
+            })
+            ->all();
+
+        // Evidence freshness
+        $cutoff = CarbonImmutable::now('UTC')->subDays($freshDays);
+
+        $evTotal = DB::table('evidence')->count();
+        $evStale = DB::table('evidence')->where('updated_at', '<', $cutoff)->count();
+        $evPct   = $evTotal > 0 ? ($evStale / $evTotal) : 0.0;
+
+        $byMime = DB::table('evidence')
+            ->select('mime')
+            ->selectRaw('COUNT(*) as total')
+            ->selectRaw("SUM(CASE WHEN updated_at < ? THEN 1 ELSE 0 END) as stale", [$cutoff])
+            ->groupBy('mime')
+            ->orderByDesc('total')
+            ->get()
+            ->map(static function ($row): array {
+                $total = is_numeric($row->total ?? null) ? (int) $row->total : 0;
+                $stale = is_numeric($row->stale ?? null) ? (int) $row->stale : 0;
+                return [
+                    'mime'    => (string) ($row->mime ?? ''),
+                    'total'   => $total,
+                    'stale'   => $stale,
+                    'percent' => $total > 0 ? $stale / $total : 0.0,
+                ];
+            })
+            ->all();
+
+        return new JsonResponse([
             'ok'   => true,
             'data' => [
-                'rbac_denies'        => $rbac,
-                'evidence_freshness' => $fresh,
+                'rbac_denies' => [
+                    'window_days' => $rbacDays,
+                    'from'        => $from->toDateString(),
+                    'to'          => $to->toDateString(),
+                    'denies'      => $rbacDenies,
+                    'total'       => $rbacTotal,
+                    'rate'        => $rate,
+                    'daily'       => $daily,
+                ],
+                'evidence_freshness' => [
+                    'days'    => $freshDays,
+                    'total'   => $evTotal,
+                    'stale'   => $evStale,
+                    'percent' => $evPct,
+                    'by_mime' => $byMime,
+                ],
             ],
             'meta' => [
                 'generated_at' => CarbonImmutable::now('UTC')->toIso8601String(),
@@ -56,44 +121,42 @@ final class MetricsController extends Controller
         ], 200);
     }
 
-    /** Safe int parse for mixed config values with clamp. */
-    private function intFromConfig(mixed $val, int $fallback): int
+    private function cfgInt(string $key, int $fallback): int
     {
-        $n = $fallback;
-        if (is_int($val)) {
-            $n = $val;
-        } elseif (is_string($val) && ctype_digit($val)) {
-            $n = (int) $val;
+        /** @var mixed $v */
+        $v = config($key);
+
+        if (is_int($v)) {
+            return $v;
         }
-        return max(1, min(365, $n));
+        if (is_string($v) && $v !== '' && ctype_digit($v)) {
+            return (int) $v;
+        }
+        return $fallback;
     }
 
-    /** Accepts string or array query params. Falls back to default, then clamps. */
-    private function clampQueryInt(Request $req, string $key, int $default, int $min, int $max): int
+    /**
+     * @param mixed $raw query param (int|string|array<int|string>|null)
+     */
+    private function parseWindow(mixed $raw, int $fallback): int
     {
-        /** @var mixed $raw */
-        $raw = $req->query($key);
+        /** @var mixed $value */
+        $value = is_array($raw) ? Arr::first($raw) : $raw;
 
-        $val = null;
-        if (is_array($raw)) {
-            /** @var mixed $first */
-            $first = $raw[0] ?? null;
-            $val = is_string($first) ? trim($first) : null;
-        } elseif (is_string($raw)) {
-            $val = trim($raw);
+        if (is_int($value)) {
+            $n = $value;
+        } elseif (is_string($value) && ctype_digit(ltrim($value, '+-'))) {
+            $n = (int) $value;
+        } else {
+            $n = $fallback;
         }
 
-        $n = $default;
-        if (is_string($val) && preg_match('/^-?\d+$/', $val) === 1) {
-            $n = (int) $val;
+        if ($n < 1) {
+            return 1;
         }
-
-        if ($n < $min) {
-            $n = $min;
-        } elseif ($n > $max) {
-            $n = $max;
+        if ($n > 365) {
+            return 365;
         }
-
         return $n;
     }
 }

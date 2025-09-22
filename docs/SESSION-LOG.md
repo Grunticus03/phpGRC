@@ -1243,3 +1243,20 @@ SESSION-LOG.md entry
   - Confirm routes match test expectations and RBAC defaults remain intact.
 - Next action (me): 
   - If any failures persist, I’ll prepare a minimal patch ensuring `generated_at` is added in both endpoints and recheck Psalm/PHPStan for zero mixed-type findings.
+
+---
+
+### Session 2025-09-21: [Phase 2, Step 3 — Admin Settings & Metrics]
+- Context: Move non-DB-connection settings to DB, expose in Admin WebUI, align validation + tests, and fix static analysis for Settings & Metrics.
+- Goal: Green CI with DB-backed settings (incl. core.metrics.*), consistent validation envelope, and working metrics alias routes.
+- Constraints: Full files only for code changes; keep tests under api/tests; prefer DB for adjustable settings; avoid .env for app settings where possible.
+
+### Closeout
+- Deliverables produced: Full UpdateSettingsRequest (flat + legacy support, strict rules, nested error envelope with code), Admin SettingsController (index/update), revised tests provided by you integrated, guidance for metrics alias + RBAC test harness, static-analysis cleanups (Override attributes, typed arrays, mixed→typed).
+- Phase/Step status: partial (most validation now consistent; remaining items: metrics alias action + routes; confirm legacy error payload in one test; ensure cache driver/table for metrics tests).
+- Next action (you): 
+  - Run full suite: `php artisan migrate --env=testing && vendor/bin/phpunit`.
+  - If cache table error returns, set cache to array in tests (`config(['cache.default'=>'array'])`) or migrate cache table.
+  - Confirm three previously failing tests pass after UpdateSettingsRequest swap.
+- Next action (me): 
+  - Deliver full files for: MetricsController (add index alias to kpis, typed params), routes/api.php (admin settings + /api/metrics/dashboard alias), SettingsServiceProvider (load DB overrides, publish defaults), and any missing migration/model for `core_settings`.
