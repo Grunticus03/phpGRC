@@ -1,6 +1,7 @@
-// FILE: web/src/routes/dashboard/Kpis.tsx
+/* FILE: web/src/routes/dashboard/Kpis.tsx */
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { fetchKpis, type Kpis } from "../../lib/api/metrics";
+import Sparkline from "../../components/charts/Sparkline";
 
 function pct(n: number): string {
   const v = Math.max(0, Math.min(100, n * (n <= 1 ? 100 : 1)));
@@ -10,53 +11,6 @@ function pct(n: number): string {
 function clampDays(n: number): number {
   const v = Math.trunc(Number.isFinite(n) ? n : 0);
   return Math.max(1, Math.min(365, v));
-}
-
-function Sparkline({
-  values,
-  height = 40,
-  strokeWidth = 2,
-  ariaLabel,
-}: {
-  values: number[];
-  height?: number;
-  strokeWidth?: number;
-  ariaLabel?: string;
-}): JSX.Element | null {
-  const n = values.length;
-  if (n === 0) return null;
-
-  // Normalize to 0..1 if values look like 0..100
-  const maxVal = Math.max(...values);
-  const normalized = maxVal > 1 ? values.map((v) => v / 100) : values;
-
-  const w = Math.max(1, n - 1);
-  const min = Math.min(...normalized);
-  const max = Math.max(...normalized);
-  const span = Math.max(1e-6, max - min);
-
-  const points = normalized.map((v, i) => {
-    const x = (i / Math.max(1, n - 1)) * w;
-    const y = height - ((v - min) / span) * height;
-    return `${x.toFixed(2)},${y.toFixed(2)}`;
-  });
-
-  const d = `M ${points[0]} L ${points.slice(1).join(" ")}`;
-
-  return (
-    <svg
-      viewBox={`0 0 ${w} ${height}`}
-      preserveAspectRatio="none"
-      width="100%"
-      height={height}
-      role="img"
-      aria-label={ariaLabel ?? "sparkline"}
-      style={{ display: "block" }}
-    >
-      <title>{ariaLabel ?? "sparkline"}</title>
-      <path d={d} fill="none" stroke="currentColor" strokeWidth={strokeWidth} />
-    </svg>
-  );
 }
 
 export default function Kpis(): JSX.Element {
@@ -92,6 +46,11 @@ export default function Kpis(): JSX.Element {
     void load();
   }, [load]);
 
+  // Safe derived values kept outside conditional returns to keep hook order stable.
+  const d = data?.rbac_denies ?? { window_days: 0, denies: 0, total: 0, rate: 0, daily: [] };
+  const e = data?.evidence_freshness ?? { days: 0, total: 0, stale: 0, percent: 0, by_mime: [] };
+  const sparkValues: number[] = Array.isArray(d.daily) ? d.daily.map((row) => row.rate) : [];
+
   if (error === "forbidden") {
     return (
       <section aria-labelledby="kpi-title">
@@ -118,9 +77,6 @@ export default function Kpis(): JSX.Element {
       </section>
     );
   }
-
-  const d = data.rbac_denies;
-  const e = data.evidence_freshness;
 
   return (
     <section aria-labelledby="kpi-title" aria-busy={loading}>
@@ -176,11 +132,14 @@ export default function Kpis(): JSX.Element {
             <p style={{ margin: 0 }}>
               Window: {d.window_days}d · Denies: {d.denies} / {d.total}
             </p>
-            <div aria-hidden="true" style={{ marginTop: "0.5rem" }}>
+            <div className="mt-2" aria-hidden={sparkValues.length === 0}>
               <Sparkline
-                values={d.daily.map((row) => row.rate)}
-                ariaLabel="Daily RBAC denies rate sparkline"
-                height={36}
+                values={sparkValues}
+                width={240}
+                height={40}
+                strokeWidth={2}
+                ariaLabel="RBAC denies sparkline"
+                className="text-primary"
               />
             </div>
           </div>

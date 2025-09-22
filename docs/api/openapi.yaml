@@ -3,30 +3,19 @@ info:
   title: phpGRC
   version: 0.4.6
   description: |
-    ## Notes: Metrics KPIs (internal, no schema change)
-    The dashboard KPIs for RBAC denies and Evidence freshness are served by an internal endpoint and are **not part of this OpenAPI** by design.
-
-    - Endpoint: `GET /api/dashboard/kpis` (admin-only). An alias may exist at `/api/metrics/dashboard`. These paths are intentionally omitted from the public spec.
-    - Defaults (env → config):
-      - `CORE_METRICS_EVIDENCE_FRESHNESS_DAYS=30` → `config('core.metrics.evidence_freshness.days')`
-      - `CORE_METRICS_RBAC_DENIES_WINDOW_DAYS=7` → `config('core.metrics.rbac_denies.window_days')`
-    - Query params accepted by the endpoint (documented here for operator clarity, not as an OpenAPI contract):
-      - `days` and `rbac_days` are clamped to **1..365**. Non-numeric or missing values fall back to configured defaults.
-    - AuthZ:
-      - Requires policy `core.metrics.view`. On failure, returns **403** and emits exactly one `RBAC` audit with `rbac.deny.policy.core.metrics.view`.
-    - Response shape (summary):
-      - `rbac_denies`: `{ window_days, from, to, denies, total, rate, daily[] }` where `rate` is `0..1`.
-      - `evidence_freshness`: `{ days, total, stale, percent, by_mime[] }` where `percent` may be `0..1` or `0..100`; the web client normalizes to `0..100`.
-
-    These notes document operational behavior and defaults only. No public API stability is implied for these paths.
+    Notes:
+    - The Metrics Dashboard is an internal, admin-only endpoint (`GET /api/dashboard/kpis`) and is not part of this public OpenAPI.
+    - Metrics defaults are config-driven with environment fallbacks:
+      - `CORE_METRICS_EVIDENCE_FRESHNESS_DAYS` → default **30**
+      - `CORE_METRICS_RBAC_DENIES_WINDOW_DAYS` → default **7**
+    - The dashboard API accepts optional `days` and `rbac_days` query parameters. The server clamps each to the inclusive range **[1, 365]**.
   license:
     identifier: MIT
     name: MIT
   x-logo:
-    url: "https://172.16.0.46:8000/images/phpGRC-light-horizontal.webp"
-    backgroundColor: "#FFFFFF"
+    url: "http://172.16.0.46:8000/images/phpGRC-light-horizontal-trans.png"
     altText: "phpGRC"
-    href: "https://172.16.0.46:8000/api/docs"
+    href: "http://172.16.0.46:8000/api/docs"
 servers:
   - url: /api
 tags:

@@ -1,116 +1,87 @@
 import React from "react";
 
-export type SparkPoint = { x: string; y: number };
-
 export type SparklineProps = {
-  data: SparkPoint[];
-  width?: number;   // px
-  height?: number;  // px
-  strokeWidth?: number;
-  ariaLabel?: string;
+  values: number[];               // array of numbers, commonly 0..1
+  width?: number;                 // px
+  height?: number;                // px
+  strokeWidth?: number;           // px
+  ariaLabel?: string;             // accessible label
   className?: string;
 };
 
-function toNumber(n: unknown, fallback = 0): number {
-  return typeof n === "number" && isFinite(n) ? n : fallback;
-}
-
-function pathFrom(data: SparkPoint[], w: number, h: number, pad = 4): string {
-  const n = data.length;
-  const innerW = Math.max(0, w - pad * 2);
-  const innerH = Math.max(0, h - pad * 2);
-
-  if (n === 0 || innerW === 0 || innerH === 0) {
-    const y = pad + innerH / 2;
-    return `M ${pad} ${y} L ${pad + innerW} ${y}`;
-  }
-
-  // Determine Y domain
-  let minY = Number.POSITIVE_INFINITY;
-  let maxY = Number.NEGATIVE_INFINITY;
-  for (const p of data) {
-    const v = toNumber(p.y, 0);
-    if (v < minY) minY = v;
-    if (v > maxY) maxY = v;
-  }
-  if (!isFinite(minY) || !isFinite(maxY)) {
-    minY = 0;
-    maxY = 1;
-  }
-  if (minY === maxY) {
-    // Flat line in the middle when all values equal
-    const yFlat = pad + innerH / 2;
-    let d = `M ${pad} ${yFlat}`;
-    for (let i = 1; i < n; i++) {
-      const x = pad + (innerW * i) / Math.max(1, n - 1);
-      d += ` L ${x} ${yFlat}`;
-    }
-    return d;
-  }
-
-  const scaleX = (i: number) => pad + (innerW * i) / Math.max(1, n - 1);
-  const scaleY = (v: number) =>
-    pad + innerH - ((toNumber(v, 0) - minY) / (maxY - minY)) * innerH;
-
-  let d = `M ${scaleX(0)} ${scaleY(data[0].y)}`;
-  for (let i = 1; i < n; i++) {
-    d += ` L ${scaleX(i)} ${scaleY(data[i].y)}`;
-  }
-  return d;
-}
-
 /**
  * Minimal, dependency-free SVG sparkline.
- * - Color inherits from currentColor.
- * - Accessible: role="img" with aria-label.
+ * - Scales X evenly across samples.
+ * - Scales Y between min..max; if flat series, draws a midline.
+ * - Stroke uses currentColor. No fill.
  */
-export function Sparkline({
-  data,
-  width = 120,
-  height = 28,
+export default function Sparkline({
+  values,
+  width = 160,
+  height = 40,
   strokeWidth = 2,
-  ariaLabel = "Trend sparkline",
+  ariaLabel = "sparkline",
   className,
-}: SparklineProps) {
-  const d = React.useMemo(() => pathFrom(data, width, height, 4), [data, width, height]);
+}: SparklineProps): JSX.Element {
+  const n = Array.isArray(values) ? values.length : 0;
 
-  // Last point marker
-  const n = data.length;
-  const hasPoint = n > 0 && width > 8 && height > 8;
-  let lastCX = 0;
-  let lastCY = 0;
-  if (hasPoint) {
-    const innerW = Math.max(0, width - 8);
-    const innerH = Math.max(0, height - 8);
-    const minY = Math.min(...data.map((p) => p.y));
-    const maxY = Math.max(...data.map((p) => p.y));
-    const scaleX = (i: number) => 4 + (innerW * i) / Math.max(1, n - 1);
-    const scaleY =
-      minY === maxY
-        ? () => 4 + innerH / 2
-        : (v: number) => 4 + innerH - ((v - minY) / (maxY - minY)) * innerH;
-    lastCX = scaleX(n - 1);
-    lastCY = scaleY(data[n - 1].y);
+  const w = Math.max(1, Math.floor(width));
+  const h = Math.max(1, Math.floor(height));
+  const sw = Math.max(1, Math.floor(strokeWidth));
+
+  if (n === 0) {
+    return (
+      <svg
+        role="img"
+        aria-label={ariaLabel}
+        width={w}
+        height={h}
+        viewBox={`0 0 ${w} ${h}`}
+        className={className}
+        data-empty="true"
+      />
+    );
   }
+
+  let min = Number.POSITIVE_INFINITY;
+  let max = Number.NEGATIVE_INFINITY;
+  for (let i = 0; i < n; i += 1) {
+    const v = Number.isFinite(values[i]) ? (values[i] as number) : 0;
+    if (v < min) min = v;
+    if (v > max) max = v;
+  }
+  if (!Number.isFinite(min)) min = 0;
+  if (!Number.isFinite(max)) max = 0;
+
+  const range = max - min;
+  const dx = n > 1 ? w / (n - 1) : 0;
+
+  const points: Array<{ x: number; y: number }> = [];
+  for (let i = 0; i < n; i += 1) {
+    const v = Number.isFinite(values[i]) ? (values[i] as number) : 0;
+    const t = range > 0 ? (v - min) / range : 0.5; // flat series → midline
+    const x = Math.round((i * dx + Number.EPSILON) * 100) / 100;
+    const y = Math.round(((1 - t) * h + Number.EPSILON) * 100) / 100;
+    points.push({ x, y });
+  }
+
+  const d =
+    points.length === 1
+      ? `M 0 ${points[0]!.y} L ${w} ${points[0]!.y}`
+      : points
+          .map((p, idx) => `${idx === 0 ? "M" : "L"} ${p.x} ${p.y}`)
+          .join(" ");
 
   return (
     <svg
-      width={width}
-      height={height}
-      viewBox={`0 0 ${width} ${height}`}
       role="img"
       aria-label={ariaLabel}
+      width={w}
+      height={h}
+      viewBox={`0 0 ${w} ${h}`}
       className={className}
     >
-      <path d={d} fill="none" stroke="currentColor" strokeWidth={strokeWidth} />
-      {hasPoint ? (
-        <circle cx={lastCX} cy={lastCY} r={strokeWidth + 1} fill="currentColor" />
-      ) : null}
+      <path d={d} fill="none" stroke="currentColor" strokeWidth={sw} vectorEffect="non-scaling-stroke" />
     </svg>
   );
 }
-
-export default Sparkline;
-
-// Exported for testing
-export const __private = { pathFrom };
