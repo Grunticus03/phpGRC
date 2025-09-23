@@ -1,3 +1,4 @@
+# @phpgrc:/api/openapi.yaml
 openapi: 3.1.0
 info:
   title: phpGRC
@@ -9,6 +10,8 @@ info:
       - `CORE_METRICS_EVIDENCE_FRESHNESS_DAYS` → default **30**
       - `CORE_METRICS_RBAC_DENIES_WINDOW_DAYS` → default **7**
     - The dashboard API accepts optional `days` and `rbac_days` query parameters. The server clamps each to the inclusive range **[1, 365]**.
+    - Audit events MAY include settings-change details in `meta.changes` for category `SETTINGS` events (e.g., `"settings.update"`). Each change item includes `{ key, old, new, action }` where `action ∈ { set, update, unset }`. This is an additive payload and does not change the public schema (see examples under `/audit`).  
+    - (Internal-only, not part of this OpenAPI) KPI responses MAY include `meta.cache` with `{ ttl:number, hit:boolean }` when caching is enabled.
   license:
     identifier: MIT
     name: MIT
@@ -16,6 +19,9 @@ info:
     url: "http://172.16.0.46:8000/images/phpGRC-light-horizontal-trans.png"
     altText: "phpGRC"
     href: "http://172.16.0.46:8000/api/docs"
+  x-changelog:
+    - date: 2025-09-23
+      note: "Docs-only: Added guidance and examples for `meta.changes` in audit events; no breaking schema changes."
 servers:
   - url: /api
 tags:
@@ -340,6 +346,7 @@ paths:
       summary: List audit events
       description: |
         Returns persisted events when persistence is enabled. Returns an empty stub payload when persistence is disabled and no business filters are applied.
+        **Note:** Settings-change events may include `meta.changes` with an array of change items detailing which keys changed.
       parameters:
         - $ref: '#/components/parameters/AuditCategory'
         - $ref: '#/components/parameters/AuditAction'
@@ -391,6 +398,38 @@ paths:
                     items: []
                     nextCursor: null
                     note: stub-only
+                settings_changes_example:
+                  summary: Settings update with meta.changes payload
+                  value:
+                    ok: true
+                    _categories: [SYSTEM, RBAC, AUTH, SETTINGS, EXPORTS, EVIDENCE, AVATARS, AUDIT]
+                    _retention_days: 365
+                    filters: { category: SETTINGS, order: desc }
+                    items:
+                      - id: 01JX0ABCDEF1234567890ZYXWV
+                        occurred_at: "2025-09-23T00:00:00Z"
+                        actor_id: 1
+                        action: "settings.update"
+                        category: "SETTINGS"
+                        entity_type: "core"
+                        entity_id: "settings"
+                        ip: "127.0.0.1"
+                        ua: "phpgrc-admin"
+                        meta:
+                          changes:
+                            - key: "core.audit.enabled"
+                              old: true
+                              new: false
+                              action: "update"
+                            - key: "core.evidence.max_mb"
+                              old: 25
+                              new: 50
+                              action: "update"
+                            - key: "core.rbac.roles"
+                              old: ["Admin","Auditor","Risk Manager","User"]
+                              new: ["Admin","Auditor","Risk Manager","User","ReadOnly"]
+                              action: "update"
+                    nextCursor: null
         '401':
           $ref: '#/components/responses/Unauthenticated'
         '403':
@@ -1502,6 +1541,27 @@ components:
             - type: object
               additionalProperties: true
             - type: 'null'
+      description: >
+        Audit record. `meta` MAY include `changes: SettingsChange[]` for `SETTINGS` events such as `settings.update`.
+
+    SettingsChange:
+      type: object
+      description: >
+        A single settings change captured in audit `meta.changes`. Values may be scalar, array, or object. Sensitive values may be redacted.
+      required: [key, action]
+      properties:
+        key:
+          type: string
+          description: Dot-notated key (e.g., `core.audit.enabled`).
+        old:
+          nullable: true
+          description: Previous value (if any).
+        new:
+          nullable: true
+          description: New value (if any).
+        action:
+          type: string
+          enum: [set, update, unset]
 
     AuditListResponse:
       type: object

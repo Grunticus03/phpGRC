@@ -21,7 +21,7 @@ final class SettingsController extends Controller
 
         return new JsonResponse([
             'ok'     => true,
-            'config' => $effective, // includes core.metrics (cache_ttl_seconds, evidence_freshness.days, rbac_denies.window_days)
+            'config' => $effective, // includes core.metrics
         ], 200);
     }
 
@@ -34,11 +34,21 @@ final class SettingsController extends Controller
 
         // Accept both spec shape (top-level) and legacy shape (under core.*)
         /** @var array<string,mixed> $legacy */
-        $legacy    = is_array(Arr::get($raw, 'core')) ? (array) $raw['core'] : [];
+        $legacy = is_array(Arr::get($raw, 'core')) ? (array) $raw['core'] : [];
 
+        // Build accepted strictly from validated sections to avoid silent drops
+        $sections = ['rbac', 'audit', 'evidence', 'avatars', 'metrics'];
         /** @var array<string,mixed> $accepted */
-        $accepted  = Arr::only($legacy + $validated, ['rbac', 'audit', 'evidence', 'avatars', 'metrics']);
+        $accepted = [];
+        foreach ($sections as $sec) {
+            /** @var mixed $val */
+            $val = $validated[$sec] ?? ($legacy[$sec] ?? null);
+            if (is_array($val)) {
+                $accepted[$sec] = $val;
+            }
+        }
 
+        // Determine apply flag from top-level or legacy core.apply
         $apply = false;
         if ($request->has('apply')) {
             $apply = $request->boolean('apply');

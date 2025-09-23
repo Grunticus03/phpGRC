@@ -3,64 +3,60 @@
 declare(strict_types=1);
 
 return [
-    // Persistence gates
+    // Persistence gates (informational; not used to block writes)
     'settings' => [
-        'stub_only' => filter_var(env('CORE_SETTINGS_STUB_ONLY', true), FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) ?? true,
+        'stub_only' => false,
     ],
 
-    // Setup Wizard (bugfix scope)
+    // Setup Wizard defaults
     'setup' => [
-        'enabled'            => filter_var(env('CORE_SETUP_ENABLED', true), FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) ?? true,
-        'shared_config_path' => env('CORE_SETUP_SHARED_CONFIG_PATH', '/opt/phpgrc/shared/config.php'),
-        'allow_commands'     => filter_var(env('CORE_SETUP_ALLOW_COMMANDS', false), FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) ?? false,
+        'enabled'            => true,
+        'shared_config_path' => '/opt/phpgrc/shared/config.php',
+        'allow_commands'     => false,
     ],
 
     'auth' => [
         'local' => [
-            'enabled' => env('CORE_AUTH_LOCAL_ENABLED', true),
+            'enabled' => true,
         ],
         'mfa' => [
             'totp' => [
-                'required_for_admin' => env('CORE_AUTH_MFA_TOTP_REQUIRED_FOR_ADMIN', true),
-                'issuer'    => env('CORE_AUTH_MFA_TOTP_ISSUER', 'phpGRC'),
-                'digits'    => env('CORE_AUTH_MFA_TOTP_DIGITS', 6),
-                'period'    => env('CORE_AUTH_MFA_TOTP_PERIOD', 30),
-                'algorithm' => env('CORE_AUTH_MFA_TOTP_ALGORITHM', 'SHA1'),
+                'required_for_admin' => true,
+                'issuer'    => 'phpGRC',
+                'digits'    => 6,
+                'period'    => 30,
+                'algorithm' => 'SHA1',
             ],
         ],
         'break_glass' => [
-            'enabled' => env('CORE_AUTH_BREAK_GLASS_ENABLED', false),
+            'enabled' => false,
         ],
 
-        // Brute-force guard knobs (Phase 5)
+        // Brute-force guard knobs
         'bruteforce' => [
-            'enabled'        => filter_var(env('CORE_AUTH_BF_ENABLED', true), FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) ?? true,
-            'strategy'       => env('CORE_AUTH_BF_STRATEGY', 'session'), // 'session' | 'ip'
-            'window_seconds' => (int) env('CORE_AUTH_BF_WINDOW_SECONDS', 900),
-            'max_attempts'   => (int) env('CORE_AUTH_BF_MAX_ATTEMPTS', 5),
-            'lock_http_status' => (int) env('CORE_AUTH_BF_LOCK_HTTP_STATUS', 429),
+            'enabled'         => true,
+            'strategy'        => 'session', // 'session' | 'ip'
+            'window_seconds'  => 900,
+            'max_attempts'    => 5,
+            'lock_http_status'=> 429,
         ],
 
         // Cookie used by session strategy
         'session_cookie' => [
-            'name' => env('CORE_AUTH_SESSION_COOKIE_NAME', 'phpgrc_auth_attempt'),
+            'name' => 'phpgrc_auth_attempt',
         ],
     ],
 
     'rbac' => [
         'enabled'      => true,
-        // Mode controls controllers/validation behavior. Values: 'stub' | 'persist'
-        'mode'         => env('CORE_RBAC_MODE', 'stub'),
-        // Back-compat boolean toggle; either this OR mode=persist enables persistence paths.
-        'persistence'  => filter_var(env('CORE_RBAC_PERSISTENCE', false), FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) ?? false,
+        // Use DB to control persistence/require_auth; defaults below are safe for tests
+        'mode'         => 'stub',
+        'persistence'  => false,
 
-        // Auth requirement:
-        // disable in testing to satisfy Phase-4 tests, else read ENV flag (default true).
-        'require_auth' => ((string) env('APP_ENV', 'production') === 'testing')
-            ? false
-            : (bool) env('CORE_RBAC_REQUIRE_AUTH', true),
+        // Default false; set true via DB override: core.rbac.require_auth
+        'require_auth' => false,
 
-        // Phase-4 defaults (human-visible names). Normalization handles storage tokens.
+        // Default role names; storage tokens normalized elsewhere
         'roles' => [
             'Admin',
             'Auditor',
@@ -68,7 +64,7 @@ return [
             'User',
         ],
 
-        // PolicyMap defaults; override via overlay config.
+        // PolicyMap defaults; override via DB if needed
         'policies' => [
             'core.settings.manage'   => ['Admin'],
             'core.audit.view'        => ['Admin', 'Auditor'],
@@ -88,37 +84,38 @@ return [
     'capabilities' => [
         'core' => [
             'exports' => [
-                'generate' => env('CAP_CORE_EXPORTS_GENERATE', true),
+                'generate' => true,
             ],
             'evidence' => [
-                'upload' => env('CAP_CORE_EVIDENCE_UPLOAD', true),
+                'upload' => true,
             ],
             'audit' => [
-                'export' => env('CAP_CORE_AUDIT_EXPORT', true),
+                'export' => true,
             ],
         ],
     ],
 
     'audit' => [
-        'enabled' => env('CORE_AUDIT_ENABLED', true),
-        'retention_days' => env('CORE_AUDIT_RETENTION_DAYS', 365),
-        // CSV export iteration mode: true = cursor(), false = get()
-        'csv_use_cursor' => filter_var(env('CORE_AUDIT_CSV_USE_CURSOR', true), FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) ?? true,
+        'enabled'        => true,
+        'retention_days' => 365,
+        // CSV export iteration mode
+        'csv_use_cursor' => true,
     ],
 
-    // Phase-5 KPI defaults
+    // KPI defaults; DB overrides take precedence
     'metrics' => [
+        'cache_ttl_seconds' => 0, // 0 disables caching
         'evidence_freshness' => [
-            'days' => (int) env('CORE_METRICS_EVIDENCE_FRESHNESS_DAYS', 30),
+            'days' => 30,
         ],
         'rbac_denies' => [
-            'window_days' => (int) env('CORE_METRICS_RBAC_DENIES_WINDOW_DAYS', 7),
+            'window_days' => 7,
         ],
     ],
 
     'evidence' => [
-        'enabled' => env('CORE_EVIDENCE_ENABLED', true),
-        'max_mb' => env('CORE_EVIDENCE_MAX_MB', 25),
+        'enabled'      => true,
+        'max_mb'       => 25,
         'allowed_mime' => [
             'application/pdf',
             'image/png',
@@ -128,16 +125,15 @@ return [
     ],
 
     'avatars' => [
-        'enabled' => env('CORE_AVATARS_ENABLED', true),
-        'size_px' => env('CORE_AVATARS_SIZE_PX', 128),
-        'format'  => env('CORE_AVATARS_FORMAT', 'webp'),
+        'enabled' => true,
+        'size_px' => 128,
+        'format'  => 'webp',
     ],
 
     // Exports defaults
     'exports' => [
-        'enabled' => env('CORE_EXPORTS_ENABLED', true),
-        'disk'    => env('CORE_EXPORTS_DISK', env('FILESYSTEM_DISK', 'local')),
-        'dir'     => env('CORE_EXPORTS_DIR', 'exports'),
+        'enabled' => true,
+        'disk'    => 'local',
+        'dir'     => 'exports',
     ],
 ];
-

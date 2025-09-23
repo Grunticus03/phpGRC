@@ -1260,3 +1260,20 @@ SESSION-LOG.md entry
   - Confirm three previously failing tests pass after UpdateSettingsRequest swap.
 - Next action (me): 
   - Deliver full files for: MetricsController (add index alias to kpis, typed params), routes/api.php (admin settings + /api/metrics/dashboard alias), SettingsServiceProvider (load DB overrides, publish defaults), and any missing migration/model for `core_settings`.
+
+---
+
+### Session 2025-09-23: [Phase 5, Settings + Infra closeout]
+- Context: DB-backed core settings end-to-end, KPI routes, web tests, and Apache routing on test box.
+- Goal: CI green; PUT /api/admin/settings persists to DB; /api/dashboard/kpis and /api/metrics/dashboard live behind Apache; web UI aligned.
+- Constraints: Charter rules; full-file changes only; no ENV for non-connection settings.
+
+### Closeout
+- Deliverables produced:
+  - API: DB overrides loader (SettingsServiceProvider), SettingsService typing/hardening, UpdateSettingsRequest strict envelope, SettingsController apply/stub paths, MetricsController with param coercion + alias route, routes for /api/dashboard/kpis and /api/metrics/dashboard.
+  - Tests: PHPUnit feature tests for validation + persistence; Vitest Settings.test updated to PUT and stub message; ESLint clean.
+  - Infra: Apache config (ports.conf, phpgrc.conf, phpgrc-api.conf) with SPA at / and reverse-proxy /api → internal vhost; routing verified.
+  - Ops: Test box serves SPA and API; PUT persists rows in core_settings; KPIs endpoints return identical shapes.
+- Phase/Step status: advance.
+- Next action (you): open tickets per categories; prepare target files for audit-diff work and metrics cache.
+- Next action (me): implement API audit diffs + listener, expose in /api/audit, add web rendering; add metrics cache TTL + meta; add clamp tests; update OpenAPI and docs.

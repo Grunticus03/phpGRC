@@ -3,19 +3,28 @@ Scope: **UI settings only**. Core Phase-4 Evidence uploads ignore MIME and size 
 
 Canonical runtime settings. Stored in DB unless noted. Avatars and theme pack files are on disk.
 
+> **Phase sync note (additive):** As of Phase 5, **all non-connection Core settings** persist in DB (`core_settings`) and load at boot. This document remains focused on **UI** settings (Phase 5.5). UI settings must also persist in DB; do **not** place UI settings in `.env`.
+
 ## Conventions
 - Keys use dot.case.
 - All writes validate and return `422 VALIDATION_FAILED` on errors.
 - Additive changes only; breaking changes require a major version.
+- **Audit:** successful UI settings changes emit domain/audit events; sensitive bytes are never logged (see “RBAC” and “Branding Uploads”).
+- **No .env for UI:** `.env` is bootstrap-only; UI settings live in DB.
 
 > File-upload rules below apply to **UI features** (branding and theme packs), not Evidence uploads in Phase 4.
 
 ## Storage
-- Global settings: DB table `ui_settings` (key → JSON value).
-- Per-user prefs: DB table `user_ui_prefs`.
-- Branding assets: DB `brand_assets` (metadata) + disk file.
-- Theme packs: DB `themes` (+ optional `theme_assets`) + files under `/public/themes/<slug>/`.
-- Avatars: disk only; metadata on the user record.
+- Global settings: DB table `ui_settings` (key → JSON value).  
+  - **Status:** planned for Phase 5.5; schema and service layer to be added.
+- Per-user prefs: DB table `user_ui_prefs`.  
+  - **Status:** planned for Phase 5.5.
+- Branding assets: DB `brand_assets` (metadata) + disk file.  
+  - **Status:** planned for Phase 5.5.
+- Theme packs: DB `themes` (+ optional `theme_assets`) + files under `/public/themes/<slug>/`.  
+  - **Status:** planned for Phase 5.5.
+- Avatars: disk only; metadata on the user record.  
+  - **Status:** unchanged; out of UI-5.5 scope except for display settings.
 
 ---
 
@@ -138,12 +147,17 @@ id, type, path, size, mime, sha256, uploaded_by, created_at
 # Feature Flags
 - `THEME_CONFIG_ENABLED` (env → config)  
   - Default: **on** in development, **off** in production until QA sign-off.
+  - **Note:** flag gates UI routes only; it does not affect Core settings persistence.
 
 ---
 
 # RBAC
 - Global UI changes and theme imports require `role_admin` or permission `admin.theme`.
 - Per-user preferences require authentication.
+- **Audit (additive):**  
+  - `ui.theme.updated`, `ui.theme.overrides.updated`, `ui.brand.updated`, `ui.nav.sidebar.saved`,  
+    `ui.theme.pack.imported|deleted|enabled|disabled`  
+  - Never store raw bytes or secrets in audit meta; include counts and identifiers only.
 
 ---
 
@@ -215,3 +229,9 @@ Content-Type: application/zip
   }
 }
 ```
+
+---
+## Out-of-scope items (kept for visibility)
+- Evidence upload validation changes (Phase 4 policy) — **not part of UI settings**.
+- Core metric windows and RBAC toggles — managed via Core settings in DB, documented elsewhere.
+

@@ -32,14 +32,17 @@
 ## Dashboards
 - Implement 2 KPIs first: Evidence freshness, RBAC denies rate. ✅
 - Internal endpoint `GET /api/dashboard/kpis` (Admin-only) without OpenAPI change. ✅
+  - Note: Response may include optional `meta.window: { rbac_days, fresh_days }` for display.
 - Defaults read from config with safe fallbacks:
   - `core.metrics.evidence_freshness.days` → fallback 30
   - `core.metrics.rbac_denies.window_days` → fallback 7
+  - **Out of scope now:** Non-connection settings are sourced from DB overrides; config values serve as bootstrap/test defaults only.
 - Seed data fixtures for audit/evidence. ✅
 - Feature tests cover 401/403 and data correctness. ✅
 - Performance check documented. ✅
 - Frontend: adjustable windows wired to query. ✅
 - Frontend: sparkline for daily RBAC denies series rendered in the card. ✅
+- **Alias route:** `GET /api/metrics/dashboard` returns identical shape to `/api/dashboard/kpis`. ✅
 
 ## Evidence & Exports (smoke)
 - Evidence upload tests for allowed MIME and size (per Phase-4 contract).
@@ -48,8 +51,12 @@
 
 ## Config + Ops
 - Runtime reads use config. `.env` only at bootstrap.
+- All non-connection settings live in DB (`core_settings`); SettingsServiceProvider loads DB overrides at boot.
 - CI checks for `env(` usage outside `config/`.
 - Overlay file `/opt/phpgrc/shared/config.php` precedence confirmed.
+- **Settings persistence:** Admin `PUT /api/admin/settings` accepts `apply: true` to persist, or returns stub note when persistence unavailable. ✅
+- **Apache routing:** SPA served at `/`; `/api/` reverse-proxies to Laravel public (or internal vhost at 127.0.0.1:8081). ✅
+  - Note: After deploys, run `php artisan config:clear` and `php artisan route:clear` to avoid stale caches.
 
 ## QA (manual)
 - Admin, Auditor, unassigned user: verify access matrix.
@@ -62,6 +69,7 @@
 - Dashboards contract and examples added. ✅
 - Session log updated with decisions and KPI choices. ✅
 - OpenAPI descriptions note KPI defaults and clamping. ✅
+  - Note: Document alias `/api/metrics/dashboard` and optional `meta.window`.
 - Ops runbook added at `docs/OPS.md`. ✅
 
 ## Sign-off
