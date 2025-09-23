@@ -1,16 +1,9 @@
 # phpGRC Database Schema
 
-Snapshot generated from migrations in `api/database/migrations` as of 2025-09-21.
+Snapshot generated from migrations against **phpgrc** as of 2025-09-23 (UTC).
 
-- SQL dialect: targets MySQL 8.0+
-- Time zones: `timestampsTz` / `dateTimeTz` store UTC.  
-- IDs:
-  - `users.id`: `BIGINT UNSIGNED` auto-increment.
-  - `roles.id`: human-readable `VARCHAR(191)` primary key (e.g., `role_admin`).
-  - `audit_events.id` and `exports.id`: 26-char ULID strings.
-  - `evidence.id`: server-generated `ev_<ULID>` (prefix `ev_` + 26-char ULID).
-  - `avatars.id`: string PK (scaffold).
-- Notation: `✓` = NOT NULL, `✗` = NULL allowed. Sizes shown are MySQL effective lengths.
+- SQL dialect: MySQL 8.0+
+- All times UTC.
 
 ---
 
