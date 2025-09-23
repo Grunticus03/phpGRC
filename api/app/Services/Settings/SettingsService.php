@@ -15,16 +15,24 @@ final class SettingsService
 {
     /** @var list<string> */
     private const CONTRACT_KEYS = [
+        // RBAC
         'rbac.enabled',
         'rbac.roles',
+        // Audit
         'audit.enabled',
         'audit.retention_days',
+        // Evidence
         'evidence.enabled',
         'evidence.max_mb',
         'evidence.allowed_mime',
+        // Avatars
         'avatars.enabled',
         'avatars.size_px',
         'avatars.format',
+        // Metrics (DB-backed knobs)
+        'metrics.cache_ttl_seconds',
+        'metrics.evidence_freshness.days',
+        'metrics.rbac_denies.window_days',
     ];
 
     /** @return array{core: array<string, mixed>} */
@@ -38,13 +46,12 @@ final class SettingsService
         /** @var array<string, mixed> $merged */
         $merged = $this->filterForContract($defaults);
 
-        /** @var string $dotKey */
-        /** @var mixed  $val */
+        /** @psalm-suppress MixedAssignment */
         foreach ($overrides as $dotKey => $val) {
+            /** @var string $dotKey */
             if (!str_starts_with($dotKey, 'core.')) {
                 continue;
             }
-            /** @var string $sub */
             $sub = substr($dotKey, 5);
             if ($this->isContractKey($sub)) {
                 Arr::set($merged, $sub, $val);
@@ -57,6 +64,7 @@ final class SettingsService
             'audit'    => is_array($merged['audit'] ?? null) ? (array) $merged['audit'] : [],
             'evidence' => is_array($merged['evidence'] ?? null) ? (array) $merged['evidence'] : [],
             'avatars'  => is_array($merged['avatars'] ?? null) ? (array) $merged['avatars'] : [],
+            'metrics'  => is_array($merged['metrics'] ?? null) ? (array) $merged['metrics'] : [],
         ];
 
         /** @var array<string, mixed> $finalCore */
@@ -79,7 +87,7 @@ final class SettingsService
     public function apply(array $accepted, ?int $actorId = null, array $context = []): array
     {
         /** @var array<string, mixed> $onlyAccepted */
-        $onlyAccepted = Arr::only($accepted, ['rbac', 'audit', 'evidence', 'avatars']);
+        $onlyAccepted = Arr::only($accepted, ['rbac', 'audit', 'evidence', 'avatars', 'metrics']);
 
         /** @var array<string, mixed> $flatAcceptedInput */
         $flatAcceptedInput = Arr::dot($onlyAccepted);
@@ -100,13 +108,7 @@ final class SettingsService
         $current = $this->currentOverrides();
 
         /** @var array<string, mixed> $desired */
-        $desired = [];
-        /** @var string $k0 */
-        /** @var mixed $v0 */
-        foreach ($current as $k0 => $v0) {
-            /** @psalm-suppress MixedAssignment */
-            $desired[$k0] = $v0;
-        }
+        $desired = $current; // start from current, adjust below
 
         /** @var string $key */
         /** @var mixed  $val */
@@ -131,7 +133,6 @@ final class SettingsService
         /** @var list<string> $becameUnset */
         $becameUnset = array_values(array_diff(array_keys($current), array_keys($desired)));
 
-        /** @var string $k */
         foreach ($becameUnset as $k) {
             if (!in_array($k, $touchedKeys, true)) {
                 $touchedKeys[] = $k;
@@ -144,12 +145,11 @@ final class SettingsService
 
             /** @var array<string, mixed> $toUpsert */
             $toUpsert = [];
-            /** @var string $k */
             foreach ($touchedKeys as $k) {
                 /** @var mixed $cur */
-                $cur = $current[$k] ?? null;
+                $cur = array_key_exists($k, $current) ? $current[$k] : null;
                 /** @var mixed $des */
-                $des = $desired[$k] ?? null;
+                $des = array_key_exists($k, $desired) ? $desired[$k] : null;
                 if ($des === null) {
                     continue;
                 }
@@ -200,12 +200,11 @@ final class SettingsService
 
         /** @var list<array{key:string, old:mixed, new:mixed, action:string}> $changes */
         $changes = [];
-        /** @var string $k */
         foreach ($touchedKeys as $k) {
             /** @var mixed $old */
-            $old = $current[$k] ?? null;
+            $old = array_key_exists($k, $current) ? $current[$k] : null;
             /** @var mixed $new */
-            $new = $desired[$k] ?? null;
+            $new = array_key_exists($k, $desired) ? $desired[$k] : null;
 
             if ($old === null && $new === null) {
                 continue;
@@ -239,31 +238,52 @@ final class SettingsService
         }
 
         /** @var Collection<int, Setting> $rows */
-        $rows = Setting::query()->select(['key', 'value'])->get();
+        $rows = Setting::query()->select(['key', 'value', 'type'])->get();
 
         /** @var array<string, mixed> $out */
         $out = [];
-        /** @var Setting $row */
         foreach ($rows as $row) {
             /** @var mixed $keyAttrRaw */
             $keyAttrRaw = $row->getAttribute('key');
-            if (!is_string($keyAttrRaw)) {
-                continue;
-            }
-            $keyAttr = $keyAttrRaw;
+            /** @var mixed $valRaw */
+            $valRaw     = $row->getAttribute('value');
+            /** @var mixed $typeAttrRaw */
+            $typeAttrRaw = $row->getAttribute('type');
 
-            /** @var mixed $valueRaw */
-            $valueRaw = $row->getAttribute('value');
-            if (!is_string($valueRaw)) {
-                // Skip invalid non-string payloads defensively.
+            if (!is_string($keyAttrRaw) || !is_string($valRaw)) {
                 continue;
             }
 
-            /** @var mixed $decoded */
-            $decoded = json_decode($valueRaw, true);
+            $type = is_string($typeAttrRaw) ? strtolower($typeAttrRaw) : 'json';
 
-            /** @psalm-suppress MixedAssignment */
-            $out[$keyAttr] = $decoded;
+            switch ($type) {
+                case 'json': {
+                    /** @var mixed $decoded */
+                    $decoded = json_decode($valRaw, true);
+                    if ($decoded === null && json_last_error() !== JSON_ERROR_NONE) {
+                        continue 2; // skip invalid JSON rows
+                    }
+                    /** @psalm-suppress MixedAssignment */
+                    $out[$keyAttrRaw] = $decoded;
+                    break;
+                }
+                case 'bool': {
+                    $out[$keyAttrRaw] = $this->toBool($valRaw);
+                    break;
+                }
+                case 'int': {
+                    $out[$keyAttrRaw] = $this->toInt($valRaw);
+                    break;
+                }
+                case 'float': {
+                    $out[$keyAttrRaw] = is_numeric($valRaw) ? (float) $valRaw : 0.0;
+                    break;
+                }
+                default: { // 'string' or unknown
+                    $out[$keyAttrRaw] = $valRaw;
+                    break;
+                }
+            }
         }
         return $out;
     }
@@ -276,16 +296,16 @@ final class SettingsService
     {
         /** @var array<string, mixed> $out */
         $out = [];
-        /** @var string $k */
-        /** @var mixed  $v */
+        /** @psalm-suppress MixedAssignment */
         foreach ($flat as $k => $v) {
+            /** @var string $k */
             if (
-                str_starts_with($k, 'rbac.') ||
-                str_starts_with($k, 'audit.') ||
+                str_starts_with($k, 'rbac.')     ||
+                str_starts_with($k, 'audit.')    ||
                 str_starts_with($k, 'evidence.') ||
-                str_starts_with($k, 'avatars.')
+                str_starts_with($k, 'avatars.')  ||
+                str_starts_with($k, 'metrics.')
             ) {
-                /** @psalm-suppress MixedAssignment */
                 $out['core.' . $k] = $v;
             }
         }
@@ -306,12 +326,10 @@ final class SettingsService
      */
     private function normalizeArray(array $arr): array
     {
-        /** @var array<int|string, mixed> $arr */
         $isAssoc = array_keys($arr) !== range(0, count($arr) - 1);
         if ($isAssoc) {
             ksort($arr);
-            /** @var int|string $k */
-            /** @var mixed $v */
+            /** @psalm-suppress MixedAssignment */
             foreach ($arr as $k => $v) {
                 if (is_array($v)) {
                     /** @var array<int|string, mixed> $nested */
@@ -324,7 +342,7 @@ final class SettingsService
         }
 
         $allScalars = true;
-        /** @var mixed $v */
+        /** @psalm-suppress MixedAssignment */
         foreach ($arr as $v) {
             if (!is_scalar($v) && $v !== null) {
                 $allScalars = false;
@@ -355,22 +373,71 @@ final class SettingsService
     private function filterForContract(array $core): array
     {
         /** @var array<string,mixed> $coreOnly */
-        $coreOnly = Arr::only($core, ['rbac', 'audit', 'evidence', 'avatars']);
+        $coreOnly = Arr::only($core, ['rbac', 'audit', 'evidence', 'avatars', 'metrics']);
 
-        /** @var array<string, mixed> $rbac */
-        $rbac = Arr::only((array) ($coreOnly['rbac'] ?? []), ['enabled', 'roles']);
-        /** @var array<string, mixed> $audit */
-        $audit = Arr::only((array) ($coreOnly['audit'] ?? []), ['enabled', 'retention_days']);
-        /** @var array<string, mixed> $evidence */
-        $evidence = Arr::only((array) ($coreOnly['evidence'] ?? []), ['enabled', 'max_mb', 'allowed_mime']);
-        /** @var array<string, mixed> $avatars */
-        $avatars = Arr::only((array) ($coreOnly['avatars'] ?? []), ['enabled', 'size_px', 'format']);
+        /** @var array<string, mixed> $rbacRaw */
+        $rbacRaw = (array) ($coreOnly['rbac'] ?? []);
+        /** @var array<string, mixed> $auditRaw */
+        $auditRaw = (array) ($coreOnly['audit'] ?? []);
+        /** @var array<string, mixed> $evidenceRaw */
+        $evidenceRaw = (array) ($coreOnly['evidence'] ?? []);
+        /** @var array<string, mixed> $avatarsRaw */
+        $avatarsRaw = (array) ($coreOnly['avatars'] ?? []);
+        /** @var array<string, mixed> $metricsRaw */
+        $metricsRaw = (array) ($coreOnly['metrics'] ?? []);
+
+        /** @var array<string,mixed> $rbac */
+        $rbac = [
+            'enabled' => $this->toBool($rbacRaw['enabled'] ?? false),
+            'roles'   => $this->toStringList($rbacRaw['roles'] ?? []),
+        ];
+
+        /** @var array<string,mixed> $audit */
+        $audit = [
+            'enabled'        => $this->toBool($auditRaw['enabled'] ?? false),
+            'retention_days' => $this->toInt($auditRaw['retention_days'] ?? 0),
+        ];
+
+        /** @var array<string,mixed> $evidence */
+        $evidence = [
+            'enabled'      => $this->toBool($evidenceRaw['enabled'] ?? false),
+            'max_mb'       => $this->toInt($evidenceRaw['max_mb'] ?? 0),
+            'allowed_mime' => $this->toStringList($evidenceRaw['allowed_mime'] ?? []),
+        ];
+
+        /** @var array<string,mixed> $avatars */
+        $avatars = [
+            'enabled' => $this->toBool($avatarsRaw['enabled'] ?? false),
+            'size_px' => $this->toInt($avatarsRaw['size_px'] ?? 0),
+            'format'  => $this->toString($avatarsRaw['format'] ?? ''),
+        ];
+
+        /** @var array<string, mixed> $efRaw */
+        $efRaw = is_array($metricsRaw['evidence_freshness'] ?? null)
+            ? (array) $metricsRaw['evidence_freshness']
+            : [];
+        /** @var array<string, mixed> $rdRaw */
+        $rdRaw = is_array($metricsRaw['rbac_denies'] ?? null)
+            ? (array) $metricsRaw['rbac_denies']
+            : [];
+
+        /** @var array<string,mixed> $metrics */
+        $metrics = [
+            'cache_ttl_seconds' => $this->toInt($metricsRaw['cache_ttl_seconds'] ?? 0),
+            'evidence_freshness' => [
+                'days' => $this->toInt($efRaw['days'] ?? 0),
+            ],
+            'rbac_denies' => [
+                'window_days' => $this->toInt($rdRaw['window_days'] ?? 0),
+            ],
+        ];
 
         return [
             'rbac'     => $rbac,
             'audit'    => $audit,
             'evidence' => $evidence,
             'avatars'  => $avatars,
+            'metrics'  => $metrics,
         ];
     }
 
@@ -378,5 +445,50 @@ final class SettingsService
     {
         return in_array($subKey, self::CONTRACT_KEYS, true);
     }
-}
 
+    private function toBool(mixed $v): bool
+    {
+        if (is_bool($v)) return $v;
+        if (is_int($v)) return $v === 1;
+        if (is_string($v)) {
+            $vv = strtolower(trim($v));
+            if ($vv === '1' || $vv === 'true' || $vv === 'on' || $vv === 'yes') return true;
+            if ($vv === '0' || $vv === 'false' || $vv === 'off' || $vv === 'no') return false;
+            if (ctype_digit($vv)) return (int) $vv === 1;
+        }
+        return false;
+    }
+
+    private function toInt(mixed $v): int
+    {
+        if (is_int($v)) return $v;
+        if (is_float($v)) return (int) $v;
+        if (is_string($v) && $v !== '' && preg_match('/^-?\d+$/', $v) === 1) return (int) $v;
+        return 0;
+    }
+
+    private function toString(mixed $v): string
+    {
+        return is_string($v) ? $v : (is_scalar($v) ? (string) $v : '');
+    }
+
+    /**
+     * @param mixed $v
+     * @return list<string>
+     */
+    private function toStringList(mixed $v): array
+    {
+        if (!is_array($v)) return [];
+        /** @var list<string> $out */
+        $out = [];
+        /** @psalm-suppress MixedAssignment */
+        foreach ($v as $item) {
+            if (is_string($item)) {
+                $out[] = $item;
+            } elseif (is_scalar($item) || $item === null) {
+                $out[] = (string) $item;
+            }
+        }
+        return $out;
+    }
+}

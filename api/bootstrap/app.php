@@ -27,8 +27,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withProviders([
         // Load overlay before gates read config.
         ConfigOverlayServiceProvider::class,
-        // Load DB-backed overrides early.
-        SettingsServiceProvider::class,
+        SettingsServiceProvider::class, // load DB-backed settings at boot
         AuthServiceProvider::class,
         EventServiceProvider::class,
     ])

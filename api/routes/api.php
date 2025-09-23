@@ -207,7 +207,7 @@ Route::prefix('/admin')
 
 /*
  |--------------------------------------------------------------------------
- | Dashboard KPIs (internal, no OpenAPI change)
+ | Dashboard KPIs (spec)
  |--------------------------------------------------------------------------
 */
 Route::prefix('/dashboard')
@@ -220,7 +220,7 @@ Route::prefix('/dashboard')
 
 /*
  |--------------------------------------------------------------------------
- | Metrics alias (Phase-5): same controller/shape as /dashboard/kpis
+ | Metrics alias (same shape as /dashboard/kpis)
  |--------------------------------------------------------------------------
 */
 Route::prefix('/metrics')

@@ -82,11 +82,13 @@ final class UpdateSettingsRequest extends FormRequest
             'avatars.size_px' => ['sometimes', 'integer', 'in:128'],
             'avatars.format'  => ['sometimes', 'string', 'in:webp'],
 
-            // DB-backed metrics settings exposed via Admin UI
-            'metrics'                                      => ['sometimes', 'array'],
-            'metrics.core.metrics.cache_ttl_seconds'       => ['sometimes', 'integer', 'min:1'],
-            'metrics.core.metrics.evidence_freshness.days' => ['sometimes', 'integer', 'min:1', 'max:365'],
-            'metrics.core.metrics.rbac_denies.window_days' => ['sometimes', 'integer', 'min:1', 'max:365'],
+            // Metrics (DB-backed)
+            'metrics'                           => ['sometimes', 'array'],
+            'metrics.cache_ttl_seconds'         => ['sometimes', 'integer', 'min:0'],     // 0 = disable
+            'metrics.evidence_freshness'        => ['sometimes', 'array'],
+            'metrics.evidence_freshness.days'   => ['sometimes', 'integer', 'min:1', 'max:365'],
+            'metrics.rbac_denies'               => ['sometimes', 'array'],
+            'metrics.rbac_denies.window_days'   => ['sometimes', 'integer', 'min:1', 'max:365'],
 
             'apply' => ['sometimes', 'boolean'],
         ];
@@ -179,9 +181,6 @@ final class UpdateSettingsRequest extends FormRequest
 
                     $allNumish = $keys !== [] && array_reduce(
                         $keys,
-                        /**
-                         * @param bool $acc
-                        */
                         static fn (bool $acc, $kk): bool =>
                             $acc && (is_int($kk) || ctype_digit((string) $kk)),
                         true

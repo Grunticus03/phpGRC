@@ -14,12 +14,11 @@ final class SettingsPersistenceTest extends TestCase
 
     public function test_index_returns_effective_config(): void
     {
-        // Persist an override row using JSON-encoded value for contract correctness.
-        Setting::query()->create([
-            'key'   => 'core.audit.enabled',
-            'value' => 'false', // JSON literal; service decodes to boolean false
-            'type'  => 'json',
-        ]);
+        // Persist/override using upsert semantics.
+        Setting::query()->updateOrCreate(
+            ['key' => 'core.audit.enabled'],
+            ['value' => 'false', 'type' => 'json'] // JSON literal false
+        );
 
         $res = $this->json('GET', '/api/admin/settings');
         $res->assertStatus(200)->assertJsonStructure(['ok', 'config' => ['core' => ['audit' => ['enabled']]]]);
@@ -55,12 +54,11 @@ final class SettingsPersistenceTest extends TestCase
 
     public function test_update_partial_does_not_touch_other_overrides(): void
     {
-        // Preload a different override using JSON-encoded integer.
-        Setting::query()->create([
-            'key'   => 'core.evidence.max_mb',
-            'value' => '50',
-            'type'  => 'json',
-        ]);
+        // Preload a different override using upsert.
+        Setting::query()->updateOrCreate(
+            ['key' => 'core.evidence.max_mb'],
+            ['value' => '50', 'type' => 'json'] // JSON number 50
+        );
 
         // Update only audit section with explicit apply.
         $this->json('POST', '/api/admin/settings', [
