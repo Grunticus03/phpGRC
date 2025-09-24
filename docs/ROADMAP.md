@@ -44,7 +44,7 @@
 - [x] Settings — echo + validation stubs
 - [x] RBAC — Sanctum PAT guard; route enforcement; JSON 401/403 contract
 - [x] RBAC — role IDs standardized to human-readable slugs
-- [x] RBAC — admin UI for role list/create and user-role assign
+- [x] RBAC — admin UI for role list/create and user–role assign
 - [x] Audit — listing, categories helper, retention echo
 - [x] Audit — CSV export with exact `Content-Type: text/csv` and cursor streaming
 - [x] Evidence — file uploads accepted (Phase-4 policy: no MIME/size validation)
@@ -69,18 +69,20 @@
 - [x] RBAC deny audits emitted by middleware (one per denied request)
 - [x] KPIs v1 (admin-only): RBAC denies rate (rolling window), Evidence freshness (threshold + by-MIME)
 - [x] Auth brute-force guard (session/IP strategies) with `auth.login.failed|locked` audits
+- [x] **OpenAPI serve headers hardened**: exact MIME, `ETag`, conservative caching, `nosniff`
 - [ ] Fine-grained RBAC policies (PolicyMap/Evaluator) and role management UI hardening
 - [ ] Predefined reports & dashboards (beyond KPIs v1)
 - [ ] Admin/User docs baseline
 
-### Phase 5 — Additions (2025-09-23)
+### Phase 5 — Additions (2025-09-23..2025-09-24)
 - [x] **Runtime settings moved to DB** for all non-connection knobs; `core_settings` table + `SettingsServiceProvider` boot overlay.
-- [x] **Admin Settings persistence path**: `apply=true` writes to DB; stub-only gate honored via config. Tests updated.
+- [x] **Admin Settings persistence path**: `apply=true` writes to DB; stub-only honored when configured.
 - [x] **Metrics routes finalized**: `GET /api/dashboard/kpis` and alias `GET /api/metrics/dashboard`; controller clamps windows and returns `meta.window`.
 - [x] **Web UI settings form** updated to DB-backed metrics fields; Vitest adjusted for PUT and stub/persist modes.
 - [x] **Apache deploy verified**: `/api/*` routes to Laravel public with `AllowOverride All` and `mod_rewrite`; health and KPIs reachable.
 - [ ] **KPI cache TTL** stored in DB (`core.metrics.cache_ttl_seconds`) and enforced in service layer.  
   - Child note: TTL key exists; enforcement to be implemented in MetricsService adapter.
+- [ ] **Optional** `/api/openapi.json` mirror for integrators (tracked in Backlog).
 
 ---
 
@@ -134,18 +136,12 @@
 
 ---
 
-### Current Status (as of 2025-09-21)
+### Current Status (as of 2025-09-24)
 - ✅ Phase 4 frozen; CI green; contracts locked; OpenAPI 0.4.6 validated.
 - ✅ RBAC enforcement active; admin UI shipped.
 - ✅ Audit & Evidence persistence complete; CSV export streaming with bounded memory.
 - ✅ Exports model and generation complete.
 - ✅ CI lint (Redocly) and breaking-change gate (openapi-diff).
 - ✅ Static analysis: PHPStan level 9 enforced in CI.
-- ⏳ Phase 5 in progress: KPIs v1 shipped (denies rate, evidence freshness), deny-audit invariants enforced, brute-force guard in place.
+- ⏳ Phase 5 in progress: KPIs v1 shipped, deny-audit invariants enforced, brute-force guard in place, OpenAPI serve hardened.
 - 🔜 Phase 5.5 planned: theming/layout scope accepted; see BACKLOG and SPEC.
-
-#### Update — 2025-09-23
-- DB-backed settings live in `core_settings`; provider overlays at boot.
-- Admin Settings PUT persists with `apply=true`; stub-only honored when configured.
-- Metrics routes available and consumed by Web UI; Apache routing fixed for `/api/*`.
-- Next: enforce KPI cache TTL and expand reports beyond KPIs v1.

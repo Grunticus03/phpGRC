@@ -19,6 +19,7 @@
 - **Alias (added):** `GET /api/metrics/dashboard` → same controller/shape as `/api/dashboard/kpis`.
 - **Response meta (added):** KPI responses may include `meta.window: { rbac_days, fresh_days }` for UI display.
 - **Settings load (added):** DB overrides are loaded at boot via `SettingsServiceProvider`; API returns effective config (defaults overlaid by DB).
+- **OpenAPI serve (hardened):** exact `Content-Type` for YAML, `ETag: "sha256:<hex>"`, `Cache-Control: no-store, max-age=0`, `X-Content-Type-Options: nosniff`; optional `Last-Modified` when file exists.
 
 ## Config Defaults
 - Evidence freshness days: **30** via `CORE_METRICS_EVIDENCE_FRESHNESS_DAYS`.  
@@ -42,8 +43,13 @@
 - See `docs/OPS.md` for enabling metrics and defaults.
 - **Deployment (added):** Recommended Apache layout: serve SPA at `/`, reverse-proxy `/api/` to the Laravel public front controller (or an internal vhost). Ensure `route:clear` and `config:clear` after deploys.
 - **Cache driver (added):** Prefer `file` cache unless DB cache table is migrated (`php artisan cache:table && php artisan migrate`).
+- **OpenAPI docs caching:** reverse proxies must not strip `ETag`; keep `nosniff`; honor `Cache-Control: no-store, max-age=0`.
+
+## CI
+- **Required checks:** OpenAPI lint (Redocly), OpenAPI breaking-change gate (openapi-diff), API static, API tests (MySQL 8.3) + coverage, Web build + tests + audit.
+- Redocly replaces Spectral in CI; Spectral usage optional for local checks.
 
 ## Planned (next iteration; not shipped in this release)
 - Audit diffs/traceability: include `{key, old, new}` per change in `settings.update` events and surface in `/api/audit`.
 - KPI caching: honor `core.metrics.cache_ttl_seconds` with `meta.cache:{ttl,hit}`.
-
+- Optional: `/api/openapi.json` mirror with parity tests.

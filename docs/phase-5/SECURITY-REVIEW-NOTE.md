@@ -7,6 +7,7 @@
 - PolicyMap override audit of unknown roles
 - Admin Settings persistence flow (DB-backed, no `.env` for non-connection)
 - Web audit action labeling
+- **OpenAPI spec serving endpoints** (`GET /api/openapi.yaml`) — headers and caching
 
 ## Findings
 1) **Authorization**
@@ -31,11 +32,12 @@
    - No new PII in audits beyond existing fields. IP/UA optional and unchanged.
 
 6) **Operations**
-   - Laravel route caching and Apache rewrite now route `/api/*` to Laravel public index. 404s from Apache are avoided.
-   - Cache driver defaults to `file` unless DB cache table exists (prevents test-time table errors).
+   - Laravel route caching and Apache rewrite now route `/api/*` to Laravel public index.
+   - Cache driver defaults to `file` unless DB cache table exists.
+   - **OpenAPI docs serving hardened:** `Content-Type: application/yaml`; `ETag: "sha256:<hex>"`; `Cache-Control: no-store, max-age=0`; `X-Content-Type-Options: nosniff`; optional `Last-Modified` surfaced.
 
 ## Risks & Mitigations
-- **Endpoint abuse (metrics):** Admin policy required; reads only; consider per-IP admin rate limit.  
+- **Endpoint abuse (metrics):** Admin-only but long windows could be abused.  
   *Mitigation:* RBAC + policy gate; future throttling recommended.
 - **Parameter abuse:** Large or negative windows could stress queries.  
   *Mitigation:* coercion + clamp in controller; UI bounds.
@@ -43,17 +45,20 @@
   *Mitigation:* one-audit-per-request invariant; settings audits aggregate field-level diffs.
 - **Config drift:** `.env` values overriding runtime behavior.  
   *Mitigation:* runtime reads come from DB; provider overlay at boot; CI check for `env(` outside `config/`.
+- **Proxy/header interference (docs):** Reverse proxies may strip `ETag` or rewrite caching headers.  
+  *Mitigation:* ops guidance to preserve `ETag` and `nosniff`; verify headers post-deploy.
 
 ## Recommendations
 - Add throttling to admin-only metrics endpoints.
 - Extend capability gates coverage for exports/evidence where applicable.
 - When adding future metrics params (timezone, granularity), validate and normalize to a safe allowlist.
 - Seed minimal baseline rows in `core_settings` on first install to simplify ops, but keep app functional with an empty table.
+- Keep YAML as source; optionally add `/api/openapi.json` mirror for integrators later.
 
 ## Tests Summary
 - Backend: KPI computation and window clamping; RBAC auth on metrics; DB-backed settings apply/unset; validation envelope shape.
 - Frontend: KPI UI renders with adjustable windows; query propagation; deny label mapping verified.
+- OpenAPI serve tests: MIME exactness; conservative caching; ETag present.
 
 ## Out-of-Scope (kept for visibility)
 - Theme/branding security (Phase 5.5): import scrub, MIME validation, SVG sanitization — tracked separately and not part of this review.
-

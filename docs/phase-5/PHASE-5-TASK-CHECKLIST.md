@@ -2,9 +2,9 @@
 
 Status: Active  
 Contract: OpenAPI 0.4.6 (no breaking changes)  
-Gates: PHPStan lvl 9, Psalm clean, PHPUnit, Spectral, openapi-diff
+Gates: PHPStan lvl 9, Psalm clean, PHPUnit, **Redocly lint**, **openapi-diff**
 
-_Last updated: 2025-09-23_
+_Last updated: 2025-09-24_
 
 ---
 
@@ -159,12 +159,12 @@ _Last updated: 2025-09-23_
 ---
 
 ## 9) OpenAPI and quality gates
-- [x] Spectral lint clean.
+- [x] **Redocly** lint clean.
 - [x] openapi-diff vs 0.4.6: no breaking changes.
 - [x] PHPStan lvl 9: no new issues.
 - [x] Psalm: no new issues.
 - [x] PHPUnit: all suites green.
-- **Note:** Spec component `SettingsChange` is currently unused; harmless but may trigger `no-unused-components` in stricter Spectral configs. Intentional placeholder for upcoming settings audit (`meta.changes[]`). Keep or reference in a non-breaking way in 0.4.x; otherwise allowlist in Spectral.
+- **Note:** Spec component `SettingsChange` is currently unused; harmless placeholder for upcoming settings audit (`meta.changes[]`). CI uses Redocly lint; Spectral allowlisting is not required.
 
 ---
 
@@ -209,8 +209,10 @@ _Last updated: 2025-09-23_
 
 ## 14) OpenAPI serve headers & controller hardening — NEW
 - [x] `/api/openapi.yaml` served with exact `Content-Type: application/yaml` (no charset).
+- [x] **Caching**: `ETag: "sha256:<hex>"`, `Cache-Control: no-store, max-age=0`, `X-Content-Type-Options: nosniff`.
+- [x] **Optional headers** when file exists: `Last-Modified` (UTC RFC 7231), `Vary: Accept-Encoding`.
 - [x] PHPUnit: `OpenApiSpecTest::test_yaml_served_with_expected_headers_and_content` passing.
-- [x] Static analysis: removed/avoided `setCharset(null)`; no PHPStan/Psalm violations in `OpenApiController`.
+- [x] Static analysis: no PHPStan/Psalm violations in `OpenApiController`.
 - [ ] Optional: serve `/api/openapi.json` with `application/json` and parity test.
 
 ---
@@ -245,5 +247,5 @@ _Last updated: 2025-09-23_
 - [ ] Static analysis: `composer stan` / `composer psalm`
 - [ ] Tests: `composer test` (PHPUnit)
 - [ ] OpenAPI diff: `openapi-diff old.yaml new.yaml`
-- [ ] Spectral: `spectral lint openapi.yaml`
+- [ ] Redocly: `npx -y @redocly/cli@1.29.0 lint docs/api/openapi.yaml`
 - [ ] Cache clears (deploy): `php artisan config:clear && php artisan route:clear && php artisan cache:clear`

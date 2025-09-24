@@ -36,7 +36,7 @@ It is binding on all sessions, files, commits, and releases.
   - Psalm (no-new-issues)  
   - Enlightn (fail high/critical)  
   - composer-audit (fail high/critical, warn medium)  
-  - Spectral OpenAPI lint + diff  
+  - **Redocly OpenAPI lint + openapi-diff**  
   - commitlint (Conventional Commits)  
   - CODEOWNERS review  
   - **Add:** Node: Vitest unit tests green  
@@ -44,6 +44,7 @@ It is binding on all sessions, files, commits, and releases.
 - **Branch protection:** `main` requires PRs, no force-push, stale reviews dismissed.  
 - **Commit convention:** Conventional Commits enforced.
 - **Add:** CI forbids `env(` outside `/api/config/*` and `/web/vite*` to enforce DB-backed runtime settings.
+- **Required check names:** `OpenAPI lint`, `OpenAPI breaking-change gate`, `API static`, `API tests (MySQL, PHP 8.3) + coverage`, `Web build + tests + coverage + audit`.
 
 ---
 
@@ -96,6 +97,7 @@ It is binding on all sessions, files, commits, and releases.
   - Enable: `rewrite`, `proxy`, `proxy_http`, `headers`, `ssl`.  
   - Route/cache clear on deploy: `php artisan config:clear && route:clear && route:cache`.
 - **Add (Cache in tests):** Default to `file` to avoid DB cache table errors unless a cache table migration is present.
+- **Docs endpoint headers:** Do not strip `ETag`; preserve `Cache-Control: no-store, max-age=0`; set `X-Content-Type-Options: nosniff`; pass through `Last-Modified` when present.
 
 ---
 

@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import Sparkline from "../../components/charts/Sparkline";
 import DaysSelector from "../../components/inputs/DaysSelector";
+import { apiGet, HttpError } from "../../lib/api";
 
 type RbacDaily = { date: string; denies: number; total: number; rate: number };
 type RbacDenies = {
@@ -18,7 +19,7 @@ type EvidenceFreshness = {
   days: number;
   total: number;
   stale: number;
-  percent: number; // may be 0..1 or 0..100 depending on backend
+  percent: number;
   by_mime: MimeRow[];
 };
 
@@ -67,34 +68,28 @@ export default function Kpis(): JSX.Element {
     setLoading(true);
     setMsg(null);
     try {
-      const qs = new URLSearchParams();
       const rd = snapshotParams?.rbac_days ?? rbacDays;
       const fd = snapshotParams?.days ?? freshDays;
-      if (rd) qs.set("rbac_days", String(rd));
-      if (fd) qs.set("days", String(fd));
-      const res = await fetch(`/api/dashboard/kpis?${qs.toString()}`, { credentials: "same-origin" });
-      if (res.status === 401) {
-        setMsg("You must log in to view KPIs.");
-        setData(null);
-      } else if (res.status === 403) {
-        setMsg("You do not have access to KPIs.");
-        setData(null);
+      const json = await apiGet<Snapshot>("/dashboard/kpis", { rbac_days: rd, days: fd });
+      if (json?.ok && json.data) {
+        const r = json.data.rbac_denies;
+        const f = json.data.evidence_freshness;
+        setData({ rbac: r, fresh: f });
+        const win = json.meta?.window;
+        if (typeof win?.rbac_days === "number") setRbacDays(win.rbac_days);
+        if (typeof win?.fresh_days === "number") setFreshDays(win.fresh_days);
       } else {
-        const json = (await res.json()) as Snapshot;
-        if (json?.ok && json.data) {
-          const r = json.data.rbac_denies;
-          const f = json.data.evidence_freshness;
-          setData({ rbac: r, fresh: f });
-          const win = json.meta?.window;
-          if (typeof win?.rbac_days === "number") setRbacDays(win.rbac_days);
-          if (typeof win?.fresh_days === "number") setFreshDays(win.fresh_days);
-        } else {
-          setMsg("Failed to load KPIs.");
-          setData(null);
-        }
+        setMsg("Failed to load KPIs.");
+        setData(null);
       }
-    } catch {
-      setMsg("Network error.");
+    } catch (e: unknown) {
+      if (e instanceof HttpError) {
+        if (e.status === 401) setMsg("You must log in to view KPIs.");
+        else if (e.status === 403) setMsg("You do not have access to KPIs.");
+        else setMsg(`Request failed (HTTP ${e.status}).`);
+      } else {
+        setMsg("Network error.");
+      }
       setData(null);
     } finally {
       setLoading(false);

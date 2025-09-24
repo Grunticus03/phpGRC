@@ -1,6 +1,3 @@
-# @phpgrc:/docs/BACKLOG.md
-# FILE: /docs/BACKLOG.md
-
 # 📋 phpGRC Backlog
 Complete backlog of all features, modules, and deliverables.  
 Each item has: **id, module, title, description, acceptance_criteria, phase, step, deps, status**
@@ -203,6 +200,20 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 
 ---
 
+### CORE-015 — OpenAPI JSON mirror (optional)
+**Description:** Serve `/api/openapi.json` as a parity JSON representation of the YAML spec for integrators that require JSON.  
+**Acceptance Criteria:**
+- `GET /api/openapi.json` returns `application/json`
+- Mirrors `docs/api/openapi.yaml` exactly
+- PHPUnit feature test for MIME and JSON validity
+- No change to existing `/api/openapi.yaml` or `/api/docs` default  
+**Phase:** 5  
+**Step:** 3  
+**Dependencies:** CORE-009  
+**Status:** Planned (low priority)
+
+---
+
 ## 🎨 UI / Theming (Phase 5.5)
 
 ### THEME-001 — Bootswatch Runtime Themes
@@ -379,8 +390,8 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 
 ### COMP-002 — Control Library
 **Description:** Centralized controls repository.  
-**Acceptance Criteria:**
-- Controls CRUD  
+**Acceptance Criteria:
+**- Controls CRUD  
 - Linked to compliance obligations  
 **Phase:** 3  
 **Step:** 2  

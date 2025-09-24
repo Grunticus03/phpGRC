@@ -1,4 +1,4 @@
-import { createHashRouter, createRoutesFromElements, Route, Navigate } from "react-router-dom";
+import { createBrowserRouter, createRoutesFromElements, Route, Navigate } from "react-router-dom";
 import AppLayout from "./layouts/AppLayout";
 
 // Dashboard
@@ -11,7 +11,7 @@ import Roles from "./routes/admin/Roles";
 import UserRoles from "./routes/admin/UserRoles";
 import Audit from "./routes/admin/Audit";
 
-const router = createHashRouter(
+const router = createBrowserRouter(
   createRoutesFromElements(
     <Route path="/" element={<AppLayout />}>
       <Route index element={<Navigate to="/dashboard" replace />} />
@@ -23,6 +23,7 @@ const router = createHashRouter(
         <Route path="user-roles" element={<UserRoles />} />
         <Route path="audit" element={<Audit />} />
       </Route>
+      <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Route>
   )
 );
