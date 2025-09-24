@@ -31,11 +31,10 @@ final class CachedMetricsService
     }
 
     /**
-     * Produce the dashboard metrics snapshot, honoring DB-backed settings.
+     * Back-compat. Returns only the data payload.
      *
-     * @param int|null $deniesWindowDays Optional override for RBAC denies window (1..365). Null uses DB default.
-     * @param int|null $freshnessDays    Optional override for Evidence freshness days (1..365). Null uses DB default.
-     *
+     * @param int|null $deniesWindowDays
+     * @param int|null $freshnessDays
      * @return array{
      *   rbac_denies: array{
      *     window_days:int,
@@ -57,54 +56,172 @@ final class CachedMetricsService
      */
     public function snapshot(?int $deniesWindowDays = null, ?int $freshnessDays = null): array
     {
+        /** @var array{
+         *   data: array{
+         *     rbac_denies: array{
+         *       window_days:int,
+         *       from: non-empty-string,
+         *       to: non-empty-string,
+         *       denies:int,
+         *       total:int,
+         *       rate:float,
+         *       daily: list<array{date: non-empty-string, denies:int, total:int, rate:float}>
+         *     },
+         *     evidence_freshness: array{
+         *       days:int,
+         *       total:int,
+         *       stale:int,
+         *       percent:float,
+         *       by_mime: list<array{mime: non-empty-string, total:int, stale:int, percent:float}>
+         *     }
+         *   },
+         *   cache: array{ttl:int, hit:bool}
+         * } $out
+         */
+        $out = $this->snapshotWithMeta($deniesWindowDays, $freshnessDays);
+
+        /** @var array{
+         *   rbac_denies: array{
+         *     window_days:int,
+         *     from: non-empty-string,
+         *     to: non-empty-string,
+         *     denies:int,
+         *     total:int,
+         *     rate:float,
+         *     daily: list<array{date: non-empty-string, denies:int, total:int, rate:float}>
+         *   },
+         *   evidence_freshness: array{
+         *     days:int,
+         *     total:int,
+         *     stale:int,
+         *     percent:float,
+         *     by_mime: list<array{mime: non-empty-string, total:int, stale:int, percent:float}>
+         *   }
+         * } $data
+         */
+        $data = $out['data'];
+
+        return $data;
+    }
+
+    /**
+     * Produce the dashboard metrics snapshot and return cache meta.
+     *
+     * @param int|null $deniesWindowDays Optional override for RBAC denies window (1..365). Null uses DB default.
+     * @param int|null $freshnessDays    Optional override for Evidence freshness days (1..365). Null uses DB default.
+     * @return array{
+     *   data: array{
+     *     rbac_denies: array{
+     *       window_days:int,
+     *       from: non-empty-string,
+     *       to: non-empty-string,
+     *       denies:int,
+     *       total:int,
+     *       rate:float,
+     *       daily: list<array{date: non-empty-string, denies:int, total:int, rate:float}>
+     *     },
+     *     evidence_freshness: array{
+     *       days:int,
+     *       total:int,
+     *       stale:int,
+     *       percent:float,
+     *       by_mime: list<array{mime: non-empty-string, total:int, stale:int, percent:float}>
+     *     }
+     *   },
+     *   cache: array{ttl:int, hit:bool}
+     * }
+     */
+    public function snapshotWithMeta(?int $deniesWindowDays = null, ?int $freshnessDays = null): array
+    {
         $defaults = $this->loadDefaults(); // [rbac_days:int, fresh_days:int, ttl:int]
 
         $rbacDays  = $this->clampDays($deniesWindowDays ?? $defaults['rbac_days']);
         $freshDays = $this->clampDays($freshnessDays    ?? $defaults['fresh_days']);
-        $ttl       = $this->clampTtl($defaults['ttl']);
+        $ttl       = $this->clampTtlAllowZero($defaults['ttl']); // 0 disables
 
         $key = sprintf('metrics.snapshot.v1:rbac=%d:fresh=%d', $rbacDays, $freshDays);
 
-        // Use in-memory cache store to avoid DB table dependency (safe for tests/CI).
         $store = Cache::store('array');
+
+        if ($ttl > 0 && $store->has($key)) {
+            /** @var mixed $raw */
+            $raw = $store->get($key);
+            if (is_array($raw)) {
+                /** @var array{
+                 *   rbac_denies: array{
+                 *     window_days:int,
+                 *     from: non-empty-string,
+                 *     to: non-empty-string,
+                 *     denies:int,
+                 *     total:int,
+                 *     rate:float,
+                 *     daily: list<array{date: non-empty-string, denies:int, total:int, rate:float}>
+                 *   },
+                 *   evidence_freshness: array{
+                 *     days:int,
+                 *     total:int,
+                 *     stale:int,
+                 *     percent:float,
+                 *     by_mime: list<array{mime: non-empty-string, total:int, stale:int, percent:float}>
+                 *   }
+                 * } $cachedPayload
+                 */
+                $cachedPayload = $raw;
+                return ['data' => $cachedPayload, 'cache' => ['ttl' => $ttl, 'hit' => true]];
+            }
+        }
+
+        /** @var array{
+         *   window_days:int,
+         *   from: non-empty-string,
+         *   to: non-empty-string,
+         *   denies:int,
+         *   total:int,
+         *   rate:float,
+         *   daily: list<array{date: non-empty-string, denies:int, total:int, rate:float}>
+         * } $rbac
+         */
+        $rbac = $this->rbacDenies->compute($rbacDays);
+
+        /** @var array{
+         *   days:int,
+         *   total:int,
+         *   stale:int,
+         *   percent:float,
+         *   by_mime: list<array{mime: non-empty-string, total:int, stale:int, percent:float}>
+         * } $fresh
+         */
+        $fresh = $this->evidenceFreshness->compute($freshDays);
 
         /** @var array{
          *   rbac_denies: array{
-         *     window_days:int, from:non-empty-string, to:non-empty-string,
-         *     denies:int, total:int, rate:float,
+         *     window_days:int,
+         *     from: non-empty-string,
+         *     to: non-empty-string,
+         *     denies:int,
+         *     total:int,
+         *     rate:float,
          *     daily: list<array{date: non-empty-string, denies:int, total:int, rate:float}>
          *   },
          *   evidence_freshness: array{
-         *     days:int,total:int,stale:int,percent:float,
-         *     by_mime:list<array{mime:non-empty-string,total:int,stale:int,percent:float}>
+         *     days:int,
+         *     total:int,
+         *     stale:int,
+         *     percent:float,
+         *     by_mime: list<array{mime: non-empty-string, total:int, stale:int, percent:float}>
          *   }
          * } $payload
          */
-        $payload = $store->remember($key, $ttl, function () use ($rbacDays, $freshDays): array {
-            // RBAC denies block
-            /** @var array{
-             *   window_days:int, from:non-empty-string, to:non-empty-string,
-             *   denies:int, total:int, rate:float,
-             *   daily:list<array{date:non-empty-string, denies:int, total:int, rate:float}>
-             * } $rbac
-             */
-            $rbac = $this->rbacDenies->compute($rbacDays);
+        $payload = [
+            'rbac_denies'        => $rbac,
+            'evidence_freshness' => $fresh,
+        ];
 
-            // Evidence freshness block
-            /** @var array{
-             *   days:int,total:int,stale:int,percent:float,
-             *   by_mime:list<array{mime:non-empty-string,total:int,stale:int,percent:float}>
-             * } $fresh
-             */
-            $fresh = $this->evidenceFreshness->compute($freshDays);
+        if ($ttl > 0) {
+            $store->put($key, $payload, $ttl);
+        }
 
-            return [
-                'rbac_denies'        => $rbac,
-                'evidence_freshness' => $fresh,
-            ];
-        });
-
-        return $payload;
+        return ['data' => $payload, 'cache' => ['ttl' => $ttl, 'hit' => false]];
     }
 
     /**
@@ -114,8 +231,14 @@ final class CachedMetricsService
      */
     private function loadDefaults(): array
     {
+        // TTL: read directly from config to respect runtime overrides in tests.
+        /** @var mixed $cfgTtl */
+        $cfgTtl = config('core.metrics.cache_ttl_seconds');
+        $ttl = $this->clampTtlAllowZero($cfgTtl); // 0 disables
+
+        // Other defaults from effective config (typed, contract-trimmed).
         /** @var array<string,mixed> $eff */
-        $eff = $this->settings->effectiveConfig(); // contract-trimmed core only
+        $eff = $this->settings->effectiveConfig();
 
         /** @var array<string,mixed> $metrics */
         $metrics = [];
@@ -123,19 +246,11 @@ final class CachedMetricsService
             $metrics = $eff['core']['metrics'];
         }
 
-        // TTL seconds
-        $ttl = 60;
-        if (isset($metrics['cache_ttl_seconds'])) {
-            $ttl = $this->clampTtl($metrics['cache_ttl_seconds']);
-        }
-
-        // Evidence freshness days
         $freshDays = 30;
         if (isset($metrics['evidence_freshness']) && is_array($metrics['evidence_freshness']) && isset($metrics['evidence_freshness']['days'])) {
             $freshDays = $this->clampDays($metrics['evidence_freshness']['days']);
         }
 
-        // RBAC denies window days
         $rbacDays = 7;
         if (isset($metrics['rbac_denies']) && is_array($metrics['rbac_denies']) && isset($metrics['rbac_denies']['window_days'])) {
             $rbacDays = $this->clampDays($metrics['rbac_denies']['window_days']);
@@ -158,11 +273,12 @@ final class CachedMetricsService
     }
 
     /** @param mixed $n */
-    private function clampTtl(mixed $n): int
+    private function clampTtlAllowZero(mixed $n): int
     {
-        $v = is_int($n) ? $n : (is_string($n) && ctype_digit($n) ? (int) $n : 0);
-        if ($v < 1) { $v = 1; }
+        $v = is_int($n) ? $n : (is_string($n) && ctype_digit($n) ? (int) $n : -1);
+        if ($v < 0) { $v = 0; }      // 0 disables
         if ($v > 3600) { $v = 3600; }
         return $v;
     }
 }
+

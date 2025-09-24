@@ -5,23 +5,22 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Metrics;
 
 use App\Http\Controllers\Controller;
-use Carbon\CarbonImmutable;
+use App\Services\Metrics\CachedMetricsService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
-use Illuminate\Support\Facades\DB;
 
 final class MetricsController extends Controller
 {
     /**
      * Back-compat for routes that still point to MetricsController@index.
      */
-    public function index(Request $request): JsonResponse
+    public function index(Request $request, CachedMetricsService $metrics): JsonResponse
     {
-        return $this->kpis($request);
+        return $this->kpis($request, $metrics);
     }
 
-    public function kpis(Request $request): JsonResponse
+    public function kpis(Request $request, CachedMetricsService $metrics): JsonResponse
     {
         $defaultFresh = $this->cfgInt('core.metrics.evidence_freshness.days', 30);
         $defaultRbac  = $this->cfgInt('core.metrics.rbac_denies.window_days', 7);
@@ -29,94 +28,40 @@ final class MetricsController extends Controller
         $freshDays = $this->parseWindow($request->query('days'), $defaultFresh);
         $rbacDays  = $this->parseWindow($request->query('rbac_days'), $defaultRbac);
 
-        $to   = CarbonImmutable::now('UTC')->startOfDay();
-        $from = $to->subDays($rbacDays - 1);
+        /** @var array{
+         *   data: array{
+         *     rbac_denies: array{
+         *       window_days:int,
+         *       from: non-empty-string,
+         *       to: non-empty-string,
+         *       denies:int,
+         *       total:int,
+         *       rate:float,
+         *       daily: list<array{date: non-empty-string, denies:int, total:int, rate:float}>
+         *     },
+         *     evidence_freshness: array{
+         *       days:int,
+         *       total:int,
+         *       stale:int,
+         *       percent:float,
+         *       by_mime: list<array{mime: non-empty-string, total:int, stale:int, percent:float}>
+         *     }
+         *   },
+         *   cache: array{ttl:int, hit:bool}
+         * } $res
+         */
+        $res = $metrics->snapshotWithMeta($rbacDays, $freshDays);
 
-        // RBAC/AUTH totals
-        $rbacTotal = DB::table('audit_events')
-            ->whereIn('category', ['RBAC', 'AUTH'])
-            ->whereBetween('occurred_at', [$from, $to->endOfDay()])
-            ->count();
-
-        $rbacDenies = DB::table('audit_events')
-            ->where('category', 'RBAC')
-            ->where('action', 'like', 'rbac.deny.%')
-            ->whereBetween('occurred_at', [$from, $to->endOfDay()])
-            ->count();
-
-        $rate = $rbacTotal > 0 ? ($rbacDenies / $rbacTotal) : 0.0;
-
-        $daily = DB::table('audit_events')
-            ->selectRaw("DATE(occurred_at) as d")
-            ->selectRaw("SUM(CASE WHEN action LIKE 'rbac.deny.%' THEN 1 ELSE 0 END) as denies")
-            ->selectRaw("COUNT(*) as total")
-            ->whereIn('category', ['RBAC', 'AUTH'])
-            ->whereBetween('occurred_at', [$from, $to->endOfDay()])
-            ->groupBy('d')
-            ->orderBy('d')
-            ->get()
-            ->map(static function ($row): array {
-                $denies = is_numeric($row->denies ?? null) ? (int) $row->denies : 0;
-                $total  = is_numeric($row->total ?? null)  ? (int) $row->total  : 0;
-                $r      = $total > 0 ? $denies / $total : 0.0;
-                return [
-                    'date'   => (string) ($row->d ?? ''),
-                    'denies' => $denies,
-                    'total'  => $total,
-                    'rate'   => $r,
-                ];
-            })
-            ->all();
-
-        // Evidence freshness
-        $cutoff = CarbonImmutable::now('UTC')->subDays($freshDays);
-
-        $evTotal = DB::table('evidence')->count();
-        $evStale = DB::table('evidence')->where('updated_at', '<', $cutoff)->count();
-        $evPct   = $evTotal > 0 ? ($evStale / $evTotal) : 0.0;
-
-        $byMime = DB::table('evidence')
-            ->select('mime')
-            ->selectRaw('COUNT(*) as total')
-            ->selectRaw("SUM(CASE WHEN updated_at < ? THEN 1 ELSE 0 END) as stale", [$cutoff])
-            ->groupBy('mime')
-            ->orderByDesc('total')
-            ->get()
-            ->map(static function ($row): array {
-                $total = is_numeric($row->total ?? null) ? (int) $row->total : 0;
-                $stale = is_numeric($row->stale ?? null) ? (int) $row->stale : 0;
-                return [
-                    'mime'    => (string) ($row->mime ?? ''),
-                    'total'   => $total,
-                    'stale'   => $stale,
-                    'percent' => $total > 0 ? $stale / $total : 0.0,
-                ];
-            })
-            ->all();
+        $data  = $res['data'];
+        $cache = $res['cache']; // array{ttl:int, hit:bool}
 
         return new JsonResponse([
             'ok'   => true,
-            'data' => [
-                'rbac_denies' => [
-                    'window_days' => $rbacDays,
-                    'from'        => $from->toDateString(),
-                    'to'          => $to->toDateString(),
-                    'denies'      => $rbacDenies,
-                    'total'       => $rbacTotal,
-                    'rate'        => $rate,
-                    'daily'       => $daily,
-                ],
-                'evidence_freshness' => [
-                    'days'    => $freshDays,
-                    'total'   => $evTotal,
-                    'stale'   => $evStale,
-                    'percent' => $evPct,
-                    'by_mime' => $byMime,
-                ],
-            ],
+            'data' => $data,
             'meta' => [
-                'generated_at' => CarbonImmutable::now('UTC')->toIso8601String(),
+                'generated_at' => now('UTC')->toIso8601String(),
                 'window'       => ['rbac_days' => $rbacDays, 'fresh_days' => $freshDays],
+                'cache'        => ['ttl' => $cache['ttl'], 'hit' => $cache['hit']],
             ],
         ], 200);
     }

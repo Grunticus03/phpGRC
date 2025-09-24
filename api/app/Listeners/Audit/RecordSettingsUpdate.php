@@ -23,24 +23,33 @@ final class RecordSettingsUpdate implements ShouldQueue
             return;
         }
 
-        $safeChanges = $this->redactChanges($event->changes);
+        /** @var array<int, array{key:string, old:mixed, new:mixed, action:string}> $changes */
+        $changes = $event->changes;
+
+        /** @var array<int, array{key:string, old:mixed, new:mixed, action:string}> $redacted */
+        $redacted = $this->redactChanges($changes);
 
         $payload = [
-            'id'          => (string) Str::ulid(), // 26-char ULID fits column
+            'id'          => (string) Str::ulid(),
             'occurred_at' => $event->occurredAt,
             'actor_id'    => $event->actorId,
             'action'      => 'settings.update',
-            'category'    => 'SETTINGS',
+            'category'    => 'config',
             'entity_type' => 'core.settings',
             'entity_id'   => 'core',
             'ip'          => Arr::get($event->context, 'ip'),
             'ua'          => Arr::get($event->context, 'ua'),
             'meta'        => [
                 'source'       => 'settings.apply',
-                'changes'      => $safeChanges,
+                'changes'      => $redacted,
                 'touched_keys' => array_values(array_unique(array_map(
-                    static fn (array $c): string => $c['key'],
-                    $safeChanges
+                    /**
+                     * @param array{key:string, old:mixed, new:mixed, action:string} $c
+                     */
+                    static function (array $c): string {
+                        return $c['key'];
+                    },
+                    $changes
                 ))),
                 'context'      => Arr::except($event->context, ['ip', 'ua']),
             ],
@@ -50,7 +59,6 @@ final class RecordSettingsUpdate implements ShouldQueue
         try {
             AuditEvent::query()->create($payload);
         } catch (\Throwable $e) {
-            // Never fail the API due to audit sink issues.
             Log::warning('audit.write_failed', ['error' => $e->getMessage()]);
         }
     }
@@ -61,48 +69,54 @@ final class RecordSettingsUpdate implements ShouldQueue
      */
     private function redactChanges(array $changes): array
     {
+        /** @var list<non-empty-string> $patterns */
+        $patterns = [
+            '/password/i',
+            '/secret/i',
+            '/token/i',
+            '/api[_-]?key/i',
+            '/client[_-]?secret/i',
+            '/credential/i',
+        ];
+
+        $looksSensitive = static function (string $key) use ($patterns): bool {
+            foreach ($patterns as $re) {
+                /** @var non-empty-string $re */
+                if (preg_match($re, $key) === 1) {
+                    return true;
+                }
+            }
+            return false;
+        };
+
+        $mask = static function (mixed $v): string {
+            return '[REDACTED]';
+        };
+
         /** @var array<int, array{key:string, old:mixed, new:mixed, action:string}> $out */
         $out = [];
         foreach ($changes as $c) {
+            /** @var array{key:string, old:mixed, new:mixed, action:string} $c */
             $key = $c['key'];
+
+            /** @var mixed $old */
+            $old = $c['old'];
+            /** @var mixed $new */
+            $new = $c['new'];
+
+            if ($looksSensitive($key)) {
+                $old = $mask($old);
+                $new = $mask($new);
+            }
+
             $out[] = [
                 'key'    => $key,
-                'old'    => $this->maybeRedact($key, $c['old']),
-                'new'    => $this->maybeRedact($key, $c['new']),
+                'old'    => $old,
+                'new'    => $new,
                 'action' => $c['action'],
             ];
         }
         return $out;
-    }
-
-    private function maybeRedact(string $key, mixed $value): mixed
-    {
-        $k = strtolower($key);
-        $sensitive = str_contains($k, 'password')
-            || str_contains($k, 'secret')
-            || str_contains($k, 'token')
-            || str_contains($k, 'api_key')
-            || str_contains($k, 'client_secret')
-            || str_contains($k, 'private_key');
-
-        if (!$sensitive) {
-            return $value;
-        }
-
-        // Preserve type hints minimally while hiding contents.
-        if (is_array($value)) {
-            return '[REDACTED]';
-        }
-        if (is_bool($value)) {
-            return '[REDACTED]';
-        }
-        if (is_int($value) || is_float($value)) {
-            return '[REDACTED]';
-        }
-        if ($value === null) {
-            return null;
-        }
-        return '***';
     }
 }
 

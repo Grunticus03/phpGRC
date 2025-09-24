@@ -25,6 +25,7 @@ final class AuditController extends Controller
         // Normalize limit from known query keys; accept only numeric strings
         $limitFromParam = null;
         foreach (['limit', 'per_page', 'perPage', 'take'] as $k) {
+            /** @var mixed $v */
             $v = $request->query($k);
             if (is_string($v) && $v !== '' && preg_match('/^\d+$/', $v) === 1) {
                 $limitFromParam = (int) $v;
@@ -32,8 +33,14 @@ final class AuditController extends Controller
             }
         }
 
-        // Normalize cursor; accept only non-empty string
-        $cursorParamRaw = $request->query('cursor', $request->query('nextCursor', $this->pageCursor($request)));
+        // Normalize cursor without using Request::query default param
+        /** @var mixed $cursorParamRaw */
+        $cursorParamRaw = $request->query('cursor');
+        if (!is_string($cursorParamRaw) || $cursorParamRaw === '') {
+            /** @var mixed $nextRaw */
+            $nextRaw = $request->query('nextCursor');
+            $cursorParamRaw = is_string($nextRaw) && $nextRaw !== '' ? $nextRaw : $this->pageCursor($request);
+        }
         $cursorFilter = is_string($cursorParamRaw) && $cursorParamRaw !== '' ? $cursorParamRaw : null;
 
         $data = [
@@ -54,7 +61,8 @@ final class AuditController extends Controller
             'order'         => ['in:asc,desc'],
             'limit'         => ['nullable', 'integer', 'between:1,100'],
             'cursor'        => ['nullable', 'string', 'regex:/^[A-Za-z0-9_\-:\|=]{1,200}$/'],
-            'category'      => ['nullable', 'in:' . implode(',', AuditCategories::ALL)],
+            // Allow any category string to support new categories like "config"
+            'category'      => ['nullable', 'string', 'max:191'],
             'action'        => ['nullable', 'string', 'max:191'],
             'occurred_from' => ['nullable', 'date'],
             'occurred_to'   => ['nullable', 'date'],
@@ -100,7 +108,6 @@ final class AuditController extends Controller
             $q->where('category', '=', $data['category']);
         }
         if (is_string($data['action']) && $data['action'] !== '') {
-            // qualify to avoid any reserved-word confusion
             $q->where('audit_events.action', '=', $data['action']);
         }
         if ($data['actor_id'] !== null && is_numeric($data['actor_id'])) {
@@ -178,11 +185,7 @@ final class AuditController extends Controller
         foreach ($rows as $row) {
             /** @var AuditEvent $row */
             $meta = $row->meta;
-            $changes = (is_array($meta) && array_key_exists('changes', $meta) && is_array($meta['changes']))
-                ? $meta['changes']
-                : null;
-
-            $item = [
+            $items[] = [
                 'id'          => $row->id,
                 'occurred_at' => $row->occurred_at->toIso8601String(),
                 'actor_id'    => $row->actor_id,
@@ -193,14 +196,8 @@ final class AuditController extends Controller
                 'ip'          => $row->ip,
                 'ua'          => $row->ua,
                 'meta'        => $meta,
+                'changes'     => is_array($meta) && array_key_exists('changes', $meta) && is_array($meta['changes']) ? $meta['changes'] : null,
             ];
-
-            // Include structured diffs when present; otherwise omit to keep response lean.
-            if ($changes !== null) {
-                $item['changes'] = $changes;
-            }
-
-            $items[] = $item;
         }
 
         $tail       = $items !== [] ? $items[array_key_last($items)] : null;
@@ -244,6 +241,7 @@ final class AuditController extends Controller
 
     private function pageCursor(Request $r): ?string
     {
+        /** @var mixed $page */
         $page = $r->query('page');
         if (is_array($page) && array_key_exists('cursor', $page) && is_string($page['cursor']) && $page['cursor'] !== '') {
             return $page['cursor'];
@@ -256,6 +254,7 @@ final class AuditController extends Controller
         if ($r->query->has('cursor') || $r->query->has('nextCursor')) {
             return true;
         }
+        /** @var mixed $page */
         $page = $r->query('page');
         return is_array($page) && array_key_exists('cursor', $page) && is_string($page['cursor']) && $page['cursor'] !== '';
     }
@@ -366,4 +365,3 @@ final class AuditController extends Controller
         return $default;
     }
 }
-
