@@ -1277,3 +1277,20 @@ SESSION-LOG.md entry
 - Phase/Step status: advance.
 - Next action (you): open tickets per categories; prepare target files for audit-diff work and metrics cache.
 - Next action (me): implement API audit diffs + listener, expose in /api/audit, add web rendering; add metrics cache TTL + meta; add clamp tests; update OpenAPI and docs.
+
+---
+
+### Session 2025-09-23: [Phase 5, Step 2 — OpenAPI delivery & tests]
+- Context: OpenAPI spec serving endpoints and CI gates (PHPUnit, PHPStan, Psalm).
+- Goal: Fix `/api/openapi.(yaml|json)` headers, clear static-analysis errors, keep CI green; decide on unused `SettingsChange` schema warning.
+- Constraints: No breaking OpenAPI changes; minimal code delta; keep CI fully green.
+
+### Closeout
+- Deliverables produced: 
+  - Updated `OpenApiController` to emit `Content-Type` exactly `application/yaml` / `application/json` (no charset); removed any `setCharset(null)` paths; hardened JSON fallback.
+  - Fixed PHPUnit `OpenApiSpecTest` to match exact header values.
+  - Resolved PHPStan/Psalm null-argument findings on `setCharset`.
+  - Decision: keep `SettingsChange` schema as forward-looking; Spectral warning acknowledged (preemptive component).
+- Phase/Step status: advance
+- Next action (you): add Spectral + openapi-diff gates in CI; add `ETag` + `Cache-Control: no-store` to spec endpoints and tests; hook up `/api/docs` Swagger UI if not already; optionally reference `SettingsChange` in a response example to silence the warning.
+- Next action (me): confirm policy on caching headers (ETag/no-store) and whether to silence the Spectral warning now or leave as preemptive; provide path to the baseline spec for openapi-diff (0.4.6) and confirm `/api/docs` route expectations.
