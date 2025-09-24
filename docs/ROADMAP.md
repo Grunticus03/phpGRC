@@ -1,3 +1,4 @@
+# @phpgrc:/ROADMAP.md
 # phpGRC — ROADMAP (Aligned to Charter v1.1)
 
 > Source of truth for phase gating. Each checkbox must be merged & deployed with green guardrails before moving on.
@@ -72,6 +73,15 @@
 - [ ] Predefined reports & dashboards (beyond KPIs v1)
 - [ ] Admin/User docs baseline
 
+### Phase 5 — Additions (2025-09-23)
+- [x] **Runtime settings moved to DB** for all non-connection knobs; `core_settings` table + `SettingsServiceProvider` boot overlay.
+- [x] **Admin Settings persistence path**: `apply=true` writes to DB; stub-only gate honored via config. Tests updated.
+- [x] **Metrics routes finalized**: `GET /api/dashboard/kpis` and alias `GET /api/metrics/dashboard`; controller clamps windows and returns `meta.window`.
+- [x] **Web UI settings form** updated to DB-backed metrics fields; Vitest adjusted for PUT and stub/persist modes.
+- [x] **Apache deploy verified**: `/api/*` routes to Laravel public with `AllowOverride All` and `mod_rewrite`; health and KPIs reachable.
+- [ ] **KPI cache TTL** stored in DB (`core.metrics.cache_ttl_seconds`) and enforced in service layer.  
+  - Child note: TTL key exists; enforcement to be implemented in MetricsService adapter.
+
 ---
 
 ## Phase 5.5 — Theming & Layout
@@ -133,3 +143,9 @@
 - ✅ Static analysis: PHPStan level 9 enforced in CI.
 - ⏳ Phase 5 in progress: KPIs v1 shipped (denies rate, evidence freshness), deny-audit invariants enforced, brute-force guard in place.
 - 🔜 Phase 5.5 planned: theming/layout scope accepted; see BACKLOG and SPEC.
+
+#### Update — 2025-09-23
+- DB-backed settings live in `core_settings`; provider overlays at boot.
+- Admin Settings PUT persists with `apply=true`; stub-only honored when configured.
+- Metrics routes available and consumed by Web UI; Apache routing fixed for `/api/*`.
+- Next: enforce KPI cache TTL and expand reports beyond KPIs v1.

@@ -4,7 +4,7 @@ Status: Active
 Contract: OpenAPI 0.4.6 (no breaking changes)  
 Gates: PHPStan lvl 9, Psalm clean, PHPUnit, Spectral, openapi-diff
 
-_Last updated: 2025-09-21_
+_Last updated: 2025-09-23_
 
 ---
 
@@ -23,6 +23,7 @@ _Last updated: 2025-09-21_
 - [x] Confirm policy gate denies on unknown key in persist mode.
 - [x] Tag `rbac_policy_allowed` request attribute.
 - [x] Unit tests: role-only, policy-only, both, unknown-policy (core), capability-off (separate feature area).
+  - Note: Persist/stub parity verified via feature tests.
 
 **Acceptance**
 - [x] Feature tests cover the middleware grid key branches.
@@ -37,6 +38,7 @@ _Last updated: 2025-09-21_
   - [x] `rbac.deny.role_mismatch`
   - [x] `rbac.deny.policy`
 - [x] One audit row per deny outcome (no duplicates).
+  - Note: Web UI label map for `rbac.deny.*` integrated and tested.
 
 **Tests**
 - [x] Assert one audit row per deny (see `RbacDenyAuditsTest`).
@@ -49,6 +51,7 @@ _Last updated: 2025-09-21_
 - [x] `roleCatalog()` uses DB in persist if table exists, else config.
 - [x] Unknown roles in overrides (persist): audit `rbac.policy.override.unknown_role` once per policy per boot.
 - [x] Cache fingerprint includes policies, mode, persistence, catalog.
+  - Note: Unknown-role audits verified with `meta.unknown_roles` content.
 
 **Tests**
 - [x] Override denies when user lacks mapped role.
@@ -67,6 +70,7 @@ _Last updated: 2025-09-21_
 
 ## 5) KPIs endpoint
 - [x] Route: `GET /api/dashboard/kpis`.
+  - Note: Alias route `GET /api/metrics/dashboard` added; same controller/action and contract.
 - [ ] Query params: `from`, `to`, `tz`, `granularity=day|week|month`.
 - [x] RBAC: require `policy=core.metrics.view` (Admin only).
 - [x] Series computed (v1):
@@ -111,6 +115,7 @@ _Last updated: 2025-09-21_
 **UI**
 - [x] Controls for `rbac_days` and `days` wired to query.
 - [x] Sparkline for daily RBAC denies series in card.
+  - Note: Frontend pulls defaults from `/api/admin/settings` effective config; clamps to `[1..365]` client-side as well.
 
 ---
 
@@ -121,6 +126,7 @@ _Last updated: 2025-09-21_
   - [x] Failed attempt: `auth.login.failed` (identifier semantics preserved).
   - [x] Lock event: `auth.login.locked`.
 - [x] Toggle via config for tests.
+  - Note: End-to-end tests cover both strategies’ lock path and audit emissions.
 
 **Tests**
 - [ ] IP mode: lock after N failures; unlock after window.
@@ -147,6 +153,7 @@ _Last updated: 2025-09-21_
 - [x] Update `docs/phase-5/PHASE-5-DASHBOARDS-AND-REPORTS.md` with contract.
 - [x] Keep `docs/phase-5/PHASE-5-KICKOFF.md` in sync.
 - [x] Add `docs/OPS.md` runbook.
+  - Note: Added Apache vhost guidance, FPM handoff, and `/api` Alias/Rewrite notes.
 
 ---
 
@@ -167,6 +174,37 @@ _Last updated: 2025-09-21_
 
 ---
 
+## 11) Settings persistence (DB-only) — NEW
+- [x] Migration: `core_settings` table (string PK `key`, `value` JSON string, `type`, timestamps).
+- [x] Model: `App\Models\Setting` (non-incrementing string PK).
+- [x] Provider: `SettingsServiceProvider` loads overrides from DB at boot (no `.env` for app settings).
+- [x] Service: `SettingsService` (effectiveConfig, apply, diff/changes audit).
+- [x] Controller: `SettingsController@index|update` accepts spec + legacy shape; `apply` flag; stub-only mode honored.
+- [x] Request: `UpdateSettingsRequest` validation hardened; legacy shape flatten; error shape grouped.
+- [x] Metrics moved to DB: `core.metrics.cache_ttl_seconds`, `core.metrics.evidence_freshness.days`, `core.metrics.rbac_denies.window_days`.
+- [x] Frontend: Admin Settings uses `GET /api/admin/settings` and `PUT /api/admin/settings`; tests updated from POST→PUT.
+- [x] Tests: persistence suite (`SettingsPersistenceTest`) covers set/unset/partial updates; validation tests updated.
+  - Note: No default seeds in DB by design; DB is system of record for settings (except DB connection).
+
+---
+
+## 12) Infra: Apache + PHP-FPM wiring — NEW
+- [x] Dedicated vhost with HTTPS, HSTS, and `/api` → Laravel public via `Alias` or `ProxyPassMatch`.
+- [x] Ensure `AllowOverride All` under `/api/public` so `.htaccess` routes to `index.php`.
+- [x] Verified routes reachable via Apache (`/api/health`, `/api/dashboard/kpis`).
+- [x] Cleared config/route caches after deploy; switched cache driver to `file` where DB cache table absent.
+  - Note: Server API shows `Apache 2.0 Handler` (not `FPM/FastCGI`) when proxying.
+
+---
+
+## 13) Post-merge smoke — NEW
+- [x] Admin Settings PUT persists overrides; DB rows visible in `core_settings`.
+- [x] KPIs respond with identical shapes at both routes (`/api/dashboard/kpis`, `/api/metrics/dashboard`).
+- [x] Web SPA dashboard reads KPIs successfully and renders tiles/sparkline.
+- [x] RBAC `require_auth` flag behavior validated behind Apache.
+
+---
+
 ## Execution order (suggested)
 1. Middleware deny auditing (#2).
 2. KPI endpoint (#5).
@@ -174,6 +212,8 @@ _Last updated: 2025-09-21_
 4. Role-management validations (#7).
 5. Docs and gates (#8, #9).
 6. Release hygiene (#10).
+7. Settings persistence & UI roundtrip (#11) — completed during this phase.
+8. Infra validation (#12) — completed during this phase.
 
 ---
 
@@ -184,6 +224,8 @@ _Last updated: 2025-09-21_
 - [ ] Role UX validations: Owner ___
 - [ ] Docs & contracts: Owner ___
 - [ ] QA & CI gates: Owner ___
+- [ ] Settings persistence & Admin UI: Owner ___
+- [ ] Apache/FPM deploy & runbook: Owner ___
 
 ---
 
@@ -192,3 +234,4 @@ _Last updated: 2025-09-21_
 - [ ] Tests: `composer test` (PHPUnit)
 - [ ] OpenAPI diff: `openapi-diff old.yaml new.yaml`
 - [ ] Spectral: `spectral lint openapi.yaml`
+- [ ] Cache clears (deploy): `php artisan config:clear && php artisan route:clear && php artisan cache:clear`

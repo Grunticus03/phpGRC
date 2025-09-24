@@ -1,4 +1,3 @@
-# @phpgrc:/api/openapi.yaml
 openapi: 3.1.0
 info:
   title: phpGRC
@@ -16,9 +15,9 @@ info:
     identifier: MIT
     name: MIT
   x-logo:
-    url: "http://172.16.0.46:8000/images/phpGRC-light-horizontal-trans.png"
+    url: "https://phpgrc.gruntlabs.net/api/public/images/phpGRC-light-horizontal-trans.png"
     altText: "phpGRC"
-    href: "http://172.16.0.46:8000/api/docs"
+    href: "https://phpgrc.gruntlabs.net/api/docs"
   x-changelog:
     - date: 2025-09-23
       note: "Docs-only: Added guidance and examples for `meta.changes` in audit events; no breaking schema changes."
@@ -1554,14 +1553,16 @@ components:
           type: string
           description: Dot-notated key (e.g., `core.audit.enabled`).
         old:
-          nullable: true
           description: Previous value (if any).
+          # OpenAPI 3.1: use a union type instead of `nullable: true`
+          type: [ "null", boolean, number, string, object, array ]
         new:
-          nullable: true
           description: New value (if any).
+          # OpenAPI 3.1: use a union type instead of `nullable: true`
+          type: [ "null", boolean, number, string, object, array ]
         action:
           type: string
-          enum: [set, update, unset]
+          enum: [ set, update, unset ]
 
     AuditListResponse:
       type: object

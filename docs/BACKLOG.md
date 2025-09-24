@@ -147,6 +147,62 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 
 ---
 
+### CORE-011 — Runtime Settings Overlay (DB-backed)
+**Description:** Move all runtime settings (non-connection) to DB table `core_settings`; overlay into `config()` at boot.  
+**Acceptance Criteria:**
+- Migration for `core_settings` (string PK `key`, longText `value`, `type=json`, timestamps)
+- `SettingsServiceProvider` hydrates config from DB (safe when table missing)
+- JSON-encoded values; decode on read; strict typing in overlay
+- Feature tests: index reflects overrides; apply sets/unsets; partial updates don’t touch other keys
+- Psalm/PHPStan green  
+**Phase:** 5  
+**Step:** 1  
+**Dependencies:** CORE-003  
+**Status:** Done
+
+---
+
+### CORE-012 — Admin Settings Persistence Path (apply=true)
+**Description:** Enable persistence path for Admin Settings when `apply=true`; otherwise stub-only echo.  
+**Acceptance Criteria:**
+- `SettingsService::apply()` persists diffs; unsets rows when equal to defaults
+- Actor id set when authenticated; audits emitted (Phase-4 format)
+- Controller accepts spec and legacy shapes; normalizes
+- Tests for stub-only vs persist modes  
+**Phase:** 5  
+**Step:** 1  
+**Dependencies:** CORE-011  
+**Status:** Done
+
+---
+
+### CORE-013 — Metrics Controller & Windows Clamp
+**Description:** Internal admin-only KPIs endpoint with safe window parsing and clamping.  
+**Acceptance Criteria:**
+- `GET /api/dashboard/kpis` + alias `/api/metrics/dashboard`
+- Query params: `days`, `rbac_days` clamped to `[1..365]`
+- Response includes `meta.generated_at` and `meta.window`  
+**Phase:** 5  
+**Step:** 2  
+**Dependencies:** CORE-006, CORE-007  
+**Status:** Done
+
+---
+
+### CORE-014 — Apache Routing (Ops)
+**Description:** Production vhost wiring for SPA + Laravel API.  
+**Acceptance Criteria:**
+- 80→443 redirect; HSTS; TLS chain configured
+- `/api/` Alias to Laravel `public/` with `AllowOverride All` (mod_rewrite)
+- SPA served from `/web` build; `/#/dashboard` default route
+- Health and KPIs reachable under TLS  
+**Phase:** 5  
+**Step:** 2  
+**Dependencies:** None  
+**Status:** Done
+
+---
+
 ## 🎨 UI / Theming (Phase 5.5)
 
 ### THEME-001 — Bootswatch Runtime Themes
@@ -421,6 +477,7 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 **Step:** 2  
 **Dependencies:** CORE-008, RISK-002, COMP-002, AUD-001  
 **Status:** In Progress (KPI v1 shipped: Evidence Freshness, RBAC Denies Rate; internal `GET /api/dashboard/kpis`; SPA tiles in Dashboard route)
+- **Note:** DB-backed metrics defaults persisted (`core.metrics.evidence_freshness.days`, `core.metrics.rbac_denies.window_days`, `core.metrics.cache_ttl_seconds`). TTL enforcement in MetricsService pending.
 
 ---
 

@@ -177,7 +177,12 @@ final class AuditController extends Controller
         $items = [];
         foreach ($rows as $row) {
             /** @var AuditEvent $row */
-            $items[] = [
+            $meta = $row->meta;
+            $changes = (is_array($meta) && array_key_exists('changes', $meta) && is_array($meta['changes']))
+                ? $meta['changes']
+                : null;
+
+            $item = [
                 'id'          => $row->id,
                 'occurred_at' => $row->occurred_at->toIso8601String(),
                 'actor_id'    => $row->actor_id,
@@ -187,8 +192,15 @@ final class AuditController extends Controller
                 'entity_id'   => $row->entity_id,
                 'ip'          => $row->ip,
                 'ua'          => $row->ua,
-                'meta'        => $row->meta,
+                'meta'        => $meta,
             ];
+
+            // Include structured diffs when present; otherwise omit to keep response lean.
+            if ($changes !== null) {
+                $item['changes'] = $changes;
+            }
+
+            $items[] = $item;
         }
 
         $tail       = $items !== [] ? $items[array_key_last($items)] : null;
