@@ -13,25 +13,37 @@ final class OpenApiController extends BaseController
     public function yaml(): Response
     {
         $content = $this->loadSpecYaml();
-        return response($content, 200, ['Content-Type' => 'application/yaml']);
+
+        return response($content, 200, [
+            'Content-Type' => 'application/yaml; charset=UTF-8',
+            'Cache-Control' => 'no-store, max-age=0',
+        ]);
     }
 
     public function json(): Response
     {
         $json = $this->tryLoadSpecJsonFile();
         if ($json !== null) {
-            return response($json, 200, ['Content-Type' => 'application/json']);
+            return response($json, 200, [
+                'Content-Type' => 'application/json; charset=UTF-8',
+                'Cache-Control' => 'no-store, max-age=0',
+            ]);
         }
 
         $yaml = $this->loadSpecYaml();
+
         try {
-            /** @var array<string,mixed> $data */
+            /** @var array<string, mixed> $data */
             $data = Yaml::parse($yaml);
             $json = json_encode($data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
             if ($json === false) {
                 throw new \RuntimeException('json_encode failed');
             }
-            return response($json, 200, ['Content-Type' => 'application/json']);
+
+            return response($json, 200, [
+                'Content-Type' => 'application/json; charset=UTF-8',
+                'Cache-Control' => 'no-store, max-age=0',
+            ]);
         } catch (\Throwable $e) {
             $fallback = json_encode([
                 'ok' => false,
@@ -40,7 +52,11 @@ final class OpenApiController extends BaseController
             ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 
             $payload = ($fallback === false) ? '{"ok":false}' : $fallback;
-            return response($payload, 500, ['Content-Type' => 'application/json']);
+
+            return response($payload, 500, [
+                'Content-Type' => 'application/json; charset=UTF-8',
+                'Cache-Control' => 'no-store, max-age=0',
+            ]);
         }
     }
 
@@ -72,6 +88,7 @@ paths:
   /health:
     get:
       summary: Health check
+      description: Simple liveness probe for environment checks.
       responses:
         '200':
           description: OK
@@ -94,7 +111,7 @@ YAML;
                 }
             }
         }
+
         return null;
     }
 }
-

@@ -4,12 +4,12 @@ info:
   version: 0.4.6
   description: |
     Notes:
-    - The Metrics Dashboard is an internal, admin-only endpoint (`GET /api/dashboard/kpis`) and is not part of this public OpenAPI.
+    - The Metrics Dashboard is an internal, admin-only endpoint (`GET /api/dashboard/kpis`, alias `GET /api/metrics/dashboard`) and is not part of this public OpenAPI. Both return identical shapes.
     - Metrics defaults are config-driven with environment fallbacks:
       - `CORE_METRICS_EVIDENCE_FRESHNESS_DAYS` → default **30**
       - `CORE_METRICS_RBAC_DENIES_WINDOW_DAYS` → default **7**
     - The dashboard API accepts optional `days` and `rbac_days` query parameters. The server clamps each to the inclusive range **[1, 365]**.
-    - Audit events MAY include settings-change details in `meta.changes` for category `SETTINGS` events (e.g., `"settings.update"`). Each change item includes `{ key, old, new, action }` where `action ∈ { set, update, unset }`. This is an additive payload and does not change the public schema (see examples under `/audit`).  
+    - Audit events MAY include settings-change details in `meta.changes` for category `SETTINGS` events (e.g., `"settings.update"`). Each change item includes `{ key, old, new, action }` where `action ∈ { set, update, unset }`. This is an additive payload and does not change the public schema (see examples under `/audit`).
     - (Internal-only, not part of this OpenAPI) KPI responses MAY include `meta.cache` with `{ ttl:number, hit:boolean }` when caching is enabled.
   license:
     identifier: MIT
@@ -55,6 +55,8 @@ paths:
       security: []
       tags: [Health]
       summary: Health probe
+      description: |
+        Simple liveness probe; returns `{ ok: true }` when the API process is reachable.
       responses:
         '200':
           description: OK
@@ -76,6 +78,7 @@ paths:
       security: []
       tags: [Health]
       summary: Deployment fingerprint and enabled-feature summary
+      description: Returns a hash of key config and a brief feature summary to help debug deployments (no secrets).
       responses:
         '200':
           description: Summary and fingerprint
@@ -92,6 +95,7 @@ paths:
       security: []
       tags: [OpenAPI]
       summary: OpenAPI YAML
+      description: Serves the current OpenAPI spec as YAML from `docs/api/openapi.yaml`.
       responses:
         '200':
           description: YAML
@@ -108,6 +112,7 @@ paths:
       security: []
       tags: [OpenAPI]
       summary: OpenAPI JSON
+      description: Serves the current OpenAPI spec as JSON (direct file or YAML→JSON conversion).
       responses:
         '200':
           description: JSON
@@ -124,6 +129,7 @@ paths:
       operationId: settingsGet
       tags: [Settings]
       summary: Get settings snapshot
+      description: Returns the effective configuration with any DB-backed overrides applied.
       responses:
         '200':
           description: OK
@@ -139,6 +145,7 @@ paths:
       operationId: settingsUpdate
       tags: [Settings]
       summary: Update settings (spec or legacy shape)
+      description: Accepts either the spec shape or the legacy nested shape; validates and applies updates, optionally persisting when enabled.
       requestBody:
         required: true
         content:
@@ -170,6 +177,7 @@ paths:
       operationId: rbacRolesList
       tags: [RBAC]
       summary: List role catalog
+      description: Returns role names from DB when persistence is enabled, otherwise from config.
       responses:
         '200':
           description: OK (persist uses DB if present, else config)
@@ -185,6 +193,7 @@ paths:
       operationId: rbacRolesCreate
       tags: [RBAC]
       summary: Create role (persist) or accept (stub-only)
+      description: Creates a role in persistence mode; in stub mode, validates and returns an accepted payload.
       requestBody:
         required: true
         content:
@@ -224,6 +233,7 @@ paths:
       operationId: userRolesGet
       tags: [RBAC]
       summary: Get roles for a user
+      description: Returns the user's roles as names/ids; source depends on persistence mode.
       responses:
         '200':
           description: OK
@@ -241,6 +251,7 @@ paths:
       operationId: userRolesReplace
       tags: [RBAC]
       summary: Replace roles for a user
+      description: Replaces the user's role set with the provided names/ids, validating existence and normalization.
       requestBody:
         required: true
         content:
@@ -291,6 +302,7 @@ paths:
       operationId: userRoleAttach
       tags: [RBAC]
       summary: Attach a role to a user by name or id
+      description: Idempotently attaches the role to the user.
       responses:
         '200':
           description: Attached (idempotent)
@@ -316,6 +328,7 @@ paths:
       operationId: userRoleDetach
       tags: [RBAC]
       summary: Detach a role from a user by name or id
+      description: Idempotently detaches the role from the user.
       responses:
         '200':
           description: Detached (idempotent)
@@ -439,6 +452,7 @@ paths:
       operationId: auditCategories
       tags: [Audit]
       summary: List audit categories
+      description: Returns the fixed set of audit categories the system uses.
       responses:
         '200':
           description: OK
@@ -467,10 +481,7 @@ paths:
       tags: [Audit]
       summary: Export audit events as CSV
       description: |
-        Content-Type is exactly `text/csv`. Response includes headers:
-        - `Content-Disposition: attachment; filename="audit-<timestamp>.csv"`
-        - `X-Content-Type-Options: nosniff`
-        - `Cache-Control: no-store, max-age=0`
+        Streams a CSV of audit events for the requested filters. See headers and sample format below.
       parameters:
         - $ref: '#/components/parameters/AuditCategory'
         - $ref: '#/components/parameters/AuditAction'
@@ -521,6 +532,7 @@ paths:
       operationId: evidenceList
       tags: [Evidence]
       summary: List evidence items
+      description: Returns paginated evidence metadata with optional filters; does not include file bytes.
       parameters:
         - name: owner_id
           in: query
@@ -601,6 +613,7 @@ paths:
       operationId: evidenceUpload
       tags: [Evidence]
       summary: Upload evidence
+      description: Accepts a multipart upload; validates size/mime; stores bytes and metadata.
       requestBody:
         required: true
         content:
@@ -650,6 +663,7 @@ paths:
       operationId: evidenceDownload
       tags: [Evidence]
       summary: Download evidence
+      description: Returns the stored file bytes. Optionally verifies by `?sha256=<hex>` and returns `412` on mismatch.
       parameters:
         - name: sha256
           in: query
@@ -683,6 +697,7 @@ paths:
       operationId: evidenceHead
       tags: [Evidence]
       summary: HEAD same as GET without body
+      description: Returns headers for caching/conditional requests; body omitted.
       responses:
         '200':
           description: Headers only
@@ -696,6 +711,7 @@ paths:
       operationId: exportsCreateLegacy
       tags: [Exports]
       summary: Create export (legacy)
+      description: Creates an export job using the legacy request format.
       requestBody:
         required: true
         content:
@@ -721,6 +737,7 @@ paths:
       operationId: exportsCreateByType
       tags: [Exports]
       summary: Create export by type
+      description: Creates an export job for the given type, with optional parameters.
       parameters:
         - name: type
           in: path
@@ -753,6 +770,7 @@ paths:
       operationId: exportStatus
       tags: [Exports]
       summary: Export job status
+      description: Returns the current status of a previously created export job.
       parameters:
         - name: jobId
           in: path
@@ -776,6 +794,7 @@ paths:
       operationId: exportDownload
       tags: [Exports]
       summary: Download export artifact
+      description: Downloads the produced export artifact for a completed job.
       parameters:
         - name: jobId
           in: path
@@ -807,6 +826,7 @@ paths:
       security: []
       tags: [Avatars]
       summary: Upload user avatar (Phase 4 stub)
+      description: Accepts an image file and stores a normalized WEBP; currently a stub that returns 202 when the feature is disabled.
       requestBody:
         required: true
         content:
@@ -859,6 +879,7 @@ paths:
       security: []
       tags: [Avatars]
       summary: Get avatar image
+      description: Returns a normalized WEBP avatar image for the user, with an optional `size` hint.
       parameters:
         - name: size
           in: query
@@ -891,6 +912,7 @@ paths:
       security: []
       tags: [Avatars]
       summary: HEAD avatar
+      description: Returns avatar headers only (no body).
       responses:
         '200':
           description: Headers only
@@ -903,6 +925,7 @@ paths:
       security: []
       tags: [Setup]
       summary: Setup wizard status
+      description: Returns current setup checklist completion and next actionable step.
       responses:
         '200':
           description: Status
@@ -919,6 +942,7 @@ paths:
       security: []
       tags: [Setup]
       summary: Test database connection
+      description: Validates DB parameters against a live connection attempt.
       requestBody:
         required: true
         content:
@@ -945,6 +969,7 @@ paths:
       security: []
       tags: [Setup]
       summary: Write DB config to shared path
+      description: Persists DB connection settings to a shared config file for bootstrap.
       requestBody:
         required: true
         content:
@@ -978,6 +1003,7 @@ paths:
       security: []
       tags: [Setup]
       summary: Generate app key (stub if commands disabled)
+      description: Generates an application key or returns a stub response when command execution is disabled.
       responses:
         '200':
           description: Generated
@@ -1012,6 +1038,7 @@ paths:
       security: []
       tags: [Setup]
       summary: Run migrations (stub if commands disabled)
+      description: Runs database migrations or returns a stub response when command execution is disabled.
       responses:
         '200':
           description: OK
@@ -1048,6 +1075,7 @@ paths:
       security: []
       tags: [Setup]
       summary: Create first admin
+      description: Creates the initial administrator account during setup.
       requestBody:
         required: true
         content:
@@ -1074,6 +1102,7 @@ paths:
       security: []
       tags: [Setup]
       summary: Verify admin TOTP during setup
+      description: Verifies the one-time password for the seeded admin as part of setup.
       requestBody:
         required: true
         content:
@@ -1106,6 +1135,7 @@ paths:
       security: []
       tags: [Setup]
       summary: Configure SMTP
+      description: Stores SMTP connection details after validation; used for outbound email.
       requestBody:
         required: true
         content:
@@ -1133,6 +1163,7 @@ paths:
       security: []
       tags: [Setup]
       summary: Configure Identity Provider (optional)
+      description: Stores IdP metadata for SSO; details depend on provider.
       requestBody:
         required: true
         content:
@@ -1160,6 +1191,7 @@ paths:
       security: []
       tags: [Setup]
       summary: Configure branding
+      description: Stores initial branding preferences and assets metadata.
       requestBody:
         required: true
         content:
@@ -1187,6 +1219,7 @@ paths:
       security: []
       tags: [Setup]
       summary: Complete setup wizard
+      description: Marks setup as complete and enables the standard app routes.
       responses:
         '200':
           description: OK
@@ -1554,15 +1587,23 @@ components:
           description: Dot-notated key (e.g., `core.audit.enabled`).
         old:
           description: Previous value (if any).
-          # OpenAPI 3.1: use a union type instead of `nullable: true`
           type: [ "null", boolean, number, string, object, array ]
         new:
           description: New value (if any).
-          # OpenAPI 3.1: use a union type instead of `nullable: true`
           type: [ "null", boolean, number, string, object, array ]
         action:
           type: string
           enum: [ set, update, unset ]
+        meta:
+          oneOf:
+            - type: object
+              additionalProperties: true
+              properties:
+                changes:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/SettingsChange'
+            - type: 'null'
 
     AuditListResponse:
       type: object
