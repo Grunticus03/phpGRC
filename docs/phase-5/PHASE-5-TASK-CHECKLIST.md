@@ -62,6 +62,7 @@ _Last updated: 2025-09-23_
 ## 4) Capability mapping
 - [ ] Map `core.exports.generate`, `core.audit.export`, `core.evidence.upload` to explicit capability gates where applicable.
 - [ ] Extend later when non-admin grants are approved (placeholder test proves wildcard works).
+- **Note (stale):** `core.exports.generate` capability was already mapped/enforced in Phase 4 exports E2E. Kept here to track parity across endpoints; remaining work focuses on `core.audit.export` and `core.evidence.upload`.
 
 **Tests**
 - [ ] Capability disabled returns `403 CAPABILITY_DISABLED`.
@@ -163,6 +164,7 @@ _Last updated: 2025-09-23_
 - [x] PHPStan lvl 9: no new issues.
 - [x] Psalm: no new issues.
 - [x] PHPUnit: all suites green.
+- **Note:** Spec component `SettingsChange` is currently unused; harmless but may trigger `no-unused-components` in stricter Spectral configs. Intentional placeholder for upcoming settings audit (`meta.changes[]`). Keep or reference in a non-breaking way in 0.4.x; otherwise allowlist in Spectral.
 
 ---
 
@@ -205,6 +207,14 @@ _Last updated: 2025-09-23_
 
 ---
 
+## 14) OpenAPI serve headers & controller hardening — NEW
+- [x] `/api/openapi.yaml` served with exact `Content-Type: application/yaml` (no charset).
+- [x] PHPUnit: `OpenApiSpecTest::test_yaml_served_with_expected_headers_and_content` passing.
+- [x] Static analysis: removed/avoided `setCharset(null)`; no PHPStan/Psalm violations in `OpenApiController`.
+- [ ] Optional: serve `/api/openapi.json` with `application/json` and parity test.
+
+---
+
 ## Execution order (suggested)
 1. Middleware deny auditing (#2).
 2. KPI endpoint (#5).
@@ -214,6 +224,7 @@ _Last updated: 2025-09-23_
 6. Release hygiene (#10).
 7. Settings persistence & UI roundtrip (#11) — completed during this phase.
 8. Infra validation (#12) — completed during this phase.
+9. OpenAPI serve headers hardening (#14) — completed during this phase.
 
 ---
 
@@ -226,6 +237,7 @@ _Last updated: 2025-09-23_
 - [ ] QA & CI gates: Owner ___
 - [ ] Settings persistence & Admin UI: Owner ___
 - [ ] Apache/FPM deploy & runbook: Owner ___
+- [ ] OpenAPI serve headers & parity tests: Owner ___
 
 ---
 
