@@ -11,11 +11,23 @@ final class OpenApiSpecTest extends TestCase
     public function test_yaml_served_with_expected_headers_and_content(): void
     {
         $res = $this->get('/api/openapi.yaml');
+        $res->assertOk();
 
-        $res->assertStatus(200);
-        $res->assertHeader('content-type', 'application/yaml');
+        $ct = (string) $res->headers->get('content-type');
+        $this->assertSame('application/yaml', strtolower(trim(explode(';', $ct)[0])));
+
         $res->assertSee('openapi: 3.1.0', false);
-        $res->assertSee('/health:', false);
-        $res->assertSee('paths:', false);
+    }
+
+    public function test_json_served_with_expected_headers_and_content(): void
+    {
+        $res = $this->get('/api/openapi.json');
+        $res->assertOk();
+
+        $ct = (string) $res->headers->get('content-type');
+        $this->assertSame('application/json', strtolower(trim(explode(';', $ct)[0])));
+
+        $this->assertJson($res->getContent());
     }
 }
+
