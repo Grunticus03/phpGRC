@@ -1,3 +1,4 @@
+# FILE: /.github/workflows/ci.yml
 name: CI
 
 on:
@@ -21,9 +22,19 @@ on:
   workflow_dispatch:
 
 jobs:
+  spectral:
+    name: Spectral lint
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v5
+        with: { node-version: "20" }
+      - run: npx -y @stoplight/spectral-cli@6 lint docs/api/openapi.yaml -r .spectral.yaml
+
   openapi:
     name: OpenAPI lint
     runs-on: self-hosted
+    needs: [spectral]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v5
@@ -249,3 +260,4 @@ jobs:
         with:
           name: web-coverage
           path: web/coverage
+

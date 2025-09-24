@@ -23,6 +23,7 @@ info:
       note: "Docs-only: Added guidance and examples for `meta.changes` in audit events; no breaking schema changes."
 servers:
   - url: /api
+
 tags:
   - name: Health
     description: Liveness and environment fingerprints.
@@ -141,7 +142,7 @@ paths:
           $ref: '#/components/responses/Unauthenticated'
         '403':
           $ref: '#/components/responses/Forbidden'
-    post:
+    post: &SettingsUpdateOp
       operationId: settingsUpdate
       tags: [Settings]
       summary: Update settings (spec or legacy shape)
@@ -168,9 +169,11 @@ paths:
         '422':
           $ref: '#/components/responses/ValidationFailed'
     put:
-      $ref: '#/paths/~1admin~1settings/post'
+      <<: *SettingsUpdateOp
+      operationId: settingsReplace
     patch:
-      $ref: '#/paths/~1admin~1settings/post'
+      <<: *SettingsUpdateOp
+      operationId: settingsPatch
 
   /rbac/roles:
     get:
@@ -1572,6 +1575,11 @@ components:
           oneOf:
             - type: object
               additionalProperties: true
+              properties:
+                changes:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/SettingsChange'
             - type: 'null'
       description: >
         Audit record. `meta` MAY include `changes: SettingsChange[]` for `SETTINGS` events such as `settings.update`.
@@ -1586,11 +1594,41 @@ components:
           type: string
           description: Dot-notated key (e.g., `core.audit.enabled`).
         old:
-          description: Previous value (if any).
-          type: [ "null", boolean, number, string, object, array ]
+          oneOf:
+            - type: 'null'
+            - type: boolean
+            - type: number
+            - type: string
+            - type: object
+              additionalProperties: true
+            - type: array
+              items:
+                anyOf:
+                  - type: boolean
+                  - type: number
+                  - type: string
+                  - type: object
+                    additionalProperties: true
+                  - type: array
+                    items: {}         # FIX: declare items for nested arrays
         new:
-          description: New value (if any).
-          type: [ "null", boolean, number, string, object, array ]
+          oneOf:
+            - type: 'null'
+            - type: boolean
+            - type: number
+            - type: string
+            - type: object
+              additionalProperties: true
+            - type: array
+              items:
+                anyOf:
+                  - type: boolean
+                  - type: number
+                  - type: string
+                  - type: object
+                    additionalProperties: true
+                  - type: array
+                    items: {}         # FIX: declare items for nested arrays
         action:
           type: string
           enum: [ set, update, unset ]
