@@ -115,7 +115,7 @@ Route::get('/docs', function () {
     <style>html,body,redoc{height:100%}body{margin:0}</style>
   </head>
   <body>
-    <redoc spec-url="/api/openapi.json"></redoc>
+    <redoc spec-url="/api/openapi.yaml"></redoc>
     <script src="https://cdn.redoc.ly/redoc/latest/bundles/redoc.standalone.js"></script>
   </body>
 </html>
