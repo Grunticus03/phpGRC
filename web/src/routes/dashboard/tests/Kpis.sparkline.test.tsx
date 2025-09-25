@@ -36,11 +36,15 @@ const okPayload = {
 
 describe("Dashboard KPIs sparkline", () => {
   beforeEach(() => {
-    const mock = vi.fn(async () => ({
+    const responseLike = {
       ok: true,
       status: 200,
+      headers: new Headers({ "content-type": "application/json" }),
       json: async () => okPayload,
-    })) as unknown as typeof fetch;
+      text: async () => JSON.stringify(okPayload),
+    } as unknown as Response;
+
+    const mock = vi.fn(async () => responseLike) as unknown as typeof fetch;
     vi.stubGlobal("fetch", mock);
   });
 
@@ -52,7 +56,6 @@ describe("Dashboard KPIs sparkline", () => {
   it("renders an SVG path for the RBAC denies sparkline", async () => {
     render(<Kpis />);
 
-    // Wait for load
     await screen.findByLabelText("deny-rate");
     const svg = await screen.findByLabelText("RBAC denies sparkline");
     expect(svg.tagName.toLowerCase()).toBe("svg");
@@ -60,7 +63,7 @@ describe("Dashboard KPIs sparkline", () => {
     await waitFor(() => {
       const path = svg.querySelector("path");
       expect(path).not.toBeNull();
-      expect(path?.getAttribute("d") ?? "").toContain("L"); // has line segments
+      expect(path?.getAttribute("d") ?? "").toContain("L");
     });
   });
 });
