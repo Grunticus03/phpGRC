@@ -199,8 +199,6 @@ export default function Kpis(): JSX.Element {
               </table>
             </div>
           )}
-
-          <p className="text-muted mt-3">Admin-only. Computation bounded by server defaults.</p>
         </>
       )}
     </div>

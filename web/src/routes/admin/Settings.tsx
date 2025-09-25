@@ -169,7 +169,7 @@ export default function Settings(): JSX.Element {
                     value={cacheTtl}
                     onChange={(e) => setCacheTtl(Math.max(0, Math.min(2_592_000, Number(e.target.value) || 0)))}
                   />
-                  <div className="form-text">0 disables caching. Max 30 days (2,592,000s).</div>
+                  <div className="form-text">0=Disable - Max=30d</div>
                 </div>
 
                 <div className="col-sm-4">
