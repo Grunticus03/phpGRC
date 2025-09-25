@@ -52,7 +52,7 @@ final class RbacAuditTest extends TestCase
     {
         $admin = $this->actingAsAdmin();
 
-        $res = $this->postJson('/api/rbac/roles', ['name' => 'Compliance Lead']);
+        $res = $this->postJson('/rbac/roles', ['name' => 'Compliance Lead']);
         $res->assertStatus(201)->assertJsonPath('ok', true);
 
         $roleId = (string) $res->json('role.id');
@@ -86,7 +86,7 @@ final class RbacAuditTest extends TestCase
         ]);
 
         // Attach Auditor
-        $res = $this->postJson("/api/rbac/users/{$u->id}/roles/Auditor");
+        $res = $this->postJson("/rbac/users/{$u->id}/roles/Auditor");
         $res->assertOk()->assertJsonPath('ok', true);
 
         // Canonical
@@ -131,7 +131,7 @@ final class RbacAuditTest extends TestCase
         $u->roles()->attach($auditorId);
 
         // Detach Auditor
-        $res = $this->deleteJson("/api/rbac/users/{$u->id}/roles/Auditor");
+        $res = $this->deleteJson("/rbac/users/{$u->id}/roles/Auditor");
         $res->assertOk()->assertJsonPath('ok', true);
 
         // Canonical
@@ -176,7 +176,7 @@ final class RbacAuditTest extends TestCase
         $u->roles()->attach($userRoleId);
 
         // Replace with Admin + Auditor
-        $res = $this->putJson("/api/rbac/users/{$u->id}/roles", [
+        $res = $this->putJson("/rbac/users/{$u->id}/roles", [
             'roles' => ['Admin', 'Auditor'],
         ]);
         $res->assertOk()->assertJsonPath('ok', true);

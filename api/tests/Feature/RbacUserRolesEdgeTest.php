@@ -54,8 +54,8 @@ final class RbacUserRolesEdgeTest extends TestCase
             'password' => bcrypt('secret'),
         ]);
 
-        $this->postJson("/api/rbac/users/{$user->id}/roles/Auditor")->assertStatus(200);
-        $this->postJson("/api/rbac/users/{$user->id}/roles/Auditor")->assertStatus(200);
+        $this->postJson("/rbac/users/{$user->id}/roles/Auditor")->assertStatus(200);
+        $this->postJson("/rbac/users/{$user->id}/roles/Auditor")->assertStatus(200);
 
         $count = AuditEvent::query()
             ->where('action', 'rbac.user_role.attached')
@@ -78,7 +78,7 @@ final class RbacUserRolesEdgeTest extends TestCase
             'password' => bcrypt('secret'),
         ]);
 
-        $this->deleteJson("/api/rbac/users/{$user->id}/roles/Auditor")->assertStatus(200);
+        $this->deleteJson("/rbac/users/{$user->id}/roles/Auditor")->assertStatus(200);
 
         $count = AuditEvent::query()
             ->where('action', 'rbac.user_role.detached')
@@ -102,10 +102,10 @@ final class RbacUserRolesEdgeTest extends TestCase
         ]);
 
         // Give a role first.
-        $this->postJson("/api/rbac/users/{$user->id}/roles/Auditor")->assertStatus(200);
+        $this->postJson("/rbac/users/{$user->id}/roles/Auditor")->assertStatus(200);
 
         // Replace with empty set.
-        $this->putJson("/api/rbac/users/{$user->id}/roles", ['roles' => []])
+        $this->putJson("/rbac/users/{$user->id}/roles", ['roles' => []])
             ->assertStatus(200)
             ->assertJsonFragment(['roles' => []]);
 

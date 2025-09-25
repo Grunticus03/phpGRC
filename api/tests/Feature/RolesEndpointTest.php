@@ -55,7 +55,7 @@ final class RolesEndpointTest extends TestCase
         $admin = $this->makeUserWithRoles(['Admin']);
         Sanctum::actingAs($admin);
 
-        $this->getJson('/api/rbac/roles')
+        $this->getJson('/rbac/roles')
             ->assertStatus(200)
             ->assertJson([
                 'ok' => true,
@@ -68,7 +68,7 @@ final class RolesEndpointTest extends TestCase
         $nonAdmin = $this->makeUserWithRoles(['User']);
         Sanctum::actingAs($nonAdmin);
 
-        $this->postJson('/api/rbac/roles', ['name' => 'New Role'])
+        $this->postJson('/rbac/roles', ['name' => 'New Role'])
             ->assertStatus(403)
             ->assertJson(['ok' => false, 'code' => 'FORBIDDEN']);
     }
@@ -79,7 +79,7 @@ final class RolesEndpointTest extends TestCase
         Sanctum::actingAs($admin);
 
         // Required
-        $this->postJson('/api/rbac/roles', [])
+        $this->postJson('/rbac/roles', [])
             ->assertStatus(422)
             ->assertJson([
                 'ok' => false,
@@ -88,7 +88,7 @@ final class RolesEndpointTest extends TestCase
             ->assertJsonValidationErrors(['name']);
 
         // Duplicate against config list
-        $this->postJson('/api/rbac/roles', ['name' => 'Admin'])
+        $this->postJson('/rbac/roles', ['name' => 'Admin'])
             ->assertStatus(422)
             ->assertJsonValidationErrors(['name']);
     }
@@ -98,7 +98,7 @@ final class RolesEndpointTest extends TestCase
         $admin = $this->makeUserWithRoles(['Admin']);
         Sanctum::actingAs($admin);
 
-        $this->postJson('/api/rbac/roles', ['name' => 'Compliance Lead'])
+        $this->postJson('/rbac/roles', ['name' => 'Compliance Lead'])
             ->assertStatus(202)
             ->assertJson([
                 'ok' => false,
@@ -109,7 +109,7 @@ final class RolesEndpointTest extends TestCase
 
     public function test_unauthenticated_gets_401_when_require_auth_enabled(): void
     {
-        $this->getJson('/api/rbac/roles')->assertStatus(401);
-        $this->postJson('/api/rbac/roles', ['name' => 'X'])->assertStatus(401);
+        $this->getJson('/rbac/roles')->assertStatus(401);
+        $this->postJson('/rbac/roles', ['name' => 'X'])->assertStatus(401);
     }
 }

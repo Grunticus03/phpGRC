@@ -13,7 +13,7 @@ final class SetupStatusTest extends TestCase
 
     public function test_status_returns_ok_with_checks(): void
     {
-        $res = $this->getJson('/api/setup/status');
+        $res = $this->getJson('/setup/status');
         $res->assertStatus(200)
             ->assertJsonPath('ok', true)
             ->assertJsonStructure(['ok', 'setupComplete', 'nextStep', 'checks' => [

@@ -36,7 +36,7 @@ final class RbacUserRolesAuditTest extends TestCase
     {
         $u = $this->makeUser();
 
-        $res = $this->postJson("/api/rbac/users/{$u->id}/roles/Auditor");
+        $res = $this->postJson("/rbac/users/{$u->id}/roles/Auditor");
         $res->assertStatus(200)->assertJsonPath('ok', true);
 
         $canonical = AuditEvent::query()
@@ -71,9 +71,9 @@ final class RbacUserRolesAuditTest extends TestCase
         $u = $this->makeUser();
 
         // Ensure role attached first.
-        $this->postJson("/api/rbac/users/{$u->id}/roles/Auditor")->assertStatus(200);
+        $this->postJson("/rbac/users/{$u->id}/roles/Auditor")->assertStatus(200);
 
-        $res = $this->deleteJson("/api/rbac/users/{$u->id}/roles/Auditor");
+        $res = $this->deleteJson("/rbac/users/{$u->id}/roles/Auditor");
         $res->assertStatus(200)->assertJsonPath('ok', true);
 
         $canonical = AuditEvent::query()
@@ -108,7 +108,7 @@ final class RbacUserRolesAuditTest extends TestCase
         $u = $this->makeUser();
 
         // Replace roles with a single Admin role.
-        $res = $this->putJson("/api/rbac/users/{$u->id}/roles", [
+        $res = $this->putJson("/rbac/users/{$u->id}/roles", [
             'roles' => ['Admin'],
         ]);
 

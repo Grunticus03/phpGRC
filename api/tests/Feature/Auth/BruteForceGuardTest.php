@@ -31,17 +31,17 @@ final class BruteForceGuardTest extends TestCase
         $name = (string) config('core.auth.session_cookie.name');
 
         // 1) No client cookie: guard issues one
-        $r1 = $this->postJson('/api/auth/login')->assertOk();
+        $r1 = $this->postJson('/auth/login')->assertOk();
         $issued = $this->getCookieFromResponse($r1, $name);
         $this->assertNotNull($issued, 'Guard did not set session cookie');
         /** @var string $cookieVal */
         $cookieVal = $issued->getValue();
 
         // 2) Reuse server-issued cookie
-        $this->withCookie($name, $cookieVal)->postJson('/api/auth/login')->assertOk();
+        $this->withCookie($name, $cookieVal)->postJson('/auth/login')->assertOk();
 
         // 3) Third attempt must lock
-        $r3 = $this->withCookie($name, $cookieVal)->postJson('/api/auth/login');
+        $r3 = $this->withCookie($name, $cookieVal)->postJson('/auth/login');
         $r3->assertStatus(429)->assertJson(['ok' => false, 'code' => 'AUTH_LOCKED']);
 
         $locked = AuditEvent::query()
@@ -71,9 +71,9 @@ final class BruteForceGuardTest extends TestCase
         Cache::setDefaultDriver('file');
         Cache::store('file')->flush();
 
-        $this->postJson('/api/auth/login')->assertOk();
+        $this->postJson('/auth/login')->assertOk();
 
-        $r2 = $this->postJson('/api/auth/login');
+        $r2 = $this->postJson('/auth/login');
         $r2->assertStatus(429)->assertJson(['ok' => false, 'code' => 'AUTH_LOCKED']);
 
         $locked = AuditEvent::query()

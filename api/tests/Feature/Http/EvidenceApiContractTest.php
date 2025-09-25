@@ -28,7 +28,7 @@ final class EvidenceApiContractTest extends TestCase
 
         $file = UploadedFile::fake()->create('doc.pdf', 7, 'application/pdf');
 
-        $res = $this->post('/api/evidence', ['file' => $file]);
+        $res = $this->post('/evidence', ['file' => $file]);
 
         $res->assertCreated()
             ->assertJsonStructure(['ok', 'id', 'version', 'sha256', 'size', 'mime', 'name'])
@@ -45,9 +45,9 @@ final class EvidenceApiContractTest extends TestCase
         Sanctum::actingAs($user);
 
         $file = UploadedFile::fake()->create('x.pdf', 3, 'application/pdf');
-        $this->post('/api/evidence', ['file' => $file])->assertCreated();
+        $this->post('/evidence', ['file' => $file])->assertCreated();
 
-        $list = $this->get('/api/evidence')->assertOk();
+        $list = $this->get('/evidence')->assertOk();
 
         $data = $list->json('data');
         $this->assertIsArray($data);
@@ -65,7 +65,7 @@ final class EvidenceApiContractTest extends TestCase
         $user = User::factory()->create();
         Sanctum::actingAs($user);
 
-        $res = $this->postJson('/api/evidence', []);
+        $res = $this->postJson('/evidence', []);
 
         $res->assertStatus(422)
             ->assertJsonPath('ok', false)
@@ -83,7 +83,7 @@ final class EvidenceApiContractTest extends TestCase
 
         $file = UploadedFile::fake()->create('doc.pdf', 1, 'application/pdf');
 
-        $res = $this->post('/api/evidence', ['file' => $file]);
+        $res = $this->post('/evidence', ['file' => $file]);
 
         $res->assertStatus(400)
             ->assertJsonPath('ok', false)

@@ -34,7 +34,7 @@ final class PolicyMapEffectiveApiTest extends TestCase
         $admin->roles()->attach('admin');
         $this->actingAs($admin, 'sanctum');
 
-        $res = $this->getJson('/api/rbac/policies/effective');
+        $res = $this->getJson('/rbac/policies/effective');
 
         $res->assertStatus(200)
             ->assertJson([
@@ -70,6 +70,6 @@ final class PolicyMapEffectiveApiTest extends TestCase
         $aud->roles()->attach('auditor');
         $this->actingAs($aud, 'sanctum');
 
-        $this->getJson('/api/rbac/policies/effective')->assertStatus(403);
+        $this->getJson('/rbac/policies/effective')->assertStatus(403);
     }
 }

@@ -28,7 +28,7 @@ final class DashboardKpisAuthTest extends TestCase
         $admin = $this->makeUser('Admin One', 'admin1@example.test');
         $this->attachNamedRole($admin, 'Admin');
 
-        $resp = $this->actingAs($admin, 'sanctum')->getJson('/api/dashboard/kpis');
+        $resp = $this->actingAs($admin, 'sanctum')->getJson('/dashboard/kpis');
         $resp->assertStatus(200);
 
         $kpis = $this->extractKpis($resp);
@@ -63,7 +63,7 @@ final class DashboardKpisAuthTest extends TestCase
         $this->attachNamedRole($auditor, 'Auditor');
 
         $this->actingAs($auditor, 'sanctum')
-            ->getJson('/api/dashboard/kpis')
+            ->getJson('/dashboard/kpis')
             ->assertStatus(403);
     }
 

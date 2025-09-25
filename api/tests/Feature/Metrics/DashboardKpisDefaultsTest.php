@@ -30,7 +30,7 @@ final class DashboardKpisDefaultsTest extends TestCase
         $admin = $this->makeUser('Admin Metrics', 'admin-metrics-defaults@example.test');
         $this->attachNamedRole($admin, 'Admin');
 
-        $resp = $this->actingAs($admin, 'sanctum')->getJson('/api/dashboard/kpis');
+        $resp = $this->actingAs($admin, 'sanctum')->getJson('/dashboard/kpis');
         $resp->assertStatus(200);
 
         $json = $resp->json();

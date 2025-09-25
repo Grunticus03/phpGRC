@@ -35,14 +35,14 @@ final class AuditIndexTest extends TestCase
         }
 
         // Page 1
-        $r1 = $this->getJson('/api/audit?limit=2')->assertOk()->json();
+        $r1 = $this->getJson('/audit?limit=2')->assertOk()->json();
         $this->assertTrue($r1['ok']);
         $this->assertCount(2, $r1['items']);
         $this->assertNotNull($r1['nextCursor']);
 
         // Page 2
         $cursor = $r1['nextCursor'];
-        $r2 = $this->getJson('/api/audit?limit=2&cursor='.$cursor)->assertOk()->json();
+        $r2 = $this->getJson('/audit?limit=2&cursor='.$cursor)->assertOk()->json();
         $this->assertTrue($r2['ok']);
         $this->assertCount(1, $r2['items']);
         $this->assertNull($r2['nextCursor']);

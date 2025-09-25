@@ -46,7 +46,7 @@ final class EvidenceApiTest extends TestCase
     {
         $file = UploadedFile::fake()->create('evidence.pdf', 2, 'application/pdf');
 
-        $res = $this->post('/api/evidence', ['file' => $file]);
+        $res = $this->post('/evidence', ['file' => $file]);
 
         $res->assertStatus(201)
             ->assertJson([
@@ -62,7 +62,7 @@ final class EvidenceApiTest extends TestCase
     {
         $file = UploadedFile::fake()->image('screen.png', 10, 10);
 
-        $this->post('/api/evidence', ['file' => $file])
+        $this->post('/evidence', ['file' => $file])
             ->assertStatus(201)
             ->assertJsonPath('mime', 'image/png')
             ->assertJsonPath('name', 'screen.png');
@@ -73,7 +73,7 @@ final class EvidenceApiTest extends TestCase
     {
         $file = UploadedFile::fake()->create('tool.exe', 1, 'application/x-msdownload');
 
-        $res = $this->post('/api/evidence', ['file' => $file]);
+        $res = $this->post('/evidence', ['file' => $file]);
         $res->assertStatus(201)
             ->assertJsonPath('ok', true)
             ->assertJsonPath('name', 'tool.exe');
@@ -89,7 +89,7 @@ final class EvidenceApiTest extends TestCase
         Config::set('core.evidence.max_mb', 1);
         $file = UploadedFile::fake()->create('big.pdf', 1024 + 1, 'application/pdf');
 
-        $this->post('/api/evidence', ['file' => $file])
+        $this->post('/evidence', ['file' => $file])
             ->assertStatus(201)
             ->assertJsonPath('ok', true)
             ->assertJsonPath('name', 'big.pdf')
@@ -103,7 +103,7 @@ final class EvidenceApiTest extends TestCase
 
         $file = UploadedFile::fake()->create('evidence.pdf', 2, 'application/pdf');
 
-        $this->post('/api/evidence', ['file' => $file])
+        $this->post('/evidence', ['file' => $file])
             ->assertStatus(400)
             ->assertJson([
                 'ok'   => false,
@@ -114,11 +114,11 @@ final class EvidenceApiTest extends TestCase
     /** @test */
     public function index_paginates_and_returns_next_cursor(): void
     {
-        $this->post('/api/evidence', ['file' => UploadedFile::fake()->createWithContent('a.txt', 'A', 'text/plain')]);
-        $this->post('/api/evidence', ['file' => UploadedFile::fake()->createWithContent('b.txt', 'B', 'text/plain')]);
-        $this->post('/api/evidence', ['file' => UploadedFile::fake()->createWithContent('c.txt', 'C', 'text/plain')]);
+        $this->post('/evidence', ['file' => UploadedFile::fake()->createWithContent('a.txt', 'A', 'text/plain')]);
+        $this->post('/evidence', ['file' => UploadedFile::fake()->createWithContent('b.txt', 'B', 'text/plain')]);
+        $this->post('/evidence', ['file' => UploadedFile::fake()->createWithContent('c.txt', 'C', 'text/plain')]);
 
-        $res = $this->getJson('/api/evidence?limit=2');
+        $res = $this->getJson('/evidence?limit=2');
 
         $res->assertOk()
             ->assertJsonPath('ok', true)
@@ -130,12 +130,12 @@ final class EvidenceApiTest extends TestCase
     public function show_returns_bytes_and_headers_for_get(): void
     {
         $upload  = UploadedFile::fake()->createWithContent('doc.txt', 'DOC', 'text/plain');
-        $created = $this->post('/api/evidence', ['file' => $upload])->assertCreated()->json();
+        $created = $this->post('/evidence', ['file' => $upload])->assertCreated()->json();
 
         $id  = $created['id'];
         $sha = $created['sha256'];
 
-        $res = $this->get("/api/evidence/{$id}");
+        $res = $this->get("/evidence/{$id}");
 
         $res->assertOk()
             ->assertHeader('ETag', "\"{$sha}\"")
@@ -152,12 +152,12 @@ final class EvidenceApiTest extends TestCase
     public function head_returns_headers_only(): void
     {
         $upload  = UploadedFile::fake()->createWithContent('head.txt', 'HEAD', 'text/plain');
-        $created = $this->post('/api/evidence', ['file' => $upload])->assertCreated()->json();
+        $created = $this->post('/evidence', ['file' => $upload])->assertCreated()->json();
 
         $id  = $created['id'];
         $sha = $created['sha256'];
 
-        $res = $this->call('HEAD', "/api/evidence/{$id}");
+        $res = $this->call('HEAD', "/evidence/{$id}");
 
         $res->assertStatus(200)
             ->assertHeader('ETag', "\"{$sha}\"");
@@ -173,13 +173,13 @@ final class EvidenceApiTest extends TestCase
     public function get_with_if_none_match_returns_304(): void
     {
         $upload  = UploadedFile::fake()->createWithContent('etag.txt', 'ETAG', 'text/plain');
-        $created = $this->post('/api/evidence', ['file' => $upload])->assertCreated()->json();
+        $created = $this->post('/evidence', ['file' => $upload])->assertCreated()->json();
 
         $id  = $created['id'];
         $sha = $created['sha256'];
 
         $res = $this->withHeaders(['If-None-Match' => "\"{$sha}\""])
-            ->get("/api/evidence/{$id}");
+            ->get("/evidence/{$id}");
 
         $res->assertStatus(304);
         $this->assertSame('', $res->getContent());
@@ -188,7 +188,7 @@ final class EvidenceApiTest extends TestCase
     /** @test */
     public function show_returns_404_for_missing_id(): void
     {
-        $this->get('/api/evidence/ev_does_not_exist')
+        $this->get('/evidence/ev_does_not_exist')
             ->assertStatus(404)
             ->assertJson([
                 'ok'   => false,

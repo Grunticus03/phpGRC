@@ -59,7 +59,7 @@ final class ExportsRbacTest extends TestCase
         $admin = $this->makeUserWithRoles(['Admin']);
         Sanctum::actingAs($admin);
 
-        $res = $this->postJson('/api/exports/csv', ['params' => []]);
+        $res = $this->postJson('/exports/csv', ['params' => []]);
 
         $res->assertStatus(202) // create returns 202 Accepted
             ->assertJson([
@@ -75,7 +75,7 @@ final class ExportsRbacTest extends TestCase
         $admin = $this->makeUserWithRoles(['Admin']);
         Sanctum::actingAs($admin);
 
-        $res = $this->postJson('/api/exports/csv', ['params' => []]);
+        $res = $this->postJson('/exports/csv', ['params' => []]);
 
         $res->assertStatus(403)
             ->assertJson([
@@ -90,7 +90,7 @@ final class ExportsRbacTest extends TestCase
         $auditor = $this->makeUserWithRoles(['Auditor']);
         Sanctum::actingAs($auditor);
 
-        $res = $this->postJson('/api/exports/csv', ['params' => []]);
+        $res = $this->postJson('/exports/csv', ['params' => []]);
 
         $res->assertStatus(403)
             ->assertJson(['ok' => false, 'code' => 'FORBIDDEN']);
@@ -101,13 +101,13 @@ final class ExportsRbacTest extends TestCase
         // Admin
         $admin = $this->makeUserWithRoles(['Admin']);
         Sanctum::actingAs($admin);
-        $this->getJson('/api/exports/exp_stub_0001/status')
+        $this->getJson('/exports/exp_stub_0001/status')
             ->assertStatus(200)
             ->assertJson(['ok' => true]);
         // Auditor
         $aud = $this->makeUserWithRoles(['Auditor']);
         Sanctum::actingAs($aud);
-        $this->getJson('/api/exports/exp_stub_0001/status')
+        $this->getJson('/exports/exp_stub_0001/status')
             ->assertStatus(200)
             ->assertJson(['ok' => true]);
     }
@@ -117,18 +117,18 @@ final class ExportsRbacTest extends TestCase
         $user = $this->makeUserWithRoles(['User']);
         Sanctum::actingAs($user);
 
-        $this->getJson('/api/exports/exp_stub_0001/status')
+        $this->getJson('/exports/exp_stub_0001/status')
             ->assertStatus(403)
             ->assertJson(['ok' => false, 'code' => 'FORBIDDEN']);
 
-        $this->get('/api/exports/exp_stub_0001/download')
+        $this->get('/exports/exp_stub_0001/download')
             ->assertStatus(403);
     }
 
     public function test_unauthenticated_gets_401_when_require_auth_enabled(): void
     {
         // No Sanctum user.
-        $this->postJson('/api/exports/csv', ['params' => []])
+        $this->postJson('/exports/csv', ['params' => []])
             ->assertStatus(401);
     }
 }

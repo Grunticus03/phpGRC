@@ -64,7 +64,7 @@ final class DashboardKpisComputationTest extends TestCase
         $this->insertEvidence('image/png',        $now->copy()->subDays(60));  // stale
         $this->insertEvidence('text/plain',       $now->copy()->subDays(2));   // fresh
 
-        $resp = $this->actingAs($admin, 'sanctum')->getJson('/api/dashboard/kpis');
+        $resp = $this->actingAs($admin, 'sanctum')->getJson('/dashboard/kpis');
         $resp->assertStatus(200);
 
         $json = $resp->json();

@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Config;
 use Tests\TestCase;
 
 /**
- * Verifies the stub-only behavior of /api/audit when persistence is disabled
+ * Verifies the stub-only behavior of /audit when persistence is disabled
  * and no business filters are applied, per Phase-4 spec.
  */
 final class AuditStubOnlyResponseTest extends TestCase
@@ -34,7 +34,7 @@ final class AuditStubOnlyResponseTest extends TestCase
 
     public function test_stub_only_response_when_persistence_disabled_and_no_filters(): void
     {
-        $res = $this->getJson('/api/audit');
+        $res = $this->getJson('/audit');
 
         $res->assertOk()
             ->assertJson([
@@ -54,7 +54,7 @@ final class AuditStubOnlyResponseTest extends TestCase
     public function test_filters_disable_stub_note_even_without_persistence(): void
     {
         // When a business filter is present, the API should not return the stub-only note.
-        $res = $this->getJson('/api/audit?category=RBAC');
+        $res = $this->getJson('/audit?category=RBAC');
 
         $res->assertOk()
             ->assertJson(['ok' => true])
@@ -63,7 +63,7 @@ final class AuditStubOnlyResponseTest extends TestCase
 
     public function test_csv_export_succeeds_with_text_csv_when_persistence_disabled(): void
     {
-        $res = $this->get('/api/audit/export.csv');
+        $res = $this->get('/audit/export.csv');
 
         $res->assertOk();
         $this->assertSame('text/csv', $res->headers->get('Content-Type'));

@@ -14,7 +14,7 @@ final class RbacApiTest extends TestCase
     {
         Config::set('core.rbac.roles', ['Admin', 'Auditor', 'User']);
 
-        $this->getJson('/api/rbac/roles')
+        $this->getJson('/rbac/roles')
             ->assertOk()
             ->assertJsonPath('ok', true)
             ->assertJsonPath('roles.0', 'Admin')
@@ -27,7 +27,7 @@ final class RbacApiTest extends TestCase
     {
         Config::set('core.rbac.roles', ['Admin', 'Auditor']);
 
-        $this->postJson('/api/rbac/roles', ['name' => 'Operator'])
+        $this->postJson('/rbac/roles', ['name' => 'Operator'])
             ->assertStatus(202)
             ->assertJsonPath('ok', false)
             ->assertJsonPath('note', 'stub-only')
@@ -37,11 +37,11 @@ final class RbacApiTest extends TestCase
     /** @test */
     public function store_rejects_empty_or_too_long_name(): void
     {
-        $this->postJson('/api/rbac/roles', ['name' => ''])
+        $this->postJson('/rbac/roles', ['name' => ''])
             ->assertStatus(422)
             ->assertJsonPath('code', 'VALIDATION_FAILED');
 
-        $this->postJson('/api/rbac/roles', ['name' => str_repeat('a', 65)])
+        $this->postJson('/rbac/roles', ['name' => str_repeat('a', 65)])
             ->assertStatus(422)
             ->assertJsonPath('code', 'VALIDATION_FAILED');
     }
@@ -51,7 +51,7 @@ final class RbacApiTest extends TestCase
     {
         Config::set('core.rbac.roles', ['Admin', 'Auditor']);
 
-        $this->postJson('/api/rbac/roles', ['name' => 'Admin'])
+        $this->postJson('/rbac/roles', ['name' => 'Admin'])
             ->assertStatus(422)
             ->assertJsonPath('code', 'VALIDATION_FAILED');
     }
@@ -60,9 +60,9 @@ final class RbacApiTest extends TestCase
     public function middleware_passes_through_when_enabled_or_disabled(): void
     {
         Config::set('core.rbac.enabled', true);
-        $this->getJson('/api/rbac/roles')->assertOk();
+        $this->getJson('/rbac/roles')->assertOk();
 
         Config::set('core.rbac.enabled', false);
-        $this->getJson('/api/rbac/roles')->assertOk();
+        $this->getJson('/rbac/roles')->assertOk();
     }
 }

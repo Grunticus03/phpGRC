@@ -26,7 +26,7 @@ final class SettingsAuditDiffsTest extends TestCase
     public function test_settings_apply_writes_audit_with_changes_and_api_exposes_changes(): void
     {
         // Apply two changes
-        $res = $this->postJson('/api/admin/settings', [
+        $res = $this->postJson('/admin/settings', [
             'apply'   => true,
             'audit'   => ['retention_days' => 180],
             'evidence'=> ['max_mb' => 50],
@@ -41,7 +41,7 @@ final class SettingsAuditDiffsTest extends TestCase
             'limit'    => 1,
         ]);
 
-        $r = $this->getJson('/api/audit?' . $q);
+        $r = $this->getJson('/audit?' . $q);
         $r->assertOk()->assertJsonPath('ok', true);
 
         $items = $r->json('items');

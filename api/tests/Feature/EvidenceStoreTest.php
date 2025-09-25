@@ -35,7 +35,7 @@ final class EvidenceStoreTest extends TestCase
         $content = "hello world";
         $file = UploadedFile::fake()->createWithContent('hello.txt', $content);
 
-        $res = $this->post('/api/evidence', ['file' => $file]);
+        $res = $this->post('/evidence', ['file' => $file]);
 
         $res->assertStatus(201)->assertJsonPath('ok', true);
         $res->assertJsonStructure(['id','version','sha256','size','mime','name']);
@@ -51,7 +51,7 @@ final class EvidenceStoreTest extends TestCase
         config()->set('core.evidence.enabled', false);
 
         $file = UploadedFile::fake()->createWithContent('note.txt', 'x');
-        $res = $this->post('/api/evidence', ['file' => $file]);
+        $res = $this->post('/evidence', ['file' => $file]);
 
         $res->assertStatus(400)->assertJsonPath('code', 'EVIDENCE_NOT_ENABLED');
     }

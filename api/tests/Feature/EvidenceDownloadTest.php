@@ -35,7 +35,7 @@ final class EvidenceDownloadTest extends TestCase
 
         $this->bytes = "sample-bytes";
         $file = UploadedFile::fake()->createWithContent('sample.txt', $this->bytes);
-        $r = $this->post('/api/evidence', ['file' => $file]);
+        $r = $this->post('/evidence', ['file' => $file]);
         $r->assertStatus(201);
 
         $this->id = $r->json('id');
@@ -44,13 +44,13 @@ final class EvidenceDownloadTest extends TestCase
 
     public function test_head_and_get_etag_and_headers(): void
     {
-        $h = $this->head("/api/evidence/{$this->id}");
+        $h = $this->head("/evidence/{$this->id}");
         $h->assertStatus(200);
         $h->assertHeader('ETag', '"' . $this->sha . '"');
         $h->assertHeader('X-Content-Type-Options', 'nosniff');
         $h->assertHeader('X-Checksum-SHA256', $this->sha);
 
-        $g = $this->get("/api/evidence/{$this->id}?sha256={$this->sha}");
+        $g = $this->get("/evidence/{$this->id}?sha256={$this->sha}");
         $g->assertStatus(200);
         $g->assertHeader('ETag', '"' . $this->sha . '"');
         $this->assertSame($this->bytes, $g->getContent());
@@ -60,10 +60,10 @@ final class EvidenceDownloadTest extends TestCase
     {
         $etag = '"' . $this->sha . '"';
 
-        $n = $this->get("/api/evidence/{$this->id}", ['If-None-Match' => $etag]);
+        $n = $this->get("/evidence/{$this->id}", ['If-None-Match' => $etag]);
         $n->assertStatus(304);
 
-        $m = $this->get("/api/evidence/{$this->id}?sha256=deadbeef");
+        $m = $this->get("/evidence/{$this->id}?sha256=deadbeef");
         $m->assertStatus(412)->assertJsonPath('code', 'EVIDENCE_HASH_MISMATCH');
     }
 }

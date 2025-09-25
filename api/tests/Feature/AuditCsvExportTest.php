@@ -42,7 +42,7 @@ final class AuditCsvExportTest extends TestCase
 
     public function test_csv_export_headers_and_body(): void
     {
-        $res = $this->get('/api/audit/export.csv?category=RBAC&order=asc');
+        $res = $this->get('/audit/export.csv?category=RBAC&order=asc');
 
         $res->assertStatus(200);
         $res->assertHeader('content-type', 'text/csv'); // exact, no charset
@@ -60,13 +60,13 @@ final class AuditCsvExportTest extends TestCase
     {
         // Legacy path: get()
         config()->set('core.audit.csv_use_cursor', false);
-        $resA = $this->get('/api/audit/export.csv?order=asc');
+        $resA = $this->get('/audit/export.csv?order=asc');
         $resA->assertStatus(200);
         $bodyA = $resA->streamedContent();
 
         // Cursor path: cursor()
         config()->set('core.audit.csv_use_cursor', true);
-        $resB = $this->get('/api/audit/export.csv?order=asc');
+        $resB = $this->get('/audit/export.csv?order=asc');
         $resB->assertStatus(200);
         $bodyB = $resB->streamedContent();
 

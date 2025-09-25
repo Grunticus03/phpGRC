@@ -21,19 +21,19 @@ final class ExportsPdfGenerationE2ETest extends TestCase
         Artisan::call('migrate', ['--force' => true]);
         Storage::fake('local');
 
-        $res = $this->postJson('/api/exports/pdf', ['params' => ['foo' => 'bar']])
+        $res = $this->postJson('/exports/pdf', ['params' => ['foo' => 'bar']])
             ->assertStatus(202)
             ->assertJsonPath('ok', true);
 
         $jobId = (string) $res->json('jobId');
         $this->assertNotSame('', $jobId);
 
-        $this->getJson("/api/exports/{$jobId}/status")
+        $this->getJson("/exports/{$jobId}/status")
             ->assertOk()
             ->assertJsonPath('status', 'completed')
             ->assertJsonPath('jobId', $jobId);
 
-        $dl = $this->get("/api/exports/{$jobId}/download");
+        $dl = $this->get("/exports/{$jobId}/download");
         $dl->assertOk();
         $ctype = strtolower((string) $dl->headers->get('content-type'));
         $this->assertStringStartsWith('application/pdf', $ctype);

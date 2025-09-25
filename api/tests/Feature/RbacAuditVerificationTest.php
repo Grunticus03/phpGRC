@@ -48,7 +48,7 @@ final class RbacAuditVerificationTest extends TestCase
 
         $before = $this->countAuditsForUser($u);
 
-        $this->postJson("/api/rbac/users/{$u->id}/roles/Auditor")
+        $this->postJson("/rbac/users/{$u->id}/roles/Auditor")
             ->assertStatus(200);
 
         $rows = DB::table('audit_events')
@@ -79,7 +79,7 @@ final class RbacAuditVerificationTest extends TestCase
 
         $before = $this->countAuditsForUser($u);
 
-        $this->deleteJson("/api/rbac/users/{$u->id}/roles/Auditor")
+        $this->deleteJson("/rbac/users/{$u->id}/roles/Auditor")
             ->assertStatus(200);
 
         $after = $this->countAuditsForUser($u);
@@ -90,10 +90,10 @@ final class RbacAuditVerificationTest extends TestCase
     {
         $u = $this->makeUser('Carol', 'carol@example.com');
 
-        $this->postJson("/api/rbac/users/{$u->id}/roles/Auditor")->assertStatus(200);
+        $this->postJson("/rbac/users/{$u->id}/roles/Auditor")->assertStatus(200);
         $firstCount = $this->countAuditsForUser($u);
 
-        $this->postJson("/api/rbac/users/{$u->id}/roles/Auditor")->assertStatus(200);
+        $this->postJson("/rbac/users/{$u->id}/roles/Auditor")->assertStatus(200);
         $secondCount = $this->countAuditsForUser($u);
 
         $this->assertSame($firstCount, $secondCount);
@@ -105,7 +105,7 @@ final class RbacAuditVerificationTest extends TestCase
         $u = $this->makeUser('Dave', 'dave@example.com');
         $u->roles()->sync(['role_admin', 'role_auditor']);
 
-        $this->putJson("/api/rbac/users/{$u->id}/roles", ['roles' => []])
+        $this->putJson("/rbac/users/{$u->id}/roles", ['roles' => []])
             ->assertStatus(200)
             ->assertJsonFragment(['roles' => []]);
 
@@ -132,7 +132,7 @@ final class RbacAuditVerificationTest extends TestCase
     {
         config()->set('core.rbac.require_auth', false);
         $u1 = $this->makeUser('Eve', 'eve@example.com');
-        $this->postJson("/api/rbac/users/{$u1->id}/roles/Auditor")->assertStatus(200);
+        $this->postJson("/rbac/users/{$u1->id}/roles/Auditor")->assertStatus(200);
         $unauthRow = DB::table('audit_events')
             ->where('entity_type', 'user')
             ->where('entity_id', (string) $u1->id)
@@ -147,7 +147,7 @@ final class RbacAuditVerificationTest extends TestCase
         Sanctum::actingAs($admin);
 
         $u2 = $this->makeUser('Frank', 'frank@example.com');
-        $this->postJson("/api/rbac/users/{$u2->id}/roles/Auditor")->assertStatus(200);
+        $this->postJson("/rbac/users/{$u2->id}/roles/Auditor")->assertStatus(200);
 
         $authRow = DB::table('audit_events')
             ->where('entity_type', 'user')

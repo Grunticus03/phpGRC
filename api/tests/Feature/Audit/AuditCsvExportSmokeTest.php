@@ -52,7 +52,7 @@ final class AuditCsvExportSmokeTest extends TestCase
         }
 
         // Hit CSV export. Accept header to drive content negotiation if present.
-        $res = $this->get('/api/audit/export.csv', ['Accept' => 'text/csv']);
+        $res = $this->get('/audit/export.csv', ['Accept' => 'text/csv']);
 
         // Status and headers.
         $res->assertOk();

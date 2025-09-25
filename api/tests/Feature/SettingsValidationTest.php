@@ -10,7 +10,7 @@ final class SettingsValidationTest extends TestCase
 {
     public function test_get_settings_ok(): void
     {
-        $this->getJson('/api/admin/settings')
+        $this->getJson('/admin/settings')
             ->assertOk()
             ->assertJsonStructure(['ok', 'config' => ['core' => ['rbac', 'audit', 'evidence', 'avatars']]]);
     }
@@ -18,7 +18,7 @@ final class SettingsValidationTest extends TestCase
     public function test_invalid_roles_rejected(): void
     {
         $payload = ['apply' => true, 'rbac' => ['roles' => []]];
-        $this->postJson('/api/admin/settings', $payload)
+        $this->postJson('/admin/settings', $payload)
             ->assertStatus(422)
             ->assertJsonFragment(['code' => 'VALIDATION_FAILED']);
     }
@@ -26,7 +26,7 @@ final class SettingsValidationTest extends TestCase
     public function test_invalid_audit_retention_rejected(): void
     {
         $payload = ['apply' => true, 'audit' => ['retention_days' => 0]];
-        $this->postJson('/api/admin/settings', $payload)
+        $this->postJson('/admin/settings', $payload)
             ->assertStatus(422)
             ->assertJsonFragment(['code' => 'VALIDATION_FAILED']);
     }
@@ -34,7 +34,7 @@ final class SettingsValidationTest extends TestCase
     public function test_invalid_avatars_constraints_rejected(): void
     {
         $payload = ['apply' => true, 'avatars' => ['size_px' => 64, 'format' => 'png']];
-        $this->postJson('/api/admin/settings', $payload)
+        $this->postJson('/admin/settings', $payload)
             ->assertStatus(422)
             ->assertJsonFragment(['code' => 'VALIDATION_FAILED']);
     }
@@ -42,7 +42,7 @@ final class SettingsValidationTest extends TestCase
     public function test_evidence_allowed_mime_must_be_subset(): void
     {
         $payload = ['apply' => true, 'evidence' => ['allowed_mime' => ['application/zip']]];
-        $this->postJson('/api/admin/settings', $payload)
+        $this->postJson('/admin/settings', $payload)
             ->assertStatus(422)
             ->assertJsonFragment(['code' => 'VALIDATION_FAILED']);
     }
@@ -56,7 +56,7 @@ final class SettingsValidationTest extends TestCase
             'avatars' => ['enabled' => true, 'size_px' => 128, 'format' => 'webp'],
         ];
 
-        $this->postJson('/api/admin/settings', $payload)
+        $this->postJson('/admin/settings', $payload)
             ->assertOk()
             ->assertJson([
                 'ok' => true,

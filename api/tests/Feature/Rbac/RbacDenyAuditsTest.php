@@ -25,7 +25,7 @@ final class RbacDenyAuditsTest extends TestCase
             ]),
         ]);
 
-        $res = $this->getJson('/api/dashboard/kpis');
+        $res = $this->getJson('/dashboard/kpis');
         $res->assertStatus(401);
 
         $rows = AuditEvent::query()
@@ -57,7 +57,7 @@ final class RbacDenyAuditsTest extends TestCase
         $auditor = $this->makeUser('Auditor One', 'aud1@example.test');
         $this->attachNamedRole($auditor, 'Auditor');
 
-        $res = $this->actingAs($auditor, 'sanctum')->getJson('/api/admin/settings');
+        $res = $this->actingAs($auditor, 'sanctum')->getJson('/admin/settings');
         $res->assertStatus(403);
 
         $rows = AuditEvent::query()
@@ -86,9 +86,9 @@ final class RbacDenyAuditsTest extends TestCase
         ]);
 
         $user = $this->makeUser('Auditor User', 'auditor@example.test');
-        $this->attachNamedRole($user, 'Auditor'); // passes route roles ['Admin','Auditor'] on /api/audit/categories
+        $this->attachNamedRole($user, 'Auditor'); // passes route roles ['Admin','Auditor'] on /audit/categories
 
-        $res = $this->actingAs($user, 'sanctum')->getJson('/api/audit/categories');
+        $res = $this->actingAs($user, 'sanctum')->getJson('/audit/categories');
         $res->assertStatus(403);
 
         $rows = AuditEvent::query()

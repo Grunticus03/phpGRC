@@ -37,7 +37,7 @@ final class AdminSettingsAuthTest extends TestCase
         config()->set('core.rbac.mode', 'persist');
         config()->set('core.rbac.require_auth', true);
 
-        $res = $this->getJson('/api/admin/settings');
+        $res = $this->getJson('/admin/settings');
         $res->assertStatus(401)->assertJsonPath('code', 'UNAUTHENTICATED');
     }
 
@@ -50,7 +50,7 @@ final class AdminSettingsAuthTest extends TestCase
         $admin = $this->seedAdminUser();
         Sanctum::actingAs($admin);
 
-        $res = $this->getJson('/api/admin/settings');
+        $res = $this->getJson('/admin/settings');
         $res->assertStatus(200)->assertJsonPath('ok', true);
     }
 
@@ -60,7 +60,7 @@ final class AdminSettingsAuthTest extends TestCase
         config()->set('core.rbac.mode', 'persist');
         config()->set('core.rbac.require_auth', false);
 
-        $res = $this->getJson('/api/admin/settings');
+        $res = $this->getJson('/admin/settings');
         $res->assertStatus(200)->assertJsonPath('ok', true);
     }
 }

@@ -42,7 +42,7 @@ final class RbacAuthGateTest extends TestCase
 
     public function test_unauthenticated_access_is_401_when_require_auth_true(): void
     {
-        $this->getJson('/api/audit')
+        $this->getJson('/audit')
             ->assertStatus(401);
     }
 
@@ -50,7 +50,7 @@ final class RbacAuthGateTest extends TestCase
     {
         $this->actingAsAdmin();
 
-        $this->getJson('/api/audit')
+        $this->getJson('/audit')
             ->assertStatus(200)
             ->assertJson(['ok' => true]);
     }

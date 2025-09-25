@@ -11,7 +11,7 @@ final class AdminSettingsApiTest extends TestCase
     /** @test */
     public function index_returns_core_defaults(): void
     {
-        $res = $this->getJson('/api/admin/settings');
+        $res = $this->getJson('/admin/settings');
 
         $res->assertOk()
             ->assertJsonPath('ok', true)
@@ -51,7 +51,7 @@ final class AdminSettingsApiTest extends TestCase
             ],
         ];
 
-        $res = $this->postJson('/api/admin/settings', $payload);
+        $res = $this->postJson('/admin/settings', $payload);
 
         $res->assertOk()
             ->assertJsonPath('ok', true)
@@ -72,7 +72,7 @@ final class AdminSettingsApiTest extends TestCase
             ],
         ];
 
-        $this->postJson('/api/admin/settings', $payload)
+        $this->postJson('/admin/settings', $payload)
             ->assertStatus(422)
             ->assertJsonStructure([
                 'errors' => ['rbac' => []],
@@ -91,7 +91,7 @@ final class AdminSettingsApiTest extends TestCase
             ],
         ];
 
-        $res = $this->postJson('/api/admin/settings', $payload);
+        $res = $this->postJson('/admin/settings', $payload);
 
         $res->assertStatus(422)
             ->assertJsonStructure(['errors' => ['evidence' => []]])
@@ -108,7 +108,7 @@ final class AdminSettingsApiTest extends TestCase
             ],
         ];
 
-        $this->postJson('/api/admin/settings', $payload)
+        $this->postJson('/admin/settings', $payload)
             ->assertStatus(422)
             ->assertJsonStructure(['errors' => ['avatars' => []]]);
     }
@@ -123,7 +123,7 @@ final class AdminSettingsApiTest extends TestCase
             ],
         ];
 
-        $this->postJson('/api/admin/settings', $payload)
+        $this->postJson('/admin/settings', $payload)
             ->assertStatus(422)
             ->assertJsonStructure(['errors' => ['avatars' => []]]);
     }
@@ -131,17 +131,17 @@ final class AdminSettingsApiTest extends TestCase
     /** @test */
     public function update_rejects_audit_retention_out_of_range(): void
     {
-        $this->postJson('/api/admin/settings', ['apply' => true, 'audit' => ['retention_days' => 0]])
+        $this->postJson('/admin/settings', ['apply' => true, 'audit' => ['retention_days' => 0]])
             ->assertStatus(422);
 
-        $this->postJson('/api/admin/settings', ['apply' => true, 'audit' => ['retention_days' => 10000]])
+        $this->postJson('/admin/settings', ['apply' => true, 'audit' => ['retention_days' => 10000]])
             ->assertStatus(422);
     }
 
     /** @test */
     public function update_rejects_evidence_max_mb_below_min(): void
     {
-        $this->postJson('/api/admin/settings', ['apply' => true, 'evidence' => ['max_mb' => 0]])
+        $this->postJson('/admin/settings', ['apply' => true, 'evidence' => ['max_mb' => 0]])
             ->assertStatus(422);
     }
 }

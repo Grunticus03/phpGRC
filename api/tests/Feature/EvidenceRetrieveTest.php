@@ -32,7 +32,7 @@ final class EvidenceRetrieveTest extends TestCase
     private function uploadSample(string $name = 'small.txt', string $mime = 'text/plain', string $body = "hello\n"): array
     {
         $file = UploadedFile::fake()->createWithContent($name, $body, $mime);
-        $res  = $this->postJson('/api/evidence', ['file' => $file])
+        $res  = $this->postJson('/evidence', ['file' => $file])
             ->assertCreated()
             ->assertJsonStructure(['id','sha256','size','mime','name']);
 
@@ -50,7 +50,7 @@ final class EvidenceRetrieveTest extends TestCase
     {
         $ev = $this->uploadSample();
 
-        $resp = $this->call('HEAD', '/api/evidence/'.$ev['id']);
+        $resp = $this->call('HEAD', '/evidence/'.$ev['id']);
         $resp->assertOk();
         $this->assertTrue(str_starts_with((string) $resp->headers->get('Content-Type'), $ev['mime']));
         $resp->assertHeader('Content-Length', (string) $ev['size']);
@@ -63,7 +63,7 @@ final class EvidenceRetrieveTest extends TestCase
     {
         $ev = $this->uploadSample();
 
-        $resp = $this->get('/api/evidence/'.$ev['id']);
+        $resp = $this->get('/evidence/'.$ev['id']);
         $resp->assertOk();
         $this->assertTrue(str_starts_with((string) $resp->headers->get('Content-Type'), $ev['mime']));
         $resp->assertHeader('Content-Length', (string) $ev['size']);
@@ -78,7 +78,7 @@ final class EvidenceRetrieveTest extends TestCase
         $ev = $this->uploadSample();
 
         $this->withHeaders(['If-None-Match' => $ev['etag']])
-            ->get('/api/evidence/'.$ev['id'])
+            ->get('/evidence/'.$ev['id'])
             ->assertStatus(304);
     }
 
@@ -88,20 +88,20 @@ final class EvidenceRetrieveTest extends TestCase
         usleep(1000);
         $this->uploadSample('doc.txt', 'text/plain', "b\n");
 
-        $r1 = $this->get('/api/evidence?limit=1')->assertOk();
+        $r1 = $this->get('/evidence?limit=1')->assertOk();
         $this->assertCount(1, $r1->json('data'));
         $this->assertNotNull($r1->json('next_cursor'));
 
         $cursor = (string) $r1->json('next_cursor');
-        $r2 = $this->get('/api/evidence?limit=1&cursor='.$cursor)->assertOk();
+        $r2 = $this->get('/evidence?limit=1&cursor='.$cursor)->assertOk();
         $this->assertCount(1, $r2->json('data'));
         $this->assertNotSame($r1->json('data.0.id'), $r2->json('data.0.id'));
     }
 
     public function test_not_found_returns_404(): void
     {
-        $this->get('/api/evidence/ev_DOES_NOT_EXIST')->assertStatus(404);
-        $this->call('HEAD', '/api/evidence/ev_DOES_NOT_EXIST')->assertStatus(404);
+        $this->get('/evidence/ev_DOES_NOT_EXIST')->assertStatus(404);
+        $this->call('HEAD', '/evidence/ev_DOES_NOT_EXIST')->assertStatus(404);
     }
 }
 

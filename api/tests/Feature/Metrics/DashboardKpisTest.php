@@ -28,7 +28,7 @@ final class DashboardKpisTest extends TestCase
         $admin = $this->makeUser('Admin Two', 'admin2@example.test');
         $this->attachNamedRole($admin, 'Admin');
 
-        $resp = $this->actingAs($admin, 'sanctum')->getJson('/api/dashboard/kpis');
+        $resp = $this->actingAs($admin, 'sanctum')->getJson('/dashboard/kpis');
         $resp->assertStatus(200);
 
         $kpis = $this->extractKpis($resp);

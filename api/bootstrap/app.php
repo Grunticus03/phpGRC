@@ -18,6 +18,7 @@ return Application::configure(basePath: dirname(__DIR__))
         web: __DIR__ . '/../routes/web.php',
         commands: __DIR__ . '/../routes/console.php',
         health: '/up',
+        apiPrefix: ''   // <<< disable Laravel's automatic "/api" prefix
     )
     ->withMiddleware(function (Middleware $middleware): void {
         // avoid guest redirects to non-existent 'login'

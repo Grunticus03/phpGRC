@@ -10,7 +10,7 @@ final class RbacAuthorizationHooksTest extends TestCase
 {
     public function test_settings_index_allows_via_gate(): void
     {
-        $this->getJson('/api/admin/settings')
+        $this->getJson('/admin/settings')
             ->assertOk()
             ->assertJsonStructure(['ok', 'config']);
     }
@@ -24,7 +24,7 @@ final class RbacAuthorizationHooksTest extends TestCase
             ],
         ];
 
-        $this->postJson('/api/admin/settings', $payload)
+        $this->postJson('/admin/settings', $payload)
             ->assertOk()
             ->assertJson([
                 'ok' => true,
@@ -35,7 +35,7 @@ final class RbacAuthorizationHooksTest extends TestCase
 
     public function test_audit_index_allows_via_gate(): void
     {
-        $this->getJson('/api/audit')
+        $this->getJson('/audit')
             ->assertOk()
             ->assertJson(['ok' => true]);
     }

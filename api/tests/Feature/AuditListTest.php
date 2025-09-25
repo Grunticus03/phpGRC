@@ -27,7 +27,7 @@ final class AuditListTest extends TestCase
     public function test_stub_path_first_page_defaults_to_two_items(): void
     {
         // No rows in DB and no business filters -> stub path
-        $res = $this->getJson('/api/audit');
+        $res = $this->getJson('/audit');
 
         $res->assertStatus(200)
             ->assertJsonPath('ok', true)
@@ -69,7 +69,7 @@ final class AuditListTest extends TestCase
             'entity_id'   => '3',
         ]);
 
-        $res = $this->getJson('/api/audit?category=RBAC&order=asc&limit=10');
+        $res = $this->getJson('/audit?category=RBAC&order=asc&limit=10');
 
         $res->assertStatus(200)->assertJsonPath('ok', true);
 
@@ -113,7 +113,7 @@ final class AuditListTest extends TestCase
         ]);
 
         // First page, limit=1, descending (newest first)
-        $r1 = $this->getJson('/api/audit?limit=1&order=desc');
+        $r1 = $this->getJson('/audit?limit=1&order=desc');
         $r1->assertStatus(200)->assertJsonPath('ok', true)->assertJsonCount(1, 'items');
         $page1 = $r1->json();
         $this->assertNotEmpty($page1['nextCursor'] ?? null);
@@ -122,7 +122,7 @@ final class AuditListTest extends TestCase
 
         // Second page using cursor should yield a different id if available
         $cursor = $page1['nextCursor'];
-        $r2 = $this->getJson('/api/audit?limit=1&order=desc&cursor=' . urlencode($cursor));
+        $r2 = $this->getJson('/audit?limit=1&order=desc&cursor=' . urlencode($cursor));
         $r2->assertStatus(200)->assertJsonPath('ok', true)->assertJsonCount(1, 'items');
 
         $page2 = $r2->json();

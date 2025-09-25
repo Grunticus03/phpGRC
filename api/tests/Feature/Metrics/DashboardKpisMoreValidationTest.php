@@ -20,7 +20,7 @@ final class DashboardKpisMoreValidationTest extends TestCase
 
     public function test_negative_values_clamp_to_min(): void
     {
-        $res = $this->getJson('/api/dashboard/kpis?days=-5&rbac_days=-2');
+        $res = $this->getJson('/dashboard/kpis?days=-5&rbac_days=-2');
         $res->assertOk();
 
         if ($res->json('data')) {
@@ -34,7 +34,7 @@ final class DashboardKpisMoreValidationTest extends TestCase
 
     public function test_array_params_use_first_value_and_clamp(): void
     {
-        $res = $this->getJson('/api/dashboard/kpis?days[]=4&days[]=9&rbac_days[]=8');
+        $res = $this->getJson('/dashboard/kpis?days[]=4&days[]=9&rbac_days[]=8');
         $res->assertOk();
 
         if ($res->json('data')) {
@@ -48,7 +48,7 @@ final class DashboardKpisMoreValidationTest extends TestCase
 
     public function test_float_values_fall_back_to_defaults(): void
     {
-        $res = $this->getJson('/api/dashboard/kpis?days=3.5&rbac_days=12.7');
+        $res = $this->getJson('/dashboard/kpis?days=3.5&rbac_days=12.7');
         $res->assertOk();
 
         if ($res->json('data')) {

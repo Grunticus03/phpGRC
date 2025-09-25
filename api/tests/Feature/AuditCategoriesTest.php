@@ -21,7 +21,7 @@ final class AuditCategoriesTest extends TestCase
 
     public function test_categories_endpoint_returns_list(): void
     {
-        $res = $this->getJson('/api/audit/categories');
+        $res = $this->getJson('/audit/categories');
 
         $res->assertStatus(200)
             ->assertJsonPath('ok', true)

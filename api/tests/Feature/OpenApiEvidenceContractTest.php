@@ -15,7 +15,7 @@ final class OpenApiEvidenceContractTest extends TestCase
 {
     public function test_openapi_json_evidence_schema_uses_size_only(): void
     {
-        $res = $this->getJson('/api/openapi.json');
+        $res = $this->getJson('/openapi.json');
         $res->assertOk();
 
         /** @var array<string,mixed> $spec */
@@ -54,7 +54,7 @@ final class OpenApiEvidenceContractTest extends TestCase
 
     public function test_openapi_json_contains_no_size_bytes_anywhere(): void
     {
-        $res = $this->get('/api/openapi.json');
+        $res = $this->get('/openapi.json');
         $res->assertOk();
 
         $raw = (string) $res->getContent();

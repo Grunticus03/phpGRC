@@ -23,7 +23,7 @@ final class RolesPersistenceTest extends TestCase
 
     public function test_store_persists_role_and_index_reflects_db(): void
     {
-        $create = $this->postJson('/api/rbac/roles', ['name' => 'Compliance Lead']);
+        $create = $this->postJson('/rbac/roles', ['name' => 'Compliance Lead']);
         $create->assertCreated()
             ->assertJson([
                 'ok'   => true,
@@ -34,7 +34,7 @@ final class RolesPersistenceTest extends TestCase
         $cjson = $create->json();
         self::assertMatchesRegularExpression('/^role_compliance_lead(_\d+)?$/', $cjson['role']['id']);
 
-        $index = $this->getJson('/api/rbac/roles');
+        $index = $this->getJson('/rbac/roles');
         $index->assertOk();
 
         /** @var array{roles: array<int,string>} $ijson */
@@ -52,7 +52,7 @@ final class RolesPersistenceTest extends TestCase
             'name' => 'Risk Manager',
         ]);
 
-        $res = $this->postJson('/api/rbac/roles', ['name' => 'Risk-Manager']);
+        $res = $this->postJson('/rbac/roles', ['name' => 'Risk-Manager']);
         $res->assertCreated();
 
         /** @var array{role: array{id: string}} $json */

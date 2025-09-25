@@ -18,7 +18,7 @@ final class SettingsControllerValidationTest extends TestCase
             'evidence' => ['enabled' => true, 'max_mb' => 25, 'allowed_mime' => ['application/pdf']],
         ];
 
-        $this->postJson('/api/admin/settings', $payload)
+        $this->postJson('/admin/settings', $payload)
             ->assertStatus(422)
             ->assertJsonPath('errors.avatars.size_px.0', fn ($v) => is_string($v));
     }
@@ -33,7 +33,7 @@ final class SettingsControllerValidationTest extends TestCase
             'evidence' => ['enabled' => true, 'max_mb' => 25, 'allowed_mime' => ['application/pdf']],
         ];
 
-        $this->postJson('/api/admin/settings', $payload)
+        $this->postJson('/admin/settings', $payload)
             ->assertStatus(422)
             ->assertJsonPath('errors.avatars.format.0', fn ($v) => is_string($v));
     }
@@ -48,7 +48,7 @@ final class SettingsControllerValidationTest extends TestCase
             'avatars' => ['enabled' => true, 'size_px' => 128, 'format' => 'webp'],
         ];
 
-        $this->postJson('/api/admin/settings', $payload)
+        $this->postJson('/admin/settings', $payload)
             ->assertStatus(422)
             ->assertJsonPath('errors.audit.retention_days.0', fn ($v) => is_string($v));
     }
@@ -63,7 +63,7 @@ final class SettingsControllerValidationTest extends TestCase
             'avatars' => ['enabled' => true, 'size_px' => 128, 'format' => 'webp'],
         ];
 
-        $this->postJson('/api/admin/settings', $payload)
+        $this->postJson('/admin/settings', $payload)
             ->assertStatus(422)
             ->assertJsonPath('errors.audit.retention_days.0', fn ($v) => is_string($v));
     }
@@ -78,7 +78,7 @@ final class SettingsControllerValidationTest extends TestCase
             'avatars' => ['enabled' => true, 'size_px' => 128, 'format' => 'webp'],
         ];
 
-        $this->postJson('/api/admin/settings', $payload)
+        $this->postJson('/admin/settings', $payload)
             ->assertStatus(422)
             ->assertJsonPath('errors.evidence.max_mb.0', fn ($v) => is_string($v));
     }
@@ -97,7 +97,7 @@ final class SettingsControllerValidationTest extends TestCase
             'avatars' => ['enabled' => true, 'size_px' => 128, 'format' => 'webp'],
         ];
 
-        $this->postJson('/api/admin/settings', $payload)
+        $this->postJson('/admin/settings', $payload)
             ->assertStatus(422)
             ->assertJsonPath('errors.evidence.allowed_mime.0', fn ($v) => is_string($v));
     }
@@ -113,7 +113,7 @@ final class SettingsControllerValidationTest extends TestCase
             'avatars' => ['enabled' => true, 'size_px' => 128, 'format' => 'webp'],
         ];
 
-        $this->postJson('/api/admin/settings', $payload)
+        $this->postJson('/admin/settings', $payload)
             ->assertStatus(422)
             ->assertJsonPath('errors.rbac.roles.0', fn ($v) => is_string($v));
     }
@@ -130,7 +130,7 @@ final class SettingsControllerValidationTest extends TestCase
             ],
         ];
 
-        $this->postJson('/api/admin/settings', $payload)
+        $this->postJson('/admin/settings', $payload)
             ->assertStatus(422)
             ->assertJson(fn ($json) =>
                 $json->has('errors.avatars.size_px')

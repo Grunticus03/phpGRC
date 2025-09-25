@@ -16,14 +16,14 @@ final class AuthAuditTest extends TestCase
     public function test_login_logout_totp_emit_audit_events(): void
     {
         // Login
-        $this->postJson('/api/auth/login')->assertOk();
+        $this->postJson('/auth/login')->assertOk();
 
         // Logout
-        $this->postJson('/api/auth/logout')->assertNoContent();
+        $this->postJson('/auth/logout')->assertNoContent();
 
         // TOTP enroll + verify
-        $this->postJson('/api/auth/totp/enroll')->assertOk();
-        $this->postJson('/api/auth/totp/verify', ['code' => '000000'])->assertOk();
+        $this->postJson('/auth/totp/enroll')->assertOk();
+        $this->postJson('/auth/totp/verify', ['code' => '000000'])->assertOk();
 
         $actions = AuditEvent::query()->pluck('action')->all();
         // Order-insensitive check for required actions
@@ -37,7 +37,7 @@ final class AuthAuditTest extends TestCase
     {
         Config::set('core.auth.break_glass.enabled', false);
 
-        $this->postJson('/api/auth/break-glass')
+        $this->postJson('/auth/break-glass')
             ->assertStatus(404)
             ->assertJson(['error' => 'BREAK_GLASS_DISABLED']);
 

@@ -48,7 +48,7 @@ final class AuditFiltersTest extends TestCase
         ]);
 
         // category=RBAC only
-        $res = $this->getJson('/api/audit?category=RBAC&order=asc&limit=10');
+        $res = $this->getJson('/audit?category=RBAC&order=asc&limit=10');
         $res->assertStatus(200)
             ->assertJsonPath('ok', true)
             ->assertJsonCount(1, 'items')
@@ -56,7 +56,7 @@ final class AuditFiltersTest extends TestCase
             ->assertJsonPath('items.0.action', 'rbac.role.created');
 
         // occurred_from filters out first record
-        $res2 = $this->getJson('/api/audit?occurred_from=' . urlencode($t2->toIso8601String()));
+        $res2 = $this->getJson('/audit?occurred_from=' . urlencode($t2->toIso8601String()));
         $res2->assertStatus(200)
             ->assertJsonPath('ok', true)
             ->assertJsonCount(1, 'items')
@@ -66,12 +66,12 @@ final class AuditFiltersTest extends TestCase
     public function test_cursor_paging_contract(): void
     {
         // No rows => stub-only dataset should be returned with paging fields present
-        $first = $this->getJson('/api/audit?limit=1&order=desc');
+        $first = $this->getJson('/audit?limit=1&order=desc');
         $first->assertStatus(200)->assertJsonPath('ok', true);
         $cursor = $first->json('nextCursor');
         $this->assertIsString($cursor);
 
-        $second = $this->getJson('/api/audit?order=desc&cursor=' . urlencode($cursor));
+        $second = $this->getJson('/audit?order=desc&cursor=' . urlencode($cursor));
         $second->assertStatus(200)->assertJsonPath('ok', true);
     }
 }

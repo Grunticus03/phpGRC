@@ -29,7 +29,7 @@ final class RbacRoleCreateAuditTest extends TestCase
     {
         $name = 'Compliance Lead';
 
-        $res = $this->postJson('/api/rbac/roles', ['name' => $name]);
+        $res = $this->postJson('/rbac/roles', ['name' => $name]);
         $res->assertStatus(201)->assertJsonPath('ok', true);
 
         $role = $res->json('role');

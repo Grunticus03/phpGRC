@@ -70,7 +70,7 @@ final class AuditApiTest extends TestCase
         $this->actingAs($auditor, 'sanctum');
 
         // Filter by category
-        $res = $this->getJson('/api/audit?category=RBAC&limit=50');
+        $res = $this->getJson('/audit?category=RBAC&limit=50');
         $res->assertStatus(200)
             ->assertJson(['ok' => true]);
 
@@ -82,7 +82,7 @@ final class AuditApiTest extends TestCase
         $this->assertNotContains('auth.login', $actions);
 
         // Filter by action
-        $res2 = $this->getJson('/api/audit?action=rbac.user_role.attached&limit=50');
+        $res2 = $this->getJson('/audit?action=rbac.user_role.attached&limit=50');
         $res2->assertStatus(200)
             ->assertJson(['ok' => true]);
 
@@ -104,7 +104,7 @@ final class AuditApiTest extends TestCase
 
         $this->actingAs($auditor, 'sanctum');
 
-        $res = $this->get('/api/audit/export.csv?category=RBAC&order=asc');
+        $res = $this->get('/audit/export.csv?category=RBAC&order=asc');
 
         $res->assertStatus(200);
         $this->assertSame('text/csv', $res->headers->get('Content-Type'));
@@ -117,7 +117,7 @@ final class AuditApiTest extends TestCase
         $user = $this->makeUser(); // no Auditor role
         $this->actingAs($user, 'sanctum');
 
-        $res = $this->getJson('/api/audit?limit=1');
+        $res = $this->getJson('/audit?limit=1');
         $res->assertStatus(403);
     }
 }

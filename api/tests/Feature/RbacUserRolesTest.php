@@ -53,7 +53,7 @@ final class RbacUserRolesTest extends TestCase
             'password' => bcrypt('secret'),
         ]);
 
-        $res = $this->getJson("/api/rbac/users/{$user->id}/roles");
+        $res = $this->getJson("/rbac/users/{$user->id}/roles");
         $res->assertStatus(200)
             ->assertJson([
                 'ok' => true,
@@ -75,7 +75,7 @@ final class RbacUserRolesTest extends TestCase
             'password' => bcrypt('secret'),
         ]);
 
-        $res = $this->putJson("/api/rbac/users/{$user->id}/roles", [
+        $res = $this->putJson("/rbac/users/{$user->id}/roles", [
             'roles' => ['Auditor'],
         ]);
 
@@ -100,13 +100,13 @@ final class RbacUserRolesTest extends TestCase
             'password' => bcrypt('secret'),
         ]);
 
-        $a = $this->postJson("/api/rbac/users/{$user->id}/roles/Auditor");
+        $a = $this->postJson("/rbac/users/{$user->id}/roles/Auditor");
         $a->assertStatus(200)->assertJsonFragment(['roles' => ['Auditor']]);
 
-        $b = $this->postJson("/api/rbac/users/{$user->id}/roles/Risk Manager");
+        $b = $this->postJson("/rbac/users/{$user->id}/roles/Risk Manager");
         $b->assertStatus(200)->assertJsonFragment(['roles' => ['Auditor', 'Risk Manager']]);
 
-        $c = $this->deleteJson("/api/rbac/users/{$user->id}/roles/Auditor");
+        $c = $this->deleteJson("/rbac/users/{$user->id}/roles/Auditor");
         $c->assertStatus(200)->assertJsonFragment(['roles' => ['Risk Manager']]);
     }
 
@@ -120,7 +120,7 @@ final class RbacUserRolesTest extends TestCase
             'password' => bcrypt('secret'),
         ]);
 
-        $res = $this->putJson("/api/rbac/users/{$user->id}/roles", [
+        $res = $this->putJson("/rbac/users/{$user->id}/roles", [
             'roles' => ['NotARole'],
         ]);
 
@@ -144,9 +144,9 @@ final class RbacUserRolesTest extends TestCase
             'password' => bcrypt('secret'),
         ]);
 
-        $this->getJson("/api/rbac/users/{$user->id}/roles")->assertStatus(404)->assertJson(['code' => 'RBAC_DISABLED']);
-        $this->putJson("/api/rbac/users/{$user->id}/roles", ['roles' => []])->assertStatus(404)->assertJson(['code' => 'RBAC_DISABLED']);
-        $this->postJson("/api/rbac/users/{$user->id}/roles/Admin")->assertStatus(404)->assertJson(['code' => 'RBAC_DISABLED']);
-        $this->deleteJson("/api/rbac/users/{$user->id}/roles/Admin")->assertStatus(404)->assertJson(['code' => 'RBAC_DISABLED']);
+        $this->getJson("/rbac/users/{$user->id}/roles")->assertStatus(404)->assertJson(['code' => 'RBAC_DISABLED']);
+        $this->putJson("/rbac/users/{$user->id}/roles", ['roles' => []])->assertStatus(404)->assertJson(['code' => 'RBAC_DISABLED']);
+        $this->postJson("/rbac/users/{$user->id}/roles/Admin")->assertStatus(404)->assertJson(['code' => 'RBAC_DISABLED']);
+        $this->deleteJson("/rbac/users/{$user->id}/roles/Admin")->assertStatus(404)->assertJson(['code' => 'RBAC_DISABLED']);
     }
 }

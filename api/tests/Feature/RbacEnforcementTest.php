@@ -42,7 +42,7 @@ final class RbacEnforcementTest extends TestCase
 
         Sanctum::actingAs($user);
 
-        $res = $this->getJson('/api/admin/settings');
+        $res = $this->getJson('/admin/settings');
         $res->assertStatus(200);
     }
 
@@ -67,7 +67,7 @@ final class RbacEnforcementTest extends TestCase
 
         Sanctum::actingAs($user);
 
-        $res = $this->getJson('/api/admin/settings');
+        $res = $this->getJson('/admin/settings');
         $res->assertStatus(200);
     }
 
@@ -83,7 +83,7 @@ final class RbacEnforcementTest extends TestCase
 
         Sanctum::actingAs($user);
 
-        $res = $this->getJson('/api/admin/settings');
+        $res = $this->getJson('/admin/settings');
         $res->assertStatus(403);
     }
 
@@ -107,7 +107,7 @@ final class RbacEnforcementTest extends TestCase
 
         Sanctum::actingAs($user);
 
-        $res = $this->getJson('/api/audit?limit=1');
+        $res = $this->getJson('/audit?limit=1');
         $res->assertStatus(200);
     }
 }

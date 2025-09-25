@@ -13,7 +13,7 @@ final class RbacAuthStackTest extends TestCase
         config()->set('core.rbac.enabled', true);
         config()->set('core.rbac.require_auth', false);
 
-        $res = $this->getJson('/api/rbac/roles');
+        $res = $this->getJson('/rbac/roles');
 
         $res->assertStatus(200);
         $res->assertJson(fn ($j) => $j->where('ok', true)->has('roles'));
@@ -24,7 +24,7 @@ final class RbacAuthStackTest extends TestCase
         config()->set('core.rbac.enabled', true);
         config()->set('core.rbac.require_auth', true);
 
-        $res = $this->getJson('/api/rbac/roles');
+        $res = $this->getJson('/rbac/roles');
 
         $res->assertStatus(401);
     }
@@ -34,7 +34,7 @@ final class RbacAuthStackTest extends TestCase
         config()->set('core.rbac.enabled', false);
         config()->set('core.rbac.require_auth', true); // irrelevant when disabled
 
-        $res = $this->getJson('/api/rbac/roles');
+        $res = $this->getJson('/rbac/roles');
 
         $res->assertStatus(200);
         $res->assertJson(fn ($j) => $j->where('ok', true)->has('roles'));

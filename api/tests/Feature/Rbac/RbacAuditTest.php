@@ -45,7 +45,7 @@ final class RbacAuditTest extends TestCase
     {
         $admin = $this->bootRbacAudit();
 
-        $res = $this->postJson('/api/rbac/roles', ['name' => 'QA Team']);
+        $res = $this->postJson('/rbac/roles', ['name' => 'QA Team']);
         $res->assertStatus(201)->assertJson(['ok' => true]);
 
         /** @var AuditEvent|null $ev */
@@ -67,7 +67,7 @@ final class RbacAuditTest extends TestCase
             'password' => bcrypt('secret'),
         ]);
 
-        $res = $this->postJson("/api/rbac/users/{$target->id}/roles/Auditor");
+        $res = $this->postJson("/rbac/users/{$target->id}/roles/Auditor");
         $res->assertStatus(200)->assertJson(['ok' => true]);
 
         /** @var AuditEvent|null $ev */
@@ -94,7 +94,7 @@ final class RbacAuditTest extends TestCase
         $this->assertNotNull($auditorId);
         $target->roles()->sync([$auditorId]);
 
-        $res = $this->deleteJson("/api/rbac/users/{$target->id}/roles/Auditor");
+        $res = $this->deleteJson("/rbac/users/{$target->id}/roles/Auditor");
         $res->assertStatus(200)->assertJson(['ok' => true]);
 
         /** @var AuditEvent|null $ev */
@@ -116,7 +116,7 @@ final class RbacAuditTest extends TestCase
         ]);
 
         $payload = ['roles' => ['Admin', 'Auditor']];
-        $res = $this->putJson("/api/rbac/users/{$target->id}/roles", $payload);
+        $res = $this->putJson("/rbac/users/{$target->id}/roles", $payload);
         $res->assertStatus(200)->assertJson(['ok' => true]);
 
         /** @var AuditEvent|null $ev */

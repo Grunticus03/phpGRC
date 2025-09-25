@@ -27,7 +27,7 @@ final class RbacMiddlewareRoleDenyAuditTest extends TestCase
         ]);
 
         // Route requires Admin or Auditor; user has none -> 403
-        $res = $this->actingAs($user, 'sanctum')->getJson('/api/exports/abc/status');
+        $res = $this->actingAs($user, 'sanctum')->getJson('/exports/abc/status');
         $res->assertStatus(403)->assertJson(['ok' => false, 'code' => 'FORBIDDEN']);
 
         $rows = AuditEvent::query()

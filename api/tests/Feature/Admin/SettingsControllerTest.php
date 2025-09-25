@@ -11,7 +11,7 @@ final class SettingsControllerTest extends TestCase
 {
     public function test_get_settings_returns_defaults(): void
     {
-        $response = $this->getJson('/api/admin/settings');
+        $response = $this->getJson('/admin/settings');
 
         $response->assertOk();
 
@@ -47,7 +47,7 @@ final class SettingsControllerTest extends TestCase
             'avatars' => ['enabled' => true, 'size_px' => 128, 'format' => 'webp'],
         ];
 
-        $response = $this->postJson('/api/admin/settings', $payload);
+        $response = $this->postJson('/admin/settings', $payload);
 
         $response->assertOk();
 
@@ -74,7 +74,7 @@ final class SettingsControllerTest extends TestCase
             ],
         ];
 
-        $response = $this->postJson('/api/admin/settings', $payload);
+        $response = $this->postJson('/admin/settings', $payload);
 
         $response->assertOk();
 

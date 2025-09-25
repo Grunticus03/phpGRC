@@ -28,7 +28,7 @@ final class MetricsDashboardAliasTest extends TestCase
         $admin = $this->makeUser('Admin Metrics', 'admin-metrics-alias@example.test');
         $this->attachNamedRole($admin, 'Admin');
 
-        $resp = $this->actingAs($admin, 'sanctum')->getJson('/api/metrics/dashboard');
+        $resp = $this->actingAs($admin, 'sanctum')->getJson('/metrics/dashboard');
         $resp->assertStatus(200);
 
         $json = $resp->json();

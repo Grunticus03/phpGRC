@@ -11,7 +11,7 @@ final class AuditControllerTest extends TestCase
 {
     public function test_get_audit_returns_stub_events_with_required_shape(): void
     {
-        $res = $this->getJson('/api/audit');
+        $res = $this->getJson('/audit');
 
         $res->assertOk();
 
@@ -40,10 +40,10 @@ final class AuditControllerTest extends TestCase
     public function test_get_audit_respects_limit_param_bounds(): void
     {
         // 0 and >100 are invalid → 422
-        $this->getJson('/api/audit?limit=0')->assertStatus(422)->assertJsonStructure(['message','errors']);
-        $this->getJson('/api/audit?limit=1000')->assertStatus(422)->assertJsonStructure(['message','errors']);
+        $this->getJson('/audit?limit=0')->assertStatus(422)->assertJsonStructure(['message','errors']);
+        $this->getJson('/audit?limit=1000')->assertStatus(422)->assertJsonStructure(['message','errors']);
 
         // typical valid request
-        $this->getJson('/api/audit?limit=25&cursor=abc123')->assertOk();
+        $this->getJson('/audit?limit=25&cursor=abc123')->assertOk();
     }
 }

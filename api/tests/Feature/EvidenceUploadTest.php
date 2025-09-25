@@ -32,7 +32,7 @@ final class EvidenceUploadTest extends TestCase
 
         $file = UploadedFile::fake()->createWithContent('small.txt', "hello\n", 'text/plain');
 
-        $res = $this->postJson('/api/evidence', ['file' => $file]);
+        $res = $this->postJson('/evidence', ['file' => $file]);
 
         $res->assertStatus(400)->assertJson([
             'ok' => false,
@@ -47,7 +47,7 @@ final class EvidenceUploadTest extends TestCase
         $content = "hello\n";
         $file = UploadedFile::fake()->createWithContent('small.txt', $content, 'text/plain');
 
-        $res = $this->postJson('/api/evidence', ['file' => $file]);
+        $res = $this->postJson('/evidence', ['file' => $file]);
 
         $res->assertCreated()
             ->assertJsonStructure(['ok','id','version','sha256','size','mime','name'])

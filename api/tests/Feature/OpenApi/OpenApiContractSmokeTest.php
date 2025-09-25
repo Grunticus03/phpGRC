@@ -14,7 +14,7 @@ final class OpenApiContractSmokeTest extends TestCase
     /** @test */
     public function serves_openapi_yaml_with_phase_version_and_expected_paths(): void
     {
-        $res = $this->get('/api/openapi.yaml');
+        $res = $this->get('/openapi.yaml');
         $res->assertOk();
 
         $yaml = (string) $res->getContent();
@@ -26,11 +26,11 @@ final class OpenApiContractSmokeTest extends TestCase
 
         // Path anchors: allow specs that key paths with or without '/api' prefix.
         $this->assertTrue(
-            $this->containsAny($yaml, ['/audit:', '/api/audit:']),
+            $this->containsAny($yaml, ['/audit:', '/audit:']),
             'Expected an audit list path key.'
         );
         $this->assertTrue(
-            $this->containsAny($yaml, ['/audit/export.csv:', '/api/audit/export.csv:']),
+            $this->containsAny($yaml, ['/audit/export.csv:', '/audit/export.csv:']),
             'Expected an audit CSV export path key.'
         );
 

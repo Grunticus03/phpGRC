@@ -61,7 +61,7 @@ final class UserRolesApiTest extends TestCase
         $u->roles()->sync([$this->roleId('Auditor'), $this->roleId('User')]);
 
         $this->actingAs($admin, 'sanctum');
-        $res = $this->getJson("/api/rbac/users/{$u->id}/roles");
+        $res = $this->getJson("/rbac/users/{$u->id}/roles");
 
         $res->assertStatus(200)
             ->assertJson([
@@ -82,7 +82,7 @@ final class UserRolesApiTest extends TestCase
         $rawRole = '  auDItor  ';
         $seg     = rawurlencode($rawRole);
 
-        $res = $this->postJson("/api/rbac/users/{$u->id}/roles/{$seg}");
+        $res = $this->postJson("/rbac/users/{$u->id}/roles/{$seg}");
         $res->assertStatus(200)
             ->assertJson(['ok' => true])
             ->assertSeeText('Auditor');
@@ -100,7 +100,7 @@ final class UserRolesApiTest extends TestCase
         $this->assertSame('Auditor', $meta['role'] ?? null);
 
         // Idempotent: second attach does not create another canonical audit event.
-        $res2 = $this->postJson("/api/rbac/users/{$u->id}/roles/Auditor");
+        $res2 = $this->postJson("/rbac/users/{$u->id}/roles/Auditor");
         $res2->assertStatus(200);
         $this->assertSame(1, AuditEvent::query()
             ->where('action', 'rbac.user_role.attached')
@@ -117,7 +117,7 @@ final class UserRolesApiTest extends TestCase
 
         $this->actingAs($admin, 'sanctum');
 
-        $res = $this->deleteJson("/api/rbac/users/{$u->id}/roles/AUDITOR");
+        $res = $this->deleteJson("/rbac/users/{$u->id}/roles/AUDITOR");
         $res->assertStatus(200)
             ->assertJson(['ok' => true]);
 
@@ -131,7 +131,7 @@ final class UserRolesApiTest extends TestCase
         $this->assertSame(1, $canon);
 
         // Detaching again is a no-op and does not add another audit.
-        $res2 = $this->deleteJson("/api/rbac/users/{$u->id}/roles/Auditor");
+        $res2 = $this->deleteJson("/rbac/users/{$u->id}/roles/Auditor");
         $res2->assertStatus(200);
         $this->assertSame(1, AuditEvent::query()
             ->where('action', 'rbac.user_role.detached')
@@ -149,7 +149,7 @@ final class UserRolesApiTest extends TestCase
         $this->actingAs($admin, 'sanctum');
 
         $payload = ['roles' => [' admin ', 'Risk   Manager']];
-        $res = $this->putJson("/api/rbac/users/{$u->id}/roles", $payload);
+        $res = $this->putJson("/rbac/users/{$u->id}/roles", $payload);
 
         $res->assertStatus(200)
             ->assertJson(['ok' => true])
@@ -177,7 +177,7 @@ final class UserRolesApiTest extends TestCase
         $u     = $this->makeUser();
         $this->actingAs($admin, 'sanctum');
 
-        $res = $this->putJson("/api/rbac/users/{$u->id}/roles", [
+        $res = $this->putJson("/rbac/users/{$u->id}/roles", [
             'roles' => ['Auditor', '  auditor  '],
         ]);
 
@@ -194,7 +194,7 @@ final class UserRolesApiTest extends TestCase
         $u     = $this->makeUser();
         $this->actingAs($admin, 'sanctum');
 
-        $res = $this->postJson("/api/rbac/users/{$u->id}/roles/NopeRole");
+        $res = $this->postJson("/rbac/users/{$u->id}/roles/NopeRole");
         $res->assertStatus(422)
             ->assertJson([
                 'ok' => false,
@@ -212,7 +212,7 @@ final class UserRolesApiTest extends TestCase
         $u     = $this->makeUser();
         $this->actingAs($admin, 'sanctum');
 
-        $res = $this->postJson("/api/rbac/users/{$u->id}/roles/Auditor");
+        $res = $this->postJson("/rbac/users/{$u->id}/roles/Auditor");
         $res->assertStatus(404)
             ->assertJson([
                 'ok' => false,
@@ -227,7 +227,7 @@ final class UserRolesApiTest extends TestCase
 
         $this->actingAs($nonAdmin, 'sanctum');
 
-        $res = $this->postJson("/api/rbac/users/{$u->id}/roles/Auditor");
+        $res = $this->postJson("/rbac/users/{$u->id}/roles/Auditor");
         $res->assertStatus(403);
     }
 
@@ -236,7 +236,7 @@ final class UserRolesApiTest extends TestCase
         $u = \Database\Factories\UserFactory::new()->create();
 
         // No actingAs here.
-        $res = $this->postJson("/api/rbac/users/{$u->id}/roles/Auditor");
+        $res = $this->postJson("/rbac/users/{$u->id}/roles/Auditor");
         $res->assertStatus(401);
     }
 }

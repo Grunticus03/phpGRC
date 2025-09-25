@@ -27,9 +27,9 @@ final class RbacMiddlewarePolicyDenyAuditTest extends TestCase
         $admin = $this->makeUser('Admin One', 'admin1@example.test');
         $this->attachNamedRole($admin, 'Admin');
 
-        // Route /api/admin/settings requires Admin role and policy core.settings.manage.
+        // Route /admin/settings requires Admin role and policy core.settings.manage.
         // Roles pass, but with empty policies map PolicyMap::rolesForPolicy() returns null -> deny.
-        $res = $this->actingAs($admin, 'sanctum')->postJson('/api/admin/settings', ['core' => []]);
+        $res = $this->actingAs($admin, 'sanctum')->postJson('/admin/settings', ['core' => []]);
         $res->assertStatus(403)->assertJson(['ok' => false, 'code' => 'FORBIDDEN']);
 
         $rows = AuditEvent::query()

@@ -19,7 +19,7 @@ final class AuditStubPathTest extends TestCase
             'core.rbac.require_auth' => false,
         ]);
 
-        $res = $this->getJson('/api/audit');
+        $res = $this->getJson('/audit');
         $res->assertOk();
 
         $data = $res->json();
@@ -53,13 +53,13 @@ final class AuditStubPathTest extends TestCase
         ]);
 
         // First call to obtain cursor if any.
-        $first = $this->getJson('/api/audit')->assertOk()->json();
+        $first = $this->getJson('/audit')->assertOk()->json();
         $cursor = $first['nextCursor'] ?? null;
 
         // Use a valid cursor if provided, otherwise a dummy token.
         $q = is_string($cursor) && $cursor !== '' ? $cursor : 'dummy';
 
-        $res = $this->getJson('/api/audit?cursor=' . urlencode($q));
+        $res = $this->getJson('/audit?cursor=' . urlencode($q));
         $res->assertOk();
 
         $data = $res->json();

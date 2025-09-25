@@ -24,7 +24,7 @@ final class ExportsQueueTest extends TestCase
 
         $params = ['foo' => 'bar', 'n' => 3];
 
-        $res = $this->postJson('/api/exports/csv', ['params' => $params]);
+        $res = $this->postJson('/exports/csv', ['params' => $params]);
         $res->assertStatus(202)->assertJson(['ok' => true, 'type' => 'csv']);
 
         $jobId = (string) $res->json('jobId');
@@ -35,7 +35,7 @@ final class ExportsQueueTest extends TestCase
         $this->assertNotNull($export);
         $this->assertContains($export->status, ['running', 'completed']);
 
-        $status = $this->getJson("/api/exports/{$jobId}/status")->assertStatus(200)->json();
+        $status = $this->getJson("/exports/{$jobId}/status")->assertStatus(200)->json();
         $this->assertTrue($status['ok']);
         $this->assertArrayHasKey('status', $status);
         $this->assertArrayHasKey('progress', $status);
@@ -44,12 +44,12 @@ final class ExportsQueueTest extends TestCase
             $this->assertNotEmpty($export->artifact_path);
             $this->assertTrue(Storage::disk($export->artifact_disk ?? 'local')->exists((string) $export->artifact_path));
 
-            $dl = $this->get("/api/exports/{$jobId}/download");
+            $dl = $this->get("/exports/{$jobId}/download");
             $dl->assertStatus(200);
             // Symfony appends charset for text responses; accept the canonical value we emit.
             $dl->assertHeader('content-type', 'text/csv; charset=UTF-8');
         } else {
-            $this->getJson("/api/exports/{$jobId}/download")
+            $this->getJson("/exports/{$jobId}/download")
                 ->assertStatus(404)
                 ->assertJson(['ok' => false, 'code' => 'EXPORT_NOT_READY']);
         }
@@ -60,16 +60,16 @@ final class ExportsQueueTest extends TestCase
         config()->set('core.exports.enabled', false);
         config()->set('core.rbac.enabled', false);
 
-        $res = $this->postJson('/api/exports/json', ['params' => ['a' => 1]]);
+        $res = $this->postJson('/exports/json', ['params' => ['a' => 1]]);
         $res->assertStatus(202)->assertJson(['ok' => true, 'note' => 'stub-only']);
         $jobId = (string) $res->json('jobId');
         $this->assertSame('exp_stub_0001', $jobId);
 
-        $this->getJson("/api/exports/{$jobId}/status")
+        $this->getJson("/exports/{$jobId}/status")
             ->assertStatus(200)
             ->assertJson(['ok' => true, 'status' => 'pending', 'note' => 'stub-only']);
 
-        $this->getJson("/api/exports/{$jobId}/download")
+        $this->getJson("/exports/{$jobId}/download")
             ->assertStatus(404)
             ->assertJson(['ok' => false, 'code' => 'EXPORT_NOT_READY', 'note' => 'stub-only']);
     }

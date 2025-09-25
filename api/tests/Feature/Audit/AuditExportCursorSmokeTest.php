@@ -59,7 +59,7 @@ final class AuditExportCursorSmokeTest extends TestCase
         $auditor = $this->makeUser('Auditor CSV', 'aud.csv@example.test');
         $this->attachNamedRole($auditor, 'Auditor');
 
-        $resp = $this->actingAs($auditor, 'sanctum')->get('/api/audit/export.csv');
+        $resp = $this->actingAs($auditor, 'sanctum')->get('/audit/export.csv');
 
         $resp->assertStatus(200);
 

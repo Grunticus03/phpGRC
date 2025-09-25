@@ -15,7 +15,7 @@ final class AvatarApiTest extends TestCase
     {
         $file = UploadedFile::fake()->image('avatar.webp', 64, 64);
 
-        $res = $this->post('/api/avatar', ['file' => $file]);
+        $res = $this->post('/avatar', ['file' => $file]);
 
         $res->assertStatus(202)
             ->assertJson([
@@ -33,7 +33,7 @@ final class AvatarApiTest extends TestCase
     {
         $file = UploadedFile::fake()->image('avatar.png', 64, 64);
 
-        $this->post('/api/avatar', ['file' => $file])
+        $this->post('/avatar', ['file' => $file])
             ->assertStatus(422);
     }
 
@@ -42,7 +42,7 @@ final class AvatarApiTest extends TestCase
     {
         $file = UploadedFile::fake()->image('big.webp', 1024, 1024);
 
-        $res = $this->post('/api/avatar', ['file' => $file]);
+        $res = $this->post('/avatar', ['file' => $file]);
 
         $res->assertStatus(202)
             ->assertJsonPath('file.width', 1024)
@@ -56,7 +56,7 @@ final class AvatarApiTest extends TestCase
 
         $file = UploadedFile::fake()->image('avatar.webp', 64, 64);
 
-        $this->post('/api/avatar', ['file' => $file])
+        $this->post('/avatar', ['file' => $file])
             ->assertStatus(400)
             ->assertJson([
                 'ok'   => false,

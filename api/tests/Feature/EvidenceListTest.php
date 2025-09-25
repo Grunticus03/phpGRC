@@ -80,7 +80,7 @@ final class EvidenceListTest extends TestCase
 
     public function test_list_owner_and_mime_filters(): void
     {
-        $res = $this->getJson('/api/evidence?owner_id=' . $this->u1Id . '&mime=image/*&order=asc&limit=10');
+        $res = $this->getJson('/evidence?owner_id=' . $this->u1Id . '&mime=image/*&order=asc&limit=10');
 
         $res->assertStatus(200)->assertJsonPath('ok', true);
         $json = $res->json();
@@ -93,13 +93,13 @@ final class EvidenceListTest extends TestCase
 
     public function test_cursor_pagination_desc(): void
     {
-        $r1 = $this->getJson('/api/evidence?limit=1&order=desc');
+        $r1 = $this->getJson('/evidence?limit=1&order=desc');
         $r1->assertStatus(200)->assertJsonPath('ok', true)->assertJsonCount(1, 'data');
         $cursor = $r1->json('next_cursor');
         $firstId = $r1->json('data.0.id');
         $this->assertNotEmpty($cursor);
 
-        $r2 = $this->getJson('/api/evidence?limit=1&order=desc&cursor=' . urlencode((string) $cursor));
+        $r2 = $this->getJson('/evidence?limit=1&order=desc&cursor=' . urlencode((string) $cursor));
         $r2->assertStatus(200)->assertJsonPath('ok', true)->assertJsonCount(1, 'data');
         $this->assertNotSame($firstId, $r2->json('data.0.id'));
     }

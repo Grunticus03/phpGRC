@@ -45,19 +45,19 @@ final class SettingsAuditDiffsTest extends TestCase
         $this->actingAs($admin, 'sanctum');
 
         // Change retention from default to a custom value.
-        $this->postJson('/api/admin/settings', [
+        $this->postJson('/admin/settings', [
             'apply' => true,
             'audit' => ['retention_days' => 180],
         ])->assertStatus(200)->assertJson(['ok' => true, 'applied' => true]);
 
         // Revert to default to exercise unset path.
-        $this->postJson('/api/admin/settings', [
+        $this->postJson('/admin/settings', [
             'apply' => true,
             'audit' => ['retention_days' => 365],
         ])->assertStatus(200)->assertJson(['ok' => true, 'applied' => true]);
 
         // Fetch audit trail and verify at least one settings.update with structured changes.
-        $resp = $this->getJson('/api/audit?limit=50');
+        $resp = $this->getJson('/audit?limit=50');
         $resp->assertStatus(200)->assertJson(['ok' => true]);
 
         /** @var array<int, array<string,mixed>> $items */

@@ -10,7 +10,7 @@ final class OpenApiSpecTest extends TestCase
 {
     public function test_yaml_served_with_expected_headers_and_content(): void
     {
-        $res = $this->get('/api/openapi.yaml');
+        $res = $this->get('/openapi.yaml');
         $res->assertOk();
 
         $ct = (string) $res->headers->get('content-type');
@@ -35,14 +35,14 @@ final class OpenApiSpecTest extends TestCase
         $res->assertSee('openapi: 3.1.0', false);
 
         // Conditional GET should return 304
-        $res304 = $this->get('/api/openapi.yaml', ['If-None-Match' => $etag]);
+        $res304 = $this->get('/openapi.yaml', ['If-None-Match' => $etag]);
         $this->assertSame(304, $res304->getStatusCode());
         $this->assertSame($etag, (string) $res304->headers->get('ETag'));
     }
 
     public function test_json_served_with_expected_headers_and_content(): void
     {
-        $res = $this->get('/api/openapi.json');
+        $res = $this->get('/openapi.json');
         $res->assertOk();
 
         $ct = (string) $res->headers->get('content-type');
@@ -67,7 +67,7 @@ final class OpenApiSpecTest extends TestCase
         $this->assertJson($res->getContent());
 
         // Conditional GET should return 304
-        $res304 = $this->get('/api/openapi.json', ['If-None-Match' => $etag]);
+        $res304 = $this->get('/openapi.json', ['If-None-Match' => $etag]);
         $this->assertSame(304, $res304->getStatusCode());
         $this->assertSame($etag, (string) $res304->headers->get('ETag'));
     }

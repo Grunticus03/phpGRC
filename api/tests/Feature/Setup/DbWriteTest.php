@@ -19,7 +19,7 @@ final class DbWriteTest extends TestCase
             'password' => 'nope',
         ];
 
-        $res = $this->postJson('/api/setup/db/test', $payload);
+        $res = $this->postJson('/setup/db/test', $payload);
         $res->assertStatus(422)->assertJsonPath('code', 'DB_CONFIG_INVALID');
     }
 
@@ -35,7 +35,7 @@ final class DbWriteTest extends TestCase
             'password' => '',
         ];
 
-        $res = $this->postJson('/api/setup/db/write', $payload);
+        $res = $this->postJson('/setup/db/write', $payload);
         $res->assertStatus(400)->assertJsonPath('code', 'SETUP_STEP_DISABLED');
     }
 }

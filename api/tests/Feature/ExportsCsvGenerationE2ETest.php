@@ -26,7 +26,7 @@ final class ExportsCsvGenerationE2ETest extends TestCase
         Storage::fake('local');
 
         // Request a CSV export
-        $res = $this->postJson('/api/exports/csv', ['params' => ['foo' => 'bar']])
+        $res = $this->postJson('/exports/csv', ['params' => ['foo' => 'bar']])
             ->assertStatus(202)
             ->assertJsonPath('ok', true);
 
@@ -34,13 +34,13 @@ final class ExportsCsvGenerationE2ETest extends TestCase
         $this->assertNotSame('', $jobId);
 
         // Status should be completed after sync job runs
-        $this->getJson("/api/exports/{$jobId}/status")
+        $this->getJson("/exports/{$jobId}/status")
             ->assertOk()
             ->assertJsonPath('status', 'completed')
             ->assertJsonPath('jobId', $jobId);
 
         // Download should succeed; allow charset suffix
-        $dl = $this->get("/api/exports/{$jobId}/download");
+        $dl = $this->get("/exports/{$jobId}/download");
         $dl->assertOk();
         $ctype = strtolower((string) $dl->headers->get('content-type'));
         $this->assertStringStartsWith('text/csv', $ctype);

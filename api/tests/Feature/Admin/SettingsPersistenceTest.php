@@ -20,7 +20,7 @@ final class SettingsPersistenceTest extends TestCase
             ['value' => 'false', 'type' => 'json'] // JSON literal false
         );
 
-        $res = $this->json('GET', '/api/admin/settings');
+        $res = $this->json('GET', '/admin/settings');
         $res->assertStatus(200)->assertJsonStructure(['ok', 'config' => ['core' => ['audit' => ['enabled']]]]);
 
         $data = $res->json();
@@ -30,7 +30,7 @@ final class SettingsPersistenceTest extends TestCase
     public function test_update_sets_and_unsets_overrides(): void
     {
         // 1) Disable => persist override (explicit apply)
-        $res1 = $this->json('POST', '/api/admin/settings', [
+        $res1 = $this->json('POST', '/admin/settings', [
             'apply' => true,
             'audit' => ['enabled' => false],
         ]);
@@ -41,7 +41,7 @@ final class SettingsPersistenceTest extends TestCase
         ]);
 
         // 2) Revert to default => remove override (explicit apply)
-        $res2 = $this->json('POST', '/api/admin/settings', [
+        $res2 = $this->json('POST', '/admin/settings', [
             'apply' => true,
             'audit' => ['enabled' => true],
         ]);
@@ -61,7 +61,7 @@ final class SettingsPersistenceTest extends TestCase
         );
 
         // Update only audit section with explicit apply.
-        $this->json('POST', '/api/admin/settings', [
+        $this->json('POST', '/admin/settings', [
             'apply' => true,
             'audit' => ['retention_days' => 180],
         ])->assertStatus(200)->assertJson(['ok' => true, 'applied' => true]);

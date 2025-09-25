@@ -23,7 +23,7 @@ final class RbacMiddlewarePoliciesTest extends TestCase
 
         // Ephemeral test route that requires Admin role (role-only)
         Route::middleware([RbacMiddleware::class])
-            ->get('/api/test/policy', static function () {
+            ->get('/test/policy', static function () {
                 return response()->json(['ok' => true]);
             })
             ->defaults('roles', ['Admin']);
@@ -36,7 +36,7 @@ final class RbacMiddlewarePoliciesTest extends TestCase
         config()->set('core.rbac.persistence', false);
         config()->set('core.rbac.require_auth', false);
 
-        $res = $this->getJson('/api/test/policy');
+        $res = $this->getJson('/test/policy');
         $res->assertStatus(200)->assertJson(['ok' => true]);
     }
 
@@ -48,7 +48,7 @@ final class RbacMiddlewarePoliciesTest extends TestCase
         config()->set('core.rbac.require_auth', true);
 
         // No auth -> 401
-        $this->getJson('/api/test/policy')->assertStatus(401);
+        $this->getJson('/test/policy')->assertStatus(401);
 
         // Auth with Admin -> 200
         $this->seed(RolesSeeder::class);
@@ -64,7 +64,7 @@ final class RbacMiddlewarePoliciesTest extends TestCase
 
         Sanctum::actingAs($user);
 
-        $this->getJson('/api/test/policy')->assertStatus(200)->assertJson(['ok' => true]);
+        $this->getJson('/test/policy')->assertStatus(200)->assertJson(['ok' => true]);
     }
 
     public function test_persist_mode_forbids_when_missing_role(): void
@@ -82,14 +82,14 @@ final class RbacMiddlewarePoliciesTest extends TestCase
 
         Sanctum::actingAs($user);
 
-        $this->getJson('/api/test/policy')->assertStatus(403);
+        $this->getJson('/test/policy')->assertStatus(403);
     }
 
     public function test_stub_mode_allows_policy_only_without_auth(): void
     {
         // Route with policy only
         Route::middleware([RbacMiddleware::class])
-            ->get('/api/test/policy-only', static function () {
+            ->get('/test/policy-only', static function () {
                 return response()->json(['ok' => true]);
             })
             ->defaults('policy', 'core.settings.manage');
@@ -99,14 +99,14 @@ final class RbacMiddlewarePoliciesTest extends TestCase
         config()->set('core.rbac.persistence', false);
         config()->set('core.rbac.require_auth', false);
 
-        $this->getJson('/api/test/policy-only')->assertStatus(200)->assertJson(['ok' => true]);
+        $this->getJson('/test/policy-only')->assertStatus(200)->assertJson(['ok' => true]);
     }
 
     public function test_persist_mode_policy_only_enforces_roles_from_policy_map(): void
     {
         // Route with policy only
         Route::middleware([RbacMiddleware::class])
-            ->get('/api/test/policy-only-2', static function () {
+            ->get('/test/policy-only-2', static function () {
                 return response()->json(['ok' => true]);
             })
             ->defaults('policy', 'core.settings.manage');
@@ -117,7 +117,7 @@ final class RbacMiddlewarePoliciesTest extends TestCase
         config()->set('core.rbac.require_auth', true);
 
         // Unauthenticated -> 401
-        $this->getJson('/api/test/policy-only-2')->assertStatus(401);
+        $this->getJson('/test/policy-only-2')->assertStatus(401);
 
         // With Admin role -> 200
         $this->seed(RolesSeeder::class);
@@ -130,7 +130,7 @@ final class RbacMiddlewarePoliciesTest extends TestCase
         $user->roles()->attach($adminId);
         Sanctum::actingAs($user);
 
-        $this->getJson('/api/test/policy-only-2')->assertStatus(200)->assertJson(['ok' => true]);
+        $this->getJson('/test/policy-only-2')->assertStatus(200)->assertJson(['ok' => true]);
 
         // User without Admin -> 403
         $other = User::query()->create([
@@ -139,14 +139,14 @@ final class RbacMiddlewarePoliciesTest extends TestCase
             'password' => bcrypt('secret'),
         ]);
         Sanctum::actingAs($other);
-        $this->getJson('/api/test/policy-only-2')->assertStatus(403);
+        $this->getJson('/test/policy-only-2')->assertStatus(403);
     }
 
     public function test_persist_mode_role_passes_but_policy_fails_due_to_override(): void
     {
         // Route with both role and policy
         Route::middleware([RbacMiddleware::class])
-            ->get('/api/test/role-and-policy', static function () {
+            ->get('/test/role-and-policy', static function () {
                 return response()->json(['ok' => true]);
             })
             ->defaults('roles', ['Admin'])
@@ -175,11 +175,11 @@ final class RbacMiddlewarePoliciesTest extends TestCase
         // Has Admin so role check passes, but lacks Risk Manager so policy fails.
         $user->roles()->attach($adminId);
         Sanctum::actingAs($user);
-        $this->getJson('/api/test/role-and-policy')->assertStatus(403);
+        $this->getJson('/test/role-and-policy')->assertStatus(403);
 
         // Add Risk Manager, now policy passes.
         $user->roles()->attach($riskId);
-        $this->getJson('/api/test/role-and-policy')->assertStatus(200)->assertJson(['ok' => true]);
+        $this->getJson('/test/role-and-policy')->assertStatus(200)->assertJson(['ok' => true]);
     }
 }
 

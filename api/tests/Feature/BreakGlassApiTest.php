@@ -22,7 +22,7 @@ final class BreakGlassApiTest extends TestCase
     {
         Config::set('core.auth.break_glass.enabled', false);
 
-        $this->postJson('/api/auth/break-glass', [])
+        $this->postJson('/auth/break-glass', [])
             ->assertStatus(404)
             ->assertJson([
                 'error' => 'BREAK_GLASS_DISABLED',
@@ -34,7 +34,7 @@ final class BreakGlassApiTest extends TestCase
     {
         Config::set('core.auth.break_glass.enabled', true);
 
-        $this->postJson('/api/auth/break-glass', [])
+        $this->postJson('/auth/break-glass', [])
             ->assertStatus(202)
             ->assertJson([
                 'accepted' => true,
