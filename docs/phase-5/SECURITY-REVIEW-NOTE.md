@@ -1,3 +1,4 @@
+# @phpgrc:/SECURITY-REVIEW-NOTE.md
 # Security Review — Phase 5
 
 ## Scope Reviewed
@@ -8,6 +9,7 @@
 - Admin Settings persistence flow (DB-backed, no `.env` for non-connection)
 - Web audit action labeling
 - **OpenAPI spec serving endpoints** (`GET /api/openapi.yaml`) — headers and caching
+- **Infrastructure:** SPA history-mode fallback, Apache `/api` alias, Laravel internal API prefix removed
 
 ## Findings
 1) **Authorization**
@@ -32,9 +34,13 @@
    - No new PII in audits beyond existing fields. IP/UA optional and unchanged.
 
 6) **Operations**
-   - Laravel route caching and Apache rewrite now route `/api/*` to Laravel public index.
+   - Apache vhost now serves SPA with history-mode fallback; `/api/*` aliased to Laravel public front controller.
+   - Laravel internal API prefix is **empty**; Apache provides the external `/api/*` path. Avoids double-prefix issues.
    - Cache driver defaults to `file` unless DB cache table exists.
    - **OpenAPI docs serving hardened:** `Content-Type: application/yaml`; `ETag: "sha256:<hex>"`; `Cache-Control: no-store, max-age=0`; `X-Content-Type-Options: nosniff`; optional `Last-Modified` surfaced.
+
+7) **Secrets**
+   - `APP_KEY` remains an **environment/KMS** secret. **Do not store** in DB. All servers must share the same key.
 
 ## Risks & Mitigations
 - **Endpoint abuse (metrics):** Admin-only but long windows could be abused.  
@@ -59,6 +65,7 @@
 - Backend: KPI computation and window clamping; RBAC auth on metrics; DB-backed settings apply/unset; validation envelope shape.
 - Frontend: KPI UI renders with adjustable windows; query propagation; deny label mapping verified.
 - OpenAPI serve tests: MIME exactness; conservative caching; ETag present.
+- **Infra smoke:** deep-link reload works; `/api/health` responds JSON; assets long-cache; `index.html` `no-store`; Redoc served at `/api/docs` with working logo path.
 
-## Out-of-Scope (kept for visibility)
-- Theme/branding security (Phase 5.5): import scrub, MIME validation, SVG sanitization — tracked separately and not part of this review.
+## Decision
+- Ship. No blocking findings.

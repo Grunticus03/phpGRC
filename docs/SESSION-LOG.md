@@ -1294,3 +1294,16 @@ SESSION-LOG.md entry
 - Phase/Step status: advance
 - Next action (you): add Spectral + openapi-diff gates in CI; add `ETag` + `Cache-Control: no-store` to spec endpoints and tests; hook up `/api/docs` Swagger UI if not already; optionally reference `SettingsChange` in a response example to silence the warning.
 - Next action (me): confirm policy on caching headers (ETag/no-store) and whether to silence the Spectral warning now or leave as preemptive; provide path to the baseline spec for openapi-diff (0.4.6) and confirm `/api/docs` route expectations.
+
+---
+
+### Session 2025-09-24: [Phase 5, Step 2 — SPA history mode + /api routing]
+- Context: Blank SPA page and 404s after switching to history mode; Apache/Laravel pathing mismatch; Redoc logo path; Vitest label.
+- Goal: Serve SPA at `/`, mount API at `/api/*`, restore API reachability, fix Redoc logo, make CI green.
+- Constraints: Charter rules; no .env for runtime settings; full-file outputs; additive docs changes only.
+
+### Closeout
+- Deliverables produced: Apache vhost (SPA + Alias /api), Laravel `bootstrap/app.php` with API prefix `''`, verified `/api/health` and `/api/dashboard/kpis`, corrected OpenAPI `x-logo.url` and `servers`, Vitest `setupTests.ts` + label fix, docs updated (Release Notes, Task Checklist, PR Checklist, Security Review, Playbook, Settings, Styleguide, Roadmap).
+- Phase/Step status: advance.
+- Next action (you): monitor prod logs, verify headers for `/api/openapi.yaml`, confirm deep-link reloads and RBAC denies audit once per request.
+- Next action (me): implement capability gates tests (`core.audit.export`, `core.evidence.upload`), rate-limit tests, role-name validation tests, optional `/api/openapi.json`, KPI cache TTL in service.

@@ -1,3 +1,4 @@
+# @phpgrc:/PHASE-5-TASK-CHECKLIST.md
 # Phase 5 Task Checklist
 
 Status: Active  
@@ -155,6 +156,7 @@ _Last updated: 2025-09-24_
 - [x] Keep `docs/phase-5/PHASE-5-KICKOFF.md` in sync.
 - [x] Add `docs/OPS.md` runbook.
   - Note: Added Apache vhost guidance, FPM handoff, and `/api` Alias/Rewrite notes.
+- [x] OpenAPI: `x-logo.url` corrected to `/api/images/...`; `servers: [{url:"/api"}]` documented.
 
 ---
 
@@ -191,11 +193,11 @@ _Last updated: 2025-09-24_
 ---
 
 ## 12) Infra: Apache + PHP-FPM wiring — NEW
-- [x] Dedicated vhost with HTTPS, HSTS, and `/api` → Laravel public via `Alias` or `ProxyPassMatch`.
-- [x] Ensure `AllowOverride All` under `/api/public` so `.htaccess` routes to `index.php`.
+- [x] Dedicated vhost with HTTPS, HSTS, and `/api` → Laravel public via **Alias**.
+- [x] SPA fallback rewrite inside `<Directory /web/dist>` (serves `index.html` for deep links).
+- [x] Prefer `AllowOverride None` with vhost-managed rewrites (or `AllowOverride All` if using `.htaccess`).
 - [x] Verified routes reachable via Apache (`/api/health`, `/api/dashboard/kpis`).
-- [x] Cleared config/route caches after deploy; switched cache driver to `file` where DB cache table absent.
-  - Note: Server API shows `Apache 2.0 Handler` (not `FPM/FastCGI`) when proxying.
+- [x] Cleared config/route caches after deploy; default cache driver set to `file` where DB cache table absent.
 
 ---
 
@@ -204,6 +206,7 @@ _Last updated: 2025-09-24_
 - [x] KPIs respond with identical shapes at both routes (`/api/dashboard/kpis`, `/api/metrics/dashboard`).
 - [x] Web SPA dashboard reads KPIs successfully and renders tiles/sparkline.
 - [x] RBAC `require_auth` flag behavior validated behind Apache.
+- [x] Redoc logo loads from `/api/images/...`.
 
 ---
 

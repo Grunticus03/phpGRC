@@ -12,6 +12,14 @@
 - **Metrics endpoint alias (added)**
   - `GET /api/metrics/dashboard` added as an alias to the KPI dashboard route for compatibility.
 
+## Routing & Deploy (history mode)
+- SPA now uses BrowserRouter (history mode). Deep-link reloads serve `index.html` via Apache fallback.
+- Apache vhost simplified:
+  - SPA at `/var/www/phpgrc/current/web/dist` with fallback rewrite to `index.html`.
+  - Laravel mounted at `/api/` using `Alias /api/ /var/www/phpgrc/current/api/public/`.
+  - Long-cache for `/assets/*`; `index.html` served with `Cache-Control: no-store, max-age=0`.
+- **Laravel API prefix:** internal routes have **no** `api` prefix. Apache provides the external `/api/*` path. Tests updated.
+
 ## API
 - Internal admin-only endpoint: `GET /api/dashboard/kpis` (unchanged contract).
 - Input hardening: clamps `days` and `rbac_days` to **[1,365]**.
@@ -20,12 +28,13 @@
 - **Response meta (added):** KPI responses may include `meta.window: { rbac_days, fresh_days }` for UI display.
 - **Settings load (added):** DB overrides are loaded at boot via `SettingsServiceProvider`; API returns effective config (defaults overlaid by DB).
 - **OpenAPI serve (hardened):** exact `Content-Type` for YAML, `ETag: "sha256:<hex>"`, `Cache-Control: no-store, max-age=0`, `X-Content-Type-Options: nosniff`; optional `Last-Modified` when file exists.
+- **Prefix clarification:** In `bootstrap/app.php` the API routing `prefix` is set to `''`. Route list shows bare paths like `health`, `dashboard/kpis`. Apache mounts these under `/api/*`.
 
 ## Config Defaults
-- Evidence freshness days: **30** via `CORE_METRICS_EVIDENCE_FRESHNESS_DAYS`.  
-  - **Out of scope now:** ENV defaults are deprecated for app settings; values should be stored in DB. ENV remains for connection/bootstrap only.
-- RBAC denies window days: **7** via `CORE_METRICS_RBAC_DENIES_WINDOW_DAYS`.  
-  - **Out of scope now:** same deprecation note as above; use DB overrides instead.
+- Evidence freshness days: **30** via config fallback.  
+  - **Note:** ENV defaults for app behavior are deprecated; use DB. ENV remains for **connection/bootstrap only**.
+- RBAC denies window days: **7** via config fallback.  
+  - **Note:** same deprecation; DB overrides take precedence.
 - **RBAC require_auth (clarification):** may be toggled by DB override; tests and non-auth SPA flows can run with RBAC disabled on test boxes.
 
 ## Compatibility
@@ -39,11 +48,19 @@
 - One audit row per deny outcome.
 - **Settings persistence (added):** settings changes raise a `SettingsUpdated` domain event; audit payload enrichment is planned (see “Planned”).
 
+## Docs
+- Redoc x-logo path fixed: `x-logo.url: "/api/images/phpGRC-light-horizontal-trans.png"`.
+- `servers` array in OpenAPI uses `url: "/api"`.
+
+## Tests
+- PHPUnit: all routes in tests updated to **drop** `/api` prefix (framework serves bare paths in test kernel).
+- Vitest: fetch mocked with a **Response-like** object (`headers`, `json()`, `text()`) so KPI UI renders and labels appear.
+
 ## Ops
-- See `docs/OPS.md` for enabling metrics and defaults.
-- **Deployment (added):** Recommended Apache layout: serve SPA at `/`, reverse-proxy `/api/` to the Laravel public front controller (or an internal vhost). Ensure `route:clear` and `config:clear` after deploys.
-- **Cache driver (added):** Prefer `file` cache unless DB cache table is migrated (`php artisan cache:table && php artisan migrate`).
+- **Deployment:** Apache vhost serves SPA at `/`; `/api/` aliased to Laravel public + FPM. Ensure `route:clear` and `config:clear` after deploys.
+- **Cache driver:** Prefer `file` cache unless DB cache table is migrated (`php artisan cache:table && php artisan migrate`).
 - **OpenAPI docs caching:** reverse proxies must not strip `ETag`; keep `nosniff`; honor `Cache-Control: no-store, max-age=0`.
+- **Secrets:** keep `APP_KEY` in environment/KMS, not DB. DB must hold non-connection settings only.
 
 ## CI
 - **Required checks:** OpenAPI lint (Redocly), OpenAPI breaking-change gate (openapi-diff), API static, API tests (MySQL 8.3) + coverage, Web build + tests + audit.

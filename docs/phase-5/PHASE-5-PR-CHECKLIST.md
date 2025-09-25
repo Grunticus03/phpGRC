@@ -1,3 +1,4 @@
+# @phpgrc:/PHASE-5-PR-CHECKLIST.md
 # Phase 5 — Minimal PR Checklist
 
 ## Gates
@@ -61,15 +62,16 @@
 - All non-connection settings live in DB (`core_settings`); SettingsServiceProvider loads DB overrides at boot.
 - CI checks for `env(` usage outside `config/`.
 - Overlay file `/opt/phpgrc/shared/config.php` precedence confirmed.
-- **Settings persistence:** Admin `PUT /api/admin/settings` accepts `apply: true` to persist, or returns stub note when persistence unavailable. ✅
-- **Apache routing:** SPA served at `/`; `/api/` reverse-proxies to Laravel public (or internal vhost at 127.0.0.1:8081). ✅
-  - Note: After deploys, run `php artisan config:clear` and `php artisan route:clear` to avoid stale caches.
+- **Routing:** `bootstrap/app.php` sets API routing `prefix: ''` (no internal `/api`), Apache mounts at `/api/*`.
+- **Apache:** SPA fallback present; assets long-cache; `index.html` no-store. `/api/*` aliased to Laravel public + FPM.
+- After deploys: `php artisan config:clear && php artisan route:clear`.
 
 ## QA (manual)
 - Admin, Auditor, unassigned user: verify access matrix.
 - Capability off → Admin denied on guarded routes.
 - Unknown policy key in persist → 403 + audit.
 - Override to `[]` → stub allows, persist denies.
+- **Deep-link reload:** `/admin/settings` and `/dashboard` load via history-mode fallback.
 
 ## Docs
 - ROADMAP and Phase-5 notes updated. ✅
@@ -78,7 +80,8 @@
 - OpenAPI descriptions note KPI defaults and clamping. ✅
   - Note: Document alias `/api/metrics/dashboard` and optional `meta.window`.
 - Ops runbook added at `docs/OPS.md`. ✅
+- Redoc `x-logo.url` fixed to `/api/images/...`. ✅
 
 ## Sign-off
-- Security review note.
-- Release notes drafted.
+- Security review note includes headers, APP_KEY env-only stance, and route mounting model.
+- Release notes updated.
