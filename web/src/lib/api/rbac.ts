@@ -45,6 +45,29 @@ export type UserRolesResponseErr = {
 
 export type UserRolesResponse = UserRolesResponseOk | UserRolesResponseErr;
 
+export type UserSearchMeta = {
+  page: number;
+  per_page: number;
+  total: number;
+  total_pages: number;
+};
+
+export type UserSearchOk = {
+  ok: true;
+  data: UserSummary[];
+  meta: UserSearchMeta;
+};
+
+export type UserSearchErr = {
+  ok: false;
+  status: number;
+  code: string;
+  message?: string;
+  raw?: unknown;
+};
+
+export type UserSearchResult = UserSearchOk | UserSearchErr;
+
 function isObject(v: unknown): v is Record<string, unknown> {
   return v !== null && typeof v === "object";
 }
@@ -55,6 +78,13 @@ async function parseJson(res: Response): Promise<unknown> {
   } catch {
     return null;
   }
+}
+
+function clamp(n: number, min: number, max: number): number {
+  if (!Number.isFinite(n)) return min;
+  if (n < min) return min;
+  if (n > max) return max;
+  return n;
 }
 
 export async function listRoles(): Promise<RoleListResponse> {
@@ -88,12 +118,13 @@ export async function createRole(name: string): Promise<CreateRoleResult> {
     });
     const json = await parseJson(res);
 
-    const j = isObject(json) ? json : {};
+    const j = isObject(json) ? (json as Record<string, unknown>) : {};
 
     // 201 Created
-    const role = isObject(j.role) ? j.role : undefined;
-    const roleId = isObject(role) && "id" in role ? String(role.id) : undefined;
-    const roleName = isObject(role) && "name" in role ? String(role.name) : undefined;
+    const roleRaw = j.role;
+    const role = isObject(roleRaw) ? (roleRaw as Record<string, unknown>) : undefined;
+    const roleId = role && role.id !== undefined ? String(role.id) : undefined;
+    const roleName = role && role.name !== undefined ? String(role.name) : undefined;
     const okVal = j.ok === true;
 
     if (res.status === 201 && okVal && roleId && roleName) {
@@ -107,10 +138,15 @@ export async function createRole(name: string): Promise<CreateRoleResult> {
     }
 
     // stub-only acceptance
-    const note = typeof j.note === "string" ? j.note : undefined;
+    const note = typeof j.note === "string" ? (j.note as string) : undefined;
     if ((res.status === 202 || res.status === 200 || res.status === 400) && note === "stub-only") {
-      const accepted = isObject(j.accepted) && "name" in j.accepted ? String(j.accepted.name) : name;
-      return { kind: "stub", status: res.status, acceptedName: accepted, raw: json };
+      const acc = j.accepted;
+      let acceptedName = name;
+      if (isObject(acc)) {
+        const nm = (acc as Record<string, unknown>).name;
+        if (typeof nm === "string") acceptedName = nm;
+      }
+      return { kind: "stub", status: res.status, acceptedName, raw: json };
     }
 
     if (res.status === 422) {
@@ -120,7 +156,7 @@ export async function createRole(name: string): Promise<CreateRoleResult> {
       return { kind: "error", status: res.status, code: "FORBIDDEN", raw: json };
     }
 
-    const code = typeof j.code === "string" ? j.code : undefined;
+    const code = typeof j.code === "string" ? (j.code as string) : undefined;
     return { kind: "error", status: res.status, code, raw: json };
   } catch {
     return { kind: "error", status: 0, code: "NETWORK_ERROR" };
@@ -133,12 +169,12 @@ export async function getUserRoles(userId: number): Promise<UserRolesResponse> {
       credentials: "same-origin",
     });
     const json = await parseJson(res);
-    const j = isObject(json) ? json : {};
+    const j = isObject(json) ? (json as Record<string, unknown>) : {};
     if (res.ok && j.ok === true) {
       return json as UserRolesResponseOk;
     }
-    const code = typeof j.code === "string" ? j.code : "REQUEST_FAILED";
-    const message = typeof j.message === "string" ? j.message : undefined;
+    const code = typeof j.code === "string" ? (j.code as string) : "REQUEST_FAILED";
+    const message = typeof j.message === "string" ? (j.message as string) : undefined;
     return { ok: false, code, message };
   } catch {
     return { ok: false, code: "NETWORK_ERROR" };
@@ -154,12 +190,12 @@ export async function replaceUserRoles(userId: number, roles: string[]): Promise
       body: JSON.stringify({ roles }),
     });
     const json = await parseJson(res);
-    const j = isObject(json) ? json : {};
+    const j = isObject(json) ? (json as Record<string, unknown>) : {};
     if (res.ok && j.ok === true) {
       return json as UserRolesResponseOk;
     }
-    const code = typeof j.code === "string" ? j.code : "REQUEST_FAILED";
-    const message = typeof j.message === "string" ? j.message : undefined;
+    const code = typeof j.code === "string" ? (j.code as string) : "REQUEST_FAILED";
+    const message = typeof j.message === "string" ? (j.message as string) : undefined;
     return { ok: false, code, message };
   } catch {
     return { ok: false, code: "NETWORK_ERROR" };
@@ -173,12 +209,12 @@ export async function attachUserRole(userId: number, roleName: string): Promise<
       { method: "POST", credentials: "same-origin" }
     );
     const json = await parseJson(res);
-    const j = isObject(json) ? json : {};
+    const j = isObject(json) ? (json as Record<string, unknown>) : {};
     if (res.ok && j.ok === true) {
       return json as UserRolesResponseOk;
     }
-    const code = typeof j.code === "string" ? j.code : "REQUEST_FAILED";
-    const message = typeof j.message === "string" ? j.message : undefined;
+    const code = typeof j.code === "string" ? (j.code as string) : "REQUEST_FAILED";
+    const message = typeof j.message === "string" ? (j.message as string) : undefined;
     return { ok: false, code, message };
   } catch {
     return { ok: false, code: "NETWORK_ERROR" };
@@ -192,14 +228,71 @@ export async function detachUserRole(userId: number, roleName: string): Promise<
       { method: "DELETE", credentials: "same-origin" }
     );
     const json = await parseJson(res);
-    const j = isObject(json) ? json : {};
+    const j = isObject(json) ? (json as Record<string, unknown>) : {};
     if (res.ok && j.ok === true) {
       return json as UserRolesResponseOk;
     }
-    const code = typeof j.code === "string" ? j.code : "REQUEST_FAILED";
-    const message = typeof j.message === "string" ? j.message : undefined;
+    const code = typeof j.code === "string" ? (j.code as string) : "REQUEST_FAILED";
+    const message = typeof j.message === "string" ? (j.message as string) : undefined;
     return { ok: false, code, message };
   } catch {
     return { ok: false, code: "NETWORK_ERROR" };
+  }
+}
+
+/**
+ * Search RBAC users with pagination.
+ * Server clamps per_page to [1,500]. Default assumed 50.
+ */
+export async function searchUsers(
+  q: string,
+  page: number = 1,
+  perPage: number = 50
+): Promise<UserSearchResult> {
+  try {
+    const p = clamp(Number(page) || 1, 1, Number.MAX_SAFE_INTEGER);
+    const pp = clamp(Number(perPage) || 50, 1, 500);
+
+    const url = new URL("/api/rbac/users/search", window.location.origin);
+    if (q) url.searchParams.set("q", q);
+    url.searchParams.set("page", String(p));
+    url.searchParams.set("per_page", String(pp));
+
+    const res = await fetch(url.toString().replace(window.location.origin, ""), { credentials: "same-origin" });
+    const json = await parseJson(res);
+    const j = isObject(json) ? (json as Record<string, unknown>) : {};
+
+    // Accept both {ok:true,data,meta} and bare {data,meta}
+    const okFlag = j.ok === true || (!("ok" in j) && res.ok);
+
+    const data = Array.isArray(j.data) ? (j.data as unknown[]) : [];
+
+    const parsedData: UserSummary[] = data
+      .map((u) => (isObject(u) ? (u as Record<string, unknown>) : null))
+      .filter((u): u is Record<string, unknown> => !!u)
+      .map((u) => ({
+        id: Number(u.id ?? 0),
+        name: String(u.name ?? ""),
+        email: String(u.email ?? ""),
+      }))
+      .filter((u) => Number.isFinite(u.id) && u.id > 0 && u.name.length >= 0 && u.email.length >= 0);
+
+    const metaRaw = isObject(j.meta) ? (j.meta as Record<string, unknown>) : {};
+    const meta: UserSearchMeta = {
+      page: Number(metaRaw.page ?? page ?? 1) || 1,
+      per_page: Number(metaRaw.per_page ?? perPage ?? 50) || 50,
+      total: Number(metaRaw.total ?? parsedData.length) || 0,
+      total_pages: Number(metaRaw.total_pages ?? 1) || 1,
+    };
+
+    if (okFlag) {
+      return { ok: true, data: parsedData, meta };
+    }
+
+    const code = typeof j.code === "string" ? (j.code as string) : "REQUEST_FAILED";
+    const message = typeof j.message === "string" ? (j.message as string) : undefined;
+    return { ok: false, status: res.status, code, message, raw: json };
+  } catch {
+    return { ok: false, status: 0, code: "NETWORK_ERROR" };
   }
 }

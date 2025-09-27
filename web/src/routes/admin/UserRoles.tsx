@@ -5,29 +5,45 @@ import {
   attachUserRole,
   detachUserRole,
   replaceUserRoles,
+  searchUsers,
   type UserRolesResponse,
   type UserRolesResponseOk,
   type RoleListResponse,
+  type UserSummary,
+  type UserSearchOk,
 } from "../../lib/api/rbac";
 
 type User = { id: number; name: string; email: string };
 
 export default function UserRoles(): JSX.Element {
+  // Role catalog
   const [allRoles, setAllRoles] = useState<string[]>([]);
   const [loadingRoles, setLoadingRoles] = useState<boolean>(false);
 
+  // Direct lookup by ID
   const [userIdInput, setUserIdInput] = useState<string>("");
   const [loadingUser, setLoadingUser] = useState<boolean>(false);
   const [user, setUser] = useState<User | null>(null);
   const [userRoles, setUserRoles] = useState<string[]>([]);
 
+  // Attach/replace state
   const [attachChoice, setAttachChoice] = useState<string>("");
   const [replaceSelection, setReplaceSelection] = useState<string[]>([]);
   const [replaceBusy, setReplaceBusy] = useState<boolean>(false);
 
+  // Search state
+  const [q, setQ] = useState<string>("");
+  const [page, setPage] = useState<number>(1);
+  const [perPage, setPerPage] = useState<number>(50);
+  const [searching, setSearching] = useState<boolean>(false);
+  const [results, setResults] = useState<UserSummary[]>([]);
+  const [meta, setMeta] = useState<{ page: number; per_page: number; total: number; total_pages: number } | null>(null);
+
+  // Messages
   const [msg, setMsg] = useState<string | null>(null);
   const attachBtnRef = useRef<HTMLButtonElement | null>(null);
 
+  // Load role catalog
   useEffect(() => {
     const ctl = new AbortController();
     (async () => {
@@ -159,12 +175,172 @@ export default function UserRoles(): JSX.Element {
     }
   }
 
+  async function runSearch(targetPage?: number) {
+    setSearching(true);
+    setMsg(null);
+    try {
+      const p = typeof targetPage === "number" ? targetPage : page;
+      const res = await searchUsers(q, p, perPage);
+      if (res.ok) {
+        const ok = res as UserSearchOk;
+        setResults(ok.data);
+        setMeta(ok.meta);
+        setPage(ok.meta.page);
+      } else {
+        setResults([]);
+        setMeta(null);
+        setMsg(`Search failed: ${res.code}${res.message ? " - " + res.message : ""}`);
+      }
+    } catch {
+      setResults([]);
+      setMeta(null);
+      setMsg("Search failed.");
+    } finally {
+      setSearching(false);
+    }
+  }
+
+  function selectUser(u: UserSummary) {
+    setUserIdInput(String(u.id));
+    // clear search results to avoid duplicate name text in DOM
+    setResults([]);
+    setMeta(null);
+    // chain into role load
+    void loadUserWith(u.id);
+  }
+
+  async function loadUserWith(id: number) {
+    setMsg(null);
+    setUser(null);
+    setUserRoles([]);
+    setReplaceSelection([]);
+    setLoadingUser(true);
+    try {
+      const res: UserRolesResponse = await getUserRoles(id);
+      if (res.ok) {
+        const ok = res as UserRolesResponseOk;
+        setUser(ok.user);
+        const roles = ok.roles ?? [];
+        setUserRoles(roles);
+        setReplaceSelection(roles);
+        setAttachChoice("");
+        queueMicrotask(() => attachBtnRef.current?.focus());
+      } else {
+        setMsg(`Error: ${res.code}${res.message ? " - " + res.message : ""}`);
+      }
+    } catch {
+      setMsg("Network error.");
+    } finally {
+      setLoadingUser(false);
+    }
+  }
+
   return (
     <main className="container py-3">
       <h1 className="mb-3">User Roles</h1>
 
+      <section aria-labelledby="search">
+        <h2 id="search" className="h5">Search users</h2>
+        <div className="row g-2 align-items-end">
+          <div className="col-12 col-md-5">
+            <label htmlFor="q" className="form-label">Query</label>
+            <input
+              id="q"
+              type="text"
+              className="form-control"
+              value={q}
+              onChange={(e) => setQ(e.currentTarget.value)}
+              placeholder="name or email"
+            />
+          </div>
+          <div className="col-6 col-md-2">
+            <label htmlFor="per_page" className="form-label">Per page</label>
+            <input
+              id="per_page"
+              type="number"
+              inputMode="numeric"
+              className="form-control"
+              value={perPage}
+              min={1}
+              max={500}
+              onChange={(e) => {
+                const v = Number(e.currentTarget.value) || 50;
+                setPerPage(Math.max(1, Math.min(500, v)));
+              }}
+            />
+          </div>
+          <div className="col-auto">
+            <button type="button" className="btn btn-secondary" onClick={() => { setPage(1); void runSearch(1); }} disabled={searching}>
+              {searching ? "Searching…" : "Search"}
+            </button>
+          </div>
+        </div>
+
+        <div className="mt-3">
+          {results.length === 0 && !searching && <div className="text-muted">No matches</div>}
+          {results.length > 0 && (
+            <div className="table-responsive">
+              <table className="table table-sm align-middle">
+                <thead>
+                  <tr>
+                    <th style={{ width: "6rem" }}>ID</th>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th style={{ width: "8rem" }}>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {results.map((u) => (
+                    <tr key={u.id}>
+                      <td>{u.id}</td>
+                      <td>{u.name}</td>
+                      <td>{u.email}</td>
+                      <td>
+                        <button
+                          type="button"
+                          className="btn btn-outline-primary btn-sm"
+                          onClick={() => selectUser(u)}
+                        >
+                          Select
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {meta && (
+            <nav aria-label="Pagination" className="d-flex align-items-center gap-2">
+              <button
+                type="button"
+                className="btn btn-outline-secondary btn-sm"
+                onClick={() => { if (meta.page > 1) void runSearch(meta.page - 1); }}
+                disabled={searching || meta.page <= 1}
+              >
+                Prev
+              </button>
+              <span>
+                Page {meta.page} of {meta.total_pages} • {meta.total} total
+              </span>
+              <button
+                type="button"
+                className="btn btn-outline-secondary btn-sm"
+                onClick={() => { if (meta.page < meta.total_pages) void runSearch(meta.page + 1); }}
+                disabled={searching || meta.page >= meta.total_pages}
+              >
+                Next
+              </button>
+            </nav>
+          )}
+        </div>
+      </section>
+
+      <hr className="my-4" />
+
       <section aria-labelledby="lookup">
-        <h2 id="lookup" className="h5">Lookup</h2>
+        <h2 id="lookup" className="h5">Lookup by ID</h2>
         <div className="row g-2 align-items-end">
           <div className="col-auto">
             <label htmlFor="user_id" className="form-label">User ID</label>

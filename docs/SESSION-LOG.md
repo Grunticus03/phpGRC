@@ -1328,3 +1328,16 @@ SESSION-LOG.md entry
 - Phase/Step status: advance
 - Next action (you): Run a brief smoke against `/api/metrics/dashboard` & `/api/dashboard/kpis` behind RBAC on your env; confirm throttle headers if enabled.
 - Next action (me): Prepare PolicyMap unknown-role audit verification tests and capability-gate coverage (#4), plus add brief OpenAPI note for `/rbac/users/search` (internal-only).
+
+---
+
+### Session 2025-09-27: [Phase 5, RBAC User Search + OpenAPI]
+- Context: Admin-only user search endpoint and documentation
+- Goal: Add `/rbac/users/search` to API with auth+RBAC, pagination, tests, and OpenAPI
+- Constraints: Maintain CI green, static analysis clean
+
+### Closeout
+- Deliverables produced: Updated controller with page/per_page, deterministic ordering; OpenAPI `rbacUserSearch` path + `UserSearchResponse` schema; internal doc `RBAC-USER-SEARCH.md`; unit tests adjusted; PHPStan/Psalm clean; CI green
+- Phase/Step status: advance
+- Next action (you): QA search with realistic datasets; verify pagination UX and auth in environments with `core.rbac.require_auth=true`
+- Next action (me): Wire DB-backed defaults for per_page caps if needed; add client doc snippets and Redoc examples; lightweight load test guidance

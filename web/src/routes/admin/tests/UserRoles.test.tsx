@@ -243,4 +243,60 @@ describe("Admin UserRoles page", () => {
       expect(within(alert).getByText(/unknown roles: manager/i)).toBeInTheDocument();
     });
   });
+
+  test("searches users then selects one to load roles", async () => {
+    const user = userEvent.setup();
+
+    const fetchMock = vi
+      .fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const urlStr = typeof input === "string" ? input : (input as Request).url ?? String(input);
+        const url = new URL(urlStr, "http://localhost");
+        const method = (init?.method ?? "GET").toUpperCase();
+
+        // roles catalog
+        if (method === "GET" && /\/rbac\/roles\b/.test(urlStr)) {
+          return jsonResponse(200, { ok: true, roles: ["Admin", "Auditor", "User"] });
+        }
+
+        // user search page 1
+        if (method === "GET" && /\/rbac\/users\/search\b/.test(urlStr) && (url.searchParams.get("page") ?? "1") === "1") {
+          return jsonResponse(200, {
+            data: [{ id: 123, name: "Jane Admin", email: "jane@example.com" }],
+            meta: { page: 1, per_page: Number(url.searchParams.get("per_page") ?? "50"), total: 1, total_pages: 1 },
+          });
+        }
+
+        // get roles after selecting
+        if (method === "GET" && /\/rbac\/users\/123\/roles\b/.test(urlStr)) {
+          return jsonResponse(200, {
+            ok: true,
+            user: { id: 123, name: "Jane Admin", email: "jane@example.com" },
+            roles: ["User"],
+          });
+        }
+
+        return jsonResponse(404, { code: "NOT_FOUND" });
+      }) as unknown as typeof fetch;
+
+    globalThis.fetch = fetchMock;
+
+    renderPage();
+
+    // perform search
+    await user.type(screen.getByLabelText(/query/i), "jane");
+    await user.click(screen.getByRole("button", { name: /search/i }));
+
+    // see results table and select
+    await waitFor(() => {
+      expect(screen.getByRole("table")).toBeInTheDocument();
+      expect(screen.getByText("jane@example.com")).toBeInTheDocument();
+    });
+
+    const row = screen.getByText("jane@example.com").closest("tr") as HTMLElement;
+    await user.click(within(row).getByRole("button", { name: /select/i }));
+
+    // user card appears
+    await screen.findByRole("heading", { level: 2, name: /^User$/ });
+    expect(screen.getByText(/jane admin/i)).toBeInTheDocument();
+  });
 });
