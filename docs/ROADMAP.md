@@ -74,15 +74,17 @@
 - [ ] Predefined reports & dashboards (beyond KPIs v1)
 - [ ] Admin/User docs baseline
 
-### Phase 5 — Additions (2025-09-23..2025-09-24)
+### Phase 5 — Additions (2025-09-23..2025-09-27)
 - [x] **Runtime settings moved to DB** for all non-connection knobs; `core_settings` table + `SettingsServiceProvider` boot overlay.
 - [x] **Admin Settings persistence path**: `apply=true` writes to DB; stub-only honored when configured.
 - [x] **Metrics routes finalized**: `GET /api/dashboard/kpis` and alias `GET /api/metrics/dashboard`; controller clamps windows and returns `meta.window`.
 - [x] **Web UI settings form** updated to DB-backed metrics fields; Vitest adjusted for PUT and stub/persist modes.
 - [x] **Apache deploy verified**: `/api/*` routes to Laravel public with `AllowOverride All` and `mod_rewrite`; health and KPIs reachable.
+- [x] **RBAC user search**: paged `/rbac/users/search` contract, DB-backed default `per_page` via `core.rbac.user_search.default_per_page` (1–500; default 50), Admin Settings knob, frontend adoption; tests and static analysis updated.
 - [ ] **KPI cache TTL** stored in DB (`core.metrics.cache_ttl_seconds`) and enforced in service layer.  
   - Child note: TTL key exists; enforcement to be implemented in MetricsService adapter.
 - [ ] **Optional** `/api/openapi.json` mirror for integrators (tracked in Backlog).
+- [ ] **Docs**: Redoc paged example for RBAC user search and auth header notes. (pending)
 
 ---
 
@@ -96,7 +98,7 @@
   - Type scale: `small | medium | large`.
   - Motion: `full | limited | none`.
 - [ ] Admin Theme Configurator with live preview, AA contrast guardrails, strict validation (422 on unsafe).
-- [ ] Per-user theme and token overrides; admin “force global” still allows light/dark if available.
+- [ ] Per-user theme and token overrides; admin “force global” still allows light/dark for supported themes.
 - [ ] RBAC: only `role_admin` or permission `admin.theme` can change global settings/import themes.
 - [ ] Branding: primary/secondary/header/footer logos, favicon, title text; SVG sanitized; ≤ 5 MB each; defaults applied.
 - [ ] Global layout:
@@ -136,7 +138,7 @@
 
 ---
 
-### Current Status (as of 2025-09-24)
+### Current Status (as of 2025-09-27)
 - ✅ Phase 4 frozen; CI green; contracts locked; OpenAPI 0.4.6 validated.
 - ✅ RBAC enforcement active; admin UI shipped.
 - ✅ Audit & Evidence persistence complete; CSV export streaming with bounded memory.
@@ -144,4 +146,5 @@
 - ✅ CI lint (Redocly) and breaking-change gate (openapi-diff).
 - ✅ Static analysis: PHPStan level 9 enforced in CI.
 - ⏳ Phase 5 in progress: KPIs v1 shipped, deny-audit invariants enforced, brute-force guard in place, OpenAPI serve hardened.
+- ➕ RBAC user search pagination and DB-backed default `per_page` knob completed; docs snippet pending.
 - 🔜 Phase 5.5 planned: theming/layout scope accepted; see BACKLOG and SPEC.

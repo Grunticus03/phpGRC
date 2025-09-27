@@ -1341,3 +1341,20 @@ SESSION-LOG.md entry
 - Phase/Step status: advance
 - Next action (you): QA search with realistic datasets; verify pagination UX and auth in environments with `core.rbac.require_auth=true`
 - Next action (me): Wire DB-backed defaults for per_page caps if needed; add client doc snippets and Redoc examples; lightweight load test guidance
+
+---
+
+### Session 2025-09-27: [Phase 5, RBAC user search + settings knob]
+- Context: Align RBAC user search pagination with frontend and add DB-backed default per_page.
+- Goal: Ship search UI on Admin → User Roles, add settings knob, keep tests green.
+- Constraints: Charter rules; security-first; no new tables; server clamps per_page 1–500; all linters/tests must pass.
+
+### Closeout
+- Deliverables produced:
+  - Frontend: search UI in UserRoles page with paging; TS API `searchUsers`; vitest updates.
+  - Backend: settings knob `core.rbac.user_search.default_per_page`; controller reads it; PHPStan fix; PHPUnit updates.
+  - Admin Settings UI: new numeric input under RBAC; settings tests updated.
+  - Config/contract: SettingsService contract keys and validation extended; core defaults updated.
+- Phase/Step status: advance.
+- Next action (you): add OpenAPI/Redoc paged examples + auth header notes; add API unit test proving default comes from Settings; verify prod overlay `core.rbac.require_auth=true`.
+- Next action (me): set desired default per-page in DB; confirm if any other consumers need the search API; approve docs scope.

@@ -214,6 +214,20 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 
 ---
 
+### CORE-016 — RBAC User Search Defaults (DB-backed)
+**Description:** Paginated user search endpoint with stable `id` ordering and DB-backed default `per_page`; Admin Settings knob to control default page size.  
+**Acceptance Criteria:**
+- `/api/rbac/users/search` accepts `q`, `page`, `per_page`; clamps `per_page` to `[1..500]`.
+- Controller reads `core.rbac.user_search.default_per_page` when `per_page` omitted; default 50.
+- Admin Settings UI exposes numeric input under RBAC; persists to DB.
+- Frontend consumer adopts `page`/`per_page` and respects `meta.total`/`total_pages`.  
+**Phase:** 5  
+**Step:** 2  
+**Dependencies:** CORE-004, CORE-011, CORE-012  
+**Status:** Done
+
+---
+
 ## 🎨 UI / Theming (Phase 5.5)
 
 ### THEME-001 — Bootswatch Runtime Themes

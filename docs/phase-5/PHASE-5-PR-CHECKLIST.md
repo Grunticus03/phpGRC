@@ -1,4 +1,3 @@
-# @phpgrc:/PHASE-5-PR-CHECKLIST.md
 # Phase 5 — Minimal PR Checklist
 
 ## Gates
@@ -26,6 +25,11 @@
   - `window_seconds`, `max_attempts` (default 900s, 5)
   - Session cookie drops on first attempt.
   - Lock emits configured status (default 429) with `Retry-After`; audited as `auth.bruteforce.locked`.
+- **RBAC user search**:
+  - `/api/rbac/users/search` paginates with `page` and `per_page`; ordered by `id` ascending for stable results. ✅
+  - Server clamps `per_page` to `[1..500]`. ✅
+  - Default `per_page` comes from DB setting `core.rbac.user_search.default_per_page` (range 1–500, default 50). Admin Settings GUI knob added. ✅
+  - Note: If any consumer still assumes unpaged search, keep item and fix in follow-up; current UI adopts paging. (left for traceability)
 
 ## Audit
 - Emit `RBAC` denies with canonical actions:
@@ -65,6 +69,8 @@
 - **Routing:** `bootstrap/app.php` sets API routing `prefix: ''` (no internal `/api`), Apache mounts at `/api/*`.
 - **Apache:** SPA fallback present; assets long-cache; `index.html` no-store. `/api/*` aliased to Laravel public + FPM.
 - After deploys: `php artisan config:clear && php artisan route:clear`.
+- **New DB-backed knob:** `core.rbac.user_search.default_per_page` (int, 1–500, default 50). ✅
+  - Set desired prod default; server still clamps to `[1..500]`. ✅
 
 ## QA (manual)
 - Admin, Auditor, unassigned user: verify access matrix.
@@ -72,6 +78,11 @@
 - Unknown policy key in persist → 403 + audit.
 - Override to `[]` → stub allows, persist denies.
 - **Deep-link reload:** `/admin/settings` and `/dashboard` load via history-mode fallback.
+- **RBAC user search manual checks:** ✅
+  - Omitting `per_page` uses DB default from Admin Settings.
+  - Entering `per_page` outside range clamps to `[1..500]`.
+  - Paging is stable by `id` and `meta.total`/`total_pages` update accordingly.
+  - Admin Settings knob persists and survives reload.
 
 ## Docs
 - ROADMAP and Phase-5 notes updated. ✅
@@ -81,7 +92,9 @@
   - Note: Document alias `/api/metrics/dashboard` and optional `meta.window`.
 - Ops runbook added at `docs/OPS.md`. ✅
 - Redoc `x-logo.url` fixed to `/api/images/...`. ✅
+- **RBAC user search docs:** Add Redoc snippet with paged examples, `Authorization` header example, clamping notes, and reference to DB default `core.rbac.user_search.default_per_page`. (pending if not already done)
 
 ## Sign-off
 - Security review note includes headers, APP_KEY env-only stance, and route mounting model.
 - Release notes updated.
+- **RBAC user search default-per-page** validated in API, UI, and tests. ✅

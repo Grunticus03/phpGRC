@@ -5,7 +5,7 @@ Status: Active
 Contract: OpenAPI 0.4.6 (no breaking changes)  
 Gates: PHPStan lvl 9, Psalm clean, PHPUnit, **Redocly lint**, **openapi-diff**
 
-_Last updated: 2025-09-24_
+_Last updated: 2025-09-27_
 
 ---
 
@@ -220,6 +220,20 @@ _Last updated: 2025-09-24_
 
 ---
 
+## 15) RBAC user search pagination + default per-page — NEW
+- [x] Endpoint `/api/rbac/users/search` uses `page`/`per_page` and stable `id` ordering.
+- [x] Server clamps `per_page` to `[1..500]`.
+- [x] Default `per_page` read from DB setting `core.rbac.user_search.default_per_page` (default 50).
+- [x] Admin Settings UI knob added under RBAC.
+- [x] Web UI (Admin → User Roles) adopts paged search and handles `meta.total`/`total_pages`.
+- [ ] Docs: Redoc paged examples and auth header notes updated. (pending if not merged)
+
+**Tests**
+- [x] PHPUnit: controller default-per-page and clamping.
+- [x] Vitest: Settings knob roundtrip; UserRoles flows (lookup, attach, detach, replace, ROLE_NOT_FOUND surface).
+
+---
+
 ## Execution order (suggested)
 1. Middleware deny auditing (#2).
 2. KPI endpoint (#5).
@@ -230,6 +244,7 @@ _Last updated: 2025-09-24_
 7. Settings persistence & UI roundtrip (#11) — completed during this phase.
 8. Infra validation (#12) — completed during this phase.
 9. OpenAPI serve headers hardening (#14) — completed during this phase.
+10. RBAC user search pagination + default per-page knob (#15) — completed during this phase.
 
 ---
 
@@ -243,6 +258,7 @@ _Last updated: 2025-09-24_
 - [ ] Settings persistence & Admin UI: Owner ___
 - [ ] Apache/FPM deploy & runbook: Owner ___
 - [ ] OpenAPI serve headers & parity tests: Owner ___
+- [ ] RBAC user search pagination & default per-page: Owner ___
 
 ---
 
