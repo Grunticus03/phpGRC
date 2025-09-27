@@ -11,6 +11,10 @@ import Roles from "./routes/admin/Roles";
 import UserRoles from "./routes/admin/UserRoles";
 import Audit from "./routes/admin/Audit";
 
+// Evidence
+import EvidenceList from "./routes/evidence/List";
+import EvidenceUpload from "./routes/evidence";
+
 const router = createBrowserRouter(
   createRoutesFromElements(
     <Route path="/" element={<AppLayout />}>
@@ -22,7 +26,10 @@ const router = createBrowserRouter(
         <Route path="roles" element={<Roles />} />
         <Route path="user-roles" element={<UserRoles />} />
         <Route path="audit" element={<Audit />} />
+        <Route path="evidence" element={<EvidenceList />} />
       </Route>
+      {/* Keep the Phase 4 upload stub accessible, but not linked */}
+      <Route path="evidence" element={<EvidenceUpload />} />
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Route>
   )

@@ -26,6 +26,17 @@ describe("Admin Audit page", () => {
         return jsonResponse(["RBAC", "AUTH", "SYSTEM"]);
       }
 
+      if (url.startsWith("/api/rbac/users/search")) {
+        return jsonResponse({
+          ok: true,
+          data: [
+            { id: 123, name: "Alice Admin", email: "alice@example.test" },
+            { id: 124, name: "Bob Auditor", email: "bob@example.test" },
+          ],
+          meta: { page: 1, per_page: 10, total: 2, total_pages: 1 },
+        });
+      }
+
       if (url.startsWith("/api/audit?")) {
         return jsonResponse({
           ok: true,
@@ -56,7 +67,6 @@ describe("Admin Audit page", () => {
   it("loads categories and builds occurred_from/occurred_to query", async () => {
     render(<Audit />);
 
-    // Wait for categories to load and select to render
     const catSelect = await screen.findByRole("combobox", { name: "Category" });
     expect(catSelect.tagName.toLowerCase()).toBe("select");
     fireEvent.change(catSelect, { target: { value: "RBAC" } });
@@ -70,7 +80,7 @@ describe("Admin Audit page", () => {
     await waitFor(() => {
       const hits = calls.filter((u) => u.startsWith("/api/audit?"));
       expect(hits.length).toBeGreaterThan(0);
-      const hit = hits[hits.length - 1]; // the request after Apply
+      const hit = hits[hits.length - 1];
       expect(hit).toContain("category=RBAC");
       expect(hit).toContain("occurred_from=2025-01-01T00%3A00%3A00Z");
       expect(hit).toContain("occurred_to=2025-01-02T23%3A59%3A59Z");
@@ -79,6 +89,30 @@ describe("Admin Audit page", () => {
 
     await screen.findByText("ULID001");
     await screen.findByText("rbac.user_role.attached");
+  });
+
+  it("searches actor and includes actor_id in query", async () => {
+    render(<Audit />);
+
+    await screen.findByRole("combobox", { name: "Category" });
+
+    const actorInput = screen.getByLabelText("Actor") as HTMLInputElement;
+    fireEvent.change(actorInput, { target: { value: "alice" } });
+
+    const searchBtn = screen.getByRole("button", { name: /Search actor/i });
+    fireEvent.click(searchBtn);
+
+    const selectButtons = await screen.findAllByRole("button", { name: "Select" });
+    fireEvent.click(selectButtons[0]); // pick Alice id 123
+
+    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+
+    await waitFor(() => {
+      const hits = calls.filter((u) => u.startsWith("/api/audit?"));
+      expect(hits.length).toBeGreaterThan(0);
+      const hit = hits[hits.length - 1];
+      expect(hit).toContain("actor_id=123");
+    });
   });
 
   it("falls back to text input if categories endpoint fails", async () => {
@@ -97,3 +131,4 @@ describe("Admin Audit page", () => {
     expect(catInput.tagName.toLowerCase()).toBe("input");
   });
 });
+

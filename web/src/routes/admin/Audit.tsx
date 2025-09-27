@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { listCategories } from "../../lib/api/audit";
 import { actionInfo } from "../../lib/auditLabels";
+import { searchUsers, type UserSummary, type UserSearchOk, type UserSearchMeta } from "../../lib/api/rbac";
 
 type AuditItem = {
   id?: string;
@@ -89,6 +90,15 @@ export default function Audit(): JSX.Element {
   const [error, setError] = useState<string>("");
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
 
+  // Actor picker state
+  const [actorInput, setActorInput] = useState<string>("");
+  const [actorSelected, setActorSelected] = useState<UserSummary | null>(null);
+  const [actorSearching, setActorSearching] = useState<boolean>(false);
+  const [actorResults, setActorResults] = useState<UserSummary[]>([]);
+  const [actorMeta, setActorMeta] = useState<UserSearchMeta | null>(null);
+  const [actorPage, setActorPage] = useState<number>(1);
+  const actorPerPage = 10;
+
   const [lastAppliedQuery, setLastAppliedQuery] = useState<string>("");
   const ctrl = useRef<AbortController | null>(null);
 
@@ -102,9 +112,10 @@ export default function Audit(): JSX.Element {
         action: action || undefined,
         occurred_from,
         occurred_to,
+        actor_id: actorSelected ? actorSelected.id : undefined,
         limit,
       }),
-    [category, action, occurred_from, occurred_to, limit]
+    [category, action, occurred_from, occurred_to, actorSelected, limit]
   );
 
   const isDateOrderValid = useMemo(() => {
@@ -157,6 +168,39 @@ export default function Audit(): JSX.Element {
       setState("error");
       setError(getErrorMessage(err));
     }
+  }
+
+  async function runActorSearch(targetPage?: number) {
+    setActorSearching(true);
+    try {
+      const p = typeof targetPage === "number" ? targetPage : actorPage;
+      const res = await searchUsers(actorInput.trim(), p, actorPerPage);
+      if (res.ok) {
+        const ok = res as UserSearchOk;
+        setActorResults(ok.data);
+        setActorMeta(ok.meta);
+        setActorPage(ok.meta.page);
+      } else {
+        setActorResults([]);
+        setActorMeta(null);
+      }
+    } finally {
+      setActorSearching(false);
+    }
+  }
+
+  function selectActor(u: UserSummary) {
+    setActorSelected(u);
+    setActorResults([]);
+    setActorMeta(null);
+    setActorInput("");
+  }
+
+  function clearActor() {
+    setActorSelected(null);
+    setActorResults([]);
+    setActorMeta(null);
+    setActorInput("");
   }
 
   useEffect(() => {
@@ -254,6 +298,37 @@ export default function Audit(): JSX.Element {
         </div>
 
         <div>
+          <label htmlFor="f-actor">Actor</label>
+          {actorSelected ? (
+            <div>
+              <div className="d-flex align-items-center gap-2">
+                <span style={chipStyle("neutral")}>
+                  {actorSelected.name} &lt;{actorSelected.email}&gt; • id {actorSelected.id}
+                </span>
+                <button type="button" onClick={clearActor} aria-label="Clear actor">
+                  Clear
+                </button>
+              </div>
+              <input id="f-actor" type="text" value="" onChange={() => {}} disabled aria-hidden />
+            </div>
+          ) : (
+            <div className="d-flex gap-2">
+              <input
+                id="f-actor"
+                value={actorInput}
+                onChange={(e) => setActorInput(e.target.value)}
+                placeholder="name or email"
+                aria-describedby="actor_help"
+              />
+              <button type="button" onClick={() => { setActorPage(1); void runActorSearch(1); }} disabled={actorSearching}>
+                {actorSearching ? "Searching…" : "Search actor"}
+              </button>
+            </div>
+          )}
+          <div id="actor_help" className="form-text">Pick an actor to filter by user id.</div>
+        </div>
+
+        <div>
           <label htmlFor="f-from">From</label>
           <input
             id="f-from"
@@ -329,6 +404,57 @@ export default function Audit(): JSX.Element {
         </div>
       </form>
 
+      {/* Actor search results */}
+      {actorResults.length > 0 && (
+        <div className="table-responsive" aria-label="Actor search results">
+          <table className="table table-sm align-middle">
+            <thead>
+              <tr>
+                <th style={{ width: "6rem" }}>ID</th>
+                <th>Name</th>
+                <th>Email</th>
+                <th style={{ width: "8rem" }}>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {actorResults.map((u) => (
+                <tr key={u.id}>
+                  <td>{u.id}</td>
+                  <td>{u.name}</td>
+                  <td>{u.email}</td>
+                  <td>
+                    <button type="button" onClick={() => selectActor(u)}>
+                      Select
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {actorMeta && (
+            <nav aria-label="Actor pagination" className="d-flex align-items-center gap-2">
+              <button
+                type="button"
+                onClick={() => { if (actorMeta.page > 1) void runActorSearch(actorMeta.page - 1); }}
+                disabled={actorSearching || actorMeta.page <= 1}
+              >
+                Prev
+              </button>
+              <span>
+                Page {actorMeta.page} of {actorMeta.total_pages} • {actorMeta.total} total
+              </span>
+              <button
+                type="button"
+                onClick={() => { if (actorMeta.page < actorMeta.total_pages) void runActorSearch(actorMeta.page + 1); }}
+                disabled={actorSearching || actorMeta.page >= actorMeta.total_pages}
+              >
+                Next
+              </button>
+            </nav>
+          )}
+        </div>
+      )}
+
       {state === "loading" && <p>Loading…</p>}
       {state === "error" && <p role="alert">Error: {error}</p>}
 
@@ -382,3 +508,4 @@ export default function Audit(): JSX.Element {
     </section>
   );
 }
+
