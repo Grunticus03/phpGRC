@@ -45,7 +45,7 @@ final class RbacAuditTest extends TestCase
     {
         $admin = $this->bootRbacAudit();
 
-        $res = $this->postJson('/rbac/roles', ['name' => 'QA Team']);
+        $res = $this->postJson('/rbac/roles', ['name' => 'QA-Team']);
         $res->assertStatus(201)->assertJson(['ok' => true]);
 
         /** @var AuditEvent|null $ev */

@@ -52,7 +52,7 @@ final class RbacAuditTest extends TestCase
     {
         $admin = $this->actingAsAdmin();
 
-        $res = $this->postJson('/rbac/roles', ['name' => 'Compliance Lead']);
+        $res = $this->postJson('/rbac/roles', ['name' => 'Compliance-Lead']);
         $res->assertStatus(201)->assertJsonPath('ok', true);
 
         $roleId = (string) $res->json('role.id');
@@ -70,7 +70,7 @@ final class RbacAuditTest extends TestCase
         // Meta name
         $this->assertDatabaseHas('audit_events', [
             'action'       => 'rbac.role.created',
-            'meta->name'   => 'Compliance Lead',
+            'meta->name'   => 'Compliance-Lead',
         ]);
     }
 

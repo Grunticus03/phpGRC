@@ -111,6 +111,12 @@ return [
         'rbac_denies' => [
             'window_days' => 7,
         ],
+        // Lightweight API throttle for metrics endpoints
+        'throttle' => [
+            'enabled'        => true,
+            'per_minute'     => 30,
+            'window_seconds' => 60,
+        ],
     ],
 
     'evidence' => [

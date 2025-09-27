@@ -21,11 +21,13 @@ use App\Http\Controllers\Metrics\MetricsController;
 use App\Http\Controllers\Rbac\RolesController;
 use App\Http\Controllers\Rbac\UserRolesController;
 use App\Http\Controllers\Rbac\PolicyController;
+use App\Http\Controllers\Rbac\UserSearchController;
 use App\Http\Controllers\OpenApiController;
 use App\Http\Middleware\Auth\BruteForceGuard;
 use App\Http\Middleware\BreakGlassGuard;
 use App\Http\Middleware\RbacMiddleware;
 use App\Http\Middleware\SetupGuard;
+use App\Http\Middleware\MetricsThrottle;
 use App\Services\Settings\SettingsService;
 use Illuminate\Support\Facades\Route;
 
@@ -150,6 +152,7 @@ Route::get('/docs', function () {
   </body>
 </html>
 HTML;
+});
 */
 
 /*
@@ -210,8 +213,10 @@ Route::prefix('/admin')
  | Dashboard KPIs (spec)
  |--------------------------------------------------------------------------
 */
+$metricsStack = array_merge($rbacStack, [MetricsThrottle::class]);
+
 Route::prefix('/dashboard')
-    ->middleware($rbacStack)
+    ->middleware($metricsStack)
     ->group(function (): void {
         Route::get('/kpis', [MetricsController::class, 'kpis'])
             ->defaults('roles', ['Admin'])
@@ -224,7 +229,7 @@ Route::prefix('/dashboard')
  |--------------------------------------------------------------------------
 */
 Route::prefix('/metrics')
-    ->middleware($rbacStack)
+    ->middleware($metricsStack)
     ->group(function (): void {
         Route::get('/dashboard', [MetricsController::class, 'index'])
             ->defaults('roles', ['Admin'])
@@ -289,6 +294,11 @@ Route::prefix('/rbac')
         Route::get('/policies/effective', [PolicyController::class, 'effective'])
             ->defaults('roles', ['Admin'])
             ->defaults('policy', 'core.rbac.view');
+
+        // Admin-only user search (name/email), normalized and bounded.
+        Route::get('/users/search', [UserSearchController::class, 'index'])
+            ->defaults('roles', ['Admin'])
+            ->defaults('policy', 'core.users.view');
     });
 
 /*
@@ -323,10 +333,12 @@ Route::prefix('/evidence')
         Route::match(['GET','HEAD'], '/', [EvidenceController::class, 'index'])
             ->defaults('roles', ['Admin', 'Auditor'])
             ->defaults('policy', 'core.evidence.view');
+
         Route::post('/', [EvidenceController::class, 'store'])
             ->defaults('roles', ['Admin'])
             ->defaults('policy', 'core.evidence.manage')
             ->defaults('capability', 'core.evidence.upload');
+
         Route::match(['GET','HEAD'], '/{id}', [EvidenceController::class, 'show'])
             ->defaults('roles', ['Admin', 'Auditor'])
             ->defaults('policy', 'core.evidence.view');

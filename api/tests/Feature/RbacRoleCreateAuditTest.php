@@ -27,7 +27,7 @@ final class RbacRoleCreateAuditTest extends TestCase
 
     public function test_role_create_emits_rbac_role_created_audit(): void
     {
-        $name = 'Compliance Lead';
+        $name = 'Compliance-Lead';
 
         $res = $this->postJson('/rbac/roles', ['name' => $name]);
         $res->assertStatus(201)->assertJsonPath('ok', true);

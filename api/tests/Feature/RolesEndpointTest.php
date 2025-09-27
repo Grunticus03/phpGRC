@@ -98,12 +98,12 @@ final class RolesEndpointTest extends TestCase
         $admin = $this->makeUserWithRoles(['Admin']);
         Sanctum::actingAs($admin);
 
-        $this->postJson('/rbac/roles', ['name' => 'Compliance Lead'])
+        $this->postJson('/rbac/roles', ['name' => 'Compliance-Lead'])
             ->assertStatus(202)
             ->assertJson([
                 'ok' => false,
                 'note' => 'stub-only',
-                'accepted' => ['name' => 'Compliance Lead'],
+                'accepted' => ['name' => 'Compliance-Lead'],
             ]);
     }
 

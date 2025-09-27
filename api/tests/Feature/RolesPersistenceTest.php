@@ -23,11 +23,11 @@ final class RolesPersistenceTest extends TestCase
 
     public function test_store_persists_role_and_index_reflects_db(): void
     {
-        $create = $this->postJson('/rbac/roles', ['name' => 'Compliance Lead']);
+        $create = $this->postJson('/rbac/roles', ['name' => 'Compliance-Lead']);
         $create->assertCreated()
             ->assertJson([
                 'ok'   => true,
-                'role' => ['name' => 'Compliance Lead'],
+                'role' => ['name' => 'Compliance-Lead'],
             ]);
 
         /** @var array{role: array{id: string, name: string}} $cjson */
@@ -39,9 +39,9 @@ final class RolesPersistenceTest extends TestCase
 
         /** @var array{roles: array<int,string>} $ijson */
         $ijson = $index->json();
-        self::assertContains('Compliance Lead', $ijson['roles']);
+        self::assertContains('Compliance-Lead', $ijson['roles']);
 
-        self::assertTrue(Role::query()->where('name', 'Compliance Lead')->exists());
+        self::assertTrue(Role::query()->where('name', 'Compliance-Lead')->exists());
     }
 
     public function test_slug_collision_results_in_incremented_id(): void

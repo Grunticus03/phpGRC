@@ -33,14 +33,15 @@ final class StoreRoleRequest extends FormRequest
         $flag = (bool) config('core.rbac.persistence', false);
         /** @var mixed $mode */
         $mode = config('core.rbac.mode');
-        return $flag || $mode === 'persist';
+        return $flag || $mode === 'persist' || $mode === 'db';
     }
 
     /** @return array<string,mixed> */
     public function rules(): array
     {
         $base = [
-            'name' => ['required', 'string', 'min:2', 'max:64'],
+            // 2..64 chars, Unicode letters/digits/_/-, no whitespace
+            'name' => ['required', 'string', 'min:2', 'max:64', 'regex:/^[\p{L}\p{N}_-]{2,64}$/u'],
         ];
 
         if (!$this->persistenceEnabled()) {
@@ -66,6 +67,7 @@ final class StoreRoleRequest extends FormRequest
             'name.string'   => 'Role name must be a string.',
             'name.min'      => 'Role name must be at least 2 characters.',
             'name.max'      => 'Role name must be at most 64 characters.',
+            'name.regex'    => 'Role name may contain only letters, numbers, underscores, and hyphens.',
             'name.unique'   => 'Role already exists.',
             'name.not_in'   => 'Role already exists.',
         ];
