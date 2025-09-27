@@ -689,8 +689,8 @@
                                     "$ref": "#/components/schemas/UserSearchResponse"
                                 },
                                 "examples": {
-                                    "example": {
-                                        "summary": "Page 1 of 2",
+                                    "page_1": {
+                                        "summary": "Page 1 of 2 (default per_page=50)",
                                         "value": {
                                             "ok": true,
                                             "data": [
@@ -712,6 +712,30 @@
                                                 "total_pages": 2
                                             }
                                         }
+                                    },
+                                    "page_2": {
+                                        "summary": "Page 2 of 2",
+                                        "value": {
+                                            "ok": true,
+                                            "data": [
+                                                {
+                                                    "id": 51,
+                                                    "name": "Alpha 51",
+                                                    "email": "alpha51@example.test"
+                                                },
+                                                {
+                                                    "id": 52,
+                                                    "name": "Alpha 52",
+                                                    "email": "alpha52@example.test"
+                                                }
+                                            ],
+                                            "meta": {
+                                                "page": 2,
+                                                "per_page": 50,
+                                                "total": 80,
+                                                "total_pages": 2
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -726,7 +750,19 @@
                     "422": {
                         "$ref": "#/components/responses/ValidationFailed"
                     }
-                }
+                },
+                "x-codeSamples": [
+                    {
+                        "lang": "cURL",
+                        "label": "curl",
+                        "source": "curl -sS -H \"Authorization: Bearer $TOKEN\" \\\n  --get 'https://<host>/api/rbac/users/search' \\\n  --data-urlencode 'q=alpha' \\\n  --data-urlencode 'page=1' \\\n  --data-urlencode 'per_page=50'\n"
+                    },
+                    {
+                        "lang": "HTTP",
+                        "label": "HTTP",
+                        "source": "GET /api/rbac/users/search?q=alpha&page=1&per_page=50 HTTP/1.1\nHost: <host>\nAuthorization: Bearer <token>\nAccept: application/json\n"
+                    }
+                ]
             }
         },
         "/audit": {
@@ -2617,7 +2653,7 @@
                 "properties": {
                     "ok": {
                         "type": "boolean",
-                        "const": false
+                        "const": true
                     },
                     "note": {
                         "type": "string",

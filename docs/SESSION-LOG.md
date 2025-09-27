@@ -1358,3 +1358,23 @@ SESSION-LOG.md entry
 - Phase/Step status: advance.
 - Next action (you): add OpenAPI/Redoc paged examples + auth header notes; add API unit test proving default comes from Settings; verify prod overlay `core.rbac.require_auth=true`.
 - Next action (me): set desired default per-page in DB; confirm if any other consumers need the search API; approve docs scope.
+
+---
+
+### Session 2025-09-27: [Phase 5, Closeout & Docs]
+- Context: Final polish for Phase 5: RBAC user search default-per-page, Audit UI (labels + Actor filter), Evidence list + owner search, Admin nav cleanup, API Docs link-out, OpenAPI/PR notes.
+- Goal: Land UI/route tweaks, ensure OpenAPI/docs reflect current behavior, and confirm CI green for closeout.
+- Constraints: No breaking OpenAPI changes; keep CI green; persist/stub parity; Apache `/api/*` mount model preserved.
+
+### Closeout
+- Deliverables produced: 
+  - OpenAPI `0.4.7` (Evidence, Audit, RBAC search examples; headers hardening notes)
+  - Updated Admin nav + Admin index: added **API Docs → `/api/docs`**; removed embedded Redoc
+  - Evidence list UI + tests (owner search → `owner_id=...` query)
+  - Audit UI: Actor field surfaced; labels for `rbac.deny.*`
+  - Release notes (`PHASE-5-RELEASE-NOTES.md`) & PR checklist (`PHASE-5-PR-CHECKLIST.md`)
+  - Phase-5 task checklist updated (this file)
+  - CI all green (PHPUnit + Vitest + OpenAPI gates + build)
+- Phase/Step status: advance (Phase 5 engineering complete; docs polish next)
+- Next action (you): Merge doc updates (OpenAPI/notes/runbook), tag pipeline with artifact fingerprint, fill Owner matrix, decide on optional `/api/openapi.json` parity task.
+- Next action (me): Prep doc PR with any final examples/screenshots; propose owners and small follow-ups (capability mapping tests, KPI query params validation).

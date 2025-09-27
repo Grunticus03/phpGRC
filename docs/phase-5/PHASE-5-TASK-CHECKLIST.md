@@ -61,9 +61,8 @@ _Last updated: 2025-09-27_
 ---
 
 ## 4) Capability mapping
-- [ ] Map `core.exports.generate`, `core.audit.export`, `core.evidence.upload` to explicit capability gates where applicable.
+- [ ] Map `core.audit.export`, `core.evidence.upload` to explicit capability gates where applicable.
 - [ ] Extend later when non-admin grants are approved (placeholder test proves wildcard works).
-- **Note (stale):** `core.exports.generate` capability was already mapped/enforced in Phase 4 exports E2E. Kept here to track parity across endpoints; remaining work focuses on `core.audit.export` and `core.evidence.upload`.
 
 **Tests**
 - [ ] Capability disabled returns `403 CAPABILITY_DISABLED`.
@@ -207,6 +206,7 @@ _Last updated: 2025-09-27_
 - [x] Web SPA dashboard reads KPIs successfully and renders tiles/sparkline.
 - [x] RBAC `require_auth` flag behavior validated behind Apache.
 - [x] Redoc logo loads from `/api/images/...`.
+- [x] Admin nav + Admin index link “API Docs” to `/api/docs`; no embedded Redoc in SPA.
 
 ---
 
@@ -226,7 +226,7 @@ _Last updated: 2025-09-27_
 - [x] Default `per_page` read from DB setting `core.rbac.user_search.default_per_page` (default 50).
 - [x] Admin Settings UI knob added under RBAC.
 - [x] Web UI (Admin → User Roles) adopts paged search and handles `meta.total`/`total_pages`.
-- [ ] Docs: Redoc paged examples and auth header notes updated. (pending if not merged)
+- [x] Docs: Redoc paged examples and auth header notes updated. (merged)
 
 **Tests**
 - [x] PHPUnit: controller default-per-page and clamping.

@@ -92,7 +92,8 @@
   - Note: Document alias `/api/metrics/dashboard` and optional `meta.window`.
 - Ops runbook added at `docs/OPS.md`. ✅
 - Redoc `x-logo.url` fixed to `/api/images/...`. ✅
-- **RBAC user search docs:** Add Redoc snippet with paged examples, `Authorization` header example, clamping notes, and reference to DB default `core.rbac.user_search.default_per_page`. (pending if not already done)
+- **RBAC user search docs:** Redoc snippet with paged examples, `Authorization` header example, clamping notes, and reference to DB default `core.rbac.user_search.default_per_page`. ✅
+
 
 ## Sign-off
 - Security review note includes headers, APP_KEY env-only stance, and route mounting model.

@@ -50,7 +50,7 @@
 
 ## Docs
 - Redoc x-logo path fixed: `x-logo.url: "/api/images/phpGRC-light-horizontal-trans.png"`.
-- `servers` array in OpenAPI uses `url: "/api"`.
+- API docs UI is now served at **/api/docs** and linked from the Admin UI.
 
 ## Tests
 - PHPUnit: all routes in tests updated to **drop** `/api` prefix (framework serves bare paths in test kernel).

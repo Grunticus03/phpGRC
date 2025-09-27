@@ -1576,7 +1576,7 @@ components:
       properties:
         ok:
           type: boolean
-          const: false
+          const: true
         note:
           type: string
           const: stub-only
