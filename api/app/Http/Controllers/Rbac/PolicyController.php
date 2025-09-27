@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Rbac;
 
 use App\Http\Controllers\Controller;
+use App\Services\Audit\AuditLogger;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -14,6 +15,9 @@ use Illuminate\Support\Facades\Route as Router;
 
 final class PolicyController extends Controller
 {
+    /** @var array<string, true> */
+    private static array $unknownRoleAuditOnce = [];
+
     public function show(Request $request): JsonResponse
     {
         [$mode, $persistence, $defaults, $overrides, $effective] = $this->compute();
@@ -162,9 +166,19 @@ final class PolicyController extends Controller
         $cfgDefaultsRaw = (array) config('core.rbac.policies.defaults', []);
         /** @var array<string,mixed> $cfgOverridesRaw */
         $cfgOverridesRaw = (array) config('core.rbac.policies.overrides', []);
+        /** @var array<string,mixed> $cfgTopRaw */
+        $cfgTopRaw = (array) config('core.rbac.policies', []);
+
+        // Back-compat: if both buckets empty but top-level exists, treat it as defaults
+        if ($cfgDefaultsRaw === [] && $cfgOverridesRaw === [] && $cfgTopRaw !== []) {
+            $cfgDefaultsRaw = $cfgTopRaw;
+        }
 
         $defaults  = self::normalizePolicies(self::mergePolicies($baseline, $cfgDefaultsRaw));
         $overrides = self::normalizePolicies($cfgOverridesRaw);
+
+        // Persist-mode only: emit audits for unknown roles in overrides once per policy per boot.
+        $this->emitUnknownRoleAudits($mode, $overrides);
 
         /** @var RouteCollectionInterface $collection */
         $collection = Router::getRoutes();
@@ -218,6 +232,77 @@ final class PolicyController extends Controller
     }
 
     /**
+     * Emit once-per-policy-per-boot audits for unknown roles present in overrides.
+     *
+     * @param array<string, list<string>> $overrides
+     */
+    private function emitUnknownRoleAudits(string $mode, array $overrides): void
+    {
+        if ($mode !== 'persist') {
+            return;
+        }
+        if (!(bool) config('core.audit.enabled', true)) {
+            return;
+        }
+
+        /** @var list<string> $roleCatalogRaw */
+        $roleCatalogRaw = (array) config('core.rbac.roles', []);
+        /** @var list<non-empty-string> $roleCatalog */
+        $roleCatalog = self::toStringList($roleCatalogRaw);
+
+        /** @var array<string, true> $known */
+        $known = [];
+        foreach ($roleCatalog as $r) {
+            $known[$r] = true;
+        }
+
+        if ($overrides === []) {
+            return;
+        }
+
+        /** @var AuditLogger $logger */
+        $logger = app(AuditLogger::class);
+
+        foreach ($overrides as $policy => $roles) {
+            if ($policy === '') {
+                continue;
+            }
+            /** @var non-empty-string $policyKey */
+            $policyKey = $policy;
+
+            /** @var list<non-empty-string> $unknown */
+            $unknown = [];
+            foreach ($roles as $r) {
+                if ($r === '') {
+                    continue;
+                }
+                if (!isset($known[$r])) {
+                    $unknown[] = $r;
+                }
+            }
+            if ($unknown === []) {
+                continue;
+            }
+            if (isset(self::$unknownRoleAuditOnce[$policyKey])) {
+                continue;
+            }
+            self::$unknownRoleAuditOnce[$policyKey] = true;
+
+            $logger->log([
+                'action'      => 'rbac.policy.override.unknown_role',
+                'category'    => 'RBAC',
+                'entity_type' => 'policy',
+                'entity_id'   => $policyKey,
+                'meta'        => [
+                    'policy'        => $policyKey,
+                    'unknown_roles' => \array_values(\array_unique($unknown)),
+                    'source'        => 'overrides',
+                ],
+            ]);
+        }
+    }
+
+    /**
      * @param array<array-key,mixed> $a
      * @param array<array-key,mixed> $b
      * @return array<string,list<string>>
@@ -258,7 +343,7 @@ final class PolicyController extends Controller
             /** @var mixed $raw */
             $raw = $map[$k];
 
-            /** @var list<string> $roles */
+            /** @var list<non-empty-string> $roles */
             $roles = self::toStringList($raw);
             $norm[$k] = \array_values(\array_unique($roles));
         }
@@ -268,28 +353,44 @@ final class PolicyController extends Controller
 
     /**
      * @param mixed $input
-     * @return list<string>
-     * @psalm-return list<string>
+     * @return list<non-empty-string>
+     * @psalm-return list<non-empty-string>
      */
     private static function toStringList(mixed $input): array
     {
-        /** @var list<string> $out */
-        $out = [];
+        // Single string fast-path.
         if (\is_string($input) && $input !== '') {
-            $out[] = \strtolower($input);
-            return $out;
+            /** @var list<non-empty-string> $one */
+            $one = [\mb_strtolower($input)];
+            return $one;
         }
-        if (\is_array($input)) {
-            /** @var array<int,mixed> $arr */
-            $arr = $input;
-            /** @var mixed $rc */
-            foreach ($arr as $rc) {
-                if (\is_string($rc) && $rc !== '') {
-                    $out[] = \strtolower($rc);
-                }
-            }
+
+        if (!\is_array($input)) {
+            return [];
         }
-        return \array_values(\array_unique($out));
+
+        /** @var array<int,mixed> $arr */
+        $arr = $input;
+
+        // Keep only non-empty strings.
+        /** @var list<string> $filtered */
+        $filtered = \array_values(\array_filter(
+            $arr,
+            static fn ($v): bool => \is_string($v) && $v !== ''
+        ));
+
+        // Lowercase.
+        /** @var list<string> $lower */
+        $lower = \array_map(
+            static fn (string $s): string => \mb_strtolower($s),
+            $filtered
+        );
+
+        // Dedup and reindex. Result elements are still non-empty.
+        /** @var list<non-empty-string> $dedup */
+        $dedup = \array_values(\array_unique($lower));
+
+        return $dedup;
     }
 
     /**

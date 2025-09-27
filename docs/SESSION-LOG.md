@@ -1307,3 +1307,24 @@ SESSION-LOG.md entry
 - Phase/Step status: advance.
 - Next action (you): monitor prod logs, verify headers for `/api/openapi.yaml`, confirm deep-link reloads and RBAC denies audit once per request.
 - Next action (me): implement capability gates tests (`core.audit.export`, `core.evidence.upload`), rate-limit tests, role-name validation tests, optional `/api/openapi.json`, KPI cache TTL in service.
+
+---
+
+### Session 2025-09-26: Phase 5, RBAC utilities & metrics hardening
+- Context: Clean up metrics routing/throttling and add an admin-only user search; resolve Psalm/PHPStan/test breakages.
+- Goal: Make `/metrics/dashboard` alias work under throttle; introduce `/rbac/users/search`; get CI fully green.
+- Constraints: No breaking API changes; keep RBAC gating intact; lint/static/test suites must pass.
+
+### Closeout
+- Deliverables produced:
+  - Kernel alias for `metrics.throttle` and applied throttle to dashboard + alias routes.
+  - `MetricsThrottle` middleware wired (with config toggles).
+  - `UserSearchController@index` (q/limit parsing, safe clamping, normalized filtering).
+  - Route `/rbac/users/search` guarded by roles/policy.
+  - Fixed Psalm/PHPStan issues (typed query parsing, collection mapping).
+  - Updated unit test `UserSearchControllerTest` to use `TestResponse::fromBaseResponse`.
+  - Resolved VSCode parser error in `routes/api.php` (comment block closure).
+  - CI green across PHPUnit + static analyzers.
+- Phase/Step status: advance
+- Next action (you): Run a brief smoke against `/api/metrics/dashboard` & `/api/dashboard/kpis` behind RBAC on your env; confirm throttle headers if enabled.
+- Next action (me): Prepare PolicyMap unknown-role audit verification tests and capability-gate coverage (#4), plus add brief OpenAPI note for `/rbac/users/search` (internal-only).
