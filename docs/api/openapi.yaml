@@ -390,8 +390,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/UserSearchResponse'
               examples:
-                example:
-                  summary: Page 1 of 2
+                page_1:
+                  summary: Page 1 of 2 (default per_page=50)
                   value:
                     ok: true
                     data:
@@ -402,12 +402,40 @@ paths:
                       per_page: 50
                       total: 80
                       total_pages: 2
+                page_2:
+                  summary: Page 2 of 2
+                  value:
+                    ok: true
+                    data:
+                      - { id: 51, name: "Alpha 51", email: "alpha51@example.test" }
+                      - { id: 52, name: "Alpha 52", email: "alpha52@example.test" }
+                    meta:
+                      page: 2
+                      per_page: 50
+                      total: 80
+                      total_pages: 2
         '401':
           $ref: '#/components/responses/Unauthenticated'
         '403':
           $ref: '#/components/responses/Forbidden'
         '422':
           $ref: '#/components/responses/ValidationFailed'
+      x-codeSamples:
+        - lang: cURL
+          label: curl
+          source: |
+            curl -sS -H "Authorization: Bearer $TOKEN" \
+              --get 'https://<host>/api/rbac/users/search' \
+              --data-urlencode 'q=alpha' \
+              --data-urlencode 'page=1' \
+              --data-urlencode 'per_page=50'
+        - lang: HTTP
+          label: HTTP
+          source: |
+            GET /api/rbac/users/search?q=alpha&page=1&per_page=50 HTTP/1.1
+            Host: <host>
+            Authorization: Bearer <token>
+            Accept: application/json
 
   /audit:
     get:

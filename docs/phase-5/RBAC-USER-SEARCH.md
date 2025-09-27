@@ -1,4 +1,3 @@
-/// FILE: docs/internal/RBAC-USER-SEARCH.md
 # Admin User Search API
 
 Search application users by **name** or **email**. Admin-only. Returns basic identity fields only.
@@ -12,11 +11,15 @@ Search application users by **name** or **email**. Admin-only. Returns basic ide
 
 ## Query parameters
 
-| Name       | Type    | Required | Notes                                         |
-|------------|---------|----------|-----------------------------------------------|
-| `q`        | string  | yes      | Case-insensitive substring on name or email.  |
-| `page`     | integer | no       | Default **1**. Minimum 1.                     |
-| `per_page` | integer | no       | Default **50**. Min 1. Max **500**.           |
+| Name       | Type    | Required | Notes                                                                 |
+|------------|---------|----------|-----------------------------------------------------------------------|
+| `q`        | string  | yes      | Case-insensitive substring on name or email.                          |
+| `page`     | integer | no       | Default **1**. Minimum 1.                                             |
+| `per_page` | integer | no       | Default **50**. Min 1. Max **500**.                                   |
+
+**Defaults and clamps**
+- Server default `per_page` comes from DB setting `core.rbac.user_search.default_per_page` (default **50**).
+- Server clamps `per_page` to `[1, 500]` regardless of client input.
 
 ## Semantics
 
@@ -72,6 +75,15 @@ curl -sS -H "Authorization: Bearer $TOKEN" \
   --data-urlencode 'q=alpha' \
   --data-urlencode 'page=2' \
   --data-urlencode 'per_page=100'
+```
+
+### Raw HTTP with auth header
+
+```
+GET /api/rbac/users/search?q=alpha&page=1&per_page=50 HTTP/1.1
+Host: <host>
+Authorization: Bearer <token>
+Accept: application/json
 ```
 
 ## Notes for clients
