@@ -9,8 +9,8 @@ export default function AdminIndex(): JSX.Element {
         <li><Link to="/admin/roles">Roles</Link></li>
         <li><Link to="/admin/user-roles">User Roles</Link></li>
         <li><Link to="/admin/audit">Audit</Link></li>
+        <li><a href="/api/docs">API Documentation</a></li>
       </ul>
-      <p className="text-muted">Phase 4 stubs and RBAC features. API enforces roles.</p>
     </section>
   );
 }

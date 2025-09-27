@@ -34,6 +34,9 @@ export default function Nav(): JSX.Element {
           <NavLink to="/admin/evidence" className={linkCls}>
             Evidence
           </NavLink>
+          <a href="/api/docs" className="nav-link">
+            API Docs
+          </a>
         </div>
       </nav>
     </header>

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { listCategories } from "../../lib/api/audit";
 import { actionInfo } from "../../lib/auditLabels";
-import { searchUsers, type UserSummary, type UserSearchOk, type UserSearchMeta } from "../../lib/api/rbac";
+import { searchUsers, type UserSummary, type UserSearchOk } from "../../lib/api/rbac";
 
 type AuditItem = {
   id?: string;
@@ -85,19 +85,17 @@ export default function Audit(): JSX.Element {
   const [limit, setLimit] = useState(10);
   const [categories, setCategories] = useState<string[]>([]);
 
+  // Actor picker state
+  const [actorQ, setActorQ] = useState("");
+  const [actorSearching, setActorSearching] = useState(false);
+  const [actorResults, setActorResults] = useState<UserSummary[]>([]);
+  const [actorMeta, setActorMeta] = useState<{ page: number; total_pages: number } | null>(null);
+  const [selectedActor, setSelectedActor] = useState<UserSummary | null>(null);
+
   const [items, setItems] = useState<AuditItem[]>([]);
   const [state, setState] = useState<FetchState>("idle");
   const [error, setError] = useState<string>("");
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
-
-  // Actor picker state
-  const [actorInput, setActorInput] = useState<string>("");
-  const [actorSelected, setActorSelected] = useState<UserSummary | null>(null);
-  const [actorSearching, setActorSearching] = useState<boolean>(false);
-  const [actorResults, setActorResults] = useState<UserSummary[]>([]);
-  const [actorMeta, setActorMeta] = useState<UserSearchMeta | null>(null);
-  const [actorPage, setActorPage] = useState<number>(1);
-  const actorPerPage = 10;
 
   const [lastAppliedQuery, setLastAppliedQuery] = useState<string>("");
   const ctrl = useRef<AbortController | null>(null);
@@ -112,10 +110,10 @@ export default function Audit(): JSX.Element {
         action: action || undefined,
         occurred_from,
         occurred_to,
-        actor_id: actorSelected ? actorSelected.id : undefined,
         limit,
+        actor_id: selectedActor ? selectedActor.id : undefined,
       }),
-    [category, action, occurred_from, occurred_to, actorSelected, limit]
+    [category, action, occurred_from, occurred_to, limit, selectedActor]
   );
 
   const isDateOrderValid = useMemo(() => {
@@ -170,39 +168,6 @@ export default function Audit(): JSX.Element {
     }
   }
 
-  async function runActorSearch(targetPage?: number) {
-    setActorSearching(true);
-    try {
-      const p = typeof targetPage === "number" ? targetPage : actorPage;
-      const res = await searchUsers(actorInput.trim(), p, actorPerPage);
-      if (res.ok) {
-        const ok = res as UserSearchOk;
-        setActorResults(ok.data);
-        setActorMeta(ok.meta);
-        setActorPage(ok.meta.page);
-      } else {
-        setActorResults([]);
-        setActorMeta(null);
-      }
-    } finally {
-      setActorSearching(false);
-    }
-  }
-
-  function selectActor(u: UserSummary) {
-    setActorSelected(u);
-    setActorResults([]);
-    setActorMeta(null);
-    setActorInput("");
-  }
-
-  function clearActor() {
-    setActorSelected(null);
-    setActorResults([]);
-    setActorMeta(null);
-    setActorInput("");
-  }
-
   useEffect(() => {
     void (async () => {
       const ab = new AbortController();
@@ -219,6 +184,37 @@ export default function Audit(): JSX.Element {
   }, []);
 
   const csvHref = useMemo(() => `/api/audit/export.csv?${query}`, [query]);
+
+  async function runActorSearch(targetPage?: number) {
+    setActorSearching(true);
+    try {
+      const page = typeof targetPage === "number" ? targetPage : 1;
+      const res = await searchUsers(actorQ, page, 10);
+      if (res.ok) {
+        const ok = res as UserSearchOk;
+        setActorResults(ok.data);
+        setActorMeta({ page: ok.meta.page, total_pages: ok.meta.total_pages });
+      } else {
+        setActorResults([]);
+        setActorMeta(null);
+      }
+    } finally {
+      setActorSearching(false);
+    }
+  }
+
+  function selectActor(u: UserSummary) {
+    setSelectedActor(u);
+    setActorResults([]);
+    setActorMeta(null);
+  }
+
+  function clearActor() {
+    setSelectedActor(null);
+    setActorResults([]);
+    setActorMeta(null);
+    setActorQ("");
+  }
 
   return (
     <section aria-busy={state === "loading"}>
@@ -298,37 +294,6 @@ export default function Audit(): JSX.Element {
         </div>
 
         <div>
-          <label htmlFor="f-actor">Actor</label>
-          {actorSelected ? (
-            <div>
-              <div className="d-flex align-items-center gap-2">
-                <span style={chipStyle("neutral")}>
-                  {actorSelected.name} &lt;{actorSelected.email}&gt; • id {actorSelected.id}
-                </span>
-                <button type="button" onClick={clearActor} aria-label="Clear actor">
-                  Clear
-                </button>
-              </div>
-              <input id="f-actor" type="text" value="" onChange={() => {}} disabled aria-hidden />
-            </div>
-          ) : (
-            <div className="d-flex gap-2">
-              <input
-                id="f-actor"
-                value={actorInput}
-                onChange={(e) => setActorInput(e.target.value)}
-                placeholder="name or email"
-                aria-describedby="actor_help"
-              />
-              <button type="button" onClick={() => { setActorPage(1); void runActorSearch(1); }} disabled={actorSearching}>
-                {actorSearching ? "Searching…" : "Search actor"}
-              </button>
-            </div>
-          )}
-          <div id="actor_help" className="form-text">Pick an actor to filter by user id.</div>
-        </div>
-
-        <div>
           <label htmlFor="f-from">From</label>
           <input
             id="f-from"
@@ -387,6 +352,91 @@ export default function Audit(): JSX.Element {
           ) : null}
         </div>
 
+        <div>
+          <label htmlFor="f-actor">Actor</label>
+          {selectedActor ? (
+            <div>
+              <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+                <span>{selectedActor.name} &lt;{selectedActor.email}&gt; (id {selectedActor.id})</span>
+                <button type="button" onClick={clearActor}>Clear</button>
+              </div>
+            </div>
+          ) : (
+            <div style={{ display: "grid", gap: "0.25rem" }}>
+              <input
+                id="f-actor"
+                value={actorQ}
+                onChange={(e) => setActorQ(e.target.value)}
+                placeholder="search name or email"
+              />
+              <div style={{ display: "flex", gap: "0.5rem" }}>
+                <button type="button" onClick={() => void runActorSearch()} aria-busy={actorSearching}>
+                  {actorSearching ? "Searching…" : "Search"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActorResults([]);
+                    setActorMeta(null);
+                    setActorQ("");
+                  }}
+                >
+                  Reset
+                </button>
+              </div>
+              {actorResults.length > 0 && (
+                <div style={{ overflowX: "auto" }}>
+                  <table className="table">
+                    <thead>
+                      <tr>
+                        <th>ID</th>
+                        <th>Name</th>
+                        <th>Email</th>
+                        <th />
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {actorResults.map((u) => (
+                        <tr key={u.id}>
+                          <td>{u.id}</td>
+                          <td>{u.name}</td>
+                          <td>{u.email}</td>
+                          <td>
+                            <button type="button" onClick={() => selectActor(u)}>Select</button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {actorMeta && (
+                    <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+                      <button
+                        type="button"
+                        onClick={() => actorMeta.page > 1 && void runActorSearch(actorMeta.page - 1)}
+                        disabled={actorSearching || actorMeta.page <= 1}
+                      >
+                        Prev
+                      </button>
+                      <span>
+                        Page {actorMeta.page} of {actorMeta.total_pages}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          actorMeta.page < actorMeta.total_pages && void runActorSearch(actorMeta.page + 1)
+                        }
+                        disabled={actorSearching || actorMeta.page >= actorMeta.total_pages}
+                      >
+                        Next
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
         <div style={{ alignSelf: "end", display: "flex", alignItems: "center" }}>
           <button type="submit" disabled={!canSubmit} aria-disabled={!canSubmit}>
             Apply
@@ -403,57 +453,6 @@ export default function Audit(): JSX.Element {
           </a>
         </div>
       </form>
-
-      {/* Actor search results */}
-      {actorResults.length > 0 && (
-        <div className="table-responsive" aria-label="Actor search results">
-          <table className="table table-sm align-middle">
-            <thead>
-              <tr>
-                <th style={{ width: "6rem" }}>ID</th>
-                <th>Name</th>
-                <th>Email</th>
-                <th style={{ width: "8rem" }}>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {actorResults.map((u) => (
-                <tr key={u.id}>
-                  <td>{u.id}</td>
-                  <td>{u.name}</td>
-                  <td>{u.email}</td>
-                  <td>
-                    <button type="button" onClick={() => selectActor(u)}>
-                      Select
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {actorMeta && (
-            <nav aria-label="Actor pagination" className="d-flex align-items-center gap-2">
-              <button
-                type="button"
-                onClick={() => { if (actorMeta.page > 1) void runActorSearch(actorMeta.page - 1); }}
-                disabled={actorSearching || actorMeta.page <= 1}
-              >
-                Prev
-              </button>
-              <span>
-                Page {actorMeta.page} of {actorMeta.total_pages} • {actorMeta.total} total
-              </span>
-              <button
-                type="button"
-                onClick={() => { if (actorMeta.page < actorMeta.total_pages) void runActorSearch(actorMeta.page + 1); }}
-                disabled={actorSearching || actorMeta.page >= actorMeta.total_pages}
-              >
-                Next
-              </button>
-            </nav>
-          )}
-        </div>
-      )}
 
       {state === "loading" && <p>Loading…</p>}
       {state === "error" && <p role="alert">Error: {error}</p>}
@@ -508,4 +507,3 @@ export default function Audit(): JSX.Element {
     </section>
   );
 }
-

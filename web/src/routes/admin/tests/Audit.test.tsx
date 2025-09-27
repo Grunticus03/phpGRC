@@ -29,11 +29,8 @@ describe("Admin Audit page", () => {
       if (url.startsWith("/api/rbac/users/search")) {
         return jsonResponse({
           ok: true,
-          data: [
-            { id: 123, name: "Alice Admin", email: "alice@example.test" },
-            { id: 124, name: "Bob Auditor", email: "bob@example.test" },
-          ],
-          meta: { page: 1, per_page: 10, total: 2, total_pages: 1 },
+          data: [{ id: 7, name: "Alpha 01", email: "alpha01@example.test" }],
+          meta: { page: 1, per_page: 10, total: 1, total_pages: 1 },
         });
       }
 
@@ -91,19 +88,16 @@ describe("Admin Audit page", () => {
     await screen.findByText("rbac.user_role.attached");
   });
 
-  it("searches actor and includes actor_id in query", async () => {
+  it("lets you select an actor and includes actor_id in the query", async () => {
     render(<Audit />);
 
     await screen.findByRole("combobox", { name: "Category" });
 
-    const actorInput = screen.getByLabelText("Actor") as HTMLInputElement;
-    fireEvent.change(actorInput, { target: { value: "alice" } });
+    fireEvent.change(screen.getByLabelText("Actor"), { target: { value: "alpha" } });
+    fireEvent.click(screen.getByRole("button", { name: "Search" }));
 
-    const searchBtn = screen.getByRole("button", { name: /Search actor/i });
-    fireEvent.click(searchBtn);
-
-    const selectButtons = await screen.findAllByRole("button", { name: "Select" });
-    fireEvent.click(selectButtons[0]); // pick Alice id 123
+    const selectBtns = await screen.findAllByRole("button", { name: "Select" });
+    fireEvent.click(selectBtns[0]); // pick id 7
 
     fireEvent.click(screen.getByRole("button", { name: "Apply" }));
 
@@ -111,7 +105,7 @@ describe("Admin Audit page", () => {
       const hits = calls.filter((u) => u.startsWith("/api/audit?"));
       expect(hits.length).toBeGreaterThan(0);
       const hit = hits[hits.length - 1];
-      expect(hit).toContain("actor_id=123");
+      expect(hit).toContain("actor_id=7");
     });
   });
 
@@ -131,4 +125,3 @@ describe("Admin Audit page", () => {
     expect(catInput.tagName.toLowerCase()).toBe("input");
   });
 });
-
