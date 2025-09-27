@@ -1,8 +1,9 @@
 {
+    "/// FILE": "docs/api/openapi.yaml",
     "openapi": "3.1.0",
     "info": {
         "title": "phpGRC",
-        "version": "0.4.6",
+        "version": "0.4.7",
         "description": "Notes:\n- The Metrics Dashboard is an internal, admin-only endpoint (`GET /api/dashboard/kpis`, alias `GET /api/metrics/dashboard`) and is not part of this public OpenAPI. Both return identical shapes.\n- Metrics defaults are config-driven with environment fallbacks:\n  - `CORE_METRICS_EVIDENCE_FRESHNESS_DAYS` → default **30**\n  - `CORE_METRICS_RBAC_DENIES_WINDOW_DAYS` → default **7**\n- The dashboard API accepts optional `days` and `rbac_days` query parameters. The server clamps each to the inclusive range **[1, 365]**.\n- Audit events MAY include settings-change details in `meta.changes` for category `SETTINGS` events (e.g., `\"settings.update\"`). Each change item includes `{ key, old, new, action }` where `action ∈ { set, update, unset }`. This is an additive payload and does not change the public schema (see examples under `/audit`).\n- (Internal-only, not part of this OpenAPI) KPI responses MAY include `meta.cache` with `{ ttl:number, hit:boolean }` when caching is enabled.\n",
         "license": {
             "identifier": "MIT",
@@ -12,13 +13,7 @@
             "url": "https://phpgrc.gruntlabs.net/api/images/phpGRC-light-horizontal-trans.png",
             "altText": "phpGRC",
             "href": "https://phpgrc.gruntlabs.net/api/docs"
-        },
-        "x-changelog": [
-            {
-                "date": "2025-09-23T00:00:00.000Z",
-                "note": "Docs-only: Added guidance and examples for `meta.changes` in audit events; no breaking schema changes."
-            }
-        ]
+        }
     },
     "servers": [
         {
@@ -641,6 +636,96 @@
                                 }
                             }
                         }
+                    }
+                }
+            }
+        },
+        "/rbac/users/search": {
+            "get": {
+                "operationId": "rbacUserSearch",
+                "tags": [
+                    "RBAC"
+                ],
+                "summary": "Search users by name or email",
+                "description": "Returns users whose **name** or **email** contains the query string.\nAuth is enforced when `core.rbac.require_auth` is true. RBAC policy `core.users.view` and role `Admin` are required by default.\n",
+                "parameters": [
+                    {
+                        "name": "q",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "minLength": 1
+                        },
+                        "description": "Case-insensitive substring match against name and email."
+                    },
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "default": 1
+                        }
+                    },
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 500,
+                            "default": 50
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/UserSearchResponse"
+                                },
+                                "examples": {
+                                    "example": {
+                                        "summary": "Page 1 of 2",
+                                        "value": {
+                                            "ok": true,
+                                            "data": [
+                                                {
+                                                    "id": 1,
+                                                    "name": "Alpha 01",
+                                                    "email": "alpha01@example.test"
+                                                },
+                                                {
+                                                    "id": 2,
+                                                    "name": "Alpha 02",
+                                                    "email": "alpha02@example.test"
+                                                }
+                                            ],
+                                            "meta": {
+                                                "page": 1,
+                                                "per_page": 50,
+                                                "total": 80,
+                                                "total_pages": 2
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationFailed"
                     }
                 }
             }
@@ -2562,6 +2647,54 @@
                     "email": {
                         "type": "string",
                         "format": "email"
+                    }
+                }
+            },
+            "UserSearchResponse": {
+                "type": "object",
+                "required": [
+                    "ok",
+                    "data",
+                    "meta"
+                ],
+                "properties": {
+                    "ok": {
+                        "type": "boolean",
+                        "const": true
+                    },
+                    "data": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/User"
+                        }
+                    },
+                    "meta": {
+                        "type": "object",
+                        "required": [
+                            "page",
+                            "per_page",
+                            "total",
+                            "total_pages"
+                        ],
+                        "properties": {
+                            "page": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "per_page": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 500
+                            },
+                            "total": {
+                                "type": "integer",
+                                "minimum": 0
+                            },
+                            "total_pages": {
+                                "type": "integer",
+                                "minimum": 0
+                            }
+                        }
                     }
                 }
             },

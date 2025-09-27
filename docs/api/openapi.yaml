@@ -1,7 +1,8 @@
+/// FILE: docs/api/openapi.yaml
 openapi: 3.1.0
 info:
   title: phpGRC
-  version: 0.4.6
+  version: 0.4.7
   description: |
     Notes:
     - The Metrics Dashboard is an internal, admin-only endpoint (`GET /api/dashboard/kpis`, alias `GET /api/metrics/dashboard`) and is not part of this public OpenAPI. Both return identical shapes.
@@ -18,9 +19,6 @@ info:
     url: "https://phpgrc.gruntlabs.net/api/images/phpGRC-light-horizontal-trans.png"
     altText: "phpGRC"
     href: "https://phpgrc.gruntlabs.net/api/docs"
-  x-changelog:
-    - date: 2025-09-23
-      note: "Docs-only: Added guidance and examples for `meta.changes` in audit events; no breaking schema changes."
 servers:
   - url: /api
 
@@ -353,6 +351,64 @@ paths:
                 oneOf:
                   - $ref: '#/components/schemas/RoleNotFoundError'
                   - $ref: '#/components/schemas/ValidationFailed'
+
+  /rbac/users/search:
+    get:
+      operationId: rbacUserSearch
+      tags: [RBAC]
+      summary: Search users by name or email
+      description: |
+        Returns users whose **name** or **email** contains the query string.
+        Auth is enforced when `core.rbac.require_auth` is true. RBAC policy `core.users.view` and role `Admin` are required by default.
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 1
+          description: Case-insensitive substring match against name and email.
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: per_page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+            default: 50
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserSearchResponse'
+              examples:
+                example:
+                  summary: Page 1 of 2
+                  value:
+                    ok: true
+                    data:
+                      - { id: 1, name: "Alpha 01", email: "alpha01@example.test" }
+                      - { id: 2, name: "Alpha 02", email: "alpha02@example.test" }
+                    meta:
+                      page: 1
+                      per_page: 50
+                      total: 80
+                      total_pages: 2
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
 
   /audit:
     get:
@@ -1513,6 +1569,35 @@ components:
           type: string
           format: email
 
+    UserSearchResponse:
+      type: object
+      required: [ok, data, meta]
+      properties:
+        ok:
+          type: boolean
+          const: true
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/User'
+        meta:
+          type: object
+          required: [page, per_page, total, total_pages]
+          properties:
+            page:
+              type: integer
+              minimum: 1
+            per_page:
+              type: integer
+              minimum: 1
+              maximum: 500
+            total:
+              type: integer
+              minimum: 0
+            total_pages:
+              type: integer
+              minimum: 0
+
     UserRolesResponse:
       type: object
       required: [ok, user, roles]
@@ -1610,7 +1695,7 @@ components:
                   - type: object
                     additionalProperties: true
                   - type: array
-                    items: {}         # FIX: declare items for nested arrays
+                    items: {}
         new:
           oneOf:
             - type: 'null'
@@ -1628,7 +1713,7 @@ components:
                   - type: object
                     additionalProperties: true
                   - type: array
-                    items: {}         # FIX: declare items for nested arrays
+                    items: {}
         action:
           type: string
           enum: [ set, update, unset ]

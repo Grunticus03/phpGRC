@@ -1,25 +1,20 @@
 # @phpgrc:/docs/phase-5/RBAC-USER-SEARCH.md
-# FILE: /docs/phase-5/RBAC-USER-SEARCH.md
+# Phase 5 — RBAC User Search
 
-# Phase 5 — RBAC User Search (Internal Note)
-
-## Instruction Preamble
+## Preamble
 - Date: 2025-09-26
-- Scope: Internal admin-only endpoint. Not part of public OpenAPI. For operators and testers.
+- Scope: Admin-only endpoint. Now included in OpenAPI. Auth required.
 
 ## Endpoint
-- Method: GET  
-- Path (external): `/api/rbac/users/search`  
-- Internal name: `rbac/users/search`
-
-## Auth / RBAC
-- Default roles: `['Admin']`
-- Required policy: `core.users.view`
-- Honors global RBAC toggles and persist vs stub semantics.
+- Method: GET
+- Path: `/api/rbac/users/search`
+- Auth: Bearer (Sanctum). Always enforced.
+- RBAC: role `Admin`, policy `core.users.view`.
 
 ## Query Parameters
-- `q` (string, required): case-insensitive substring match on **name** or **email**.
-- `limit` (int, optional): range **1..100**, default **20**. Values outside range are clamped.
+- `q` (string, required): case-insensitive substring on **name** or **email** only.
+- `page` (int, optional): default `1`, min `1`.
+- `per_page` (int, optional): default `50`, max `500`.
 
 ## Response
 `200 OK`:
@@ -29,43 +24,21 @@
   "data": [
     {"id":"01HJ...","name":"Alice Admin","email":"alice@example.com"},
     {"id":"01HJ...","name":"Bob Auditor","email":"bob@example.com"}
-  ]
+  ],
+  "meta": {
+    "page": 1,
+    "per_page": 50,
+    "total": 123,
+    "total_pages": 3
+  }
 }
 ```
 
-### Errors
-- `401` when unauthenticated and `core.rbac.require_auth=true`.
-- `403` when role/policy fails.
-
-## Examples
-
-### Request
-```bash
-curl -sS -H "Authorization: Bearer <token>" \
-  "https://<host>/api/rbac/users/search?q=ali&limit=10"
-```
-
-### Success
-```json
-{
-  "ok": true,
-  "data": [
-    {"id":"01HX...","name":"Alice Admin","email":"alice@example.com"}
-  ]
-}
-```
-
-### Forbidden
-```json
-{
-  "ok": false,
-  "code": "FORBIDDEN",
-  "message": "Not authorized."
-}
-```
+Errors:
+- `401` unauthenticated.
+- `403` RBAC denied.
 
 ## Notes
-- Field set is minimal by design: `id`, `name`, `email`.
-- Pagination is not implemented; use `limit` appropriately.
-- This endpoint is **intentionally excluded** from `docs/api/openapi.yaml`.
-- See tests: `api/tests/Unit/Rbac/UserSearchControllerTest.php`.
+- Fields returned: `id`, `name`, `email`.
+- Production uses page-based pagination only.
+- Tests: `api/tests/Unit/Rbac/UserSearchControllerTest.php` will assert auth and pagination.

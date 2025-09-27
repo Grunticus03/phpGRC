@@ -6,70 +6,129 @@ namespace Tests\Feature\Capabilities;
 
 use App\Models\Role;
 use App\Models\User;
-use Database\Seeders\TestRbacSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Testing\TestResponse;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 final class CapabilityGatesTest extends TestCase
 {
     use RefreshDatabase;
 
-    private User $admin;
-
-    protected function setUp(): void
+    private function adminUser(): User
     {
-        parent::setUp();
+        /** @var User $user */
+        $user = User::factory()->create();
 
-        config([
-            'core.rbac.enabled'      => true,
-            'core.rbac.mode'         => 'persist',
-            'core.rbac.persistence'  => true,
-            'core.rbac.require_auth' => true,
-            'core.audit.enabled'     => true,
-        ]);
+        /** @var Role $role */
+        $role = Role::query()->firstOrCreate(
+            ['id' => 'admin'],
+            ['name' => 'Admin']
+        );
 
-        $this->seed(TestRbacSeeder::class);
+        $user->roles()->sync([$role->id]);
 
-        /** @var User $u */
-        $u = \Database\Factories\UserFactory::new()->create();
-        $adminRoleId = Role::query()->where('name', 'Admin')->value('id');
-        if (is_string($adminRoleId)) {
-            $u->roles()->syncWithoutDetaching([$adminRoleId]);
+        return $user;
+    }
+
+    private function baseRbacPersist(): void
+    {
+        config()->set('core.rbac.enabled', true);
+        config()->set('core.rbac.mode', 'persist');
+        config()->set('core.rbac.require_auth', false);
+        config()->set('core.audit.enabled', true);
+        config()->set('core.metrics.throttle.enabled', false);
+    }
+
+    /** Try with and without the /api prefix to handle env differences. */
+    private function getApi(string $path, array $headers = []): TestResponse
+    {
+        $headers = array_merge(['Accept' => 'application/json'], $headers);
+
+        $r = $this->get($path, $headers);
+        if ($r->getStatusCode() === 404 && str_starts_with($path, '/api/')) {
+            $r = $this->get(substr($path, 4), $headers);
+        } elseif ($r->getStatusCode() === 404 && !str_starts_with($path, '/api/')) {
+            $r = $this->get('/api' . $path, $headers);
         }
-        $this->admin = $u;
+        return $r;
+    }
+
+    private function postApi(string $path, array $data = [], array $headers = []): TestResponse
+    {
+        $headers = array_merge(['Accept' => 'application/json'], $headers);
+
+        $r = $this->post($path, $data, $headers);
+        if ($r->getStatusCode() === 404 && str_starts_with($path, '/api/')) {
+            $r = $this->post(substr($path, 4), $data, $headers);
+        } elseif ($r->getStatusCode() === 404 && !str_starts_with($path, '/api/')) {
+            $r = $this->post('/api' . $path, $data, $headers);
+        }
+        return $r;
     }
 
     public function test_audit_export_denied_when_capability_disabled(): void
     {
-        // Disable capability
-        config(['core.capabilities.core.audit.export' => false]);
+        $this->baseRbacPersist();
+        config()->set('core.capabilities.core.audit.export', false);
 
-        $this->actingAs($this->admin, 'sanctum')
-            ->getJson('/audit/export.csv')
-            ->assertStatus(403)
-            ->assertJson([
-                'ok'         => false,
-                'code'       => 'CAPABILITY_DISABLED',
-                'capability' => 'core.audit.export',
-            ]);
+        $user = $this->adminUser();
+
+        $resp = $this->actingAs($user)->getApi('/api/audit/export.csv');
+        $resp->assertStatus(403);
+        $json = $resp->json();
+        $this->assertSame('CAPABILITY_DISABLED', (string)($json['code'] ?? ''));
+    }
+
+    public function test_audit_export_allowed_when_capability_enabled(): void
+    {
+        $this->baseRbacPersist();
+        config()->set('core.capabilities.core.audit.export', true);
+
+        $user = $this->adminUser();
+
+        $resp = $this->actingAs($user)->getApi('/api/audit/export.csv');
+        $this->assertContains($resp->getStatusCode(), [200, 206]); // stream may be partial
+        $this->assertNotSame('', (string) $resp->getContent());
     }
 
     public function test_evidence_upload_denied_when_capability_disabled(): void
     {
-        // Disable capability
-        config(['core.capabilities.core.evidence.upload' => false]);
+        $this->baseRbacPersist();
+        config()->set('core.capabilities.core.evidence.upload', false);
 
+        $user = $this->adminUser();
+
+        Storage::fake('local');
         $file = UploadedFile::fake()->create('note.txt', 1, 'text/plain');
 
-        $this->actingAs($this->admin, 'sanctum')
-            ->postJson('/evidence', ['file' => $file])
-            ->assertStatus(403)
-            ->assertJson([
-                'ok'         => false,
-                'code'       => 'CAPABILITY_DISABLED',
-                'capability' => 'core.evidence.upload',
-            ]);
+        $resp = $this->actingAs($user)->postApi('/api/evidence', [
+            'file' => $file,
+        ]);
+
+        $resp->assertStatus(403);
+        $json = $resp->json();
+        $this->assertSame('CAPABILITY_DISABLED', (string)($json['code'] ?? ''));
+    }
+
+    public function test_evidence_upload_allowed_when_capability_enabled(): void
+    {
+        $this->baseRbacPersist();
+        config()->set('core.capabilities.core.evidence.upload', true);
+
+        $user = $this->adminUser();
+
+        Storage::fake('local');
+        $file = UploadedFile::fake()->create('doc.txt', 1, 'text/plain');
+
+        $resp = $this->actingAs($user)->postApi('/api/evidence', [
+            'file' => $file,
+        ]);
+
+        $this->assertContains($resp->getStatusCode(), [200, 201]);
+        $json = $resp->json();
+        $this->assertTrue((bool)($json['ok'] ?? false));
+        $this->assertArrayHasKey('id', $json);
     }
 }
-

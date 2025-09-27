@@ -13,40 +13,27 @@ use Illuminate\Support\Facades\Schema;
 
 final class UserSearchController extends Controller
 {
-    public function search(\Illuminate\Http\Request $request): \Illuminate\Http\JsonResponse
+    public function search(Request $request): JsonResponse
     {
         return $this->index($request);
     }
 
     public function index(Request $request): JsonResponse
     {
-        // q: string|array|null → normalized string
-        $qParam = $request->query('q'); // array|string|null
-        $q = is_string($qParam)
-            ? trim($qParam)
-            : (is_array($qParam) ? trim((string) (array_values($qParam)[0] ?? '')) : '');
-
-        // limit: array|string|null → normalized/clamped int
-        /** @var array<array-key, mixed>|string|null $limitRaw */
-        $limitRaw = $request->query('limit');
-        $limit = 20;
-
-        if (is_string($limitRaw) && $limitRaw !== '' && preg_match('/^\d+$/', $limitRaw) === 1) {
-            $limit = (int) $limitRaw;
-        } elseif (is_array($limitRaw)) {
+        /** @var array<array-key,mixed>|string|null $qRaw */
+        $qRaw = $request->query('q');
+        $q = '';
+        if (\is_string($qRaw)) {
+            $q = \trim($qRaw);
+        } elseif (\is_array($qRaw)) {
             /** @var list<string> $stringVals */
-            $stringVals = array_values(array_filter(
-                $limitRaw,
-                static fn ($x): bool => is_string($x)
+            $stringVals = \array_values(\array_filter(
+                $qRaw,
+                static fn ($v): bool => \is_string($v)
             ));
-            $first = $stringVals[0] ?? null; // string|null
-            if ($first !== null && $first !== '' && preg_match('/^\d+$/', $first) === 1) {
-                $limit = (int) $first;
-            }
+            $first = $stringVals[0] ?? '';
+            $q = \trim($first);
         }
-
-        if ($limit < 1) { $limit = 1; }
-        if ($limit > 100) { $limit = 100; }
 
         if ($q === '') {
             return response()->json([
@@ -57,25 +44,42 @@ final class UserSearchController extends Controller
             ], 422);
         }
 
+        // Pagination: page ≥1, per_page ∈ [1,500], defaults 1 and 50.
+        $page    = self::parseIntQuery($request, 'page', 1, 1, PHP_INT_MAX);
+        $perPage = self::parseIntQuery($request, 'per_page', 50, 1, 500);
+
         if (!Schema::hasTable('users')) {
             return response()->json([
                 'ok'   => true,
-                'note' => 'stub-only',
                 'data' => [],
+                'meta' => [
+                    'page'        => $page,
+                    'per_page'    => $perPage,
+                    'total'       => 0,
+                    'total_pages' => 0,
+                ],
             ], 200);
         }
 
-        /** @var Builder<User> $qb */
-        $qb = User::query()->select(['id', 'name', 'email']);
+        /** @var Builder<User> $base */
+        $base = User::query()->select(['id', 'name', 'email']);
 
         $like = '%' . $this->escapeLike($q) . '%';
-        $qb->where(function (Builder $w) use ($like): void {
+        $base->where(static function (Builder $w) use ($like): void {
             $w->where('name', 'like', $like)
               ->orWhere('email', 'like', $like);
         });
 
+        $total = (clone $base)->count();
+        $totalPages = $total === 0 ? 0 : (int) \ceil($total / $perPage);
+        $offset = ($page - 1) * $perPage;
+
         /** @var \Illuminate\Database\Eloquent\Collection<int,User> $rows */
-        $rows = $qb->orderBy('name')->limit($limit)->get();
+        $rows = $base
+            ->orderBy('id', 'asc') // numeric, stable paging
+            ->offset($offset)
+            ->limit($perPage)
+            ->get();
 
         /** @var list<array{id:int,name:string,email:string}> $data */
         $data = [];
@@ -88,15 +92,50 @@ final class UserSearchController extends Controller
         }
 
         return response()->json([
-            'ok'    => true,
-            'query' => $q,
-            'limit' => $limit,
-            'data'  => $data,
+            'ok'   => true,
+            'data' => $data,
+            'meta' => [
+                'page'        => $page,
+                'per_page'    => $perPage,
+                'total'       => $total,
+                'total_pages' => $totalPages,
+            ],
         ], 200);
     }
 
     private function escapeLike(string $s): string
     {
-        return str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $s);
+        return \str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $s);
+    }
+
+    /**
+     * @param non-empty-string $key
+     */
+    private static function parseIntQuery(Request $request, string $key, int $default, int $min, int $max): int
+    {
+        /** @var array<array-key,mixed>|string|null $raw */
+        $raw = $request->query($key);
+
+        $val = $default;
+
+        if (\is_string($raw) && $raw !== '' && \preg_match('/^\d+$/', $raw) === 1) {
+            $val = (int) $raw;
+        } elseif (\is_array($raw)) {
+            /** @var list<string> $stringVals */
+            $stringVals = \array_values(\array_filter(
+                $raw,
+                static fn ($x): bool => \is_string($x)
+            ));
+            $first = $stringVals[0] ?? null; // string|null
+            if ($first !== null && $first !== '' && \preg_match('/^\d+$/', $first) === 1) {
+                $val = (int) $first;
+            }
+        }
+
+        if ($val < $min) { $val = $min; }
+        if ($val > $max) { $val = $max; }
+
+        return $val;
     }
 }
+

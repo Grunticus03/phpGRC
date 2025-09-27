@@ -22,7 +22,7 @@ final class OpenApiContractSmokeTest extends TestCase
         // Basic anchors
         $this->assertStringContainsString('openapi: 3.', $yaml);
         $this->assertStringContainsString('info:', $yaml);
-        $this->assertStringContainsString('version: 0.4.6', $yaml);
+        $this->assertStringContainsString('version: 0.4.7', $yaml);
 
         // Path anchors: allow specs that key paths with or without '/api' prefix.
         $this->assertTrue(

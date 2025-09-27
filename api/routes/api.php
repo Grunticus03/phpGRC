@@ -295,8 +295,9 @@ Route::prefix('/rbac')
             ->defaults('roles', ['Admin'])
             ->defaults('policy', 'core.rbac.view');
 
-        // Admin-only user search (name/email), normalized and bounded.
+        // Admin-only user search. Always authenticated + RBAC.
         Route::get('/users/search', [UserSearchController::class, 'index'])
+            ->middleware(['auth:sanctum'])
             ->defaults('roles', ['Admin'])
             ->defaults('policy', 'core.users.view');
     });
@@ -352,3 +353,4 @@ Route::prefix('/evidence')
 Route::post('/avatar', [AvatarController::class, 'store']);
 Route::match(['GET','HEAD'], '/avatar/{user}', [AvatarController::class, 'show'])
     ->whereNumber('user');
+
