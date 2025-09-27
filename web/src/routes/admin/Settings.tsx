@@ -7,7 +7,7 @@ type EffectiveConfig = {
       evidence_freshness?: { days?: number };
       rbac_denies?: { window_days?: number };
     };
-    rbac?: { require_auth?: boolean };
+    rbac?: { require_auth?: boolean; user_search?: { default_per_page?: number } };
     audit?: { retention_days?: number };
     evidence?: unknown;
     avatars?: unknown;
@@ -23,6 +23,7 @@ export default function Settings(): JSX.Element {
   const [freshDays, setFreshDays] = useState<number>(30);
   const [rbacDays, setRbacDays] = useState<number>(7);
   const [rbacRequireAuth, setRbacRequireAuth] = useState<boolean>(false);
+  const [rbacUserSearchPerPage, setRbacUserSearchPerPage] = useState<number>(50);
   const [retentionDays, setRetentionDays] = useState<number>(365);
 
   const [evidenceCfg, setEvidenceCfg] = useState<unknown>(null);
@@ -44,6 +45,7 @@ export default function Settings(): JSX.Element {
         setFreshDays(Number(metrics.evidence_freshness?.days ?? 30));
         setRbacDays(Number(metrics.rbac_denies?.window_days ?? 7));
         setRbacRequireAuth(Boolean(rbac.require_auth ?? false));
+        setRbacUserSearchPerPage(Number(rbac.user_search?.default_per_page ?? 50));
         setRetentionDays(Number(audit.retention_days ?? 365));
         setEvidenceCfg(core.evidence ?? null);
         setAvatarsCfg(core.avatars ?? null);
@@ -69,7 +71,12 @@ export default function Settings(): JSX.Element {
             evidence_freshness: { days: clamp(Number(freshDays) || 30, 1, 365) },
             rbac_denies: { window_days: clamp(Number(rbacDays) || 7, 1, 365) },
           },
-          rbac: { require_auth: !!rbacRequireAuth },
+          rbac: {
+            require_auth: !!rbacRequireAuth,
+            user_search: {
+              default_per_page: clamp(Number(rbacUserSearchPerPage) || 50, 1, 500),
+            },
+          },
           audit: { retention_days: clamp(Number(retentionDays) || 365, 1, 730) },
           evidence: evidenceCfg,
           avatars: avatarsCfg,
@@ -118,7 +125,7 @@ export default function Settings(): JSX.Element {
             <div className="card-header">
               <strong>RBAC</strong>
             </div>
-            <div className="card-body">
+            <div className="card-body vstack gap-3">
               <div className="form-check">
                 <input
                   id="rbacRequireAuth"
@@ -130,6 +137,24 @@ export default function Settings(): JSX.Element {
                 <label htmlFor="rbacRequireAuth" className="form-check-label">
                   Require Auth (Sanctum) for RBAC APIs
                 </label>
+              </div>
+
+              <div className="row g-2 align-items-end">
+                <div className="col-sm-4">
+                  <label htmlFor="rbacUserSearchPerPage" className="form-label">User search default per-page</label>
+                  <input
+                    id="rbacUserSearchPerPage"
+                    type="number"
+                    min={1}
+                    max={500}
+                    className="form-control"
+                    value={rbacUserSearchPerPage}
+                    onChange={(e) =>
+                      setRbacUserSearchPerPage(clamp(Number(e.target.value) || 50, 1, 500))
+                    }
+                  />
+                  <div className="form-text">Default page size for Admin → User Roles search. Range 1–500.</div>
+                </div>
               </div>
             </div>
           </section>
@@ -210,3 +235,4 @@ export default function Settings(): JSX.Element {
     </main>
   );
 }
+

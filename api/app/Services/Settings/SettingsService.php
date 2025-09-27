@@ -18,6 +18,8 @@ final class SettingsService
         // RBAC
         'rbac.enabled',
         'rbac.roles',
+        'rbac.require_auth',
+        'rbac.user_search.default_per_page',
         // Audit
         'audit.enabled',
         'audit.retention_days',
@@ -388,8 +390,14 @@ final class SettingsService
 
         /** @var array<string,mixed> $rbac */
         $rbac = [
-            'enabled' => $this->toBool($rbacRaw['enabled'] ?? false),
-            'roles'   => $this->toStringList($rbacRaw['roles'] ?? []),
+            'enabled'       => $this->toBool($rbacRaw['enabled'] ?? false),
+            'roles'         => $this->toStringList($rbacRaw['roles'] ?? []),
+            'require_auth'  => $this->toBool($rbacRaw['require_auth'] ?? false),
+            'user_search'   => [
+                'default_per_page' => $this->toInt(
+                    data_get($rbacRaw, 'user_search.default_per_page', 50)
+                ),
+            ],
         ];
 
         /** @var array<string,mixed> $audit */
@@ -492,3 +500,4 @@ final class SettingsService
         return $out;
     }
 }
+

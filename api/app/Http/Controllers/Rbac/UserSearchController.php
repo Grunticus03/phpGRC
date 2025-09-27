@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Rbac;
 
 use App\Models\User;
+use App\Services\Settings\SettingsService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -13,13 +14,19 @@ use Illuminate\Support\Facades\Schema;
 
 final class UserSearchController extends Controller
 {
-    public function search(Request $request): JsonResponse
+    public function search(Request $request, ?SettingsService $settings = null): JsonResponse
     {
-        return $this->index($request);
+        return $this->index($request, $settings);
     }
 
-    public function index(Request $request): JsonResponse
+    public function index(Request $request, ?SettingsService $settings = null): JsonResponse
     {
+        // resolve service if unit tests call without DI
+        if ($settings === null) {
+            /** @var SettingsService $settings */
+            $settings = app(SettingsService::class);
+        }
+
         /** @var array<array-key,mixed>|string|null $qRaw */
         $qRaw = $request->query('q');
         $q = '';
@@ -44,9 +51,24 @@ final class UserSearchController extends Controller
             ], 422);
         }
 
-        // Pagination: page ≥1, per_page ∈ [1,500], defaults 1 and 50.
+        // Default per_page from settings, clamped [1,500], fallback 50.
+        /** @var mixed $cfgDefaultRaw */
+        $cfgDefaultRaw = data_get(
+            $settings->effectiveConfig(),
+            'core.rbac.user_search.default_per_page',
+            50
+        );
+        $cfgDefault = 50;
+        if (\is_int($cfgDefaultRaw)) {
+            $cfgDefault = $cfgDefaultRaw;
+        } elseif (\is_string($cfgDefaultRaw) && $cfgDefaultRaw !== '' && \preg_match('/^\d+$/', $cfgDefaultRaw) === 1) {
+            $cfgDefault = (int) $cfgDefaultRaw;
+        }
+        $cfgDefault = max(1, min(500, $cfgDefault));
+
+        // Pagination: page ≥1, per_page ∈ [1,500], default comes from settings.
         $page    = self::parseIntQuery($request, 'page', 1, 1, PHP_INT_MAX);
-        $perPage = self::parseIntQuery($request, 'per_page', 50, 1, 500);
+        $perPage = self::parseIntQuery($request, 'per_page', $cfgDefault, 1, 500);
 
         if (!Schema::hasTable('users')) {
             return response()->json([

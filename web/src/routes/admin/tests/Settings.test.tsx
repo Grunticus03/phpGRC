@@ -14,7 +14,7 @@ function jsonResponse(body: unknown, init: ResponseInit = {}) {
 
 type CoreBody = {
   core: {
-    rbac: { require_auth: boolean };
+    rbac: { require_auth: boolean; user_search: { default_per_page: number } };
     audit: { retention_days: number };
     evidence: unknown;
     avatars: unknown;
@@ -37,7 +37,12 @@ describe("Admin Settings page", () => {
           ok: true,
           config: {
             core: {
-              rbac: { enabled: true, roles: ["Admin", "Auditor", "Risk Manager", "User"], require_auth: false },
+              rbac: {
+                enabled: true,
+                roles: ["Admin", "Auditor", "Risk Manager", "User"],
+                require_auth: false,
+                user_search: { default_per_page: 50 },
+              },
               audit: { enabled: true, retention_days: 365 },
               evidence: {
                 enabled: true,
@@ -81,6 +86,11 @@ describe("Admin Settings page", () => {
     fireEvent.click(requireAuth);
     expect(requireAuth.checked).toBe(true);
 
+    const perPage = screen.getByLabelText("User search default per-page") as HTMLInputElement;
+    expect(perPage.value).toBe("50");
+    fireEvent.change(perPage, { target: { value: "200" } });
+    expect(perPage.value).toBe("200");
+
     const retention = screen.getByLabelText("Retention days") as HTMLInputElement;
     fireEvent.change(retention, { target: { value: "180" } });
     expect(retention.value).toBe("180");
@@ -94,11 +104,11 @@ describe("Admin Settings page", () => {
 
     const core = (putBody as CoreBody).core;
     expect(core).toHaveProperty("rbac");
-    expect(core).toHaveProperty("audit");
-    expect(core).toHaveProperty("evidence");
-    expect(core).toHaveProperty("avatars");
-
     expect(core.rbac.require_auth).toBe(true);
+    expect(core.rbac.user_search.default_per_page).toBe(200);
+
+    expect(core).toHaveProperty("audit");
     expect(core.audit.retention_days).toBe(180);
   });
 });
+

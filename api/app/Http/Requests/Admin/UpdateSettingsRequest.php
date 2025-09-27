@@ -62,10 +62,13 @@ final class UpdateSettingsRequest extends FormRequest
         ];
 
         return [
-            'rbac'                 => ['sometimes', 'array'],
-            'rbac.enabled'         => ['sometimes', 'boolean'],
-            'rbac.roles'           => ['sometimes', 'array', 'min:1'],
-            'rbac.roles.*'         => ['string', 'min:2', 'max:64'],
+            'rbac'                                   => ['sometimes', 'array'],
+            'rbac.enabled'                           => ['sometimes', 'boolean'],
+            'rbac.require_auth'                      => ['sometimes', 'boolean'],
+            'rbac.roles'                             => ['sometimes', 'array', 'min:1'],
+            'rbac.roles.*'                           => ['string', 'min:2', 'max:64'],
+            'rbac.user_search'                       => ['sometimes', 'array'],
+            'rbac.user_search.default_per_page'      => ['sometimes', 'integer', 'min:1', 'max:500'],
 
             'audit'                => ['sometimes', 'array'],
             'audit.enabled'        => ['sometimes', 'boolean'],
@@ -99,15 +102,17 @@ final class UpdateSettingsRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'rbac.roles.min'                => 'At least one role must be provided.',
-            'rbac.roles.*.min'              => 'Role names must be at least :min characters.',
-            'rbac.roles.*.max'              => 'Role names may not be greater than :max characters.',
-            'audit.retention_days.min'      => 'Retention must be at least :min day.',
-            'audit.retention_days.max'      => 'Retention may not exceed :max days.',
-            'evidence.max_mb.min'           => 'Maximum size must be at least :min MB.',
-            'evidence.allowed_mime.*.in'    => 'One or more MIME types are not allowed.',
-            'avatars.size_px.in'            => 'Avatar size must be 128px.',
-            'avatars.format.in'             => 'Avatar format must be WEBP.',
+            'rbac.roles.min'                          => 'At least one role must be provided.',
+            'rbac.roles.*.min'                        => 'Role names must be at least :min characters.',
+            'rbac.roles.*.max'                        => 'Role names may not be greater than :max characters.',
+            'rbac.user_search.default_per_page.min'   => 'Per-page must be at least :min.',
+            'rbac.user_search.default_per_page.max'   => 'Per-page may not exceed :max.',
+            'audit.retention_days.min'                => 'Retention must be at least :min day.',
+            'audit.retention_days.max'                => 'Retention may not exceed :max days.',
+            'evidence.max_mb.min'                     => 'Maximum size must be at least :min MB.',
+            'evidence.allowed_mime.*.in'              => 'One or more MIME types are not allowed.',
+            'avatars.size_px.in'                      => 'Avatar size must be 128px.',
+            'avatars.format.in'                       => 'Avatar format must be WEBP.',
         ];
     }
 
@@ -237,3 +242,4 @@ final class UpdateSettingsRequest extends FormRequest
         throw new HttpResponseException(response()->json($payload, 422));
     }
 }
+

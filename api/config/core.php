@@ -64,6 +64,11 @@ return [
             'User',
         ],
 
+        // User search defaults
+        'user_search' => [
+            'default_per_page' => 50,
+        ],
+
         // PolicyMap defaults; override via DB if needed
         'policies' => [
             'core.settings.manage'   => ['Admin'],
@@ -143,3 +148,4 @@ return [
         'dir'     => 'exports',
     ],
 ];
+
