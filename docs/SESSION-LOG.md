@@ -1378,3 +1378,18 @@ SESSION-LOG.md entry
 - Phase/Step status: advance (Phase 5 engineering complete; docs polish next)
 - Next action (you): Merge doc updates (OpenAPI/notes/runbook), tag pipeline with artifact fingerprint, fill Owner matrix, decide on optional `/api/openapi.json` parity task.
 - Next action (me): Prep doc PR with any final examples/screenshots; propose owners and small follow-ups (capability mapping tests, KPI query params validation).
+
+---
+
+### Session 2025-09-27: Phase 5 — Capability Gates (CAPABILITY_DISABLED)
+- Context: Enforce capability flags via middleware for audit export and evidence upload.
+- Goal: Add feature tests proving 403 CAPABILITY_DISABLED with one deny audit per request when disabled; allow path when enabled.
+- Constraints: No OpenAPI breaks; no controller rewrites unless required.
+
+### Closeout
+- Deliverables produced:
+  - /api/tests/Feature/Capabilities/AuditExportCapabilityTest.php
+  - /api/tests/Feature/Capabilities/EvidenceUploadCapabilityTest.php
+- Phase/Step status: advance
+- Next action (you): none
+- Next action (me): implement KPI params validation and tests (`from`,`to`,`tz`,`granularity`) with clamping and error envelope.

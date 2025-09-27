@@ -14,10 +14,11 @@ final class OpenApiController extends BaseController
     public function yaml(Request $request): Response
     {
         $spec = $this->loadSpecYamlWithMeta();
+        $content = $this->tryMutateYaml($spec['content']);
 
         return $this->respondWithCaching(
             $request,
-            $spec['content'],
+            $content,
             'application/yaml',
             $spec['mtime']
         );
@@ -27,9 +28,10 @@ final class OpenApiController extends BaseController
     {
         $jsonFile = $this->tryLoadSpecJsonFileWithMeta();
         if ($jsonFile !== null) {
+            $content = $this->tryMutateJson($jsonFile['content']);
             return $this->respondWithCaching(
                 $request,
-                $jsonFile['content'],
+                $content,
                 'application/json',
                 $jsonFile['mtime']
             );
@@ -38,7 +40,8 @@ final class OpenApiController extends BaseController
         $yaml = $this->loadSpecYamlWithMeta();
         try {
             /** @var array<string,mixed> $data */
-            $data = Yaml::parse($yaml['content']);
+            $data = Yaml::parse($yaml['content']) ?: [];
+            $data = $this->injectCapabilityDisabledIntoDoc($data);
             $json = json_encode($data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
             if ($json === false) {
                 throw new \RuntimeException('json_encode failed');
@@ -169,7 +172,6 @@ YAML;
             $h->set('Last-Modified', gmdate('D, d M Y H:i:s', $mtime) . ' GMT');
         }
 
-        // Remove any default cache-control directives and set exact value
         if (method_exists($h, 'removeCacheControlDirective')) {
             foreach (['private','public','no-cache','must-revalidate','proxy-revalidate','s-maxage','max-age','no-store','immutable'] as $dir) {
                 $h->removeCacheControlDirective($dir);
@@ -177,12 +179,136 @@ YAML;
         }
         if (method_exists($h, 'addCacheControlDirective')) {
             $h->addCacheControlDirective('no-store', true);
-            $h->addCacheControlDirective('max-age', '0'); // string to satisfy static analysers
+            $h->addCacheControlDirective('max-age', '0');
         }
-        // Ensure exact header string regardless of framework defaults
         $h->set('Cache-Control', 'no-store, max-age=0');
 
         return $resp;
+    }
+
+    /**
+     * Attempt to mutate YAML content by parsing and injecting capability responses.
+     */
+    private function tryMutateYaml(string $yaml): string
+    {
+        try {
+            /** @var array<string,mixed> $doc */
+            $doc = Yaml::parse($yaml) ?: [];
+            $doc = $this->injectCapabilityDisabledIntoDoc($doc);
+
+            return Yaml::dump($doc, 10, 2);
+        } catch (\Throwable) {
+            return $yaml;
+        }
+    }
+
+    /**
+     * Attempt to mutate JSON content by decoding and injecting capability responses.
+     */
+    private function tryMutateJson(string $json): string
+    {
+        try {
+            /** @var array<string,mixed>|null $doc */
+            $doc = json_decode($json, true, 512, JSON_THROW_ON_ERROR);
+            if (!is_array($doc)) {
+                return $json;
+            }
+            $doc = $this->injectCapabilityDisabledIntoDoc($doc);
+
+            /** @var string $out */
+            $out = json_encode($doc, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+            return $out;
+        } catch (\Throwable) {
+            return $json;
+        }
+    }
+
+    /**
+     * Injects:
+     * - components.schemas.CapabilityError
+     * - components.responses.CapabilityDisabled
+     * - Attaches 403 to /audit/export.csv GET and /evidence POST if present
+     *
+     * @param array<string,mixed> $doc
+     * @return array<string,mixed>
+     */
+    private function injectCapabilityDisabledIntoDoc(array $doc): array
+    {
+        /** @var array<string,mixed> $components */
+        $components = isset($doc['components']) && is_array($doc['components']) ? $doc['components'] : [];
+
+        /** @var array<string,mixed> $schemas */
+        $schemas = isset($components['schemas']) && is_array($components['schemas']) ? $components['schemas'] : [];
+
+        /** @var array<string,mixed> $respComp */
+        $respComp = isset($components['responses']) && is_array($components['responses']) ? $components['responses'] : [];
+
+        $schemas['CapabilityError'] = [
+            'type'       => 'object',
+            'required'   => ['ok', 'code'],
+            'properties' => [
+                'ok'         => ['type' => 'boolean', 'const' => false],
+                'code'       => ['type' => 'string', 'enum' => ['CAPABILITY_DISABLED']],
+                'capability' => ['type' => 'string'],
+            ],
+            'additionalProperties' => true,
+            'description' => 'Standard error envelope for disabled feature gates.',
+            'example' => [
+                'ok' => false,
+                'code' => 'CAPABILITY_DISABLED',
+                'capability' => 'core.audit.export',
+            ],
+        ];
+
+        $respComp['CapabilityDisabled'] = [
+            'description' => 'Capability is disabled by configuration.',
+            'content' => [
+                'application/json' => [
+                    'schema' => ['$ref' => '#/components/schemas/CapabilityError'],
+                ],
+            ],
+        ];
+
+        $components['schemas']   = $schemas;
+        $components['responses'] = $respComp;
+        $doc['components']       = $components;
+
+        /** @var array<string,mixed> $paths */
+        $paths = isset($doc['paths']) && is_array($doc['paths']) ? $doc['paths'] : [];
+        $paths = $this->attach403ToPaths($paths, '/audit/export.csv', 'get');
+        $paths = $this->attach403ToPaths($paths, '/evidence', 'post');
+        $doc['paths'] = $paths;
+
+        return $doc;
+    }
+
+    /**
+     * Safely attach 403 reference for a path+method.
+     *
+     * @param array<string,mixed> $paths
+     * @return array<string,mixed>
+     */
+    private function attach403ToPaths(array $paths, string $path, string $method): array
+    {
+        $pathItem = isset($paths[$path]) && is_array($paths[$path]) ? $paths[$path] : null;
+        if ($pathItem === null) {
+            return $paths;
+        }
+
+        $operation = isset($pathItem[$method]) && is_array($pathItem[$method]) ? $pathItem[$method] : null;
+        if ($operation === null) {
+            return $paths;
+        }
+
+        /** @var array<string,mixed> $responses */
+        $responses = isset($operation['responses']) && is_array($operation['responses']) ? $operation['responses'] : [];
+        $responses['403'] = ['$ref' => '#/components/responses/CapabilityDisabled'];
+        $operation['responses'] = $responses;
+
+        $pathItem[$method] = $operation;
+        $paths[$path] = $pathItem;
+
+        return $paths;
     }
 }
 
