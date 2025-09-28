@@ -434,7 +434,42 @@
                         "$ref": "#/components/responses/Forbidden"
                     },
                     "422": {
-                        "$ref": "#/components/responses/ValidationFailed"
+                        "description": "Validation errors",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ValidationFailed"
+                                },
+                                "examples": {
+                                    "invalidName": {
+                                        "summary": "Invalid role name",
+                                        "value": {
+                                            "ok": false,
+                                            "code": "VALIDATION_FAILED",
+                                            "message": "The given data was invalid.",
+                                            "errors": {
+                                                "name": [
+                                                    "Role name may contain only letters, numbers, underscores, and hyphens."
+                                                ]
+                                            }
+                                        }
+                                    },
+                                    "duplicateAfterNormalization": {
+                                        "summary": "Duplicate after normalization",
+                                        "value": {
+                                            "ok": false,
+                                            "code": "VALIDATION_FAILED",
+                                            "message": "The given data was invalid.",
+                                            "errors": {
+                                                "name": [
+                                                    "Role already exists after normalization."
+                                                ]
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     },
                     "429": {
                         "$ref": "#/components/responses/RateLimited"
@@ -537,6 +572,21 @@
                                             "$ref": "#/components/schemas/RoleNotFoundError"
                                         }
                                     ]
+                                },
+                                "examples": {
+                                    "duplicateAfterNormalization": {
+                                        "summary": "Duplicate roles after normalization",
+                                        "value": {
+                                            "ok": false,
+                                            "code": "VALIDATION_FAILED",
+                                            "message": "The given data was invalid.",
+                                            "errors": {
+                                                "roles": [
+                                                    "Duplicate roles after normalization."
+                                                ]
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -565,9 +615,10 @@
                     "schema": {
                         "type": "string",
                         "minLength": 2,
-                        "maxLength": 64
+                        "maxLength": 64,
+                        "pattern": "^[\\p{L}\\p{N}_-]{2,64}$"
                     },
-                    "description": "Role identifier. Accepts role **name** or role **id** (e.g., `role_admin`).\nIf the name contains spaces, it must be URL-encoded in the path segment.\n"
+                    "description": "Role identifier. Accepts role **name** or role **id** (e.g., `role_admin`).\n"
                 }
             ],
             "post": {
@@ -2173,8 +2224,7 @@
                 "schema": {
                     "type": "integer",
                     "minimum": 1,
-                    "maximum": 100,
-                    "default": 20
+                    "maximum": 100
                 },
                 "example": 20
             },
@@ -2495,7 +2545,8 @@
                     "name": {
                         "type": "string",
                         "minLength": 2,
-                        "maxLength": 64
+                        "maxLength": 64,
+                        "pattern": "^[\\p{L}\\p{N}_-]{2,64}$"
                     }
                 }
             },
@@ -2656,7 +2707,8 @@
                         "items": {
                             "type": "string",
                             "minLength": 2,
-                            "maxLength": 64
+                            "maxLength": 64,
+                            "pattern": "^[\\p{L}\\p{N}_-]{2,64}$"
                         },
                         "description": "Role names or ids. Duplicates after normalization are rejected."
                     }

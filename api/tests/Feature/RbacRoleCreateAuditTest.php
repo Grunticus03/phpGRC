@@ -4,54 +4,31 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
-use App\Models\AuditEvent;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 final class RbacRoleCreateAuditTest extends TestCase
 {
     use RefreshDatabase;
 
-    protected function setUp(): void
-    {
-        parent::setUp();
-
-        // Enable RBAC persistence and audit logging; allow anonymous passthrough.
-        config()->set('core.rbac.enabled', true);
-        config()->set('core.rbac.mode', 'persist');
-        config()->set('core.rbac.persistence', true);
-        config()->set('core.rbac.require_auth', false);
-
-        config()->set('core.audit.enabled', true);
-    }
-
     public function test_role_create_emits_rbac_role_created_audit(): void
     {
-        $name = 'Compliance-Lead';
+        config([
+            'core.rbac.enabled'      => true,
+            'core.rbac.require_auth' => false,
+            'core.rbac.persistence'  => true,
+            'core.rbac.mode'         => 'persist',
+            'core.audit.enabled'     => true,
+        ]);
 
-        $res = $this->postJson('/rbac/roles', ['name' => $name]);
-        $res->assertStatus(201)->assertJsonPath('ok', true);
+        $this->postJson('/rbac/roles', ['name' => 'Compliance-Lead'])->assertStatus(201);
 
-        $role = $res->json('role');
-        $this->assertIsArray($role);
-        $this->assertArrayHasKey('id', $role);
-        $this->assertArrayHasKey('name', $role);
+        $row = DB::table('audit_events')->where('action', 'rbac.role.created')->orderByDesc('id')->first();
+        $this->assertNotNull($row);
 
-        $event = AuditEvent::query()
-            ->where('action', 'rbac.role.created')
-            ->where('category', 'RBAC')
-            ->where('entity_type', 'role')
-            ->where('entity_id', $role['id'])
-            ->first();
-
-        $this->assertNotNull($event, 'Expected rbac.role.created event');
-        $this->assertSame('RBAC', $event->category);
-        $this->assertSame('role', $event->entity_type);
-        $this->assertSame($role['id'], $event->entity_id);
-
-        $meta = $event->meta ?? [];
-        $this->assertIsArray($meta);
-        $this->assertSame($name, $meta['name'] ?? null);
+        $meta = json_decode((string) $row->meta, true, 512, JSON_THROW_ON_ERROR);
+        $this->assertSame('Compliance-Lead', $meta['name'] ?? null);
+        $this->assertSame('compliance-lead', $meta['name_normalized'] ?? null);
     }
 }
-

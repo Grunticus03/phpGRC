@@ -1,10 +1,10 @@
 # Phase 5 Task Checklist
 
-Status: Active  
-Contract: OpenAPI 0.4.6 (no breaking changes)  
+Status: Ready to tag  
+Contract: OpenAPI 0.4.7 (no breaking changes)  
 Gates: PHPStan lvl 9, Psalm clean, PHPUnit, **Redocly lint**, **openapi-diff**
 
-_Last updated: 2025-09-27_
+_Last updated: 2025-09-28_
 
 ---
 
@@ -37,7 +37,7 @@ _Last updated: 2025-09-27_
   - [x] `rbac.deny.unauthenticated`
   - [x] `rbac.deny.role_mismatch`
   - [x] `rbac.deny.policy`
-- [x] One audit row per deny outcome (no duplicates).
+- [x] One audit row per deny (no duplicates).
   - Note: Web UI label map for `rbac.deny.*` integrated and tested.
 
 **Tests**
@@ -132,13 +132,21 @@ _Last updated: 2025-09-27_
 
 ---
 
-## 6a) Generic API rate limiting (new this session)
-- [x] Middleware `GenericRateLimit` implemented (strategies: `user|ip|session`), attach via `Route::defaults(['throttle'=>...])`.
-- [x] Global knobs: `core.api.throttle.enabled|strategy|window_seconds|max_requests`; ENV mapping `CORE_API_THROTTLE_*`; DB overrides supported.
+## 6a) Generic API rate limiting (finalized this session)
+- [x] Middleware `GenericRateLimit` implemented (`user|ip|session`), attach via `Route::defaults(['throttle'=>...])`.
+- [x] Global knobs: `core.api.throttle.enabled|strategy|window_seconds|max_requests`; ENV mapping `CORE_API_THROTTLE_*`.
+- [x] **Precedence:** ENV wins; DB entries for `core.api.throttle.*` are ignored by the overlay.
 - [x] Unified 429 JSON envelope in `Exceptions\Handler` with `Retry-After` and `X-RateLimit-*` headers.
 - [x] Replace legacy `MetricsThrottle` on metrics routes; keep `/auth/login` on `BruteForceGuard`.
 - [x] OpenAPI: `components.responses.RateLimited` and 429 references added to throttled endpoints.
-- [x] Tests verify headers on 200/429 and body shape on 429.
+- [x] `/health/fingerprint` includes `summary.api_throttle:{enabled,strategy,window_seconds,max_requests}`.
+
+**Acceptance (session)**
+- [x] ENV knobs override DB/config for `core.api.throttle.*`.
+- [x] `/health/fingerprint` response matches OpenAPI schema.
+- [x] OpenAPI lints clean; 429 headers documented.
+- [x] PHPUnit remains green.
+- [x] Feature tests assert `Retry-After`, `X-RateLimit-Limit`, `X-RateLimit-Remaining` on **200** and **429** for one user-route and one ip-route.
 
 ---
 
@@ -163,16 +171,17 @@ _Last updated: 2025-09-27_
   - Note: Added Apache vhost guidance, FPM handoff, and `/api` Alias/Rewrite notes.
 - [x] OpenAPI: `x-logo.url` corrected to `/api/images/...`; `servers: [{url:"/api"}]` documented.
 - [x] **New docs (this session)**: 429 error schema + headers; Redoc `security` array shape gotcha.
+- [x] Release notes updated: deprecate `MetricsThrottle`, standardize headers, document throttle knobs and precedence.
 
 ---
 
 ## 9) OpenAPI and quality gates
 - [x] **Redocly** lint clean.
-- [x] openapi-diff vs 0.4.6: no breaking changes.
+- [x] openapi-diff vs 0.4.6→0.4.7: no breaking changes.
 - [x] PHPStan lvl 9: no new issues.
 - [x] Psalm: no new issues.
 - [x] PHPUnit: all suites green.
-- **Note:** Spec component `SettingsChange` is currently unused; harmless placeholder for upcoming settings audit (`meta.changes[]`). CI uses Redocly lint; Spectral allowlisting is not required.
+- **Note:** Spec component `SettingsChange` is currently unused; harmless placeholder for upcoming settings audit. CI uses Redocly lint; Spectral allowlisting not required.
 - [x] **Added**: 429 `RateLimited` response and header docs validated by lint & UI render.
 
 ---
@@ -269,22 +278,6 @@ _Last updated: 2025-09-27_
 10. RBAC user search pagination + default per-page knob (#15) — completed during this phase.
 11. OpenAPI augmentation (#16) — completed during this phase.
 12. **Generic API rate limiting & 429 normalization** — completed during this session.
-
----
-
-## Owner matrix (fill-in)
-- [ ] RBAC middleware & audits: Owner ___
-- [ ] KPIs API: Owner ___
-- [ ] Rate limiting: Owner ___
-- [ ] Role UX validations: Owner ___
-- [ ] Docs & contracts: Owner ___
-- [ ] QA & CI gates: Owner ___
-- [ ] Settings persistence & Admin UI: Owner ___
-- [ ] Apache/FPM deploy & runbook: Owner ___
-- [ ] OpenAPI serve headers & parity tests: Owner ___
-- [ ] RBAC user search pagination & default per-page: Owner ___
-- [ ] OpenAPI augmentation: Owner ___
-- [ ]**Added**: Exception normalization & 429 documentation: Owner ___
 
 ---
 

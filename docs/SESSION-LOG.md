@@ -1453,3 +1453,26 @@ SESSION-LOG.md entry
 - Phase/Step status: advance
 - Next action (you): prepare patches to (a) map env knobs in `core.php` and set `core.metrics.throttle.enabled=false`, (b) update OpenAPI 429 headers and health schema, (c) note MetricsThrottle deprecation in release notes.
 - Next action (me): provide `/api/config/core.php`, `/docs/api/openapi.yaml`, `/docs/phase-5/PHASE-5-RELEASE-NOTES.md` (and optionally `/docs/PLAYBOOK.md`) for full-file edits.
+
+---
+
+### Session 2025-09-28: [Phase 5, Topic: API throttling finalization]
+- Context: Standardized API rate limiting and documented knobs without changing non-throttled behavior.
+- Goal: Finalize ENV→config mapping, unify 200/429 headers, extend health fingerprint, update docs and spec.
+- Constraints: No breaking OpenAPI; deterministic; full-file outputs; CI green.
+
+### Closeout
+- Deliverables produced: 
+  - /api/app/Http/Middleware/GenericRateLimit.php (static-analysis clean; unified `Retry-After`, `X-RateLimit-*` on 200/429)
+  - /docs/api/openapi.yaml (`components.responses.RateLimited` headers; `HealthFingerprintResponse.summary.api_throttle`)
+  - /docs/phase-5/PHASE-5-RELEASE-NOTES.md (throttle docs, deprecations)
+  - /docs/phase-5/PHASE-5-TASK-CHECKLIST.md (status updated; item 7 open)
+- Phase/Step status: Advanced; Phase 5 pending item 7 (Role-management UX constraints).
+- Next action (you): Implement item 7 when files are provided; update OpenAPI; add tests; keep CI green.
+- Next action (me): Provide edit targets for item 7:
+  - /api/app/Http/Controllers/Rbac/RolesController.php
+  - /api/app/Http/Controllers/Rbac/UserRolesController.php
+  - /api/app/Http/Requests/Rbac/RoleCreateRequest.php
+  - /api/app/Http/Requests/Rbac/RoleReplaceRequest.php
+  - /api/app/Models/Role.php
+  - /docs/api/openapi.yaml

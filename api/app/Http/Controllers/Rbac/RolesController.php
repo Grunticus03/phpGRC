@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Rbac;
 
-use App\Http\Requests\Rbac\StoreRoleRequest;
+use App\Http\Requests\Rbac\RoleCreateRequest;
 use App\Models\Role;
 use App\Services\Audit\AuditLogger;
 use Illuminate\Http\JsonResponse;
@@ -31,26 +31,23 @@ final class RolesController extends Controller
     public function index(): JsonResponse
     {
         if (!$this->persistenceEnabled()) {
-            /** @var array<mixed> $cfgArr */
+            /** @var array<array-key, mixed> $cfgArr */
             $cfgArr = (array) config('core.rbac.roles', ['Admin', 'Auditor', 'Risk Manager', 'User']);
 
             /** @var list<string> $cfg */
-            $cfg = [];
-            /** @var mixed $item */
-            foreach ($cfgArr as $item) {
-                if (is_string($item)) {
-                    $cfg[] = $item;
-                }
-            }
+            $cfg = array_values(array_filter(
+                array_map(
+                    static fn (mixed $v): ?string => is_string($v) ? $v : null,
+                    $cfgArr
+                ),
+                static fn (?string $v): bool => $v !== null
+            ));
 
             if ($cfg === []) {
                 $cfg = ['Admin', 'Auditor', 'Risk Manager', 'User'];
             }
 
-            return response()->json([
-                'ok'    => true,
-                'roles' => $cfg,
-            ], 200);
+            return response()->json(['ok' => true, 'roles' => $cfg], 200);
         }
 
         /** @var list<string> $names */
@@ -66,17 +63,17 @@ final class RolesController extends Controller
             $names = $namesFromDb;
         }
         if ($names === []) {
-            /** @var array<mixed> $fallbackArr */
+            /** @var array<array-key, mixed> $fallbackArr */
             $fallbackArr = (array) config('core.rbac.roles', ['Admin', 'Auditor', 'Risk Manager', 'User']);
 
             /** @var list<string> $fallback */
-            $fallback = [];
-            /** @var mixed $item */
-            foreach ($fallbackArr as $item) {
-                if (is_string($item)) {
-                    $fallback[] = $item;
-                }
-            }
+            $fallback = array_values(array_filter(
+                array_map(
+                    static fn (mixed $v): ?string => is_string($v) ? $v : null,
+                    $fallbackArr
+                ),
+                static fn (?string $v): bool => $v !== null
+            ));
 
             if ($fallback === []) {
                 $fallback = ['Admin', 'Auditor', 'Risk Manager', 'User'];
@@ -84,25 +81,46 @@ final class RolesController extends Controller
             $names = $fallback;
         }
 
-        return response()->json([
-            'ok'    => true,
-            'roles' => $names,
-        ], 200);
+        return response()->json(['ok' => true, 'roles' => $names], 200);
     }
 
-    public function store(StoreRoleRequest $request): JsonResponse
+    public function store(RoleCreateRequest $request): JsonResponse
     {
         if (!$this->persistenceEnabled() || !Schema::hasTable('roles')) {
             return response()->json([
-                'ok'       => false,
+                'ok'       => true,
                 'note'     => 'stub-only',
                 'accepted' => ['name' => $request->string('name')->toString()],
             ], 202);
         }
 
-        $name = $request->string('name')->toString();
+        $raw = $request->string('name')->toString();
+        $trimmed = trim($raw);
+        /** @var string $collapsed */
+        $collapsed = (string) preg_replace('/\s+/u', ' ', $trimmed);
+        $nameLower = mb_strtolower($collapsed, 'UTF-8');
 
-        $base = 'role_' . Str::slug($name, '_');
+        /** @var list<string> $existingNames */
+        $existingNames = array_values(array_map(
+            static fn ($v): string => (string) $v,
+            Role::query()
+                ->pluck('name')
+                ->filter(static fn ($v): bool => is_string($v))
+                ->all()
+        ));
+
+        foreach ($existingNames as $ex) {
+            if (mb_strtolower($ex, 'UTF-8') === $nameLower) {
+                return response()->json([
+                    'ok'      => false,
+                    'code'    => 'VALIDATION_FAILED',
+                    'message' => 'The given data was invalid.',
+                    'errors'  => ['name' => ['Role already exists after normalization.']],
+                ], 422);
+            }
+        }
+
+        $base = 'role_' . Str::slug($raw, '_');
 
         if (Role::query()->whereKey($base)->exists()) {
             /** @var list<string> $siblings */
@@ -127,7 +145,8 @@ final class RolesController extends Controller
             $id = $base;
         }
 
-        $role = Role::query()->create(['id' => $id, 'name' => $name]);
+        // store normalized lowercase
+        $role = Role::query()->create(['id' => $id, 'name' => $nameLower]);
 
         try {
             /** @var AuditLogger $logger */
@@ -145,7 +164,10 @@ final class RolesController extends Controller
                 'entity_id'   => $entityId,
                 'ip'          => $request->ip(),
                 'ua'          => $request->userAgent(),
-                'meta'        => ['name' => $role->name],
+                'meta'        => [
+                    'name'            => $collapsed,
+                    'name_normalized' => $nameLower,
+                ],
             ]);
         } catch (\Throwable) {
             // ignore audit errors

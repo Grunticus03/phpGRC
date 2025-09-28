@@ -30,11 +30,13 @@
 - **Settings load (added):** DB overrides are loaded at boot via `SettingsServiceProvider`; API returns effective config (defaults overlaid by DB).
 - **OpenAPI serve (hardened):** exact `Content-Type` for YAML, `ETag: "sha256:<hex>"`, `Cache-Control: no-store, max-age=0`, `X-Content-Type-Options: nosniff`; optional `Last-Modified` when file exists.
 - **Prefix clarification:** In `bootstrap/app.php` the API routing `prefix` is set to `''`. Route list shows bare paths like `health`, `dashboard/kpis`. Apache mounts these under `/api/*`.
-- **Rate limiting & 429 envelope (unified):**
-  - Global API throttle knobs mapped from ENV in config: `CORE_API_THROTTLE_ENABLED|STRATEGY|WINDOW_SECONDS|MAX_REQUESTS` → `core.api.throttle.*`.
-  - `/health` and `/openapi.*` are not throttled; `/auth/login` stays on BruteForceGuard only.
-  - Standardized `429` JSON envelope `{ ok:false, code:"RATE_LIMITED", retry_after }` with headers `Retry-After`, `X-RateLimit-Limit`, `X-RateLimit-Remaining`.
-  - `/health/fingerprint` summary includes `api_throttle:{enabled,strategy,window_seconds,max_requests}`.
+- **Rate limiting (standardized):**
+  - New reusable middleware `GenericRateLimit` replaces per-feature throttles. Per-route defaults use `->defaults('throttle', {strategy, window_seconds, max_requests})`.
+  - Global knobs live under `core.api.throttle.*`. **ENV (`CORE_API_THROTTLE_*`) has precedence** over DB and config.
+  - Unified headers on **200** and **429** where throttles apply: `Retry-After`, `X-RateLimit-Limit`, `X-RateLimit-Remaining`.
+  - Unified 429 JSON envelope: `{ ok:false, code:'RATE_LIMITED', retry_after:<int> }`.
+  - **Exclusions:** No public route throttles for `/health` and `/openapi.*`. Login remains guarded only by `BruteForceGuard` to avoid double throttling.
+  - `/health/fingerprint` now includes `summary.api_throttle:{ enabled, strategy, window_seconds, max_requests }`.
 
 ## Config Defaults
 - Evidence freshness days: **30** via config fallback.  
@@ -42,13 +44,15 @@
 - RBAC denies window days: **7** via config fallback.  
   - **Note:** same deprecation; DB overrides take precedence.
 - **RBAC require_auth (clarification):** may be toggled by DB override; tests and non-auth SPA flows can run with RBAC disabled on test boxes.
-- **Deprecated throttle (metrics):** `core.metrics.throttle.*` is deprecated and **disabled by default**; replaced by per-route GenericRateLimit in Phase 5.
 
 ## Compatibility
 - No breaking OpenAPI changes.
 - No migrations.  
   - **Superseded (added):** `2025_09_04_000001_create_core_settings_table.php` introduces the `core_settings` table for DB-backed settings.
 - **Routes (added):** KPI alias route introduced; both endpoints return identical shapes.
+- **Deprecations:**
+  - `MetricsThrottle` middleware deprecated and not used by routes. Use `GenericRateLimit` instead.
+  - Legacy `core.metrics.throttle.*` knobs deprecated; `core.metrics.throttle.enabled` is forced `false`.
 
 ## Security
 - Requires `core.metrics.view` policy (Admin).
@@ -58,18 +62,23 @@
 ## Docs
 - Redoc x-logo path fixed: `x-logo.url: "/api/images/phpGRC-light-horizontal-trans.png"`.
 - API docs UI is now served at **/api/docs** and linked from the Admin UI.
-- **Rate limiting docs (added):** OpenAPI `components.responses.RateLimited` documents `Retry-After`, `X-RateLimit-Limit`, and `X-RateLimit-Remaining` headers.
+- **OpenAPI:** `components.responses.RateLimited` documents headers `Retry-After`, `X-RateLimit-Limit`, `X-RateLimit-Remaining`. `HealthFingerprintResponse.summary.api_throttle` documented.
 
 ## Tests
 - PHPUnit: all routes in tests updated to **drop** `/api` prefix (framework serves bare paths in test kernel).
 - Vitest: fetch mocked with a **Response-like** object (`headers`, `json()`, `text()`) so KPI UI renders and labels appear.
-- **Rate limit assertions (added):** tests assert headers on `200` and `429` for a user-scoped and an IP-scoped route.
+- **Rate limit tests:** assert presence of `Retry-After`, `X-RateLimit-Limit`, `X-RateLimit-Remaining` on **200** and **429** for one user-route and one ip-route.
 
 ## Ops
 - **Deployment:** Apache vhost serves SPA at `/`; `/api/` aliased to Laravel public + FPM. Ensure `route:clear` and `config:clear` after deploys.
 - **Cache driver:** Prefer `file` cache unless DB cache table is migrated (`php artisan cache:table && php artisan migrate`).
 - **OpenAPI docs caching:** reverse proxies must not strip `ETag`; keep `nosniff`; honor `Cache-Control: no-store, max-age=0`.
 - **Secrets:** keep `APP_KEY` in environment/KMS, not DB. DB must hold non-connection settings only.
+- **Rate limiting knobs for load tests:** disable globally via DB
+  ```json
+  { "core": { "api": { "throttle": { "enabled": false } } } }
+  ```
+  or set ENV defaults (`CORE_API_THROTTLE_ENABLED=false`) for ephemeral runs. Clear config cache after deploy.
 
 ## CI
 - **Required checks:** OpenAPI lint (Redocly), OpenAPI breaking-change gate (openapi-diff), API static, API tests (MySQL 8.3) + coverage, Web build + tests + audit.
@@ -79,4 +88,3 @@
 - Audit diffs/traceability: include `{key, old, new}` per change in `settings.update` events and surface in `/api/audit`.
 - KPI caching: honor `core.metrics.cache_ttl_seconds` with `meta.cache:{ttl,hit}`.
 - Optional: `/api/openapi.json` mirror with parity tests.
-
