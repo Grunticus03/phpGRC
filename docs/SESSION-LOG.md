@@ -1434,3 +1434,22 @@ SESSION-LOG.md entry
 - Phase/Step status: advance
 - Next action (you): run the “auth-on” sweep (`core.rbac.require_auth=true`) and post failures; identify endpoints to receive route-local throttle defaults.
 - Next action (me): review failures and propose minimal diffs; add rate-limit guidance and prod knob table; prep public-OpenAPI prune checklist and changelog entries.
+
+---
+
+### Session 2025-09-28: [Phase 5, Rate Limiting]
+- Context: Implement reusable API throttling and unify 429 handling across endpoints.
+- Goal: Wire `GenericRateLimit`, retire `MetricsThrottle` on routes, add health fingerprint, ensure tests pass.
+- Constraints: No schema breaks; OpenAPI parity; full-file edits only.
+
+### Closeout
+- Deliverables produced:
+  - `GenericRateLimit` middleware implemented.
+  - Per-route throttle budgets applied (rbac search, audit export, exports, evidence, evidence GET by IP).
+  - Metrics routes moved to `GenericRateLimit`; `MetricsThrottle` removed from routing.
+  - Unified 429 envelope in `Handler` with `retry_after_seconds` and standard headers.
+  - `/health/fingerprint` extended with `api_throttle` summary.
+  - PHPUnit suite green with `cache_store=array` in `.env.testing`.
+- Phase/Step status: advance
+- Next action (you): prepare patches to (a) map env knobs in `core.php` and set `core.metrics.throttle.enabled=false`, (b) update OpenAPI 429 headers and health schema, (c) note MetricsThrottle deprecation in release notes.
+- Next action (me): provide `/api/config/core.php`, `/docs/api/openapi.yaml`, `/docs/phase-5/PHASE-5-RELEASE-NOTES.md` (and optionally `/docs/PLAYBOOK.md`) for full-file edits.

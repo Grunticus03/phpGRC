@@ -1,3 +1,4 @@
+# @phpgrc:/docs/PLAYBOOK.md
 # phpGRC Playbook
 
 The Playbook defines **how work is conducted** in phpGRC.  

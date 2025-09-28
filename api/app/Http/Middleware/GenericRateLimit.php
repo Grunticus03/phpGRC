@@ -29,12 +29,16 @@ final class GenericRateLimit
      */
     public function handle(Request $request, Closure $next): Response
     {
-        /** @var Route $route */
-        $route = $request->route();
+        $routeObj = $request->route();
+        if (!$routeObj instanceof Route) {
+            /** @var Response $resp */
+            $resp = $next($request);
+            return $resp;
+        }
 
         /** @var array<string, mixed>|null $routeCfg */
-        $routeCfg = (isset($route->defaults['throttle']) && is_array($route->defaults['throttle']))
-            ? $route->defaults['throttle']
+        $routeCfg = (isset($routeObj->defaults['throttle']) && is_array($routeObj->defaults['throttle']))
+            ? $routeObj->defaults['throttle']
             : null;
 
         $enabledDefault = (bool) (config('core.api.throttle.enabled') ?? false);
@@ -45,7 +49,9 @@ final class GenericRateLimit
             return $resp;
         }
 
-        $strategyDefault = is_string(config('core.api.throttle.strategy')) ? (string) config('core.api.throttle.strategy') : 'ip';
+        $strategyDefault = is_string(config('core.api.throttle.strategy'))
+            ? (string) config('core.api.throttle.strategy')
+            : 'ip';
         $strategy = self::stringOrDefault($routeCfg['strategy'] ?? null, $strategyDefault);
 
         /** @var mixed $winCfg */
@@ -67,18 +73,25 @@ final class GenericRateLimit
             /** @var Response $resp */
             $resp = $next($request);
 
-            $resp->headers->set('X-RateLimit-Limit', (string) $maxRequests);
-
             /** @var mixed $attemptsRaw */
             $attemptsRaw = RateLimiter::attempts($key);
-            $attempts = is_int($attemptsRaw) ? $attemptsRaw : $maxRequests;
+            $attempts = is_int($attemptsRaw) ? $attemptsRaw : 0;
             $remaining = max(0, $maxRequests - $attempts);
+
+            $resp->headers->set('X-RateLimit-Limit', (string) $maxRequests);
             $resp->headers->set('X-RateLimit-Remaining', (string) $remaining);
+
+            /** @var mixed $availRaw */
+            $availRaw = RateLimiter::availableIn($key);
+            $retryAfter = is_int($availRaw) ? $availRaw : $windowSeconds;
+            $resp->headers->set('Retry-After', (string) max(1, $retryAfter));
 
             return $resp;
         }
 
-        $retryAfter = RateLimiter::availableIn($key);
+        /** @var mixed $availRaw */
+        $availRaw = RateLimiter::availableIn($key);
+        $retryAfter = is_int($availRaw) ? $availRaw : $windowSeconds;
         if ($retryAfter < 1) {
             $retryAfter = $windowSeconds;
         }
@@ -94,29 +107,39 @@ final class GenericRateLimit
 
     private function keyFor(Request $request, string $strategy): string
     {
-        /** @var Route $route */
-        $route = $request->route();
+        // Resolve a stable route URI without triggering analyzer conflicts.
+        $routeUri = $request->path();
+        /** @var mixed $r */
+        $r = $request->route();
+        if ($r instanceof Route) {
+            $u = $r->uri();
+            if ($u !== '') {
+                $routeUri = $u;
+            }
+        }
+        if ($routeUri === '') {
+            $routeUri = '/';
+        }
 
-        /** @var mixed $uriRaw */
-        $uriRaw = $route->uri();
-        $routeUri = is_string($uriRaw) && $uriRaw !== '' ? $uriRaw : $request->path();
         $routeSig = sha1($routeUri);
-
-        // Default fallback to satisfy static analyzers
         $key = "grc:rl:ip:0.0.0.0:{$routeSig}";
 
         switch (strtolower($strategy)) {
             case 'user': {
+                /** @var \Illuminate\Contracts\Auth\Authenticatable|null $user */
                 $user = $request->user();
-                /** @var mixed $uidRaw */
-                $uidRaw = $user && method_exists($user, 'getAuthIdentifier') ? $user->getAuthIdentifier() : null;
+                /** @var int|string|null $uidRaw */
+                $uidRaw = $user?->getAuthIdentifier();
                 $uid = (is_int($uidRaw) || is_string($uidRaw)) ? (string) $uidRaw : 'guest';
                 $key = "grc:rl:user:{$uid}:{$routeSig}";
                 break;
             }
 
             case 'session': {
-                $sid = $request->session()->getId();
+                $sid = '';
+                if (method_exists($request, 'hasSession') && $request->hasSession()) {
+                    $sid = $request->session()->getId();
+                }
                 if ($sid === '') {
                     /** @var mixed $cookieName */
                     $cookieName = config('session.cookie');
@@ -164,3 +187,4 @@ final class GenericRateLimit
         return is_string($v) && $v !== '' ? $v : $default;
     }
 }
+

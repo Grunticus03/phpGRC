@@ -25,9 +25,12 @@ final class SettingsServiceProvider extends ServiceProvider
         // If DB not ready, bail.
         try {
             if (!Schema::hasTable('core_settings')) {
+                // Ensure deprecated metrics throttle stays off even without DB
+                $config->set('core.metrics.throttle.enabled', false);
                 return;
             }
         } catch (\Throwable $e) {
+            $config->set('core.metrics.throttle.enabled', false);
             return;
         }
 
@@ -45,6 +48,8 @@ final class SettingsServiceProvider extends ServiceProvider
                 })
                 ->all();
         } catch (\Throwable $e) {
+            // Still enforce deprecated toggle off
+            $config->set('core.metrics.throttle.enabled', false);
             return;
         }
 
@@ -52,6 +57,18 @@ final class SettingsServiceProvider extends ServiceProvider
             $key   = $row['key'];
             $type  = strtolower($row['type']);
             $value = $row['value'];
+
+            // ENV-first precedence: do NOT allow DB to overwrite global API throttle knobs.
+            // These map from CORE_API_THROTTLE_* in config and must win.
+            if (str_starts_with($key, 'core.api.throttle.')) {
+                continue;
+            }
+
+            // Hard-disable deprecated metrics throttle regardless of DB contents.
+            if ($key === 'core.metrics.throttle.enabled') {
+                // Skip any DB attempt to enable it
+                continue;
+            }
 
             if ($type === 'json') {
                 /** @var mixed $decoded */
@@ -82,5 +99,9 @@ final class SettingsServiceProvider extends ServiceProvider
             // default to string
             $config->set($key, $value);
         }
+
+        // Enforce deprecated toggle off after overlay for certainty.
+        $config->set('core.metrics.throttle.enabled', false);
     }
 }
+
