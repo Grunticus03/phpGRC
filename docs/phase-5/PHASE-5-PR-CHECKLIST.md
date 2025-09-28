@@ -7,6 +7,7 @@
 - OpenAPI:
   - `openapi-diff` against 0.4.6: no breaking changes unless approved
   - **Redocly lint**: ✅
+  - **Spec augmentation (additive)**: inject standard `401/403/422` responses where appropriate; JSON/YAML parity verified via tests. ✅
 
 **Required branch-protection checks (names)**
 - `OpenAPI lint`
@@ -44,7 +45,7 @@
 ## Dashboards
 - Implement 2 KPIs first: Evidence freshness, RBAC denies rate. ✅
 - Internal endpoint `GET /api/dashboard/kpis` (Admin-only) without OpenAPI change. ✅
-  - Note: Response may include optional `meta.window: { rbac_days, fresh_days }` for display.
+  - Note: Response may include optional `meta.window` with `{ rbac_days, fresh_days, tz?, granularity?, from?, to? }` when range params are provided. ✅
 - Defaults read from config with safe fallbacks:
   - `core.metrics.evidence_freshness.days` → fallback 30
   - `core.metrics.rbac_denies.window_days` → fallback 7
@@ -59,7 +60,10 @@
 ## Evidence & Exports (smoke)
 - Evidence upload tests for allowed MIME and size (per Phase-4 contract).
 - Export create/status tests for csv/json/pdf stubs.
-- CSV export enabled by `capabilities.core.audit.export`; header `Content-Type: text/csv; charset=UTF-8`.
+- CSV export enabled by `capabilities.core.audit.export`.
+  - **Headers:** `Content-Type: text/csv` (exact, no charset), `X-Content-Type-Options: nosniff`, `Cache-Control: no-store, max-age=0`. ✅
+- Capability gates covered by feature tests:
+  - `AuditExportCapabilityTest` and `EvidenceUploadCapabilityTest` validate `403 CAPABILITY_DISABLED` + single deny audit. ✅
 
 ## Config + Ops
 - Runtime reads use config. `.env` only at bootstrap.
@@ -83,6 +87,7 @@
   - Entering `per_page` outside range clamps to `[1..500]`.
   - Paging is stable by `id` and `meta.total`/`total_pages` update accordingly.
   - Admin Settings knob persists and survives reload.
+- **OpenAPI endpoints:** Verify `/api/openapi.yaml` and `/api/openapi.json` return strong ETag, `no-store`, `nosniff`, optional `Last-Modified`, and honor `If-None-Match` (304). ✅
 
 ## Docs
 - ROADMAP and Phase-5 notes updated. ✅
@@ -93,7 +98,7 @@
 - Ops runbook added at `docs/OPS.md`. ✅
 - Redoc `x-logo.url` fixed to `/api/images/...`. ✅
 - **RBAC user search docs:** Redoc snippet with paged examples, `Authorization` header example, clamping notes, and reference to DB default `core.rbac.user_search.default_per_page`. ✅
-
+- **OpenAPI augmentation:** Runtime injection adds standard `401/403/422` where missing for protected endpoints; covered by tests. ✅
 
 ## Sign-off
 - Security review note includes headers, APP_KEY env-only stance, and route mounting model.

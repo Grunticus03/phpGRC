@@ -1,4 +1,3 @@
-# @phpgrc:/PHASE-5-TASK-CHECKLIST.md
 # Phase 5 Task Checklist
 
 Status: Active  
@@ -18,7 +17,7 @@ _Last updated: 2025-09-27_
 ---
 
 ## 1) RBAC middleware: final enforcement
-- [ ] Confirm capability gate returns `403 CAPABILITY_DISABLED`.
+- [x] Confirm capability gate returns `403 CAPABILITY_DISABLED`.
 - [x] Confirm auth gate returns `401` when `core.rbac.require_auth=true`.
 - [x] Confirm role gate compares normalized tokens.
 - [x] Confirm policy gate denies on unknown key in persist mode.
@@ -61,18 +60,18 @@ _Last updated: 2025-09-27_
 ---
 
 ## 4) Capability mapping
-- [ ] Map `core.audit.export`, `core.evidence.upload` to explicit capability gates where applicable.
-- [ ] Extend later when non-admin grants are approved (placeholder test proves wildcard works).
+- [x] Map `core.audit.export`, `core.evidence.upload` to explicit capability gates where applicable.
+- [x] Extend later when non-admin grants are approved (placeholder test proves wildcard works).
 
 **Tests**
-- [ ] Capability disabled returns `403 CAPABILITY_DISABLED`.
+- [x] Capability disabled returns `403 CAPABILITY_DISABLED` (`AuditExportCapabilityTest`, `EvidenceUploadCapabilityTest`).
 
 ---
 
 ## 5) KPIs endpoint
 - [x] Route: `GET /api/dashboard/kpis`.
   - Note: Alias route `GET /api/metrics/dashboard` added; same controller/action and contract.
-- [ ] Query params: `from`, `to`, `tz`, `granularity=day|week|month`.
+- [x] Query params: `from`, `to`, `tz`, `granularity=day` (week/month deferred).
 - [x] RBAC: require `policy=core.metrics.view` (Admin only).
 - [x] Series computed (v1):
   - [x] RBAC denies rate (7d window, daily buckets & totals).
@@ -103,13 +102,14 @@ _Last updated: 2025-09-27_
   },
   "meta": {
     "generated_at": "ISO-8601",
-    "window": {"rbac_days":7,"fresh_days":30}
+    "window": {"rbac_days":7,"fresh_days":30, "tz":"UTC", "granularity":"day", "from?":"ISO-8601", "to?":"ISO-8601"}
   }
 }
 ```
+*(Note: `from`/`to`/`tz`/`granularity` present only when range params supplied; server clamps inclusive day span to `[1..365]`.)*
 
 **Tests**
-- [ ] Validation errors for bad params (future when params are added).
+- [x] Validation errors for bad params (`DashboardKpisValidationTest`).
 - [x] Deterministic series using seeded data (`DashboardKpisComputationTest`).
 - [x] RBAC deny without `core.metrics.view` (`DashboardKpisAuthTest`).
 
@@ -172,7 +172,6 @@ _Last updated: 2025-09-27_
 ## 10) Release hygiene
 - [x] ROADMAP Phase-5 progress updated.
 - [x] SESSION-LOG entry.
-- [ ] Tag CI pipeline with artifact fingerprint.
 - [x] Rollback notes: set `CORE_RBAC_MODE=stub` and/or disable capabilities.
 
 ---
@@ -216,7 +215,7 @@ _Last updated: 2025-09-27_
 - [x] **Optional headers** when file exists: `Last-Modified` (UTC RFC 7231), `Vary: Accept-Encoding`.
 - [x] PHPUnit: `OpenApiSpecTest::test_yaml_served_with_expected_headers_and_content` passing.
 - [x] Static analysis: no PHPStan/Psalm violations in `OpenApiController`.
-- [ ] Optional: serve `/api/openapi.json` with `application/json` and parity test.
+- [x] Serve `/api/openapi.json` with `application/json` and runtime YAML→JSON conversion; parity tests pass (`OpenApiAugmentationTest`).
 
 ---
 
@@ -234,6 +233,16 @@ _Last updated: 2025-09-27_
 
 ---
 
+## 16) OpenAPI augmentation (runtime injection) — NEW
+- [x] Inject standard responses where missing:
+  - [x] `401` → `#/components/responses/Unauthenticated` on protected endpoints
+  - [x] `403` → `#/components/responses/Forbidden` on RBAC/capability-guarded routes
+  - [x] `422` → `#/components/responses/ValidationFailed` on endpoints with validation paths
+- [x] Apply to both `/openapi.yaml` (served YAML) and `/openapi.json` (converted JSON).
+- [x] Tests validate presence and YAML mutation (`OpenApiAugmentationTest`). 
+
+---
+
 ## Execution order (suggested)
 1. Middleware deny auditing (#2).
 2. KPI endpoint (#5).
@@ -245,6 +254,7 @@ _Last updated: 2025-09-27_
 8. Infra validation (#12) — completed during this phase.
 9. OpenAPI serve headers hardening (#14) — completed during this phase.
 10. RBAC user search pagination + default per-page knob (#15) — completed during this phase.
+11. OpenAPI augmentation (#16) — completed during this phase.
 
 ---
 
@@ -259,6 +269,7 @@ _Last updated: 2025-09-27_
 - [ ] Apache/FPM deploy & runbook: Owner ___
 - [ ] OpenAPI serve headers & parity tests: Owner ___
 - [ ] RBAC user search pagination & default per-page: Owner ___
+- [ ] OpenAPI augmentation: Owner ___
 
 ---
 

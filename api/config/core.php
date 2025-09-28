@@ -116,6 +116,11 @@ return [
         'rbac_denies' => [
             'window_days' => 7,
         ],
+        // Clamp bounds for window parameters and future range computations
+        'window' => [
+            'min_days' => 1,
+            'max_days' => 365,
+        ],
         // Lightweight API throttle for metrics endpoints
         'throttle' => [
             'enabled'        => true,

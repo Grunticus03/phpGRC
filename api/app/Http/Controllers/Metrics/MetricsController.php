@@ -45,7 +45,10 @@ final class MetricsController extends Controller
          *   }
          * } $future
          */
-        $future = $this->parseFutureParams($request, 365);
+        $future = $this->parseFutureParams(
+            $request,
+            $this->effectiveMaxDays()
+        );
 
         if ($future['ok'] === false) {
             return $this->validationError($future['errors'] ?? []);
@@ -124,10 +127,36 @@ final class MetricsController extends Controller
     }
 
     /**
+     * Resolve min/max clamp bounds from config.
+     * @return array{min:int,max:int}
+     */
+    private function clampBounds(): array
+    {
+        $min = $this->cfgInt('core.metrics.window.min_days', 1);
+        if ($min < 1) {
+            $min = 1;
+        }
+        $max = $this->cfgInt('core.metrics.window.max_days', 365);
+        if ($max < $min) {
+            $max = $min;
+        }
+        return ['min' => $min, 'max' => $max];
+    }
+
+    private function effectiveMaxDays(): int
+    {
+        return $this->clampBounds()['max'];
+    }
+
+    /**
      * @param mixed $raw query param (int|string|array<int|string>|null)
      */
     private function parseWindow(mixed $raw, int $fallback): int
     {
+        $bounds = $this->clampBounds();
+        $min = $bounds['min'];
+        $max = $bounds['max'];
+
         /** @var mixed $value */
         $value = is_array($raw) ? Arr::first($raw) : $raw;
 
@@ -139,11 +168,11 @@ final class MetricsController extends Controller
             $n = $fallback;
         }
 
-        if ($n < 1) {
-            return 1;
+        if ($n < $min) {
+            return $min;
         }
-        if ($n > 365) {
-            return 365;
+        if ($n > $max) {
+            return $max;
         }
         return $n;
     }

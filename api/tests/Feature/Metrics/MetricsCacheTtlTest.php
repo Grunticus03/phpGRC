@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Metrics;
 
+use App\Http\Middleware\MetricsThrottle;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Tests\TestCase;
@@ -22,7 +23,12 @@ final class MetricsCacheTtlTest extends TestCase
             'core.metrics.cache_ttl_seconds'    => 2,
             'core.metrics.evidence_freshness.days' => 30,
             'core.metrics.rbac_denies.window_days' => 7,
+            // Disable throttle to avoid 429s in tight CI loops
+            'core.metrics.throttle.enabled'     => false,
         ]);
+
+        // Extra guard in case middleware ignores the flag
+        $this->withoutMiddleware(MetricsThrottle::class);
 
         Cache::store('array')->flush();
     }

@@ -1393,3 +1393,25 @@ SESSION-LOG.md entry
 - Phase/Step status: advance
 - Next action (you): none
 - Next action (me): implement KPI params validation and tests (`from`,`to`,`tz`,`granularity`) with clamping and error envelope.
+
+---
+
+### Session 2025-09-27: Phase 4 — RBAC, Evidence, and OpenAPI Hardening
+- Context: Hardened RBAC with capability gates + deny audits; added audit CSV export; implemented evidence upload/read/list; refined metrics future-window params; augmented OpenAPI serving & spec; aligned routes and config.
+- Goal: CI green with capability/metrics/docs tests passing; Psalm/PHPStan clean; docs updated without exposing internal metrics endpoints.
+- Constraints: Strict types, backward-compatible responses, exact headers (ETag/Cache-Control), no external tooling.
+
+### Closeout
+- Deliverables produced: 
+  - `RbacMiddleware` with capability gate + single deny audit emission
+  - `AuditExportController` CSV streaming (cursor/headers), capability enforced
+  - `EvidenceController` (store/show/index) with filters, cursor paging, ETags, content-disposition, audits
+  - `MetricsController` future-window parsing (`from`/`to`/`tz`/`granularity`) + validation envelope + meta.window
+  - `config/core.php` metrics throttle/cache defaults clarified
+  - `routes/api.php` wired with `roles`/`policy`/`capability` defaults
+  - `OpenApiController` strong ETag + exact `Cache-Control` + Last-Modified + spec augmentation for `401/403/422`
+  - `docs/api/openapi.yaml` v0.4.7 updated with internal metrics param notes
+  - Test suite passing; Psalm/PHPStan issues resolved
+- Phase/Step status: advance
+- Next action (you): add happy-path tests with `require_auth=true` for enabled capabilities; fuzz QS/date/cursor inputs; quick perf check on LIKE/ESCAPE patterns; generate and attach Postman/Insomnia collection from the OpenAPI.
+- Next action (me): confirm production defaults for capability flags; approve/adjust allowed MIME list; provide final branding asset URLs; indicate any additional endpoints to include/exclude from public OpenAPI.
