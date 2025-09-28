@@ -205,6 +205,9 @@
                     },
                     "403": {
                         "$ref": "#/components/responses/Forbidden"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
                     }
                 }
             },
@@ -251,6 +254,9 @@
                     },
                     "422": {
                         "$ref": "#/components/responses/ValidationFailed"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
                     }
                 }
             },
@@ -297,6 +303,9 @@
                     },
                     "422": {
                         "$ref": "#/components/responses/ValidationFailed"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
                     }
                 }
             },
@@ -343,6 +352,9 @@
                     },
                     "422": {
                         "$ref": "#/components/responses/ValidationFailed"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
                     }
                 }
             }
@@ -371,6 +383,9 @@
                     },
                     "403": {
                         "$ref": "#/components/responses/Forbidden"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
                     }
                 }
             },
@@ -420,6 +435,9 @@
                     },
                     "422": {
                         "$ref": "#/components/responses/ValidationFailed"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
                     }
                 }
             }
@@ -463,6 +481,9 @@
                     },
                     "404": {
                         "$ref": "#/components/responses/RbacDisabled"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
                     }
                 }
             },
@@ -519,6 +540,9 @@
                                 }
                             }
                         }
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
                     }
                 }
             }
@@ -589,6 +613,9 @@
                                 }
                             }
                         }
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
                     }
                 }
             },
@@ -598,7 +625,7 @@
                     "RBAC"
                 ],
                 "summary": "Detach a role from a user by name or id",
-                "description": "Idempotently detaches the role from the user.",
+                "description": "Idempotently detaches the role from a user.",
                 "responses": {
                     "200": {
                         "description": "Detached (idempotent)",
@@ -635,6 +662,9 @@
                                 }
                             }
                         }
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
                     }
                 }
             }
@@ -749,6 +779,9 @@
                     },
                     "422": {
                         "$ref": "#/components/responses/ValidationFailed"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
                     }
                 },
                 "x-codeSamples": [
@@ -960,6 +993,9 @@
                     },
                     "403": {
                         "$ref": "#/components/responses/Forbidden"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
                     }
                 }
             }
@@ -1014,6 +1050,9 @@
                     },
                     "403": {
                         "$ref": "#/components/responses/Forbidden"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
                     }
                 }
             }
@@ -1101,6 +1140,9 @@
                     },
                     "403": {
                         "$ref": "#/components/responses/Forbidden"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
                     }
                 }
             }
@@ -1237,6 +1279,9 @@
                     },
                     "403": {
                         "$ref": "#/components/responses/Forbidden"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
                     }
                 }
             },
@@ -1300,6 +1345,9 @@
                     },
                     "422": {
                         "$ref": "#/components/responses/ValidationFailed"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
                     }
                 }
             }
@@ -1367,6 +1415,9 @@
                                 }
                             }
                         }
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
                     }
                 }
             },
@@ -1427,6 +1478,9 @@
                     },
                     "422": {
                         "$ref": "#/components/responses/ValidationFailed"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
                     }
                 }
             }
@@ -1483,6 +1537,9 @@
                     },
                     "422": {
                         "$ref": "#/components/responses/ValidationFailed"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
                     }
                 }
             }
@@ -1521,6 +1578,9 @@
                     },
                     "403": {
                         "$ref": "#/components/responses/Forbidden"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
                     }
                 }
             }
@@ -1570,6 +1630,9 @@
                                 }
                             }
                         }
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
                     }
                 }
             }
@@ -1646,6 +1709,9 @@
                                 }
                             }
                         }
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
                     }
                 }
             }
@@ -2404,6 +2470,25 @@
                         }
                     }
                 }
+            },
+            "RateLimited": {
+                "description": "Rate limited",
+                "headers": {
+                    "Retry-After": {
+                        "description": "Seconds until a new request is allowed.",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        }
+                    }
+                },
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "$ref": "#/components/schemas/RateLimited"
+                        }
+                    }
+                }
             }
         },
         "schemas": {
@@ -2575,6 +2660,30 @@
                         "enum": [
                             "RBAC_DISABLED"
                         ]
+                    }
+                }
+            },
+            "RateLimited": {
+                "type": "object",
+                "required": [
+                    "ok",
+                    "code",
+                    "retry_after_seconds"
+                ],
+                "properties": {
+                    "ok": {
+                        "type": "boolean",
+                        "const": false
+                    },
+                    "code": {
+                        "type": "string",
+                        "enum": [
+                            "RATE_LIMITED"
+                        ]
+                    },
+                    "retry_after_seconds": {
+                        "type": "integer",
+                        "minimum": 1
                     }
                 }
             },
