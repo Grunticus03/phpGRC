@@ -128,11 +128,17 @@ _Last updated: 2025-09-27_
   - [x] Lock event: `auth.login.locked`.
 - [x] Toggle via config for tests.
   - Note: End-to-end tests cover both strategies’ lock path and audit emissions.
+- [x] **Tests done this session**: lock after N; `Retry-After` present; unlock after window; cookie issuance on session strategy.
 
-**Tests**
-- [ ] IP mode: lock after N failures; unlock after window.
-- [ ] Session mode: cookie-based counting; cookie issued on first attempt.
-- [ ] Success resets counters.
+---
+
+## 6a) Generic API rate limiting (new this session)
+- [x] Middleware `GenericRateLimit` implemented (strategies: `user|ip|session`), attach via `Route::defaults(['throttle'=>...])`.
+- [x] Global knobs: `core.api.throttle.enabled|strategy|window_seconds|max_requests`; ENV mapping `CORE_API_THROTTLE_*`; DB overrides supported.
+- [x] Unified 429 JSON envelope in `Exceptions\Handler` with `Retry-After` and `X-RateLimit-*` headers.
+- [x] Replace legacy `MetricsThrottle` on metrics routes; keep `/auth/login` on `BruteForceGuard`.
+- [x] OpenAPI: `components.responses.RateLimited` and 429 references added to throttled endpoints.
+- [x] Tests verify headers on 200/429 and body shape on 429.
 
 ---
 
@@ -156,6 +162,7 @@ _Last updated: 2025-09-27_
 - [x] Add `docs/OPS.md` runbook.
   - Note: Added Apache vhost guidance, FPM handoff, and `/api` Alias/Rewrite notes.
 - [x] OpenAPI: `x-logo.url` corrected to `/api/images/...`; `servers: [{url:"/api"}]` documented.
+- [x] **New docs (this session)**: 429 error schema + headers; Redoc `security` array shape gotcha.
 
 ---
 
@@ -166,6 +173,7 @@ _Last updated: 2025-09-27_
 - [x] Psalm: no new issues.
 - [x] PHPUnit: all suites green.
 - **Note:** Spec component `SettingsChange` is currently unused; harmless placeholder for upcoming settings audit (`meta.changes[]`). CI uses Redocly lint; Spectral allowlisting is not required.
+- [x] **Added**: 429 `RateLimited` response and header docs validated by lint & UI render.
 
 ---
 
@@ -173,6 +181,7 @@ _Last updated: 2025-09-27_
 - [x] ROADMAP Phase-5 progress updated.
 - [x] SESSION-LOG entry.
 - [x] Rollback notes: set `CORE_RBAC_MODE=stub` and/or disable capabilities.
+- [x] **Rate limiting rollback**: `CORE_API_THROTTLE_ENABLED=false` restores previous behavior; `/auth/login` brute-force guard remains independent.
 
 ---
 
@@ -187,6 +196,7 @@ _Last updated: 2025-09-27_
 - [x] Frontend: Admin Settings uses `GET /api/admin/settings` and `PUT /api/admin/settings`; tests updated from POST→PUT.
 - [x] Tests: persistence suite (`SettingsPersistenceTest`) covers set/unset/partial updates; validation tests updated.
   - Note: No default seeds in DB by design; DB is system of record for settings (except DB connection).
+- [x] **Added**: Persistable API throttle knobs (`core.api.throttle.*`).
 
 ---
 
@@ -206,6 +216,7 @@ _Last updated: 2025-09-27_
 - [x] RBAC `require_auth` flag behavior validated behind Apache.
 - [x] Redoc logo loads from `/api/images/...`.
 - [x] Admin nav + Admin index link “API Docs” to `/api/docs`; no embedded Redoc in SPA.
+- [x] **New**: Rate-limited routes return 429 envelope + headers; Redoc page renders without `security.map` error.
 
 ---
 
@@ -216,6 +227,7 @@ _Last updated: 2025-09-27_
 - [x] PHPUnit: `OpenApiSpecTest::test_yaml_served_with_expected_headers_and_content` passing.
 - [x] Static analysis: no PHPStan/Psalm violations in `OpenApiController`.
 - [x] Serve `/api/openapi.json` with `application/json` and runtime YAML→JSON conversion; parity tests pass (`OpenApiAugmentationTest`).
+- [x] **Added**: Ensure top-level `security` is an array to keep Redoc happy.
 
 ---
 
@@ -240,6 +252,7 @@ _Last updated: 2025-09-27_
   - [x] `422` → `#/components/responses/ValidationFailed` on endpoints with validation paths
 - [x] Apply to both `/openapi.yaml` (served YAML) and `/openapi.json` (converted JSON).
 - [x] Tests validate presence and YAML mutation (`OpenApiAugmentationTest`). 
+- [x] **Added**: `429` → `#/components/responses/RateLimited` on throttled endpoints.
 
 ---
 
@@ -255,6 +268,7 @@ _Last updated: 2025-09-27_
 9. OpenAPI serve headers hardening (#14) — completed during this phase.
 10. RBAC user search pagination + default per-page knob (#15) — completed during this phase.
 11. OpenAPI augmentation (#16) — completed during this phase.
+12. **Generic API rate limiting & 429 normalization** — completed during this session.
 
 ---
 
@@ -270,6 +284,7 @@ _Last updated: 2025-09-27_
 - [ ] OpenAPI serve headers & parity tests: Owner ___
 - [ ] RBAC user search pagination & default per-page: Owner ___
 - [ ] OpenAPI augmentation: Owner ___
+- [ ]**Added**: Exception normalization & 429 documentation: Owner ___
 
 ---
 

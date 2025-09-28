@@ -8,6 +8,8 @@
   - `openapi-diff` against 0.4.6: no breaking changes unless approved
   - **Redocly lint**: ✅
   - **Spec augmentation (additive)**: inject standard `401/403/422` responses where appropriate; JSON/YAML parity verified via tests. ✅
+  - **Additive 429**: `components.responses.RateLimited` added and referenced on throttled endpoints; headers documented (`Retry-After`, `X-RateLimit-Limit`, `X-RateLimit-Remaining`). ✅
+  - **Redoc compatibility**: top-level `security` guaranteed to be an array (e.g., `[]`) to avoid `.map` crash. ✅
 
 **Required branch-protection checks (names)**
 - `OpenAPI lint`
@@ -26,11 +28,12 @@
   - `window_seconds`, `max_attempts` (default 900s, 5)
   - Session cookie drops on first attempt.
   - Lock emits configured status (default 429) with `Retry-After`; audited as `auth.bruteforce.locked`.
-- **RBAC user search**:
-  - `/api/rbac/users/search` paginates with `page` and `per_page`; ordered by `id` ascending for stable results. ✅
-  - Server clamps `per_page` to `[1..500]`. ✅
-  - Default `per_page` comes from DB setting `core.rbac.user_search.default_per_page` (range 1–500, default 50). Admin Settings GUI knob added. ✅
-  - Note: If any consumer still assumes unpaged search, keep item and fix in follow-up; current UI adopts paging. (left for traceability)
+- **Clarification (actual actions emitted)**: `auth.login.failed` on attempt; `auth.login.locked` on lock. ✅
+- **Generic API rate limiting (new this session)**: ✅
+  - Middleware `App\Http\Middleware\GenericRateLimit` added (strategies: `user|ip|session`) with per-route defaults via `Route::defaults(['throttle'=>...])`.
+  - Global knobs: `core.api.throttle.enabled|strategy|window_seconds|max_requests` with ENV mapping (`CORE_API_THROTTLE_*`). DB overrides supported.
+  - `/auth/login` remains on `BruteForceGuard`; other routes can opt into GenericRateLimit.
+  - Unified 429 JSON envelope via `Exceptions\Handler`: `{ ok:false, code:"RATE_LIMITED", retry_after:int }` + headers.
 
 ## Audit
 - Emit `RBAC` denies with canonical actions:
@@ -41,6 +44,7 @@
   - `null` when unauthenticated or auth fails.
   - user id on success.
 - UI label mapping for `rbac.deny.*` integrated via `web/src/lib/audit/actionInfo.ts` with tests. ✅
+- **Rate-limit audits**: lock path recorded; tests updated to assert single lock + prior failed attempts. ✅
 
 ## Dashboards
 - Implement 2 KPIs first: Evidence freshness, RBAC denies rate. ✅
@@ -56,6 +60,7 @@
 - Frontend: adjustable windows wired to query. ✅
 - Frontend: sparkline for daily RBAC denies series rendered in the card. ✅
 - **Alias route:** `GET /api/metrics/dashboard` returns identical shape to `/api/dashboard/kpis`. ✅
+- **Note**: Legacy `MetricsThrottle` replaced on metrics routes by `GenericRateLimit`; metrics knob may be disabled. ✅
 
 ## Evidence & Exports (smoke)
 - Evidence upload tests for allowed MIME and size (per Phase-4 contract).
@@ -64,6 +69,7 @@
   - **Headers:** `Content-Type: text/csv` (exact, no charset), `X-Content-Type-Options: nosniff`, `Cache-Control: no-store, max-age=0`. ✅
 - Capability gates covered by feature tests:
   - `AuditExportCapabilityTest` and `EvidenceUploadCapabilityTest` validate `403 CAPABILITY_DISABLED` + single deny audit. ✅
+- **Throttling docs**: endpoints that opt into GenericRateLimit reference 429 in OpenAPI; budgets documented. ✅
 
 ## Config + Ops
 - Runtime reads use config. `.env` only at bootstrap.
@@ -75,6 +81,7 @@
 - After deploys: `php artisan config:clear && php artisan route:clear`.
 - **New DB-backed knob:** `core.rbac.user_search.default_per_page` (int, 1–500, default 50). ✅
   - Set desired prod default; server still clamps to `[1..500]`. ✅
+- **New API throttle knobs (global)**: `core.api.throttle.enabled|strategy|window_seconds|max_requests` + ENV mapping. ✅
 
 ## QA (manual)
 - Admin, Auditor, unassigned user: verify access matrix.
@@ -88,6 +95,10 @@
   - Paging is stable by `id` and `meta.total`/`total_pages` update accordingly.
   - Admin Settings knob persists and survives reload.
 - **OpenAPI endpoints:** Verify `/api/openapi.yaml` and `/api/openapi.json` return strong ETag, `no-store`, `nosniff`, optional `Last-Modified`, and honor `If-None-Match` (304). ✅
+- **Rate limiting manual checks:** ✅
+  - Trigger 429 on a throttled route; body matches `{ ok:false, code:"RATE_LIMITED", retry_after }` and headers set.
+  - Verify `X-RateLimit-*` headers on 200 and 429.
+  - `/auth/login` lock path returns `AUTH_LOCKED` with `Retry-After` and sets/reads session cookie when strategy=`session`.
 
 ## Docs
 - ROADMAP and Phase-5 notes updated. ✅
@@ -99,8 +110,10 @@
 - Redoc `x-logo.url` fixed to `/api/images/...`. ✅
 - **RBAC user search docs:** Redoc snippet with paged examples, `Authorization` header example, clamping notes, and reference to DB default `core.rbac.user_search.default_per_page`. ✅
 - **OpenAPI augmentation:** Runtime injection adds standard `401/403/422` where missing for protected endpoints; covered by tests. ✅
+- **Rate limiting docs:** 429 response shape and headers documented; Redoc rendering fix (top-level `security` as array) noted. ✅
 
 ## Sign-off
 - Security review note includes headers, APP_KEY env-only stance, and route mounting model.
 - Release notes updated.
 - **RBAC user search default-per-page** validated in API, UI, and tests. ✅
+- **Rate limiting** unified across app via `GenericRateLimit` + exception normalization; tests updated. ✅

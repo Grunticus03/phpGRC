@@ -1415,3 +1415,22 @@ SESSION-LOG.md entry
 - Phase/Step status: advance
 - Next action (you): add happy-path tests with `require_auth=true` for enabled capabilities; fuzz QS/date/cursor inputs; quick perf check on LIKE/ESCAPE patterns; generate and attach Postman/Insomnia collection from the OpenAPI.
 - Next action (me): confirm production defaults for capability flags; approve/adjust allowed MIME list; provide final branding asset URLs; indicate any additional endpoints to include/exclude from public OpenAPI.
+
+---
+
+### Session 2025-09-27: [Phase 4, Rate limiting + OpenAPI + tests]
+- Context: Unified rate limiting, 429 envelope, ReDoc load fix, and test updates.
+- Goal: Implement reusable throttle knobs, normalize 429 responses, make /docs render, and get CI green.
+- Constraints: Maintain existing RBAC and capability behavior; no public metrics endpoints in OpenAPI.
+
+### Closeout
+- Deliverables produced:
+  - GenericRateLimit middleware with per-route defaults and global `core.api.throttle.*` knobs.
+  - BruteForceGuard tightened and typed; consistent 429 JSON on lock with Retry-After.
+  - Exceptions\Handler normalizes TooManyRequests to `{ ok:false, code:RATE_LIMITED, retry_after:int }`.
+  - Updated PHPUnit: `BruteForceGuardTest`, `BruteforceRateLimitTest` to assert new 429 envelope and headers.
+  - ReDoc fix: `/api/docs` now serves `/api/openapi.json` to avoid YAML+3.1 parsing issue.
+  - OpenAPI: 429 response documented on throttled endpoints; security scheme unchanged.
+- Phase/Step status: advance
+- Next action (you): run the “auth-on” sweep (`core.rbac.require_auth=true`) and post failures; identify endpoints to receive route-local throttle defaults.
+- Next action (me): review failures and propose minimal diffs; add rate-limit guidance and prod knob table; prep public-OpenAPI prune checklist and changelog entries.
