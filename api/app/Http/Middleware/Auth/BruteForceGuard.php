@@ -10,8 +10,9 @@ use Illuminate\Contracts\Cache\Repository as CacheRepository;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Schema;
-use Illuminate\Support\Str;
+use Symfony\Component\HttpFoundation\Cookie;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpKernel\Exception\TooManyRequestsHttpException;
 
 final class BruteForceGuard
 {
@@ -32,53 +33,19 @@ final class BruteForceGuard
         $windowSeconds = max(1, $this->cfgInt('core.auth.bruteforce.window_seconds', 900));
         $maxAttempts   = max(1, $this->cfgInt('core.auth.bruteforce.max_attempts', 5));
         $lockStatus    = $this->cfgInt('core.auth.bruteforce.lock_http_status', 429);
-        $cookieName    = $this->cfgString('core.auth.session_cookie.name', 'phpgrc_auth_attempt');
+
+        /** @var mixed $cookieNameCfg */
+        $cookieNameCfg = config('core.auth.session_cookie.name');
+        $cookieName    = is_string($cookieNameCfg) && $cookieNameCfg !== '' ? $cookieNameCfg : 'phpgrc_auth_attempt';
 
         $now = CarbonImmutable::now('UTC')->getTimestamp();
 
-        /** @var string|null $subject */
-        $subject = null;
         /** @var string|null $setCookieValue */
         $setCookieValue = null;
+        /** @var string $subject */
+        $subject = $this->resolveSubject($request, $strategy, $cookieName, $setCookieValue);
 
-        if ($strategy === 'ip') {
-            $ip = $request->ip();
-            $subject = is_string($ip) && $ip !== '' ? $ip : '0.0.0.0';
-        } else {
-            // Try to read existing cookie.
-            /** @var mixed $existing */
-            $existing = $request->cookie($cookieName);
-            if (!is_string($existing) || $existing === '') {
-                /** @var mixed $alt */
-                $alt = $request->cookies->get($cookieName);
-                $existing = is_string($alt) ? $alt : '';
-            }
-            if ($existing === '') {
-                $raw = (string) $request->headers->get('Cookie', '');
-                if ($raw !== '') {
-                    $pattern = '/(?:^|;\s*)' . preg_quote($cookieName, '/') . '=([^;]+)/';
-                    if (preg_match($pattern, $raw, $m) === 1) {
-                        $val = urldecode($m[1]);
-                        if ($val !== '') {
-                            $existing = $val;
-                        }
-                    }
-                }
-            }
-
-            if ($existing !== '') {
-                $subject = $existing;
-            } else {
-                // Deterministic fallback: use IP so attempts aggregate before the cookie exists.
-                $ip = $request->ip();
-                $subject = is_string($ip) && $ip !== '' ? $ip : '0.0.0.0';
-                $setCookieValue = $subject; // set for next requests too
-                // Also reflect into current request so downstream can read it if needed.
-                $request->cookies->set($cookieName, $subject);
-            }
-        }
-
-        $cache   = $this->cacheRepo();
+        $cache    = $this->cacheRepo();
         $cacheKey = "auth_bf:{$strategy}:{$subject}";
 
         /** @var array{first:int,count:int}|null $state */
@@ -99,7 +66,10 @@ final class BruteForceGuard
         $cache->put($cacheKey, $state, $windowSeconds);
 
         if ($state['count'] >= $maxAttempts) {
-            $retryAfter = max(1, $windowSeconds - ($now - $state['first']));
+            $retryAfter = $windowSeconds - ($now - $state['first']);
+            if ($retryAfter < 1) {
+                $retryAfter = 1;
+            }
 
             $this->auditAuth('auth.login.locked', $request, [
                 'strategy'       => $strategy,
@@ -107,28 +77,14 @@ final class BruteForceGuard
                 'window_seconds' => $windowSeconds,
             ]);
 
-            $resp = response()->json([
-                'ok'          => false,
-                'code'        => 'AUTH_LOCKED',
-                'strategy'    => $strategy,
-                'retry_after' => $retryAfter,
-            ], $lockStatus)->withHeaders(['Retry-After' => (string) $retryAfter]);
+            $ex = new TooManyRequestsHttpException($retryAfter, 'Too Many Requests', previous: null, code: $lockStatus);
+            $ex->setHeaders([
+                'Retry-After' => (string) $retryAfter,
+                'X-RateLimit-Limit' => (string) $maxAttempts,
+                'X-RateLimit-Remaining' => '0',
+            ]);
 
-            if ($setCookieValue !== null) {
-                $resp->withCookie(cookie(
-                    $cookieName,
-                    $setCookieValue,
-                    max(1, (int) ceil($windowSeconds / 60)),
-                    '/',
-                    null,
-                    (bool) config('session.secure', false),
-                    true,
-                    false,
-                    'lax'
-                ));
-            }
-
-            return $resp;
+            throw $ex;
         }
 
         // Not locked
@@ -142,20 +98,63 @@ final class BruteForceGuard
         $resp = $next($request);
 
         if ($setCookieValue !== null) {
-            $resp->headers->setCookie(cookie(
-                $cookieName,
-                $setCookieValue,
-                max(1, (int) ceil($windowSeconds / 60)),
-                '/',
-                null,
-                (bool) config('session.secure', false),
-                true,
-                false,
-                'lax'
+            $expire = time() + $windowSeconds; // int
+            $resp->headers->setCookie(new Cookie(
+                $cookieName,                 // name
+                $setCookieValue,             // value
+                $expire,                     // expiresAt
+                '/',                         // path
+                null,                        // domain
+                (bool) config('session.secure', false), // secure
+                true,                        // httpOnly
+                false,                       // raw
+                'lax'                        // sameSite
             ));
         }
 
         return $resp;
+    }
+
+    /**
+     * @param-out string|null $setCookieValue
+     */
+    private function resolveSubject(Request $request, string $strategy, string $cookieName, ?string &$setCookieValue): string
+    {
+        $setCookieValue = null;
+
+        if ($strategy === 'ip') {
+            $ip = $request->ip();
+            return is_string($ip) && $ip !== '' ? $ip : '0.0.0.0';
+        }
+
+        $existing = $request->cookie($cookieName);
+        if (!is_string($existing) || $existing === '') {
+            $alt = $request->cookies->get($cookieName);
+            $existing = is_string($alt) ? $alt : '';
+        }
+        if ($existing === '') {
+            $cookieHeader = $request->headers->get('Cookie', '');
+            $raw = is_string($cookieHeader) ? $cookieHeader : '';
+            if ($raw !== '') {
+                $pattern = '/(?:^|;\s*)' . preg_quote($cookieName, '/') . '=([^;]+)/';
+                if (preg_match($pattern, $raw, $m) === 1) {
+                    $val = urldecode($m[1]);
+                    if ($val !== '') {
+                        $existing = $val;
+                    }
+                }
+            }
+        }
+
+        if ($existing !== '') {
+            return $existing;
+        }
+
+        $ip = $request->ip();
+        $subject = is_string($ip) && $ip !== '' ? $ip : '0.0.0.0';
+        $setCookieValue = $subject;
+        $request->cookies->set($cookieName, $subject);
+        return $subject;
     }
 
     /**
@@ -185,7 +184,7 @@ final class BruteForceGuard
     }
 
     /**
-     * Prefer a persistent store during tests; gracefully avoid DB store if table missing.
+     * Prefer a persistent store during tests; avoid DB store if table missing.
      */
     private function cacheRepo(): CacheRepository
     {
@@ -218,10 +217,8 @@ final class BruteForceGuard
         /** @var mixed $v */
         $v = config($key, $default);
         if (!is_string($v) || $v === '') {
-            /** @var non-empty-string $default */
             return $default;
         }
-        /** @var non-empty-string $v */
         return $v;
     }
 
@@ -232,10 +229,9 @@ final class BruteForceGuard
         if (is_int($v)) {
             return $v;
         }
-        if (is_string($v) && ctype_digit($v)) {
+        if (is_string($v) && $v !== '' && ctype_digit($v)) {
             return (int) $v;
         }
         return $default;
     }
 }
-

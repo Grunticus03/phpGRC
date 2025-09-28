@@ -15,6 +15,8 @@ final class BruteForceGuardTest extends TestCase
 
     public function test_session_strategy_locks_after_max_attempts(): void
     {
+        $this->withExceptionHandling();
+
         config([
             'cache.default'                         => 'file',
             'core.audit.enabled'                    => true,
@@ -42,7 +44,9 @@ final class BruteForceGuardTest extends TestCase
 
         // 3) Third attempt must lock
         $r3 = $this->withCookie($name, $cookieVal)->postJson('/auth/login');
-        $r3->assertStatus(429)->assertJson(['ok' => false, 'code' => 'AUTH_LOCKED']);
+        $r3->assertStatus(429);
+        $retryHeader = (string) ($r3->headers->get('Retry-After') ?? '0');
+        $this->assertNotSame('0', $retryHeader);
 
         $locked = AuditEvent::query()
             ->where('category', 'AUTH')
@@ -59,6 +63,8 @@ final class BruteForceGuardTest extends TestCase
 
     public function test_ip_strategy_locks_after_max_attempts(): void
     {
+        $this->withExceptionHandling();
+
         config([
             'cache.default'                         => 'file',
             'core.audit.enabled'                    => true,
@@ -74,7 +80,9 @@ final class BruteForceGuardTest extends TestCase
         $this->postJson('/auth/login')->assertOk();
 
         $r2 = $this->postJson('/auth/login');
-        $r2->assertStatus(429)->assertJson(['ok' => false, 'code' => 'AUTH_LOCKED']);
+        $r2->assertStatus(429);
+        $retryHeader = (string) ($r2->headers->get('Retry-After') ?? '0');
+        $this->assertNotSame('0', $retryHeader);
 
         $locked = AuditEvent::query()
             ->where('category', 'AUTH')
@@ -99,4 +107,3 @@ final class BruteForceGuardTest extends TestCase
         return null;
     }
 }
-

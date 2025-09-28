@@ -139,6 +139,8 @@ paths:
           $ref: '#/components/responses/Unauthenticated'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
     post: &SettingsUpdateOp
       operationId: settingsUpdate
       tags: [Settings]
@@ -165,6 +167,8 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '422':
           $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/RateLimited'
     put:
       <<: *SettingsUpdateOp
       operationId: settingsReplace
@@ -189,6 +193,8 @@ paths:
           $ref: '#/components/responses/Unauthenticated'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
     post:
       operationId: rbacRolesCreate
       tags: [RBAC]
@@ -219,6 +225,8 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '422':
           $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/RateLimited'
 
   /rbac/users/{user}/roles:
     parameters:
@@ -247,6 +255,8 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/RbacDisabled'
+        '429':
+          $ref: '#/components/responses/RateLimited'
     put:
       operationId: userRolesReplace
       tags: [RBAC]
@@ -279,6 +289,8 @@ paths:
                 oneOf:
                   - $ref: '#/components/schemas/ValidationFailed'
                   - $ref: '#/components/schemas/RoleNotFoundError'
+        '429':
+          $ref: '#/components/responses/RateLimited'
 
   /rbac/users/{user}/roles/{role}:
     parameters:
@@ -324,11 +336,13 @@ paths:
                 oneOf:
                   - $ref: '#/components/schemas/RoleNotFoundError'
                   - $ref: '#/components/schemas/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/RateLimited'
     delete:
       operationId: userRoleDetach
       tags: [RBAC]
       summary: Detach a role from a user by name or id
-      description: Idempotently detaches the role from the user.
+      description: Idempotently detaches the role from a user.
       responses:
         '200':
           description: Detached (idempotent)
@@ -350,6 +364,8 @@ paths:
                 oneOf:
                   - $ref: '#/components/schemas/RoleNotFoundError'
                   - $ref: '#/components/schemas/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/RateLimited'
 
   /rbac/users/search:
     get:
@@ -420,6 +436,8 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '422':
           $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/RateLimited'
       x-codeSamples:
         - lang: cURL
           label: curl
@@ -532,6 +550,8 @@ paths:
           $ref: '#/components/responses/Unauthenticated'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
 
   /audit/categories:
     get:
@@ -560,6 +580,8 @@ paths:
           $ref: '#/components/responses/Unauthenticated'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
 
   /audit/export.csv:
     get:
@@ -612,6 +634,8 @@ paths:
           $ref: '#/components/responses/Unauthenticated'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
 
   /evidence:
     get:
@@ -695,6 +719,8 @@ paths:
           $ref: '#/components/responses/Unauthenticated'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
     post:
       operationId: evidenceUpload
       tags: [Evidence]
@@ -736,6 +762,8 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '422':
           $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/RateLimited'
 
   /evidence/{id}:
     parameters:
@@ -779,6 +807,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorSimple'
+        '429':
+          $ref: '#/components/responses/RateLimited'
     head:
       operationId: evidenceHead
       tags: [Evidence]
@@ -817,6 +847,8 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '422':
           $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/RateLimited'
 
   /exports/{type}:
     post:
@@ -850,6 +882,8 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '422':
           $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/RateLimited'
 
   /exports/{jobId}/status:
     get:
@@ -874,6 +908,8 @@ paths:
           $ref: '#/components/responses/Unauthenticated'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
 
   /exports/{jobId}/download:
     get:
@@ -905,6 +941,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorSimple'
+        '429':
+          $ref: '#/components/responses/RateLimited'
 
   /avatar:
     post:
@@ -951,6 +989,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorSimple'
+        '429':
+          $ref: '#/components/responses/RateLimited'
 
   /avatar/{user}:
     parameters:
@@ -1431,6 +1471,18 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/RbacDisabledError'
+    RateLimited:
+      description: Rate limited
+      headers:
+        Retry-After:
+          description: Seconds until a new request is allowed.
+          schema:
+            type: integer
+            minimum: 1
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/RateLimited'
 
   schemas:
     Ok:
@@ -1527,6 +1579,20 @@ components:
         code:
           type: string
           enum: [RBAC_DISABLED]
+
+    RateLimited:
+      type: object
+      required: [ok, code, retry_after_seconds]
+      properties:
+        ok:
+          type: boolean
+          const: false
+        code:
+          type: string
+          enum: [RATE_LIMITED]
+        retry_after_seconds:
+          type: integer
+          minimum: 1
 
     RoleListResponse:
       type: object
@@ -2148,3 +2214,4 @@ components:
         password_confirmation:
           type: string
           minLength: 8
+

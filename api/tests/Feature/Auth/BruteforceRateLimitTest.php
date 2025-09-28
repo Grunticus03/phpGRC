@@ -18,14 +18,16 @@ final class BruteforceRateLimitTest extends TestCase
     {
         parent::setUp();
 
+        $this->withExceptionHandling();
+
         config([
-            'core.audit.enabled'                 => true,
-            'core.auth.bruteforce.enabled'       => true,
-            'core.auth.bruteforce.max_attempts'  => 3,
-            'core.auth.bruteforce.window_seconds'=> 5,
-            'core.auth.bruteforce.lock_http_status'=> 429,
-            'core.auth.bruteforce.strategy'      => 'session',
-            'core.auth.session_cookie.name'      => 'phpgrc_auth_attempt',
+            'core.audit.enabled'                    => true,
+            'core.auth.bruteforce.enabled'          => true,
+            'core.auth.bruteforce.max_attempts'     => 3,
+            'core.auth.bruteforce.window_seconds'   => 5,
+            'core.auth.bruteforce.lock_http_status' => 429,
+            'core.auth.bruteforce.strategy'         => 'session',
+            'core.auth.session_cookie.name'         => 'phpgrc_auth_attempt',
         ]);
 
         Cache::store('array')->flush();
@@ -41,16 +43,11 @@ final class BruteforceRateLimitTest extends TestCase
         $t0 = CarbonImmutable::create(2025, 9, 25, 6, 0, 0, 'UTC');
         CarbonImmutable::setTestNow($t0);
 
-        $r1 = $this->withCookie($cookieName, $cookieVal)->postJson('/auth/login', []);
-        $r1->assertStatus(200);
-
-        $r2 = $this->withCookie($cookieName, $cookieVal)->postJson('/auth/login', []);
-        $r2->assertStatus(200);
+        $this->withCookie($cookieName, $cookieVal)->postJson('/auth/login', [])->assertStatus(200);
+        $this->withCookie($cookieName, $cookieVal)->postJson('/auth/login', [])->assertStatus(200);
 
         $r3 = $this->withCookie($cookieName, $cookieVal)->postJson('/auth/login', []);
-        $r3->assertStatus(429)
-           ->assertJson(['ok' => false, 'code' => 'AUTH_LOCKED']);
-
+        $r3->assertStatus(429);
         $retryHeader = $r3->headers->get('Retry-After'); // ?string
         $retry = (int) ($retryHeader ?? '0');
         $this->assertGreaterThanOrEqual(1, $retry);
@@ -62,8 +59,7 @@ final class BruteforceRateLimitTest extends TestCase
         $this->assertSame(1, $locked);
 
         CarbonImmutable::setTestNow($t0->addSeconds(6));
-        $r4 = $this->withCookie($cookieName, $cookieVal)->postJson('/auth/login', []);
-        $r4->assertStatus(200);
+        $this->withCookie($cookieName, $cookieVal)->postJson('/auth/login', [])->assertStatus(200);
     }
 
     public function test_ip_strategy_counts_per_ip_and_uses_retry_after(): void
@@ -89,4 +85,3 @@ final class BruteforceRateLimitTest extends TestCase
         $this->withServerVariables($ip1)->postJson('/auth/login', [])->assertStatus(200);
     }
 }
-

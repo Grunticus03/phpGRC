@@ -6,6 +6,7 @@ namespace App\Http;
 
 use App\Http\Middleware\AuthRequired;
 use App\Http\Middleware\BreakGlassGuard;
+use App\Http\Middleware\GenericRateLimit;
 use App\Http\Middleware\MetricsThrottle;
 use Illuminate\Foundation\Http\Kernel as HttpKernel;
 
@@ -15,5 +16,7 @@ final class Kernel extends HttpKernel
         'auth.required'     => AuthRequired::class,
         'breakglass.guard'  => BreakGlassGuard::class,
         'metrics.throttle'  => MetricsThrottle::class,
+        'limit'             => GenericRateLimit::class,
     ];
 }
+

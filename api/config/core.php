@@ -129,6 +129,16 @@ return [
         ],
     ],
 
+    // General API throttle (reusable)
+    'api' => [
+        'throttle' => [
+            'enabled'        => false,
+            'strategy'       => 'ip',   // ip|session|user
+            'window_seconds' => 60,
+            'max_requests'   => 30,
+        ],
+    ],
+
     'evidence' => [
         'enabled'      => true,
         'max_mb'       => 25,

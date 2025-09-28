@@ -11,6 +11,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Schema;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpKernel\Exception\TooManyRequestsHttpException;
 
 final class MetricsThrottle
 {
@@ -58,15 +59,13 @@ final class MetricsThrottle
 
         if ($state['count'] > $limit) {
             $retryAfter = max(1, $window - ($now - $state['first']));
-            return response()->json([
-                'ok'          => false,
-                'code'        => 'RATE_LIMITED',
-                'retry_after' => $retryAfter,
-            ], 429)->withHeaders([
-                'Retry-After'         => (string) $retryAfter,
-                'X-RateLimit-Limit'   => (string) $limit,
+            $ex = new TooManyRequestsHttpException($retryAfter, 'Too Many Requests');
+            $ex->setHeaders([
+                'Retry-After' => (string) $retryAfter,
+                'X-RateLimit-Limit' => (string) $limit,
                 'X-RateLimit-Remaining' => '0',
             ]);
+            throw $ex;
         }
 
         /** @var Response $resp */
@@ -109,3 +108,4 @@ final class MetricsThrottle
         return $default;
     }
 }
+
