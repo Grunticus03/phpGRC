@@ -34,11 +34,11 @@ return [
 
         // Brute-force guard knobs
         'bruteforce' => [
-            'enabled'         => true,
-            'strategy'        => 'session', // 'session' | 'ip'
-            'window_seconds'  => 900,
-            'max_attempts'    => 5,
-            'lock_http_status'=> 429,
+            'enabled'          => true,
+            'strategy'         => 'session', // 'session' | 'ip'
+            'window_seconds'   => 900,
+            'max_attempts'     => 5,
+            'lock_http_status' => 429,
         ],
 
         // Cookie used by session strategy
@@ -121,21 +121,21 @@ return [
             'min_days' => 1,
             'max_days' => 365,
         ],
-        // Lightweight API throttle for metrics endpoints
+        // Deprecated: replaced by GenericRateLimit per-route in Phase 5
         'throttle' => [
-            'enabled'        => true,
+            'enabled'        => false,
             'per_minute'     => 30,
             'window_seconds' => 60,
         ],
     ],
 
-    // General API throttle (reusable)
+    // General API throttle (reusable) — defaults may be overridden by DB core_settings
     'api' => [
         'throttle' => [
-            'enabled'        => false,
-            'strategy'       => 'ip',   // ip|session|user
-            'window_seconds' => 60,
-            'max_requests'   => 30,
+            'enabled'        => env('CORE_API_THROTTLE_ENABLED', false),
+            'strategy'       => env('CORE_API_THROTTLE_STRATEGY', 'ip'),   // ip|session|user
+            'window_seconds' => (int) env('CORE_API_THROTTLE_WINDOW_SECONDS', 60),
+            'max_requests'   => (int) env('CORE_API_THROTTLE_MAX_REQUESTS', 30),
         ],
     ],
 

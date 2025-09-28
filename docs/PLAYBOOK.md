@@ -1,4 +1,3 @@
-# @phpgrc:/PLAYBOOK.md
 # phpGRC Playbook
 
 The Playbook defines **how work is conducted** in phpGRC.  
@@ -98,6 +97,11 @@ It is binding on all sessions, files, commits, and releases.
   - Route/cache clear on deploy: `php artisan config:clear && route:clear && route:cache`.
 - **Add (Cache in tests):** Default to `file` to avoid DB cache table errors unless a cache table migration is present.
 - **Docs endpoint headers:** Do not strip `ETag`; preserve `Cache-Control: no-store, max-age=0`; set `X-Content-Type-Options: nosniff`; pass through `Last-Modified` when present.
+- **Add (Rate limiting knobs for load tests):** Disable globally via DB:
+  ```json
+  { "core": { "api": { "throttle": { "enabled": false } } } }
+  ```
+  Or set ENV defaults (`CORE_API_THROTTLE_ENABLED=false`) for ephemeral runs. Clear config cache after deploy.
 
 ---
 
@@ -106,6 +110,7 @@ It is binding on all sessions, files, commits, and releases.
 - **Frontend:** Vitest + Testing Library. Avoid brittle text selectors; prefer roles/labels.  
 - **Data:** Seed minimal rows for dashboards and audits.  
 - **Add:** When settings move from `.env` → DB, update tests to assert **DB overrides** and remove `.env` coupling.
+- **Add:** Rate limit tests assert headers on 200 and 429 and precedence of route defaults over global.
 
 ---
 
@@ -126,3 +131,4 @@ It is binding on all sessions, files, commits, and releases.
 ## Out of Scope (kept for visibility)
 - **Lower PHPStan levels:** not permitted.  
 - **Direct `.env` toggles for runtime behavior:** moved to DB persistence.
+

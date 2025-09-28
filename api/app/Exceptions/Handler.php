@@ -30,7 +30,7 @@ final class Handler extends ExceptionHandler
     }
 
     /**
-     * Normalize 429 to { ok:false, code:"RATE_LIMITED", retry_after_seconds:int }.
+     * Normalize 429 to { ok:false, code:"RATE_LIMITED", retry_after:int }.
      */
     #[\Override]
     public function render($request, Throwable $e): Response
@@ -61,10 +61,11 @@ final class Handler extends ExceptionHandler
             return new JsonResponse([
                 'ok' => false,
                 'code' => 'RATE_LIMITED',
-                'retry_after_seconds' => $retryAfter,
+                'retry_after' => $retryAfter,
             ], 429, $headers);
         }
 
         return parent::render($request, $e);
     }
 }
+

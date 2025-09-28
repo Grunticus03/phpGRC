@@ -231,6 +231,28 @@ Content-Type: application/zip
 ```
 
 ---
+
+## Operational note (additive): API rate limiting knobs (Core settings)
+> Managed via Core settings in DB. ENV keys set **defaults** only.
+- Keys:
+  - `core.api.throttle.enabled` — boolean
+  - `core.api.throttle.strategy` — `"ip" | "session" | "user"`
+  - `core.api.throttle.window_seconds` — integer ≥ 1
+  - `core.api.throttle.max_requests` — integer ≥ 1
+- ENV defaults:
+  - `CORE_API_THROTTLE_ENABLED`, `CORE_API_THROTTLE_STRATEGY`, `CORE_API_THROTTLE_WINDOW_SECONDS`, `CORE_API_THROTTLE_MAX_REQUESTS`
+- Examples:
+  - Disable globally for load tests:
+    ```json
+    { "core": { "api": { "throttle": { "enabled": false } } } }
+    ```
+  - Force session strategy with tighter window:
+    ```json
+    { "core": { "api": { "throttle": { "enabled": true, "strategy": "session", "window_seconds": 30, "max_requests": 20 } } } }
+    ```
+
+---
+
 ## Out-of-scope items (kept for visibility)
 - Evidence upload validation changes (Phase 4 policy) — **not part of UI settings**.
 - Core metric windows and RBAC toggles — managed via Core settings in DB, documented elsewhere.

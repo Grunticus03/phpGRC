@@ -3,7 +3,7 @@
     "info": {
         "title": "phpGRC",
         "version": "0.4.7",
-        "description": "Notes:\n- The Metrics Dashboard is an internal, admin-only endpoint (`GET /api/dashboard/kpis`, alias `GET /api/metrics/dashboard`) and is not part of this public OpenAPI.",
+        "description": "Notes:\n- The Metrics Dashboard is an internal, admin-only endpoint (`GET /api/dashboard/kpis`, alias `GET /api/metrics/dashboard`) and is not part of this public OpenAPI. Both return identical shapes.\n",
         "license": {
             "identifier": "MIT",
             "name": "MIT"
@@ -717,56 +717,6 @@
                             "application/json": {
                                 "schema": {
                                     "$ref": "#/components/schemas/UserSearchResponse"
-                                },
-                                "examples": {
-                                    "page_1": {
-                                        "summary": "Page 1 of 2 (default per_page=50)",
-                                        "value": {
-                                            "ok": true,
-                                            "data": [
-                                                {
-                                                    "id": 1,
-                                                    "name": "Alpha 01",
-                                                    "email": "alpha01@example.test"
-                                                },
-                                                {
-                                                    "id": 2,
-                                                    "name": "Alpha 02",
-                                                    "email": "alpha02@example.test"
-                                                }
-                                            ],
-                                            "meta": {
-                                                "page": 1,
-                                                "per_page": 50,
-                                                "total": 80,
-                                                "total_pages": 2
-                                            }
-                                        }
-                                    },
-                                    "page_2": {
-                                        "summary": "Page 2 of 2",
-                                        "value": {
-                                            "ok": true,
-                                            "data": [
-                                                {
-                                                    "id": 51,
-                                                    "name": "Alpha 51",
-                                                    "email": "alpha51@example.test"
-                                                },
-                                                {
-                                                    "id": 52,
-                                                    "name": "Alpha 52",
-                                                    "email": "alpha52@example.test"
-                                                }
-                                            ],
-                                            "meta": {
-                                                "page": 2,
-                                                "per_page": 50,
-                                                "total": 80,
-                                                "total_pages": 2
-                                            }
-                                        }
-                                    }
                                 }
                             }
                         }
@@ -783,19 +733,7 @@
                     "429": {
                         "$ref": "#/components/responses/RateLimited"
                     }
-                },
-                "x-codeSamples": [
-                    {
-                        "lang": "cURL",
-                        "label": "curl",
-                        "source": "curl -sS -H \"Authorization: Bearer $TOKEN\" \\\n  --get 'https://<host>/api/rbac/users/search' \\\n  --data-urlencode 'q=alpha' \\\n  --data-urlencode 'page=1' \\\n  --data-urlencode 'per_page=50'\n"
-                    },
-                    {
-                        "lang": "HTTP",
-                        "label": "HTTP",
-                        "source": "GET /api/rbac/users/search?q=alpha&page=1&per_page=50 HTTP/1.1\nHost: <host>\nAuthorization: Bearer <token>\nAccept: application/json\n"
-                    }
-                ]
+                }
             }
         },
         "/audit": {
@@ -855,135 +793,6 @@
                                             "$ref": "#/components/schemas/AuditListStubResponse"
                                         }
                                     ]
-                                },
-                                "examples": {
-                                    "persist_example": {
-                                        "summary": "Persisted results with filters",
-                                        "value": {
-                                            "ok": true,
-                                            "_categories": [
-                                                "SYSTEM",
-                                                "RBAC",
-                                                "AUTH",
-                                                "SETTINGS",
-                                                "EXPORTS",
-                                                "EVIDENCE",
-                                                "AVATARS",
-                                                "AUDIT"
-                                            ],
-                                            "_retention_days": 365,
-                                            "filters": {
-                                                "category": "RBAC",
-                                                "order": "desc"
-                                            },
-                                            "items": [
-                                                {
-                                                    "id": "01JWZZ0W9W7XN2R5P1R3FAW0VQ",
-                                                    "occurred_at": "2025-02-01T00:00:00Z",
-                                                    "actor_id": 42,
-                                                    "action": "rbac.user_role.attached",
-                                                    "category": "RBAC",
-                                                    "entity_type": "user",
-                                                    "entity_id": "10",
-                                                    "ip": "127.0.0.1",
-                                                    "ua": "phpgrc-tests",
-                                                    "meta": {
-                                                        "role": "role_auditor"
-                                                    }
-                                                }
-                                            ],
-                                            "nextCursor": null
-                                        }
-                                    },
-                                    "stub_example": {
-                                        "summary": "Stub-only shape when DB disabled and no business filters",
-                                        "value": {
-                                            "ok": true,
-                                            "_categories": [
-                                                "SYSTEM",
-                                                "RBAC",
-                                                "AUTH",
-                                                "SETTINGS",
-                                                "EXPORTS",
-                                                "EVIDENCE",
-                                                "AVATARS",
-                                                "AUDIT"
-                                            ],
-                                            "_retention_days": 365,
-                                            "filters": {},
-                                            "items": [],
-                                            "nextCursor": null,
-                                            "note": "stub-only"
-                                        }
-                                    },
-                                    "settings_changes_example": {
-                                        "summary": "Settings update with meta.changes payload",
-                                        "value": {
-                                            "ok": true,
-                                            "_categories": [
-                                                "SYSTEM",
-                                                "RBAC",
-                                                "AUTH",
-                                                "SETTINGS",
-                                                "EXPORTS",
-                                                "EVIDENCE",
-                                                "AVATARS",
-                                                "AUDIT"
-                                            ],
-                                            "_retention_days": 365,
-                                            "filters": {
-                                                "category": "SETTINGS",
-                                                "order": "desc"
-                                            },
-                                            "items": [
-                                                {
-                                                    "id": "01JX0ABCDEF1234567890ZYXWV",
-                                                    "occurred_at": "2025-09-23T00:00:00Z",
-                                                    "actor_id": 1,
-                                                    "action": "settings.update",
-                                                    "category": "SETTINGS",
-                                                    "entity_type": "core",
-                                                    "entity_id": "settings",
-                                                    "ip": "127.0.0.1",
-                                                    "ua": "phpgrc-admin",
-                                                    "meta": {
-                                                        "changes": [
-                                                            {
-                                                                "key": "core.audit.enabled",
-                                                                "old": true,
-                                                                "new": false,
-                                                                "action": "update"
-                                                            },
-                                                            {
-                                                                "key": "core.evidence.max_mb",
-                                                                "old": 25,
-                                                                "new": 50,
-                                                                "action": "update"
-                                                            },
-                                                            {
-                                                                "key": "core.rbac.roles",
-                                                                "old": [
-                                                                    "Admin",
-                                                                    "Auditor",
-                                                                    "Risk Manager",
-                                                                    "User"
-                                                                ],
-                                                                "new": [
-                                                                    "Admin",
-                                                                    "Auditor",
-                                                                    "Risk Manager",
-                                                                    "User",
-                                                                    "ReadOnly"
-                                                                ],
-                                                                "action": "update"
-                                                            }
-                                                        ]
-                                                    }
-                                                }
-                                            ],
-                                            "nextCursor": null
-                                        }
-                                    }
                                 }
                             }
                         }
@@ -1125,12 +934,6 @@
                                 "schema": {
                                     "type": "string",
                                     "format": "binary"
-                                },
-                                "examples": {
-                                    "sample": {
-                                        "summary": "Minimal CSV sample",
-                                        "value": "id,occurred_at,actor_id,action,category,entity_type,entity_id,ip,ua,meta_json\n01JWZZ0W9W7XN2R5P1R3FAW0VQ,2025-02-01T00:00:00+00:00,42,rbac.user_role.attached,RBAC,user,10,127.0.0.1,phpgrc-tests,{\"role\":\"role_auditor\"}\n"
-                                    }
                                 }
                             }
                         }
@@ -1245,31 +1048,6 @@
                             "application/json": {
                                 "schema": {
                                     "$ref": "#/components/schemas/EvidenceListResponse"
-                                },
-                                "examples": {
-                                    "example": {
-                                        "summary": "Evidence list",
-                                        "value": {
-                                            "ok": true,
-                                            "filters": {
-                                                "order": "desc",
-                                                "limit": 20
-                                            },
-                                            "data": [
-                                                {
-                                                    "id": "ev_01JABCXYZ9M8Q7W6V5U4T3S2R1",
-                                                    "owner_id": 1,
-                                                    "filename": "report.pdf",
-                                                    "mime": "application/pdf",
-                                                    "size": 123456,
-                                                    "sha256": "7F9C2BA4E88F827D616045507605853ED73B8063F4A9A6F5D5B1E5F0E9D5A1C3",
-                                                    "version": 1,
-                                                    "created_at": "2025-09-12T00:00:00Z"
-                                                }
-                                            ],
-                                            "next_cursor": null
-                                        }
-                                    }
                                 }
                             }
                         }
@@ -1309,20 +1087,6 @@
                             "application/json": {
                                 "schema": {
                                     "$ref": "#/components/schemas/EvidenceCreateResponse"
-                                },
-                                "examples": {
-                                    "example": {
-                                        "summary": "Upload response",
-                                        "value": {
-                                            "ok": true,
-                                            "id": "ev_01JABCXYZ9M8Q7W6V5U4T3S2R1",
-                                            "version": 1,
-                                            "sha256": "7F9C2BA4E88F827D616045507605853ED73B8063F4A9A6F5D5B1E5F0E9D5A1C3",
-                                            "size": 123456,
-                                            "mime": "application/pdf",
-                                            "name": "report.pdf"
-                                        }
-                                    }
                                 }
                             }
                         }
@@ -2480,6 +2244,20 @@
                             "type": "integer",
                             "minimum": 1
                         }
+                    },
+                    "X-RateLimit-Limit": {
+                        "description": "Requests allowed in the window.",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        }
+                    },
+                    "X-RateLimit-Remaining": {
+                        "description": "Requests remaining in the current window.",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 0
+                        }
                     }
                 },
                 "content": {
@@ -2668,7 +2446,7 @@
                 "required": [
                     "ok",
                     "code",
-                    "retry_after_seconds"
+                    "retry_after"
                 ],
                 "properties": {
                     "ok": {
@@ -2681,7 +2459,7 @@
                             "RATE_LIMITED"
                         ]
                     },
-                    "retry_after_seconds": {
+                    "retry_after": {
                         "type": "integer",
                         "minimum": 1
                     }
@@ -3646,6 +3424,30 @@
                                     },
                                     "format": {
                                         "type": "string"
+                                    }
+                                }
+                            },
+                            "api_throttle": {
+                                "type": "object",
+                                "properties": {
+                                    "enabled": {
+                                        "type": "boolean"
+                                    },
+                                    "strategy": {
+                                        "type": "string",
+                                        "enum": [
+                                            "ip",
+                                            "session",
+                                            "user"
+                                        ]
+                                    },
+                                    "window_seconds": {
+                                        "type": "integer",
+                                        "minimum": 1
+                                    },
+                                    "max_requests": {
+                                        "type": "integer",
+                                        "minimum": 1
                                     }
                                 }
                             }
