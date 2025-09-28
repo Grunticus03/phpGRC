@@ -3,7 +3,7 @@
     "info": {
         "title": "phpGRC",
         "version": "0.4.7",
-        "description": "Notes:\n- The Metrics Dashboard is an internal, admin-only endpoint (`GET /api/dashboard/kpis`, alias `GET /api/metrics/dashboard`) and is not part of this public OpenAPI. Both return identical shapes.\n",
+        "description": "Notes:\n- The Metrics Dashboard is an internal, admin-only endpoint (`GET /dashboard/kpis`, alias `GET /metrics/dashboard`) and is not part of this public OpenAPI. Both return identical shapes.\n",
         "license": {
             "identifier": "MIT",
             "name": "MIT"
@@ -16,7 +16,7 @@
     },
     "servers": [
         {
-            "url": "/api"
+            "url": "/"
         }
     ],
     "tags": [

@@ -4,7 +4,7 @@ info:
   version: 0.4.7
   description: |
     Notes:
-    - The Metrics Dashboard is an internal, admin-only endpoint (`GET /api/dashboard/kpis`, alias `GET /api/metrics/dashboard`) and is not part of this public OpenAPI. Both return identical shapes.
+    - The Metrics Dashboard is an internal, admin-only endpoint (`GET /dashboard/kpis`, alias `GET /metrics/dashboard`) and is not part of this public OpenAPI. Both return identical shapes.
   license:
     identifier: MIT
     name: MIT
@@ -13,7 +13,7 @@ info:
     altText: "phpGRC"
     href: "https://phpgrc.gruntlabs.net/api/docs"
 servers:
-  - url: /api
+  - url: /
 
 tags:
   - name: Health
