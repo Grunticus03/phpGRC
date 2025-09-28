@@ -5,12 +5,6 @@ info:
   description: |
     Notes:
     - The Metrics Dashboard is an internal, admin-only endpoint (`GET /api/dashboard/kpis`, alias `GET /api/metrics/dashboard`) and is not part of this public OpenAPI. Both return identical shapes.
-    - Metrics defaults are config-driven with environment fallbacks:
-      - `CORE_METRICS_EVIDENCE_FRESHNESS_DAYS` → default **30**
-      - `CORE_METRICS_RBAC_DENIES_WINDOW_DAYS` → default **7**
-    - The dashboard API accepts optional `days` and `rbac_days` query parameters. The server clamps each to the inclusive range **[1, 365]**.
-    - Audit events MAY include settings-change details in `meta.changes` for category `SETTINGS` events (e.g., `"settings.update"`). Each change item includes `{ key, old, new, action }` where `action ∈ { set, update, unset }`. This is an additive payload and does not change the public schema (see examples under `/audit`).
-    - (Internal-only, not part of this OpenAPI) KPI responses MAY include `meta.cache` with `{ ttl:number, hit:boolean }` when caching is enabled.
   license:
     identifier: MIT
     name: MIT
