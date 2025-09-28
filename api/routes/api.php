@@ -84,10 +84,10 @@ Route::get('/health/fingerprint', function (SettingsService $settings) {
             'format'  => (string) ($eff['core']['avatars']['format'] ?? ''),
         ],
         'api_throttle' => [
-            'enabled'        => (bool) (config('core.api.throttle.enabled', false)),
-            'strategy'       => (string) (config('core.api.throttle.strategy', 'ip')),
-            'window_seconds' => (int) (config('core.api.throttle.window_seconds', 60)),
-            'max_requests'   => (int) (config('core.api.throttle.max_requests', 30)),
+            'enabled'        => (bool) ($eff['core']['api']['throttle']['enabled'] ?? config('core.api.throttle.enabled', false)),
+            'strategy'       => (string) ($eff['core']['api']['throttle']['strategy'] ?? config('core.api.throttle.strategy', 'ip')),
+            'window_seconds' => (int) ($eff['core']['api']['throttle']['window_seconds'] ?? (int) config('core.api.throttle.window_seconds', 60)),
+            'max_requests'   => (int) ($eff['core']['api']['throttle']['max_requests'] ?? (int) config('core.api.throttle.max_requests', 30)),
         ],
     ];
 
@@ -216,7 +216,7 @@ Route::prefix('/admin')
 
 /*
  |--------------------------------------------------------------------------
- | Dashboard KPIs (spec)
+ | Dashboard KPIs (spec) — GenericRateLimit replaces MetricsThrottle
  |--------------------------------------------------------------------------
 */
 $metricsStack = $rbacStack;
@@ -226,7 +226,7 @@ Route::prefix('/dashboard')
     ->group(function (): void {
         Route::get('/kpis', [MetricsController::class, 'kpis'])
             ->middleware(GenericRateLimit::class)
-            ->defaults('throttle', ['enabled' => true, 'strategy' => 'user', 'window_seconds' => 60, 'max_requests' => 30])
+            ->defaults('throttle', ['strategy' => 'user', 'window_seconds' => 60, 'max_requests' => 20])
             ->defaults('roles', ['Admin'])
             ->defaults('policy', 'core.metrics.view');
     });
@@ -241,7 +241,7 @@ Route::prefix('/metrics')
     ->group(function (): void {
         Route::get('/dashboard', [MetricsController::class, 'index'])
             ->middleware(GenericRateLimit::class)
-            ->defaults('throttle', ['enabled' => true, 'strategy' => 'user', 'window_seconds' => 60, 'max_requests' => 30])
+            ->defaults('throttle', ['strategy' => 'user', 'window_seconds' => 60, 'max_requests' => 20])
             ->defaults('roles', ['Admin'])
             ->defaults('policy', 'core.metrics.view');
     });
@@ -256,13 +256,13 @@ Route::prefix('/exports')
     ->group(function (): void {
         Route::post('/{type}', [ExportController::class, 'createType'])
             ->middleware(GenericRateLimit::class)
-            ->defaults('throttle', ['enabled' => true, 'strategy' => 'user', 'window_seconds' => 60, 'max_requests' => 5])
+            ->defaults('throttle', ['strategy' => 'user', 'window_seconds' => 60, 'max_requests' => 5])
             ->defaults('roles', ['Admin'])
             ->defaults('capability', 'core.exports.generate')
             ->defaults('policy', 'core.exports.generate');
         Route::post('/', [ExportController::class, 'create'])
             ->middleware(GenericRateLimit::class)
-            ->defaults('throttle', ['enabled' => true, 'strategy' => 'user', 'window_seconds' => 60, 'max_requests' => 5])
+            ->defaults('throttle', ['strategy' => 'user', 'window_seconds' => 60, 'max_requests' => 5])
             ->defaults('roles', ['Admin'])
             ->defaults('capability', 'core.exports.generate')
             ->defaults('policy', 'core.exports.generate');
@@ -305,14 +305,16 @@ Route::prefix('/rbac')
             ->defaults('roles', ['Admin'])
             ->defaults('policy', 'rbac.user_roles.manage');
 
+        // Effective PolicyMap (admin-only)
         Route::get('/policies/effective', [PolicyController::class, 'effective'])
             ->defaults('roles', ['Admin'])
             ->defaults('policy', 'core.rbac.view');
 
         // Admin-only user search. Always authenticated + RBAC.
         Route::get('/users/search', [UserSearchController::class, 'index'])
-            ->middleware(['auth:sanctum', GenericRateLimit::class])
-            ->defaults('throttle', ['enabled' => true, 'strategy' => 'user', 'window_seconds' => 60, 'max_requests' => 30])
+            ->middleware(['auth:sanctum'])
+            ->middleware(GenericRateLimit::class)
+            ->defaults('throttle', ['strategy' => 'user', 'window_seconds' => 60, 'max_requests' => 30])
             ->defaults('roles', ['Admin'])
             ->defaults('policy', 'core.users.view');
     });
@@ -333,8 +335,9 @@ Route::get('/audit/categories', [AuditController::class, 'categories'])
     ->defaults('policy', 'core.audit.view');
 
 Route::get('/audit/export.csv', [AuditExportController::class, 'exportCsv'])
-    ->middleware(array_merge($rbacStack, [GenericRateLimit::class]))
-    ->defaults('throttle', ['enabled' => true, 'strategy' => 'user', 'window_seconds' => 60, 'max_requests' => 5])
+    ->middleware($rbacStack)
+    ->middleware(GenericRateLimit::class)
+    ->defaults('throttle', ['strategy' => 'user', 'window_seconds' => 60, 'max_requests' => 5])
     ->defaults('roles', ['Admin', 'Auditor'])
     ->defaults('policy', 'core.audit.view')
     ->defaults('capability', 'core.audit.export');
@@ -348,21 +351,19 @@ Route::prefix('/evidence')
     ->middleware($rbacStack)
     ->group(function (): void {
         Route::match(['GET','HEAD'], '/', [EvidenceController::class, 'index'])
-            ->middleware(GenericRateLimit::class)
-            ->defaults('throttle', ['enabled' => true, 'strategy' => 'ip', 'window_seconds' => 60, 'max_requests' => 120])
             ->defaults('roles', ['Admin', 'Auditor'])
             ->defaults('policy', 'core.evidence.view');
 
         Route::post('/', [EvidenceController::class, 'store'])
             ->middleware(GenericRateLimit::class)
-            ->defaults('throttle', ['enabled' => true, 'strategy' => 'user', 'window_seconds' => 60, 'max_requests' => 10])
+            ->defaults('throttle', ['strategy' => 'user', 'window_seconds' => 60, 'max_requests' => 10])
             ->defaults('roles', ['Admin'])
             ->defaults('policy', 'core.evidence.manage')
             ->defaults('capability', 'core.evidence.upload');
 
         Route::match(['GET','HEAD'], '/{id}', [EvidenceController::class, 'show'])
             ->middleware(GenericRateLimit::class)
-            ->defaults('throttle', ['enabled' => true, 'strategy' => 'ip', 'window_seconds' => 60, 'max_requests' => 120])
+            ->defaults('throttle', ['strategy' => 'ip', 'window_seconds' => 60, 'max_requests' => 120])
             ->defaults('roles', ['Admin', 'Auditor'])
             ->defaults('policy', 'core.evidence.view');
     });
