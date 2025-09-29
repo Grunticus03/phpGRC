@@ -3,8 +3,10 @@ import React from "react";
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import Kpis from "../Kpis";
+import { API_BASE } from "../../../lib/api";
 
 const originalFetch = globalThis.fetch as typeof fetch;
+const KPIS_URL = `${API_BASE || ""}/dashboard/kpis`;
 
 function json(body: unknown, init: ResponseInit = {}) {
   return new Response(JSON.stringify(body), {
@@ -19,7 +21,7 @@ describe("Dashboard KPIs", () => {
     globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
       const url = typeof input === "string" ? input : (input as Request).url ?? String(input);
 
-      if (url.startsWith("/api/dashboard/kpis")) {
+      if (url.startsWith(KPIS_URL)) {
         return json({
           ok: true,
           data: {
@@ -79,7 +81,7 @@ describe("Dashboard KPIs", () => {
   it("shows forbidden message on 403", async () => {
     globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
       const url = typeof input === "string" ? input : (input as Request).url ?? String(input);
-      if (url.startsWith("/api/dashboard/kpis")) {
+      if (url.startsWith(KPIS_URL)) {
         return json({ ok: false, code: "FORBIDDEN" }, { status: 403 });
       }
       return json({ ok: true });
@@ -87,19 +89,27 @@ describe("Dashboard KPIs", () => {
 
     render(<Kpis />);
 
-    await screen.findByText("You do not have access to KPIs.");
+    await screen.findByText(/access to KPIs/i);
   });
 
   it("applies rbac_days and days in query when submitting", async () => {
     const calls: string[] = [];
     globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
       const url = typeof input === "string" ? input : (input as Request).url ?? String(input);
-      if (url.startsWith("/api/dashboard/kpis")) {
+      if (url.startsWith(KPIS_URL)) {
         calls.push(url);
         return json({
           ok: true,
           data: {
-            rbac_denies: { window_days: 14, from: "2025-01-01", to: "2025-01-14", denies: 10, total: 40, rate: 0.25, daily: [] },
+            rbac_denies: {
+              window_days: 14,
+              from: "2025-01-01",
+              to: "2025-01-14",
+              denies: 10,
+              total: 40,
+              rate: 0.25,
+              daily: [],
+            },
             evidence_freshness: { days: 45, total: 10, stale: 5, percent: 0.5, by_mime: [] },
           },
         });
@@ -123,7 +133,10 @@ describe("Dashboard KPIs", () => {
 
     await waitFor(() => {
       const last = calls[calls.length - 1] || "";
-      expect(last).toContain("/api/dashboard/kpis?rbac_days=14&days=45");
+      const u = new URL(last, "http://localhost");
+      expect(u.pathname).toBe(`${API_BASE || ""}/dashboard/kpis`);
+      expect(u.searchParams.get("rbac_days")).toBe("14");
+      expect(u.searchParams.get("days")).toBe("45");
     });
 
     expect((screen.getByLabelText("RBAC window (days)") as HTMLInputElement).value).toBe("14");

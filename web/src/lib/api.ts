@@ -1,4 +1,4 @@
-export const API_BASE = String(import.meta.env.VITE_API_BASE ?? "/api").replace(/\/+$/, "");
+export const API_BASE = String(import.meta.env.VITE_API_BASE ?? "").replace(/\/+$/, "");
 
 export class HttpError extends Error {
   status: number;
@@ -43,94 +43,74 @@ export async function apiGet<T>(path: string, params?: QueryInit, signal?: Abort
   return handle<T>(res);
 }
 
-export async function apiPost<T>(path: string, body?: unknown, signal?: AbortSignal): Promise<T> {
+/** POST overloads: allow calling with a single type arg for the response. */
+export function apiPost<TRes>(path: string, data?: unknown, signal?: AbortSignal): Promise<TRes>;
+export function apiPost<TReq extends object, TRes>(path: string, data: TReq, signal?: AbortSignal): Promise<TRes>;
+export async function apiPost(path: string, data?: unknown, signal?: AbortSignal): Promise<unknown> {
   const url = toUrl(path);
   const res = await fetch(url, {
     method: "POST",
     credentials: "same-origin",
-    headers: { "Content-Type": "application/json" },
-    body: body === undefined ? null : JSON.stringify(body),
+    headers: { "content-type": "application/json" },
+    body: data === undefined ? "{}" : JSON.stringify(data),
     signal,
   });
-  return handle<T>(res);
+  return handle(res);
 }
 
-export async function apiPut<T>(path: string, body?: unknown, signal?: AbortSignal): Promise<T> {
+/** PATCH overloads: allow calling with a single type arg for the response. */
+export function apiPatch<TRes>(path: string, data?: unknown, signal?: AbortSignal): Promise<TRes>;
+export function apiPatch<TReq extends object, TRes>(path: string, data: TReq, signal?: AbortSignal): Promise<TRes>;
+export async function apiPatch(path: string, data?: unknown, signal?: AbortSignal): Promise<unknown> {
+  const url = toUrl(path);
+  const res = await fetch(url, {
+    method: "PATCH",
+    credentials: "same-origin",
+    headers: { "content-type": "application/json" },
+    body: data === undefined ? "{}" : JSON.stringify(data),
+    signal,
+  });
+  return handle(res);
+}
+
+export async function apiPut<TReq extends object, TRes>(
+  path: string,
+  data: TReq,
+  signal?: AbortSignal
+): Promise<TRes> {
   const url = toUrl(path);
   const res = await fetch(url, {
     method: "PUT",
     credentials: "same-origin",
-    headers: { "Content-Type": "application/json" },
-    body: body === undefined ? null : JSON.stringify(body),
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(data),
     signal,
   });
-  return handle<T>(res);
+  return handle<TRes>(res);
 }
 
-export async function apiDelete<T>(path: string, signal?: AbortSignal): Promise<T> {
+export async function apiDelete<TRes>(path: string, signal?: AbortSignal): Promise<TRes> {
   const url = toUrl(path);
   const res = await fetch(url, { method: "DELETE", credentials: "same-origin", signal });
-  return handle<T>(res);
+  return handle<TRes>(res);
 }
 
 /** Auth helpers */
 export interface LoginRequest {
   email: string;
   password: string;
+  otp?: string;
 }
-export interface LoginResponse {
-  ok: boolean;
-  token?: string;
-  [k: string]: unknown;
-}
-export interface MeResponse {
-  ok: boolean;
-  user?: { id: number; name: string; email: string } | null;
-  [k: string]: unknown;
+export type JsonObject = Record<string, unknown>;
+
+export function authLogin<T = JsonObject>(creds: LoginRequest, signal?: AbortSignal): Promise<T> {
+  return apiPost<LoginRequest, T>("/auth/login", creds, signal);
 }
 
-export function authLogin(payload: LoginRequest) {
-  return apiPost<LoginResponse>("/auth/login", payload);
-}
-export function authLogout() {
-  return apiPost<{ ok: boolean }>("/auth/logout", {});
-}
-export function authMe() {
-  return apiGet<MeResponse>("/auth/me");
+export function authLogout<T = JsonObject>(signal?: AbortSignal): Promise<T> {
+  return apiPost<T>("/auth/logout", {}, signal);
 }
 
-/** Admin Users */
-export interface User {
-  id: number;
-  name: string;
-  email: string;
-}
-export interface UsersIndexResponse {
-  ok: boolean;
-  data: User[];
-  meta: { page: number; per_page: number; total: number; total_pages: number };
-}
-export interface UserCreatePayload {
-  name: string;
-  email: string;
-  password: string;
-  roles?: string[];
-}
-export interface UserUpdatePayload {
-  name?: string;
-  email?: string;
-  password?: string;
-  roles?: string[];
-}
-export function adminUsersIndex(params: { q?: string; page?: number; per_page?: number }) {
-  return apiGet<UsersIndexResponse>("/admin/users", params);
-}
-export function adminUsersStore(payload: UserCreatePayload) {
-  return apiPost<{ ok: boolean; user: User }>("/admin/users", payload);
-}
-export function adminUsersUpdate(id: number, payload: UserUpdatePayload) {
-  return apiPut<{ ok: boolean; user: User }>(`/admin/users/${id}`, payload);
-}
-export function adminUsersDelete(id: number) {
-  return apiDelete<{ ok: boolean }>(`/admin/users/${id}`);
+export function authMe<T = JsonObject>(signal?: AbortSignal): Promise<T> {
+  return apiGet<T>("/auth/me", undefined, signal);
 }
