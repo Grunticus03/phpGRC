@@ -1,6 +1,7 @@
 import { Outlet, useLocation, Navigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { apiGet } from "../lib/api";
+import Nav from "../components/Nav";
 
 type Fingerprint = {
   summary?: { rbac?: { require_auth?: boolean } };
@@ -18,12 +19,10 @@ export default function AppLayout() {
 
     async function bootstrap(): Promise<void> {
       try {
-        // 1) Read the flag from a public endpoint
         const fp = await apiGet<Fingerprint>("/health/fingerprint");
         const req = Boolean(fp?.summary?.rbac?.require_auth);
         if (!cancelled) setRequireAuth(req);
 
-        // 2) Only probe session when auth is required
         if (req) {
           try {
             await apiGet<unknown>("/auth/me");
@@ -32,7 +31,6 @@ export default function AppLayout() {
             if (!cancelled) setAuthed(false);
           }
         } else {
-          // No auth required for viewing data
           if (!cancelled) setAuthed(true);
         }
       } finally {
@@ -48,10 +46,18 @@ export default function AppLayout() {
 
   if (loading) return null;
 
-  // Redirect only when the feature flag demands auth and we are not authenticated
   if (requireAuth && !authed && !loc.pathname.startsWith("/auth/")) {
     return <Navigate to="/auth/login" replace state={{ from: loc }} />;
   }
 
-  return <Outlet />;
+  const hideNav = loc.pathname.startsWith("/auth/");
+
+  return (
+    <>
+      {!hideNav && <Nav />}
+      <main id="main" role="main">
+        <Outlet />
+      </main>
+    </>
+  );
 }
