@@ -18,28 +18,49 @@ return Application::configure(basePath: dirname(__DIR__))
         web: __DIR__ . '/../routes/web.php',
         commands: __DIR__ . '/../routes/console.php',
         health: '/up',
-        apiPrefix: ''   // <<< disable Laravel's automatic "/api" prefix
+        apiPrefix: '' // keep API at root, no automatic /api prefix
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        // avoid guest redirects to non-existent 'login'
-        $middleware->redirectGuestsTo(fn () => null);
+        // Redirect browser (HTML) traffic to SPA login. Keep APIs JSON-only.
+        $middleware->redirectGuestsTo(function (Request $request) {
+            if ($request->expectsJson()) {
+                return null; // APIs: no redirect
+            }
+            // Treat these as API-style even if Accept is text/html
+            $path = ltrim($request->path(), '/');
+            $apiish = [
+                'rbac', 'admin', 'exports', 'audit', 'evidence',
+                'avatar', 'health', 'openapi', 'docs',
+            ];
+            foreach ($apiish as $pfx) {
+                if (str_starts_with($path, $pfx)) {
+                    return null;
+                }
+            }
+            return '/login';
+        });
+
+        // Do not force any redirect for already-authenticated users.
         $middleware->redirectUsersTo(fn () => null);
     })
     ->withProviders([
         // Load overlay before gates read config.
         ConfigOverlayServiceProvider::class,
-        SettingsServiceProvider::class, // load DB-backed settings at boot
+        SettingsServiceProvider::class, // DB-backed settings at boot
         AuthServiceProvider::class,
         EventServiceProvider::class,
     ])
     ->withExceptions(function (Exceptions $exceptions): void {
-        // return JSON 401 instead of redirecting to 'login'
+        // APIs: JSON 401; Web: allow framework default (redirectGuestsTo) to run.
         $exceptions->render(function (AuthenticationException $e, Request $request) {
-            return response()->json([
-                'ok'      => false,
-                'code'    => 'UNAUTHENTICATED',
-                'message' => 'Authentication required.',
-            ], 401);
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'ok'      => false,
+                    'code'    => 'UNAUTHENTICATED',
+                    'message' => 'Authentication required.',
+                ], 401);
+            }
+            return null;
         });
     })
     ->create();
