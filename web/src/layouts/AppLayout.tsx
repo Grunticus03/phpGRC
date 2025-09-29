@@ -54,7 +54,7 @@ export default function AppLayout() {
 
   return (
     <>
-      {!hideNav && <Nav />}
+      {!hideNav && <Nav requireAuth={requireAuth} authed={authed} />}
       <main id="main" role="main">
         <Outlet />
       </main>

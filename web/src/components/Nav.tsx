@@ -1,8 +1,15 @@
 import { NavLink } from "react-router-dom";
 
+type NavProps = {
+  requireAuth: boolean;
+  authed: boolean;
+};
+
 const linkCls = ({ isActive }: { isActive: boolean }) => "nav-link" + (isActive ? " active" : "");
 
-export default function Nav(): JSX.Element {
+export default function Nav({ requireAuth, authed }: NavProps): JSX.Element {
+  const showUsers = !requireAuth || authed;
+
   return (
     <header role="banner">
       <a href="#main" className="visually-hidden-focusable">
@@ -25,6 +32,11 @@ export default function Nav(): JSX.Element {
           <NavLink to="/admin/roles" className={linkCls}>
             Roles
           </NavLink>
+          {showUsers && (
+            <NavLink to="/admin/users" className={linkCls}>
+              Users
+            </NavLink>
+          )}
           <NavLink to="/admin/user-roles" className={linkCls}>
             User Roles
           </NavLink>

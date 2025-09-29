@@ -11,6 +11,7 @@ import Roles from "./routes/admin/Roles";
 import UserRoles from "./routes/admin/UserRoles";
 import Audit from "./routes/admin/Audit";
 import EvidenceList from "./routes/evidence/List";
+import Users from "./routes/admin/Users";
 
 // Auth routes
 import Login from "./routes/auth/Login";
@@ -29,6 +30,7 @@ const router = createBrowserRouter(
         <Route index element={<AdminIndex />} />
         <Route path="settings" element={<Settings />} />
         <Route path="roles" element={<Roles />} />
+        <Route path="users" element={<Users />} />
         <Route path="user-roles" element={<UserRoles />} />
         <Route path="audit" element={<Audit />} />
         <Route path="evidence" element={<EvidenceList />} />
