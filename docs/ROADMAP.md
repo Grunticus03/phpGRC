@@ -63,24 +63,34 @@
 ---
 
 ## Phase 5 — Swagger + dashboards + RBAC policies
-- [x] OpenAPI served at `/api/openapi.yaml` and Swagger UI at `/api/docs`
+- [x] OpenAPI served at `/api/openapi.yaml` and Swagger/Redoc UI at `/api/docs`
 - [x] OpenAPI lint in CI (Redocly)
 - [x] Breaking-change gate (openapi-diff) in CI
 - [x] RBAC deny audits emitted by middleware (one per denied request)
 - [x] KPIs v1 (admin-only): RBAC denies rate (rolling window), Evidence freshness (threshold + by-MIME)
 - [x] Auth brute-force guard (session/IP strategies) with `auth.login.failed|locked` audits
 - [x] **OpenAPI serve headers hardened**: exact MIME, `ETag`, conservative caching, `nosniff`
+- [x] **Generic API rate limiting** finalized: unified 429 envelope + headers; route-level throttle defaults
+- [x] **OpenAPI augmentation (runtime)**: inject standard `401/403/422` + additive `429 RateLimited`
+- [x] **RBAC user search pagination** + DB default `per_page` knob; Admin Settings + UI adoption
+- [x] **SPA auth bootstrap**: WebUI redirects to `/auth/login` only when `require_auth=true` and session probe fails
+- [x] **Navbar boot fix**: navigation renders after bootstrap probe; no blank layout
 - [ ] Fine-grained RBAC policies (PolicyMap/Evaluator) and role management UI hardening
 - [ ] Predefined reports & dashboards (beyond KPIs v1)
 - [ ] Admin/User docs baseline
 
-### Phase 5 — Additions (2025-09-23..2025-09-27)
+### Phase 5 — Additions (2025-09-23..2025-09-28)
 - [x] **Runtime settings moved to DB** for all non-connection knobs; `core_settings` table + `SettingsServiceProvider` boot overlay.
 - [x] **Admin Settings persistence path**: `apply=true` writes to DB; stub-only honored when configured.
 - [x] **Metrics routes finalized**: `GET /api/dashboard/kpis` and alias `GET /api/metrics/dashboard`; controller clamps windows and returns `meta.window`.
 - [x] **Web UI settings form** updated to DB-backed metrics fields; Vitest adjusted for PUT and stub/persist modes.
-- [x] **Apache deploy verified**: `/api/*` routes to Laravel public with `AllowOverride All` and `mod_rewrite`; health and KPIs reachable.
-- [x] **RBAC user search**: paged `/rbac/users/search` contract, DB-backed default `per_page` via `core.rbac.user_search.default_per_page` (1–500; default 50), Admin Settings knob, frontend adoption; tests and static analysis updated.
+- [x] **Apache deploy verified**: `/api/*` routes to Laravel public; health and KPIs reachable.
+- [x] **Admin Users Management (beta)**: `/admin/users` API + Web UI for list/create/update/delete; role assign supported.  
+      Fine-grained per-permission toggles **planned** (tracked for Phase 5 hardening).
+- [x] **KPI tests (Vitest)** stabilized with Response-like mocks; clamping verified; alias route parity covered.
+- [x] **Navbar & layout**: AppLayout bootstrap sequence loads config → session probe; Nav renders post-probe.
+- [x] **DB-as-source-of-truth**: removed runtime `.env` dependence for app behavior (DB only, except DB connection).
+
 - [ ] **KPI cache TTL** stored in DB (`core.metrics.cache_ttl_seconds`) and enforced in service layer.  
   - Child note: TTL key exists; enforcement to be implemented in MetricsService adapter.
 - [ ] **Optional** `/api/openapi.json` mirror for integrators (tracked in Backlog).
@@ -138,13 +148,13 @@
 
 ---
 
-### Current Status (as of 2025-09-27)
+### Current Status (as of 2025-09-28)
 - ✅ Phase 4 frozen; CI green; contracts locked; OpenAPI 0.4.6 validated.
 - ✅ RBAC enforcement active; admin UI shipped.
 - ✅ Audit & Evidence persistence complete; CSV export streaming with bounded memory.
 - ✅ Exports model and generation complete.
 - ✅ CI lint (Redocly) and breaking-change gate (openapi-diff).
 - ✅ Static analysis: PHPStan level 9 enforced in CI.
-- ⏳ Phase 5 in progress: KPIs v1 shipped, deny-audit invariants enforced, brute-force guard in place, OpenAPI serve hardened.
+- ✅ Phase 5 core complete-to-date: KPIs v1 shipped; deny-audit invariants enforced; brute-force guard in place; OpenAPI serve hardened; **generic API rate limiting and OpenAPI augmentation completed; Admin Users Management (beta) added; SPA auth bootstrap + navbar boot fixed.**
 - ➕ RBAC user search pagination and DB-backed default `per_page` knob completed; docs snippet pending.
 - 🔜 Phase 5.5 planned: theming/layout scope accepted; see BACKLOG and SPEC.

@@ -1476,3 +1476,20 @@ SESSION-LOG.md entry
   - /api/app/Http/Requests/Rbac/RoleReplaceRequest.php
   - /api/app/Models/Role.php
   - /docs/api/openapi.yaml
+
+---
+
+### Session 2025-09-28: [Phase 5, Step 7 — Role-management UX constraints + WebUI auth/user admin]
+- Context: Finalized role-name normalization/validation and case-insensitive behavior; aligned API routes (no `/api` prefix); added WebUI auth gating + navbar rendering; introduced Admin Users API + basic UI wiring; kept static analysis & tests green.
+- Goal: CI green with RBAC normalization enforced end-to-end (API + OpenAPI + tests), WebUI redirects only when `require_auth` is true, and initial User Management endpoints/UI scaffold available.
+- Constraints: Config from DB/overlay only (no `.env` except DB); preserve RBAC persistence semantics; OpenAPI non-breaking; Psalm/PHPStan level 9 clean; ESLint/typecheck clean.
+
+### Closeout
+- Deliverables produced: 
+  - API: `RolesController` + `UserRolesController` normalization; `RoleCreateRequest` & `RoleReplaceRequest`; `Admin\UsersController` + `UserStoreRequest`/`UserUpdateRequest`; route updates under `/rbac` & `/admin/users`; consistent 401/422/404 codes.
+  - OpenAPI: Role name patterns & examples; attach/detach path schema; replace-request constraints; examples for 422.
+  - WebUI: `AppLayout` auth gate + `<Nav />` render; Login route; Admin Users page scaffold; typed `api.ts` helpers (`apiPatch`, auth helpers, overloads); tests updated (KPI tests fixed).
+  - Tooling: Psalm/PHPStan green; ESLint & TS clean; PHPUnit passing after route/test updates.
+- Phase/Step status: advance
+- Next action (you): Run end-to-end QA in an environment toggling `core.rbac.require_auth` true/false; validate login redirect + data load; verify Users CRUD with role assignment.
+- Next action (me): Finish Users UI (CRUD + role/permission pickers, form validation, toasts), add OpenAPI entries for `/admin/users/*`, extend feature tests (API + WebUI), and prepare migration guidance for legacy roles containing spaces.

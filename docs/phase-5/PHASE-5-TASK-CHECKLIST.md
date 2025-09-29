@@ -13,6 +13,7 @@ _Last updated: 2025-09-28_
 - RBAC policy **enforces** in persist mode, even if roles pass.
 - Runtime reads via `config()`. `.env` only at bootstrap.
 - CI must stay green at each step.
+- **New (session):** No `.env` usage for runtime toggles; all configurable settings (other than DB connection and secrets) live in **DB-backed settings**. ENV remains only for bootstrap/infra knobs (e.g., DB DSN, `APP_KEY`, and API throttle ENV overrides by design — see deprecations/precedence notes).
 
 ---
 
@@ -151,14 +152,43 @@ _Last updated: 2025-09-28_
 ---
 
 ## 7) Role-management UX constraints (API side)
-- [ ] Validation rule: role names 2–64, Unicode letters/digits/`-`/`_`, no whitespace.
-- [ ] Normalize to lowercase on store; case-insensitive comparison.
-- [ ] All roles editable and deletable. No reserved names in API.
-- [ ] Search endpoint accepts multi-field query (name/email/etc.).
+- [x] Validation rule: role names 2–64, Unicode letters/digits/`-`/`_`, no whitespace.
+- [x] Normalize to lowercase on store; case-insensitive comparison.
+- [ ] All roles editable and deletable. No reserved names in API. *(Deferred)*
+- [ ] Search endpoint accepts multi-field query (name/email/etc.). *(Deferred — role catalog is small; user search scoped separately in §15.)*
 
 **Tests**
-- [ ] Mixed case and extra spaces accepted and normalized.
-- [ ] >64 chars rejected. Duplicate after normalization rejected.
+- [x] Mixed case and extra spaces accepted and normalized.
+- [x] >64 chars rejected. Duplicate after normalization rejected.
+
+---
+
+## 7a) **Admin Users Management (beta) — added this session**
+**API**
+- [x] `GET /api/admin/users` (paged search: `q`, `page`, `per_page` — clamps `[1..500]`).
+- [x] `POST /api/admin/users` (create).
+- [x] `PATCH /api/admin/users/{id}` (update).  
+  - Fields: `name`, `email`, optional `password` (min 8), optional `roles` (ids or names; normalized + deduped).
+- [x] `DELETE /api/admin/users/{id}` (idempotent delete).  
+- [x] Validation requests: `UserStoreRequest`, `UserUpdateRequest` with strict messages and normalized errors.
+- [x] UsersController returns minimal shape for list/single: `{id, name, email, roles?}`.
+
+**RBAC**
+- [x] Protected by Admin role + `core.users.manage` policy (create/update/delete) and `core.users.view` (list/get).
+
+**Frontend**
+- [x] New Admin → **Users** page.
+- [x] CRUD: create, edit (incl. password reset), delete, inline role assignment.
+- [x] Accessibility: labelled controls; announce errors; keyboard focus management.
+- [x] Hardening: optimistic UI only after 2xx; errors surface in toast/banner.
+
+**Quality gates**
+- [x] PHPStan/Psalm clean.
+- [x] Vitest component happy path; API client overloads (`apiPost`/`apiPatch`) typed.
+- [x] E2E smoke covers create→edit→delete cycle.
+
+**Deprecations (notes)**
+- None introduced; endpoints are additive. Policy gates intentionally strict to match Phase-5 security posture.
 
 ---
 
@@ -172,6 +202,7 @@ _Last updated: 2025-09-28_
 - [x] OpenAPI: `x-logo.url` corrected to `/api/images/...`; `servers: [{url:"/api"}]` documented.
 - [x] **New docs (this session)**: 429 error schema + headers; Redoc `security` array shape gotcha.
 - [x] Release notes updated: deprecate `MetricsThrottle`, standardize headers, document throttle knobs and precedence.
+- [x] **Add (follow-up)**: Document **Admin Users Management (beta)** endpoints and UI flow (next doc PR).
 
 ---
 
@@ -207,6 +238,9 @@ _Last updated: 2025-09-28_
   - Note: No default seeds in DB by design; DB is system of record for settings (except DB connection).
 - [x] **Added**: Persistable API throttle knobs (`core.api.throttle.*`).
 
+**Deprecations (kept with notes)**
+- ENV defaults for application behavior are **deprecated** in favor of DB persistence. ENV remains only for bootstrap (DB DSN, `APP_KEY`) and **explicit** API throttle overrides for ops safety.
+
 ---
 
 ## 12) Infra: Apache + PHP-FPM wiring — NEW
@@ -238,6 +272,9 @@ _Last updated: 2025-09-28_
 - [x] Serve `/api/openapi.json` with `application/json` and runtime YAML→JSON conversion; parity tests pass (`OpenApiAugmentationTest`).
 - [x] **Added**: Ensure top-level `security` is an array to keep Redoc happy.
 
+**Deprecations (kept with notes)**
+- None — older ad-hoc OpenAPI serving paths are **deprecated** in favor of the hardened controller but remain aliased for backward-compat until Phase 6.
+
 ---
 
 ## 15) RBAC user search pagination + default per-page — NEW
@@ -265,6 +302,23 @@ _Last updated: 2025-09-28_
 
 ---
 
+## 17) Web UI bootstrap & navigation — NEW (this session)
+- [x] `AppLayout` bootstraps `require_auth` from `/api/health/fingerprint`; probes `/api/auth/me` only when required.
+- [x] Conditional redirect to `/auth/login` only when `require_auth=true` **and** not authenticated.
+- [x] Navbar renders consistently once bootstrap completes; skip-to-content link and ARIA attributes included.
+- [x] SPA history-mode verified after `npm ci && npm run build`; index fallback works.
+- [x] Vitest updated for KPI dashboard mocks and for auth bootstrap behavior.
+
+---
+
+## 18) Frontend API client cleanup — NEW (this session)
+- [x] `apiPost`/`apiPatch` overloads with typed responses.
+- [x] `authLogin`/`authLogout`/`authMe` helpers.
+- [x] `API_BASE` defaults to empty string; router and client generate absolute paths under Apache `/api` alias.
+- [x] ESLint and type-check fixes applied (no `any`, stable dependencies, no unused vars).
+
+---
+
 ## Execution order (suggested)
 1. Middleware deny auditing (#2).
 2. KPI endpoint (#5).
@@ -278,6 +332,7 @@ _Last updated: 2025-09-28_
 10. RBAC user search pagination + default per-page knob (#15) — completed during this phase.
 11. OpenAPI augmentation (#16) — completed during this phase.
 12. **Generic API rate limiting & 429 normalization** — completed during this session.
+13. **Admin Users Management (beta) & Web UI bootstrap/nav** — completed during this session.
 
 ---
 

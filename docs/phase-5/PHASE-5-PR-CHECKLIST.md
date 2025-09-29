@@ -34,6 +34,7 @@
   - Global knobs: `core.api.throttle.enabled|strategy|window_seconds|max_requests` with ENV mapping (`CORE_API_THROTTLE_*`). DB overrides supported.
   - `/auth/login` remains on `BruteForceGuard`; other routes can opt into GenericRateLimit.
   - Unified 429 JSON envelope via `Exceptions\Handler`: `{ ok:false, code:"RATE_LIMITED", retry_after:int }` + headers.
+- **Web UI auth bootstrap (added)**: AppLayout reads `/api/health/fingerprint` → `require_auth`; probes `/api/auth/me` as needed; redirects to `/auth/login` only when required and unauthenticated. ✅
 
 ## Audit
 - Emit `RBAC` denies with canonical actions:
@@ -62,6 +63,27 @@
 - **Alias route:** `GET /api/metrics/dashboard` returns identical shape to `/api/dashboard/kpis`. ✅
 - **Note**: Legacy `MetricsThrottle` replaced on metrics routes by `GenericRateLimit`; metrics knob may be disabled. ✅
 
+## Admin Users Management (beta) — API & Web UI (added)
+- API routes under `/api/admin/users`:
+  - `GET /admin/users?q=&page=&per_page=` (paged search; stable by `id`)
+  - `POST /admin/users` (create: name, email, password?, roles[])
+  - `PATCH /admin/users/{id}` (update: name?, email?, password?, roles[])
+  - `DELETE /admin/users/{id}` (delete)
+- Validation:
+  - name: string ≥2
+  - email: RFC email, unique
+  - password: ≥8 (optional on update)
+  - roles: list of normalized names/ids; duplicates after normalization rejected
+- RBAC: requires Admin role + `core.users.manage` policy. Responses normalized to `{ ok, user|data, meta? }`.
+- Web UI:
+  - New route `/admin/users` with table + create/edit modal, role multi-select, delete.
+  - Uses `web/src/lib/api.ts` helpers (`apiGet|apiPost|apiPatch|apiDelete`).
+  - Login page at `/auth/login`; navbar renders consistently after bootstrap.
+- Tests:
+  - PHPUnit for UsersController (create/update/delete, role resolution, validation).
+  - Vitest for Users page (load, create/update flows, 403 surface).
+- OpenAPI: (additive) will be documented in Phase-6; endpoints remain internal/admin-only for now.
+
 ## Evidence & Exports (smoke)
 - Evidence upload tests for allowed MIME and size (per Phase-4 contract).
 - Export create/status tests for csv/json/pdf stubs.
@@ -82,13 +104,14 @@
 - **New DB-backed knob:** `core.rbac.user_search.default_per_page` (int, 1–500, default 50). ✅
   - Set desired prod default; server still clamps to `[1..500]`. ✅
 - **New API throttle knobs (global)**: `core.api.throttle.enabled|strategy|window_seconds|max_requests` + ENV mapping. ✅
+- **No .env for app behavior**: all toggles except DB connection live in DB; docs and checks updated. ✅
 
 ## QA (manual)
 - Admin, Auditor, unassigned user: verify access matrix.
 - Capability off → Admin denied on guarded routes.
 - Unknown policy key in persist → 403 + audit.
 - Override to `[]` → stub allows, persist denies.
-- **Deep-link reload:** `/admin/settings` and `/dashboard` load via history-mode fallback.
+- **Deep-link reload:** `/admin/settings`, `/admin/users`, `/dashboard` load via history-mode fallback.
 - **RBAC user search manual checks:** ✅
   - Omitting `per_page` uses DB default from Admin Settings.
   - Entering `per_page` outside range clamps to `[1..500]`.
@@ -111,9 +134,16 @@
 - **RBAC user search docs:** Redoc snippet with paged examples, `Authorization` header example, clamping notes, and reference to DB default `core.rbac.user_search.default_per_page`. ✅
 - **OpenAPI augmentation:** Runtime injection adds standard `401/403/422` where missing for protected endpoints; covered by tests. ✅
 - **Rate limiting docs:** 429 response shape and headers documented; Redoc rendering fix (top-level `security` as array) noted. ✅
+- **Admin Users (beta):** add short API & UI overview page; mark endpoints internal/admin-only pending Phase-6 spec exposure. ✅
+
+## Deprecations (kept; do not remove)
+- `MetricsThrottle` middleware (deprecated). Use `GenericRateLimit`.
+- Legacy `core.metrics.throttle.*` knobs (deprecated) — forced disabled; retained for backward reference.
+- ENV-based runtime toggles (deprecated for app behavior). Only DB-backed settings should be used at runtime; ENV reserved for bootstrap-only.
 
 ## Sign-off
 - Security review note includes headers, APP_KEY env-only stance, and route mounting model.
 - Release notes updated.
 - **RBAC user search default-per-page** validated in API, UI, and tests. ✅
-- **Rate limiting** unified across app via `GenericRateLimit` + exception normalization; tests updated. ✅
+- **Rate limiting** unified via `GenericRateLimit` + exception normalization; tests updated. ✅
+- **Admin Users Management (beta)** landed with API + UI + tests; marked internal for now. ✅

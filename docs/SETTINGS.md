@@ -256,4 +256,4 @@ Content-Type: application/zip
 ## Out-of-scope items (kept for visibility)
 - Evidence upload validation changes (Phase 4 policy) — **not part of UI settings**.
 - Core metric windows and RBAC toggles — managed via Core settings in DB, documented elsewhere.
-
+- **Deprecated:** `core.metrics.throttle.*` knobs and `MetricsThrottle` middleware (superseded by `GenericRateLimit`). Retained in docs for reference only; always treated as disabled.

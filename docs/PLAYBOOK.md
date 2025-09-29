@@ -1,4 +1,3 @@
-# @phpgrc:/docs/PLAYBOOK.md
 # phpGRC Playbook
 
 The Playbook defines **how work is conducted** in phpGRC.  
@@ -15,6 +14,10 @@ It is binding on all sessions, files, commits, and releases.
 - **Full-file outputs only:** All file responses include a header discriminator (`# @phpgrc:/path/to/file`).  
 - **Scope creep prevention:** All deliverables must trace to Charter or Backlog; new scope requires Charter amendment.
 - **API/Web split:** Cross-cutting features open **two issues** (API first, then Web UI) under one parent milestone.
+- **Add (Phase 5): SPA auth bootstrap rule.** Web UI must:
+  1) Read `require_auth` from `/api/health/fingerprint`;  
+  2) Probe `/api/auth/me` **only** when `require_auth=true`;  
+  3) Redirect to `/auth/login` *only* when required and unauthenticated; otherwise render app normally.
 
 ---
 
@@ -25,6 +28,7 @@ It is binding on all sessions, files, commits, and releases.
 - **No partials:** ChatGPT never outputs snippets — only full files.  
 - **Deterministic mode:** All outputs generated with temperature=0, top_p=0.
 - **Add:** Do **not** delete out-of-scope items; mark as “Out of scope” and add a child note.
+- **Add (Phase 5): Deprecations handling.** Leave deprecated constructs in-place with a brief reason and pointer to replacement (e.g., `MetricsThrottle → GenericRateLimit`).
 
 ---
 
@@ -45,6 +49,7 @@ It is binding on all sessions, files, commits, and releases.
 - **Commit convention:** Conventional Commits enforced.
 - **Add:** CI forbids `env(` outside `/api/config/*` and `/web/vite*` to enforce DB-backed runtime settings.
 - **Required check names:** `OpenAPI lint`, `OpenAPI breaking-change gate`, `API static`, `API tests (MySQL, PHP 8.3) + coverage`, `Web build + tests + coverage + audit`.
+- **Add (Phase 5): OpenAPI serve headers tests.** CI must verify `openapi.yaml/json` return strong `ETag`, `Cache-Control: no-store, max-age=0`, and `X-Content-Type-Options: nosniff`.
 
 ---
 
@@ -54,6 +59,7 @@ It is binding on all sessions, files, commits, and releases.
 - **Docs are code:** Charter, Roadmap, Backlog, Capabilities, RFCs must stay in sync.  
 - **Session Footers:** may be pasted into `docs/SESSION-LOG.md` if permanent log is desired.
 - **Add:** Release Notes and Security Review notes updated **with exact endpoints and policies** gated.
+- **Add (Phase 5): Rate limit documentation.** Document standard 429 envelope `{ ok:false, code:"RATE_LIMITED", retry_after }` and headers (`Retry-After`, `X-RateLimit-Limit`, `X-RateLimit-Remaining`) wherever GenericRateLimit is applied.
 
 ---
 
@@ -63,6 +69,7 @@ It is binding on all sessions, files, commits, and releases.
 - **You = QA/infra gatekeeper.**  
 - **Me = sole code contributor.**
 - **Add:** For API+Web work, **land API first** behind RBAC, then wire Web UI in a follow-up PR.
+- **Add (Phase 5): Throttling standardization.** New endpoints opting into rate limiting must use `GenericRateLimit` (deprecated: `MetricsThrottle`).
 
 ---
 
@@ -72,6 +79,7 @@ It is binding on all sessions, files, commits, and releases.
 - **Nice-to-haves** deferred unless formally added.  
 - **Future modules** live in Backlog under `future:`.
 - **Add:** OpenAPI must not change without an approved diff plan; internal endpoints may exist outside OpenAPI when documented in Phase notes.
+- **Add (Phase 5): DB-backed settings are the system of record.** Proposals that add new runtime toggles must include DB persistence and UI wiring.
 
 ---
 
@@ -81,6 +89,7 @@ It is binding on all sessions, files, commits, and releases.
 - **Release notes:** each release includes backlog IDs delivered.  
 - **Artifacts:** each release includes `phpgrc-build.tar.gz`.
 - **Add:** Include DB migrations checksum and `core_settings` baseline verification steps.
+- **Add (Phase 5): Post-release verification.** Validate `/api/health/fingerprint` and RBAC require_auth behavior via SPA bootstrap after deploy.
 
 ---
 
@@ -103,6 +112,7 @@ It is binding on all sessions, files, commits, and releases.
   { "core": { "api": { "throttle": { "enabled": false } } } }
   ```
   Or set ENV defaults (`CORE_API_THROTTLE_ENABLED=false`) for ephemeral runs. Clear config cache after deploy.
+- **Add (Phase 5): Routing model.** Laravel internal API prefix **disabled** (`apiPrefix:''`); web server mounts at `/api/*`. Tests hitting API **must not** include `/api` in the path inside the Laravel kernel.
 
 ---
 
@@ -112,6 +122,7 @@ It is binding on all sessions, files, commits, and releases.
 - **Data:** Seed minimal rows for dashboards and audits.  
 - **Add:** When settings move from `.env` → DB, update tests to assert **DB overrides** and remove `.env` coupling.
 - **Add:** Rate limit tests assert headers on 200 and 429 and precedence of route defaults over global.
+- **Add (Phase 5): SPA bootstrap tests.** Mock `/api/health/fingerprint` and `/api/auth/me` to assert correct redirect/no-redirect logic and navbar rendering after bootstrap.
 
 ---
 
@@ -119,6 +130,7 @@ It is binding on all sessions, files, commits, and releases.
 - **One-audit-per-request** invariant for denies.  
 - **Settings changes** audited as `settings.update` with `meta.changes[{key,old,new,action}]`. No secrets or raw bytes.  
 - **RBAC deny codes** labeled in UI via mapping table; keep mapping in a single source.
+- **Add (Phase 5): Rate-limit audits.** Lock path audited once (`auth.bruteforce.locked`); failed attempts audited as `auth.login.failed`.
 
 ---
 
@@ -126,10 +138,11 @@ It is binding on all sessions, files, commits, and releases.
 - **API/Web pairing:** file two issues when UX depends on new API data.  
 - **Parent milestone** tracks the user-facing outcome.  
 - **Definition of Done:** both API and Web issues closed, docs updated, CI green, audit paths verified.
+- **Add (Phase 5): Admin Users Management (beta).** Track API and Web UI as paired issues; mark API endpoints internal until exposed in OpenAPI in a future phase.
 
 ---
 
 ## Out of Scope (kept for visibility)
 - **Lower PHPStan levels:** not permitted.  
 - **Direct `.env` toggles for runtime behavior:** moved to DB persistence.
-
+- **Deprecated (kept):** `MetricsThrottle` middleware remains in tree with a deprecation note; all new throttled routes must use `GenericRateLimit`.
