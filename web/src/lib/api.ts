@@ -1,6 +1,4 @@
-/* eslint-disable @typescript-eslint/consistent-type-definitions */
-
-export const API_BASE = String(import.meta.env.VITE_API_BASE || "/api").replace(/\/+$/, "");
+export const API_BASE = String(import.meta.env.VITE_API_BASE ?? "/api").replace(/\/+$/, "");
 
 export class HttpError extends Error {
   status: number;
@@ -39,79 +37,100 @@ async function handle<T>(res: Response): Promise<T> {
   return body as T;
 }
 
-type JsonLike = Record<string, unknown> | readonly unknown[] | string | number | boolean | null | undefined;
-
-type Method = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
-
-async function request<TResp, TReq = unknown>(
-  method: Method,
-  path: string,
-  opts?: {
-    params?: QueryInit;
-    body?: TReq;
-    signal?: AbortSignal;
-    headers?: Record<string, string>;
-  }
-): Promise<TResp> {
-  const url = toUrl(path, opts?.params);
-  const init: RequestInit = {
-    method,
-    credentials: "same-origin",
-    signal: opts?.signal,
-    headers: { ...(opts?.headers ?? {}) },
-  };
-
-  const body = opts?.body as unknown;
-
-  if (body instanceof FormData || body instanceof URLSearchParams) {
-    init.body = body;
-    // Let the browser set the correct multipart/urlencoded headers.
-  } else if (body !== undefined) {
-    // Treat as JSON-like
-    init.body = JSON.stringify(body as JsonLike);
-    (init.headers as Record<string, string>)["Content-Type"] = "application/json";
-  }
-
-  const res = await fetch(url, init);
-  return handle<TResp>(res);
-}
-
 export async function apiGet<T>(path: string, params?: QueryInit, signal?: AbortSignal): Promise<T> {
-  return request<T>("GET", path, { params, signal });
+  const url = toUrl(path, params);
+  const res = await fetch(url, { method: "GET", credentials: "same-origin", signal });
+  return handle<T>(res);
 }
 
-export async function apiPost<TResp, TReq = unknown>(
-  path: string,
-  body?: TReq,
-  signal?: AbortSignal
-): Promise<TResp> {
-  return request<TResp, TReq>("POST", path, { body, signal });
+export async function apiPost<T>(path: string, body?: unknown, signal?: AbortSignal): Promise<T> {
+  const url = toUrl(path);
+  const res = await fetch(url, {
+    method: "POST",
+    credentials: "same-origin",
+    headers: { "Content-Type": "application/json" },
+    body: body === undefined ? null : JSON.stringify(body),
+    signal,
+  });
+  return handle<T>(res);
 }
 
-export async function apiPut<TResp, TReq = unknown>(
-  path: string,
-  body?: TReq,
-  signal?: AbortSignal
-): Promise<TResp> {
-  return request<TResp, TReq>("PUT", path, { body, signal });
+export async function apiPut<T>(path: string, body?: unknown, signal?: AbortSignal): Promise<T> {
+  const url = toUrl(path);
+  const res = await fetch(url, {
+    method: "PUT",
+    credentials: "same-origin",
+    headers: { "Content-Type": "application/json" },
+    body: body === undefined ? null : JSON.stringify(body),
+    signal,
+  });
+  return handle<T>(res);
 }
 
-export async function apiPatch<TResp, TReq = unknown>(
-  path: string,
-  body?: TReq,
-  signal?: AbortSignal
-): Promise<TResp> {
-  return request<TResp, TReq>("PATCH", path, { body, signal });
+export async function apiDelete<T>(path: string, signal?: AbortSignal): Promise<T> {
+  const url = toUrl(path);
+  const res = await fetch(url, { method: "DELETE", credentials: "same-origin", signal });
+  return handle<T>(res);
 }
 
-export async function apiDelete<TResp>(path: string, signal?: AbortSignal): Promise<TResp> {
-  return request<TResp>("DELETE", path, { signal });
+/** Auth helpers */
+export interface LoginRequest {
+  email: string;
+  password: string;
+}
+export interface LoginResponse {
+  ok: boolean;
+  token?: string;
+  [k: string]: unknown;
+}
+export interface MeResponse {
+  ok: boolean;
+  user?: { id: number; name: string; email: string } | null;
+  [k: string]: unknown;
 }
 
-export async function apiUpload<TResp>(
-  path: string,
-  form: FormData,
-  signal?: AbortSignal
-): Promise<TResp> {
-  return request<TResp>("POST", path, { body: form, signal });
+export function authLogin(payload: LoginRequest) {
+  return apiPost<LoginResponse>("/auth/login", payload);
+}
+export function authLogout() {
+  return apiPost<{ ok: boolean }>("/auth/logout", {});
+}
+export function authMe() {
+  return apiGet<MeResponse>("/auth/me");
+}
+
+/** Admin Users */
+export interface User {
+  id: number;
+  name: string;
+  email: string;
+}
+export interface UsersIndexResponse {
+  ok: boolean;
+  data: User[];
+  meta: { page: number; per_page: number; total: number; total_pages: number };
+}
+export interface UserCreatePayload {
+  name: string;
+  email: string;
+  password: string;
+  roles?: string[];
+}
+export interface UserUpdatePayload {
+  name?: string;
+  email?: string;
+  password?: string;
+  roles?: string[];
+}
+export function adminUsersIndex(params: { q?: string; page?: number; per_page?: number }) {
+  return apiGet<UsersIndexResponse>("/admin/users", params);
+}
+export function adminUsersStore(payload: UserCreatePayload) {
+  return apiPost<{ ok: boolean; user: User }>("/admin/users", payload);
+}
+export function adminUsersUpdate(id: number, payload: UserUpdatePayload) {
+  return apiPut<{ ok: boolean; user: User }>(`/admin/users/${id}`, payload);
+}
+export function adminUsersDelete(id: number) {
+  return apiDelete<{ ok: boolean }>(`/admin/users/${id}`);
 }

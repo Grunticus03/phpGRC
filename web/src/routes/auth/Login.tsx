@@ -1,55 +1,61 @@
 import { useState } from "react";
-import { apiPost } from "../../lib/api";
-
-type LoginResponse = { ok: true } | { ok: false; code: string; message?: string };
+import { useNavigate } from "react-router-dom";
+import { authLogin } from "../../lib/api";
 
 export default function Login() {
-  const [email, setEmail] = useState<string>("");
-  const [password, setPassword] = useState<string>("");
-  const [busy, setBusy] = useState<boolean>(false);
-  const [error, setError] = useState<string | null>(null);
+  const nav = useNavigate();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [err, setErr] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
-  async function onSubmit(ev: React.FormEvent<HTMLFormElement>) {
-    ev.preventDefault();
+  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setErr(null);
     setBusy(true);
-    setError(null);
     try {
-      const res = await apiPost<LoginResponse>("/auth/login", { email, password });
-      if ("ok" in res && res.ok) {
-        window.location.href = "/";
-      } else {
-        setError("Login failed");
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Login failed");
+      await authLogin({ email, password });
+      nav("/dashboard", { replace: true });
+    } catch {
+      setErr("Invalid credentials or server error.");
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <div className="p-6 max-w-sm mx-auto">
-      <h1 className="text-2xl font-semibold mb-4">Sign in</h1>
-      {error && <div className="text-red-600 text-sm mb-3">{error}</div>}
-      <form onSubmit={onSubmit} className="grid gap-3">
-        <input
-          type="email"
-          required
-          placeholder="Email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          className="border rounded px-3 py-2"
-        />
-        <input
-          type="password"
-          required
-          placeholder="Password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          className="border rounded px-3 py-2"
-        />
-        <button type="submit" disabled={busy} className="px-3 py-2 border rounded disabled:opacity-50">
-          {busy ? "Signing in…" : "Sign in"}
+    <div className="mx-auto mt-24 max-w-md rounded-2xl border p-6 shadow">
+      <h1 className="mb-4 text-xl font-semibold">Sign in</h1>
+      <form onSubmit={onSubmit} className="space-y-4">
+        <div>
+          <label className="mb-1 block text-sm font-medium">Email</label>
+          <input
+            type="email"
+            className="w-full rounded-md border px-3 py-2"
+            value={email}
+            onChange={(ev) => setEmail(ev.currentTarget.value)}
+            required
+            autoComplete="username"
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-sm font-medium">Password</label>
+          <input
+            type="password"
+            className="w-full rounded-md border px-3 py-2"
+            value={password}
+            onChange={(ev) => setPassword(ev.currentTarget.value)}
+            required
+            autoComplete="current-password"
+          />
+        </div>
+        {err && <div className="rounded-md bg-red-50 p-2 text-sm text-red-700">{err}</div>}
+        <button
+          type="submit"
+          className="w-full rounded-md bg-black px-4 py-2 text-white disabled:opacity-50"
+          disabled={busy}
+        >
+          {busy ? "Signing in..." : "Sign in"}
         </button>
       </form>
     </div>
