@@ -1,10 +1,14 @@
 import { useState } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
-import { authLogin, setAuthToken } from "../../lib/api";
+import { useLocation, useNavigate } from "react-router-dom";
+import { authLogin, setAuthToken, LoginResponse } from "../../lib/api";
+
+type NavState = { from?: string } | undefined;
 
 export default function Login() {
   const nav = useNavigate();
-  const loc = useLocation() as { state?: { from?: Location } };
+  const loc = useLocation();
+  const state = (loc.state ?? undefined) as NavState;
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [err, setErr] = useState<string | null>(null);
@@ -15,9 +19,12 @@ export default function Login() {
     setErr(null);
     setBusy(true);
     try {
-      const res = await authLogin({ email, password });
-      setAuthToken(res.token);
-      const to = (loc.state?.from as unknown as { pathname?: string })?.pathname || "/dashboard";
+      const res = await authLogin<LoginResponse>({ email, password });
+      const token = typeof res?.token === "string" ? res.token : "";
+      if (!token) throw new Error("Missing token");
+      setAuthToken(token);
+
+      const to = typeof state?.from === "string" && state.from ? state.from : "/dashboard";
       nav(to, { replace: true });
     } catch {
       setErr("Invalid credentials or server error.");

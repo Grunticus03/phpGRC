@@ -1,11 +1,9 @@
 import { Outlet, useLocation, Navigate } from "react-router-dom";
 import { useEffect, useState } from "react";
-import { apiGet, HttpError } from "../lib/api";
+import { apiGet, getAuthToken, clearAuthToken } from "../lib/api";
 import Nav from "../components/Nav";
 
-type Fingerprint = {
-  summary?: { rbac?: { require_auth?: boolean } };
-};
+type Fingerprint = { summary?: { rbac?: { require_auth?: boolean } } };
 
 export default function AppLayout() {
   const loc = useLocation();
@@ -16,26 +14,24 @@ export default function AppLayout() {
 
   useEffect(() => {
     let cancelled = false;
-
     async function bootstrap(): Promise<void> {
       try {
         const fp = await apiGet<Fingerprint>("/health/fingerprint");
         const req = Boolean(fp?.summary?.rbac?.require_auth);
         if (!cancelled) setRequireAuth(req);
 
+        const token = getAuthToken();
         if (req) {
-          try {
-            // Probe a protected endpoint. 401 => unauthenticated. 200/403 => authenticated.
-            await apiGet<unknown>("/admin/settings");
-            if (!cancelled) setAuthed(true);
-          } catch (e) {
-            const err = e as unknown;
-            if (err instanceof HttpError && err.status === 401) {
-              if (!cancelled) setAuthed(false);
-            } else {
-              // Forbidden or other non-401 means we are authenticated but may lack permission.
+          if (token) {
+            try {
+              await apiGet<unknown>("/auth/me");
               if (!cancelled) setAuthed(true);
+            } catch {
+              clearAuthToken();
+              if (!cancelled) setAuthed(false);
             }
+          } else {
+            if (!cancelled) setAuthed(false);
           }
         } else {
           if (!cancelled) setAuthed(true);
@@ -44,16 +40,14 @@ export default function AppLayout() {
         if (!cancelled) setLoading(false);
       }
     }
-
     void bootstrap();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, []);
 
   if (loading) return null;
 
-  if (requireAuth && !authed && !loc.pathname.startsWith("/auth/")) {
+  const tokenPresent = !!getAuthToken();
+  if (requireAuth && (!tokenPresent || !authed) && !loc.pathname.startsWith("/auth/")) {
     return <Navigate to="/auth/login" replace state={{ from: loc }} />;
   }
 

@@ -7,10 +7,10 @@ use App\Models\User;
 use App\Services\Audit\AuditLogger;
 use App\Services\Rbac\RbacEvaluator;
 use Closure;
-use Illuminate\Auth\AuthenticationException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
+use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
 
 final class RbacMiddleware
@@ -47,7 +47,7 @@ final class RbacMiddleware
         /** @var array<string,mixed> $defaults */
         $defaults = $route->defaults;
 
-        // Capability gate — blocks regardless of auth/rbac mode.
+        // Capability gate
         $capKey = (isset($defaults['capability']) && is_string($defaults['capability']) && $defaults['capability'] !== '')
             ? $defaults['capability']
             : null;
@@ -62,14 +62,11 @@ final class RbacMiddleware
                     'required_roles' => $this->extractRequiredRoles($defaults),
                     'policy'         => $this->extractPolicy($defaults),
                 ]);
-                return response()->json([
-                    'ok'         => false,
-                    'code'       => 'CAPABILITY_DISABLED',
-                    'capability' => $capKey,
-                ], 403);
+                return new JsonResponse(['ok' => false, 'code' => 'CAPABILITY_DISABLED', 'capability' => $capKey], 403);
             }
         }
 
+        /** @var list<string> $requiredRoles */
         $requiredRoles = $this->extractRequiredRoles($defaults);
         $policy        = $this->extractPolicy($defaults);
         $requireAuth   = (bool) config('core.rbac.require_auth', false);
@@ -87,14 +84,13 @@ final class RbacMiddleware
                     'policy'         => $policy,
                     'capability'     => $capKey,
                 ]);
-                throw new AuthenticationException();
+                return new JsonResponse(['ok' => false, 'code' => 'UNAUTHENTICATED', 'message' => 'Unauthenticated'], 401);
             }
             /** @var Response $resp */
             $resp = $next($request);
             return $resp;
         }
 
-        // Enforce route roles when present.
         if ($requiredRoles !== [] && !$this->evaluator->userHasAnyRole($user, $requiredRoles)) {
             $this->auditDeny($request, $user, 'rbac.deny.role_mismatch', [
                 'reason'         => 'role',
@@ -103,14 +99,12 @@ final class RbacMiddleware
                 'policy'         => $policy,
                 'capability'     => $capKey,
             ]);
-            return response()->json(['ok' => false, 'code' => 'FORBIDDEN', 'message' => 'Forbidden'], 403);
+            return new JsonResponse(['ok' => false, 'code' => 'FORBIDDEN', 'message' => 'Forbidden'], 403);
         }
 
-        // Enforce policy ALWAYS when present (even if roles passed).
         if ($policy !== null && $policy !== '') {
             $policyAllowed = RbacEvaluator::allows($user, $policy);
             $request->attributes->set('rbac_policy_allowed', $policyAllowed);
-
             if (!$policyAllowed) {
                 $this->auditDeny($request, $user, 'rbac.deny.policy', [
                     'reason'         => 'policy',
@@ -119,7 +113,7 @@ final class RbacMiddleware
                     'policy'         => $policy,
                     'capability'     => $capKey,
                 ]);
-                return response()->json(['ok' => false, 'code' => 'FORBIDDEN', 'message' => 'Forbidden'], 403);
+                return new JsonResponse(['ok' => false, 'code' => 'FORBIDDEN', 'message' => 'Forbidden'], 403);
             }
         }
 
@@ -184,11 +178,11 @@ final class RbacMiddleware
             $routeAction = null;
 
             if ($routeObj !== null) {
-                $rn = $routeObj->getName();       // ?string
+                $rn = $routeObj->getName();
                 if ($rn !== null && $rn !== '') {
                     $routeName = $rn;
                 }
-                $ra = $routeObj->getActionName(); // string
+                $ra = $routeObj->getActionName();
                 if ($ra !== '') {
                     $routeAction = $ra;
                 }
@@ -196,7 +190,7 @@ final class RbacMiddleware
 
             $method   = $request->getMethod();
             $path     = '/' . ltrim($request->path(), '/');
-            $entityId = $method . ' ' . $path; // stable, non-empty
+            $entityId = $method . ' ' . $path;
 
             /** @var list<string>|null $rolesUser */
             $rolesUser = null;
@@ -215,12 +209,12 @@ final class RbacMiddleware
             }
 
             $meta = array_filter([
-                'reason'         => $extraMeta['reason']         ?? null,          // capability|unauthenticated|role|policy
+                'reason'         => $extraMeta['reason']         ?? null,
                 'policy'         => $extraMeta['policy']         ?? null,
                 'capability'     => $extraMeta['capability']     ?? null,
-                'required_roles' => $extraMeta['required_roles'] ?? null,          // list<string>|null
-                'roles_user'     => $rolesUser,                                   // list<string>|null
-                'rbac_mode'      => $extraMeta['rbac_mode']      ?? null,          // stub|persist
+                'required_roles' => $extraMeta['required_roles'] ?? null,
+                'roles_user'     => $rolesUser,
+                'rbac_mode'      => $extraMeta['rbac_mode']      ?? null,
                 'route_name'     => $routeName,
                 'route_action'   => $routeAction,
                 'route'          => $path,
@@ -246,11 +240,7 @@ final class RbacMiddleware
     }
 
     /**
-     * Normalize role token for meta:
-     * - trim
-     * - collapse internal whitespace to single space
-     * - replace spaces with underscore
-     * - allow ^[\p{L}\p{N}_-]{2,64}$, then lowercase
+     * Normalize role token.
      */
     private function normalizeToken(string $name): string
     {
@@ -267,4 +257,3 @@ final class RbacMiddleware
         return mb_strtolower($name);
     }
 }
-
