@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { apiDelete, apiGet, apiPatch, apiPost } from "../../lib/api";
+import { apiDelete, apiGet, apiPatch, apiPost, HttpError } from "../../lib/api";
 
 type User = {
   id: number;
@@ -15,6 +15,13 @@ type Paged<T> = {
 };
 
 type UserResponse = { ok: true; user: User };
+
+function isPagedUsers(x: unknown): x is Paged<User> {
+  if (!x || typeof x !== "object") return false;
+  const o = x as Record<string, unknown>;
+  const m = o.meta as Record<string, unknown> | undefined;
+  return o.ok === true && Array.isArray(o.data) && !!m && typeof m.page === "number" && typeof m.total_pages === "number";
+}
 
 export default function Users() {
   const [q, setQ] = useState<string>("");
@@ -32,11 +39,23 @@ export default function Users() {
     setBusy(true);
     setError(null);
     try {
-      const res = await apiGet<Paged<User>>("/admin/users", { q, page, per_page: perPage });
-      setItems(res.data);
-      setMeta(res.meta);
+      const res = await apiGet<unknown>("/admin/users", { q, page, per_page: perPage });
+      if (isPagedUsers(res)) {
+        setItems(res.data);
+        setMeta(res.meta);
+      } else {
+        setItems([]);
+        setError("Users API shape invalid or not implemented.");
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Load failed");
+      if (err instanceof HttpError) {
+        if (err.status === 401) setError("Unauthorized. Please sign in.");
+        else if (err.status === 403) setError("Forbidden. You lack permission to view users.");
+        else if (err.status === 404) setError("Not found. Users API is disabled or hidden.");
+        else setError(`Request failed: HTTP ${err.status}`);
+      } else {
+        setError("Load failed");
+      }
     } finally {
       setBusy(false);
     }
@@ -48,7 +67,8 @@ export default function Users() {
 
   async function onCreate(ev: React.FormEvent<HTMLFormElement>) {
     ev.preventDefault();
-    const form = new FormData(ev.currentTarget);
+    const formEl = ev.currentTarget; // keep reference before await
+    const form = new FormData(formEl);
     const payload = {
       name: String(form.get("name") ?? ""),
       email: String(form.get("email") ?? ""),
@@ -62,7 +82,8 @@ export default function Users() {
     setError(null);
     try {
       await apiPost<UserResponse>("/admin/users", payload);
-      ev.currentTarget.reset();
+      formEl.reset();
+      setPage(1);
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Create failed");
@@ -81,10 +102,7 @@ export default function Users() {
     const payload = {
       name,
       email,
-      roles: rolesInput
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean),
+      roles: rolesInput.split(",").map((s) => s.trim()).filter(Boolean),
     };
     setBusy(true);
     setError(null);
@@ -134,7 +152,7 @@ export default function Users() {
         </button>
       </form>
 
-      {error && <div className="text-red-600 text-sm">{error}</div>}
+      {error && <div className="text-red-600 text-sm" role="alert">{error}</div>}
 
       <div className="border rounded">
         <table className="w-full text-sm">
@@ -155,21 +173,13 @@ export default function Users() {
                 <td className="p-2">{u.email}</td>
                 <td className="p-2">{u.roles.join(", ")}</td>
                 <td className="p-2 space-x-2">
-                  <button
-                    type="button"
-                    className="px-2 py-1 border rounded"
-                    onClick={() => {
-                      void onUpdate(u);
-                    }}
-                  >
+                  <button type="button" className="px-2 py-1 border rounded" onClick={() => { void onUpdate(u); }}>
                     Edit
                   </button>
                   <button
                     type="button"
                     className="px-2 py-1 border rounded text-red-700"
-                    onClick={() => {
-                      void onDelete(u);
-                    }}
+                    onClick={() => { void onDelete(u); }}
                   >
                     Delete
                   </button>

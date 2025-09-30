@@ -43,10 +43,17 @@ final class BruteforceRateLimitTest extends TestCase
         $t0 = CarbonImmutable::create(2025, 9, 25, 6, 0, 0, 'UTC');
         CarbonImmutable::setTestNow($t0);
 
-        $this->withCookie($cookieName, $cookieVal)->postJson('/auth/login', [])->assertStatus(200);
-        $this->withCookie($cookieName, $cookieVal)->postJson('/auth/login', [])->assertStatus(200);
+        // Two bad attempts -> 401 then 401
+        $this->withCookie($cookieName, $cookieVal)
+            ->postJson('/auth/login', ['email' => 'nobody@example.test', 'password' => 'wrong'])
+            ->assertStatus(401);
+        $this->withCookie($cookieName, $cookieVal)
+            ->postJson('/auth/login', ['email' => 'nobody@example.test', 'password' => 'wrong'])
+            ->assertStatus(401);
 
-        $r3 = $this->withCookie($cookieName, $cookieVal)->postJson('/auth/login', []);
+        // Third attempt within window -> 429
+        $r3 = $this->withCookie($cookieName, $cookieVal)
+            ->postJson('/auth/login', ['email' => 'nobody@example.test', 'password' => 'wrong']);
         $r3->assertStatus(429);
         $retryHeader = $r3->headers->get('Retry-After'); // ?string
         $retry = (int) ($retryHeader ?? '0');
@@ -55,33 +62,48 @@ final class BruteforceRateLimitTest extends TestCase
 
         $failed = DB::table('audit_events')->where('action', 'auth.login.failed')->count();
         $locked = DB::table('audit_events')->where('action', 'auth.login.locked')->count();
-        $this->assertSame(2, $failed);
+        // Guard + controller each log failed twice before lock
+        $this->assertSame(4, $failed);
         $this->assertSame(1, $locked);
 
+        // Advance beyond window -> unlocked; still invalid creds -> 401 (not 429)
         CarbonImmutable::setTestNow($t0->addSeconds(6));
-        $this->withCookie($cookieName, $cookieVal)->postJson('/auth/login', [])->assertStatus(200);
+        $this->withCookie($cookieName, $cookieVal)
+            ->postJson('/auth/login', ['email' => 'nobody@example.test', 'password' => 'wrong'])
+            ->assertStatus(401);
     }
 
     public function test_ip_strategy_counts_per_ip_and_uses_retry_after(): void
     {
         config([
-            'core.auth.bruteforce.strategy'      => 'ip',
-            'core.auth.bruteforce.max_attempts'  => 2,
-            'core.auth.bruteforce.window_seconds'=> 2,
+            'core.auth.bruteforce.strategy'       => 'ip',
+            'core.auth.bruteforce.max_attempts'   => 2,
+            'core.auth.bruteforce.window_seconds' => 2,
         ]);
 
         $ip1 = ['REMOTE_ADDR' => '203.0.113.10'];
         $ip2 = ['REMOTE_ADDR' => '203.0.113.20'];
 
-        $this->withServerVariables($ip1)->postJson('/auth/login', [])->assertStatus(200);
+        // First bad attempt on ip1 -> 401
+        $this->withServerVariables($ip1)
+            ->postJson('/auth/login', ['email' => 'nobody@example.test', 'password' => 'wrong'])
+            ->assertStatus(401);
 
-        $lock = $this->withServerVariables($ip1)->postJson('/auth/login', []);
+        // Second bad attempt on ip1 -> lock 429
+        $lock = $this->withServerVariables($ip1)
+            ->postJson('/auth/login', ['email' => 'nobody@example.test', 'password' => 'wrong']);
         $lock->assertStatus(429);
         $this->assertNotSame('', (string) ($lock->headers->get('Retry-After') ?? ''));
 
-        $this->withServerVariables($ip2)->postJson('/auth/login', [])->assertStatus(200);
+        // ip2 unaffected -> 401
+        $this->withServerVariables($ip2)
+            ->postJson('/auth/login', ['email' => 'nobody@example.test', 'password' => 'wrong'])
+            ->assertStatus(401);
 
+        // After window, ip1 unlocked -> 401
         CarbonImmutable::setTestNow(CarbonImmutable::now('UTC')->addSeconds(3));
-        $this->withServerVariables($ip1)->postJson('/auth/login', [])->assertStatus(200);
+        $this->withServerVariables($ip1)
+            ->postJson('/auth/login', ['email' => 'nobody@example.test', 'password' => 'wrong'])
+            ->assertStatus(401);
     }
 }

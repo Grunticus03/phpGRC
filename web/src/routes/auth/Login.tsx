@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { authLogin } from "../../lib/api";
+import { useNavigate, useLocation } from "react-router-dom";
+import { authLogin, setAuthToken } from "../../lib/api";
 
 export default function Login() {
   const nav = useNavigate();
+  const loc = useLocation() as { state?: { from?: Location } };
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [err, setErr] = useState<string | null>(null);
@@ -14,8 +15,10 @@ export default function Login() {
     setErr(null);
     setBusy(true);
     try {
-      await authLogin({ email, password });
-      nav("/dashboard", { replace: true });
+      const res = await authLogin({ email, password });
+      setAuthToken(res.token);
+      const to = (loc.state?.from as unknown as { pathname?: string })?.pathname || "/dashboard";
+      nav(to, { replace: true });
     } catch {
       setErr("Invalid credentials or server error.");
     } finally {

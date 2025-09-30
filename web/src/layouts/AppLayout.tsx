@@ -1,6 +1,6 @@
 import { Outlet, useLocation, Navigate } from "react-router-dom";
 import { useEffect, useState } from "react";
-import { apiGet } from "../lib/api";
+import { apiGet, HttpError } from "../lib/api";
 import Nav from "../components/Nav";
 
 type Fingerprint = {
@@ -25,10 +25,17 @@ export default function AppLayout() {
 
         if (req) {
           try {
-            await apiGet<unknown>("/auth/me");
+            // Probe a protected endpoint. 401 => unauthenticated. 200/403 => authenticated.
+            await apiGet<unknown>("/admin/settings");
             if (!cancelled) setAuthed(true);
-          } catch {
-            if (!cancelled) setAuthed(false);
+          } catch (e) {
+            const err = e as unknown;
+            if (err instanceof HttpError && err.status === 401) {
+              if (!cancelled) setAuthed(false);
+            } else {
+              // Forbidden or other non-401 means we are authenticated but may lack permission.
+              if (!cancelled) setAuthed(true);
+            }
           }
         } else {
           if (!cancelled) setAuthed(true);

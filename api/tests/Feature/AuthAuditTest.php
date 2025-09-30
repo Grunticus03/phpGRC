@@ -5,8 +5,9 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Models\AuditEvent;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
 
 final class AuthAuditTest extends TestCase
@@ -15,18 +16,24 @@ final class AuthAuditTest extends TestCase
 
     public function test_login_logout_totp_emit_audit_events(): void
     {
-        // Login
-        $this->postJson('/auth/login')->assertOk();
+        $user = User::factory()->create([
+            'email'    => 'tester@example.com',
+            'password' => Hash::make('secret123'),
+        ]);
 
-        // Logout
+        // Login with credentials -> token flow
+        $this->postJson('/auth/login', ['email' => $user->email, 'password' => 'secret123'])
+            ->assertOk()
+            ->assertJsonStructure(['ok', 'token', 'user' => ['id', 'email']]);
+
+        // Logout (stub may not require auth)
         $this->postJson('/auth/logout')->assertNoContent();
 
-        // TOTP enroll + verify
+        // TOTP enroll + verify (stubs)
         $this->postJson('/auth/totp/enroll')->assertOk();
         $this->postJson('/auth/totp/verify', ['code' => '000000'])->assertOk();
 
         $actions = AuditEvent::query()->pluck('action')->all();
-        // Order-insensitive check for required actions
         $this->assertContains('auth.login', $actions);
         $this->assertContains('auth.logout', $actions);
         $this->assertContains('auth.totp.enroll', $actions);
@@ -35,7 +42,7 @@ final class AuthAuditTest extends TestCase
 
     public function test_break_glass_guard_logs_when_disabled(): void
     {
-        Config::set('core.auth.break_glass.enabled', false);
+        config(['core.auth.break_glass.enabled' => false]);
 
         $this->postJson('/auth/break-glass')
             ->assertStatus(404)

@@ -32,18 +32,22 @@ final class BruteForceGuardTest extends TestCase
 
         $name = (string) config('core.auth.session_cookie.name');
 
-        // 1) No client cookie: guard issues one
-        $r1 = $this->postJson('/auth/login')->assertOk();
+        // 1) No client cookie: guard issues one, controller returns 401 on bad creds
+        $r1 = $this->postJson('/auth/login', ['email' => 'nobody@example.test', 'password' => 'wrong'])
+            ->assertStatus(401);
         $issued = $this->getCookieFromResponse($r1, $name);
         $this->assertNotNull($issued, 'Guard did not set session cookie');
         /** @var string $cookieVal */
         $cookieVal = $issued->getValue();
 
-        // 2) Reuse server-issued cookie
-        $this->withCookie($name, $cookieVal)->postJson('/auth/login')->assertOk();
+        // 2) Reuse server-issued cookie, still below threshold -> 401
+        $this->withCookie($name, $cookieVal)
+            ->postJson('/auth/login', ['email' => 'nobody@example.test', 'password' => 'wrong'])
+            ->assertStatus(401);
 
-        // 3) Third attempt must lock
-        $r3 = $this->withCookie($name, $cookieVal)->postJson('/auth/login');
+        // 3) Third attempt must lock -> 429 with Retry-After
+        $r3 = $this->withCookie($name, $cookieVal)
+            ->postJson('/auth/login', ['email' => 'nobody@example.test', 'password' => 'wrong']);
         $r3->assertStatus(429);
         $retryHeader = (string) ($r3->headers->get('Retry-After') ?? '0');
         $this->assertNotSame('0', $retryHeader);
@@ -57,8 +61,9 @@ final class BruteForceGuardTest extends TestCase
             ->where('action', 'auth.login.failed')
             ->count();
 
+        // Guard logs 'failed' each time below threshold; controller logs failed too on invalid creds.
         $this->assertSame(1, $locked);
-        $this->assertSame(2, $failed);
+        $this->assertSame(4, $failed);
     }
 
     public function test_ip_strategy_locks_after_max_attempts(): void
@@ -77,9 +82,12 @@ final class BruteForceGuardTest extends TestCase
         Cache::setDefaultDriver('file');
         Cache::store('file')->flush();
 
-        $this->postJson('/auth/login')->assertOk();
+        // 1) First bad attempt -> 401
+        $this->postJson('/auth/login', ['email' => 'nobody@example.test', 'password' => 'wrong'])
+            ->assertStatus(401);
 
-        $r2 = $this->postJson('/auth/login');
+        // 2) Second bad attempt -> lock 429
+        $r2 = $this->postJson('/auth/login', ['email' => 'nobody@example.test', 'password' => 'wrong']);
         $r2->assertStatus(429);
         $retryHeader = (string) ($r2->headers->get('Retry-After') ?? '0');
         $this->assertNotSame('0', $retryHeader);
@@ -94,7 +102,7 @@ final class BruteForceGuardTest extends TestCase
             ->count();
 
         $this->assertSame(1, $locked);
-        $this->assertSame(1, $failed);
+        $this->assertSame(2, $failed);
     }
 
     private function getCookieFromResponse(\Illuminate\Testing\TestResponse $resp, string $name): ?Cookie
