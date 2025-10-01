@@ -84,7 +84,7 @@ final class RbacMiddleware
                     'policy'         => $policy,
                     'capability'     => $capKey,
                 ]);
-                return new JsonResponse(['ok' => false, 'code' => 'UNAUTHENTICATED', 'message' => 'Unauthenticated'], 401);
+                return response()->json(['ok' => false, 'code' => 'UNAUTHENTICATED'], 401);
             }
             /** @var Response $resp */
             $resp = $next($request);

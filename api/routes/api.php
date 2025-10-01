@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Schema;
 use App\Models\User;
 use App\Http\Controllers\Admin\SettingsController;
 use App\Http\Controllers\Admin\UsersController;
-use App\Http\Controllers\Audit\Audit\AuditController;
+use App\Http\Controllers\Audit\AuditController;
 use App\Http\Controllers\Audit\AuditExportController;
 use App\Http\Controllers\Auth\BreakGlassController;
 use App\Http\Controllers\Auth\LoginController;
@@ -121,12 +121,12 @@ HTML;
 
 /*
  |----------------------------------------------------------------------
- | Auth
+ | Auth placeholders
  |----------------------------------------------------------------------
 */
 Route::post('/auth/login',  [LoginController::class,  'login'])->middleware(BruteForceGuard::class);
 Route::post('/auth/logout', [LogoutController::class, 'logout']);
-Route::get('/auth/me',      [MeController::class,     'me'])->middleware('auth:sanctum');
+Route::get('/auth/me',      [MeController::class,     'me']);
 
 Route::post('/auth/totp/enroll', [TotpController::class, 'enroll']);
 Route::post('/auth/totp/verify', [TotpController::class, 'verify']);
@@ -142,10 +142,13 @@ Route::post('/auth/break-glass', [BreakGlassController::class, 'invoke'])->middl
  |----------------------------------------------------------------------
  | Build RBAC stack
  |----------------------------------------------------------------------
+|
+| Run RBAC first so unauthenticated requests yield JSON 401,
+| avoiding Laravel's redirect path that expects a "login" route.
 */
 $rbacStack = [RbacMiddleware::class];
 if (config('core.rbac.require_auth', false)) {
-    array_unshift($rbacStack, 'auth:sanctum');
+    $rbacStack[] = 'auth:sanctum';
 }
 
 /*
@@ -156,6 +159,7 @@ if (config('core.rbac.require_auth', false)) {
 Route::prefix('/admin')
     ->middleware($rbacStack)
     ->group(function (): void {
+        // Settings
         Route::match(['GET','HEAD'], '/settings', [SettingsController::class, 'index'])
             ->defaults('roles', ['Admin'])
             ->defaults('policy', 'core.settings.manage');
@@ -169,6 +173,7 @@ Route::prefix('/admin')
             ->defaults('roles', ['Admin'])
             ->defaults('policy', 'core.settings.manage');
 
+        // Users CRUD
         Route::prefix('/users')->group(function (): void {
             Route::get('/', [UsersController::class, 'index'])
                 ->defaults('roles', ['Admin'])
@@ -286,6 +291,7 @@ Route::prefix('/rbac')
             ->defaults('roles', ['Admin'])
             ->defaults('policy', 'core.rbac.view');
 
+        // This one always requires auth, even if require_auth=false
         Route::get('/users/search', [UserSearchController::class, 'index'])
             ->middleware(['auth:sanctum'])
             ->middleware(GenericRateLimit::class)
@@ -299,20 +305,20 @@ Route::prefix('/rbac')
  | Audit trail
  |----------------------------------------------------------------------
 */
-Route::match(['GET','HEAD'], '/audit', [\App\Http\Controllers\Audit\AuditController::class, 'index'])
+Route::match(['GET','HEAD'], '/audit', [AuditController::class, 'index'])
     ->middleware($rbacStack)
     ->defaults('roles', ['Admin', 'Auditor'])
     ->defaults('policy', 'core.audit.view');
 
-Route::get('/audit/categories', [\App\Http\Controllers\Audit\AuditController::class, 'categories'])
+Route::get('/audit/categories', [AuditController::class, 'categories'])
     ->middleware($rbacStack)
     ->defaults('roles', ['Admin', 'Auditor'])
     ->defaults('policy', 'core.audit.view');
 
-Route::get('/audit/export.csv', [\App\Http\Controllers\Audit\AuditExportController::class, 'exportCsv'])
+Route::get('/audit/export.csv', [AuditExportController::class, 'exportCsv'])
     ->middleware($rbacStack)
     ->middleware(GenericRateLimit::class)
-    ->defaults('throttle', ['strategy' => 'ip', 'window_seconds' => 60, 'max_requests' => 5])
+    ->defaults('throttle', ['strategy' => 'user', 'window_seconds' => 60, 'max_requests' => 5])
     ->defaults('roles', ['Admin', 'Auditor'])
     ->defaults('policy', 'core.audit.view')
     ->defaults('capability', 'core.audit.export');
@@ -345,7 +351,7 @@ Route::prefix('/evidence')
 
 /*
  |----------------------------------------------------------------------
- | Avatars
+ | Avatars scaffold
  |----------------------------------------------------------------------
 */
 Route::post('/avatar', [AvatarController::class, 'store']);

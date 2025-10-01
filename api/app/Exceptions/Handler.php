@@ -18,40 +18,44 @@ final class Handler extends ExceptionHandler
     protected $dontReport = [];
 
     /** @var array<int, string> */
-    protected $dontFlash = ['current_password', 'password', 'password_confirmation'];
+    protected $dontFlash = [
+        'current_password',
+        'password',
+        'password_confirmation',
+    ];
 
+    /** @override */
     #[\Override]
     public function register(): void
     {
         // no reporters
     }
 
+    /** @override */
     #[\Override]
-    protected function unauthenticated($request, AuthenticationException $exception): JsonResponse
+    protected function unauthenticated($request, AuthenticationException $exception): Response
     {
-        return new JsonResponse(['ok' => false, 'code' => 'UNAUTHENTICATED', 'message' => 'Unauthenticated'], 401);
+        return new JsonResponse(['ok' => false, 'code' => 'UNAUTHENTICATED'], 401);
     }
 
-    /**
-     * Normalize 429 to { ok:false, code:"RATE_LIMITED", retry_after:int }.
-     */
+    /** @override */
     #[\Override]
     public function render($request, Throwable $e): Response
     {
         if ($e instanceof ThrottleRequestsException || $e instanceof TooManyRequestsHttpException) {
-            /** @var array<string, int|string|string[]> $headers */
+            /** @var array<string,mixed> $headers */
             $headers = method_exists($e, 'getHeaders') ? $e->getHeaders() : [];
 
             $retryAfter = 60;
 
-            /** @var null|int|string|array<int,string> $h */
-            $h = $headers['Retry-After'] ?? null;
-            if (is_int($h)) {
-                $retryAfter = $h;
-            } elseif (is_string($h)) {
-                $retryAfter = (int) trim($h);
-            } elseif (is_array($h) && isset($h[0])) {
-                $retryAfter = (int) trim($h[0]);
+            /** @var int|string|array<int,string>|null $ra */
+            $ra = $headers['Retry-After'] ?? null;
+            if (is_int($ra)) {
+                $retryAfter = $ra;
+            } elseif (is_string($ra)) {
+                $retryAfter = (int) trim($ra);
+            } elseif (is_array($ra) && $ra !== []) {
+                $retryAfter = (int) trim($ra[0]);
             }
 
             if ($retryAfter < 1) {
