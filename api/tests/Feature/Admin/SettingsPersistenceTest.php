@@ -27,7 +27,7 @@ final class SettingsPersistenceTest extends TestCase
         $this->assertSame(false, $data['config']['core']['audit']['enabled']);
     }
 
-    public function test_update_sets_and_unsets_overrides(): void
+    public function test_update_sets_and_persists_overrides(): void
     {
         // 1) Disable => persist override (explicit apply)
         $res1 = $this->json('POST', '/admin/settings', [
@@ -38,17 +38,23 @@ final class SettingsPersistenceTest extends TestCase
 
         $this->assertDatabaseHas('core_settings', [
             'key' => 'core.audit.enabled',
+            // stored as boolean "0" with type bool by the service
+            'type' => 'bool',
+            'value' => '0',
         ]);
 
-        // 2) Revert to default => remove override (explicit apply)
+        // 2) Revert to default (true) => still persist override in DB (write-only semantics)
         $res2 = $this->json('POST', '/admin/settings', [
             'apply' => true,
             'audit' => ['enabled' => true],
         ]);
         $res2->assertStatus(200)->assertJson(['ok' => true, 'applied' => true]);
 
-        $this->assertDatabaseMissing('core_settings', [
+        // Row remains, updated to true
+        $this->assertDatabaseHas('core_settings', [
             'key' => 'core.audit.enabled',
+            'type' => 'bool',
+            'value' => '1',
         ]);
     }
 
@@ -77,3 +83,4 @@ final class SettingsPersistenceTest extends TestCase
         ]);
     }
 }
+

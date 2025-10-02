@@ -81,8 +81,10 @@ final class SettingsService
     }
 
     /**
+     * Write-only apply: upserts accepted values that changed; never prunes other rows.
+     *
      * @param array<string,mixed> $accepted
-     * @param int|null $actorId
+     * @param int|null            $actorId
      * @param array<string,mixed> $context
      * @return array{changes: array<int, array{key:string, old:mixed, new:mixed, action:string}>}
      */
@@ -97,106 +99,59 @@ final class SettingsService
         /** @var array<string, mixed> $flatAccepted */
         $flatAccepted = $this->prefixWithCore($flatAcceptedInput);
 
-        /** @var array<string, mixed> $coreCfg */
-        $coreCfg = (array) config('core', []);
-        /** @var array<string, mixed> $baseFiltered */
-        $baseFiltered = $this->filterForContract($coreCfg);
-        /** @var array<string, mixed> $baseFlat */
-        $baseFlat = Arr::dot($baseFiltered);
-        /** @var array<string, mixed> $baseline */
-        $baseline = $this->prefixWithCore($baseFlat);
-
         /** @var array<string, mixed> $current */
         $current = $this->currentOverrides();
-
-        /** @var array<string, mixed> $desired */
-        $desired = $current; // start from current, adjust below
-
-        /** @var string $key */
-        /** @var mixed  $val */
-        foreach ($flatAccepted as $key => $val) {
-            /** @var mixed $default */
-            $default = $baseline[$key] ?? null;
-
-            if ($this->valuesEqual($val, $default)) {
-                if (array_key_exists($key, $desired)) {
-                    unset($desired[$key]);
-                }
-                continue;
-            }
-
-            /** @psalm-suppress MixedAssignment */
-            $desired[$key] = $val;
-        }
 
         /** @var list<string> $touchedKeys */
         $touchedKeys = array_keys($flatAccepted);
 
-        /** @var list<string> $becameUnset */
-        $becameUnset = array_values(array_diff(array_keys($current), array_keys($desired)));
-
-        foreach ($becameUnset as $k) {
-            if (!in_array($k, $touchedKeys, true)) {
-                $touchedKeys[] = $k;
+        /** @var array<string, mixed> $toUpsert */
+        $toUpsert = [];
+        /** @var string $k */
+        /** @var mixed  $v */
+        foreach ($flatAccepted as $k => $v) {
+            /** @var mixed $cur */
+            $cur = array_key_exists($k, $current) ? $current[$k] : null;
+            if ($cur === null || !$this->valuesEqual($cur, $v)) {
+                /** @psalm-suppress MixedAssignment */
+                $toUpsert[$k] = $v;
             }
         }
 
-        if ($this->persistenceAvailable()) {
-            /** @var list<string> $toDelete */
-            $toDelete = array_values(array_intersect($becameUnset, $touchedKeys));
+        if ($this->persistenceAvailable() && $toUpsert !== []) {
+            DB::transaction(function () use ($toUpsert, $actorId): void {
+                /**
+                 * @psalm-var list<array{
+                 *   key:string,
+                 *   value:string,
+                 *   type:string,
+                 *   updated_by:int|null,
+                 *   updated_at:\Illuminate\Support\Carbon,
+                 *   created_at:\Illuminate\Support\Carbon
+                 * }> $rows
+                 */
+                $rows = [];
+                $now  = now();
+                /** @var string $key */
+                /** @var mixed  $val */
+                foreach ($toUpsert as $key => $val) {
+                    /** @var array{0:string,1:string} $enc */
+                    $enc = $this->encodeForStorage($val);
+                    $rows[] = [
+                        'key'        => $key,
+                        'value'      => $enc[0],
+                        'type'       => $enc[1],
+                        'updated_by' => $actorId,
+                        'updated_at' => $now,
+                        'created_at' => $now,
+                    ];
+                }
 
-            /** @var array<string, mixed> $toUpsert */
-            $toUpsert = [];
-            foreach ($touchedKeys as $k) {
-                /** @var mixed $cur */
-                $cur = array_key_exists($k, $current) ? $current[$k] : null;
-                /** @var mixed $des */
-                $des = array_key_exists($k, $desired) ? $desired[$k] : null;
-                if ($des === null) {
-                    continue;
-                }
-                if ($cur === null || !$this->valuesEqual($cur, $des)) {
-                    /** @psalm-suppress MixedAssignment */
-                    $toUpsert[$k] = $des;
-                }
-            }
-
-            DB::transaction(function () use ($toDelete, $toUpsert, $actorId): void {
-                if ($toDelete !== []) {
-                    Setting::query()->whereIn('key', $toDelete)->delete();
-                }
-                if ($toUpsert !== []) {
-                    /**
-                     * @psalm-var list<array{
-                     *   key:string,
-                     *   value:string,
-                     *   type:string,
-                     *   updated_by:int|null,
-                     *   updated_at:\Illuminate\Support\Carbon,
-                     *   created_at:\Illuminate\Support\Carbon
-                     * }> $rows
-                     */
-                    $rows = [];
-                    $now  = now();
-                    /** @var string $k */
-                    /** @var mixed  $v */
-                    foreach ($toUpsert as $k => $v) {
-                        $rows[] = [
-                            'key'        => $k,
-                            'value'      => $this->encodeJson($v),
-                            'type'       => 'json',
-                            'updated_by' => $actorId,
-                            'updated_at' => $now,
-                            'created_at' => $now,
-                        ];
-                    }
-
-                    Setting::query()->getQuery()->upsert(
-                        $rows,
-                        ['key'],
-                        ['value', 'type', 'updated_by', 'updated_at']
-                    );
-                }
+                Setting::query()->getQuery()->upsert(
+                    $rows,
+                    ['key'],
+                    ['value', 'type', 'updated_by', 'updated_at']
+                );
             });
         }
 
@@ -205,15 +160,22 @@ final class SettingsService
         foreach ($touchedKeys as $k) {
             /** @var mixed $old */
             $old = array_key_exists($k, $current) ? $current[$k] : null;
+
             /** @var mixed $new */
-            $new = array_key_exists($k, $desired) ? $desired[$k] : null;
+            $new = array_key_exists($k, $toUpsert) ? $toUpsert[$k] : $old;
 
             if ($old === null && $new === null) {
                 continue;
             }
 
-            /** @var 'unset'|'set'|'update' $action */
-            $action = $new === null ? 'unset' : ($old === null ? 'set' : 'update');
+            /** @var 'set'|'update' $action */
+            $action = $old === null ? 'set' : 'update';
+
+            // If nothing actually changed, skip logging a change.
+            if ($action === 'update' && $this->valuesEqual($old, $new)) {
+                continue;
+            }
+
             $changes[] = [
                 'key'    => $k,
                 'old'    => $old,
@@ -359,13 +321,32 @@ final class SettingsService
         return $arr;
     }
 
-    private function encodeJson(mixed $value): string
+    /**
+     * Encode a value for storage, returning [value, type] where value is a string.
+     *
+     * @return array{0:string,1:string}
+     */
+    private function encodeForStorage(mixed $value): array
     {
+        if (is_bool($value)) {
+            return [$value ? '1' : '0', 'bool'];
+        }
+        if (is_int($value)) {
+            return [(string) $value, 'int'];
+        }
+        if (is_float($value)) {
+            // preserve numeric semantics; DB column is text, so stringify
+            return [rtrim(rtrim(sprintf('%.14F', $value), '0'), '.'), 'float'];
+        }
+        if (is_string($value)) {
+            return [$value, 'string'];
+        }
+        // arrays / objects / null => JSON
         $json = json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         if ($json === false) {
             throw new \RuntimeException('Failed to encode JSON for settings value.');
         }
-        return $json;
+        return [$json, 'json'];
     }
 
     /**
