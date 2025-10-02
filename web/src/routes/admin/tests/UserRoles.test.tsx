@@ -39,12 +39,12 @@ describe("Admin UserRoles page", () => {
         const method = (init?.method ?? "GET").toUpperCase();
 
         // List roles
-        if (method === "GET" && /\/rbac\/roles\b/.test(url)) {
+        if (method === "GET" && /\/api\/rbac\/roles\b/.test(url)) {
           return jsonResponse(200, { ok: true, roles: ["Admin", "Auditor", "User"] });
         }
 
         // Lookup user
-        if (method === "GET" && /\/rbac\/users\/123\/roles\b/.test(url)) {
+        if (method === "GET" && /\/api\/rbac\/users\/123\/roles\b/.test(url)) {
           return jsonResponse(200, {
             ok: true,
             user: { id: 123, name: "Jane Admin", email: "jane@example.com" },
@@ -53,7 +53,7 @@ describe("Admin UserRoles page", () => {
         }
 
         // Attach Admin
-        if (method === "POST" && /\/rbac\/users\/123\/roles\/Admin\b/.test(url)) {
+        if (method === "POST" && /\/api\/rbac\/users\/123\/roles\/Admin\b/.test(url)) {
           return jsonResponse(200, {
             ok: true,
             user: { id: 123, name: "Jane Admin", email: "jane@example.com" },
@@ -92,11 +92,11 @@ describe("Admin UserRoles page", () => {
         const url = typeof input === "string" ? input : (input as Request).url ?? String(input);
         const method = (init?.method ?? "GET").toUpperCase();
 
-        if (method === "GET" && /\/rbac\/roles\b/.test(url)) {
+        if (method === "GET" && /\/api\/rbac\/roles\b/.test(url)) {
           return jsonResponse(200, { ok: true, roles: ["Admin", "Auditor", "User"] });
         }
 
-        if (method === "GET" && /\/rbac\/users\/123\/roles\b/.test(url)) {
+        if (method === "GET" && /\/api\/rbac\/users\/123\/roles\b/.test(url)) {
           return jsonResponse(200, {
             ok: true,
             user: { id: 123, name: "Jane Admin", email: "jane@example.com" },
@@ -104,7 +104,7 @@ describe("Admin UserRoles page", () => {
           });
         }
 
-        if (method === "DELETE" && /\/rbac\/users\/123\/roles\/Admin\b/.test(url)) {
+        if (method === "DELETE" && /\/api\/rbac\/users\/123\/roles\/Admin\b/.test(url)) {
           return jsonResponse(200, {
             ok: true,
             user: { id: 123, name: "Jane Admin", email: "jane@example.com" },
@@ -146,11 +146,11 @@ describe("Admin UserRoles page", () => {
         const method = (init?.method ?? "GET").toUpperCase();
 
         // catalog
-        if (method === "GET" && /\/rbac\/roles\b/.test(url)) {
+        if (method === "GET" && /\/api\/rbac\/roles\b/.test(url)) {
           return jsonResponse(200, { ok: true, roles: ["Admin", "Auditor", "User"] });
         }
         // lookup with initial role User
-        if (method === "GET" && /\/rbac\/users\/123\/roles\b/.test(url)) {
+        if (method === "GET" && /\/api\/rbac\/users\/123\/roles\b/.test(url)) {
           return jsonResponse(200, {
             ok: true,
             user: { id: 123, name: "Jane Admin", email: "jane@example.com" },
@@ -158,7 +158,7 @@ describe("Admin UserRoles page", () => {
           });
         }
         // replace to Admin only
-        if (method === "PUT" && /\/rbac\/users\/123\/roles\b/.test(url)) {
+        if (method === "PUT" && /\/api\/rbac\/users\/123\/roles\b/.test(url)) {
           return jsonResponse(200, {
             ok: true,
             user: { id: 123, name: "Jane Admin", email: "jane@example.com" },
@@ -200,18 +200,18 @@ describe("Admin UserRoles page", () => {
         const url = typeof input === "string" ? input : (input as Request).url ?? String(input);
         const method = (init?.method ?? "GET").toUpperCase();
 
-        if (method === "GET" && /\/rbac\/roles\b/.test(url)) {
+        if (method === "GET" && /\/api\/rbac\/roles\b/.test(url)) {
           // include "Manager" so UI can select it
           return jsonResponse(200, { ok: true, roles: ["Admin", "Manager", "User"] });
         }
-        if (method === "GET" && /\/rbac\/users\/123\/roles\b/.test(url)) {
+        if (method === "GET" && /\/api\/rbac\/users\/123\/roles\b/.test(url)) {
           return jsonResponse(200, {
             ok: true,
             user: { id: 123, name: "Jane Admin", email: "jane@example.com" },
             roles: ["User"],
           });
         }
-        if (method === "PUT" && /\/rbac\/users\/123\/roles\b/.test(url)) {
+        if (method === "PUT" && /\/api\/rbac\/users\/123\/roles\b/.test(url)) {
           // API says unknown role; include message listing missing roles
           return jsonResponse(422, {
             ok: false,
@@ -254,12 +254,12 @@ describe("Admin UserRoles page", () => {
         const method = (init?.method ?? "GET").toUpperCase();
 
         // roles catalog
-        if (method === "GET" && /\/rbac\/roles\b/.test(urlStr)) {
+        if (method === "GET" && /\/api\/rbac\/roles\b/.test(urlStr)) {
           return jsonResponse(200, { ok: true, roles: ["Admin", "Auditor", "User"] });
         }
 
         // user search page 1
-        if (method === "GET" && /\/rbac\/users\/search\b/.test(urlStr) && (url.searchParams.get("page") ?? "1") === "1") {
+        if (method === "GET" && /\/api\/rbac\/users\/search\b/.test(urlStr) && (url.searchParams.get("page") ?? "1") === "1") {
           return jsonResponse(200, {
             data: [{ id: 123, name: "Jane Admin", email: "jane@example.com" }],
             meta: { page: 1, per_page: Number(url.searchParams.get("per_page") ?? "50"), total: 1, total_pages: 1 },
@@ -267,7 +267,7 @@ describe("Admin UserRoles page", () => {
         }
 
         // get roles after selecting
-        if (method === "GET" && /\/rbac\/users\/123\/roles\b/.test(urlStr)) {
+        if (method === "GET" && /\/api\/rbac\/users\/123\/roles\b/.test(urlStr)) {
           return jsonResponse(200, {
             ok: true,
             user: { id: 123, name: "Jane Admin", email: "jane@example.com" },

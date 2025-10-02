@@ -1,20 +1,29 @@
 import { useState } from "react";
-import { API_BASE, getToken } from "../../lib/api";
+import { apiPostFormData } from "../../lib/api";
 
-function authHeaders(): HeadersInit {
-  const h: Record<string, string> = {
-    Accept: "application/json",
-    "X-Requested-With": "XMLHttpRequest",
-  };
-  const tok = getToken();
-  if (tok) h.Authorization = `Bearer ${tok}`;
-  return h;
-}
+type EvidenceStubFile = {
+  original_name: string;
+  mime: string;
+  size_bytes: number;
+};
+
+type EvidenceUploadDisabled = { code: "EVIDENCE_NOT_ENABLED" };
+type EvidenceUploadStub = { note: "stub-only"; file: EvidenceStubFile };
+type EvidenceUploadOther = Record<string, unknown>;
+type EvidenceUploadResponse = EvidenceUploadDisabled | EvidenceUploadStub | EvidenceUploadOther;
 
 export default function EvidenceUpload(): JSX.Element {
   const [file, setFile] = useState<File | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [meta, setMeta] = useState<{ name: string; type: string; size: number } | null>(null);
+
+  function isDisabled(r: EvidenceUploadResponse): r is EvidenceUploadDisabled {
+    return (r as EvidenceUploadDisabled).code === "EVIDENCE_NOT_ENABLED";
+  }
+
+  function isStub(r: EvidenceUploadResponse): r is EvidenceUploadStub {
+    return (r as EvidenceUploadStub).note === "stub-only" && !!(r as EvidenceUploadStub).file;
+  }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -26,26 +35,24 @@ export default function EvidenceUpload(): JSX.Element {
     }
     const fd = new FormData();
     fd.append("file", file);
-    const res = await fetch(`${API_BASE}/evidence`, {
-      method: "POST",
-      credentials: "same-origin",
-      headers: authHeaders(),
-      body: fd,
-    });
-    const json = await res.json();
-    if (json?.code === "EVIDENCE_NOT_ENABLED") {
-      setMsg("Evidence feature disabled (stub).");
-      return;
-    }
-    if (json?.note === "stub-only" && json?.file) {
-      setMsg("Validated. Not stored (stub).");
-      setMeta({
-        name: json.file.original_name,
-        type: json.file.mime,
-        size: json.file.size_bytes,
-      });
-    } else {
-      setMsg("Request completed.");
+    try {
+      const json = await apiPostFormData<EvidenceUploadResponse>("/api/evidence", fd);
+      if (isDisabled(json)) {
+        setMsg("Evidence feature disabled (stub).");
+        return;
+      }
+      if (isStub(json)) {
+        setMsg("Validated. Not stored (stub).");
+        setMeta({
+          name: json.file.original_name,
+          type: json.file.mime,
+          size: json.file.size_bytes,
+        });
+      } else {
+        setMsg("Request completed.");
+      }
+    } catch {
+      setMsg("Network error.");
     }
   }
 

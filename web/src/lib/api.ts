@@ -1,5 +1,3 @@
-// Centralized API helpers (no .env required)
-
 /** Prefix for API routes. Keep empty string to use same-origin relative paths. */
 export const API_BASE = "";
 
@@ -7,6 +5,8 @@ export const API_BASE = "";
 export type QueryInit = Record<string, string | number | boolean | null | undefined>;
 
 const TOKEN_KEY = "phpgrc_auth_token";
+const INTENDED_KEY = "phpgrc_intended_path";
+const SESSION_EXPIRED_KEY = "phpgrc_session_expired";
 
 /** Read bearer token from localStorage (if present). */
 export function getToken(): string | null {
@@ -166,6 +166,30 @@ export async function apiPost<TResponse = unknown, TBody = unknown>(
   return (parsed as TResponse) ?? ({} as TResponse);
 }
 
+/** POST FormData helper (no explicit Content-Type). */
+export async function apiPostFormData<TResponse = unknown>(
+  path: string,
+  form: FormData,
+  signal?: AbortSignal
+): Promise<TResponse> {
+  const p = path.startsWith("/") ? path : `/${path}`;
+  const url = `${API_BASE}${p}`;
+  const res = await fetch(url, {
+    method: "POST",
+    credentials: "same-origin",
+    headers: baseHeaders(), // do NOT set Content-Type; browser sets boundary
+    body: form,
+    signal,
+  });
+  const parsed = (await parseBody(res)) as TResponse | null;
+  if (!res.ok) {
+    const err = new HttpError(res.status, parsed);
+    if (res.status === 401) notifyUnauthorized(err);
+    throw err;
+  }
+  return (parsed as TResponse) ?? ({} as TResponse);
+}
+
 /** DELETE helper returning typed payload. */
 export async function apiDelete<TResponse = unknown>(
   path: string,
@@ -184,8 +208,6 @@ export async function apiDelete<TResponse = unknown>(
 }
 
 /** Store and consume the user's intended path around auth flows. */
-const INTENDED_KEY = "phpgrc_intended_path";
-
 export function rememberIntendedPath(pathname: string): void {
   try {
     if (pathname && pathname !== "/auth/login") sessionStorage.setItem(INTENDED_KEY, pathname);
@@ -204,6 +226,25 @@ export function consumeIntendedPath(): string | null {
   }
 }
 
+/** Session-expired one-shot banner flag. */
+export function markSessionExpired(): void {
+  try {
+    sessionStorage.setItem(SESSION_EXPIRED_KEY, "1");
+  } catch {
+    // ignore
+  }
+}
+
+export function consumeSessionExpired(): boolean {
+  try {
+    const v = sessionStorage.getItem(SESSION_EXPIRED_KEY);
+    if (v) sessionStorage.removeItem(SESSION_EXPIRED_KEY);
+    return v === "1";
+  } catch {
+    return false;
+  }
+}
+
 /** Login helper: stores token if returned by API. */
 export async function authLogin(creds: { email: string; password: string }): Promise<void> {
   type LoginResp = { ok?: boolean; token?: string; access_token?: string };
@@ -212,8 +253,23 @@ export async function authLogin(creds: { email: string; password: string }): Pro
   if (tok) setToken(tok);
 }
 
+/** Logout helper: server best-effort then local clear. */
+export async function authLogout(): Promise<void> {
+  try {
+    await apiPost<unknown, Record<string, never>>("/api/auth/logout", {});
+  } catch {
+    // ignore network/401 during logout
+  }
+  setToken(null);
+  try {
+    sessionStorage.removeItem(INTENDED_KEY);
+    sessionStorage.removeItem(SESSION_EXPIRED_KEY);
+  } catch {
+    // ignore
+  }
+}
+
 /** Current-user helper. Throws on non-OK (401 will trigger onUnauthorized handlers). */
 export async function authMe<TUser = unknown>(): Promise<TUser> {
-  // Adjust the path here if your backend exposes a different endpoint (e.g., /api/me).
   return apiGet<TUser>("/api/auth/me");
 }

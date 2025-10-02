@@ -1,6 +1,6 @@
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
-import { apiGet, authMe, hasToken, onUnauthorized, rememberIntendedPath } from "../lib/api";
+import { apiGet, authMe, hasToken, onUnauthorized, rememberIntendedPath, markSessionExpired } from "../lib/api";
 import Nav from "../components/Nav";
 
 type Fingerprint = {
@@ -21,6 +21,7 @@ export default function AppLayout() {
       if (!loc.pathname.startsWith("/auth/")) {
         const intended = `${loc.pathname}${loc.search}${loc.hash}`;
         rememberIntendedPath(intended);
+        markSessionExpired();
         navigate("/auth/login", { replace: true });
       }
     });
@@ -29,7 +30,7 @@ export default function AppLayout() {
       setLoading(true);
       try {
         // 1) Check server fingerprint to see if auth is required
-        const fp = await apiGet<Fingerprint>("/health/fingerprint");
+        const fp = await apiGet<Fingerprint>("/api/health/fingerprint");
         const req = Boolean(fp?.summary?.rbac?.require_auth);
         setRequireAuth(req);
 
@@ -56,7 +57,6 @@ export default function AppLayout() {
 
     void bootstrap();
     return () => off();
-    // Re-run when the path changes (e.g., after login redirect)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loc.pathname]);
 
@@ -66,6 +66,7 @@ export default function AppLayout() {
   if (requireAuth && !authed && !loc.pathname.startsWith("/auth/")) {
     const intended = `${loc.pathname}${loc.search}${loc.hash}`;
     rememberIntendedPath(intended);
+    markSessionExpired();
     navigate("/auth/login", { replace: true });
     return null;
   }

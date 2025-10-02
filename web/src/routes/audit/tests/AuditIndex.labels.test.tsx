@@ -22,20 +22,30 @@ const payload = {
   nextCursor: null,
 };
 
+function json(body: unknown, init: ResponseInit = {}) {
+  return new Response(JSON.stringify(body), {
+    status: init.status ?? 200,
+    headers: { "Content-Type": "application/json" },
+    ...init,
+  });
+}
+
 describe("AuditIndex action labels", () => {
+  const originalFetch = globalThis.fetch as typeof fetch;
+
   beforeEach(() => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => ({
-        ok: true,
-        status: 200,
-        json: async () => payload,
-      })) as unknown as typeof fetch
-    );
+    globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
+      const url = typeof input === "string" ? input : (input as Request).url ?? String(input);
+      if (/(^|\/)api\/audit\b/.test(url) || /(^|\/)audit\b/.test(url)) {
+        return json(payload);
+      }
+      return json({ ok: true });
+    }) as unknown as typeof fetch;
   });
 
   afterEach(() => {
-    vi.unstubAllGlobals();
+    globalThis.fetch = originalFetch;
+    vi.restoreAllMocks();
     cleanup();
   });
 
@@ -43,7 +53,10 @@ describe("AuditIndex action labels", () => {
     render(<AuditIndex />);
     const cell = await screen.findByText("Access denied: capability disabled");
     expect(cell).toBeTruthy();
-    expect(cell).toHaveAttribute("aria-label", "Access denied because the requested capability is disabled");
+    expect(cell).toHaveAttribute(
+      "aria-label",
+      "Access denied because the requested capability is disabled"
+    );
     expect(cell).toHaveAttribute("title", "rbac.deny.capability");
   });
 });

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { API_BASE, getToken } from "../../lib/api";
+import { apiPostFormData } from "../../lib/api";
 
 type Meta = {
   original_name: string;
@@ -10,14 +10,20 @@ type Meta = {
   format: string;
 };
 
-function authHeaders(): HeadersInit {
-  const h: Record<string, string> = {
-    Accept: "application/json",
-    "X-Requested-With": "XMLHttpRequest",
-  };
-  const tok = getToken();
-  if (tok) h.Authorization = `Bearer ${tok}`;
-  return h;
+type AvatarsDisabled = { code: "AVATARS_NOT_ENABLED" };
+type AvatarTooLarge = { code: "AVATAR_TOO_LARGE"; limit: { max_width: number; max_height: number } };
+type AvatarStub = { note: "stub-only"; file: Meta };
+type AvatarOther = Record<string, unknown>;
+type AvatarResponse = AvatarsDisabled | AvatarTooLarge | AvatarStub | AvatarOther;
+
+function isDisabled(r: AvatarResponse): r is AvatarsDisabled {
+  return (r as AvatarsDisabled).code === "AVATARS_NOT_ENABLED";
+}
+function isTooLarge(r: AvatarResponse): r is AvatarTooLarge {
+  return (r as AvatarTooLarge).code === "AVATAR_TOO_LARGE";
+}
+function isStub(r: AvatarResponse): r is AvatarStub {
+  return (r as AvatarStub).note === "stub-only" && !!(r as AvatarStub).file;
 }
 
 export default function ProfileAvatar(): JSX.Element {
@@ -28,7 +34,6 @@ export default function ProfileAvatar(): JSX.Element {
   const revokeRef = useRef<string | null>(null);
 
   useEffect(() => {
-    // manage object URL lifecycle
     if (revokeRef.current) {
       URL.revokeObjectURL(revokeRef.current);
       revokeRef.current = null;
@@ -55,27 +60,25 @@ export default function ProfileAvatar(): JSX.Element {
     }
     const fd = new FormData();
     fd.append("file", file);
-    const res = await fetch(`${API_BASE}/avatar`, {
-      method: "POST",
-      credentials: "same-origin",
-      headers: authHeaders(),
-      body: fd,
-    });
-    const json = await res.json();
-    if (json?.code === "AVATARS_NOT_ENABLED") {
-      setMsg("Avatars feature disabled (stub).");
-      return;
+    try {
+      const json = await apiPostFormData<AvatarResponse>("/api/avatar", fd);
+      if (isDisabled(json)) {
+        setMsg("Avatars feature disabled (stub).");
+        return;
+      }
+      if (isTooLarge(json)) {
+        setMsg(`Image too large. Max ${json.limit.max_width}x${json.limit.max_height}px.`);
+        return;
+      }
+      if (isStub(json)) {
+        setMeta(json.file);
+        setMsg("Validated. Not stored (stub).");
+        return;
+      }
+      setMsg("Request completed.");
+    } catch {
+      setMsg("Network error.");
     }
-    if (json?.code === "AVATAR_TOO_LARGE") {
-      setMsg(`Image too large. Max ${json.limit.max_width}x${json.limit.max_height}px.`);
-      return;
-    }
-    if (json?.note === "stub-only" && json?.file) {
-      setMeta(json.file as Meta);
-      setMsg("Validated. Not stored (stub).");
-      return;
-    }
-    setMsg("Request completed.");
   }
 
   return (

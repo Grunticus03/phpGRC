@@ -3,10 +3,9 @@ import React from "react";
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import Kpis from "../Kpis";
-import { API_BASE } from "../../../lib/api";
 
 const originalFetch = globalThis.fetch as typeof fetch;
-const KPIS_URL = `${API_BASE || ""}/dashboard/kpis`;
+const KPIS_URL = "/api/dashboard/kpis";
 
 function json(body: unknown, init: ResponseInit = {}) {
   return new Response(JSON.stringify(body), {
@@ -88,7 +87,6 @@ describe("Dashboard KPIs", () => {
     }) as unknown as typeof fetch;
 
     render(<Kpis />);
-
     await screen.findByText(/access to KPIs/i);
   });
 
@@ -134,7 +132,7 @@ describe("Dashboard KPIs", () => {
     await waitFor(() => {
       const last = calls[calls.length - 1] || "";
       const u = new URL(last, "http://localhost");
-      expect(u.pathname).toBe(`${API_BASE || ""}/dashboard/kpis`);
+      expect(u.pathname).toBe("/api/dashboard/kpis");
       expect(u.searchParams.get("rbac_days")).toBe("14");
       expect(u.searchParams.get("days")).toBe("45");
     });

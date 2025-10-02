@@ -1,11 +1,18 @@
-import { useState } from "react";
-import { consumeIntendedPath, authLogin } from "../../lib/api";
+import { useEffect, useState } from "react";
+import { consumeIntendedPath, authLogin, consumeSessionExpired } from "../../lib/api";
 
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [err, setErr] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (consumeSessionExpired()) {
+      setInfo("Session expired—please sign in again.");
+    }
+  }, []);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -13,7 +20,6 @@ export default function Login() {
     setBusy(true);
     try {
       await authLogin({ email, password });
-      // Hard navigate so the freshly stored token is read on first paint
       const dest = consumeIntendedPath() || "/dashboard";
       window.location.assign(dest);
     } catch {
@@ -26,6 +32,9 @@ export default function Login() {
   return (
     <div className="mx-auto mt-24 max-w-md rounded-2xl border p-6 shadow">
       <h1 className="mb-4 text-xl font-semibold">Sign in</h1>
+
+      {info && <div className="mb-3 rounded-md bg-yellow-50 p-2 text-sm text-yellow-800">{info}</div>}
+
       <form onSubmit={onSubmit} className="space-y-4">
         <div>
           <label className="mb-1 block text-sm font-medium">Email</label>

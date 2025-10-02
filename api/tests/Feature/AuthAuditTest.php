@@ -21,15 +21,20 @@ final class AuthAuditTest extends TestCase
             'password' => Hash::make('secret123'),
         ]);
 
-        // Login with credentials -> token flow
-        $this->postJson('/auth/login', ['email' => $user->email, 'password' => 'secret123'])
+        // Login -> capture token
+        $login = $this->postJson('/auth/login', ['email' => $user->email, 'password' => 'secret123'])
             ->assertOk()
             ->assertJsonStructure(['ok', 'token', 'user' => ['id', 'email']]);
 
-        // Logout (stub may not require auth)
-        $this->postJson('/auth/logout')->assertNoContent();
+        /** @var string $token */
+        $token = (string) ($login->json('token') ?? '');
 
-        // TOTP enroll + verify (stubs)
+        // Logout requires Sanctum auth
+        $this->withHeader('Authorization', 'Bearer '.$token)
+            ->postJson('/auth/logout')
+            ->assertNoContent();
+
+        // TOTP enroll + verify (stubs remain open)
         $this->postJson('/auth/totp/enroll')->assertOk();
         $this->postJson('/auth/totp/verify', ['code' => '000000'])->assertOk();
 

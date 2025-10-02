@@ -1,4 +1,5 @@
 import { NavLink } from "react-router-dom";
+import { authLogout } from "../lib/api";
 
 type NavProps = {
   requireAuth: boolean;
@@ -9,6 +10,11 @@ const linkCls = ({ isActive }: { isActive: boolean }) => "nav-link" + (isActive 
 
 export default function Nav({ requireAuth, authed }: NavProps): JSX.Element {
   const showUsers = !requireAuth || authed;
+
+  async function onLogout(): Promise<void> {
+    await authLogout();
+    window.location.assign("/auth/login");
+  }
 
   return (
     <header role="banner">
@@ -49,6 +55,19 @@ export default function Nav({ requireAuth, authed }: NavProps): JSX.Element {
           <a href="/api/docs" className="nav-link">
             API Docs
           </a>
+
+          {/* right side */}
+          <div style={{ marginLeft: "auto" }}>
+            {authed ? (
+              <button className="btn btn-outline-secondary btn-sm" type="button" onClick={onLogout}>
+                Logout
+              </button>
+            ) : (
+              <NavLink to="/auth/login" className={linkCls}>
+                Login
+              </NavLink>
+            )}
+          </div>
         </div>
       </nav>
     </header>
