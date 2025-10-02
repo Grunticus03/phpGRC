@@ -1,4 +1,15 @@
 import { useState } from "react";
+import { API_BASE, getToken } from "../../lib/api";
+
+function authHeaders(): HeadersInit {
+  const h: Record<string, string> = {
+    Accept: "application/json",
+    "X-Requested-With": "XMLHttpRequest",
+  };
+  const tok = getToken();
+  if (tok) h.Authorization = `Bearer ${tok}`;
+  return h;
+}
 
 export default function EvidenceUpload(): JSX.Element {
   const [file, setFile] = useState<File | null>(null);
@@ -15,7 +26,12 @@ export default function EvidenceUpload(): JSX.Element {
     }
     const fd = new FormData();
     fd.append("file", file);
-    const res = await fetch("/api/evidence", { method: "POST", body: fd });
+    const res = await fetch(`${API_BASE}/evidence`, {
+      method: "POST",
+      credentials: "same-origin",
+      headers: authHeaders(),
+      body: fd,
+    });
     const json = await res.json();
     if (json?.code === "EVIDENCE_NOT_ENABLED") {
       setMsg("Evidence feature disabled (stub).");

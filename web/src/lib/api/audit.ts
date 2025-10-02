@@ -1,3 +1,5 @@
+import { apiGet } from "../api";
+
 export async function listCategories(signal?: AbortSignal): Promise<string[]> {
   function isStringArray(value: unknown): value is string[] {
     return Array.isArray(value) && value.every((v) => typeof v === "string");
@@ -12,16 +14,15 @@ export async function listCategories(signal?: AbortSignal): Promise<string[]> {
   }
 
   try {
-    const res = await fetch("/api/audit/categories", { signal, credentials: "same-origin" });
-    const json: unknown = await res.json().catch(() => null);
+    const json = await apiGet<unknown>("/api/audit/categories", undefined, signal);
 
     const arr =
-      (Array.isArray(json) ? json : null) ??
+      (Array.isArray(json) ? (json as unknown[]) : null) ??
       readArrayProp(json, "_categories") ??
       readArrayProp(json, "categories") ??
       [];
 
-    return arr.filter((x: unknown): x is string => typeof x === "string");
+    return arr.filter((x): x is string => typeof x === "string");
   } catch {
     return [];
   }

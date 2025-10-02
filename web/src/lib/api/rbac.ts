@@ -1,3 +1,5 @@
+import { apiDelete, apiGet, apiPost, apiPut } from "../api";
+
 export type RoleListResponse = {
   ok: boolean;
   roles: string[];
@@ -72,14 +74,6 @@ function isObject(v: unknown): v is Record<string, unknown> {
   return v !== null && typeof v === "object";
 }
 
-async function parseJson(res: Response): Promise<unknown> {
-  try {
-    return await res.json();
-  } catch {
-    return null;
-  }
-}
-
 function clamp(n: number, min: number, max: number): number {
   if (!Number.isFinite(n)) return min;
   if (n < min) return min;
@@ -89,17 +83,19 @@ function clamp(n: number, min: number, max: number): number {
 
 export async function listRoles(): Promise<RoleListResponse> {
   try {
-    const res = await fetch("/api/rbac/roles", { credentials: "same-origin" });
-    const json = await parseJson(res);
+    const json = await apiGet<unknown>("/api/rbac/roles");
+    const j = isObject(json) ? (json as Record<string, unknown>) : {};
 
-    const roles =
-      isObject(json) && Array.isArray(json.roles) && json.roles.every((r) => typeof r === "string")
-        ? (json.roles as string[])
-        : [];
+    const rolesFromArray = Array.isArray(json) ? (json as unknown[]) : null;
+    const rolesFromProp =
+      Array.isArray(j.roles) ? (j.roles as unknown[]) :
+      Array.isArray(j.data) ? (j.data as unknown[]) : null;
 
-    if (roles.length > 0) {
-      const note = isObject(json) && typeof json.note === "string" ? (json.note as string) : undefined;
-      return { ok: true, roles, note };
+    const raw = (rolesFromArray ?? rolesFromProp ?? []).filter((r): r is string => typeof r === "string");
+
+    if (raw.length > 0 || (Array.isArray(rolesFromProp) && rolesFromProp.length === 0)) {
+      const note = typeof j.note === "string" ? (j.note as string) : undefined;
+      return { ok: true, roles: raw, note };
     }
 
     return { ok: false, roles: [], note: "invalid_response" };
@@ -110,54 +106,33 @@ export async function listRoles(): Promise<RoleListResponse> {
 
 export async function createRole(name: string): Promise<CreateRoleResult> {
   try {
-    const res = await fetch("/api/rbac/roles", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "same-origin",
-      body: JSON.stringify({ name }),
-    });
-    const json = await parseJson(res);
+    const res = await apiPost<unknown, { name: string }>("/api/rbac/roles", { name });
+    const j = isObject(res) ? (res as Record<string, unknown>) : {};
 
-    const j = isObject(json) ? (json as Record<string, unknown>) : {};
-
-    // 201 Created
     const roleRaw = j.role;
     const role = isObject(roleRaw) ? (roleRaw as Record<string, unknown>) : undefined;
     const roleId = role && role.id !== undefined ? String(role.id) : undefined;
     const roleName = role && role.name !== undefined ? String(role.name) : undefined;
     const okVal = j.ok === true;
 
-    if (res.status === 201 && okVal && roleId && roleName) {
-      return {
-        kind: "created",
-        status: res.status,
-        roleId,
-        roleName,
-        raw: json,
-      };
+    // Treat presence of role object as created
+    if (okVal && roleId && roleName) {
+      return { kind: "created", status: 201, roleId, roleName, raw: res };
     }
 
-    // stub-only acceptance
     const note = typeof j.note === "string" ? (j.note as string) : undefined;
-    if ((res.status === 202 || res.status === 200 || res.status === 400) && note === "stub-only") {
+    if (note === "stub-only") {
       const acc = j.accepted;
       let acceptedName = name;
       if (isObject(acc)) {
         const nm = (acc as Record<string, unknown>).name;
         if (typeof nm === "string") acceptedName = nm;
       }
-      return { kind: "stub", status: res.status, acceptedName, raw: json };
-    }
-
-    if (res.status === 422) {
-      return { kind: "error", status: res.status, code: "VALIDATION_FAILED", raw: json };
-    }
-    if (res.status === 403) {
-      return { kind: "error", status: res.status, code: "FORBIDDEN", raw: json };
+      return { kind: "stub", status: 202, acceptedName, raw: res };
     }
 
     const code = typeof j.code === "string" ? (j.code as string) : undefined;
-    return { kind: "error", status: res.status, code, raw: json };
+    return { kind: "error", status: 400, code, raw: res };
   } catch {
     return { kind: "error", status: 0, code: "NETWORK_ERROR" };
   }
@@ -165,14 +140,9 @@ export async function createRole(name: string): Promise<CreateRoleResult> {
 
 export async function getUserRoles(userId: number): Promise<UserRolesResponse> {
   try {
-    const res = await fetch(`/api/rbac/users/${encodeURIComponent(String(userId))}/roles`, {
-      credentials: "same-origin",
-    });
-    const json = await parseJson(res);
+    const json = await apiGet<unknown>(`/api/rbac/users/${encodeURIComponent(String(userId))}/roles`);
     const j = isObject(json) ? (json as Record<string, unknown>) : {};
-    if (res.ok && j.ok === true) {
-      return json as UserRolesResponseOk;
-    }
+    if (j.ok === true) return json as UserRolesResponseOk;
     const code = typeof j.code === "string" ? (j.code as string) : "REQUEST_FAILED";
     const message = typeof j.message === "string" ? (j.message as string) : undefined;
     return { ok: false, code, message };
@@ -183,17 +153,9 @@ export async function getUserRoles(userId: number): Promise<UserRolesResponse> {
 
 export async function replaceUserRoles(userId: number, roles: string[]): Promise<UserRolesResponse> {
   try {
-    const res = await fetch(`/api/rbac/users/${encodeURIComponent(String(userId))}/roles`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      credentials: "same-origin",
-      body: JSON.stringify({ roles }),
-    });
-    const json = await parseJson(res);
+    const json = await apiPut<unknown, { roles: string[] }>(`/api/rbac/users/${encodeURIComponent(String(userId))}/roles`, { roles });
     const j = isObject(json) ? (json as Record<string, unknown>) : {};
-    if (res.ok && j.ok === true) {
-      return json as UserRolesResponseOk;
-    }
+    if (j.ok === true) return json as UserRolesResponseOk;
     const code = typeof j.code === "string" ? (j.code as string) : "REQUEST_FAILED";
     const message = typeof j.message === "string" ? (j.message as string) : undefined;
     return { ok: false, code, message };
@@ -204,15 +166,9 @@ export async function replaceUserRoles(userId: number, roles: string[]): Promise
 
 export async function attachUserRole(userId: number, roleName: string): Promise<UserRolesResponse> {
   try {
-    const res = await fetch(
-      `/api/rbac/users/${encodeURIComponent(String(userId))}/roles/${encodeURIComponent(roleName)}`,
-      { method: "POST", credentials: "same-origin" }
-    );
-    const json = await parseJson(res);
+    const json = await apiPost<unknown>(`/api/rbac/users/${encodeURIComponent(String(userId))}/roles/${encodeURIComponent(roleName)}`);
     const j = isObject(json) ? (json as Record<string, unknown>) : {};
-    if (res.ok && j.ok === true) {
-      return json as UserRolesResponseOk;
-    }
+    if (j.ok === true) return json as UserRolesResponseOk;
     const code = typeof j.code === "string" ? (j.code as string) : "REQUEST_FAILED";
     const message = typeof j.message === "string" ? (j.message as string) : undefined;
     return { ok: false, code, message };
@@ -223,15 +179,9 @@ export async function attachUserRole(userId: number, roleName: string): Promise<
 
 export async function detachUserRole(userId: number, roleName: string): Promise<UserRolesResponse> {
   try {
-    const res = await fetch(
-      `/api/rbac/users/${encodeURIComponent(String(userId))}/roles/${encodeURIComponent(roleName)}`,
-      { method: "DELETE", credentials: "same-origin" }
-    );
-    const json = await parseJson(res);
+    const json = await apiDelete<unknown>(`/api/rbac/users/${encodeURIComponent(String(userId))}/roles/${encodeURIComponent(roleName)}`);
     const j = isObject(json) ? (json as Record<string, unknown>) : {};
-    if (res.ok && j.ok === true) {
-      return json as UserRolesResponseOk;
-    }
+    if (j.ok === true) return json as UserRolesResponseOk;
     const code = typeof j.code === "string" ? (j.code as string) : "REQUEST_FAILED";
     const message = typeof j.message === "string" ? (j.message as string) : undefined;
     return { ok: false, code, message };
@@ -253,20 +203,12 @@ export async function searchUsers(
     const p = clamp(Number(page) || 1, 1, Number.MAX_SAFE_INTEGER);
     const pp = clamp(Number(perPage) || 50, 1, 500);
 
-    const url = new URL("/api/rbac/users/search", window.location.origin);
-    if (q) url.searchParams.set("q", q);
-    url.searchParams.set("page", String(p));
-    url.searchParams.set("per_page", String(pp));
-
-    const res = await fetch(url.toString().replace(window.location.origin, ""), { credentials: "same-origin" });
-    const json = await parseJson(res);
+    const json = await apiGet<unknown>("/api/rbac/users/search", { q, page: p, per_page: pp });
     const j = isObject(json) ? (json as Record<string, unknown>) : {};
 
-    // Accept both {ok:true,data,meta} and bare {data,meta}
-    const okFlag = j.ok === true || (!("ok" in j) && res.ok);
+    const okFlag = j.ok === true;
 
     const data = Array.isArray(j.data) ? (j.data as unknown[]) : [];
-
     const parsedData: UserSummary[] = data
       .map((u) => (isObject(u) ? (u as Record<string, unknown>) : null))
       .filter((u): u is Record<string, unknown> => !!u)
@@ -275,12 +217,12 @@ export async function searchUsers(
         name: String(u.name ?? ""),
         email: String(u.email ?? ""),
       }))
-      .filter((u) => Number.isFinite(u.id) && u.id > 0 && u.name.length >= 0 && u.email.length >= 0);
+      .filter((u) => Number.isFinite(u.id) && u.id > 0);
 
     const metaRaw = isObject(j.meta) ? (j.meta as Record<string, unknown>) : {};
     const meta: UserSearchMeta = {
-      page: Number(metaRaw.page ?? page ?? 1) || 1,
-      per_page: Number(metaRaw.per_page ?? perPage ?? 50) || 50,
+      page: Number(metaRaw.page ?? p) || p,
+      per_page: Number(metaRaw.per_page ?? pp) || pp,
       total: Number(metaRaw.total ?? parsedData.length) || 0,
       total_pages: Number(metaRaw.total_pages ?? 1) || 1,
     };
@@ -291,7 +233,7 @@ export async function searchUsers(
 
     const code = typeof j.code === "string" ? (j.code as string) : "REQUEST_FAILED";
     const message = typeof j.message === "string" ? (j.message as string) : undefined;
-    return { ok: false, status: res.status, code, message, raw: json };
+    return { ok: false, status: 400, code, message, raw: json };
   } catch {
     return { ok: false, status: 0, code: "NETWORK_ERROR" };
   }

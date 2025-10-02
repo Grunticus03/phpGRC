@@ -1,4 +1,5 @@
 import { FormEvent, useEffect, useState } from "react";
+import { apiGet, apiPut } from "../../lib/api";
 
 type EffectiveConfig = {
   core: {
@@ -34,9 +35,7 @@ export default function Settings(): JSX.Element {
       setLoading(true);
       setMsg(null);
       try {
-        const res = await fetch("/api/admin/settings", { credentials: "same-origin" });
-        if (!res.ok) throw new Error(String(res.status));
-        const json = (await res.json()) as { ok: boolean; config?: EffectiveConfig };
+        const json = await apiGet<{ ok: boolean; config?: EffectiveConfig }>("/api/admin/settings");
         const core = json?.config?.core ?? {};
         const metrics = core.metrics ?? {};
         const rbac = core.rbac ?? {};
@@ -84,28 +83,16 @@ export default function Settings(): JSX.Element {
         apply: true,
       };
 
-      const res = await fetch("/api/admin/settings", {
-        method: "PUT",
-        credentials: "same-origin",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-
-      if (!res.ok) throw new Error(String(res.status));
+      const res = await apiPut<unknown, typeof body>("/api/admin/settings", body);
 
       let apiMsg: string | null = null;
-      try {
-        const data: unknown = await res.json();
-        if (typeof data === "object" && data !== null) {
-          const obj = data as { message?: unknown; note?: unknown };
-          if (typeof obj.message === "string") {
-            apiMsg = obj.message;
-          } else if (obj.note === "stub-only") {
-            apiMsg = "Validated. Not persisted (stub).";
-          }
+      if (res && typeof res === "object") {
+        const obj = res as { message?: unknown; note?: unknown };
+        if (typeof obj.message === "string") {
+          apiMsg = obj.message;
+        } else if (obj.note === "stub-only") {
+          apiMsg = "Validated. Not persisted (stub).";
         }
-      } catch {
-        // ignore parse issues
       }
       setMsg(apiMsg ?? "Saved.");
     } catch {
@@ -235,4 +222,3 @@ export default function Settings(): JSX.Element {
     </main>
   );
 }
-

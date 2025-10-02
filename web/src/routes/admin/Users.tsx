@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { apiDelete, apiGet, apiPatch, apiPost, HttpError } from "../../lib/api";
+import { apiDelete, apiGet, apiPost, apiPut, HttpError } from "../../lib/api";
 
 type User = {
   id: number;
@@ -39,7 +39,7 @@ export default function Users() {
     setBusy(true);
     setError(null);
     try {
-      const res = await apiGet<unknown>("/admin/users", { q, page, per_page: perPage });
+      const res = await apiGet<unknown>("/api/admin/users", { q, page, per_page: perPage });
       if (isPagedUsers(res)) {
         setItems(res.data);
         setMeta(res.meta);
@@ -67,7 +67,7 @@ export default function Users() {
 
   async function onCreate(ev: React.FormEvent<HTMLFormElement>) {
     ev.preventDefault();
-    const formEl = ev.currentTarget; // keep reference before await
+    const formEl = ev.currentTarget;
     const form = new FormData(formEl);
     const payload = {
       name: String(form.get("name") ?? ""),
@@ -81,7 +81,7 @@ export default function Users() {
     setBusy(true);
     setError(null);
     try {
-      await apiPost<UserResponse>("/admin/users", payload);
+      await apiPost<UserResponse, typeof payload>("/api/admin/users", payload);
       formEl.reset();
       setPage(1);
       await load();
@@ -107,7 +107,7 @@ export default function Users() {
     setBusy(true);
     setError(null);
     try {
-      await apiPatch<UserResponse>(`/admin/users/${u.id}`, payload);
+      await apiPut<UserResponse, typeof payload>(`/api/admin/users/${u.id}`, payload);
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Update failed");
@@ -121,7 +121,7 @@ export default function Users() {
     setBusy(true);
     setError(null);
     try {
-      await apiDelete<{ ok: true }>(`/admin/users/${u.id}`);
+      await apiDelete<{ ok: true }>(`/api/admin/users/${u.id}`);
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Delete failed");

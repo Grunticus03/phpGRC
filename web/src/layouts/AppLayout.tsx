@@ -1,6 +1,6 @@
-import { Outlet, useLocation, Navigate } from "react-router-dom";
+import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
-import { apiGet, getToken } from "../lib/api";
+import { apiGet, authMe, hasToken, onUnauthorized, rememberIntendedPath } from "../lib/api";
 import Nav from "../components/Nav";
 
 type Fingerprint = {
@@ -9,35 +9,45 @@ type Fingerprint = {
 
 export default function AppLayout() {
   const loc = useLocation();
+  const navigate = useNavigate();
 
   const [loading, setLoading] = useState(true);
   const [requireAuth, setRequireAuth] = useState<boolean>(false);
   const [authed, setAuthed] = useState<boolean>(false);
 
   useEffect(() => {
+    // Redirect to login whenever the API returns 401
+    const off = onUnauthorized(() => {
+      if (!loc.pathname.startsWith("/auth/")) {
+        const intended = `${loc.pathname}${loc.search}${loc.hash}`;
+        rememberIntendedPath(intended);
+        navigate("/auth/login", { replace: true });
+      }
+    });
+
     async function bootstrap(): Promise<void> {
       setLoading(true);
       try {
+        // 1) Check server fingerprint to see if auth is required
         const fp = await apiGet<Fingerprint>("/health/fingerprint");
         const req = Boolean(fp?.summary?.rbac?.require_auth);
         setRequireAuth(req);
 
-        if (!req) {
+        // 2) If auth required, only probe /auth/me when we actually have a token
+        if (req) {
+          if (hasToken()) {
+            try {
+              await authMe();
+              setAuthed(true);
+            } catch {
+              setAuthed(false);
+            }
+          } else {
+            setAuthed(false);
+          }
+        } else {
+          // Auth not required globally
           setAuthed(true);
-          return;
-        }
-
-        const tok = getToken();
-        if (!tok) {
-          setAuthed(false);
-          return;
-        }
-
-        try {
-          await apiGet<unknown>("/auth/me");
-          setAuthed(true);
-        } catch {
-          setAuthed(false);
         }
       } finally {
         setLoading(false);
@@ -45,12 +55,19 @@ export default function AppLayout() {
     }
 
     void bootstrap();
+    return () => off();
+    // Re-run when the path changes (e.g., after login redirect)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loc.pathname]);
 
   if (loading) return null;
 
+  // If auth is required and we aren't authed, push to login (and remember the path)
   if (requireAuth && !authed && !loc.pathname.startsWith("/auth/")) {
-    return <Navigate to="/auth/login" replace state={{ from: loc }} />;
+    const intended = `${loc.pathname}${loc.search}${loc.hash}`;
+    rememberIntendedPath(intended);
+    navigate("/auth/login", { replace: true });
+    return null;
   }
 
   const hideNav = loc.pathname.startsWith("/auth/");

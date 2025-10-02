@@ -2,9 +2,6 @@
 
 declare(strict_types=1);
 
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Schema;
-use App\Models\User;
 use App\Http\Controllers\Admin\SettingsController;
 use App\Http\Controllers\Admin\UsersController;
 use App\Http\Controllers\Audit\AuditController;
@@ -19,23 +16,23 @@ use App\Http\Controllers\Evidence\EvidenceController;
 use App\Http\Controllers\Export\ExportController;
 use App\Http\Controllers\Export\StatusController;
 use App\Http\Controllers\Metrics\MetricsController;
+use App\Http\Controllers\OpenApiController;
+use App\Http\Controllers\Rbac\PolicyController;
 use App\Http\Controllers\Rbac\RolesController;
 use App\Http\Controllers\Rbac\UserRolesController;
-use App\Http\Controllers\Rbac\PolicyController;
 use App\Http\Controllers\Rbac\UserSearchController;
-use App\Http\Controllers\OpenApiController;
 use App\Http\Middleware\Auth\BruteForceGuard;
 use App\Http\Middleware\BreakGlassGuard;
+use App\Http\Middleware\GenericRateLimit;
 use App\Http\Middleware\RbacMiddleware;
 use App\Http\Middleware\SetupGuard;
-use App\Http\Middleware\GenericRateLimit;
 use App\Services\Settings\SettingsService;
 use Illuminate\Support\Facades\Route;
 
 /*
- |----------------------------------------------------------------------
+ |--------------------------------------------------------------------------
  | Setup
- |----------------------------------------------------------------------
+ |--------------------------------------------------------------------------
 */
 Route::prefix('/setup')
     ->middleware([SetupGuard::class])
@@ -54,15 +51,13 @@ Route::prefix('/setup')
     });
 
 /*
- |----------------------------------------------------------------------
+ |--------------------------------------------------------------------------
  | Health
- |----------------------------------------------------------------------
+ |--------------------------------------------------------------------------
 */
 Route::get('/health', fn () => response()->json(['ok' => true]));
-
 Route::get('/health/fingerprint', function (SettingsService $settings) {
     $eff = $settings->effectiveConfig();
-
     $summary = [
         'rbac' => [
             'enabled'       => (bool) ($eff['core']['rbac']['enabled'] ?? false),
@@ -90,7 +85,6 @@ Route::get('/health/fingerprint', function (SettingsService $settings) {
             'max_requests'   => (int) ($eff['core']['api']['throttle']['max_requests'] ?? (int) config('core.api.throttle.max_requests', 30)),
         ],
     ];
-
     $meta = (array) config('phpgrc.overlay', ['loaded' => false, 'path' => null, 'mtime' => null]);
 
     return response()->json([
@@ -106,9 +100,9 @@ Route::get('/health/fingerprint', function (SettingsService $settings) {
 });
 
 /*
- |----------------------------------------------------------------------
+ |--------------------------------------------------------------------------
  | OpenAPI + Redoc UI
- |----------------------------------------------------------------------
+ |--------------------------------------------------------------------------
 */
 Route::get('/openapi.yaml', [OpenApiController::class, 'yaml']);
 Route::get('/openapi.json', [OpenApiController::class, 'json']);
@@ -120,46 +114,39 @@ HTML;
 });
 
 /*
- |----------------------------------------------------------------------
- | Auth placeholders
- |----------------------------------------------------------------------
+ |--------------------------------------------------------------------------
+ | Auth (token)
+ |--------------------------------------------------------------------------
 */
 Route::post('/auth/login',  [LoginController::class,  'login'])->middleware(BruteForceGuard::class);
-Route::post('/auth/logout', [LogoutController::class, 'logout']);
-Route::get('/auth/me',      [MeController::class,     'me']);
+Route::post('/auth/logout', [LogoutController::class, 'logout'])->middleware('auth:sanctum');
+Route::get('/auth/me',      [MeController::class,     'me'])->middleware('auth:sanctum');
 
 Route::post('/auth/totp/enroll', [TotpController::class, 'enroll']);
 Route::post('/auth/totp/verify', [TotpController::class, 'verify']);
 
 /*
- |----------------------------------------------------------------------
+ |--------------------------------------------------------------------------
  | Break-glass
- |----------------------------------------------------------------------
+ |--------------------------------------------------------------------------
 */
 Route::post('/auth/break-glass', [BreakGlassController::class, 'invoke'])->middleware(BreakGlassGuard::class);
 
 /*
- |----------------------------------------------------------------------
- | Build RBAC stack
- |----------------------------------------------------------------------
-|
-| Run RBAC first so unauthenticated requests yield JSON 401,
-| avoiding Laravel's redirect path that expects a "login" route.
+ |--------------------------------------------------------------------------
+ | RBAC stack (leave Sanctum off here; middleware selects the guard)
+ |--------------------------------------------------------------------------
 */
 $rbacStack = [RbacMiddleware::class];
-if (config('core.rbac.require_auth', false)) {
-    $rbacStack[] = 'auth:sanctum';
-}
 
 /*
- |----------------------------------------------------------------------
- | Admin Settings + Users (RBAC)
- |----------------------------------------------------------------------
+ |--------------------------------------------------------------------------
+ | Admin Settings + Users
+ |--------------------------------------------------------------------------
 */
 Route::prefix('/admin')
     ->middleware($rbacStack)
     ->group(function (): void {
-        // Settings
         Route::match(['GET','HEAD'], '/settings', [SettingsController::class, 'index'])
             ->defaults('roles', ['Admin'])
             ->defaults('policy', 'core.settings.manage');
@@ -173,7 +160,6 @@ Route::prefix('/admin')
             ->defaults('roles', ['Admin'])
             ->defaults('policy', 'core.settings.manage');
 
-        // Users CRUD
         Route::prefix('/users')->group(function (): void {
             Route::get('/', [UsersController::class, 'index'])
                 ->defaults('roles', ['Admin'])
@@ -197,9 +183,9 @@ Route::prefix('/admin')
     });
 
 /*
- |----------------------------------------------------------------------
+ |--------------------------------------------------------------------------
  | Dashboard KPIs
- |----------------------------------------------------------------------
+ |--------------------------------------------------------------------------
 */
 $metricsStack = $rbacStack;
 
@@ -214,9 +200,9 @@ Route::prefix('/dashboard')
     });
 
 /*
- |----------------------------------------------------------------------
+ |--------------------------------------------------------------------------
  | Metrics alias
- |----------------------------------------------------------------------
+ |--------------------------------------------------------------------------
 */
 Route::prefix('/metrics')
     ->middleware($metricsStack)
@@ -229,9 +215,9 @@ Route::prefix('/metrics')
     });
 
 /*
- |----------------------------------------------------------------------
+ |--------------------------------------------------------------------------
  | Exports
- |----------------------------------------------------------------------
+ |--------------------------------------------------------------------------
 */
 Route::prefix('/exports')
     ->middleware($rbacStack)
@@ -256,9 +242,9 @@ Route::prefix('/exports')
     });
 
 /*
- |----------------------------------------------------------------------
+ |--------------------------------------------------------------------------
  | RBAC roles + user-role assignment
- |----------------------------------------------------------------------
+ |--------------------------------------------------------------------------
 */
 Route::prefix('/rbac')
     ->middleware($rbacStack)
@@ -291,7 +277,7 @@ Route::prefix('/rbac')
             ->defaults('roles', ['Admin'])
             ->defaults('policy', 'core.rbac.view');
 
-        // This one always requires auth, even if require_auth=false
+        // Always requires auth
         Route::get('/users/search', [UserSearchController::class, 'index'])
             ->middleware(['auth:sanctum'])
             ->middleware(GenericRateLimit::class)
@@ -301,9 +287,9 @@ Route::prefix('/rbac')
     });
 
 /*
- |----------------------------------------------------------------------
+ |--------------------------------------------------------------------------
  | Audit trail
- |----------------------------------------------------------------------
+ |--------------------------------------------------------------------------
 */
 Route::match(['GET','HEAD'], '/audit', [AuditController::class, 'index'])
     ->middleware($rbacStack)
@@ -318,15 +304,15 @@ Route::get('/audit/categories', [AuditController::class, 'categories'])
 Route::get('/audit/export.csv', [AuditExportController::class, 'exportCsv'])
     ->middleware($rbacStack)
     ->middleware(GenericRateLimit::class)
-    ->defaults('throttle', ['strategy' => 'user', 'window_seconds' => 60, 'max_requests' => 5])
+    ->defaults('throttle', ['strategy' => 'ip', 'window_seconds' => 60, 'max_requests' => 5])
     ->defaults('roles', ['Admin', 'Auditor'])
     ->defaults('policy', 'core.audit.view')
     ->defaults('capability', 'core.audit.export');
 
 /*
- |----------------------------------------------------------------------
+ |--------------------------------------------------------------------------
  | Evidence
- |----------------------------------------------------------------------
+ |--------------------------------------------------------------------------
 */
 Route::prefix('/evidence')
     ->middleware($rbacStack)
@@ -350,9 +336,9 @@ Route::prefix('/evidence')
     });
 
 /*
- |----------------------------------------------------------------------
+ |--------------------------------------------------------------------------
  | Avatars scaffold
- |----------------------------------------------------------------------
+ |--------------------------------------------------------------------------
 */
 Route::post('/avatar', [AvatarController::class, 'store']);
 Route::match(['GET','HEAD'], '/avatar/{user}', [AvatarController::class, 'show'])->whereNumber('user');

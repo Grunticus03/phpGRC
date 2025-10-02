@@ -1,7 +1,18 @@
 import { useState, type FormEvent } from "react";
+import { API_BASE, getToken } from "../../lib/api";
 
 type ExportType = "csv" | "json" | "pdf";
 type Job = { jobId: string; type: ExportType; status: string; progress: number };
+
+function authHeaders(extra?: HeadersInit): HeadersInit {
+  const h: Record<string, string> = {
+    Accept: "application/json",
+    "X-Requested-With": "XMLHttpRequest",
+  };
+  const tok = getToken();
+  if (tok) h.Authorization = `Bearer ${tok}`;
+  return { ...h, ...(extra as Record<string, string>) };
+}
 
 export default function ExportsIndex(): JSX.Element {
   const [type, setType] = useState<ExportType>("csv");
@@ -11,9 +22,10 @@ export default function ExportsIndex(): JSX.Element {
   async function createJob(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setMsg(null);
-    const res = await fetch("/api/exports", {
+    const res = await fetch(`${API_BASE}/exports`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      credentials: "same-origin",
+      headers: authHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify({ type }),
     });
     const json: unknown = await res.json();
@@ -36,7 +48,10 @@ export default function ExportsIndex(): JSX.Element {
 
   async function refresh(jobId: string) {
     setMsg(null);
-    const res = await fetch(`/api/exports/${encodeURIComponent(jobId)}/status`);
+    const res = await fetch(`${API_BASE}/exports/${encodeURIComponent(jobId)}/status`, {
+      credentials: "same-origin",
+      headers: authHeaders(),
+    });
     const json: unknown = await res.json();
     const j = (json && typeof json === "object" ? (json as Record<string, unknown>) : null) ?? null;
 

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { actionInfo, actionA11yLabel } from "../../lib/audit/actionInfo";
+import { apiGet } from "../../lib/api";
 
 type AuditEvent = {
   id: string;
@@ -23,8 +24,7 @@ export default function AuditIndex(): JSX.Element {
       setLoading(true);
       setMsg(null);
       try {
-        const res = await fetch("/api/audit?limit=20", { credentials: "same-origin" });
-        const json = await res.json();
+        const json = await apiGet<{ ok: boolean; items?: AuditEvent[] }>("/audit", { limit: 20 });
         if (json?.ok && Array.isArray(json.items)) setEvents(json.items);
         else setMsg("Failed to load audit events.");
       } catch {

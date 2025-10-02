@@ -12,6 +12,9 @@ final class MeController extends Controller
 {
     public function me(): JsonResponse
     {
+        // Ensure Sanctum PATs are used.
+        Auth::shouldUse('sanctum');
+
         /** @var mixed $auth */
         $auth = Auth::user();
         if (!$auth instanceof AppUser) {

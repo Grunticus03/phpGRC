@@ -57,20 +57,13 @@ export default function Kpis(): JSX.Element {
     return `${asPercent(v).toFixed(1)}%`;
   }, [data]);
 
-  const mimeRows = useMemo(() => {
-    return (data?.fresh?.by_mime ?? []).map((m) => ({
-      ...m,
-      _pctDisplay: `${asPercent(m.percent).toFixed(1)}%`,
-    }));
-  }, [data]);
-
   async function load(snapshotParams?: { rbac_days?: number; days?: number }) {
     setLoading(true);
     setMsg(null);
     try {
       const rd = snapshotParams?.rbac_days ?? rbacDays;
       const fd = snapshotParams?.days ?? freshDays;
-      const json = await apiGet<Snapshot>("/dashboard/kpis", { rbac_days: rd, days: fd });
+      const json = await apiGet<Snapshot>("/api/dashboard/kpis", { rbac_days: rd, days: fd });
       if (json?.ok && json.data) {
         const r = json.data.rbac_denies;
         const f = json.data.evidence_freshness;
@@ -97,7 +90,7 @@ export default function Kpis(): JSX.Element {
   }
 
   useEffect(() => {
-    load();
+    void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -173,7 +166,7 @@ export default function Kpis(): JSX.Element {
           </div>
 
           <h2 className="h5 mt-4">Evidence by MIME</h2>
-          {mimeRows.length === 0 ? (
+          {data.fresh.by_mime.length === 0 ? (
             <p className="text-muted">No evidence.</p>
           ) : (
             <div className="table-responsive">
@@ -187,12 +180,12 @@ export default function Kpis(): JSX.Element {
                   </tr>
                 </thead>
                 <tbody>
-                  {mimeRows.map((m) => (
+                  {data.fresh.by_mime.map((m) => (
                     <tr key={m.mime}>
                       <td>{m.mime}</td>
                       <td className="text-end">{m.total}</td>
                       <td className="text-end">{m.stale}</td>
-                      <td className="text-end">{m._pctDisplay}</td>
+                      <td className="text-end">{asPercent(m.percent).toFixed(1)}%</td>
                     </tr>
                   ))}
                 </tbody>

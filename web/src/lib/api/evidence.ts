@@ -1,3 +1,5 @@
+import { apiGet } from "../api";
+
 export type Evidence = {
   id: string;
   owner_id: number;
@@ -30,14 +32,6 @@ function isObject(v: unknown): v is Record<string, unknown> {
   return v !== null && typeof v === "object";
 }
 
-async function parseJson(res: Response): Promise<unknown> {
-  try {
-    return await res.json();
-  } catch {
-    return null;
-  }
-}
-
 export type EvidenceListParams = {
   owner_id?: number;
   filename?: string;
@@ -55,17 +49,10 @@ export type EvidenceListParams = {
 
 export async function listEvidence(params: EvidenceListParams = {}): Promise<EvidenceListResult> {
   try {
-    const url = new URL("/api/evidence", window.location.origin);
-    Object.entries(params).forEach(([k, v]) => {
-      if (v === undefined || v === null) return;
-      url.searchParams.set(k, String(v));
-    });
-
-    const res = await fetch(url.toString().replace(window.location.origin, ""), { credentials: "same-origin" });
-    const json = await parseJson(res);
+    const json = await apiGet<unknown>("/api/evidence", params);
     const j = isObject(json) ? (json as Record<string, unknown>) : {};
 
-    if (res.ok && j.ok === true && Array.isArray(j.data)) {
+    if (j.ok === true && Array.isArray(j.data)) {
       const data = (j.data as unknown[])
         .map((it) => (isObject(it) ? (it as Record<string, unknown>) : null))
         .filter((r): r is Record<string, unknown> => !!r)
@@ -84,14 +71,18 @@ export async function listEvidence(params: EvidenceListParams = {}): Promise<Evi
       const next_cursor =
         typeof j.next_cursor === "string" ? (j.next_cursor as string) : j.next_cursor === null ? null : null;
 
-      return { ok: true, data, next_cursor, filters: isObject(j.filters) ? (j.filters as Record<string, unknown>) : undefined };
+      return {
+        ok: true,
+        data,
+        next_cursor,
+        filters: isObject(j.filters) ? (j.filters as Record<string, unknown>) : undefined,
+      };
     }
 
     const code = typeof j.code === "string" ? (j.code as string) : "REQUEST_FAILED";
     const message = typeof j.message === "string" ? (j.message as string) : undefined;
-    return { ok: false, status: res.status, code, message, raw: json };
+    return { ok: false, status: 400, code, message, raw: json };
   } catch {
     return { ok: false, status: 0, code: "NETWORK_ERROR" };
   }
 }
-

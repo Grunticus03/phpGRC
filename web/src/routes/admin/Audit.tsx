@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { listCategories } from "../../lib/api/audit";
 import { actionInfo } from "../../lib/auditLabels";
 import { searchUsers, type UserSummary, type UserSearchOk } from "../../lib/api/rbac";
+import { apiGet, type QueryInit } from "../../lib/api";
 
 type AuditItem = {
   id?: string;
@@ -46,11 +47,8 @@ function parse422(json: unknown): FieldErrors {
   if (!errors || typeof errors !== "object") return {};
   const out: FieldErrors = {};
   Object.entries(errors as Record<string, unknown>).forEach(([k, v]) => {
-    if (Array.isArray(v)) {
-      out[k] = v.filter((x): x is string => typeof x === "string");
-    } else if (typeof v === "string") {
-      out[k] = [v];
-    }
+    if (Array.isArray(v)) out[k] = v.filter((x): x is string => typeof x === "string");
+    else if (typeof v === "string") out[k] = [v];
   });
   return out;
 }
@@ -131,38 +129,39 @@ export default function Audit(): JSX.Element {
       setFieldErrors({});
       ctrl.current?.abort();
       ctrl.current = new AbortController();
-      const res = await fetch(`/api/audit?${query}`, { signal: ctrl.current.signal, credentials: "same-origin" });
-      if (!res.ok) {
-        let msg = `HTTP ${res.status}`;
-        try {
-          const j = (await res.json().catch(() => null)) as unknown;
-          if (res.status === 422) {
-            const fe = parse422(j);
-            setFieldErrors(fe);
-            msg = "Validation error";
-          } else if (j && typeof j === "object" && typeof (j as { message?: unknown }).message === "string") {
-            msg = String((j as { message?: unknown }).message);
-          }
-        } catch {
-          // ignore parse errors
-        }
-        setState("error");
-        setError(msg);
-        return;
+
+      const params: QueryInit = {
+        category: category || undefined,
+        action: action || undefined,
+        occurred_from,
+        occurred_to,
+        limit,
+        actor_id: selectedActor ? selectedActor.id : undefined,
+      };
+
+      const data = await apiGet<unknown>("/api/audit", params, ctrl.current.signal);
+      let list: AuditItem[] = [];
+      if (Array.isArray(data)) {
+        list = data as AuditItem[];
+      } else if (data && typeof data === "object") {
+        const o = data as Record<string, unknown>;
+        if (Array.isArray(o.items)) list = o.items as AuditItem[];
+        else if (Array.isArray(o.data)) list = o.data as AuditItem[];
       }
-      const data: unknown = await res.json();
-      const list: AuditItem[] = Array.isArray(data)
-        ? (data as AuditItem[])
-        : (data && typeof data === "object" && Array.isArray((data as Record<string, unknown>).items)
-            ? ((data as Record<string, unknown>).items as AuditItem[])
-            : (data && typeof data === "object" && Array.isArray((data as Record<string, unknown>).data)
-                ? ((data as Record<string, unknown>).data as AuditItem[])
-                : []));
+
       setItems(list);
       setState("ok");
       setLastAppliedQuery(query);
     } catch (err: unknown) {
       if (isAbortError(err)) return;
+      if (err && typeof err === "object" && (err as { status?: unknown }).status === 422) {
+        const body = (err as { body?: unknown }).body;
+        const fe = parse422(body);
+        setFieldErrors(fe);
+        setState("error");
+        setError("Validation error");
+        return;
+      }
       setState("error");
       setError(getErrorMessage(err));
     }

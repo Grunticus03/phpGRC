@@ -1,14 +1,7 @@
 import { useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
-import { authLogin } from "../../lib/api";
-
-type FromState = { from?: { pathname: string } } | null;
+import { consumeIntendedPath, authLogin } from "../../lib/api";
 
 export default function Login() {
-  const nav = useNavigate();
-  const loc = useLocation();
-  const fromPath = ((loc.state as FromState)?.from?.pathname) || "/dashboard";
-
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [err, setErr] = useState<string | null>(null);
@@ -20,7 +13,9 @@ export default function Login() {
     setBusy(true);
     try {
       await authLogin({ email, password });
-      nav(fromPath, { replace: true });
+      // Hard navigate so the freshly stored token is read on first paint
+      const dest = consumeIntendedPath() || "/dashboard";
+      window.location.assign(dest);
     } catch {
       setErr("Invalid credentials or server error.");
     } finally {
