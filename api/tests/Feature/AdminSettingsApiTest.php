@@ -5,10 +5,11 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use Tests\TestCase;
+use PHPUnit\Framework\Attributes\Test;
 
 final class AdminSettingsApiTest extends TestCase
 {
-    /** @test */
+    #[Test]
     public function index_returns_core_defaults(): void
     {
         $res = $this->getJson('/admin/settings');
@@ -27,7 +28,7 @@ final class AdminSettingsApiTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function update_accepts_flat_payload_and_echoes_accepted(): void
     {
         $payload = [
@@ -62,7 +63,7 @@ final class AdminSettingsApiTest extends TestCase
             ->assertJsonPath('accepted.avatars.format', 'webp');
     }
 
-    /** @test */
+    #[Test]
     public function update_rejects_invalid_role_entries(): void
     {
         $payload = [
@@ -79,7 +80,7 @@ final class AdminSettingsApiTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function legacy_shape_rejects_disallowed_mime_and_returns_errors_block(): void
     {
         $payload = [
@@ -98,7 +99,7 @@ final class AdminSettingsApiTest extends TestCase
             ->assertJsonPath('code', 'VALIDATION_FAILED');
     }
 
-    /** @test */
+    #[Test]
     public function update_rejects_avatar_size_other_than_128(): void
     {
         $payload = [
@@ -113,7 +114,7 @@ final class AdminSettingsApiTest extends TestCase
             ->assertJsonStructure(['errors' => ['avatars' => []]]);
     }
 
-    /** @test */
+    #[Test]
     public function update_rejects_avatar_format_other_than_webp(): void
     {
         $payload = [
@@ -128,7 +129,7 @@ final class AdminSettingsApiTest extends TestCase
             ->assertJsonStructure(['errors' => ['avatars' => []]]);
     }
 
-    /** @test */
+    #[Test]
     public function update_rejects_audit_retention_out_of_range(): void
     {
         $this->postJson('/admin/settings', ['apply' => true, 'audit' => ['retention_days' => 0]])
@@ -138,11 +139,10 @@ final class AdminSettingsApiTest extends TestCase
             ->assertStatus(422);
     }
 
-    /** @test */
+    #[Test]
     public function update_rejects_evidence_max_mb_below_min(): void
     {
         $this->postJson('/admin/settings', ['apply' => true, 'evidence' => ['max_mb' => 0]])
             ->assertStatus(422);
     }
 }
-

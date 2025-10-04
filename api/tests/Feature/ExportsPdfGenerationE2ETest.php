@@ -8,10 +8,11 @@ use App\Models\Export;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
+use PHPUnit\Framework\Attributes\Test;
 
 final class ExportsPdfGenerationE2ETest extends TestCase
 {
-    /** @test */
+    #[Test]
     public function pdf_export_generates_artifact_and_allows_download_when_persisted(): void
     {
         config(['core.exports.enabled' => true]);
@@ -48,4 +49,3 @@ final class ExportsPdfGenerationE2ETest extends TestCase
         $this->assertStringStartsWith('%PDF-', (string) $bytes);
     }
 }
-

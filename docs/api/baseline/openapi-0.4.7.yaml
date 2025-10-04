@@ -1,0 +1,2133 @@
+openapi: 3.1.0
+info:
+  title: phpGRC
+  version: 0.4.7
+  description: |
+    Notes:
+    - The Metrics Dashboard is an internal, admin-only endpoint (`GET /dashboard/kpis`, alias `GET /metrics/dashboard`) and is not part of this public OpenAPI. Both return identical shapes.
+  license:
+    identifier: MIT
+    name: MIT
+  x-logo:
+    url: "https://phpgrc.gruntlabs.net/api/images/phpGRC-light-horizontal-trans.png"
+    altText: "phpGRC"
+    href: "https://phpgrc.gruntlabs.net/api/docs"
+servers:
+  - url: /
+
+tags:
+  - name: Health
+    description: Liveness and environment fingerprints.
+  - name: OpenAPI
+    description: Spec discovery.
+  - name: Auth
+    description: Authentication primitives.
+  - name: Settings
+    description: Admin-config snapshots and updates.
+  - name: RBAC
+    description: Role catalog and user-role mappings.
+  - name: Audit
+    description: Audit trail list and export.
+  - name: Evidence
+    description: Evidence storage and retrieval.
+  - name: Exports
+    description: Export job creation, status, and downloads.
+  - name: Avatars
+    description: User avatar upload and retrieval.
+  - name: Setup
+    description: First-run setup workflow.
+
+security:
+  - sanctum: []
+
+paths:
+  /health:
+    get:
+      operationId: healthProbe
+      security: []
+      tags: [Health]
+      summary: Health probe
+      description: |
+        Simple liveness probe; returns `{ ok: true }` when the API process is reachable.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok]
+                properties:
+                  ok:
+                    type: boolean
+                    const: true
+        '404':
+          description: Not Found
+
+  /health/fingerprint:
+    get:
+      operationId: healthFingerprint
+      security: []
+      tags: [Health]
+      summary: Deployment fingerprint and enabled-feature summary
+      description: Returns a hash of key config and a brief feature summary to help debug deployments (no secrets).
+      responses:
+        '200':
+          description: Summary and fingerprint
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthFingerprintResponse'
+        '404':
+          description: Not Found
+
+  /openapi.yaml:
+    get:
+      operationId: openapiYaml
+      security: []
+      tags: [OpenAPI]
+      summary: OpenAPI YAML
+      description: Serves the current OpenAPI spec as YAML from `docs/api/openapi.yaml`.
+      responses:
+        '200':
+          description: YAML
+          content:
+            application/yaml:
+              schema:
+                type: string
+        '404':
+          description: Not Found
+
+  /openapi.json:
+    get:
+      operationId: openapiJson
+      security: []
+      tags: [OpenAPI]
+      summary: OpenAPI JSON
+      description: Serves the current OpenAPI spec as JSON (direct file or YAML→JSON conversion).
+      responses:
+        '200':
+          description: JSON
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '404':
+          description: Not Found
+
+  /admin/settings:
+    get:
+      operationId: settingsGet
+      tags: [Settings]
+      summary: Get settings snapshot
+      description: Returns the effective configuration with any DB-backed overrides applied.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SettingsGetResponse'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+    post: &SettingsUpdateOp
+      operationId: settingsUpdate
+      tags: [Settings]
+      summary: Update settings (spec or legacy shape)
+      description: Accepts either the spec shape or the legacy nested shape; validates and applies updates, optionally persisting when enabled.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: '#/components/schemas/SettingsUpdateSpecShape'
+                - $ref: '#/components/schemas/SettingsUpdateLegacyShape'
+      responses:
+        '200':
+          description: Applied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SettingsPostResponse'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+    put:
+      <<: *SettingsUpdateOp
+      operationId: settingsReplace
+    patch:
+      <<: *SettingsUpdateOp
+      operationId: settingsPatch
+
+  /rbac/roles:
+    get:
+      operationId: rbacRolesList
+      tags: [RBAC]
+      summary: List role catalog
+      description: Returns role names from DB when persistence is enabled, otherwise from config.
+      responses:
+        '200':
+          description: OK (persist uses DB if present, else config)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+    post:
+      operationId: rbacRolesCreate
+      tags: [RBAC]
+      summary: Create role (persist) or accept (stub-only)
+      description: Creates a role in persistence mode; in stub mode, validates and returns an accepted payload.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RoleCreateRequest'
+      responses:
+        '201':
+          description: Created (persist path)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleCreateResponse'
+        '202':
+          description: Accepted (stub-only path)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleCreateAccepted'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          description: Validation errors
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationFailed'
+              examples:
+                invalidName:
+                  summary: Invalid role name
+                  value:
+                    ok: false
+                    code: VALIDATION_FAILED
+                    message: The given data was invalid.
+                    errors:
+                      name:
+                        - Role name may contain only letters, numbers, underscores, and hyphens.
+                duplicateAfterNormalization:
+                  summary: Duplicate after normalization
+                  value:
+                    ok: false
+                    code: VALIDATION_FAILED
+                    message: The given data was invalid.
+                    errors:
+                      name:
+                        - Role already exists after normalization.
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /rbac/users/{user}/roles:
+    parameters:
+      - name: user
+        in: path
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+        description: Numeric user ID.
+    get:
+      operationId: userRolesGet
+      tags: [RBAC]
+      summary: Get roles for a user
+      description: Returns the user's roles as names/ids; source depends on persistence mode.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserRolesResponse'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/RbacDisabled'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+    put:
+      operationId: userRolesReplace
+      tags: [RBAC]
+      summary: Replace roles for a user
+      description: Replaces the user's role set with the provided names/ids, validating existence and normalization.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RoleReplaceRequest'
+      responses:
+        '200':
+          description: Replaced
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserRolesResponse'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/RbacDisabled'
+        '422':
+          description: Validation failed or unknown roles
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/ValidationFailed'
+                  - $ref: '#/components/schemas/RoleNotFoundError'
+              examples:
+                duplicateAfterNormalization:
+                  summary: Duplicate roles after normalization
+                  value:
+                    ok: false
+                    code: VALIDATION_FAILED
+                    message: The given data was invalid.
+                    errors:
+                      roles:
+                        - Duplicate roles after normalization.
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /rbac/users/{user}/roles/{role}:
+    parameters:
+      - name: user
+        in: path
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+      - name: role
+        in: path
+        required: true
+        schema:
+          type: string
+          minLength: 2
+          maxLength: 64
+          pattern: '^[\p{L}\p{N}_-]{2,64}$'
+        description: |
+          Role identifier. Accepts role **name** or role **id** (e.g., `role_admin`).
+    post:
+      operationId: userRoleAttach
+      tags: [RBAC]
+      summary: Attach a role to a user by name or id
+      description: Idempotently attaches the role to the user.
+      responses:
+        '200':
+          description: Attached (idempotent)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserRolesResponse'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/RbacDisabled'
+        '422':
+          description: Unknown role or invalid input
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/RoleNotFoundError'
+                  - $ref: '#/components/schemas/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+    delete:
+      operationId: userRoleDetach
+      tags: [RBAC]
+      summary: Detach a role from a user by name or id
+      description: Idempotently detaches the role from a user.
+      responses:
+        '200':
+          description: Detached (idempotent)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserRolesResponse'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/RbacDisabled'
+        '422':
+          description: Unknown role or invalid input
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/RoleNotFoundError'
+                  - $ref: '#/components/schemas/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /rbac/users/search:
+    get:
+      operationId: rbacUserSearch
+      tags: [RBAC]
+      summary: Search users by name or email
+      description: |
+        Returns users whose **name** or **email** contains the query string.
+        Auth is enforced when `core.rbac.require_auth` is true. RBAC policy `core.users.view` and role `Admin` are required by default.
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 1
+          description: Case-insensitive substring match against name and email.
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: per_page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+            default: 50
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserSearchResponse'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /audit:
+    get:
+      operationId: auditList
+      tags: [Audit]
+      summary: List audit events
+      description: |
+        Returns persisted events when persistence is enabled. Returns an empty stub payload when persistence is disabled and no business filters are applied.
+        **Note:** Settings-change events may include `meta.changes` with an array of change items detailing which keys changed.
+      parameters:
+        - $ref: '#/components/parameters/AuditCategory'
+        - $ref: '#/components/parameters/AuditAction'
+        - $ref: '#/components/parameters/OccurredFrom'
+        - $ref: '#/components/parameters/OccurredTo'
+        - $ref: '#/components/parameters/ActorId'
+        - $ref: '#/components/parameters/EntityType'
+        - $ref: '#/components/parameters/EntityId'
+        - $ref: '#/components/parameters/AuditIp'
+        - $ref: '#/components/parameters/Order'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: OK (persist or stub path)
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/AuditListResponse'
+                  - $ref: '#/components/schemas/AuditListStubResponse'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /audit/categories:
+    get:
+      operationId: auditCategories
+      tags: [Audit]
+      summary: List audit categories
+      description: Returns the fixed set of audit categories the system uses.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, categories]
+                properties:
+                  ok:
+                    type: boolean
+                    const: true
+                  categories:
+                    type: array
+                    items:
+                      type: string
+                      enum: [SYSTEM, RBAC, AUTH, SETTINGS, EXPORTS, EVIDENCE, AVATARS, AUDIT]
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /audit/export.csv:
+    get:
+      operationId: auditExportCsv
+      tags: [Audit]
+      summary: Export audit events as CSV
+      description: |
+        Streams a CSV of audit events for the requested filters. See headers and sample format below.
+      parameters:
+        - $ref: '#/components/parameters/AuditCategory'
+        - $ref: '#/components/parameters/AuditAction'
+        - $ref: '#/components/parameters/OccurredFrom'
+        - $ref: '#/components/parameters/OccurredTo'
+        - $ref: '#/components/parameters/ActorId'
+        - $ref: '#/components/parameters/EntityType'
+        - $ref: '#/components/parameters/EntityId'
+        - $ref: '#/components/parameters/AuditIp'
+        - $ref: '#/components/parameters/Order'
+      responses:
+        '200':
+          description: CSV file
+          headers:
+            Content-Disposition:
+              description: Attachment filename
+              schema:
+                type: string
+              example: attachment; filename="audit-20250201T000000Z.csv"
+            X-Content-Type-Options:
+              description: MIME sniffing protection
+              schema:
+                type: string
+              example: nosniff
+            Cache-Control:
+              description: Cache directives
+              schema:
+                type: string
+              example: no-store, max-age=0
+          content:
+            text/csv:
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /evidence:
+    get:
+      operationId: evidenceList
+      tags: [Evidence]
+      summary: List evidence items
+      description: Returns paginated evidence metadata with optional filters; does not include file bytes.
+      parameters:
+        - name: owner_id
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+        - name: filename
+          in: query
+          schema:
+            type: string
+        - name: mime
+          in: query
+          schema:
+            type: string
+        - name: sha256
+          in: query
+          schema:
+            type: string
+            pattern: '^[A-Fa-f0-9]{64}$'
+        - name: sha256_prefix
+          in: query
+          schema:
+            type: string
+            minLength: 6
+            maxLength: 64
+            pattern: '^[A-Fa-f0-9]+$'
+        - name: version_from
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+        - name: version_to
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+        - name: created_from
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: created_to
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - $ref: '#/components/parameters/Order'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EvidenceListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+    post:
+      operationId: evidenceUpload
+      tags: [Evidence]
+      summary: Upload evidence
+      description: Accepts a multipart upload; validates size/mime; stores bytes and metadata.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/EvidenceUploadRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EvidenceCreateResponse'
+        '400':
+            description: EVIDENCE_NOT_ENABLED
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/ErrorSimple'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /evidence/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          minLength: 2
+    get:
+      operationId: evidenceDownload
+      tags: [Evidence]
+      summary: Download evidence
+      description: Returns the stored file bytes. Optionally verifies by `?sha256=<hex>` and returns `412` on mismatch.
+      parameters:
+        - name: sha256
+          in: query
+          required: false
+          schema:
+            type: string
+            pattern: '^[A-Fa-f0-9]{64}$'
+      responses:
+        '200':
+          description: File
+          content:
+            '*/*':
+              schema:
+                type: string
+                format: binary
+        '304':
+          description: Not Modified
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Not Found
+        '412':
+          description: EVIDENCE_HASH_MISMATCH
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorSimple'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+    head:
+      operationId: evidenceHead
+      tags: [Evidence]
+      summary: HEAD same as GET without body
+      description: Returns headers for caching/conditional requests; body omitted.
+      responses:
+        '200':
+          description: Headers only
+        '304':
+          description: Not Modified
+        '404':
+          description: Not Found
+
+  /exports:
+    post:
+      operationId: exportsCreateLegacy
+      tags: [Exports]
+      summary: Create export (legacy)
+      description: Creates an export job using the legacy request format.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExportCreateLegacyRequest'
+      responses:
+        '200':
+          description: Created/Queued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExportCreateResponse'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /exports/{type}:
+    post:
+      operationId: exportsCreateByType
+      tags: [Exports]
+      summary: Create export by type
+      description: Creates an export job for the given type, with optional parameters.
+      parameters:
+        - name: type
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [csv, json, pdf]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExportCreateTypeRequest'
+      responses:
+        '200':
+          description: Created/Queued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExportCreateResponse'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /exports/{jobId}/status:
+    get:
+      operationId: exportStatus
+      tags: [Exports]
+      summary: Export job status
+      description: Returns the current status of a previously created export job.
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExportStatusResponse'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /exports/{jobId}/download:
+    get:
+      operationId: exportDownload
+      tags: [Exports]
+      summary: Download export artifact
+      description: Downloads the produced export artifact for a completed job.
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: File
+          content:
+            '*/*':
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: EXPORT_NOT_FOUND or artifact missing
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorSimple'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /avatar:
+    post:
+      operationId: avatarUpload
+      security: []
+      tags: [Avatars]
+      summary: Upload user avatar (Phase 4 stub)
+      description: Accepts an image file and stores a normalized WEBP; currently a stub that returns 202 when the feature is disabled.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '202':
+          description: Accepted (stub-only)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, note]
+                properties:
+                  ok:
+                    type: boolean
+                    const: true
+                  note:
+                    type: string
+                    const: stub-only
+        '400':
+          description: AVATAR_NOT_ENABLED
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorSimple'
+        '422':
+          description: AVATAR_VALIDATION_FAILED
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorSimple'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /avatar/{user}:
+    parameters:
+      - name: user
+        in: path
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+    get:
+      operationId: avatarGet
+      security: []
+      tags: [Avatars]
+      summary: Get avatar image
+      description: Returns a normalized WEBP avatar image for the user, with an optional `size` hint.
+      parameters:
+        - name: size
+          in: query
+          schema:
+            type: integer
+            enum: [32, 64, 128]
+            default: 128
+      responses:
+        '200':
+          description: WEBP image
+          content:
+            image/webp:
+              schema:
+                type: string
+                format: binary
+        '400':
+          description: AVATAR_NOT_ENABLED
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorSimple'
+        '404':
+          description: AVATAR_NOT_FOUND
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorSimple'
+    head:
+      operationId: avatarHead
+      security: []
+      tags: [Avatars]
+      summary: HEAD avatar
+      description: Returns avatar headers only (no body).
+      responses:
+        '200':
+          description: Headers only
+        '404':
+          description: Not Found
+
+  /setup/status:
+    get:
+      operationId: setupStatus
+      security: []
+      tags: [Setup]
+      summary: Setup wizard status
+      description: Returns current setup checklist completion and next actionable step.
+      responses:
+        '200':
+          description: Status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SetupStatusResponse'
+        '400':
+          description: SETUP_STEP_DISABLED
+
+  /setup/db/test:
+    post:
+      operationId: setupDbTest
+      security: []
+      tags: [Setup]
+      summary: Test database connection
+      description: Validates DB parameters against a live connection attempt.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetupDbTestRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Ok'
+        '422':
+          description: DB_CONFIG_INVALID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorSimple'
+
+  /setup/db/write:
+    post:
+      operationId: setupDbWrite
+      security: []
+      tags: [Setup]
+      summary: Write DB config to shared path
+      description: Persists DB connection settings to a shared config file for bootstrap.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetupDbWriteRequest'
+      responses:
+        '200':
+          description: Wrote config
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, path]
+                properties:
+                  ok:
+                    type: boolean
+                    const: true
+                  path:
+                    type: string
+        '400':
+          description: SETUP_STEP_DISABLED
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorSimple'
+
+  /setup/app-key:
+    post:
+      operationId: setupAppKey
+      security: []
+      tags: [Setup]
+      summary: Generate app key (stub if commands disabled)
+      description: Generates an application key or returns a stub response when command execution is disabled.
+      responses:
+        '200':
+          description: Generated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Ok'
+        '202':
+          description: Stub-only
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, note]
+                properties:
+                  ok:
+                    type: boolean
+                    const: true
+                  note:
+                    type: string
+                    const: stub-only
+        '409':
+          description: APP_KEY_EXISTS
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorSimple'
+
+  /setup/schema/init:
+    post:
+      operationId: setupSchemaInit
+      security: []
+      tags: [Setup]
+      summary: Run migrations (stub if commands disabled)
+      description: Runs database migrations or returns a stub response when command execution is disabled.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Ok'
+        '202':
+          description: Stub-only
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, note]
+                properties:
+                  ok:
+                    type: boolean
+                    const: true
+                  note:
+                    type: string
+                    const: stub-only
+        '400':
+          description: SETUP_STEP_DISABLED
+        '500':
+          description: SCHEMA_INIT_FAILED
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorSimple'
+
+  /setup/admin:
+    post:
+      operationId: setupAdminCreate
+      security: []
+      tags: [Setup]
+      summary: Create first admin
+      description: Creates the initial administrator account during setup.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetupAdminRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Ok'
+        '409':
+          description: ADMIN_EXISTS
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorSimple'
+
+  /setup/admin/totp/verify:
+    post:
+      operationId: setupAdminTotpVerify
+      security: []
+      tags: [Setup]
+      summary: Verify admin TOTP during setup
+      description: Verifies the one-time password for the seeded admin as part of setup.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code]
+              properties:
+                code:
+                  type: string
+                  minLength: 6
+                  maxLength: 8
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Ok'
+        '400':
+          description: TOTP_CODE_INVALID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorSimple'
+
+  /setup/smtp:
+    post:
+      operationId: setupSmtp
+      security: []
+      tags: [Setup]
+      summary: Configure SMTP
+      description: Stores SMTP connection details after validation; used for outbound email.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Ok'
+        '422':
+          description: SMTP validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorSimple'
+
+  /setup/idp:
+    post:
+      operationId: setupIdp
+      security: []
+      tags: [Setup]
+      summary: Configure Identity Provider (optional)
+      description: Stores IdP metadata for SSO; details depend on provider.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Ok'
+        '400':
+          description: IDP_UNSUPPORTED
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorSimple'
+
+  /setup/branding:
+    post:
+      operationId: setupBranding
+      security: []
+      tags: [Setup]
+      summary: Configure branding
+      description: Stores initial branding preferences and assets metadata.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Ok'
+        '422':
+          description: BRANDING_INVALID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorSimple'
+
+  /setup/finish:
+    post:
+      operationId: setupFinish
+      security: []
+      tags: [Setup]
+      summary: Complete setup wizard
+      description: Marks setup as complete and enables the standard app routes.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Ok'
+        '400':
+          description: SETUP_STEP_DISABLED
+
+components:
+  securitySchemes:
+    sanctum:
+      type: http
+      scheme: bearer
+      bearerFormat: Token
+
+  parameters:
+    AuditCategory:
+      name: category
+      in: query
+      schema:
+        type: string
+        enum: [SYSTEM, RBAC, AUTH, SETTINGS, EXPORTS, EVIDENCE, AVATARS, AUDIT]
+      example: RBAC
+    AuditAction:
+      name: action
+      in: query
+      schema:
+        type: string
+        maxLength: 191
+      example: rbac.user_role.attached
+    OccurredFrom:
+      name: occurred_from
+      in: query
+      schema:
+        type: string
+        format: date-time
+      example: '2025-02-01T00:00:00Z'
+    OccurredTo:
+      name: occurred_to
+      in: query
+      schema:
+        type: string
+        format: date-time
+      example: '2025-02-02T00:00:00Z'
+    ActorId:
+      name: actor_id
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+      example: 42
+    EntityType:
+      name: entity_type
+      in: query
+      schema:
+        type: string
+        maxLength: 128
+      example: user
+    EntityId:
+      name: entity_id
+      in: query
+      schema:
+        type: string
+        maxLength: 191
+      example: '10'
+    AuditIp:
+      name: ip
+      in: query
+      schema:
+        type: string
+        format: ipv4
+      example: 127.0.0.1
+    Order:
+      name: order
+      in: query
+      schema:
+        type: string
+        enum: [asc, desc]
+        default: desc
+      example: desc
+    Limit:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+      example: 20
+    Cursor:
+      name: cursor
+      in: query
+      schema:
+        oneOf:
+          - type: string
+          - type: 'null'
+      example: null
+
+  responses:
+    Unauthenticated:
+      description: Unauthenticated
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Unauthenticated'
+    Forbidden:
+      description: Forbidden
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ForbiddenError'
+    ValidationFailed:
+      description: Validation errors
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ValidationFailed'
+    RbacDisabled:
+      description: RBAC disabled
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/RbacDisabledError'
+    RateLimited:
+      description: Rate limited
+      headers:
+        Retry-After:
+          description: Seconds until a new request is allowed.
+          schema:
+            type: integer
+            minimum: 1
+        X-RateLimit-Limit:
+          description: Requests allowed in the window.
+          schema:
+            type: integer
+            minimum: 1
+        X-RateLimit-Remaining:
+          description: Requests remaining in the current window.
+          schema:
+            type: integer
+            minimum: 0
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/RateLimited'
+
+  schemas:
+    Ok:
+      type: object
+      required: [ok]
+      properties:
+        ok:
+          type: boolean
+          const: true
+
+    ErrorSimple:
+      type: object
+      required: [ok, code]
+      properties:
+        ok:
+          type: boolean
+          const: false
+        code:
+          type: string
+        message:
+          oneOf:
+            - type: string
+            - type: 'null'
+        note:
+          oneOf:
+            - type: string
+            - type: 'null'
+
+    Unauthenticated:
+      allOf:
+        - $ref: '#/components/schemas/ErrorSimple'
+        - type: object
+          properties:
+            code:
+              type: string
+              enum: [UNAUTHENTICATED]
+
+    ForbiddenError:
+      allOf:
+        - $ref: '#/components/schemas/ErrorSimple'
+        - type: object
+          properties:
+            code:
+              type: string
+              enum: [UNAUTHORIZED]
+
+    ValidationFailed:
+      type: object
+      required: [ok, code, message, errors]
+      properties:
+        ok:
+          type: boolean
+          const: false
+        code:
+          type: string
+          enum: [VALIDATION_FAILED]
+        message:
+          type: string
+        errors:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+
+    RoleNotFoundError:
+      type: object
+      required: [ok, code, missing_roles]
+      properties:
+        ok:
+          type: boolean
+          const: false
+        code:
+          type: string
+          enum: [ROLE_NOT_FOUND]
+        missing_roles:
+          type: array
+          items:
+            type: string
+            minLength: 2
+            maxLength: 64
+      example:
+        ok: false
+        code: ROLE_NOT_FOUND
+        missing_roles: ["NopeRole"]
+
+    RbacDisabledError:
+      type: object
+      required: [ok, code]
+      properties:
+        ok:
+          type: boolean
+          const: false
+        code:
+          type: string
+          enum: [RBAC_DISABLED]
+
+    RateLimited:
+      type: object
+      required: [ok, code, retry_after]
+      properties:
+        ok:
+          type: boolean
+          const: false
+        code:
+          type: string
+          enum: [RATE_LIMITED]
+        retry_after:
+          type: integer
+          minimum: 1
+
+    RoleListResponse:
+      type: object
+      required: [ok, roles]
+      properties:
+        ok:
+          type: boolean
+          const: true
+        roles:
+          type: array
+          items:
+            type: string
+            minLength: 2
+            maxLength: 64
+
+    RoleCreateRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 64
+          pattern: '^[\p{L}\p{N}_-]{2,64}$'
+
+    RoleCreateResponse:
+      type: object
+      required: [ok, role]
+      properties:
+        ok:
+          type: boolean
+          const: true
+        role:
+          type: object
+          required: [id, name]
+          properties:
+            id:
+              type: string
+              pattern: '^role_[a-z0-9_]+(_[0-9]+)?$'
+            name:
+              type: string
+              minLength: 2
+              maxLength: 64
+
+    RoleCreateAccepted:
+      type: object
+      required: [ok, note, accepted]
+      properties:
+        ok:
+          type: boolean
+          const: true
+        note:
+          type: string
+          const: stub-only
+        accepted:
+          $ref: '#/components/schemas/RoleCreateRequest'
+
+    User:
+      type: object
+      required: [id, name, email]
+      properties:
+        id:
+          type: integer
+          minimum: 1
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+
+    UserSearchResponse:
+      type: object
+      required: [ok, data, meta]
+      properties:
+        ok:
+          type: boolean
+          const: true
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/User'
+        meta:
+          type: object
+          required: [page, per_page, total, total_pages]
+          properties:
+            page:
+              type: integer
+              minimum: 1
+            per_page:
+              type: integer
+              minimum: 1
+              maximum: 500
+            total:
+              type: integer
+              minimum: 0
+            total_pages:
+              type: integer
+              minimum: 0
+
+    UserRolesResponse:
+      type: object
+      required: [ok, user, roles]
+      properties:
+        ok:
+          type: boolean
+          const: true
+        user:
+          $ref: '#/components/schemas/User'
+        roles:
+          type: array
+          items:
+            type: string
+            minLength: 2
+            maxLength: 64
+
+    RoleReplaceRequest:
+      type: object
+      required: [roles]
+      properties:
+        roles:
+          type: array
+          items:
+            type: string
+            minLength: 2
+            maxLength: 64
+            pattern: '^[\p{L}\p{N}_-]{2,64}$'
+          description: Role names or ids. Duplicates after normalization are rejected.
+
+    AuditEvent:
+      type: object
+      required: [id, occurred_at, action, category, entity_type, entity_id]
+      properties:
+        id:
+          type: string
+        occurred_at:
+          type: string
+          format: date-time
+        actor_id:
+          oneOf:
+            - type: integer
+            - type: 'null'
+        action:
+          type: string
+        category:
+          type: string
+          enum: [SYSTEM, RBAC, AUTH, SETTINGS, EXPORTS, EVIDENCE, AVATARS, AUDIT]
+        entity_type:
+          type: string
+        entity_id:
+          type: string
+        ip:
+          oneOf:
+            - type: string
+            - type: 'null'
+        ua:
+          oneOf:
+            - type: string
+            - type: 'null'
+        meta:
+          oneOf:
+            - type: object
+              additionalProperties: true
+              properties:
+                changes:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/SettingsChange'
+            - type: 'null'
+      description: >
+        Audit record. `meta` MAY include `changes: SettingsChange[]` for `SETTINGS` events such as `settings.update`.
+
+    SettingsChange:
+      type: object
+      description: >
+        A single settings change captured in audit `meta.changes`. Values may be scalar, array, or object. Sensitive values may be redacted.
+      required: [key, action]
+      properties:
+        key:
+          type: string
+          description: Dot-notated key (e.g., `core.audit.enabled`).
+        old:
+          oneOf:
+            - type: 'null'
+            - type: boolean
+            - type: number
+            - type: string
+            - type: object
+              additionalProperties: true
+            - type: array
+              items:
+                anyOf:
+                  - type: boolean
+                  - type: number
+                  - type: string
+                  - type: object
+                    additionalProperties: true
+                  - type: array
+                    items: {}
+        new:
+          oneOf:
+            - type: 'null'
+            - type: boolean
+            - type: number
+            - type: string
+            - type: object
+              additionalProperties: true
+            - type: array
+              items:
+                anyOf:
+                  - type: boolean
+                  - type: number
+                  - type: string
+                  - type: object
+                    additionalProperties: true
+                  - type: array
+                    items: {}
+        action:
+          type: string
+          enum: [ set, update, unset ]
+        meta:
+          oneOf:
+            - type: object
+              additionalProperties: true
+              properties:
+                changes:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/SettingsChange'
+            - type: 'null'
+
+    AuditListResponse:
+      type: object
+      required: [ok, _categories, _retention_days, filters, items, nextCursor]
+      properties:
+        ok:
+          type: boolean
+          const: true
+        _categories:
+          type: array
+          items:
+            type: string
+            enum: [SYSTEM, RBAC, AUTH, SETTINGS, EXPORTS, EVIDENCE, AVATARS, AUDIT]
+        _retention_days:
+          type: integer
+          minimum: 30
+          maximum: 730
+        filters:
+          type: object
+          additionalProperties: true
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AuditEvent'
+        nextCursor:
+          oneOf:
+            - type: string
+            - type: 'null'
+
+    AuditListStubResponse:
+      allOf:
+        - $ref: '#/components/schemas/AuditListResponse'
+        - type: object
+          required: [note]
+          properties:
+            note:
+              type: string
+              const: stub-only
+
+    Evidence:
+      type: object
+      required: [id, owner_id, filename, mime, size, sha256, version, created_at]
+      properties:
+        id:
+          type: string
+        owner_id:
+          type: integer
+          minimum: 1
+        filename:
+          type: string
+        mime:
+          type: string
+        size:
+          type: integer
+          minimum: 0
+        sha256:
+          type: string
+          pattern: '^[A-Fa-f0-9]{64}$'
+        version:
+          type: integer
+          minimum: 1
+        created_at:
+          type: string
+          format: date-time
+
+    EvidenceListResponse:
+      type: object
+      required: [ok, data]
+      properties:
+        ok:
+          type: boolean
+          const: true
+        filters:
+          type: object
+          additionalProperties: true
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Evidence'
+        next_cursor:
+          oneOf:
+            - type: string
+            - type: 'null'
+
+    EvidenceUploadRequest:
+      type: object
+      required: [file]
+      properties:
+        file:
+          type: string
+          format: binary
+
+    EvidenceCreateResponse:
+      type: object
+      required: [ok]
+      properties:
+        ok:
+          type: boolean
+          const: true
+        id:
+          type: string
+        version:
+          type: integer
+          minimum: 1
+        sha256:
+          type: string
+          pattern: '^[A-Fa-f0-9]{64}$'
+        mime:
+          type: string
+        size:
+          type: integer
+          minimum: 0
+        name:
+          type: string
+
+    ExportCreateLegacyRequest:
+      type: object
+      required: [type]
+      properties:
+        type:
+          type: string
+          enum: [csv, json, pdf]
+        params:
+          type: object
+          additionalProperties: true
+
+    ExportCreateTypeRequest:
+      type: object
+      properties:
+        params:
+          type: object
+          additionalProperties: true
+
+    ExportCreateResponse:
+      type: object
+      required: [ok, jobId, type]
+      properties:
+        ok:
+          type: boolean
+          const: true
+        jobId:
+          type: string
+        type:
+          type: string
+          enum: [csv, json, pdf]
+        note:
+          oneOf:
+            - type: string
+            - type: 'null'
+
+    ExportStatusResponse:
+      type: object
+      required: [ok, status]
+      properties:
+        ok:
+          type: boolean
+          const: true
+        status:
+          type: string
+          enum: [queued, running, done, failed]
+
+    SettingsGetResponse:
+      type: object
+      required: [ok, config]
+      properties:
+        ok:
+          type: boolean
+          const: true
+        config:
+          type: object
+          properties:
+            core:
+              type: object
+              properties:
+                rbac:
+                  type: object
+                  properties:
+                    enabled:
+                      type: boolean
+                    require_auth:
+                      type: boolean
+                    roles:
+                      type: array
+                      items:
+                        type: string
+                audit:
+                  type: object
+                  properties:
+                    enabled:
+                      type: boolean
+                    retention_days:
+                      type: integer
+                evidence:
+                  type: object
+                  properties:
+                    enabled:
+                      type: boolean
+                avatars:
+                  type: object
+                  properties:
+                    enabled:
+                      type: boolean
+                    size_px:
+                      type: integer
+                    format:
+                      type: string
+
+    SettingsUpdateSpecShape:
+      type: object
+      properties:
+        rbac:
+          type: object
+          properties:
+            enabled:
+              type: boolean
+            require_auth:
+              type: boolean
+            roles:
+              type: array
+              items:
+                type: string
+        audit:
+          type: object
+          properties:
+            enabled:
+              type: boolean
+            retention_days:
+              type: integer
+        evidence:
+          type: object
+          properties:
+            enabled:
+              type: boolean
+        avatars:
+          type: object
+          properties:
+            enabled:
+              type: boolean
+            size_px:
+              type: integer
+            format:
+              type: string
+
+    SettingsUpdateLegacyShape:
+      type: object
+      properties:
+        core:
+          $ref: '#/components/schemas/SettingsUpdateSpecShape'
+
+    SettingsPostResponse:
+      type: object
+      required: [ok]
+      properties:
+        ok:
+          type: boolean
+          const: true
+        applied:
+          oneOf:
+            - type: boolean
+            - type: 'null'
+        changes:
+          type: object
+          additionalProperties: true
+        config:
+          $ref: '#/components/schemas/SettingsGetResponse/properties/config'
+
+    HealthFingerprintResponse:
+      type: object
+      required: [ok, fingerprint, overlay, summary]
+      properties:
+        ok:
+          type: boolean
+          const: true
+        fingerprint:
+          type: string
+        overlay:
+          type: object
+          properties:
+            loaded:
+              type: boolean
+            path:
+              oneOf:
+                - type: string
+                - type: 'null'
+            mtime:
+              oneOf:
+                - type: string
+                - type: 'null'
+        summary:
+          type: object
+          properties:
+            rbac:
+              type: object
+              properties:
+                enabled:
+                  type: boolean
+                require_auth:
+                  type: boolean
+                roles_count:
+                  type: integer
+            audit:
+              type: object
+              properties:
+                enabled:
+                  type: boolean
+                retention_days:
+                  type: integer
+            evidence:
+              type: object
+              properties:
+                enabled:
+                  type: boolean
+            avatars:
+              type: object
+              properties:
+                enabled:
+                  type: boolean
+                size_px:
+                  type: integer
+                format:
+                  type: string
+            api_throttle:
+              type: object
+              properties:
+                enabled:
+                  type: boolean
+                strategy:
+                  type: string
+                  enum: [ip, session, user]
+                window_seconds:
+                  type: integer
+                  minimum: 1
+                max_requests:
+                  type: integer
+                  minimum: 1
+
+    SetupStatusResponse:
+      type: object
+      required: [ok, setupComplete, nextStep, checks]
+      properties:
+        ok:
+          type: boolean
+          const: true
+        setupComplete:
+          type: boolean
+        nextStep:
+          oneOf:
+            - type: string
+              enum: [db_config, app_key, schema_init, admin_seed, admin_mfa_verify]
+            - type: 'null'
+        checks:
+          type: object
+          properties:
+            db_config:
+              type: boolean
+            app_key:
+              type: boolean
+            schema_init:
+              type: boolean
+            admin_seed:
+              type: boolean
+            admin_mfa_verify:
+              type: boolean
+            smtp:
+              type: boolean
+            idp:
+              type: boolean
+            branding:
+              type: boolean
+
+    SetupDbTestRequest:
+      type: object
+      required: [driver, host, port, database, username, password]
+      properties:
+        driver:
+          type: string
+          enum: [mysql, pgsql, sqlite, sqlsrv]
+        host:
+          type: string
+        port:
+          type: integer
+        database:
+          type: string
+        username:
+          type: string
+        password:
+          type: string
+
+    SetupDbWriteRequest:
+      allOf:
+        - $ref: '#/components/schemas/SetupDbTestRequest'
+
+    SetupAdminRequest:
+      type: object
+      required: [name, email, password, password_confirmation]
+      properties:
+        name:
+          type: string
+          minLength: 2
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+        password_confirmation:
+          type: string
+          minLength: 8
+

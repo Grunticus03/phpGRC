@@ -1,7 +1,7 @@
 # Phase 5 Kickoff
 
 Status: Active  
-API Contract: OpenAPI 0.4.6 (no breaking changes)  
+API Contract: OpenAPI 0.4.7 (no breaking changes)  
 CI Gates: PHPStan lvl 9, Psalm clean, PHPUnit passing, Spectral + openapi-diff required
 
 ## Scope
@@ -50,7 +50,7 @@ Harden RBAC with enforced policies in persist mode, add deny auditing, and deliv
 
 ## Constraints
 
-- Do not break OpenAPI 0.4.6.
+- Do not break OpenAPI 0.4.7.
 - Preserve stub vs persist behavior from Phase-4, except the decided policy precedence.
 - Runtime reads use `config()`; `.env` only at bootstrap.
 - When RBAC denies on UI routes and module is available, show custom “permission denied” page, not 404. API returns 403.

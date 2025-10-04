@@ -6,12 +6,13 @@ namespace Tests\Feature\OpenApi;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
+use PHPUnit\Framework\Attributes\Test;
 
 final class OpenApiContractSmokeTest extends TestCase
 {
     use RefreshDatabase;
 
-    /** @test */
+    #[Test]
     public function serves_openapi_yaml_with_phase_version_and_expected_paths(): void
     {
         $res = $this->get('/openapi.yaml');

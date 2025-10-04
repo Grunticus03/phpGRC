@@ -7,6 +7,7 @@ namespace Tests\Feature;
 use App\Services\Audit\AuditLogger;
 use Illuminate\Support\Facades\Config;
 use Tests\TestCase;
+use PHPUnit\Framework\Attributes\Test;
 
 final class BreakGlassApiTest extends TestCase
 {
@@ -17,7 +18,7 @@ final class BreakGlassApiTest extends TestCase
         $this->app->make(AuditLogger::class);
     }
 
-    /** @test */
+    #[Test]
     public function returns_404_when_disabled(): void
     {
         Config::set('core.auth.break_glass.enabled', false);
@@ -29,7 +30,7 @@ final class BreakGlassApiTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function returns_202_stub_when_enabled(): void
     {
         Config::set('core.auth.break_glass.enabled', true);

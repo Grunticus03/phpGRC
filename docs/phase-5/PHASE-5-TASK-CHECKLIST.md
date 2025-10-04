@@ -208,7 +208,7 @@ _Last updated: 2025-09-28_
 
 ## 9) OpenAPI and quality gates
 - [x] **Redocly** lint clean.
-- [x] openapi-diff vs 0.4.6→0.4.7: no breaking changes.
+- [x] openapi-diff vs 0.4.7 baseline captured: no breaking changes.
 - [x] PHPStan lvl 9: no new issues.
 - [x] Psalm: no new issues.
 - [x] PHPUnit: all suites green.
@@ -339,6 +339,6 @@ _Last updated: 2025-09-28_
 ## Commands (reference)
 - [ ] Static analysis: `composer stan` / `composer psalm`
 - [ ] Tests: `composer test` (PHPUnit)
-- [ ] OpenAPI diff: `openapi-diff old.yaml new.yaml`
+- [ ] OpenAPI diff: `openapi-diff docs/api/baseline/openapi-0.4.7.yaml docs/api/openapi.yaml`
 - [ ] Redocly: `npx -y @redocly/cli@1.29.0 lint docs/api/openapi.yaml`
 - [ ] Cache clears (deploy): `php artisan config:clear && php artisan route:clear && php artisan cache:clear`

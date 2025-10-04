@@ -1,7 +1,7 @@
 # phpGRC Ops Runbook — Metrics & Dashboard
 
 ## Scope
-Enable and operate the Phase-5 metrics KPIs: RBAC denies rate and Evidence freshness. Admin-only endpoints; no OpenAPI surface change in 0.4.6. :contentReference[oaicite:2]{index=2}
+Enable and operate the Phase-5 metrics KPIs: RBAC denies rate and Evidence freshness. Admin-only endpoints; no OpenAPI surface change in 0.4.7. :contentReference[oaicite:2]{index=2}
 
 ## Endpoints
 - Internal KPIs: `GET /api/dashboard/kpis`
@@ -82,5 +82,5 @@ Add to `.env` or server secrets, then ensure `config/core.php` maps them into `c
 - Each KPI call ≤ 200 ms on ~10k `audit_events`. Investigate slow queries or missing indexes if exceeded. :contentReference[oaicite:13]{index=13}
 
 ## Notes
-- Phase-5 guardrail: **no breaking OpenAPI changes** in 0.4.6; metrics remain internal. :contentReference[oaicite:14]{index=14} :contentReference[oaicite:15]{index=15}
+- Phase-5 guardrail: **no breaking OpenAPI changes** in 0.4.7; metrics remain internal. :contentReference[oaicite:14]{index=14} :contentReference[oaicite:15]{index=15}
 - Configuration overlays may be supplied via the shared config file used in deployments; confirm overlay precedence during rollout. :contentReference[oaicite:16]{index=16}

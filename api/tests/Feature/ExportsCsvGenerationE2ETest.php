@@ -8,10 +8,11 @@ use App\Models\Export;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
+use PHPUnit\Framework\Attributes\Test;
 
 final class ExportsCsvGenerationE2ETest extends TestCase
 {
-    /** @test */
+    #[Test]
     public function csv_export_generates_artifact_and_allows_download_when_persisted(): void
     {
         // Enable persistence and sync queue for immediate job execution
@@ -56,4 +57,3 @@ final class ExportsCsvGenerationE2ETest extends TestCase
         $this->assertStringContainsString('export_id,generated_at,type,param_count', $csv);
     }
 }
-

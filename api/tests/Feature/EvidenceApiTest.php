@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Gate;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
+use PHPUnit\Framework\Attributes\Test;
 
 final class EvidenceApiTest extends TestCase
 {
@@ -41,7 +42,7 @@ final class EvidenceApiTest extends TestCase
         $this->app->make(AuditLogger::class);
     }
 
-    /** @test */
+    #[Test]
     public function store_accepts_allowed_pdf_and_returns_201_with_ids(): void
     {
         $file = UploadedFile::fake()->create('evidence.pdf', 2, 'application/pdf');
@@ -57,7 +58,7 @@ final class EvidenceApiTest extends TestCase
             ->assertJsonStructure(['id', 'version', 'sha256', 'size']);
     }
 
-    /** @test */
+    #[Test]
     public function store_accepts_allowed_png_and_returns_201(): void
     {
         $file = UploadedFile::fake()->image('screen.png', 10, 10);
@@ -68,7 +69,7 @@ final class EvidenceApiTest extends TestCase
             ->assertJsonPath('name', 'screen.png');
     }
 
-    /** @test */
+    #[Test]
     public function store_accepts_arbitrary_mime_and_returns_201(): void
     {
         $file = UploadedFile::fake()->create('tool.exe', 1, 'application/x-msdownload');
@@ -83,7 +84,7 @@ final class EvidenceApiTest extends TestCase
         $this->assertMatchesRegularExpression('#^application/[^;]+#', $mime);
     }
 
-    /** @test */
+    #[Test]
     public function store_ignores_configured_max_mb_and_accepts_large_file(): void
     {
         Config::set('core.evidence.max_mb', 1);
@@ -96,7 +97,7 @@ final class EvidenceApiTest extends TestCase
             ->assertJsonPath('mime', 'application/pdf');
     }
 
-    /** @test */
+    #[Test]
     public function store_returns_400_when_feature_disabled(): void
     {
         Config::set('core.evidence.enabled', false);
@@ -111,7 +112,7 @@ final class EvidenceApiTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function index_paginates_and_returns_next_cursor(): void
     {
         $this->post('/evidence', ['file' => UploadedFile::fake()->createWithContent('a.txt', 'A', 'text/plain')]);
@@ -126,7 +127,7 @@ final class EvidenceApiTest extends TestCase
             ->assertJsonStructure(['next_cursor']);
     }
 
-    /** @test */
+    #[Test]
     public function show_returns_bytes_and_headers_for_get(): void
     {
         $upload  = UploadedFile::fake()->createWithContent('doc.txt', 'DOC', 'text/plain');
@@ -148,7 +149,7 @@ final class EvidenceApiTest extends TestCase
         $this->assertSame('DOC', $res->getContent());
     }
 
-    /** @test */
+    #[Test]
     public function head_returns_headers_only(): void
     {
         $upload  = UploadedFile::fake()->createWithContent('head.txt', 'HEAD', 'text/plain');
@@ -169,7 +170,7 @@ final class EvidenceApiTest extends TestCase
         $this->assertSame('', $res->getContent());
     }
 
-    /** @test */
+    #[Test]
     public function get_with_if_none_match_returns_304(): void
     {
         $upload  = UploadedFile::fake()->createWithContent('etag.txt', 'ETAG', 'text/plain');
@@ -185,7 +186,7 @@ final class EvidenceApiTest extends TestCase
         $this->assertSame('', $res->getContent());
     }
 
-    /** @test */
+    #[Test]
     public function show_returns_404_for_missing_id(): void
     {
         $this->get('/evidence/ev_does_not_exist')

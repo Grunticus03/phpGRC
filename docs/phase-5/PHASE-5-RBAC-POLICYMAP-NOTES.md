@@ -4,7 +4,7 @@
 - Date: 2025-09-19 (updated 2025-09-21)
 - Phase: 5 (active)
 - Goal: Specify `PolicyMap` override rules and the enforcement grid for `RbacMiddleware`.
-- Constraints: Do not change OpenAPI 0.4.6. Keep Phase-4 stub vs persist semantics intact.
+- Constraints: Do not change OpenAPI 0.4.7. Keep Phase-4 stub vs persist semantics intact.
 
 ---
 

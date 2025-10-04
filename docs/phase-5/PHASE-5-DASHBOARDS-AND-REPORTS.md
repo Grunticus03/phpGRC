@@ -7,7 +7,7 @@
 - **Status (additive):** Live routes `GET /api/dashboard/kpis` and alias `GET /api/metrics/dashboard` return identical shapes.
 
 ## Constraints
-- OpenAPI 0.4.6 must not change until the diff plan is approved.
+- OpenAPI 0.4.7 must not change until the diff plan is approved.
 - RBAC persist vs stub semantics from Phase 4 remain intact.
 - Admin-only access. Render custom 403 on deny.
 - **Note (additive):** Defaults for KPI windows come from DB-backed settings when present; config values are fallbacks.

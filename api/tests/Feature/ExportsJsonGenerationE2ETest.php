@@ -8,10 +8,11 @@ use App\Models\Export;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
+use PHPUnit\Framework\Attributes\Test;
 
 final class ExportsJsonGenerationE2ETest extends TestCase
 {
-    /** @test */
+    #[Test]
     public function json_export_generates_artifact_and_allows_download_when_persisted(): void
     {
         // Enable persistence and sync queue for immediate job execution
@@ -60,4 +61,3 @@ final class ExportsJsonGenerationE2ETest extends TestCase
         $this->assertIsString($decoded['generated_at'] ?? null);
     }
 }
-

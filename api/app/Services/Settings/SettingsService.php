@@ -371,33 +371,36 @@ final class SettingsService
 
         /** @var array<string,mixed> $rbac */
         $rbac = [
-            'enabled'       => $this->toBool($rbacRaw['enabled'] ?? false),
+            'enabled'       => $this->toBool($this->scalarOrDefault($rbacRaw['enabled'] ?? false, false)),
             'roles'         => $this->toStringList($rbacRaw['roles'] ?? []),
-            'require_auth'  => $this->toBool($rbacRaw['require_auth'] ?? false),
+            'require_auth'  => $this->toBool($this->scalarOrDefault($rbacRaw['require_auth'] ?? false, false)),
             'user_search'   => [
                 'default_per_page' => $this->toInt(
-                    data_get($rbacRaw, 'user_search.default_per_page', 50)
+                    $this->scalarOrDefault(
+                        data_get($rbacRaw, 'user_search.default_per_page', 50),
+                        50
+                    )
                 ),
             ],
         ];
 
         /** @var array<string,mixed> $audit */
         $audit = [
-            'enabled'        => $this->toBool($auditRaw['enabled'] ?? false),
-            'retention_days' => $this->toInt($auditRaw['retention_days'] ?? 0),
+            'enabled'        => $this->toBool($this->scalarOrDefault($auditRaw['enabled'] ?? false, false)),
+            'retention_days' => $this->toInt($this->scalarOrDefault($auditRaw['retention_days'] ?? 0, 0)),
         ];
 
         /** @var array<string,mixed> $evidence */
         $evidence = [
-            'enabled'      => $this->toBool($evidenceRaw['enabled'] ?? false),
-            'max_mb'       => $this->toInt($evidenceRaw['max_mb'] ?? 0),
+            'enabled'      => $this->toBool($this->scalarOrDefault($evidenceRaw['enabled'] ?? false, false)),
+            'max_mb'       => $this->toInt($this->scalarOrDefault($evidenceRaw['max_mb'] ?? 0, 0)),
             'allowed_mime' => $this->toStringList($evidenceRaw['allowed_mime'] ?? []),
         ];
 
         /** @var array<string,mixed> $avatars */
         $avatars = [
-            'enabled' => $this->toBool($avatarsRaw['enabled'] ?? false),
-            'size_px' => $this->toInt($avatarsRaw['size_px'] ?? 0),
+            'enabled' => $this->toBool($this->scalarOrDefault($avatarsRaw['enabled'] ?? false, false)),
+            'size_px' => $this->toInt($this->scalarOrDefault($avatarsRaw['size_px'] ?? 0, 0)),
             'format'  => $this->toString($avatarsRaw['format'] ?? ''),
         ];
 
@@ -412,12 +415,12 @@ final class SettingsService
 
         /** @var array<string,mixed> $metrics */
         $metrics = [
-            'cache_ttl_seconds' => $this->toInt($metricsRaw['cache_ttl_seconds'] ?? 0),
+            'cache_ttl_seconds' => $this->toInt($this->scalarOrDefault($metricsRaw['cache_ttl_seconds'] ?? 0, 0)),
             'evidence_freshness' => [
-                'days' => $this->toInt($efRaw['days'] ?? 0),
+                'days' => $this->toInt($this->scalarOrDefault($efRaw['days'] ?? 0, 0)),
             ],
             'rbac_denies' => [
-                'window_days' => $this->toInt($rdRaw['window_days'] ?? 0),
+                'window_days' => $this->toInt($this->scalarOrDefault($rdRaw['window_days'] ?? 0, 0)),
             ],
         ];
 
@@ -435,24 +438,75 @@ final class SettingsService
         return in_array($subKey, self::CONTRACT_KEYS, true);
     }
 
-    private function toBool(mixed $v): bool
+    /**
+     * @param mixed $value
+     * @param bool|int|float|string $default
+     * @return bool|int|float|string
+     */
+    private function scalarOrDefault(mixed $value, bool|int|float|string $default): bool|int|float|string
     {
-        if (is_bool($v)) return $v;
-        if (is_int($v)) return $v === 1;
-        if (is_string($v)) {
-            $vv = strtolower(trim($v));
-            if ($vv === '1' || $vv === 'true' || $vv === 'on' || $vv === 'yes') return true;
-            if ($vv === '0' || $vv === 'false' || $vv === 'off' || $vv === 'no') return false;
-            if (ctype_digit($vv)) return (int) $vv === 1;
+        if (is_bool($value) || is_int($value) || is_float($value) || is_string($value)) {
+            return $value;
         }
+
+        return $default;
+    }
+
+    /**
+     * @param bool|int|float|string $v
+     */
+    private function toBool(bool|int|float|string $v): bool
+    {
+        if (is_bool($v)) {
+            return $v;
+        }
+
+        if (is_int($v)) {
+            return $v === 1;
+        }
+
+        if (is_float($v)) {
+            return abs($v - 1.0) < 0.00001;
+        }
+
+        $vv = strtolower(trim($v));
+
+        if ($vv === '1' || $vv === 'true' || $vv === 'on' || $vv === 'yes') {
+            return true;
+        }
+
+        if ($vv === '0' || $vv === 'false' || $vv === 'off' || $vv === 'no') {
+            return false;
+        }
+
+        if (ctype_digit($vv)) {
+            return (int) $vv === 1;
+        }
+
         return false;
     }
 
-    private function toInt(mixed $v): int
+    /**
+     * @param bool|int|float|string $v
+     */
+    private function toInt(bool|int|float|string $v): int
     {
-        if (is_int($v)) return $v;
-        if (is_float($v)) return (int) $v;
-        if (is_string($v) && $v !== '' && preg_match('/^-?\d+$/', $v) === 1) return (int) $v;
+        if (is_int($v)) {
+            return $v;
+        }
+
+        if (is_bool($v)) {
+            return $v ? 1 : 0;
+        }
+
+        if (is_float($v)) {
+            return (int) $v;
+        }
+
+        if ($v !== '' && preg_match('/^-?\d+$/', $v) === 1) {
+            return (int) $v;
+        }
+
         return 0;
     }
 
@@ -481,4 +535,3 @@ final class SettingsService
         return $out;
     }
 }
-

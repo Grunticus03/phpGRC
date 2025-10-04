@@ -8,6 +8,7 @@ use App\Http\Controllers\Rbac\UserSearchController;
 use App\Services\Settings\SettingsService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 final class UserSearchDefaultPerPageTest extends TestCase
@@ -73,9 +74,7 @@ final class UserSearchDefaultPerPageTest extends TestCase
         yield 'above_max'     => ['cfg' => 9999, 'expected' => 500];
     }
 
-    /**
-     * @dataProvider settingsDefaultClampProvider
-     */
+    #[DataProvider('settingsDefaultClampProvider')]
     public function test_settings_default_is_clamped_to_bounds(int $cfg, int $expected): void
     {
         $json = $this->callIndex(['q' => 'alpha'], $cfg);
@@ -100,9 +99,7 @@ final class UserSearchDefaultPerPageTest extends TestCase
         yield 'nonnumeric_ignored_defaults' => ['input' => 'abc', 'expected' => 50];
     }
 
-    /**
-     * @dataProvider queryPerPageClampProvider
-     */
+    #[DataProvider('queryPerPageClampProvider')]
     public function test_query_per_page_is_clamped_and_overrides_settings(string $input, int $expected): void
     {
         // Set default=50 so when input is ignored, clamp expectation is 50.
@@ -125,9 +122,7 @@ final class UserSearchDefaultPerPageTest extends TestCase
         yield 'nonnumeric_ignored_default' => ['input' => 'x',  'expected' => 1];
     }
 
-    /**
-     * @dataProvider pageClampProvider
-     */
+    #[DataProvider('pageClampProvider')]
     public function test_page_is_clamped_minimum_and_parsed_digits_only(string $input, int $expected): void
     {
         $json = $this->callIndex(['q' => 'alpha', 'page' => $input], 50);

@@ -5,7 +5,7 @@
 - Psalm: ✅
 - PHPUnit: ✅ all suites
 - OpenAPI:
-  - `openapi-diff` against 0.4.6: no breaking changes unless approved
+  - `openapi-diff docs/api/baseline/openapi-0.4.7.yaml docs/api/openapi.yaml` returns no breaking changes (unless approved)
   - **Redocly lint**: ✅
   - **Spec augmentation (additive)**: inject standard `401/403/422` responses where appropriate; JSON/YAML parity verified via tests. ✅
   - **Additive 429**: `components.responses.RateLimited` added and referenced on throttled endpoints; headers documented (`Retry-After`, `X-RateLimit-Limit`, `X-RateLimit-Remaining`). ✅

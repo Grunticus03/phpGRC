@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use Tests\TestCase;
+use PHPUnit\Framework\Attributes\Test;
 
 final class ExportsApiTest extends TestCase
 {
@@ -15,7 +16,7 @@ final class ExportsApiTest extends TestCase
         config(['core.exports.enabled' => false]);
     }
 
-    /** @test */
+    #[Test]
     public function create_type_accepts_csv_json_pdf_and_echoes_params(): void
     {
         foreach (['csv', 'json', 'pdf'] as $type) {
@@ -29,7 +30,7 @@ final class ExportsApiTest extends TestCase
         }
     }
 
-    /** @test */
+    #[Test]
     public function create_legacy_accepts_type_in_body_and_echoes_params(): void
     {
         $this->postJson('/exports', [
@@ -44,7 +45,7 @@ final class ExportsApiTest extends TestCase
             ->assertJsonPath('params.a', 1);
     }
 
-    /** @test */
+    #[Test]
     public function spec_create_type_defaults_params_to_empty_object(): void
     {
         $res = $this->postJson('/exports/json', []);
@@ -58,21 +59,21 @@ final class ExportsApiTest extends TestCase
         $this->assertSame([], $res->json('params'));
     }
 
-    /** @test */
+    #[Test]
     public function create_type_validates_params_must_be_array(): void
     {
         $this->postJson('/exports/csv', ['params' => 'not-an-array'])
             ->assertStatus(422);
     }
 
-    /** @test */
+    #[Test]
     public function legacy_create_validates_params_must_be_array(): void
     {
         $this->postJson('/exports', ['type' => 'csv', 'params' => 'nope'])
             ->assertStatus(422);
     }
 
-    /** @test */
+    #[Test]
     public function create_rejects_unsupported_type_with_422(): void
     {
         $this->postJson('/exports/xml', ['params' => []])
@@ -88,7 +89,7 @@ final class ExportsApiTest extends TestCase
             ->assertJsonPath('note', 'stub-only');
     }
 
-    /** @test */
+    #[Test]
     public function status_returns_pending_progress_zero(): void
     {
         $this->getJson('/exports/exp_stub_0001/status')
@@ -101,7 +102,7 @@ final class ExportsApiTest extends TestCase
             ->assertJsonPath('note', 'stub-only');
     }
 
-    /** @test */
+    #[Test]
     public function download_always_404_not_ready_in_phase_4(): void
     {
         $this->getJson('/exports/exp_stub_0001/download')
@@ -112,4 +113,3 @@ final class ExportsApiTest extends TestCase
             ->assertJsonPath('note', 'stub-only');
     }
 }
-

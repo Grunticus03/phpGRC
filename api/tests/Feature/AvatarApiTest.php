@@ -7,10 +7,11 @@ namespace Tests\Feature;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Config;
 use Tests\TestCase;
+use PHPUnit\Framework\Attributes\Test;
 
 final class AvatarApiTest extends TestCase
 {
-    /** @test */
+    #[Test]
     public function accepts_webp_and_returns_202_with_echoed_metadata(): void
     {
         $file = UploadedFile::fake()->image('avatar.webp', 64, 64);
@@ -28,7 +29,7 @@ final class AvatarApiTest extends TestCase
             ->assertJsonPath('file.height', 64);
     }
 
-    /** @test */
+    #[Test]
     public function rejects_non_webp_extension_with_422(): void
     {
         $file = UploadedFile::fake()->image('avatar.png', 64, 64);
@@ -37,7 +38,7 @@ final class AvatarApiTest extends TestCase
             ->assertStatus(422);
     }
 
-    /** @test */
+    #[Test]
     public function oversize_dimensions_are_accepted_in_phase4_stub(): void
     {
         $file = UploadedFile::fake()->image('big.webp', 1024, 1024);
@@ -49,7 +50,7 @@ final class AvatarApiTest extends TestCase
             ->assertJsonPath('file.height', 1024);
     }
 
-    /** @test */
+    #[Test]
     public function disabled_via_config_returns_400(): void
     {
         Config::set('core.avatars.enabled', false);
