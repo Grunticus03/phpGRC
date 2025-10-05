@@ -65,12 +65,12 @@ Snapshot generated from migrations against **phpgrc** as of 2025-09-23 (UTC).
 
 | Column | Type | Null | Default | Extra |
 |-------:|------|------|---------|-------|
-| key | varchar(255) | ✗ | NULL | — |
-| value | longtext | ✗ | NULL | — |
-| type | varchar(16) | ✗ | 'json' | — |
-| updated_by | bigint unsigned | ✓ | NULL | — |
-| created_at | timestamp | ✓ | NULL | — |
-| updated_at | timestamp | ✓ | NULL | — |
+| key | varchar(255) | ✓ | NULL | — |
+| value | longtext | ✓ | NULL | — |
+| type | varchar(16) | ✓ | 'json' | — |
+| updated_by | bigint unsigned | ✗ | NULL | — |
+| created_at | timestamp | ✗ | NULL | — |
+| updated_at | timestamp | ✗ | NULL | — |
 
 **Indexes & Constraints**
 - `PRIMARY KEY (key)`
