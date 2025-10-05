@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Auth;
 
+use App\Models\User;
 use App\Services\Audit\AuditLogger;
 use App\Support\AuthTokenCookie;
 use Illuminate\Http\Request;
@@ -17,14 +18,20 @@ final class LogoutController extends Controller
     /** Revoke current token, clear cookie, and emit audit event. */
     public function logout(Request $request, AuditLogger $audit): Response
     {
-        $token = $request->user()?->currentAccessToken();
+        /** @var User|null $user */
+        $user = $request->user();
+
+        /** @var PersonalAccessToken|null $token */
+        $token = $user?->currentAccessToken();
         if ($token instanceof PersonalAccessToken) {
             $token->delete();
         }
 
+        $actorId = $user?->id;
+
         if (config('core.audit.enabled', true) && Schema::hasTable('audit_events')) {
             $audit->log([
-                'actor_id'    => $request->user()?->id ?? null,
+                'actor_id'    => $actorId,
                 'action'      => 'auth.logout',
                 'category'    => 'AUTH',
                 'entity_type' => 'core.auth',

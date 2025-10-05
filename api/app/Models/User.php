@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Builder as EloquentBuilder;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -31,13 +32,11 @@ final class User extends Authenticatable
 
     /**
      * Allow tests using `User::factory()` without HasFactory generics.
-     * @param int|null $count
      * @param array<string,mixed> $state
-     * @return \Database\Factories\UserFactory
      */
-    public static function factory($count = null, $state = [])
+    public static function factory(?int $count = null, array $state = []): UserFactory
     {
-        $factory = \Database\Factories\UserFactory::new();
+        $factory = UserFactory::new();
         if ($count !== null) {
             $factory = $factory->count($count);
         }

@@ -61,7 +61,7 @@ final class RolesController extends Controller
 
         if ($missing !== []) {
             try {
-                app(RolesSeeder::class)->run();
+                (new RolesSeeder())->run();
             } catch (\Throwable) {
                 return;
             }

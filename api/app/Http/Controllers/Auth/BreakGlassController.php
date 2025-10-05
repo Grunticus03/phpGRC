@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Auth;
 
+use App\Models\User;
 use App\Services\Audit\AuditLogger;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -15,9 +16,13 @@ final class BreakGlassController extends Controller
     /** Placeholder only. Emits audit event. Flag enforcement handled by middleware. */
     public function invoke(Request $request, AuditLogger $audit): JsonResponse
     {
+        /** @var User|null $user */
+        $user = $request->user();
+        $actorId = $user?->id;
+
         if (config('core.audit.enabled', true) && Schema::hasTable('audit_events')) {
             $audit->log([
-                'actor_id'    => $request->user()?->id ?? null,
+                'actor_id'    => $actorId,
                 'action'      => 'auth.break_glass.invoke',
                 'category'    => 'AUTH',
                 'entity_type' => 'core.auth',

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Auth;
 
+use App\Models\User;
 use App\Services\Audit\AuditLogger;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -15,9 +16,13 @@ final class TotpController extends Controller
     /** Placeholder enroll. Emits audit event. */
     public function enroll(Request $request, AuditLogger $audit): JsonResponse
     {
+        /** @var User|null $user */
+        $user = $request->user();
+        $actorId = $user?->id;
+
         if (config('core.audit.enabled', true) && Schema::hasTable('audit_events')) {
             $audit->log([
-                'actor_id'    => $request->user()?->id ?? null,
+                'actor_id'    => $actorId,
                 'action'      => 'auth.totp.enroll',
                 'category'    => 'AUTH',
                 'entity_type' => 'core.auth',
@@ -37,9 +42,13 @@ final class TotpController extends Controller
     /** Placeholder verify. Emits audit event. Always returns ok. */
     public function verify(Request $request, AuditLogger $audit): JsonResponse
     {
+        /** @var User|null $user */
+        $user = $request->user();
+        $actorId = $user?->id;
+
         if (config('core.audit.enabled', true) && Schema::hasTable('audit_events')) {
             $audit->log([
-                'actor_id'    => $request->user()?->id ?? null,
+                'actor_id'    => $actorId,
                 'action'      => 'auth.totp.verify',
                 'category'    => 'AUTH',
                 'entity_type' => 'core.auth',
