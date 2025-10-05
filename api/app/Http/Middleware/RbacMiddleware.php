@@ -77,6 +77,7 @@ final class RbacMiddleware
 
         if ($user === null) {
             if ($requireAuth) {
+                $this->auditRedirect($request, $capKey, $requiredRoles, $policy);
                 $this->auditDeny($request, null, 'rbac.deny.unauthenticated', [
                     'reason'         => 'unauthenticated',
                     'rbac_mode'      => $this->rbacMode(),
@@ -120,6 +121,59 @@ final class RbacMiddleware
         /** @var Response $resp */
         $resp = $next($request);
         return $resp;
+    }
+
+    /**
+     * @param list<string> $requiredRoles
+     */
+    private function auditRedirect(Request $request, ?string $capability, array $requiredRoles, ?string $policy): void
+    {
+        try {
+            /** @var \Illuminate\Routing\Route|null $routeObj */
+            $routeObj    = $request->route();
+            $routeName   = null;
+            $routeAction = null;
+
+            if ($routeObj !== null) {
+                $rn = $routeObj->getName();
+                if ($rn !== null && $rn !== '') {
+                    $routeName = $rn;
+                }
+                $ra = $routeObj->getActionName();
+                if ($ra !== '') {
+                    $routeAction = $ra;
+                }
+            }
+
+            $method = $request->getMethod();
+            $path   = '/' . ltrim($request->path(), '/');
+
+            $meta = array_filter([
+                'reason'         => 'require_auth',
+                'capability'     => $capability,
+                'policy'         => $policy,
+                'required_roles' => $requiredRoles !== [] ? $requiredRoles : null,
+                'rbac_mode'      => $this->rbacMode(),
+                'route_name'     => $routeName,
+                'route_action'   => $routeAction,
+                'route'          => $path,
+                'method'         => $method,
+                'request_id'     => (string) Str::ulid(),
+            ], static fn ($v) => $v !== null);
+
+            $this->audit->log([
+                'actor_id'    => null,
+                'action'      => 'auth.login.redirected',
+                'category'    => 'AUTH',
+                'entity_type' => 'core.auth',
+                'entity_id'   => 'login_redirect',
+                'ip'          => $request->ip(),
+                'ua'          => $request->userAgent(),
+                'meta'        => $meta,
+            ]);
+        } catch (\Throwable) {
+            // Intentionally swallow audit errors for redirects.
+        }
     }
 
     /**

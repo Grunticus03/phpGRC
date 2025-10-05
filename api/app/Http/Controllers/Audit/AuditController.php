@@ -104,6 +104,8 @@ final class AuditController extends Controller
         /** @var Builder<AuditEvent> $q */
         $q = AuditEvent::query();
 
+        $q->select('audit_events.*', 'users.name as actor_name', 'users.email as actor_email')->leftJoin('users', 'users.id', '=', 'audit_events.actor_id');
+
         if (is_string($data['category']) && $data['category'] !== '') {
             $q->where('category', '=', $data['category']);
         }
@@ -131,13 +133,13 @@ final class AuditController extends Controller
 
         if ($cursorTs instanceof Carbon && is_string($cursorId) && $cursorId !== '') {
             if ($order === 'desc') {
-                $q->whereRaw('(occurred_at < ?) OR (occurred_at = ? AND id < ?)', [$cursorTs, $cursorTs, $cursorId]);
+                $q->whereRaw('(occurred_at < ?) OR (occurred_at = ? AND audit_events.id < ?)', [$cursorTs, $cursorTs, $cursorId]);
             } else {
-                $q->whereRaw('(occurred_at > ?) OR (occurred_at = ? AND id > ?)', [$cursorTs, $cursorTs, $cursorId]);
+                $q->whereRaw('(occurred_at > ?) OR (occurred_at = ? AND audit_events.id > ?)', [$cursorTs, $cursorTs, $cursorId]);
             }
         }
 
-        $q->orderBy('occurred_at', $order)->orderBy('id', $order)->limit($limit);
+        $q->orderBy('occurred_at', $order)->orderBy('audit_events.id', $order)->limit($limit);
 
         $rows = $q->get();
 
@@ -184,11 +186,20 @@ final class AuditController extends Controller
         $items = [];
         foreach ($rows as $row) {
             /** @var AuditEvent $row */
+            $actorName  = $row->getAttribute('actor_name');
+            $actorEmail = $row->getAttribute('actor_email');
+            $actorLabel = null;
+            if (is_string($actorName) && $actorName !== '') {
+                $actorLabel = $actorName;
+            } elseif (is_string($actorEmail) && $actorEmail !== '') {
+                $actorLabel = $actorEmail;
+            }
             $meta = $row->meta;
             $items[] = [
                 'id'          => $row->id,
                 'occurred_at' => $row->occurred_at->toIso8601String(),
                 'actor_id'    => $row->actor_id,
+                'actor_label' => $actorLabel,
                 'action'      => $row->action,
                 'category'    => $row->category,
                 'entity_type' => $row->entity_type,
@@ -279,6 +290,7 @@ final class AuditController extends Controller
                 'id'          => $this->ulid(),
                 'occurred_at' => $ts->toIso8601String(),
                 'actor_id'    => null,
+                'actor_label' => null,
                 'action'      => 'stub.event',
                 'category'    => 'SYSTEM',
                 'entity_type' => 'stub',

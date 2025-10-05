@@ -6,6 +6,7 @@ type AuditEvent = {
   id: string;
   occurred_at: string;
   actor_id: number | null;
+  actor_label?: string | null;
   action: string;
   entity_type: string;
   entity_id: string;
@@ -58,9 +59,18 @@ export default function AuditIndex(): JSX.Element {
             <tbody>
               {events.map(e => {
                 const info = actionInfo(e.action);
+                const tsRaw = e.occurred_at ?? '';
+                let ts = '';
+                if (tsRaw) {
+                  const parsed = new Date(tsRaw);
+                  ts = Number.isNaN(parsed.valueOf())
+                    ? String(tsRaw)
+                    : parsed.toISOString().replace('T', ' ').replace('Z', 'Z');
+                }
+                const actor = (e.actor_label && e.actor_label.length > 0) ? e.actor_label : e.actor_id ?? '-';
                 return (
                   <tr key={e.id}>
-                    <td>{e.occurred_at}</td>
+                    <td>{ts}</td>
                     <td>
                       <span
                         title={e.action}
@@ -70,7 +80,7 @@ export default function AuditIndex(): JSX.Element {
                       </span>
                     </td>
                     <td>{`${e.entity_type}:${e.entity_id}`}</td>
-                    <td>{e.actor_id ?? "-"}</td>
+                    <td>{actor}</td>
                     <td>{e.ip ?? "-"}</td>
                   </tr>
                 );

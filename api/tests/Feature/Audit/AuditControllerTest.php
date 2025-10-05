@@ -23,6 +23,7 @@ final class AuditControllerTest extends TestCase
                          $e->whereType('id', 'string')
                            ->whereType('occurred_at', 'string')
                            ->whereType('actor_id', 'integer|null')
+                           ->whereType('actor_label', 'string|null')
                            ->whereType('action', 'string')
                            ->whereType('category', 'string')
                            ->whereType('entity_type', 'string')

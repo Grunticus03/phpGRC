@@ -11,8 +11,10 @@ type AuditItem = {
   ts?: string;
   category?: string;
   action?: string;
+  occurred_at?: string;
   user_id?: number | string | null;
   actor_id?: number | string | null;
+  actor_label?: string | null;
   ip?: string | null;
   note?: string | null;
   [k: string]: unknown;
@@ -477,15 +479,30 @@ export default function Audit(): JSX.Element {
             ) : (
               items.map((it, i) => {
                 const id = (it.id as string) || (it.ulid as string) || String(i);
-                const ts = it.created_at || it.ts || "";
-                const user = it.user_id ?? it.actor_id ?? "";
+                const tsRaw =
+                  (typeof it.occurred_at === "string" && it.occurred_at) ||
+                  (typeof it.created_at === "string" && it.created_at) ||
+                  (typeof it.ts === "string" && it.ts) ||
+                  "";
+                let ts = "";
+                if (tsRaw) {
+                  const parsed = new Date(tsRaw);
+                  ts = Number.isNaN(parsed.valueOf())
+                    ? String(tsRaw)
+                    : parsed.toISOString().replace('T', ' ').replace('Z', 'Z');
+                }
+                const actorLabel =
+                  (typeof it.actor_label === "string" && it.actor_label.length > 0 && it.actor_label) ||
+                  it.user_id ||
+                  it.actor_id ||
+                  "";
                 const cat = String(it.category ?? "");
                 const act = String(it.action ?? "");
                 const info = actionInfo(act, cat);
                 return (
                   <tr key={id}>
                     <td>{id}</td>
-                    <td>{String(ts)}</td>
+                    <td>{ts}</td>
                     <td>{info.category || cat}</td>
                     <td>
                       <span style={chipStyle(info.variant)} aria-label={`${info.label} (${act})`}>
@@ -493,7 +510,7 @@ export default function Audit(): JSX.Element {
                       </span>
                       <div style={{ fontFamily: "monospace", fontSize: "0.8rem", opacity: 0.8 }}>{act}</div>
                     </td>
-                    <td>{String(user)}</td>
+                    <td>{String(actorLabel)}</td>
                     <td>{String(it.ip ?? "")}</td>
                     <td>{String(it.note ?? "")}</td>
                   </tr>

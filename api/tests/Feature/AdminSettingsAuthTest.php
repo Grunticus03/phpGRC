@@ -39,6 +39,12 @@ final class AdminSettingsAuthTest extends TestCase
 
         $res = $this->getJson('/admin/settings');
         $res->assertStatus(401)->assertJsonPath('code', 'UNAUTHENTICATED');
+
+        $this->assertDatabaseHas('audit_events', [
+            'action'    => 'auth.login.redirected',
+            'category'  => 'AUTH',
+            'entity_id' => 'login_redirect',
+        ]);
     }
 
     public function test_authenticated_admin_gets_200_when_require_auth_true(): void

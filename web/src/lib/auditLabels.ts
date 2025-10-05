@@ -8,6 +8,7 @@ const byAction: Record<string, ActionInfo> = {
   // AUTH
   "auth.login.success":        { label: "Login success", category: "AUTH", variant: "success" },
   "auth.login.failed":         { label: "Login failed", category: "AUTH", variant: "warning" },
+  "auth.login.redirected":     { label: "Login redirected", category: "AUTH", variant: "neutral" },
   "auth.logout":               { label: "Logout", category: "AUTH", variant: "neutral" },
   "auth.mfa.totp.enrolled":    { label: "TOTP enrolled", category: "AUTH", variant: "success" },
   "auth.mfa.totp.verified":    { label: "TOTP verified", category: "AUTH", variant: "success" },
