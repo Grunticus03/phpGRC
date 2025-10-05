@@ -2,6 +2,16 @@
 
 declare(strict_types=1);
 
+// Drop stale cache files so package discovery always re-builds.
+$cacheFiles = glob('bootstrap/cache/*.php');
+if ($cacheFiles !== false) {
+    foreach ($cacheFiles as $cacheFile) {
+        if (is_file($cacheFile)) {
+            @unlink($cacheFile);
+        }
+    }
+}
+
 $dirs = [
     'bootstrap/cache',
     'storage/app',
