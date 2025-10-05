@@ -12,9 +12,12 @@ use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
+use Database\Seeders\RolesSeeder;
 
 final class RolesController extends Controller
 {
+    private bool $seedDefaultsEnsured = false;
+
     private function persistenceEnabled(): bool
     {
         /** @var mixed $flagRaw */
@@ -26,6 +29,58 @@ final class RolesController extends Controller
         $mode = is_string($modeRaw) ? $modeRaw : 'stub';
 
         return $flag || $mode === 'persist' || $mode === 'db';
+    }
+
+    private function ensureSeedDefaults(): void
+    {
+        if ($this->seedDefaultsEnsured) {
+            return;
+        }
+
+        if (!Schema::hasTable('roles')) {
+            $this->seedDefaultsEnsured = true;
+            return;
+        }
+
+        $expectedIds = [
+            'role_admin',
+            'role_auditor',
+            'role_risk_mgr',
+            'role_user',
+        ];
+
+        /** @var list<string> $present */
+        $present = Role::query()
+            ->whereIn('id', $expectedIds)
+            ->pluck('id')
+            ->filter(static fn ($v): bool => is_string($v) && $v !== '')
+            ->values()
+            ->all();
+
+        $missing = array_diff($expectedIds, $present);
+
+        if ($missing !== []) {
+            try {
+                app(RolesSeeder::class)->run();
+            } catch (\Throwable) {
+                return;
+            }
+
+            /** @var list<string> $present */
+            $present = Role::query()
+                ->whereIn('id', $expectedIds)
+                ->pluck('id')
+                ->filter(static fn ($v): bool => is_string($v) && $v !== '')
+                ->values()
+                ->all();
+
+            $missing = array_diff($expectedIds, $present);
+            if ($missing !== []) {
+                return;
+            }
+        }
+
+        $this->seedDefaultsEnsured = true;
     }
 
     public function index(): JsonResponse
@@ -93,6 +148,8 @@ final class RolesController extends Controller
                 'accepted' => ['name' => $request->string('name')->toString()],
             ], 202);
         }
+
+        $this->ensureSeedDefaults();
 
         $raw = $request->string('name')->toString();
         $trimmed = trim($raw);

@@ -24,8 +24,15 @@ final class RolesPersistenceTest extends TestCase
         $create->assertStatus(201)
                ->assertJsonPath('role.name', 'compliance-lead');
 
-        $this->getJson('/rbac/roles')
+        $response = $this->getJson('/rbac/roles')
             ->assertStatus(200)
-            ->assertJsonFragment(['roles' => ['compliance-lead']]);
+            ->json('roles');
+
+        $this->assertIsArray($response);
+        $this->assertContains('compliance-lead', $response);
+        $this->assertContains('Admin', $response);
+        $this->assertContains('Auditor', $response);
+        $this->assertContains('Risk Manager', $response);
+        $this->assertContains('User', $response);
     }
 }
