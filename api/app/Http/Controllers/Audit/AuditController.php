@@ -104,7 +104,8 @@ final class AuditController extends Controller
         /** @var Builder<AuditEvent> $q */
         $q = AuditEvent::query();
 
-        $q->select('audit_events.*', 'users.name as actor_name', 'users.email as actor_email')->leftJoin('users', 'users.id', '=', 'audit_events.actor_id');
+        $q->select(['audit_events.*', 'users.name as actor_name', 'users.email as actor_email'])
+            ->leftJoin('users', 'users.id', '=', 'audit_events.actor_id');
 
         if (is_string($data['category']) && $data['category'] !== '') {
             $q->where('category', '=', $data['category']);
@@ -186,7 +187,9 @@ final class AuditController extends Controller
         $items = [];
         foreach ($rows as $row) {
             /** @var AuditEvent $row */
-            $actorName  = $row->getAttribute('actor_name');
+            /** @var string|null $actorName */
+            $actorName = $row->getAttribute('actor_name');
+            /** @var string|null $actorEmail */
             $actorEmail = $row->getAttribute('actor_email');
             $actorLabel = null;
             if (is_string($actorName) && $actorName !== '') {
@@ -194,6 +197,7 @@ final class AuditController extends Controller
             } elseif (is_string($actorEmail) && $actorEmail !== '') {
                 $actorLabel = $actorEmail;
             }
+
             $meta = $row->meta;
             $items[] = [
                 'id'          => $row->id,
@@ -274,7 +278,19 @@ final class AuditController extends Controller
      * @param int $limit
      * @param 'asc'|'desc' $order
      * @param \Illuminate\Support\Carbon|null $cursorTs
-     * @return array<int, array{id:string,occurred_at:string,actor_id:int|null,action:string,category:string,entity_type:string,entity_id:string,ip:?string,ua:?string,meta:?array<string,mixed>}>
+     * @return array<int, array{
+     *   id:string,
+     *   occurred_at:string,
+     *   actor_id:int|null,
+     *   actor_label:string|null,
+     *   action:string,
+     *   category:string,
+     *   entity_type:string,
+     *   entity_id:string,
+     *   ip:?string,
+     *   ua:?string,
+     *   meta:?array<string,mixed>
+     * }>
      */
     private function makeStubPage(int $limit, string $order, ?Carbon $cursorTs): array
     {
