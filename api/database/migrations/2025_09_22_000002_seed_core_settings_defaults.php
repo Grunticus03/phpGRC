@@ -19,7 +19,7 @@ return new class extends Migration {
             ['key' => 'core.rbac.enabled',                 'value' => '1',    'type' => 'bool', 'updated_by' => null, 'created_at' => $now, 'updated_at' => $now],
             ['key' => 'core.rbac.require_auth',            'value' => '0',    'type' => 'bool', 'updated_by' => null, 'created_at' => $now, 'updated_at' => $now],
             ['key' => 'core.rbac.roles',                   'value' => json_encode(['Admin','Auditor','Risk Manager','User'], JSON_UNESCAPED_UNICODE), 'type' => 'json', 'updated_by' => null, 'created_at' => $now, 'updated_at' => $now],
-            ['key' => 'core.rbac.persistence',            'value' => '0',    'type' => 'bool', 'updated_by' => null, 'created_at' => $now, 'updated_at' => $now],
+            ['key' => 'core.rbac.persistence',            'value' => '1',    'type' => 'bool', 'updated_by' => null, 'created_at' => $now, 'updated_at' => $now],
 
             // Audit
             ['key' => 'core.audit.enabled',                'value' => '1',    'type' => 'bool', 'updated_by' => null, 'created_at' => $now, 'updated_at' => $now],
