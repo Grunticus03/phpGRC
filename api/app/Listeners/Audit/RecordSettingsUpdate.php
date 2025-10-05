@@ -6,6 +6,7 @@ namespace App\Listeners\Audit;
 
 use App\Events\SettingsUpdated;
 use App\Models\AuditEvent;
+use App\Support\Audit\AuditCategories;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Log;
@@ -34,7 +35,7 @@ final class RecordSettingsUpdate implements ShouldQueue
             'occurred_at' => $event->occurredAt,
             'actor_id'    => $event->actorId,
             'action'      => 'settings.update',
-            'category'    => 'config',
+            'category'    => AuditCategories::SETTINGS,
             'entity_type' => 'core.settings',
             'entity_id'   => 'core',
             'ip'          => Arr::get($event->context, 'ip'),

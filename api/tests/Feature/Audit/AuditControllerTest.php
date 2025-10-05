@@ -4,11 +4,17 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Audit;
 
+use App\Models\AuditEvent;
+use Carbon\CarbonImmutable;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Str;
 use Illuminate\Testing\Fluent\AssertableJson;
 use Tests\TestCase;
 
 final class AuditControllerTest extends TestCase
 {
+    use RefreshDatabase;
+
     public function test_get_audit_returns_stub_events_with_required_shape(): void
     {
         $res = $this->getJson('/audit');
@@ -47,4 +53,36 @@ final class AuditControllerTest extends TestCase
         // typical valid request
         $this->getJson('/audit?limit=25&cursor=abc123')->assertOk();
     }
+
+    public function test_settings_filter_matches_legacy_config_category(): void
+    {
+        $now = CarbonImmutable::now('UTC');
+
+        AuditEvent::query()->create([
+            'id'          => (string) Str::ulid(),
+            'occurred_at' => $now,
+            'actor_id'    => null,
+            'action'      => 'settings.update',
+            'category'    => 'config',
+            'entity_type' => 'core.settings',
+            'entity_id'   => 'core',
+            'ip'          => '127.0.0.1',
+            'ua'          => 'phpunit',
+            'meta'        => [],
+            'created_at'  => $now,
+        ]);
+
+        $response = $this->getJson('/audit?category=SETTINGS&limit=10');
+
+        $response->assertOk();
+        $json = $response->json();
+        static::assertIsArray($json);
+        static::assertArrayHasKey('items', $json);
+        static::assertIsArray($json['items']);
+        static::assertCount(1, $json['items']);
+        $event = $json['items'][0];
+        static::assertSame('settings.update', $event['action']);
+        static::assertSame('config', $event['category']);
+    }
+
 }

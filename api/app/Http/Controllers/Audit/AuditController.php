@@ -11,6 +11,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Response as Resp;
 use Illuminate\Support\Facades\Validator;
@@ -108,7 +109,19 @@ final class AuditController extends Controller
             ->leftJoin('users', 'users.id', '=', 'audit_events.actor_id');
 
         if (is_string($data['category']) && $data['category'] !== '') {
-            $q->where('category', '=', $data['category']);
+            $matches = $this->resolvedCategoryMatches($data['category']);
+            if ($matches !== []) {
+                $q->where(static function (Builder $inner) use ($matches): void {
+                    $primary = $matches[0] ?? null;
+                    if ($primary === null || $primary === '') {
+                        return;
+                    }
+                    $inner->whereRaw('LOWER(audit_events.category) = ?', [$primary]);
+                    foreach (array_slice($matches, 1) as $alias) {
+                        $inner->orWhereRaw('LOWER(audit_events.category) = ?', [$alias]);
+                    }
+                });
+            }
         }
         if (is_string($data['action']) && $data['action'] !== '') {
             $q->where('audit_events.action', '=', $data['action']);
@@ -248,10 +261,103 @@ final class AuditController extends Controller
 
     public function categories(): JsonResponse
     {
+        /** @var Collection<int, string> $present */
+        $present = AuditEvent::query()
+            ->select('category')
+            ->distinct()
+            ->pluck('category')
+            ->filter(static fn ($c): bool => is_string($c) && trim($c) !== '')
+            ->map(static fn ($c): string => (string) $c)
+            ->values();
+
+        $normalized = [];
+        foreach ($present as $c) {
+            $norm = $this->normalizeCategoryName($c);
+            if ($norm !== null) {
+                $normalized[$norm] = true;
+            }
+        }
+
+        $ordered = [];
+        foreach (AuditCategories::ALL as $cat) {
+            if (isset($normalized[$cat])) {
+                $ordered[] = $cat;
+                unset($normalized[$cat]);
+            }
+        }
+
+        if ($normalized !== []) {
+            $extra = array_keys($normalized);
+            sort($extra);
+            foreach ($extra as $cat) {
+                $ordered[] = $cat;
+            }
+        }
+
+        if ($ordered === []) {
+            $ordered = AuditCategories::ALL;
+        }
+
         return Resp::json([
             'ok' => true,
-            'categories' => AuditCategories::ALL,
+            'categories' => $ordered,
         ], 200);
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function resolvedCategoryMatches(string $raw): array
+    {
+        $value = trim($raw);
+        if ($value === '') {
+            return [];
+        }
+
+        $matches = [];
+
+        $add = static function (string $candidate) use (&$matches): void {
+            if ($candidate === '') {
+                return;
+            }
+            if (!in_array($candidate, $matches, true)) {
+                $matches[] = $candidate;
+            }
+        };
+
+        $canonical = $this->normalizeCategoryName($value);
+        if ($canonical !== null) {
+            $add($canonical);
+        }
+
+        $upper = strtoupper($value);
+        $add($upper);
+        $add(strtolower($value));
+        $add($value);
+
+        if ($canonical === AuditCategories::SETTINGS) {
+            $add('config');
+            $add('CONFIG');
+        }
+
+        return array_values(array_unique(array_map('strtolower', $matches)));
+    }
+
+    private function normalizeCategoryName(mixed $value): ?string
+    {
+        if (!is_string($value)) {
+            return null;
+        }
+
+        $trim = trim($value);
+        if ($trim === '') {
+            return null;
+        }
+
+        return match (strtoupper($trim)) {
+            'CONFIG' => AuditCategories::SETTINGS,
+            default => strtoupper($trim),
+        };
     }
 
     private function pageCursor(Request $r): ?string

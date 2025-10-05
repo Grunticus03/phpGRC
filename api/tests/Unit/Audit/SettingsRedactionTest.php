@@ -7,6 +7,7 @@ namespace Tests\Unit\Audit;
 use App\Events\SettingsUpdated;
 use App\Listeners\Audit\RecordSettingsUpdate;
 use App\Models\AuditEvent;
+use App\Support\Audit\AuditCategories;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
@@ -52,6 +53,7 @@ final class SettingsRedactionTest extends TestCase
         /** @var AuditEvent|null $row */
         $row = AuditEvent::query()->where('action', 'settings.update')->orderByDesc('occurred_at')->first();
         static::assertNotNull($row, 'AuditEvent row should be written');
+        static::assertSame(AuditCategories::SETTINGS, $row->category);
 
         $meta = $row->meta ?? [];
         static::assertIsArray($meta);
