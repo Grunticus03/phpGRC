@@ -146,7 +146,8 @@ final class EvidenceApiTest extends TestCase
         $this->assertNotNull($ct);
         $this->assertMatchesRegularExpression('#^text/plain\b#', $ct);
 
-        $this->assertSame('DOC', $res->getContent());
+        $this->assertFalse($res->getContent());
+        $this->assertSame('DOC', $res->streamedContent());
     }
 
     #[Test]
@@ -197,3 +198,4 @@ final class EvidenceApiTest extends TestCase
             ]);
     }
 }
+

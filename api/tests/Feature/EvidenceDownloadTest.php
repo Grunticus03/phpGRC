@@ -53,7 +53,8 @@ final class EvidenceDownloadTest extends TestCase
         $g = $this->get("/evidence/{$this->id}?sha256={$this->sha}");
         $g->assertStatus(200);
         $g->assertHeader('ETag', '"' . $this->sha . '"');
-        $this->assertSame($this->bytes, $g->getContent());
+        $this->assertFalse($g->getContent());
+        $this->assertSame($this->bytes, $g->streamedContent());
     }
 
     public function test_if_none_match_304_and_hash_mismatch_412(): void

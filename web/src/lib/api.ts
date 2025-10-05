@@ -4,43 +4,15 @@ export const API_BASE = "";
 /** Query object for building URLs. */
 export type QueryInit = Record<string, string | number | boolean | null | undefined>;
 
-const TOKEN_KEY = "phpgrc_auth_token";
 const INTENDED_KEY = "phpgrc_intended_path";
 const SESSION_EXPIRED_KEY = "phpgrc_session_expired";
 
-/** Read bearer token from localStorage (if present). */
-export function getToken(): string | null {
-  try {
-    const raw = localStorage.getItem(TOKEN_KEY);
-    return raw && raw.trim() ? raw : null;
-  } catch {
-    return null;
-  }
-}
-
-/** True if a bearer token is currently stored. */
-export function hasToken(): boolean {
-  return !!getToken();
-}
-
-/** Write/remove bearer token in localStorage. */
-export function setToken(token: string | null): void {
-  try {
-    if (token && token.trim()) localStorage.setItem(TOKEN_KEY, token.trim());
-    else localStorage.removeItem(TOKEN_KEY);
-  } catch {
-    // ignore storage errors
-  }
-}
-
-/** Merge default headers with optional extras; attach Authorization if token exists. */
+/** Merge default headers with optional extras. */
 export function baseHeaders(extra?: HeadersInit): HeadersInit {
   const h: Record<string, string> = {
     Accept: "application/json",
     "X-Requested-With": "XMLHttpRequest",
   };
-  const tok = getToken();
-  if (tok) h.Authorization = `Bearer ${tok}`;
   return { ...h, ...(extra as Record<string, string>) };
 }
 
@@ -245,12 +217,9 @@ export function consumeSessionExpired(): boolean {
   }
 }
 
-/** Login helper: stores token if returned by API. */
+/** Login helper; relies on HttpOnly cookie for session persistence. */
 export async function authLogin(creds: { email: string; password: string }): Promise<void> {
-  type LoginResp = { ok?: boolean; token?: string; access_token?: string };
-  const resp = await apiPost<LoginResp, typeof creds>("/api/auth/login", creds);
-  const tok = (resp && (resp.token || resp.access_token)) ?? null;
-  if (tok) setToken(tok);
+  await apiPost<unknown, typeof creds>("/api/auth/login", creds);
 }
 
 /** Logout helper: server best-effort then local clear. */
@@ -260,7 +229,6 @@ export async function authLogout(): Promise<void> {
   } catch {
     // ignore network/401 during logout
   }
-  setToken(null);
   try {
     sessionStorage.removeItem(INTENDED_KEY);
     sessionStorage.removeItem(SESSION_EXPIRED_KEY);

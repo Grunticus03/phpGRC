@@ -45,6 +45,12 @@ return [
         'session_cookie' => [
             'name' => 'phpgrc_auth_attempt',
         ],
+
+        'token_cookie' => [
+            'name'        => 'phpgrc_token',
+            'ttl_minutes' => 120,
+            'same_site'   => 'strict',
+        ],
     ],
 
     'rbac' => [

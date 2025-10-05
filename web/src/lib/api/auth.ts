@@ -1,30 +1,26 @@
-// Placeholder client wrappers. Replace with real fetch/axios later.
+import { apiGet, apiPost } from "../api";
 
-export type LoginResponse = { ok: boolean };
+export type LoginResponse = { ok: boolean; token?: string; user?: { id: number; email: string; roles: string[] } };
 export type MeResponse = { user: { id: number; email: string; roles: string[] } };
 export type TotpEnrollResponse = { otpauthUri: string; secret: string };
 export type TotpVerifyResponse = { ok: boolean };
 
 export async function login(email: string, password: string): Promise<LoginResponse> {
-  // Mark parameters as intentionally unused for now.
-  void email;
-  void password;
-  return { ok: true };
+  return apiPost<LoginResponse, { email: string; password: string }>("/api/auth/login", { email, password });
 }
 
 export async function logout(): Promise<void> {
-  return;
+  await apiPost<unknown, Record<string, never>>("/api/auth/logout", {});
 }
 
 export async function me(): Promise<MeResponse> {
-  return { user: { id: 0, email: "placeholder@example.com", roles: [] } };
+  return apiGet<MeResponse>("/api/auth/me");
 }
 
 export async function totpEnroll(): Promise<TotpEnrollResponse> {
-  return { otpauthUri: "otpauth://totp/phpGRC:placeholder", secret: "PLACEHOLDER" };
+  return apiPost<TotpEnrollResponse, Record<string, never>>("/api/auth/totp/enroll", {});
 }
 
 export async function totpVerify(code: string): Promise<TotpVerifyResponse> {
-  void code;
-  return { ok: true };
+  return apiPost<TotpVerifyResponse, { code: string }>("/api/auth/totp/verify", { code });
 }

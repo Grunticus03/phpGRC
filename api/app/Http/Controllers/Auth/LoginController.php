@@ -6,10 +6,14 @@ namespace App\Http\Controllers\Auth;
 
 use App\Models\User;
 use App\Services\Audit\AuditLogger;
+use App\Support\AuthTokenCookie;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Hash;
+use Laravel\Sanctum\PersonalAccessToken;
+use function assert;
 use Illuminate\Validation\ValidationException;
 
 final class LoginController extends Controller
@@ -40,7 +44,14 @@ final class LoginController extends Controller
             ])->status(401);
         }
 
-        $token = $user->createToken('spa')->plainTextToken;
+        /**\n         * @var MorphMany<PersonalAccessToken> \n         * @psalm-var MorphMany<PersonalAccessToken> \n         * @phpstan-var MorphMany<PersonalAccessToken, User> \n         */
+        $tokens = $user->tokens();
+        \assert($tokens instanceof MorphMany);
+        $tokens->where('name', 'spa')->delete();
+
+        $token = $user
+            ->createToken('spa', ['*'], AuthTokenCookie::expiresAt())
+            ->plainTextToken;
 
         $audit->log([
             'actor_id'    => $user->id,
@@ -56,7 +67,7 @@ final class LoginController extends Controller
         /** @var array<int,string> $roleNames */
         $roleNames = $user->roles()->pluck('name')->filter(static fn ($v): bool => is_string($v))->values()->all();
 
-        return response()->json([
+        $response = response()->json([
             'ok'   => true,
             'token'=> $token,
             'user' => [
@@ -65,6 +76,8 @@ final class LoginController extends Controller
                 'roles' => $roleNames,
             ],
         ], 200);
+
+        return $response->withCookie(AuthTokenCookie::issue($token, $request));
     }
 
     /**
@@ -140,3 +153,7 @@ final class LoginController extends Controller
         ]);
     }
 }
+
+
+
+

@@ -22,12 +22,15 @@ use App\Http\Controllers\Rbac\RolesController;
 use App\Http\Controllers\Rbac\UserRolesController;
 use App\Http\Controllers\Rbac\UserSearchController;
 use App\Http\Middleware\Auth\BruteForceGuard;
+use App\Http\Middleware\Auth\TokenCookieGuard;
 use App\Http\Middleware\BreakGlassGuard;
 use App\Http\Middleware\GenericRateLimit;
 use App\Http\Middleware\RbacMiddleware;
 use App\Http\Middleware\SetupGuard;
 use App\Services\Settings\SettingsService;
 use Illuminate\Support\Facades\Route;
+
+Route::aliasMiddleware('auth.cookie', TokenCookieGuard::class);
 
 /*
  |--------------------------------------------------------------------------
@@ -119,8 +122,8 @@ HTML;
  |--------------------------------------------------------------------------
 */
 Route::post('/auth/login',  [LoginController::class,  'login'])->middleware(BruteForceGuard::class);
-Route::post('/auth/logout', [LogoutController::class, 'logout'])->middleware('auth:sanctum');
-Route::get('/auth/me',      [MeController::class,     'me'])->middleware('auth:sanctum');
+Route::post('/auth/logout', [LogoutController::class, 'logout'])->middleware(['auth.cookie', 'auth:sanctum']);
+Route::get('/auth/me',      [MeController::class,     'me'])->middleware(['auth.cookie', 'auth:sanctum']);
 
 Route::post('/auth/totp/enroll', [TotpController::class, 'enroll']);
 Route::post('/auth/totp/verify', [TotpController::class, 'verify']);
@@ -137,7 +140,7 @@ Route::post('/auth/break-glass', [BreakGlassController::class, 'invoke'])->middl
  | RBAC stack (leave Sanctum off here; middleware selects the guard)
  |--------------------------------------------------------------------------
 */
-$rbacStack = [RbacMiddleware::class];
+$rbacStack = ['auth.cookie', RbacMiddleware::class];
 
 /*
  |--------------------------------------------------------------------------
@@ -279,7 +282,7 @@ Route::prefix('/rbac')
 
         // Always requires auth
         Route::get('/users/search', [UserSearchController::class, 'index'])
-            ->middleware(['auth:sanctum'])
+            ->middleware(['auth.cookie', 'auth:sanctum'])
             ->middleware(GenericRateLimit::class)
             ->defaults('throttle', ['strategy' => 'user', 'window_seconds' => 60, 'max_requests' => 30])
             ->defaults('roles', ['Admin'])
@@ -342,3 +345,4 @@ Route::prefix('/evidence')
 */
 Route::post('/avatar', [AvatarController::class, 'store']);
 Route::match(['GET','HEAD'], '/avatar/{user}', [AvatarController::class, 'show'])->whereNumber('user');
+

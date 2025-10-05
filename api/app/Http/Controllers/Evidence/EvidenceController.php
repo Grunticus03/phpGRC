@@ -144,7 +144,7 @@ final class EvidenceController extends Controller
         Gate::authorize('core.evidence.view');
 
         /** @var Evidence|null $ev */
-        $ev = Evidence::query()->find($id);
+        $ev = Evidence::query()->find($id, ['id', 'owner_id', 'filename', 'mime', 'size_bytes', 'sha256', 'version', 'created_at']);
         if ($ev === null) {
             return response()->json(['ok' => false, 'code' => 'EVIDENCE_NOT_FOUND'], 404);
         }
@@ -205,8 +205,29 @@ final class EvidenceController extends Controller
             return response('', 200, $headers);
         }
 
-        $body = is_string($ev->getAttribute('bytes')) ? (string) $ev->getAttribute('bytes') : '';
-        return response($body, 200, $headers);
+        $pdo = DB::connection()->getPdo();
+        $stmt = $pdo->prepare('SELECT bytes FROM evidence WHERE id = :id LIMIT 1');
+        $stmt->bindValue(':id', $id);
+        $stmt->execute();
+
+        $stream = null;
+        $stmt->bindColumn(1, $stream, \PDO::PARAM_LOB);
+        $stmt->fetch(\PDO::FETCH_BOUND);
+
+        return response()->stream(function () use ($stream): void {
+            if (is_resource($stream)) {
+                while (!feof($stream)) {
+                    $chunk = fread($stream, 65536);
+                    if ($chunk === false) {
+                        break;
+                    }
+                    echo $chunk;
+                }
+                fclose($stream);
+            } elseif (is_string($stream)) {
+                echo $stream;
+            }
+        }, 200, $headers);
     }
 
     public function index(Request $request): JsonResponse
@@ -458,3 +479,4 @@ final class EvidenceController extends Controller
         return is_int($v) ? $v : ((is_string($v) && ctype_digit($v)) ? (int) $v : 0);
     }
 }
+

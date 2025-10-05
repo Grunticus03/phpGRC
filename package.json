@@ -1,4 +1,9 @@
 {
+  "scripts": {
+    "scan:vuln": "npm run scan:vuln:root && npm run scan:vuln:web",
+    "scan:vuln:root": "npm audit --offline",
+    "scan:vuln:web": "npm --prefix web audit --offline"
+  },
   "dependencies": {
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
@@ -11,6 +16,7 @@
     "@types/node": "^24.5.1",
     "@types/react": "^18.3.24",
     "@types/react-dom": "^18.3.7",
+    "glob": "^10.4.5",
     "jsdom": "^27.0.0",
     "typescript": "^5.9.2",
     "vitest": "^3.2.4"

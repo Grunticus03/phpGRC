@@ -6,6 +6,7 @@ namespace Tests\Feature;
 
 use App\Models\AuditEvent;
 use App\Models\User;
+use App\Support\AuthTokenCookie;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
@@ -21,16 +22,18 @@ final class AuthAuditTest extends TestCase
             'password' => Hash::make('secret123'),
         ]);
 
-        // Login -> capture token
+        // Login -> capture token and cookie
         $login = $this->postJson('/auth/login', ['email' => $user->email, 'password' => 'secret123'])
             ->assertOk()
-            ->assertJsonStructure(['ok', 'token', 'user' => ['id', 'email']]);
+            ->assertJsonStructure(['ok', 'token', 'user' => ['id', 'email']])
+            ->assertCookie(AuthTokenCookie::name());
 
-        /** @var string $token */
-        $token = (string) ($login->json('token') ?? '');
+        $cookie = collect($login->headers->getCookies())
+            ->firstWhere(fn ($c) => $c->getName() === AuthTokenCookie::name());
+        $this->assertNotNull($cookie);
 
-        // Logout requires Sanctum auth
-        $this->withHeader('Authorization', 'Bearer '.$token)
+        // Logout via bearer token to ensure revocation and cookie clearing
+        $this->withHeader('Authorization', 'Bearer '.(string) ($login->json('token') ?? ''))
             ->postJson('/auth/logout')
             ->assertNoContent();
 

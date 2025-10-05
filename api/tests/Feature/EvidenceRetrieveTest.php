@@ -70,7 +70,8 @@ final class EvidenceRetrieveTest extends TestCase
         $resp->assertHeader('ETag', $ev['etag']);
         $resp->assertHeader('Content-Disposition');
         $resp->assertHeader('X-Content-Type-Options', 'nosniff');
-        $this->assertSame($ev['body'], $resp->getContent());
+        $this->assertFalse($resp->getContent());
+        $this->assertSame($ev['body'], $resp->streamedContent());
     }
 
     public function test_etag_304_works(): void
@@ -104,4 +105,6 @@ final class EvidenceRetrieveTest extends TestCase
         $this->call('HEAD', '/evidence/ev_DOES_NOT_EXIST')->assertStatus(404);
     }
 }
+
+
 

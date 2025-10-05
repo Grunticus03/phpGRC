@@ -1,6 +1,6 @@
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
-import { apiGet, authMe, hasToken, onUnauthorized, rememberIntendedPath, markSessionExpired } from "../lib/api";
+import { apiGet, authMe, onUnauthorized, rememberIntendedPath, markSessionExpired } from "../lib/api";
 import Nav from "../components/Nav";
 
 type Fingerprint = {
@@ -36,14 +36,10 @@ export default function AppLayout() {
 
         // 2) If auth required, only probe /auth/me when we actually have a token
         if (req) {
-          if (hasToken()) {
-            try {
-              await authMe();
-              setAuthed(true);
-            } catch {
-              setAuthed(false);
-            }
-          } else {
+          try {
+            await authMe();
+            setAuthed(true);
+          } catch {
             setAuthed(false);
           }
         } else {
