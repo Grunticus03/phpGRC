@@ -19,6 +19,7 @@ return new class extends Migration {
             ['key' => 'core.rbac.enabled',                 'value' => '1',    'type' => 'bool', 'updated_by' => null, 'created_at' => $now, 'updated_at' => $now],
             ['key' => 'core.rbac.require_auth',            'value' => '0',    'type' => 'bool', 'updated_by' => null, 'created_at' => $now, 'updated_at' => $now],
             ['key' => 'core.rbac.roles',                   'value' => json_encode(['Admin','Auditor','Risk Manager','User'], JSON_UNESCAPED_UNICODE), 'type' => 'json', 'updated_by' => null, 'created_at' => $now, 'updated_at' => $now],
+            ['key' => 'core.rbac.persistence',            'value' => '0',    'type' => 'bool', 'updated_by' => null, 'created_at' => $now, 'updated_at' => $now],
 
             // Audit
             ['key' => 'core.audit.enabled',                'value' => '1',    'type' => 'bool', 'updated_by' => null, 'created_at' => $now, 'updated_at' => $now],
@@ -33,6 +34,9 @@ return new class extends Migration {
             ['key' => 'core.avatars.enabled',              'value' => '1',    'type' => 'bool', 'updated_by' => null, 'created_at' => $now, 'updated_at' => $now],
             ['key' => 'core.avatars.size_px',              'value' => '128',  'type' => 'int',  'updated_by' => null, 'created_at' => $now, 'updated_at' => $now],
             ['key' => 'core.avatars.format',               'value' => 'webp', 'type' => 'string', 'updated_by' => null, 'created_at' => $now, 'updated_at' => $now],
+
+            // UI
+            ['key' => 'core.ui.time_format',              'value' => 'LOCAL', 'type' => 'string', 'updated_by' => null, 'created_at' => $now, 'updated_at' => $now],
 
             // Metrics (DB-backed)
             ['key' => 'core.metrics.cache_ttl_seconds',          'value' => '0',   'type' => 'int',  'updated_by' => null, 'created_at' => $now, 'updated_at' => $now],
@@ -57,6 +61,7 @@ return new class extends Migration {
             'core.rbac.enabled',
             'core.rbac.require_auth',
             'core.rbac.roles',
+            'core.rbac.persistence',
             'core.audit.enabled',
             'core.audit.retention_days',
             'core.evidence.enabled',
@@ -65,6 +70,7 @@ return new class extends Migration {
             'core.avatars.enabled',
             'core.avatars.size_px',
             'core.avatars.format',
+            'core.ui.time_format',
             'core.metrics.cache_ttl_seconds',
             'core.metrics.evidence_freshness.days',
             'core.metrics.rbac_denies.window_days',

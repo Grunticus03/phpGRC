@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { listEvidence, type Evidence, type EvidenceListOk } from "../../lib/api/evidence";
 import { searchUsers, type UserSummary, type UserSearchOk, type UserSearchMeta } from "../../lib/api/rbac";
+import { formatBytes, formatTimestamp, DEFAULT_TIME_FORMAT, normalizeTimeFormat, type TimeFormat } from "../../lib/formatters";
 
 type FetchState = "idle" | "loading" | "error" | "ok";
 
@@ -39,6 +40,7 @@ export default function EvidenceList(): JSX.Element {
   // Listing
   const [state, setState] = useState<FetchState>("idle");
   const [error, setError] = useState<string>("");
+  const [timeFormat, setTimeFormat] = useState<TimeFormat>(DEFAULT_TIME_FORMAT);
   const [items, setItems] = useState<Evidence[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
   const [prevStack, setPrevStack] = useState<string[]>([]);
@@ -111,6 +113,7 @@ export default function EvidenceList(): JSX.Element {
       const res = await listEvidence(resetCursor ? { ...params, cursor: null } : params);
       if (res.ok) {
         const ok = res as EvidenceListOk;
+        setTimeFormat((prev) => (ok.time_format ? normalizeTimeFormat(ok.time_format) : prev));
         setItems(ok.data);
         if (resetCursor) {
           setPrevStack([]);
@@ -322,9 +325,9 @@ export default function EvidenceList(): JSX.Element {
                   <td>{e.owner_id}</td>
                   <td>{e.filename}</td>
                   <td>{e.mime}</td>
-                  <td>{e.size}</td>
+                  <td title={Number.isFinite(e.size) ? `${e.size.toLocaleString()} bytes` : undefined}>{formatBytes(e.size)}</td>
                   <td>{e.version}</td>
-                  <td>{e.created_at}</td>
+                  <td title={e.created_at}>{formatTimestamp(e.created_at, timeFormat)}</td>
                   <td style={{ fontFamily: "monospace" }}>{e.sha256.slice(0, 12)}…</td>
                 </tr>
               ))

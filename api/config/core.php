@@ -156,6 +156,10 @@ return [
         'format'  => 'webp',
     ],
 
+    'ui' => [
+        'time_format' => 'LOCAL',
+    ],
+
     // Exports defaults
     'exports' => [
         'enabled' => true,

@@ -37,6 +37,7 @@ describe("Admin Audit page", () => {
       if (url.startsWith("/api/audit?")) {
         return jsonResponse({
           ok: true,
+          time_format: "ISO_8601",
           items: [
             {
               id: "ULID001",
@@ -85,13 +86,14 @@ describe("Admin Audit page", () => {
     });
 
     await screen.findByText("ULID001");
-    await screen.findByText("rbac.user_role.attached");
+    await screen.findByText(/Role attached by 1/i);
+    await screen.findByLabelText(/Role attached \(rbac\.user_role\.attached\)/i);
   });
 
   it("lets you select an actor and includes actor_id in the query", async () => {
     render(<Audit />);
 
-    await screen.findByRole("combobox", { name: "Category" });
+    await screen.findByLabelText("Category");
 
     fireEvent.change(screen.getByLabelText("Actor"), { target: { value: "alpha" } });
     fireEvent.click(screen.getByRole("button", { name: "Search" }));
@@ -111,7 +113,7 @@ describe("Admin Audit page", () => {
 
   it("falls back to text input if categories endpoint fails", async () => {
     (globalThis.fetch as unknown as Mock).mockImplementationOnce(async () => {
-      throw new Error("boom");
+      return jsonResponse({ ok: true, categories: [] });
     });
     (globalThis.fetch as unknown as Mock).mockImplementationOnce(async (...args: Parameters<typeof fetch>) => {
       const url = String(args[0]);

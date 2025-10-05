@@ -18,6 +18,8 @@ use Illuminate\Support\Facades\Validator;
 
 final class AuditController extends Controller
 {
+    private const TIME_FORMATS = ['ISO_8601', 'LOCAL', 'RELATIVE'];
+
     public function index(Request $request): JsonResponse
     {
         $orderParam = $request->query('order', 'desc');
@@ -101,6 +103,7 @@ final class AuditController extends Controller
         }
 
         $retentionDays = self::intFrom(Config::get('core.audit.retention_days'), 365);
+        $timeFormat    = $this->resolveTimeFormat();
 
         /** @var Builder<AuditEvent> $q */
         $q = AuditEvent::query();
@@ -187,6 +190,7 @@ final class AuditController extends Controller
                 'note'            => 'stub-only',
                 '_categories'     => AuditCategories::ALL,
                 '_retention_days' => $retentionDays,
+                'time_format'     => $timeFormat,
                 'filters'         => [
                     'order'  => $order,
                     'limit'  => $limit,
@@ -241,6 +245,7 @@ final class AuditController extends Controller
             'ok'              => true,
             '_categories'     => AuditCategories::ALL,
             '_retention_days' => $retentionDays,
+            'time_format'     => $timeFormat,
             'filters'         => [
                 'order'          => $order,
                 'limit'          => $limit,
@@ -358,6 +363,20 @@ final class AuditController extends Controller
             'CONFIG' => AuditCategories::SETTINGS,
             default => strtoupper($trim),
         };
+    }
+
+    private function resolveTimeFormat(): string
+    {
+        /** @var mixed $raw */
+        $raw = config('core.ui.time_format');
+        if (is_string($raw)) {
+            $upper = strtoupper(trim($raw));
+            if ($upper !== '' && in_array($upper, self::TIME_FORMATS, true)) {
+                return $upper;
+            }
+        }
+
+        return 'LOCAL';
     }
 
     private function pageCursor(Request $r): ?string

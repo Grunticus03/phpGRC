@@ -1,8 +1,10 @@
+
 import { useEffect, useMemo, useRef, useState } from "react";
 import { listCategories } from "../../lib/api/audit";
-import { actionInfo } from "../../lib/auditLabels";
+import { actionInfo, type ActionInfo } from "../../lib/auditLabels";
 import { searchUsers, type UserSummary, type UserSearchOk } from "../../lib/api/rbac";
 import { apiGet, type QueryInit } from "../../lib/api";
+import { formatBytes, formatTimestamp, DEFAULT_TIME_FORMAT, normalizeTimeFormat, type TimeFormat } from "../../lib/formatters";
 
 type AuditItem = {
   id?: string;
@@ -15,13 +17,56 @@ type AuditItem = {
   user_id?: number | string | null;
   actor_id?: number | string | null;
   actor_label?: string | null;
+  entity_type?: string | null;
+  entity_id?: string | null;
   ip?: string | null;
   note?: string | null;
+  meta?: unknown;
   [k: string]: unknown;
 };
 
 type FetchState = "idle" | "loading" | "error" | "ok";
 type FieldErrors = Record<string, string[]>;
+type CategoryOption = { value: string; label: string };
+
+const CATEGORY_LABELS: Record<string, string> = {
+  SYSTEM: "System",
+  RBAC: "Access Control",
+  AUTH: "Authentication",
+  SETTINGS: "Settings",
+  EXPORTS: "Exports",
+  EVIDENCE: "Evidence",
+  AVATARS: "Avatars",
+  AUDIT: "Audit Trail",
+  SETUP: "Setup",
+  METRICS: "Metrics",
+  OTHER: "Other",
+};
+
+function categoryLabel(value: string): string {
+  const upper = value.toUpperCase();
+  if (CATEGORY_LABELS[upper]) return CATEGORY_LABELS[upper];
+  const parts = upper
+    .toLowerCase()
+    .split(/[^a-z0-9]+/i)
+    .filter(Boolean);
+  if (parts.length === 0) return upper;
+  return parts
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function buildCategoryOptions(values: string[]): CategoryOption[] {
+  const seen = new Set<string>();
+  const options: CategoryOption[] = [];
+  for (const raw of values) {
+    const upper = String(raw ?? "").trim().toUpperCase();
+    if (!upper || seen.has(upper)) continue;
+    seen.add(upper);
+    options.push({ value: upper, label: categoryLabel(upper) });
+  }
+  return options.sort((a, b) => a.label.localeCompare(b.label));
+}
 
 function buildQuery(params: Record<string, string | number | undefined>) {
   const qs = new URLSearchParams();
@@ -77,13 +122,93 @@ function chipStyle(variant: "neutral" | "success" | "warning" | "danger"): React
   }
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function resolveActorLabel(item: AuditItem): string {
+  if (typeof item.actor_label === "string" && item.actor_label.trim() !== "") {
+    return item.actor_label.trim();
+  }
+  if (item.user_id !== null && item.user_id !== undefined) {
+    return String(item.user_id);
+  }
+  if (item.actor_id !== null && item.actor_id !== undefined) {
+    return String(item.actor_id);
+  }
+  return "System";
+}
+
+function readNumber(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value !== '' && !Number.isNaN(Number(value))) return Number(value);
+  return null;
+}
+
+function buildAuditMessage(item: AuditItem, info: ActionInfo, actorLabel: string): string {
+  const actor = actorLabel || "System";
+  const meta = isRecord(item.meta) ? item.meta : {};
+  const explicitNote = typeof item.note === "string" && item.note.trim() !== '' ? item.note.trim() : '';
+  if (explicitNote) return explicitNote;
+
+  const metaMessage = typeof meta.message === "string" && meta.message.trim() !== '' ? meta.message.trim() : '';
+  if (metaMessage) return metaMessage;
+
+  const action = item.action ?? '';
+  if (action === 'settings.update') {
+    const changes = Array.isArray(meta.changes) ? meta.changes.length : 0;
+    if (changes > 0) {
+      const noun = changes === 1 ? 'change' : 'changes';
+      return `Settings updated by ${actor} (${changes} ${noun})`;
+    }
+    return `Settings updated by ${actor}`;
+  }
+
+  if (action === 'evidence.upload' || action === 'evidence.uploaded') {
+    const filename = typeof meta.filename === 'string' && meta.filename ? meta.filename : (typeof item.entity_id === 'string' && item.entity_id ? item.entity_id : 'Evidence');
+    const size = readNumber(meta.size_bytes ?? meta.size);
+    const sizePart = size && size > 0 ? ` (${formatBytes(size)})` : '';
+    return `${filename} uploaded to evidence by ${actor}${sizePart}`;
+  }
+
+  if (action === 'evidence.deleted') {
+    const filename = typeof meta.filename === 'string' && meta.filename ? meta.filename : (typeof item.entity_id === 'string' && item.entity_id ? item.entity_id : 'Evidence');
+    return `${filename} removed from evidence by ${actor}`;
+  }
+
+  if (action === 'evidence.read' || action === 'evidence.head') {
+    const filename = typeof meta.filename === 'string' && meta.filename ? meta.filename : (typeof item.entity_id === 'string' && item.entity_id ? item.entity_id : 'Evidence');
+    return `${filename} viewed by ${actor}`;
+  }
+
+  if (action.startsWith('auth.')) {
+    return `${info.label} by ${actor}`;
+  }
+
+  if (action.startsWith('rbac.user_role.')) {
+    const role = typeof meta.role === 'string' ? meta.role : '';
+    return role ? `${info.label}: ${role} by ${actor}` : `${info.label} by ${actor}`;
+  }
+
+  const entityType = typeof item.entity_type === 'string' && item.entity_type ? item.entity_type : '';
+  const entityId = typeof item.entity_id === 'string' && item.entity_id ? item.entity_id : '';
+  if (entityType || entityId) {
+    const target = [entityType, entityId].filter(Boolean).join(' ');
+    const suffix = actor ? ` by ${actor}` : '';
+    return target ? `${info.label} on ${target}${suffix}` : `${info.label}${suffix}`;
+  }
+
+  return actor ? `${info.label} by ${actor}` : info.label;
+}
+
 export default function Audit(): JSX.Element {
   const [category, setCategory] = useState("");
   const [action, setAction] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [limit, setLimit] = useState(10);
-  const [categories, setCategories] = useState<string[]>([]);
+  const [categoryOptions, setCategoryOptions] = useState<CategoryOption[]>([]);
+  const [timeFormat, setTimeFormat] = useState<TimeFormat>(DEFAULT_TIME_FORMAT);
 
   // Actor picker state
   const [actorQ, setActorQ] = useState("");
@@ -143,14 +268,19 @@ export default function Audit(): JSX.Element {
 
       const data = await apiGet<unknown>("/api/audit", params, ctrl.current.signal);
       let list: AuditItem[] = [];
+      let nextTimeFormat: TimeFormat | null = null;
       if (Array.isArray(data)) {
         list = data as AuditItem[];
       } else if (data && typeof data === "object") {
         const o = data as Record<string, unknown>;
         if (Array.isArray(o.items)) list = o.items as AuditItem[];
         else if (Array.isArray(o.data)) list = o.data as AuditItem[];
+        if (typeof o.time_format === "string") {
+          nextTimeFormat = normalizeTimeFormat(o.time_format);
+        }
       }
 
+      setTimeFormat((prev) => nextTimeFormat ?? prev);
       setItems(list);
       setState("ok");
       setLastAppliedQuery(query);
@@ -174,7 +304,7 @@ export default function Audit(): JSX.Element {
       const ab = new AbortController();
       try {
         const arr = await listCategories(ab.signal);
-        setCategories(arr);
+        setCategoryOptions(buildCategoryOptions(arr));
       } finally {
         // no-op
       }
@@ -217,6 +347,8 @@ export default function Audit(): JSX.Element {
     setActorQ("");
   }
 
+  const hasCategorySelect = categoryOptions.length > 0;
+
   return (
     <section aria-busy={state === "loading"}>
       <h1>Audit</h1>
@@ -244,7 +376,7 @@ export default function Audit(): JSX.Element {
       >
         <div>
           <label htmlFor="f-cat">Category</label>
-          {categories.length > 0 ? (
+          {hasCategorySelect ? (
             <select
               id="f-cat"
               value={category}
@@ -252,9 +384,9 @@ export default function Audit(): JSX.Element {
               aria-invalid={!!fieldErrors.category?.length}
             >
               <option value="">(any)</option>
-              {categories.map((c) => (
-                <option key={c} value={c}>
-                  {c}
+              {categoryOptions.map((c) => (
+                <option key={c.value} value={c.value}>
+                  {c.label}
                 </option>
               ))}
             </select>
@@ -303,7 +435,7 @@ export default function Audit(): JSX.Element {
             onChange={(e) => setDateFrom(e.target.value)}
             aria-invalid={!isDateOrderValid || !!fieldErrors.occurred_from?.length}
           />
-          {!isDateOrderValid ? <p role="alert" style={{ margin: "0.25rem 0 0 0" }}>From must be ≤ To</p> : null}
+          {!isDateOrderValid ? <p role="alert" style={{ margin: "0.25rem 0 0 0" }}>From must be &lt;= To</p> : null}
           {fieldErrors.occurred_from?.length ? (
             <ul role="alert" style={{ margin: "0.25rem 0 0 0", paddingLeft: "1rem" }}>
               {fieldErrors.occurred_from.map((m, i) => (
@@ -322,7 +454,7 @@ export default function Audit(): JSX.Element {
             onChange={(e) => setDateTo(e.target.value)}
             aria-invalid={!isDateOrderValid || !!fieldErrors.occurred_to?.length}
           />
-          {!isDateOrderValid ? <p role="alert" style={{ margin: "0.25rem 0 0 0" }}>To must be ≥ From</p> : null}
+          {!isDateOrderValid ? <p role="alert" style={{ margin: "0.25rem 0 0 0" }}>To must be &gt;= From</p> : null}
           {fieldErrors.occurred_to?.length ? (
             <ul role="alert" style={{ margin: "0.25rem 0 0 0", paddingLeft: "1rem" }}>
               {fieldErrors.occurred_to.map((m, i) => (
@@ -372,7 +504,7 @@ export default function Audit(): JSX.Element {
               />
               <div style={{ display: "flex", gap: "0.5rem" }}>
                 <button type="button" onClick={() => void runActorSearch()} aria-busy={actorSearching}>
-                  {actorSearching ? "Searching…" : "Search"}
+                  {actorSearching ? "Searching." : "Search"}
                 </button>
                 <button
                   type="button"
@@ -455,20 +587,20 @@ export default function Audit(): JSX.Element {
         </div>
       </form>
 
-      {state === "loading" && <p>Loading…</p>}
+      {state === "loading" && <p>Loading.</p>}
       {state === "error" && <p role="alert">Error: {error}</p>}
 
       <div style={{ overflowX: "auto" }}>
         <table aria-label="Audit events" className="table">
           <thead>
             <tr>
-              <th>ID</th>
               <th>Timestamp</th>
-              <th>Category</th>
-              <th>Action</th>
               <th>User</th>
               <th>IP</th>
-              <th>Note</th>
+              <th>Category</th>
+              <th>Action</th>
+              <th>Message</th>
+              <th>ID</th>
             </tr>
           </thead>
           <tbody>
@@ -484,35 +616,30 @@ export default function Audit(): JSX.Element {
                   (typeof it.created_at === "string" && it.created_at) ||
                   (typeof it.ts === "string" && it.ts) ||
                   "";
-                let ts = "";
-                if (tsRaw) {
-                  const parsed = new Date(tsRaw);
-                  ts = Number.isNaN(parsed.valueOf())
-                    ? String(tsRaw)
-                    : parsed.toISOString().replace('T', ' ').replace('Z', 'Z');
-                }
-                const actorLabel =
-                  (typeof it.actor_label === "string" && it.actor_label.length > 0 && it.actor_label) ||
-                  it.user_id ||
-                  it.actor_id ||
-                  "";
+                const ts = formatTimestamp(tsRaw, timeFormat);
+                const actor = resolveActorLabel(it);
                 const cat = String(it.category ?? "");
-                const act = String(it.action ?? "");
-                const info = actionInfo(act, cat);
+                const info = actionInfo(String(it.action ?? ""), cat);
+                const categoryDisplay = categoryLabel(info.category || cat);
+                const message = buildAuditMessage(it, info, actor);
+
                 return (
                   <tr key={id}>
-                    <td>{id}</td>
-                    <td>{ts}</td>
-                    <td>{info.category || cat}</td>
+                    <td title={tsRaw}>{ts}</td>
+                    <td>{actor}</td>
+                    <td>{String(it.ip ?? "")}</td>
+                    <td>{categoryDisplay}</td>
                     <td>
-                      <span style={chipStyle(info.variant)} aria-label={`${info.label} (${act})`}>
+                      <span
+                        style={chipStyle(info.variant)}
+                        aria-label={`${info.label} (${it.action ?? ''})`}
+                        title={String(it.action ?? "")}
+                      >
                         {info.label}
                       </span>
-                      <div style={{ fontFamily: "monospace", fontSize: "0.8rem", opacity: 0.8 }}>{act}</div>
                     </td>
-                    <td>{String(actorLabel)}</td>
-                    <td>{String(it.ip ?? "")}</td>
-                    <td>{String(it.note ?? "")}</td>
+                    <td>{message}</td>
+                    <td style={{ fontFamily: "monospace" }}>{id}</td>
                   </tr>
                 );
               })

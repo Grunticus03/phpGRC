@@ -1,4 +1,5 @@
 import { apiGet } from "../api";
+import { normalizeTimeFormat, type TimeFormat } from "../formatters";
 
 export type Evidence = {
   id: string;
@@ -16,6 +17,7 @@ export type EvidenceListOk = {
   data: Evidence[];
   next_cursor: string | null;
   filters?: Record<string, unknown>;
+  time_format?: TimeFormat;
 };
 
 export type EvidenceListErr = {
@@ -71,11 +73,16 @@ export async function listEvidence(params: EvidenceListParams = {}): Promise<Evi
       const next_cursor =
         typeof j.next_cursor === "string" ? (j.next_cursor as string) : j.next_cursor === null ? null : null;
 
+      const nextTimeFormat = typeof (j.time_format as unknown) === 'string'
+        ? normalizeTimeFormat(j.time_format)
+        : undefined;
+
       return {
         ok: true,
         data,
         next_cursor,
         filters: isObject(j.filters) ? (j.filters as Record<string, unknown>) : undefined,
+        time_format: nextTimeFormat,
       };
     }
 

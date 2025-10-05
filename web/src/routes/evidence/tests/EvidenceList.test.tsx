@@ -33,6 +33,7 @@ describe("Evidence List", () => {
       if (url.startsWith("/api/evidence")) {
         return jsonResponse({
           ok: true,
+          time_format: "ISO_8601",
           data: [
             {
               id: "ev_01X",
@@ -84,6 +85,8 @@ describe("Evidence List", () => {
     });
 
     await screen.findByText("report.pdf");
+    await screen.findByText(/1\.21 KB/);
+    await screen.findByText(/2025-09-12 00:00:00/);
   });
 });
 

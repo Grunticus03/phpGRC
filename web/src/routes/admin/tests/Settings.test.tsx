@@ -18,6 +18,7 @@ type CoreBody = {
     audit: { retention_days: number };
     evidence: unknown;
     avatars: unknown;
+    ui: { time_format: string };
   };
 };
 
@@ -50,6 +51,7 @@ describe("Admin Settings page", () => {
                 allowed_mime: ["application/pdf", "image/png", "image/jpeg", "text/plain"],
               },
               avatars: { enabled: true, size_px: 128, format: "webp" },
+              ui: { time_format: "LOCAL" },
               // metrics come from DB in-app; not asserted here
             },
           },
@@ -79,7 +81,7 @@ describe("Admin Settings page", () => {
   it("loads, submits, shows stub message, and sends contract-shaped body", async () => {
     render(<Settings />);
 
-    await waitFor(() => expect(screen.queryByText("Loading")).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByText("Loading")).toBeNull());
 
     const requireAuth = screen.getByLabelText("Require Auth (Sanctum) for RBAC APIs") as HTMLInputElement;
     expect(requireAuth.checked).toBe(false);
@@ -95,6 +97,10 @@ describe("Admin Settings page", () => {
     fireEvent.change(retention, { target: { value: "180" } });
     expect(retention.value).toBe("180");
 
+    const timeFormatSelect = screen.getByLabelText(/Timestamp display/i) as HTMLSelectElement;
+    fireEvent.change(timeFormatSelect, { target: { value: "ISO_8601" } });
+    expect(timeFormatSelect.value).toBe("ISO_8601");
+
     fireEvent.click(screen.getByRole("button", { name: /save/i }));
 
     await screen.findByText("Validated. Not persisted (stub).");
@@ -109,6 +115,8 @@ describe("Admin Settings page", () => {
 
     expect(core).toHaveProperty("audit");
     expect(core.audit.retention_days).toBe(180);
+    expect(core).toHaveProperty("ui");
+    expect(core.ui.time_format).toBe("ISO_8601");
   });
 });
 

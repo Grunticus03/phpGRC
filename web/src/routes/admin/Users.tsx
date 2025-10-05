@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { apiDelete, apiGet, apiPost, apiPut, HttpError } from "../../lib/api";
+import { listRoles } from "../../lib/api/rbac";
 
 type User = {
   id: number;
@@ -31,9 +32,41 @@ export default function Users() {
   const [meta, setMeta] = useState<Paged<User>["meta"]>({ page: 1, per_page: 25, total: 0, total_pages: 0 });
   const [busy, setBusy] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [roleOptions, setRoleOptions] = useState<string[]>([]);
+  const [createRoles, setCreateRoles] = useState<string[]>([]);
+  const [rolesLoading, setRolesLoading] = useState<boolean>(false);
+  const [rolesError, setRolesError] = useState<string | null>(null);
 
   const canPrev = useMemo(() => meta.page > 1, [meta.page]);
   const canNext = useMemo(() => meta.page < meta.total_pages, [meta.page, meta.total_pages]);
+
+  useEffect(() => {
+    let active = true;
+    setRolesLoading(true);
+    setRolesError(null);
+    void listRoles().then((res) => {
+      if (!active) return;
+      if (res.ok) {
+        setRoleOptions(res.roles ?? []);
+      } else {
+        setRoleOptions([]);
+        setRolesError('Failed to load roles.');
+      }
+    }).catch(() => {
+      if (!active) return;
+      setRoleOptions([]);
+      setRolesError('Failed to load roles.');
+    }).finally(() => {
+      if (active) setRolesLoading(false);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    setCreateRoles((prev) => prev.filter((role) => roleOptions.includes(role)));
+  }, [roleOptions]);
 
   const load = useCallback(async () => {
     setBusy(true);
@@ -73,16 +106,14 @@ export default function Users() {
       name: String(form.get("name") ?? ""),
       email: String(form.get("email") ?? ""),
       password: String(form.get("password") ?? ""),
-      roles: (String(form.get("roles") ?? "")
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean)) as string[],
+      roles: createRoles,
     };
     setBusy(true);
     setError(null);
     try {
       await apiPost<UserResponse, typeof payload>("/api/admin/users", payload);
       formEl.reset();
+      setCreateRoles([]);
       setPage(1);
       await load();
     } catch (err) {
@@ -225,12 +256,30 @@ export default function Users() {
           <input name="name" placeholder="Name" required className="border rounded px-3 py-2" />
           <input name="email" type="email" placeholder="Email" required className="border rounded px-3 py-2" />
           <input name="password" type="password" placeholder="Password" required className="border rounded px-3 py-2" />
-          <input
-            name="roles"
-            placeholder="Roles (comma-separated)"
-            className="border rounded px-3 py-2"
-            aria-label="Roles (comma-separated)"
-          />
+          <div className="grid gap-1">
+            <label htmlFor="createRoles" className="text-sm font-medium">Roles</label>
+            <select
+              id="createRoles"
+              name="roles"
+              multiple
+              className="border rounded px-3 py-2 h-32"
+              value={createRoles}
+              onChange={(e) => {
+                const selected = Array.from(e.target.selectedOptions).map((opt) => opt.value);
+                setCreateRoles(selected);
+              }}
+              aria-describedby="createRolesHelp"
+            >
+              {roleOptions.map((role) => (
+                <option key={role} value={role}>
+                  {role}
+                </option>
+              ))}
+            </select>
+            <div id="createRolesHelp" className="text-xs text-gray-500">
+              {rolesLoading ? 'Loading roles…' : rolesError ?? (roleOptions.length === 0 ? 'No roles available.' : 'Select one or more roles. Hold Ctrl/Cmd to choose multiple.')}
+            </div>
+          </div>
           <button type="submit" disabled={busy} className="px-3 py-2 border rounded disabled:opacity-50">
             Create
           </button>

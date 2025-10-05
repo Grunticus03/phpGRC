@@ -35,7 +35,17 @@ final class SettingsService
         'metrics.cache_ttl_seconds',
         'metrics.evidence_freshness.days',
         'metrics.rbac_denies.window_days',
+        'ui.time_format',
     ];
+
+    /** @var list<string> */
+    private const SUPPORTED_TIME_FORMATS = [
+        'ISO_8601',
+        'LOCAL',
+        'RELATIVE',
+    ];
+
+    private const DEFAULT_TIME_FORMAT = 'LOCAL';
 
     /** @return array{core: array<string, mixed>} */
     public function effectiveConfig(): array
@@ -67,6 +77,7 @@ final class SettingsService
             'evidence' => is_array($merged['evidence'] ?? null) ? (array) $merged['evidence'] : [],
             'avatars'  => is_array($merged['avatars'] ?? null) ? (array) $merged['avatars'] : [],
             'metrics'  => is_array($merged['metrics'] ?? null) ? (array) $merged['metrics'] : [],
+            'ui'       => is_array($merged['ui'] ?? null) ? (array) $merged['ui'] : [],
         ];
 
         /** @var array<string, mixed> $finalCore */
@@ -91,7 +102,13 @@ final class SettingsService
     public function apply(array $accepted, ?int $actorId = null, array $context = []): array
     {
         /** @var array<string, mixed> $onlyAccepted */
-        $onlyAccepted = Arr::only($accepted, ['rbac', 'audit', 'evidence', 'avatars', 'metrics']);
+        $onlyAccepted = Arr::only($accepted, ['rbac', 'audit', 'evidence', 'avatars', 'metrics', 'ui']);
+
+        if (isset($onlyAccepted['ui']) && is_array($onlyAccepted['ui'])) {
+            /** @var array<string, mixed> $uiAccepted */
+            $uiAccepted = $onlyAccepted['ui'];
+            $onlyAccepted['ui']['time_format'] = $this->normalizeTimeFormat($uiAccepted['time_format'] ?? null);
+        }
 
         /** @var array<string, mixed> $flatAcceptedInput */
         $flatAcceptedInput = Arr::dot($onlyAccepted);
@@ -268,12 +285,25 @@ final class SettingsService
                 str_starts_with($k, 'audit.')    ||
                 str_starts_with($k, 'evidence.') ||
                 str_starts_with($k, 'avatars.')  ||
-                str_starts_with($k, 'metrics.')
+                str_starts_with($k, 'metrics.')  ||
+                str_starts_with($k, 'ui.')
             ) {
                 $out['core.' . $k] = $v;
             }
         }
         return $out;
+    }
+
+    private function normalizeTimeFormat(mixed $value): string
+    {
+        if (is_string($value)) {
+            $upper = strtoupper(trim($value));
+            if ($upper !== '' && in_array($upper, self::SUPPORTED_TIME_FORMATS, true)) {
+                return $upper;
+            }
+        }
+
+        return self::DEFAULT_TIME_FORMAT;
     }
 
     private function valuesEqual(mixed $a, mixed $b): bool
@@ -356,7 +386,7 @@ final class SettingsService
     private function filterForContract(array $core): array
     {
         /** @var array<string,mixed> $coreOnly */
-        $coreOnly = Arr::only($core, ['rbac', 'audit', 'evidence', 'avatars', 'metrics']);
+        $coreOnly = Arr::only($core, ['rbac', 'audit', 'evidence', 'avatars', 'metrics', 'ui']);
 
         /** @var array<string, mixed> $rbacRaw */
         $rbacRaw = (array) ($coreOnly['rbac'] ?? []);
@@ -368,6 +398,9 @@ final class SettingsService
         $avatarsRaw = (array) ($coreOnly['avatars'] ?? []);
         /** @var array<string, mixed> $metricsRaw */
         $metricsRaw = (array) ($coreOnly['metrics'] ?? []);
+
+        /** @var array<string, mixed> $uiRaw */
+        $uiRaw = (array) ($coreOnly['ui'] ?? []);
 
         /** @var array<string,mixed> $rbac */
         $rbac = [
@@ -424,12 +457,17 @@ final class SettingsService
             ],
         ];
 
+        $ui = [
+            'time_format' => $this->normalizeTimeFormat($uiRaw['time_format'] ?? null),
+        ];
+
         return [
             'rbac'     => $rbac,
             'audit'    => $audit,
             'evidence' => $evidence,
             'avatars'  => $avatars,
             'metrics'  => $metrics,
+            'ui'       => $ui,
         ];
     }
 

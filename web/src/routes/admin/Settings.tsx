@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useState } from "react";
 import { apiGet, apiPut } from "../../lib/api";
+import { DEFAULT_TIME_FORMAT, normalizeTimeFormat, type TimeFormat } from "../../lib/formatters";
 
 type EffectiveConfig = {
   core: {
@@ -12,8 +13,16 @@ type EffectiveConfig = {
     audit?: { retention_days?: number };
     evidence?: unknown;
     avatars?: unknown;
+    ui?: { time_format?: string };
   };
 };
+
+const TIME_FORMAT_OPTIONS: Array<{ value: TimeFormat; label: string; example: string }> = [
+  { value: "LOCAL", label: "Local date & time", example: "Example: 9/30/2025, 5:23:01 PM" },
+  { value: "ISO_8601", label: "ISO 8601 (UTC)", example: "Example: 2025-09-30 21:23:01Z" },
+  { value: "RELATIVE", label: "Relative time", example: "Example: 5 minutes ago" },
+];
+
 
 export default function Settings(): JSX.Element {
   const [loading, setLoading] = useState(true);
@@ -26,6 +35,7 @@ export default function Settings(): JSX.Element {
   const [rbacRequireAuth, setRbacRequireAuth] = useState<boolean>(false);
   const [rbacUserSearchPerPage, setRbacUserSearchPerPage] = useState<number>(50);
   const [retentionDays, setRetentionDays] = useState<number>(365);
+  const [timeFormat, setTimeFormat] = useState<TimeFormat>(DEFAULT_TIME_FORMAT);
 
   const [evidenceCfg, setEvidenceCfg] = useState<unknown>(null);
   const [avatarsCfg, setAvatarsCfg] = useState<unknown>(null);
@@ -46,6 +56,7 @@ export default function Settings(): JSX.Element {
         setRbacRequireAuth(Boolean(rbac.require_auth ?? false));
         setRbacUserSearchPerPage(Number(rbac.user_search?.default_per_page ?? 50));
         setRetentionDays(Number(audit.retention_days ?? 365));
+        setTimeFormat(normalizeTimeFormat(core.ui?.time_format));
         setEvidenceCfg(core.evidence ?? null);
         setAvatarsCfg(core.avatars ?? null);
       } catch {
@@ -79,6 +90,7 @@ export default function Settings(): JSX.Element {
           audit: { retention_days: clamp(Number(retentionDays) || 365, 1, 730) },
           evidence: evidenceCfg,
           avatars: avatarsCfg,
+          ui: { time_format: timeFormat },
         },
         apply: true,
       };
@@ -161,6 +173,30 @@ export default function Settings(): JSX.Element {
                 value={retentionDays}
                 onChange={(e) => setRetentionDays(Math.max(1, Math.min(730, Number(e.target.value) || 1)))}
               />
+            </div>
+          </section>
+
+          <section className="card">
+            <div className="card-header">
+              <strong>Interface</strong>
+            </div>
+            <div className="card-body">
+              <label htmlFor="timeFormat" className="form-label">Timestamp display</label>
+              <select
+                id="timeFormat"
+                className="form-select"
+                value={timeFormat}
+                onChange={(e) => setTimeFormat(normalizeTimeFormat(e.target.value))}
+              >
+                {TIME_FORMAT_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+              <div className="form-text">
+                {TIME_FORMAT_OPTIONS.find((opt) => opt.value === timeFormat)?.example}
+              </div>
             </div>
           </section>
 

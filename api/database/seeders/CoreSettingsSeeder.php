@@ -25,6 +25,12 @@ final class CoreSettingsSeeder extends Seeder
         $this->put('core.metrics.throttle.per_minute', 30);
         $this->put('core.metrics.throttle.window_seconds', 60);
 
+        // RBAC persistence toggle
+        $this->put('core.rbac.persistence', false);
+
+        // UI defaults
+        $this->put('core.ui.time_format', 'LOCAL');
+
         // Auth bruteforce defaults
         $this->put('core.auth.bruteforce.enabled', true);
         $this->put('core.auth.bruteforce.strategy', 'session');

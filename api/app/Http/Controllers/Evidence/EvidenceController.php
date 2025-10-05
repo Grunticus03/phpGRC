@@ -23,6 +23,8 @@ use Symfony\Component\HttpFoundation\Response;
 
 final class EvidenceController extends Controller
 {
+    private const TIME_FORMATS = ['ISO_8601', 'LOCAL', 'RELATIVE'];
+
     public function store(Request $request, AuditLogger $audit): JsonResponse
     {
         Gate::authorize('core.evidence.manage');
@@ -60,7 +62,16 @@ final class EvidenceController extends Controller
 
         $ownerId      = self::toIntOrZero(Auth::id());
         $originalName = $uploaded->getClientOriginalName();
-        $mime         = $uploaded->getClientMimeType();
+        $guessedMime = $uploaded->getMimeType();
+        $clientMime  = $uploaded->getClientMimeType();
+        $mime = null;
+        if (is_string($guessedMime) && $guessedMime !== '') {
+            $mime = $guessedMime;
+        } elseif ($clientMime !== '') {
+            $mime = $clientMime;
+        } else {
+            $mime = 'application/octet-stream';
+        }
 
         /** @var int|null $sizeMaybe */
         $sizeMaybe = $uploaded->getSize();
@@ -211,6 +222,7 @@ final class EvidenceController extends Controller
 
         $cursorQ  = $request->query('cursor', '');
         $cursor   = is_string($cursorQ) ? $cursorQ : '';
+        $timeFormat = $this->resolveTimeFormat();
         $afterTs  = null;
         $afterId  = null;
         if ($cursor !== '') {
@@ -357,6 +369,7 @@ final class EvidenceController extends Controller
 
         return response()->json([
             'ok'      => true,
+            'time_format' => $timeFormat,
             'filters' => [
                 'order'         => $order,
                 'limit'         => $limit,
@@ -374,6 +387,20 @@ final class EvidenceController extends Controller
             'data'        => $data,
             'next_cursor' => $nextCursor,
         ]);
+    }
+
+    private function resolveTimeFormat(): string
+    {
+        /** @var mixed $raw */
+        $raw = config('core.ui.time_format');
+        if (is_string($raw)) {
+            $upper = strtoupper(trim($raw));
+            if ($upper !== '' && in_array($upper, self::TIME_FORMATS, true)) {
+                return $upper;
+            }
+        }
+
+        return 'LOCAL';
     }
 
     private function etagMatches(string $etag, string $header): bool

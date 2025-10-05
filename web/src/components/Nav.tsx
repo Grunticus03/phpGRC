@@ -18,9 +18,6 @@ export default function Nav({ requireAuth, authed }: NavProps): JSX.Element {
 
   return (
     <header role="banner">
-      <a href="#main" className="visually-hidden-focusable">
-        Skip to content
-      </a>
       <nav className="navbar" role="navigation" aria-label="Primary">
         <div className="container" style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
           <NavLink to="/" className="navbar-brand" aria-label="phpGRC home">

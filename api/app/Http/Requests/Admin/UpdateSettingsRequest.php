@@ -19,7 +19,7 @@ final class UpdateSettingsRequest extends FormRequest
             /** @var array<string,mixed> $merge */
             $merge = [];
 
-            foreach (['rbac', 'audit', 'evidence', 'avatars', 'metrics'] as $section) {
+            foreach (['rbac', 'audit', 'evidence', 'avatars', 'metrics', 'ui'] as $section) {
                 if (array_key_exists($section, $core) && is_array($core[$section])) {
                     /** @var array<string,mixed> $sectionVal */
                     $sectionVal = $core[$section];
@@ -84,6 +84,9 @@ final class UpdateSettingsRequest extends FormRequest
             'avatars.enabled' => ['sometimes', 'boolean'],
             'avatars.size_px' => ['sometimes', 'integer', 'in:128'],
             'avatars.format'  => ['sometimes', 'string', 'in:webp'],
+
+            'ui'             => ['sometimes', 'array'],
+            'ui.time_format' => ['sometimes', 'string', 'in:ISO_8601,LOCAL,RELATIVE'],
 
             // Metrics (DB-backed)
             'metrics'                           => ['sometimes', 'array'],
