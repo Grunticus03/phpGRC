@@ -21,7 +21,15 @@ jobs:
           node-version: "20"
           cache: "npm"
           cache-dependency-path: "web/package-lock.json"
-      - name: Install deps
+      - name: Validate npm lockfile generated on Linux
+        run: |
+          npm install --package-lock-only --ignore-scripts
+          if ! git diff --quiet package-lock.json; then
+            echo '::error::web/package-lock.json must be generated on Linux. Run `npm install --package-lock-only` on Linux and commit the updated lockfile.'
+            git diff package-lock.json
+            exit 1
+          fi
+
         run: npm ci
       - name: ESLint
         run: npm run lint
