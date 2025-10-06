@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { apiDelete, apiGet, apiPost, apiPut, HttpError } from "../../lib/api";
 import { listRoles } from "../../lib/api/rbac";
+import { roleIdsFromNames, roleOptionsFromList, type RoleOption } from "../../lib/roles";
 
 type User = {
   id: number;
@@ -32,7 +33,7 @@ export default function Users() {
   const [meta, setMeta] = useState<Paged<User>["meta"]>({ page: 1, per_page: 25, total: 0, total_pages: 0 });
   const [busy, setBusy] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const [roleOptions, setRoleOptions] = useState<string[]>([]);
+  const [roleOptions, setRoleOptions] = useState<RoleOption[]>([]);
   const [createRoles, setCreateRoles] = useState<string[]>([]);
   const [rolesLoading, setRolesLoading] = useState<boolean>(false);
   const [rolesError, setRolesError] = useState<string | null>(null);
@@ -47,7 +48,7 @@ export default function Users() {
     void listRoles().then((res) => {
       if (!active) return;
       if (res.ok) {
-        setRoleOptions(res.roles ?? []);
+        setRoleOptions(roleOptionsFromList(res.roles ?? []));
       } else {
         setRoleOptions([]);
         setRolesError('Failed to load roles.');
@@ -65,7 +66,8 @@ export default function Users() {
   }, []);
 
   useEffect(() => {
-    setCreateRoles((prev) => prev.filter((role) => roleOptions.includes(role)));
+    const valid = new Set(roleOptions.map((option) => option.id));
+    setCreateRoles((prev) => prev.filter((role) => valid.has(role)));
   }, [roleOptions]);
 
   const load = useCallback(async () => {
@@ -130,10 +132,11 @@ export default function Users() {
     if (email === null) return;
     const rolesInput = prompt("Roles (comma-separated)", u.roles.join(", "));
     if (rolesInput === null) return;
+    const rawRoles = rolesInput.split(",").map((s) => s.trim()).filter(Boolean);
     const payload = {
       name,
       email,
-      roles: rolesInput.split(",").map((s) => s.trim()).filter(Boolean),
+      roles: roleIdsFromNames(rawRoles),
     };
     setBusy(true);
     setError(null);
@@ -270,14 +273,14 @@ export default function Users() {
               }}
               aria-describedby="createRolesHelp"
             >
-              {roleOptions.map((role) => (
-                <option key={role} value={role}>
-                  {role}
+              {roleOptions.map((option) => (
+                <option key={option.id} value={option.id}>
+                  {option.name}
                 </option>
               ))}
             </select>
             <div id="createRolesHelp" className="text-xs text-gray-500">
-              {rolesLoading ? 'Loading roles…' : rolesError ?? (roleOptions.length === 0 ? 'No roles available.' : 'Select one or more roles. Hold Ctrl/Cmd to choose multiple.')}
+              {rolesLoading ? 'Loading rolesï¿½' : rolesError ?? (roleOptions.length === 0 ? 'No roles available.' : 'Select one or more roles. Hold Ctrl/Cmd to choose multiple.')}
             </div>
           </div>
           <button type="submit" disabled={busy} className="px-3 py-2 border rounded disabled:opacity-50">

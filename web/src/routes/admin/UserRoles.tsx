@@ -12,19 +12,20 @@ import {
   type UserSummary,
   type UserSearchOk,
 } from "../../lib/api/rbac";
+import { roleIdsFromNames, roleLabelFromId, roleOptionsFromList, type RoleOption } from "../../lib/roles";
 
 type User = { id: number; name: string; email: string };
 
 export default function UserRoles(): JSX.Element {
   // Role catalog
-  const [allRoles, setAllRoles] = useState<string[]>([]);
+  const [roleOptions, setRoleOptions] = useState<RoleOption[]>([]);
   const [loadingRoles, setLoadingRoles] = useState<boolean>(false);
 
   // Direct lookup by ID
   const [userIdInput, setUserIdInput] = useState<string>("");
   const [loadingUser, setLoadingUser] = useState<boolean>(false);
   const [user, setUser] = useState<User | null>(null);
-  const [userRoles, setUserRoles] = useState<string[]>([]);
+  const [userRoleIds, setUserRoleIds] = useState<string[]>([]);
 
   // Attach/replace state
   const [attachChoice, setAttachChoice] = useState<string>("");
@@ -50,11 +51,18 @@ export default function UserRoles(): JSX.Element {
       setLoadingRoles(true);
       try {
         const res: RoleListResponse = await listRoles();
-        if (!ctl.signal.aborted && res.ok) {
-          setAllRoles(res.roles ?? []);
+        if (ctl.signal.aborted) return;
+        if (res.ok) {
+          setRoleOptions(roleOptionsFromList(res.roles ?? []));
+        } else {
+          setRoleOptions([]);
+          setMsg("Failed to load roles.");
         }
       } catch {
-        setMsg("Failed to load roles.");
+        if (!ctl.signal.aborted) {
+          setRoleOptions([]);
+          setMsg("Failed to load roles.");
+        }
       } finally {
         if (!ctl.signal.aborted) setLoadingRoles(false);
       }
@@ -65,7 +73,7 @@ export default function UserRoles(): JSX.Element {
   async function loadUser() {
     setMsg(null);
     setUser(null);
-    setUserRoles([]);
+    setUserRoleIds([]);
     setReplaceSelection([]);
     const idNum = Number(userIdInput);
     if (!Number.isInteger(idNum) || idNum <= 0) {
@@ -78,9 +86,9 @@ export default function UserRoles(): JSX.Element {
       if (res.ok) {
         const ok = res as UserRolesResponseOk;
         setUser(ok.user);
-        const roles = ok.roles ?? [];
-        setUserRoles(roles);
-        setReplaceSelection(roles);
+        const roleIds = roleIdsFromNames(ok.roles ?? []);
+        setUserRoleIds(roleIds);
+        setReplaceSelection(roleIds);
         setAttachChoice("");
         setMsg(null);
         queueMicrotask(() => attachBtnRef.current?.focus());
@@ -95,8 +103,8 @@ export default function UserRoles(): JSX.Element {
   }
 
   const attachable = useMemo(
-    () => allRoles.filter((r) => !userRoles.includes(r)),
-    [allRoles, userRoles]
+    () => roleOptions.filter((r) => !userRoleIds.includes(r.id)),
+    [roleOptions, userRoleIds]
   );
 
   async function attachRole() {
@@ -107,11 +115,12 @@ export default function UserRoles(): JSX.Element {
       const res = await attachUserRole(user.id, attachChoice);
       if (res.ok) {
         const ok = res as UserRolesResponseOk;
-        const roles = ok.roles ?? [];
-        setUserRoles(roles);
-        setReplaceSelection(roles);
+        const roleIds = roleIdsFromNames(ok.roles ?? []);
+        setUserRoleIds(roleIds);
+        setReplaceSelection(roleIds);
+        const attachedLabel = roleLabelFromId(attachChoice);
         setAttachChoice("");
-        setMsg("Role attached.");
+        setMsg(attachedLabel ? `${attachedLabel} attached.` : "Role attached.");
       } else {
         setMsg(`Attach failed: ${res.code}${res.message ? " - " + res.message : ""}`);
       }
@@ -120,17 +129,18 @@ export default function UserRoles(): JSX.Element {
     }
   }
 
-  async function detachRole(role: string) {
+  async function detachRole(roleId: string) {
     if (!user) return;
     setMsg(null);
     try {
-      const res = await detachUserRole(user.id, role);
+      const res = await detachUserRole(user.id, roleId);
       if (res.ok) {
         const ok = res as UserRolesResponseOk;
-        const roles = ok.roles ?? [];
-        setUserRoles(roles);
-        setReplaceSelection(roles);
-        setMsg("Role detached.");
+        const roleIds = roleIdsFromNames(ok.roles ?? []);
+        setUserRoleIds(roleIds);
+        setReplaceSelection(roleIds);
+        const detachedLabel = roleLabelFromId(roleId);
+        setMsg(detachedLabel ? `${detachedLabel} detached.` : "Role detached.");
       } else {
         setMsg(`Detach failed: ${res.code}${res.message ? " - " + res.message : ""}`);
       }
@@ -161,9 +171,9 @@ export default function UserRoles(): JSX.Element {
       const res = await replaceUserRoles(user.id, replaceSelection);
       if (res.ok) {
         const ok = res as UserRolesResponseOk;
-        const roles = ok.roles ?? [];
-        setUserRoles(roles);
-        setReplaceSelection(roles);
+        const roleIds = roleIdsFromNames(ok.roles ?? []);
+        setUserRoleIds(roleIds);
+        setReplaceSelection(roleIds);
         setMsg("Roles replaced.");
       } else {
         setMsg(`Replace failed: ${res.code}${res.message ? " - " + res.message : ""}`);
@@ -212,7 +222,7 @@ export default function UserRoles(): JSX.Element {
   async function loadUserWith(id: number) {
     setMsg(null);
     setUser(null);
-    setUserRoles([]);
+    setUserRoleIds([]);
     setReplaceSelection([]);
     setLoadingUser(true);
     try {
@@ -220,9 +230,9 @@ export default function UserRoles(): JSX.Element {
       if (res.ok) {
         const ok = res as UserRolesResponseOk;
         setUser(ok.user);
-        const roles = ok.roles ?? [];
-        setUserRoles(roles);
-        setReplaceSelection(roles);
+        const roleIds = roleIdsFromNames(ok.roles ?? []);
+        setUserRoleIds(roleIds);
+        setReplaceSelection(roleIds);
         setAttachChoice("");
         queueMicrotask(() => attachBtnRef.current?.focus());
       } else {
@@ -393,8 +403,8 @@ export default function UserRoles(): JSX.Element {
                     aria-disabled={loadingRoles || attachable.length === 0}
                   >
                     <option value="">Select role…</option>
-                    {attachable.map((r) => (
-                      <option key={r} value={r}>{r}</option>
+                    {attachable.map((option) => (
+                      <option key={option.id} value={option.id}>{option.name}</option>
                     ))}
                   </select>
                   <button
@@ -413,20 +423,23 @@ export default function UserRoles(): JSX.Element {
               <div className="mb-4">
                 <h3 className="h6">Current roles</h3>
                 <ul className="list-unstyled" role="list">
-                  {userRoles.length === 0 && <li className="text-muted">None</li>}
-                  {userRoles.map((r) => (
-                    <li key={r} className="d-flex align-items-center justify-content-between border rounded p-2 mb-2">
-                      <span>{r}</span>
-                      <button
-                        type="button"
-                        className="btn btn-outline-danger btn-sm"
-                        onClick={() => detachRole(r)}
-                        aria-label={`Detach ${r}`}
-                      >
-                        Detach
-                      </button>
-                    </li>
-                  ))}
+                  {userRoleIds.length === 0 && <li className="text-muted">None</li>}
+                  {userRoleIds.map((roleId) => {
+                    const label = roleLabelFromId(roleId) || roleId;
+                    return (
+                      <li key={roleId} className="d-flex align-items-center justify-content-between border rounded p-2 mb-2">
+                        <span>{label}</span>
+                        <button
+                          type="button"
+                          className="btn btn-outline-danger btn-sm"
+                          onClick={() => detachRole(roleId)}
+                          aria-label={`Detach ${label}`}
+                        >
+                          Detach
+                        </button>
+                      </li>
+                    );
+                  })}
                 </ul>
               </div>
 
@@ -438,13 +451,13 @@ export default function UserRoles(): JSX.Element {
                       id="replace_roles"
                       className="form-select"
                       multiple
-                      size={Math.max(4, Math.min(8, allRoles.length || 4))}
+                      size={Math.max(4, Math.min(8, roleOptions.length || 4))}
                       value={replaceSelection}
                       onChange={onReplaceSelectChange}
                       aria-describedby="replace_help"
                     >
-                      {allRoles.map((r) => (
-                        <option key={r} value={r}>{r}</option>
+                      {roleOptions.map((option) => (
+                        <option key={option.id} value={option.id}>{option.name}</option>
                       ))}
                     </select>
                     <div id="replace_help" className="form-text">
@@ -458,7 +471,7 @@ export default function UserRoles(): JSX.Element {
                       onClick={doReplace}
                       disabled={
                         replaceBusy ||
-                        arraysEqualUnordered(replaceSelection, userRoles)
+                        arraysEqualUnordered(replaceSelection, userRoleIds)
                       }
                       aria-busy={replaceBusy}
                     >

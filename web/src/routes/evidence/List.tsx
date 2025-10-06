@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { listEvidence, type Evidence, type EvidenceListOk } from "../../lib/api/evidence";
 import { searchUsers, type UserSummary, type UserSearchOk, type UserSearchMeta } from "../../lib/api/rbac";
-import { formatBytes, formatTimestamp, DEFAULT_TIME_FORMAT, normalizeTimeFormat, type TimeFormat } from "../../lib/formatters";
+import { DEFAULT_TIME_FORMAT, normalizeTimeFormat, type TimeFormat } from "../../lib/format";
+import { primeUsers } from "../../lib/usersCache";
+import EvidenceTable from "./EvidenceTable";
 
 type FetchState = "idle" | "loading" | "error" | "ok";
 
@@ -78,6 +80,7 @@ export default function EvidenceList(): JSX.Element {
         setOwnerResults(ok.data);
         setOwnerMeta(ok.meta);
         setOwnerPage(ok.meta.page);
+        primeUsers(ok.data);
       } else {
         setOwnerResults([]);
         setOwnerMeta(null);
@@ -88,6 +91,7 @@ export default function EvidenceList(): JSX.Element {
   }
 
   function selectOwner(u: UserSummary) {
+    primeUsers([u]);
     setOwnerSelected(u);
     setOwnerResults([]);
     setOwnerMeta(null);
@@ -299,42 +303,7 @@ export default function EvidenceList(): JSX.Element {
       {state === "loading" && <p>Loading…</p>}
       {state === "error" && <p role="alert" className="text-danger">Error: {error}</p>}
 
-      <div className="table-responsive">
-        <table className="table">
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Owner</th>
-              <th>Filename</th>
-              <th>MIME</th>
-              <th>Size</th>
-              <th>Version</th>
-              <th>Created</th>
-              <th>SHA-256</th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.length === 0 && state === "ok" ? (
-              <tr>
-                <td colSpan={8}>No results</td>
-              </tr>
-            ) : (
-              items.map((e) => (
-                <tr key={e.id}>
-                  <td style={{ fontFamily: "monospace" }}>{e.id}</td>
-                  <td>{e.owner_id}</td>
-                  <td>{e.filename}</td>
-                  <td>{e.mime}</td>
-                  <td title={Number.isFinite(e.size) ? `${e.size.toLocaleString()} bytes` : undefined}>{formatBytes(e.size)}</td>
-                  <td>{e.version}</td>
-                  <td title={e.created_at}>{formatTimestamp(e.created_at, timeFormat)}</td>
-                  <td style={{ fontFamily: "monospace" }}>{e.sha256.slice(0, 12)}…</td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+      <EvidenceTable items={items} fetchState={state} timeFormat={timeFormat} />
 
       <nav aria-label="Evidence pagination" className="d-flex align-items-center gap-2">
         <button type="button" className="btn btn-outline-secondary btn-sm" onClick={prevPage} disabled={state !== "ok" || prevStack.length === 0}>

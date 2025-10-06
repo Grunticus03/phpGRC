@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Rbac;
 
 use App\Http\Requests\Rbac\RoleCreateRequest;
 use App\Models\Role;
+use App\Models\User;
 use App\Services\Audit\AuditLogger;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Routing\Controller;
@@ -208,10 +209,26 @@ final class RolesController extends Controller
         try {
             /** @var AuditLogger $logger */
             $logger  = app(AuditLogger::class);
+            $actor   = Auth::user();
             $actorId = Auth::id();
+
+            $actorName  = ($actor instanceof User) ? trim($actor->name) : '';
+            $actorEmail = ($actor instanceof User) ? trim($actor->email) : '';
 
             /** @var non-empty-string $entityId */
             $entityId = $this->nes($role->id);
+
+            $meta = [
+                'role'            => $collapsed,
+                'name'            => $collapsed,
+                'name_normalized' => $nameLower,
+            ];
+            if ($actorName !== '') {
+                $meta['actor_username'] = $actorName;
+            }
+            if ($actorEmail !== '') {
+                $meta['actor_email'] = $actorEmail;
+            }
 
             $logger->log([
                 'actor_id'    => is_int($actorId) ? $actorId : null,
@@ -221,10 +238,7 @@ final class RolesController extends Controller
                 'entity_id'   => $entityId,
                 'ip'          => $request->ip(),
                 'ua'          => $request->userAgent(),
-                'meta'        => [
-                    'name'            => $collapsed,
-                    'name_normalized' => $nameLower,
-                ],
+                'meta'        => $meta,
             ]);
         } catch (\Throwable) {
             // ignore audit errors

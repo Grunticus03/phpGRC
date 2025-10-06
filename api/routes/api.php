@@ -22,6 +22,7 @@ use App\Http\Controllers\Rbac\RolesController;
 use App\Http\Controllers\Rbac\UserRolesController;
 use App\Http\Controllers\Rbac\UserSearchController;
 use App\Http\Middleware\Auth\BruteForceGuard;
+use App\Http\Middleware\Auth\RequireSanctumWhenRequired;
 use App\Http\Middleware\Auth\TokenCookieGuard;
 use App\Http\Middleware\BreakGlassGuard;
 use App\Http\Middleware\GenericRateLimit;
@@ -31,6 +32,7 @@ use App\Services\Settings\SettingsService;
 use Illuminate\Support\Facades\Route;
 
 Route::aliasMiddleware('auth.cookie', TokenCookieGuard::class);
+Route::aliasMiddleware('auth.require_sanctum', RequireSanctumWhenRequired::class);
 
 /*
  |--------------------------------------------------------------------------
@@ -280,9 +282,10 @@ Route::prefix('/rbac')
             ->defaults('roles', ['Admin'])
             ->defaults('policy', 'core.rbac.view');
 
-        // Always requires auth
+        // Require auth only when configured; cookie guard still injects bearer tokens.
         Route::get('/users/search', [UserSearchController::class, 'index'])
-            ->middleware(['auth.cookie', 'auth:sanctum'])
+            ->middleware('auth.cookie')
+            ->middleware('auth.require_sanctum')
             ->middleware(GenericRateLimit::class)
             ->defaults('throttle', ['strategy' => 'user', 'window_seconds' => 60, 'max_requests' => 30])
             ->defaults('roles', ['Admin'])

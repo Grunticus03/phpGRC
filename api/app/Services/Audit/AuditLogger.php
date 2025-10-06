@@ -7,10 +7,26 @@ namespace App\Services\Audit;
 use App\Models\AuditEvent;
 use Carbon\CarbonImmutable;
 use DateTimeInterface;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
 
 final class AuditLogger
 {
+    /**
+     * @var array<string, string>
+     */
+    private const ACTION_ALIASES = [
+        'role.attach'            => 'rbac.user_role.attached',
+        'role.attach_attempt'    => 'rbac.user_role.attached',
+        'role.detach'            => 'rbac.user_role.detached',
+        'role.detach_attempt'    => 'rbac.user_role.detached',
+        'role.replace'           => 'rbac.user_role.replaced',
+        'role.replace_attempt'   => 'rbac.user_role.replaced',
+        'rbac.user_role.attach'  => 'rbac.user_role.attached',
+        'rbac.user_role.detach'  => 'rbac.user_role.detached',
+        'rbac.user_role.replace' => 'rbac.user_role.replaced',
+    ];
+
     /**
      * @param array{
      *   actor_id?: int|null,
@@ -45,14 +61,21 @@ final class AuditLogger
         $actorId = array_key_exists('actor_id', $event) && is_int($event['actor_id']) ? $event['actor_id'] : null;
         $ip      = array_key_exists('ip', $event) && is_string($event['ip']) ? $event['ip'] : null;
         $ua      = array_key_exists('ua', $event) && is_string($event['ua']) ? $event['ua'] : null;
-        $meta    = array_key_exists('meta', $event) && is_array($event['meta']) ? $event['meta'] : null;
+        $metaRaw = array_key_exists('meta', $event) && is_array($event['meta']) ? $event['meta'] : null;
 
-        /** @var AuditEvent $row */
-        $row = AuditEvent::query()->create([
+        $action = $this->canonicalAction($event['action']);
+
+        $meta = $metaRaw;
+        if (is_array($meta)) {
+            /** @var array<string,mixed> $meta */
+            $meta = Arr::whereNotNull($meta);
+        }
+
+        $attributes = [
             'id'          => $id,
             'occurred_at' => $when,
             'actor_id'    => $actorId,
-            'action'      => $event['action'],
+            'action'      => $action,
             'category'    => $event['category'],
             'entity_type' => $event['entity_type'],
             'entity_id'   => $event['entity_id'],
@@ -60,9 +83,28 @@ final class AuditLogger
             'ua'          => $ua,
             'meta'        => $meta,
             'created_at'  => $now,
-        ]);
+        ];
+
+        $preview = new AuditEvent();
+        $preview->fill($attributes);
+
+        $message = AuditMessageFormatter::format($preview);
+        if ($message !== '') {
+            $metaForInsert           = is_array($meta) ? $meta : [];
+            $metaForInsert['message'] = $message;
+            $attributes['meta']       = $metaForInsert;
+        }
+
+        /** @var AuditEvent $row */
+        $row = AuditEvent::query()->create($attributes);
 
         return $row;
+    }
+
+    private function canonicalAction(string $action): string
+    {
+        $key = strtolower($action);
+        return self::ACTION_ALIASES[$key] ?? $action;
     }
 }
 

@@ -42,7 +42,7 @@ final class RbacAuditVerificationTest extends TestCase
             ->count();
     }
 
-    public function test_attach_emits_canonical_and_alias_with_null_actor_when_unauthenticated(): void
+    public function test_attach_emits_canonical_event_with_null_actor_when_unauthenticated(): void
     {
         $u = $this->makeUser('Alice', 'alice@example.com');
 
@@ -55,22 +55,21 @@ final class RbacAuditVerificationTest extends TestCase
             ->where('entity_type', 'user')
             ->where('entity_id', (string) $u->id)
             ->orderBy('occurred_at', 'desc')
-            ->limit(2)
+            ->limit(1)
             ->get()
             ->map(fn ($r) => ['action' => $r->action, 'category' => $r->category, 'actor_id' => $r->actor_id])
             ->all();
 
-        $this->assertCount(2, $rows);
+        $this->assertCount(1, $rows);
         $actions = array_column($rows, 'action');
         $this->assertContains('rbac.user_role.attached', $actions);
-        $this->assertContains('role.attach', $actions);
         foreach ($rows as $r) {
             $this->assertSame('RBAC', $r['category']);
             $this->assertNull($r['actor_id']);
         }
 
         $after = $this->countAuditsForUser($u);
-        $this->assertSame($before + 2, $after);
+        $this->assertSame($before + 1, $after);
     }
 
     public function test_detach_non_assigned_role_is_noop_and_not_audited(): void
@@ -86,7 +85,7 @@ final class RbacAuditVerificationTest extends TestCase
         $this->assertSame($before, $after);
     }
 
-    public function test_attach_same_role_twice_emits_single_audit_pair(): void
+    public function test_attach_same_role_twice_emits_single_audit_record(): void
     {
         $u = $this->makeUser('Carol', 'carol@example.com');
 
@@ -97,10 +96,10 @@ final class RbacAuditVerificationTest extends TestCase
         $secondCount = $this->countAuditsForUser($u);
 
         $this->assertSame($firstCount, $secondCount);
-        $this->assertGreaterThanOrEqual(2, $firstCount);
+        $this->assertGreaterThanOrEqual(1, $firstCount);
     }
 
-    public function test_replace_with_empty_set_clears_and_audits_removed_with_alias(): void
+    public function test_replace_with_empty_set_clears_and_audits_removed(): void
     {
         $u = $this->makeUser('Dave', 'dave@example.com');
         $u->roles()->sync(['role_admin', 'role_auditor']);
@@ -109,21 +108,23 @@ final class RbacAuditVerificationTest extends TestCase
             ->assertStatus(200)
             ->assertJsonFragment(['roles' => []]);
 
-        $pair = AuditEvent::query()
+        $events = AuditEvent::query()
             ->where('entity_type', 'user')
             ->where('entity_id', (string) $u->id)
-            ->whereIn('action', ['rbac.user_role.replaced', 'role.replace'])
+            ->where('action', 'rbac.user_role.replaced')
             ->orderBy('occurred_at', 'desc')
             ->get();
 
-        $this->assertCount(2, $pair);
+        $this->assertCount(1, $events);
 
-        $metas = $pair->pluck('meta')->all(); // casted to array by model
-        $removedSets = array_map(
-            static fn ($m) => is_array($m) && isset($m['removed']) ? $m['removed'] : [],
-            $metas
-        );
-        $flat = array_unique(array_merge(...array_map(fn ($arr) => is_array($arr) ? $arr : [], $removedSets)));
+        $meta = $events->first()?->meta ?? [];
+        $this->assertIsArray($meta);
+        $removed = is_array($meta['removed'] ?? null) ? $meta['removed'] : [];
+        $flat = array_values(array_filter(array_map(
+            static fn ($v) => is_string($v) ? $v : null,
+            $removed
+        )));
+        $flat = array_values(array_unique($flat));
         sort($flat);
         $this->assertSame(['Admin', 'Auditor'], $flat);
     }

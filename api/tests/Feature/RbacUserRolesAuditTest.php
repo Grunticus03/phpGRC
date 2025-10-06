@@ -32,31 +32,23 @@ final class RbacUserRolesAuditTest extends TestCase
         Role::query()->create(['id' => 'role_auditor', 'name' => 'Auditor']);
     }
 
-    public function test_attach_emits_canonical_and_alias_events(): void
+    public function test_attach_emits_canonical_event_with_friendly_message(): void
     {
         $u = $this->makeUser();
 
         $res = $this->postJson("/rbac/users/{$u->id}/roles/Auditor");
         $res->assertStatus(200)->assertJsonPath('ok', true);
 
-        $canonical = AuditEvent::query()
+        $events = AuditEvent::query()
             ->where('action', 'rbac.user_role.attached')
             ->where('category', 'RBAC')
             ->where('entity_type', 'user')
             ->where('entity_id', (string) $u->id)
-            ->latest('occurred_at')
-            ->first();
+            ->get();
 
-        $alias = AuditEvent::query()
-            ->where('action', 'role.attach')
-            ->where('category', 'RBAC')
-            ->where('entity_type', 'user')
-            ->where('entity_id', (string) $u->id)
-            ->latest('occurred_at')
-            ->first();
-
-        $this->assertNotNull($canonical, 'Expected rbac.user_role.attached event');
-        $this->assertNotNull($alias, 'Expected role.attach alias event');
+        $this->assertCount(1, $events);
+        /** @var AuditEvent $canonical */
+        $canonical = $events->first();
 
         $meta = $canonical->meta ?? [];
         $this->assertIsArray($meta);
@@ -64,9 +56,11 @@ final class RbacUserRolesAuditTest extends TestCase
         $this->assertSame('role_auditor', $meta['role_id'] ?? null);
         $this->assertArrayHasKey('before', $meta);
         $this->assertArrayHasKey('after', $meta);
+        $this->assertSame('Test User', $meta['target_username'] ?? null);
+        $this->assertSame('Auditor role applied to Test User by System', $meta['message'] ?? null);
     }
 
-    public function test_detach_emits_canonical_and_alias_events(): void
+    public function test_detach_emits_canonical_event_without_alias(): void
     {
         $u = $this->makeUser();
 
@@ -76,24 +70,16 @@ final class RbacUserRolesAuditTest extends TestCase
         $res = $this->deleteJson("/rbac/users/{$u->id}/roles/Auditor");
         $res->assertStatus(200)->assertJsonPath('ok', true);
 
-        $canonical = AuditEvent::query()
+        $events = AuditEvent::query()
             ->where('action', 'rbac.user_role.detached')
             ->where('category', 'RBAC')
             ->where('entity_type', 'user')
             ->where('entity_id', (string) $u->id)
-            ->latest('occurred_at')
-            ->first();
+            ->get();
 
-        $alias = AuditEvent::query()
-            ->where('action', 'role.detach')
-            ->where('category', 'RBAC')
-            ->where('entity_type', 'user')
-            ->where('entity_id', (string) $u->id)
-            ->latest('occurred_at')
-            ->first();
-
-        $this->assertNotNull($canonical, 'Expected rbac.user_role.detached event');
-        $this->assertNotNull($alias, 'Expected role.detach alias event');
+        $this->assertCount(1, $events);
+        /** @var AuditEvent $canonical */
+        $canonical = $events->first();
 
         $meta = $canonical->meta ?? [];
         $this->assertIsArray($meta);
@@ -101,9 +87,10 @@ final class RbacUserRolesAuditTest extends TestCase
         $this->assertSame('role_auditor', $meta['role_id'] ?? null);
         $this->assertArrayHasKey('before', $meta);
         $this->assertArrayHasKey('after', $meta);
+        $this->assertSame('Auditor role removed from Test User by System', $meta['message'] ?? null);
     }
 
-    public function test_replace_emits_canonical_and_alias_events(): void
+    public function test_replace_emits_canonical_event_with_delta_message(): void
     {
         $u = $this->makeUser();
 
@@ -114,24 +101,16 @@ final class RbacUserRolesAuditTest extends TestCase
 
         $res->assertStatus(200)->assertJsonPath('ok', true);
 
-        $canonical = AuditEvent::query()
+        $events = AuditEvent::query()
             ->where('action', 'rbac.user_role.replaced')
             ->where('category', 'RBAC')
             ->where('entity_type', 'user')
             ->where('entity_id', (string) $u->id)
-            ->latest('occurred_at')
-            ->first();
+            ->get();
 
-        $alias = AuditEvent::query()
-            ->where('action', 'role.replace')
-            ->where('category', 'RBAC')
-            ->where('entity_type', 'user')
-            ->where('entity_id', (string) $u->id)
-            ->latest('occurred_at')
-            ->first();
-
-        $this->assertNotNull($canonical, 'Expected rbac.user_role.replaced event');
-        $this->assertNotNull($alias, 'Expected role.replace alias event');
+        $this->assertCount(1, $events);
+        /** @var AuditEvent $canonical */
+        $canonical = $events->first();
 
         $meta = $canonical->meta ?? [];
         $this->assertIsArray($meta);
@@ -139,6 +118,8 @@ final class RbacUserRolesAuditTest extends TestCase
         $this->assertArrayHasKey('after', $meta);
         $this->assertArrayHasKey('added', $meta);
         $this->assertArrayHasKey('removed', $meta);
+        $this->assertSame('Test User', $meta['target_username'] ?? null);
+        $this->assertSame('Roles updated for Test User (added Admin) by System', $meta['message'] ?? null);
     }
 
     private function makeUser(): User

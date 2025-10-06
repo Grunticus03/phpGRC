@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 import { describe, expect, it, beforeEach, afterEach, vi } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import React from "react";
 import EvidenceList from "../List";
 
@@ -27,6 +27,14 @@ describe("Evidence List", () => {
           ok: true,
           data: [{ id: 42, name: "Alice Admin", email: "alice@example.test" }],
           meta: { page: 1, per_page: 10, total: 1, total_pages: 1 },
+        });
+      }
+
+      if (url.startsWith("/api/rbac/users/42/roles")) {
+        return jsonResponse({
+          ok: true,
+          user: { id: 42, name: "Alice Admin", email: "alice@example.test" },
+          roles: ["admin"],
         });
       }
 
@@ -84,9 +92,27 @@ describe("Evidence List", () => {
       expect(String(last)).toContain("owner_id=42");
     });
 
-    await screen.findByText("report.pdf");
-    await screen.findByText(/1\.21 KB/);
-    await screen.findByText(/2025-09-12 00:00:00/);
+    const evidenceTable = await screen.findByRole("table", { name: "Evidence results" });
+    await within(evidenceTable).findByText("report.pdf");
+    await within(evidenceTable).findByText("Alice Admin");
+    await within(evidenceTable).findByText(/1\.21 KB/);
+    await within(evidenceTable).findByText(/2025-09-12 00:00:00/);
+
+    const headers = within(evidenceTable)
+      .getAllByRole("columnheader")
+      .map((th) => th.textContent?.trim());
+    expect(headers).toEqual([
+      "Created",
+      "Owner",
+      "Filename",
+      "Size",
+      "MIME",
+      "SHA-256",
+      "ID",
+      "Version",
+    ]);
+
+    expect(calls.some((u) => u.startsWith("/api/rbac/users/42/roles"))).toBe(true);
   });
 });
 

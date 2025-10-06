@@ -52,8 +52,28 @@ final class UserRolesController extends Controller
         $actor   = Auth::user();
         $actorId = ($actor instanceof User) ? $actor->id : null;
 
+        $targetName  = trim($target->name);
+        $targetEmail = trim($target->email);
+
+        $actorName  = ($actor instanceof User) ? trim($actor->name) : '';
+        $actorEmail = ($actor instanceof User) ? trim($actor->email) : '';
+
         /** @var non-empty-string $entityId */
         $entityId = $this->nes((string) $target->id);
+
+        $metaWithContext = $meta;
+        if (!isset($metaWithContext['target_username']) && $targetName !== '') {
+            $metaWithContext['target_username'] = $targetName;
+        }
+        if (!isset($metaWithContext['target_email']) && $targetEmail !== '') {
+            $metaWithContext['target_email'] = $targetEmail;
+        }
+        if (!isset($metaWithContext['actor_username']) && $actorName !== '') {
+            $metaWithContext['actor_username'] = $actorName;
+        }
+        if (!isset($metaWithContext['actor_email']) && $actorEmail !== '') {
+            $metaWithContext['actor_email'] = $actorEmail;
+        }
 
         try {
             $logger->log([
@@ -64,28 +84,8 @@ final class UserRolesController extends Controller
                 'entity_id'   => $entityId,
                 'ip'          => $request->ip(),
                 'ua'          => $request->userAgent(),
-                'meta'        => $meta,
+                'meta'        => $metaWithContext,
             ]);
-
-            $alias = match ($action) {
-                'rbac.user_role.attached'  => 'role.attach',
-                'rbac.user_role.detached'  => 'role.detach',
-                'rbac.user_role.replaced'  => 'role.replace',
-                default                    => null,
-            };
-
-            if ($alias !== null) {
-                $logger->log([
-                    'actor_id'    => $actorId,
-                    'action'      => $alias,
-                    'category'    => 'RBAC',
-                    'entity_type' => 'user',
-                    'entity_id'   => $entityId,
-                    'ip'          => $request->ip(),
-                    'ua'          => $request->userAgent(),
-                    'meta'        => $meta,
-                ]);
-            }
         } catch (\Throwable) {
             // swallow audit failures
         }
