@@ -29,8 +29,8 @@ final class RoleReplaceRequest extends FormRequest
     {
         return [
             'roles' => ['present', 'array'],
-            // Names or ids, 2..64, allowed chars only, no whitespace
-            'roles.*' => ['string', 'min:2', 'max:64', 'regex:/^[\p{L}\p{N}_-]{2,64}$/u'],
+            // Names or ids, 2..64 chars, letters/digits/underscore/hyphen/space only
+            'roles.*' => ['string', 'min:2', 'max:64', 'regex:/^[\p{L}\p{N}_\-\s]{2,64}$/u'],
         ];
     }
 
@@ -46,7 +46,7 @@ final class RoleReplaceRequest extends FormRequest
             'roles.*.string' => 'Each role must be a string.',
             'roles.*.min' => 'Each role must be at least 2 characters.',
             'roles.*.max' => 'Each role must be at most 64 characters.',
-            'roles.*.regex' => 'Roles may contain only letters, numbers, underscores, and hyphens.',
+            'roles.*.regex' => 'Roles may contain only letters, numbers, underscores, hyphens, and spaces.',
         ];
     }
 
@@ -72,19 +72,47 @@ final class RoleReplaceRequest extends FormRequest
                     if (! is_string($r)) {
                         continue;
                     }
-                    /** @var string $collapsed */
-                    $collapsed = (string) preg_replace('/\s+/u', ' ', trim($r));
-                    $key = mb_strtolower($collapsed, 'UTF-8');
-                    if (isset($seen[$key])) {
+                    $canonical = $this->canonicalRoleKey($r);
+                    if ($canonical === '') {
+                        continue;
+                    }
+                    if (isset($seen[$canonical])) {
                         $validator->errors()->add('roles', 'Duplicate roles after normalization.');
                         break;
                     }
-                    $seen[$key] = true;
+                    $seen[$canonical] = true;
                 }
             });
         }
 
         return $validator;
+    }
+
+    private function canonicalRoleKey(string $value): string
+    {
+        $value = trim($value);
+        if ($value === '') {
+            return '';
+        }
+
+        if (class_exists('\\Normalizer')) {
+            $normalized = \Normalizer::normalize($value, \Normalizer::FORM_D);
+            if (is_string($normalized)) {
+                $value = $normalized;
+            }
+        }
+
+        $value = (string) preg_replace('/[\p{Mn}]+/u', '', $value);
+        $value = (string) preg_replace('/[^\p{L}\p{N}\s_-]+/u', '', $value);
+        $value = (string) preg_replace('/[\s-]+/u', '_', $value);
+        $value = (string) preg_replace('/_+/u', '_', $value);
+        $value = trim($value, '_');
+
+        if ($value === '') {
+            return '';
+        }
+
+        return mb_strtolower($value, 'UTF-8');
     }
 
     #[\Override]

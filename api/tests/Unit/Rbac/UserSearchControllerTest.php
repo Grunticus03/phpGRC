@@ -163,6 +163,11 @@ final class UserSearchControllerTest extends TestCase
         $roleJson = $this->callController($roleReq)->getData(true);
         $this->assertCount(1, $roleJson['data'] ?? []);
         $this->assertSame($foxtrotOne->id, $roleJson['data'][0]['id'] ?? null);
+
+        $generalRoleReq = Request::create('/rbac/users/search', 'GET', ['q' => 'test']);
+        $generalRoleJson = $this->callController($generalRoleReq)->getData(true);
+        $this->assertNotEmpty($generalRoleJson['data'] ?? []);
+        $this->assertSame($foxtrotOne->id, $generalRoleJson['data'][0]['id'] ?? null);
     }
 
     private function callController(Request $request): JsonResponse

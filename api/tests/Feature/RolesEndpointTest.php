@@ -24,7 +24,7 @@ final class RolesEndpointTest extends TestCase
             ->assertJson([
                 'ok' => true,
                 'note' => 'stub-only',
-                'accepted' => ['name' => 'Compliance-Lead'],
+                'accepted' => ['name' => 'compliance_lead'],
             ]);
     }
 
@@ -38,6 +38,7 @@ final class RolesEndpointTest extends TestCase
 
         $this->postJson('/rbac/roles', ['name' => 'Admin'])
             ->assertStatus(202)
-            ->assertJsonPath('note', 'stub-only');
+            ->assertJsonPath('note', 'stub-only')
+            ->assertJsonPath('accepted.name', 'admin');
     }
 }

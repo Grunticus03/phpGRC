@@ -28,7 +28,8 @@ final class RbacAuditTest extends TestCase
         $this->assertNotNull($row);
 
         $meta = json_decode((string) $row->meta, true, 512, JSON_THROW_ON_ERROR);
-        $this->assertSame('Compliance-Lead', $meta['name'] ?? null);
-        $this->assertSame('compliance-lead', $meta['name_normalized'] ?? null);
+        $this->assertSame('compliance_lead', $meta['name'] ?? null);
+        $this->assertSame('compliance_lead', $meta['name_normalized'] ?? null);
+        $this->assertSame('Compliance Lead', $meta['role_label'] ?? null);
     }
 }

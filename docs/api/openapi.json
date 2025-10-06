@@ -449,7 +449,7 @@
                       "message": "The given data was invalid.",
                       "errors": {
                         "name": [
-                          "Role name may contain only letters, numbers, underscores, and hyphens."
+                          "Role name may contain only letters, numbers, underscores, hyphens, and spaces."
                         ]
                       }
                     }

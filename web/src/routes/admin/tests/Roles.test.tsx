@@ -35,7 +35,7 @@ describe("Admin Roles page", () => {
       const url = typeof input === "string" ? input : (input as Request).url ?? String(input);
       const method = (init?.method ?? "GET").toUpperCase();
       if (method === "GET" && /\/rbac\/roles\b/.test(url)) {
-        return jsonResponse(200, { ok: true, roles: ["Admin", "Auditor"] });
+        return jsonResponse(200, { ok: true, roles: ["admin", "auditor"] });
       }
       return jsonResponse(200, { ok: true });
     }) as unknown as typeof fetch;
@@ -59,7 +59,7 @@ describe("Admin Roles page", () => {
         return jsonResponse(200, { ok: true, roles: [] });
       }
       if (method === "POST" && /\/rbac\/roles\b/.test(url)) {
-        return jsonResponse(201, { ok: true, role: { id: "role_compliance", name: "compliance" } });
+        return jsonResponse(201, { ok: true, role: { id: "role_compliance", name: "compliance_lead" } });
       }
       return jsonResponse(200, { ok: true });
     }) as unknown as typeof fetch;
@@ -84,7 +84,7 @@ describe("Admin Roles page", () => {
       const method = (init?.method ?? "GET").toUpperCase();
 
       if (method === "GET" && /\/rbac\/roles\b/.test(url)) {
-        return jsonResponse(200, { ok: true, roles: ["Admin"] });
+        return jsonResponse(200, { ok: true, roles: ["admin"] });
       }
       if (method === "PATCH" && /\/rbac\/roles\//.test(url)) {
         return jsonResponse(200, { ok: true, role: { id: "role_admin", name: "admin_primary" } });
@@ -115,7 +115,7 @@ describe("Admin Roles page", () => {
       const method = (init?.method ?? "GET").toUpperCase();
 
       if (method === "GET" && /\/rbac\/roles\b/.test(url)) {
-        return jsonResponse(200, { ok: true, roles: ["Admin"] });
+        return jsonResponse(200, { ok: true, roles: ["admin"] });
       }
       if (method === "DELETE" && /\/rbac\/roles\//.test(url)) {
         return jsonResponse(200, { ok: true });

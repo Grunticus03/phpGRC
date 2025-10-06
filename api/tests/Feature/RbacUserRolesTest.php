@@ -25,11 +25,11 @@ final class RbacUserRolesTest extends TestCase
         /** @var User $u */
         $u = User::factory()->create();
 
-        Role::query()->create(['id' => 'role_risk_manager', 'name' => 'risk-manager']);
+        Role::query()->create(['id' => 'role_risk_manager', 'name' => 'risk_manager']);
 
         $this->postJson("/rbac/users/{$u->id}/roles/risk-manager")
             ->assertStatus(200)
-            ->assertJsonFragment(['roles' => ['risk-manager']]);
+            ->assertJsonFragment(['roles' => ['risk_manager']]);
 
         $this->deleteJson("/rbac/users/{$u->id}/roles/risk-manager")
             ->assertStatus(200)

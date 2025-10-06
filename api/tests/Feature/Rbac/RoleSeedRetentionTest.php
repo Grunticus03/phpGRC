@@ -34,7 +34,7 @@ final class RoleSeedRetentionTest extends TestCase
         $this->assertContains('Auditor', $roles);
         $this->assertContains('Risk Manager', $roles);
         $this->assertContains('User', $roles);
-        $this->assertContains('compliance-lead', $roles);
+        $this->assertContains('compliance_lead', $roles);
 
         $response = $this->getJson('/rbac/roles')
             ->assertStatus(200)
@@ -44,10 +44,10 @@ final class RoleSeedRetentionTest extends TestCase
         $this->assertIsArray($response);
         $this->assertArrayHasKey('roles', $response);
         $this->assertIsArray($response['roles']);
-        $this->assertContains('Admin', $response['roles']);
-        $this->assertContains('Auditor', $response['roles']);
-        $this->assertContains('Risk Manager', $response['roles']);
-        $this->assertContains('User', $response['roles']);
-        $this->assertContains('compliance-lead', $response['roles']);
+        $this->assertContains('admin', $response['roles']);
+        $this->assertContains('auditor', $response['roles']);
+        $this->assertContains('risk_manager', $response['roles']);
+        $this->assertContains('user', $response['roles']);
+        $this->assertContains('compliance_lead', $response['roles']);
     }
 }

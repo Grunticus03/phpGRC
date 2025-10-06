@@ -210,7 +210,7 @@ final class UserRolesController extends Controller
         /** @var array{roles:list<string>} $payload */
         $payload = $request->validate([
             'roles' => ['present', 'array'],
-            'roles.*' => ['string', 'min:2', 'max:64', 'regex:/^[\p{L}\p{N}_-]{2,64}$/u'],
+            'roles.*' => ['string', 'min:2', 'max:64', 'regex:/^[\p{L}\p{N}_\-\s]{2,64}$/u'],
         ]);
 
         /** @var User $u */
@@ -286,8 +286,8 @@ final class UserRolesController extends Controller
         }
 
         $norm = self::normalizeRoleName($role);
-        if (! preg_match('/^[\p{L}\p{N}_-]{2,64}$/u', $norm)) {
-            return $this->validationError('role', 'Role name may contain only letters, numbers, underscores, and hyphens.');
+        if (! preg_match('/^[\p{L}\p{N}_\-\s]{2,64}$/u', $norm)) {
+            return $this->validationError('role', 'Role name may contain only letters, numbers, underscores, hyphens, and spaces.');
         }
 
         $roleId = self::resolveRoleId($norm);
@@ -333,8 +333,8 @@ final class UserRolesController extends Controller
         }
 
         $norm = self::normalizeRoleName($role);
-        if (! preg_match('/^[\p{L}\p{N}_-]{2,64}$/u', $norm)) {
-            return $this->validationError('role', 'Role name may contain only letters, numbers, underscores, and hyphens.');
+        if (! preg_match('/^[\p{L}\p{N}_\-\s]{2,64}$/u', $norm)) {
+            return $this->validationError('role', 'Role name may contain only letters, numbers, underscores, hyphens, and spaces.');
         }
 
         $roleId = self::resolveRoleId($norm);

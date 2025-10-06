@@ -260,11 +260,8 @@ export default function UserRoles(): JSX.Element {
               className="form-control"
               value={q}
               onChange={(e) => setQ(e.currentTarget.value)}
-              placeholder="name or email"
+              placeholder="Search name, email, or role"
             />
-            <div className="form-text">
-              Filters: <code>name:"Ada"</code>, <code>email:@example</code>, <code>id:12</code>, <code>role:admin</code>.
-            </div>
           </div>
           <div className="col-6 col-md-2">
             <label htmlFor="per_page" className="form-label">Per page</label>

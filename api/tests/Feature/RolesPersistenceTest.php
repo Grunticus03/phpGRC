@@ -24,18 +24,18 @@ final class RolesPersistenceTest extends TestCase
 
         $create = $this->postJson('/rbac/roles', ['name' => 'Compliance-Lead']);
         $create->assertStatus(201)
-            ->assertJsonPath('role.name', 'compliance-lead');
+            ->assertJsonPath('role.name', 'compliance_lead');
 
         $response = $this->getJson('/rbac/roles')
             ->assertStatus(200)
             ->json('roles');
 
         $this->assertIsArray($response);
-        $this->assertContains('compliance-lead', $response);
-        $this->assertContains('Admin', $response);
-        $this->assertContains('Auditor', $response);
-        $this->assertContains('Risk Manager', $response);
-        $this->assertContains('User', $response);
+        $this->assertContains('compliance_lead', $response);
+        $this->assertContains('admin', $response);
+        $this->assertContains('auditor', $response);
+        $this->assertContains('risk_manager', $response);
+        $this->assertContains('user', $response);
     }
 
     public function test_update_allows_renaming_existing_role(): void

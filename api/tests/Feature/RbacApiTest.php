@@ -25,7 +25,7 @@ final class RbacApiTest extends TestCase
             ->assertJson([
                 'ok' => true,
                 'note' => 'stub-only',
-                'accepted' => ['name' => 'Compliance-Lead'],
+                'accepted' => ['name' => 'compliance_lead'],
             ]);
     }
 }

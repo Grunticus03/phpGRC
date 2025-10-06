@@ -9,7 +9,7 @@ import {
   type DeleteRoleResult,
   type RoleListResponse,
 } from "../../lib/api/rbac";
-import { roleOptionsFromList, type RoleOption } from "../../lib/roles";
+import { roleOptionsFromList, roleLabelFromId, type RoleOption } from "../../lib/roles";
 
 export default function Roles(): JSX.Element {
   const [loading, setLoading] = useState(true);
@@ -53,11 +53,14 @@ export default function Roles(): JSX.Element {
     try {
       const result: CreateRoleResult = await createRole(trimmed);
       if (result.kind === "created") {
-        setMsg(`Created role ${result.roleName} (${result.roleId}).`);
+        const label = roleLabelFromId(result.roleName) ?? result.roleName;
+        setMsg(`Created role ${label} (${result.roleId}).`);
         setName("");
         await load();
       } else if (result.kind === "stub") {
-        setMsg(`Accepted: "${result.acceptedName}". Persistence not implemented.`);
+        const accepted = result.acceptedName ?? trimmed;
+        const label = roleLabelFromId(accepted) ?? accepted;
+        setMsg(`Accepted: "${label}". Persistence not implemented.`);
         setName("");
       } else if (result.kind === "error" && result.code === "FORBIDDEN") {
         setMsg("Forbidden. Admin required.");
@@ -85,11 +88,13 @@ export default function Roles(): JSX.Element {
     try {
       const result: UpdateRoleResult = await updateRole(role.id, trimmed);
       if (result.kind === "updated") {
-        setMsg(`Renamed to ${result.roleName}.`);
+        const label = roleLabelFromId(result.roleName) ?? result.roleName;
+        setMsg(`Renamed to ${label}.`);
         await load();
       } else if (result.kind === "stub") {
         const accepted = result.acceptedName ?? trimmed;
-        setMsg(`Accepted: "${accepted}". Persistence not implemented.`);
+        const label = roleLabelFromId(accepted) ?? accepted;
+        setMsg(`Accepted: "${label}". Persistence not implemented.`);
       } else {
         setMsg(result.message ?? result.code ?? "Rename failed.");
       }
@@ -101,14 +106,15 @@ export default function Roles(): JSX.Element {
   }
 
   async function removeRole(role: RoleOption) {
-    if (!confirm(`Delete ${role.name}?`)) return;
+    const label = role.name;
+    if (!confirm(`Delete ${label}?`)) return;
 
     setSubmitting(true);
     setMsg(null);
     try {
       const result: DeleteRoleResult = await deleteRole(role.id);
       if (result.kind === "deleted") {
-        setMsg(`${role.name} deleted.`);
+        setMsg(`${label} deleted.`);
         await load();
       } else if (result.kind === "stub") {
         setMsg("Accepted. Persistence not implemented.");
@@ -155,7 +161,6 @@ export default function Roles(): JSX.Element {
             <thead>
               <tr>
                 <th scope="col">Role</th>
-                <th scope="col">Canonical</th>
                 <th scope="col" style={{ width: "14rem" }}>Actions</th>
               </tr>
             </thead>
@@ -163,9 +168,6 @@ export default function Roles(): JSX.Element {
               {roles.map((role) => (
                 <tr key={role.id}>
                   <td>{role.name}</td>
-                  <td>
-                    <code>{role.id}</code>
-                  </td>
                   <td className="d-flex gap-2">
                     <button
                       type="button"

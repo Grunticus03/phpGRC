@@ -90,9 +90,16 @@ final class UserSearchController extends Controller
 
         foreach ($filters['terms'] as $term) {
             $like = '%'.$this->escapeLike($term).'%';
-            $base->where(static function (Builder $w) use ($like): void {
+            $lower = mb_strtolower($term, 'UTF-8');
+            $base->where(static function (Builder $w) use ($like, $lower): void {
                 $w->where('name', 'like', $like)
-                    ->orWhere('email', 'like', $like);
+                    ->orWhere('email', 'like', $like)
+                    ->orWhereHas('roles', static function (Builder $q) use ($like, $lower): void {
+                        $q->where('roles.name', 'like', $like)
+                            ->orWhere('roles.id', 'like', $like)
+                            ->orWhereRaw('LOWER(roles.name) LIKE ?', ['%'.$lower.'%'])
+                            ->orWhereRaw('LOWER(roles.id) LIKE ?', ['%'.$lower.'%']);
+                    });
             });
         }
 

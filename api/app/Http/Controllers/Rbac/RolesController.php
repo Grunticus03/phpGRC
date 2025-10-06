@@ -14,8 +14,6 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Schema;
-use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Str;
 
 use function array_key_exists;
 
@@ -68,21 +66,13 @@ final class RolesController extends Controller
         if (! $this->persistenceEnabled()) {
             /** @var array<array-key, mixed> $cfgArr */
             $cfgArr = (array) config('core.rbac.roles', ['Admin', 'Auditor', 'Risk Manager', 'User']);
+            $roles = $this->canonicalizeRoleNames($cfgArr);
 
-            /** @var list<string> $cfg */
-            $cfg = array_values(array_filter(
-                array_map(
-                    static fn (mixed $v): ?string => is_string($v) ? $v : null,
-                    $cfgArr
-                ),
-                static fn (?string $v): bool => $v !== null
-            ));
-
-            if ($cfg === []) {
-                $cfg = ['Admin', 'Auditor', 'Risk Manager', 'User'];
+            if ($roles === []) {
+                $roles = ['admin', 'auditor', 'risk_manager', 'user'];
             }
 
-            return response()->json(['ok' => true, 'roles' => $cfg], 200);
+            return response()->json(['ok' => true, 'roles' => $roles], 200);
         }
 
         /** @var list<string> $names */
@@ -92,28 +82,18 @@ final class RolesController extends Controller
             $namesFromDb = Role::query()
                 ->orderBy('name')
                 ->pluck('name')
-                ->filter(static fn ($v): bool => is_string($v))
-                ->values()
                 ->all();
-            $names = $namesFromDb;
+            $names = $this->canonicalizeRoleNames($namesFromDb);
         }
+
         if ($names === []) {
             /** @var array<array-key, mixed> $fallbackArr */
             $fallbackArr = (array) config('core.rbac.roles', ['Admin', 'Auditor', 'Risk Manager', 'User']);
+            $names = $this->canonicalizeRoleNames($fallbackArr);
 
-            /** @var list<string> $fallback */
-            $fallback = array_values(array_filter(
-                array_map(
-                    static fn (mixed $v): ?string => is_string($v) ? $v : null,
-                    $fallbackArr
-                ),
-                static fn (?string $v): bool => $v !== null
-            ));
-
-            if ($fallback === []) {
-                $fallback = ['Admin', 'Auditor', 'Risk Manager', 'User'];
+            if ($names === []) {
+                $names = ['admin', 'auditor', 'risk_manager', 'user'];
             }
-            $names = $fallback;
         }
 
         return response()->json(['ok' => true, 'roles' => $names], 200);
@@ -122,73 +102,44 @@ final class RolesController extends Controller
     public function store(RoleCreateRequest $request): JsonResponse
     {
         if (! $this->persistenceEnabled() || ! Schema::hasTable('roles')) {
+            $raw = $request->string('name')->toString();
+            $collapsed = $this->normalizeRoleName($raw);
+            $canonical = $this->canonicalRoleKey($collapsed);
+
             return response()->json([
                 'ok' => true,
                 'note' => 'stub-only',
-                'accepted' => ['name' => $request->string('name')->toString()],
+                'accepted' => ['name' => $canonical !== '' ? $canonical : $collapsed],
             ], 202);
         }
 
         $this->ensureSeedDefaults();
 
-        $raw = $request->string('name')->toString();
-        $trimmed = trim($raw);
-        /** @var string $collapsed */
-        $collapsed = (string) preg_replace('/\s+/u', ' ', $trimmed);
-        $nameLower = mb_strtolower($collapsed, 'UTF-8');
-
-        /** @var list<string> $existingNames */
-        $existingNames = array_values(array_map(
-            static fn ($v): string => (string) $v,
-            Role::query()
-                ->pluck('name')
-                ->filter(static fn ($v): bool => is_string($v))
-                ->all()
-        ));
-
-        foreach ($existingNames as $ex) {
-            if (mb_strtolower($ex, 'UTF-8') === $nameLower) {
-                return response()->json([
-                    'ok' => false,
-                    'code' => 'VALIDATION_FAILED',
-                    'message' => 'The given data was invalid.',
-                    'errors' => ['name' => ['Role already exists after normalization.']],
-                ], 422);
-            }
+        $normalized = $this->normalizeRoleNameInput($request->string('name')->toString());
+        if ($normalized instanceof JsonResponse) {
+            return $normalized;
         }
 
-        $base = 'role_'.Str::slug($raw, '_');
+        $canonical = $normalized['canonical'];
+        $display = $normalized['display'];
 
-        if (Role::query()->whereKey($base)->exists()) {
-            /** @var list<string> $siblings */
-            $siblings = Role::query()
-                ->where('id', 'like', $base.'\_%')
-                ->pluck('id')
-                ->filter(static fn ($v): bool => is_string($v))
-                ->values()
-                ->all();
-
-            $max = 0;
-            foreach ($siblings as $sibId) {
-                if (preg_match('/^'.preg_quote($base, '/').'_(\d+)$/', $sibId, $m) === 1) {
-                    $n = (int) $m[1];
-                    if ($n > $max) {
-                        $max = $n;
-                    }
-                }
+        $baseId = 'role_'.$canonical;
+        $id = $baseId;
+        if (Role::query()->whereKey($id)->exists()) {
+            $suffix = 1;
+            while (Role::query()->whereKey($baseId.'_'.$suffix)->exists()) {
+                $suffix++;
             }
-            $id = $base.'_'.($max + 1);
-        } else {
-            $id = $base;
+            $id = $baseId.'_'.$suffix;
         }
 
-        // store normalized lowercase
-        $role = Role::query()->create(['id' => $id, 'name' => $nameLower]);
+        $role = Role::query()->create(['id' => $id, 'name' => $canonical]);
 
         $this->logRoleAudit($request, 'rbac.role.created', $role, [
-            'role' => $collapsed,
-            'name' => $collapsed,
-            'name_normalized' => $nameLower,
+            'role' => $canonical,
+            'name' => $canonical,
+            'name_normalized' => $canonical,
+            'role_label' => $display,
         ]);
 
         return response()->json([
@@ -200,12 +151,20 @@ final class RolesController extends Controller
     public function update(Request $request, string $role): JsonResponse
     {
         if (! $this->persistenceEnabled() || ! Schema::hasTable('roles')) {
+            $raw = $request->input('name');
+            $accepted = null;
+            if (is_string($raw)) {
+                $collapsed = $this->normalizeRoleName($raw);
+                $canonical = $this->canonicalRoleKey($collapsed);
+                $accepted = $canonical !== '' ? $canonical : $collapsed;
+            }
+
             return response()->json([
                 'ok' => true,
                 'note' => 'stub-only',
                 'accepted' => [
                     'role' => $role,
-                    'name' => is_string($request->input('name')) ? $request->input('name') : null,
+                    'name' => $accepted,
                 ],
             ], 202);
         }
@@ -219,16 +178,22 @@ final class RolesController extends Controller
             ], 404);
         }
 
-        $validated = $this->validateRoleNameInput($request, $target);
-        if ($validated instanceof JsonResponse) {
-            return $validated;
+        /** @var mixed $raw */
+        $raw = $request->input('name');
+        if (! is_string($raw)) {
+            return $this->validationFailed(['name' => ['Role name is required.']]);
+        }
+
+        $normalized = $this->normalizeRoleNameInput($raw, $target);
+        if ($normalized instanceof JsonResponse) {
+            return $normalized;
         }
 
         $previousName = $target->name;
-        $collapsed = $validated['collapsed'];
-        $normalized = $validated['normalized'];
+        $canonical = $normalized['canonical'];
+        $display = $normalized['display'];
 
-        if ($previousName === $normalized) {
+        if ($previousName === $canonical) {
             return response()->json([
                 'ok' => true,
                 'role' => ['id' => $target->id, 'name' => $target->name],
@@ -236,13 +201,14 @@ final class RolesController extends Controller
             ], 200);
         }
 
-        $target->name = $normalized;
+        $target->name = $canonical;
         $target->save();
 
         $this->logRoleAudit($request, 'rbac.role.updated', $target, [
-            'role' => $collapsed,
-            'name' => $collapsed,
-            'name_normalized' => $normalized,
+            'role' => $canonical,
+            'name' => $canonical,
+            'name_normalized' => $canonical,
+            'role_label' => $display,
             'name_previous' => $previousName,
         ]);
 
@@ -275,6 +241,7 @@ final class RolesController extends Controller
             'name' => $target->name,
             'role_id' => $target->id,
             'name_normalized' => $target->name,
+            'role_label' => $this->humanizeRole($target->name),
         ];
 
         $this->logRoleAudit($request, 'rbac.role.deleted', $target, $meta);
@@ -310,63 +277,82 @@ final class RolesController extends Controller
     }
 
     /**
-     * @return array{collapsed:string, normalized:string}|JsonResponse
+     * @return array{display:string, canonical:string}|JsonResponse
      */
-    private function validateRoleNameInput(Request $request, ?Role $ignore = null): array|JsonResponse
+    private function normalizeRoleNameInput(string $raw, ?Role $ignore = null): array|JsonResponse
     {
-        /** @var mixed $raw */
-        $raw = $request->input('name');
-        if (! is_string($raw)) {
+        $collapsed = $this->normalizeRoleName($raw);
+        if ($collapsed === '') {
             return $this->validationFailed(['name' => ['Role name is required.']]);
         }
 
-        /** @var string $collapsed */
-        $collapsed = (string) preg_replace('/\s+/u', ' ', trim($raw));
-
-        $validator = Validator::make(
-            ['name' => $collapsed],
-            [
-                'name' => ['required', 'string', 'min:2', 'max:64', 'regex:/^[\p{L}\p{N}_-]{2,64}$/u'],
-            ],
-            [
-                'name.required' => 'Role name is required.',
-                'name.string' => 'Role name must be a string.',
-                'name.min' => 'Role name must be at least 2 characters.',
-                'name.max' => 'Role name must be at most 64 characters.',
-                'name.regex' => 'Role name may contain only letters, numbers, underscores, and hyphens.',
-            ]
-        );
-
-        if ($validator->fails()) {
-            /** @var array<string,list<string>> $errors */
-            $errors = $validator->errors()->toArray();
-
-            return $this->validationFailed($errors);
+        $canonical = $this->canonicalRoleKey($collapsed);
+        if ($canonical === '') {
+            return $this->validationFailed(['name' => ['Role name must contain letters or numbers.']]);
         }
 
-        $normalized = mb_strtolower($collapsed, 'UTF-8');
+        $length = mb_strlen($canonical, 'UTF-8');
+        if ($length < 2 || $length > 64) {
+            return $this->validationFailed(['name' => ['Role name must normalize to between 2 and 64 characters.']]);
+        }
 
-        $query = Role::query()->whereRaw('LOWER(name) = ?', [$normalized]);
+        $query = Role::query()->whereRaw('LOWER(name) = ?', [$canonical]);
         if ($ignore instanceof Role) {
-            /** @var string|null $attr */
-            $attr = $ignore->getAttribute('id');
-            if (is_string($attr) && $attr !== '') {
-                $query->where('id', '!=', $attr);
+            /** @var mixed $ignoreId */
+            $ignoreId = $ignore->getAttribute('id');
+            if (is_string($ignoreId) && $ignoreId !== '') {
+                $query->where('id', '!=', $ignoreId);
             }
         }
 
-        $exists = $query->exists();
-
-        if ($exists) {
+        if ($query->exists()) {
             return $this->validationFailed(['name' => ['Role already exists after normalization.']]);
         }
 
-        return ['collapsed' => $collapsed, 'normalized' => $normalized];
+        return ['display' => $this->humanizeRole($canonical), 'canonical' => $canonical];
     }
 
     private function normalizeRoleName(string $value): string
     {
         return (string) preg_replace('/\s+/u', ' ', trim($value));
+    }
+
+    /**
+     * @param  iterable<mixed>  $values
+     * @return list<string>
+     */
+    private function canonicalizeRoleNames(iterable $values): array
+    {
+        /** @var array<string, true> $unique */
+        $unique = [];
+        foreach ($values as $value) {
+            if (! is_string($value)) {
+                continue;
+            }
+
+            $canonical = $this->canonicalRoleKey($value);
+            if ($canonical === '') {
+                continue;
+            }
+
+            $unique[$canonical] = true;
+        }
+
+        $names = array_keys($unique);
+        sort($names, SORT_STRING);
+
+        return $names;
+    }
+
+    private function humanizeRole(string $canonical): string
+    {
+        if ($canonical === '') {
+            return '';
+        }
+
+        $withSpaces = str_replace('_', ' ', $canonical);
+
+        return ucwords($withSpaces);
     }
 
     private function canonicalRoleKey(string $value): string

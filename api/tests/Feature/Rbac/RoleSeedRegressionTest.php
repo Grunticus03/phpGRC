@@ -23,10 +23,10 @@ final class RoleSeedRegressionTest extends TestCase
         $this->assertIsArray($initial);
         $this->assertArrayHasKey('roles', $initial);
         $this->assertIsArray($initial['roles']);
-        $this->assertContains('Admin', $initial['roles']);
-        $this->assertContains('Auditor', $initial['roles']);
-        $this->assertContains('Risk Manager', $initial['roles']);
-        $this->assertContains('User', $initial['roles']);
+        $this->assertContains('admin', $initial['roles']);
+        $this->assertContains('auditor', $initial['roles']);
+        $this->assertContains('risk_manager', $initial['roles']);
+        $this->assertContains('user', $initial['roles']);
 
         $this->postJson('/rbac/roles', ['name' => 'Compliance-Lead'])
             ->assertStatus(201);
@@ -36,10 +36,10 @@ final class RoleSeedRegressionTest extends TestCase
             ->json('roles');
 
         $this->assertIsArray($after);
-        $this->assertContains('Admin', $after);
-        $this->assertContains('Auditor', $after);
-        $this->assertContains('Risk Manager', $after);
-        $this->assertContains('User', $after);
-        $this->assertContains('compliance-lead', $after);
+        $this->assertContains('admin', $after);
+        $this->assertContains('auditor', $after);
+        $this->assertContains('risk_manager', $after);
+        $this->assertContains('user', $after);
+        $this->assertContains('compliance_lead', $after);
     }
 }

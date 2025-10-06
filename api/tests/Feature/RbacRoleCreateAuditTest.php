@@ -30,9 +30,10 @@ final class RbacRoleCreateAuditTest extends TestCase
         $this->assertNotNull($row);
 
         $meta = json_decode((string) $row->meta, true, 512, JSON_THROW_ON_ERROR);
-        $this->assertSame('Compliance-Lead', $meta['name'] ?? null);
-        $this->assertSame('compliance-lead', $meta['name_normalized'] ?? null);
-        $this->assertSame('Compliance-Lead created by System', $meta['message'] ?? null);
+        $this->assertSame('compliance_lead', $meta['name'] ?? null);
+        $this->assertSame('compliance_lead', $meta['name_normalized'] ?? null);
+        $this->assertSame('compliance_lead created by System', $meta['message'] ?? null);
+        $this->assertSame('Compliance Lead', $meta['role_label'] ?? null);
     }
 
     public function test_role_update_emits_rbac_role_updated_audit(): void
@@ -53,8 +54,8 @@ final class RbacRoleCreateAuditTest extends TestCase
         $this->assertNotNull($row);
 
         $meta = json_decode((string) $row->meta, true, 512, JSON_THROW_ON_ERROR);
-        $this->assertSame('Admin_Primary renamed from Admin by System', $meta['message'] ?? null);
-        $this->assertSame('Admin_Primary', $meta['name'] ?? null);
+        $this->assertSame('admin_primary renamed from Admin by System', $meta['message'] ?? null);
+        $this->assertSame('admin_primary', $meta['name'] ?? null);
         $this->assertSame('Admin', $meta['name_previous'] ?? null);
     }
 

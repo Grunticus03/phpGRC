@@ -45,8 +45,8 @@ final class RoleCreateRequest extends FormRequest
     public function rules(): array
     {
         $base = [
-            // 2..64 chars, Unicode letters/digits/_/-, no whitespace
-            'name' => ['bail', 'required', 'string', 'min:2', 'max:64', 'regex:/^[\p{L}\p{N}_-]{2,64}$/u'],
+            // 2..64 chars, Unicode letters/digits/_/-/space
+            'name' => ['bail', 'required', 'string', 'min:2', 'max:64', 'regex:/^[\p{L}\p{N}_\-\s]{2,64}$/u'],
         ];
 
         if (! $this->persistenceEnabled()) {
@@ -71,7 +71,7 @@ final class RoleCreateRequest extends FormRequest
             'name.string' => 'Role name must be a string.',
             'name.min' => 'Role name must be at least 2 characters.',
             'name.max' => 'Role name must be at most 64 characters.',
-            'name.regex' => 'Role name may contain only letters, numbers, underscores, and hyphens.',
+            'name.regex' => 'Role name may contain only letters, numbers, underscores, hyphens, and spaces.',
             'name.unique' => 'Role already exists.',
             'name.not_in' => 'Role already exists.',
         ];
