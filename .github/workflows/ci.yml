@@ -316,7 +316,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: ${{ needs.api_deps.outputs.vendor_artifact }}
-          path: .
+          path: ..
       - name: Check migration/doc drift
         if: steps.guard.outputs.skip != 'true'
         env:
@@ -429,7 +429,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: ${{ needs.api_deps.outputs.vendor_artifact }}
-          path: .
+          path: ..
       - name: Laravel Pint
         if: steps.guard.outputs.skip != 'true'
         run: vendor/bin/pint -v
@@ -496,7 +496,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: ${{ needs.api_deps.outputs.vendor_artifact }}
-          path: .
+          path: ..
       - name: Wait for MySQL (PDO probe)
         if: steps.guard.outputs.skip != 'true'
         run: |
@@ -688,7 +688,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: ${{ needs.api_deps.outputs.vendor_artifact }}
-          path: .
+          path: ..
       - name: Psalm Security (SARIF)
         if: steps.guard.outputs.skip != 'true'
         run: vendor/bin/psalm --taint-analysis --no-progress --output-format=sarif --report=results.sarif
