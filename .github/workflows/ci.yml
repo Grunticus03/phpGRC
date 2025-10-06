@@ -202,14 +202,7 @@ jobs:
           path: openapi-diff.html
       - name: Cleanup
         if: steps.guard.outputs.skip != 'true'
-        shell: bash
-        run: |
-          python3 - <<'PY'
-            import os
-            for path in ('.bin/openapi-diff-cli.jar', 'openapi.old.yaml', 'openapi.new.yaml', 'openapi-diff.html'):
-            if os.path.exists(path):
-              os.remove(path)
-          PY
+        run: rm -f .bin/openapi-diff-cli.jar openapi.old.yaml openapi.new.yaml openapi-diff.html
       - name: Skipped
         if: steps.guard.outputs.skip == 'true'
         run: echo '::notice::Breaking-change check skipped (no OpenAPI diffs needed).'
@@ -314,12 +307,15 @@ jobs:
           coverage: none
           tools: composer:v2
           extensions: pdo_mysql
+      - name: Clear vendor directory
+        if: steps.guard.outputs.skip != 'true'
+        run: rm -rf api/vendor
       - name: Download vendor artifact
         if: steps.guard.outputs.skip != 'true'
         uses: actions/download-artifact@v4
         with:
           name: ${{ needs.api_deps.outputs.vendor_artifact }}
-          path: api
+          path: .
       - name: Check migration/doc drift
         if: steps.guard.outputs.skip != 'true'
         env:
@@ -331,7 +327,9 @@ jobs:
         if: steps.guard.outputs.skip != 'true'
         working-directory: api
         run: |
-          cp -n .env.example .env || true
+          if [ ! -f .env ]; then
+            cp .env.example .env
+          fi
           php artisan key:generate
       - name: Wait for MySQL (TCP)
         if: steps.guard.outputs.skip != 'true'
@@ -389,14 +387,7 @@ jobs:
             /tmp/schema.live.norm
       - name: Cleanup temp schema outputs
         if: steps.guard.outputs.skip != 'true'
-        shell: bash
-        run: |
-          python3 - <<'PY'
-            import os
-            for path in ('docs/db/schema.live.md', '/tmp/schema.doc.norm', '/tmp/schema.live.norm'):
-            if os.path.exists(path):
-            os.remove(path)
-          PY
+        run: rm -f docs/db/schema.live.md /tmp/schema.doc.norm /tmp/schema.live.norm
       - name: Skipped
         if: steps.guard.outputs.skip == 'true'
         run: echo '::notice::No schema-doc changes; skipping drift guard.'
@@ -429,12 +420,15 @@ jobs:
           coverage: none
           tools: composer:v2
           extensions: mbstring, intl, pdo_mysql, dom, xml, pcntl, posix, bcmath, fileinfo
+      - name: Clear vendor directory
+        if: steps.guard.outputs.skip != 'true'
+        run: rm -rf vendor
       - name: Download vendor artifact
         if: steps.guard.outputs.skip != 'true'
         uses: actions/download-artifact@v4
         with:
           name: ${{ needs.api_deps.outputs.vendor_artifact }}
-          path: api
+          path: .
       - name: Laravel Pint
         if: steps.guard.outputs.skip != 'true'
         run: vendor/bin/pint -v
@@ -493,12 +487,15 @@ jobs:
           coverage: xdebug
           tools: composer:v2
           extensions: mbstring, intl, pdo_mysql
+      - name: Clear vendor directory
+        if: steps.guard.outputs.skip != 'true'
+        run: rm -rf vendor
       - name: Download vendor artifact
         if: steps.guard.outputs.skip != 'true'
         uses: actions/download-artifact@v4
         with:
           name: ${{ needs.api_deps.outputs.vendor_artifact }}
-          path: api
+          path: .
       - name: Wait for MySQL (PDO probe)
         if: steps.guard.outputs.skip != 'true'
         run: |
@@ -682,12 +679,15 @@ jobs:
           php-version: '8.3'
           coverage: none
           tools: composer:v2
+      - name: Clear vendor directory
+        if: steps.guard.outputs.skip != 'true'
+        run: rm -rf vendor
       - name: Download vendor artifact
         if: steps.guard.outputs.skip != 'true'
         uses: actions/download-artifact@v4
         with:
           name: ${{ needs.api_deps.outputs.vendor_artifact }}
-          path: api
+          path: .
       - name: Psalm Security (SARIF)
         if: steps.guard.outputs.skip != 'true'
         run: vendor/bin/psalm --taint-analysis --no-progress --output-format=sarif --report=results.sarif
