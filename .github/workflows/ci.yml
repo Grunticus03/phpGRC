@@ -253,6 +253,7 @@ jobs:
           restore-keys: ${{ runner.os }}-composer-
       - name: Install dependencies
         if: steps.guard.outputs.skip != 'true'
+        working-directory: api
         run: composer install --no-interaction --prefer-dist --no-progress
       - name: Upload vendor artifact
         if: steps.guard.outputs.skip != 'true'
