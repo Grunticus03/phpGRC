@@ -316,15 +316,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: ${{ needs.api_deps.outputs.vendor_artifact }}
-          path: .
-      - name: Restore vendor directory
-        if: steps.guard.outputs.skip != 'true'
-        run: |
-          if [ -d api/vendor ]; then
-            rm -rf vendor
-            mv api/vendor ./vendor
-            rmdir api 2>/dev/null || true
-          fi
+          path: api
       - name: Check migration/doc drift
         if: steps.guard.outputs.skip != 'true'
         env:
@@ -437,15 +429,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: ${{ needs.api_deps.outputs.vendor_artifact }}
-          path: .
-      - name: Restore vendor directory
-        if: steps.guard.outputs.skip != 'true'
-        run: |
-          if [ -d api/vendor ]; then
-            rm -rf vendor
-            mv api/vendor ./vendor
-            rmdir api 2>/dev/null || true
-          fi
+          path: api
       - name: Laravel Pint
         if: steps.guard.outputs.skip != 'true'
         run: vendor/bin/pint -v
@@ -512,15 +496,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: ${{ needs.api_deps.outputs.vendor_artifact }}
-          path: .
-      - name: Restore vendor directory
-        if: steps.guard.outputs.skip != 'true'
-        run: |
-          if [ -d api/vendor ]; then
-            rm -rf vendor
-            mv api/vendor ./vendor
-            rmdir api 2>/dev/null || true
-          fi
+          path: api
       - name: Wait for MySQL (PDO probe)
         if: steps.guard.outputs.skip != 'true'
         run: |
@@ -712,15 +688,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: ${{ needs.api_deps.outputs.vendor_artifact }}
-          path: .
-      - name: Restore vendor directory
-        if: steps.guard.outputs.skip != 'true'
-        run: |
-          if [ -d api/vendor ]; then
-            rm -rf vendor
-            mv api/vendor ./vendor
-            rmdir api 2>/dev/null || true
-          fi
+          path: api
       - name: Psalm Security (SARIF)
         if: steps.guard.outputs.skip != 'true'
         run: vendor/bin/psalm --taint-analysis --no-progress --output-format=sarif --report=results.sarif

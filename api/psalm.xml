@@ -5,7 +5,7 @@
   xsi:schemaLocation="https://getpsalm.org/schema/config vendor/vimeo/psalm/config.xsd"
   resolveFromConfigFile="true"
   errorLevel="1"
-  threads="8"
+  threads="16"
   cacheDirectory="build/psalm"
   findUnusedCode="false"
 >
