@@ -392,11 +392,11 @@ PY
         shell: bash
         run: |
           python3 - <<'PY'
-import os
-for path in ('docs/db/schema.live.md', '/tmp/schema.doc.norm', '/tmp/schema.live.norm'):
-    if os.path.exists(path):
-        os.remove(path)
-PY
+            import os
+            for path in ('docs/db/schema.live.md', '/tmp/schema.doc.norm', '/tmp/schema.live.norm'):
+            if os.path.exists(path):
+            os.remove(path)
+          PY
       - name: Skipped
         if: steps.guard.outputs.skip == 'true'
         run: echo '::notice::No schema-doc changes; skipping drift guard.'
