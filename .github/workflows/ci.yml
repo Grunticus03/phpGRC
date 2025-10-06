@@ -205,11 +205,11 @@ jobs:
         shell: bash
         run: |
           python3 - <<'PY'
-import os
-for path in ('.bin/openapi-diff-cli.jar', 'openapi.old.yaml', 'openapi.new.yaml', 'openapi-diff.html'):
-    if os.path.exists(path):
-        os.remove(path)
-PY
+            import os
+            for path in ('.bin/openapi-diff-cli.jar', 'openapi.old.yaml', 'openapi.new.yaml', 'openapi-diff.html'):
+            if os.path.exists(path):
+              os.remove(path)
+          PY
       - name: Skipped
         if: steps.guard.outputs.skip == 'true'
         run: echo '::notice::Breaking-change check skipped (no OpenAPI diffs needed).'
