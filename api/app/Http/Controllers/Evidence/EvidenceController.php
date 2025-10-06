@@ -105,7 +105,7 @@ final class EvidenceController extends Controller
         });
 
         if (config('core.audit.enabled', true) && Schema::hasTable('audit_events')) {
-            $actorId = self::toIntOrNull($request->user()?->getAuthIdentifier());
+            $actorId = $this->resolveActorId($request);
 
             /** @var non-empty-string $entityId */
             $entityId = $this->nes($saved['id']);
@@ -141,7 +141,7 @@ final class EvidenceController extends Controller
 
     public function show(Request $request, string $id, AuditLogger $audit): Response
     {
-        Gate::authorize('core.evidence.view');
+        $this->authorizeViewWhenRequired();
 
         /** @var Evidence|null $ev */
         $ev = Evidence::query()->find($id, ['id', 'owner_id', 'filename', 'mime', 'size_bytes', 'sha256', 'version', 'created_at']);
@@ -178,7 +178,7 @@ final class EvidenceController extends Controller
         ];
 
         if (config('core.audit.enabled', true) && Schema::hasTable('audit_events')) {
-            $actorId = self::toIntOrNull($request->user()?->getAuthIdentifier());
+            $actorId = $this->resolveActorId($request);
 
             /** @var non-empty-string $entityId */
             $entityId = $this->nes($ev->id);
@@ -232,7 +232,7 @@ final class EvidenceController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        Gate::authorize('core.evidence.view');
+        $this->authorizeViewWhenRequired();
 
         $limitRaw = $request->query('limit');
         $limit    = (is_scalar($limitRaw) && is_numeric($limitRaw)) ? (int) $limitRaw : 20;
@@ -422,6 +422,31 @@ final class EvidenceController extends Controller
         }
 
         return 'LOCAL';
+    }
+
+    private function authorizeViewWhenRequired(): void
+    {
+        if ((bool) config('core.rbac.require_auth', false)) {
+            Gate::authorize('core.evidence.view');
+            return;
+        }
+
+        Auth::shouldUse('sanctum');
+        if (Auth::guard('sanctum')->check()) {
+            Gate::authorize('core.evidence.view');
+        }
+    }
+
+    private function resolveActorId(Request $request): ?int
+    {
+        $user = $request->user();
+        if ($user !== null && method_exists($user, 'getAuthIdentifier')) {
+            /** @var mixed $rawId */
+            $rawId = $user->getAuthIdentifier();
+            return self::toIntOrNull($rawId);
+        }
+
+        return null;
     }
 
     private function etagMatches(string $etag, string $header): bool

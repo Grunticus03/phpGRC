@@ -40,7 +40,7 @@ describe("Admin UserRoles page", () => {
 
         // List roles
         if (method === "GET" && /\/api\/rbac\/roles\b/.test(url)) {
-          return jsonResponse(200, { ok: true, roles: ["admin", "risk_manager", "user"] });
+          return jsonResponse(200, { ok: true, roles: ["Admin", "Risk Manager", "User"] });
         }
 
         // Lookup user
@@ -53,11 +53,11 @@ describe("Admin UserRoles page", () => {
         }
 
         // Attach Admin
-        if (method === "POST" && /\/api\/rbac\/users\/123\/roles\/admin\b/.test(url)) {
+        if (method === "POST" && /\/api\/rbac\/users\/123\/roles\/risk_manager\b/.test(url)) {
           return jsonResponse(200, {
             ok: true,
             user: { id: 123, name: "Jane Admin", email: "jane@example.com" },
-            roles: ["Admin", "User"],
+            roles: ["Risk Manager", "User"],
           });
         }
 
@@ -78,15 +78,15 @@ describe("Admin UserRoles page", () => {
     const attachSelect = await screen.findByLabelText(/attach role/i);
     expect(within(attachSelect).getByRole("option", { name: "Risk Manager" })).toBeInTheDocument();
 
-    await user.selectOptions(attachSelect, "admin");
+    await user.selectOptions(attachSelect, "risk_manager");
     await user.click(screen.getByRole("button", { name: /attach/i }));
 
     await waitFor(() => {
       const list = screen.getByRole("list");
-      expect(within(list).getByText("Admin")).toBeInTheDocument();
+      expect(within(list).getByText("Risk Manager")).toBeInTheDocument();
     });
 
-    expect(screen.getByText(/admin attached\./i)).toBeInTheDocument();
+    expect(screen.getByText(/risk manager attached\./i)).toBeInTheDocument();
   });
 
   test("performs detach flow", async () => {

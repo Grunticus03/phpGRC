@@ -35,4 +35,28 @@ final class RoleValidationTest extends TestCase
             ->assertStatus(200)
             ->assertJsonFragment(['roles' => []]);
     }
+
+    public function test_attach_accepts_canonical_slug_identifiers(): void
+    {
+        config([
+            'core.rbac.enabled'      => true,
+            'core.rbac.require_auth' => false,
+            'core.rbac.persistence'  => true,
+            'core.rbac.mode'         => 'persist',
+        ]);
+
+        /** @var User $u */
+        $u = User::factory()->create();
+
+        Role::query()->create(['id' => 'role_risk_mgr', 'name' => 'Risk Manager']);
+
+        $this->postJson("/rbac/users/{$u->id}/roles/risk_manager")
+            ->assertStatus(200)
+            ->assertJsonFragment(['roles' => ['Risk Manager']]);
+
+        $this->assertDatabaseHas('role_user', [
+            'role_id' => 'role_risk_mgr',
+            'user_id' => $u->id,
+        ]);
+    }
 }

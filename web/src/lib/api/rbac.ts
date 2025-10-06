@@ -192,10 +192,10 @@ export async function replaceUserRoles(userId: number, roles: string[]): Promise
   }
 }
 
-export async function attachUserRole(userId: number, roleName: string): Promise<UserRolesResponse> {
+export async function attachUserRole(userId: number, roleId: string): Promise<UserRolesResponse> {
   try {
     const json = await apiPost<unknown>(
-      `/api/rbac/users/${encodeURIComponent(String(userId))}/roles/${encodeURIComponent(roleName)}`
+      `/api/rbac/users/${encodeURIComponent(String(userId))}/roles/${encodeURIComponent(roleId)}`
     );
     const j = isObject(json) ? (json as Record<string, unknown>) : {};
     if (j.ok === true) return json as UserRolesResponseOk;
@@ -208,10 +208,10 @@ export async function attachUserRole(userId: number, roleName: string): Promise<
   }
 }
 
-export async function detachUserRole(userId: number, roleName: string): Promise<UserRolesResponse> {
+export async function detachUserRole(userId: number, roleId: string): Promise<UserRolesResponse> {
   try {
     const json = await apiDelete<unknown>(
-      `/api/rbac/users/${encodeURIComponent(String(userId))}/roles/${encodeURIComponent(roleName)}`
+      `/api/rbac/users/${encodeURIComponent(String(userId))}/roles/${encodeURIComponent(roleId)}`
     );
     const j = isObject(json) ? (json as Record<string, unknown>) : {};
     if (j.ok === true) return json as UserRolesResponseOk;

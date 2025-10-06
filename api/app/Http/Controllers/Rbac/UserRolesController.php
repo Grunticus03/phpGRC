@@ -109,7 +109,8 @@ final class UserRolesController extends Controller
 
     private static function resolveRoleId(string $value): ?string
     {
-        $norm = self::normalizeRoleName($value);
+        $norm      = self::normalizeRoleName($value);
+        $canonical = self::canonicalRoleKey($value);
 
         foreach ($value === $norm ? [$value] : [$value, $norm] as $candidate) {
             /** @var null|string $byId */
@@ -130,7 +131,7 @@ final class UserRolesController extends Controller
             $nameAttr = $r->getAttribute('name');
             $idAttr   = $r->getAttribute('id');
 
-            if (!is_string($nameAttr) || !is_string($idAttr)) {
+            if (!is_string($nameAttr) || !is_string($idAttr) || $idAttr === '') {
                 continue;
             }
 
@@ -138,9 +139,49 @@ final class UserRolesController extends Controller
             if ($candidate === $target) {
                 return $idAttr;
             }
+
+            if ($canonical !== '') {
+                if (self::canonicalRoleKey($idAttr) === $canonical) {
+                    return $idAttr;
+                }
+
+                if (self::canonicalRoleKey($nameAttr) === $canonical) {
+                    return $idAttr;
+                }
+            }
         }
 
         return null;
+    }
+
+    /**
+     * @return string
+     */
+    private static function canonicalRoleKey(string $value): string
+    {
+        $value = trim($value);
+        if ($value === '') {
+            return '';
+        }
+
+        if (class_exists('\Normalizer')) {
+            $normalized = \Normalizer::normalize($value, \Normalizer::FORM_D);
+            if (is_string($normalized)) {
+                $value = $normalized;
+            }
+        }
+
+        $value = (string) preg_replace('/[\p{Mn}]+/u', '', $value);
+        $value = (string) preg_replace('/[^\p{L}\p{N}\s_-]+/u', '', $value);
+        $value = (string) preg_replace('/[\s-]+/u', '_', $value);
+        $value = (string) preg_replace('/_+/u', '_', $value);
+        $value = trim($value, '_');
+
+        if ($value === '') {
+            return '';
+        }
+
+        return mb_strtolower($value, 'UTF-8');
     }
 
     public function show(int $user): JsonResponse

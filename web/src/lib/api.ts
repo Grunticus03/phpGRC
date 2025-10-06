@@ -6,6 +6,62 @@ export type QueryInit = Record<string, string | number | boolean | null | undefi
 
 const INTENDED_KEY = "phpgrc_intended_path";
 const SESSION_EXPIRED_KEY = "phpgrc_session_expired";
+const TOKEN_STORAGE_KEY = "phpgrc_auth_token";
+
+let cachedAuthToken: string | null | undefined;
+
+function tokenStorage(): Storage | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return window.localStorage;
+  } catch {
+    return null;
+  }
+}
+
+function readStoredToken(): string | null {
+  const store = tokenStorage();
+  if (!store) return null;
+  try {
+    const value = store.getItem(TOKEN_STORAGE_KEY);
+    return value && value.length > 0 ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+export function getAuthToken(): string | null {
+  if (cachedAuthToken !== undefined) return cachedAuthToken;
+  cachedAuthToken = readStoredToken();
+  return cachedAuthToken;
+}
+
+export function hasAuthToken(): boolean {
+  const token = getAuthToken();
+  return typeof token === "string" && token.length > 0;
+}
+
+function rememberAuthToken(token: string): void {
+  cachedAuthToken = token;
+  const store = tokenStorage();
+  if (!store) return;
+  try {
+    store.setItem(TOKEN_STORAGE_KEY, token);
+  } catch {
+    // ignore persistence failures
+  }
+}
+
+function forgetAuthToken(): void {
+  cachedAuthToken = null;
+  const store = tokenStorage();
+  if (!store) return;
+  try {
+    store.removeItem(TOKEN_STORAGE_KEY);
+  } catch {
+    // ignore persistence failures
+  }
+}
 
 /** Merge default headers with optional extras. */
 export function baseHeaders(extra?: HeadersInit): HeadersInit {
@@ -13,6 +69,8 @@ export function baseHeaders(extra?: HeadersInit): HeadersInit {
     Accept: "application/json",
     "X-Requested-With": "XMLHttpRequest",
   };
+  const token = getAuthToken();
+  if (token) h.Authorization = `Bearer ${token}`;
   return { ...h, ...(extra as Record<string, string>) };
 }
 
@@ -62,6 +120,7 @@ export function onUnauthorized(fn: UnauthorizedHandler): () => void {
 }
 
 function notifyUnauthorized(err: HttpError<unknown>): void {
+  forgetAuthToken();
   unauthHandlers.forEach((fn) => {
     try {
       fn(err);
@@ -217,9 +276,28 @@ export function consumeSessionExpired(): boolean {
   }
 }
 
-/** Login helper; relies on HttpOnly cookie for session persistence. */
-export async function authLogin(creds: { email: string; password: string }): Promise<void> {
-  await apiPost<unknown, typeof creds>("/api/auth/login", creds);
+export type AuthUser = { id: number; email: string; roles: string[] };
+
+type LoginResponse = { ok: boolean; token?: string | null; user?: AuthUser | null };
+type MeResponse = { ok: boolean; user?: AuthUser | null };
+
+/** Login helper; persists returned token for subsequent API calls. */
+export async function authLogin(creds: { email: string; password: string }): Promise<AuthUser> {
+  const res = await apiPost<LoginResponse, typeof creds>("/api/auth/login", creds);
+  const token = res?.token;
+  const user = res?.user;
+
+  if (!token || typeof token !== "string") {
+    throw new Error("Missing auth token in login response");
+  }
+
+  if (!user || typeof user.id === "undefined") {
+    throw new Error("Missing user payload in login response");
+  }
+
+  rememberAuthToken(token);
+
+  return user;
 }
 
 /** Logout helper: server best-effort then local clear. */
@@ -229,6 +307,8 @@ export async function authLogout(): Promise<void> {
   } catch {
     // ignore network/401 during logout
   }
+
+  forgetAuthToken();
   try {
     sessionStorage.removeItem(INTENDED_KEY);
     sessionStorage.removeItem(SESSION_EXPIRED_KEY);
@@ -238,6 +318,11 @@ export async function authLogout(): Promise<void> {
 }
 
 /** Current-user helper. Throws on non-OK (401 will trigger onUnauthorized handlers). */
-export async function authMe<TUser = unknown>(): Promise<TUser> {
-  return apiGet<TUser>("/api/auth/me");
+export async function authMe(): Promise<AuthUser> {
+  const res = await apiGet<MeResponse>("/api/auth/me");
+  const user = res?.user;
+  if (!user || typeof user.id === "undefined") {
+    throw new Error("Missing user payload in auth/me response");
+  }
+  return user;
 }
