@@ -1,6 +1,6 @@
 # phpGRC Database Schema
 
-Snapshot generated from migrations against **phpgrc** as of 2025-09-23 (UTC).
+Snapshot generated from migrations against **phpgrc** as of 2025-09-26 (UTC).
 
 - SQL dialect: MySQL 8.0+
 - All times UTC.
