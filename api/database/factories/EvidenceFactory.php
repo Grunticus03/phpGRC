@@ -7,7 +7,6 @@ namespace Database\Factories;
 use App\Models\Evidence;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
-use Illuminate\Support\Str;
 
 final class EvidenceFactory extends Factory
 {
@@ -20,16 +19,16 @@ final class EvidenceFactory extends Factory
 
         return [
             // null -> auto id via model boot (ev_<ULID>)
-            'id'          => null,
-            'owner_id'    => User::factory(),
-            'filename'    => $filename,
-            'mime'        => 'application/octet-stream',
-            'size_bytes'  => strlen($bytes),
-            'sha256'      => hash('sha256', $bytes),
-            'version'     => 1,
-            'bytes'       => $bytes,
-            'created_at'  => now(),
-            'updated_at'  => now(),
+            'id' => null,
+            'owner_id' => User::factory(),
+            'filename' => $filename,
+            'mime' => 'application/octet-stream',
+            'size_bytes' => strlen($bytes),
+            'sha256' => hash('sha256', $bytes),
+            'version' => 1,
+            'bytes' => $bytes,
+            'created_at' => now(),
+            'updated_at' => now(),
         ];
     }
 
@@ -42,7 +41,7 @@ final class EvidenceFactory extends Factory
     {
         return $this->state(fn () => [
             'filename' => $filename,
-            'mime'     => $mime,
+            'mime' => $mime,
         ]);
     }
 }

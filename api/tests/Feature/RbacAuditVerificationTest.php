@@ -28,8 +28,8 @@ final class RbacAuditVerificationTest extends TestCase
     private function makeUser(string $name, string $email): User
     {
         return User::query()->create([
-            'name'     => $name,
-            'email'    => $email,
+            'name' => $name,
+            'email' => $email,
             'password' => bcrypt('secret'),
         ]);
     }

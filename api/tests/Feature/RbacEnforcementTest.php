@@ -111,4 +111,3 @@ final class RbacEnforcementTest extends TestCase
         $res->assertStatus(200);
     }
 }
-

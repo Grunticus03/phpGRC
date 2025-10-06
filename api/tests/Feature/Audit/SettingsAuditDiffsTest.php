@@ -27,43 +27,42 @@ final class SettingsAuditDiffsTest extends TestCase
     {
         // Apply two changes
         $res = $this->postJson('/admin/settings', [
-            'apply'   => true,
-            'audit'   => ['retention_days' => 180],
-            'evidence'=> ['max_mb' => 50],
+            'apply' => true,
+            'audit' => ['retention_days' => 180],
+            'evidence' => ['max_mb' => 50],
         ]);
         $res->assertOk();
 
         // Fetch latest config audit
         $q = http_build_query([
             'category' => 'config',
-            'action'   => 'settings.update',
-            'order'    => 'desc',
-            'limit'    => 1,
+            'action' => 'settings.update',
+            'order' => 'desc',
+            'limit' => 1,
         ]);
 
-        $r = $this->getJson('/audit?' . $q);
+        $r = $this->getJson('/audit?'.$q);
         $r->assertOk()->assertJsonPath('ok', true);
 
         $items = $r->json('items');
-        static::assertIsArray($items);
-        static::assertNotEmpty($items);
+        self::assertIsArray($items);
+        self::assertNotEmpty($items);
 
         $first = $items[0];
-        static::assertArrayHasKey('changes', $first);
-        static::assertIsArray($first['changes']);
+        self::assertArrayHasKey('changes', $first);
+        self::assertIsArray($first['changes']);
 
         $keys = array_map(
             static fn (array $c): string => (string) ($c['key'] ?? ''),
             $first['changes']
         );
 
-        static::assertContains('core.audit.retention_days', $keys);
-        static::assertContains('core.evidence.max_mb', $keys);
+        self::assertContains('core.audit.retention_days', $keys);
+        self::assertContains('core.evidence.max_mb', $keys);
 
         // Ensure no formatting: we expect structured triples
         $sample = $first['changes'][0];
-        static::assertArrayHasKey('key', $sample);
-        static::assertTrue(Arr::has($sample, ['old', 'new', 'action']));
+        self::assertArrayHasKey('key', $sample);
+        self::assertTrue(Arr::has($sample, ['old', 'new', 'action']));
     }
 }
-

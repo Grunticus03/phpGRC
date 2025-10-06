@@ -38,8 +38,8 @@ final class ExportsRbacTest extends TestCase
     {
         /** @var User $u */
         $u = User::query()->create([
-            'name' => 'Test ' . implode('-', $roleNames),
-            'email' => uniqid('u', true) . '@example.test',
+            'name' => 'Test '.implode('-', $roleNames),
+            'email' => uniqid('u', true).'@example.test',
             'password' => bcrypt('secret-secret'),
         ]);
 

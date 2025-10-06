@@ -15,43 +15,37 @@ final class SettingsControllerTest extends TestCase
 
         $response->assertOk();
 
-        $response->assertJson(fn (AssertableJson $json) =>
-            $json->where('ok', true)
-                 ->has('config.core.rbac', fn (AssertableJson $j) =>
-                     $j->where('enabled', true)
-                       ->whereType('roles', 'array')
-                       ->whereType('require_auth', 'boolean')
-                       ->has('user_search', fn (AssertableJson $us) =>
-                           $us->whereType('default_per_page', 'integer')->etc()
-                       )
-                       ->etc()
-                 )
-                 ->has('config.core.audit', fn (AssertableJson $j) =>
-                     $j->where('enabled', true)
-                       ->whereType('retention_days', 'integer')
-                       ->etc()
-                 )
-                 ->has('config.core.evidence', fn (AssertableJson $j) =>
-                     $j->where('enabled', true)
-                       ->whereType('max_mb', 'integer')
-                       ->whereType('allowed_mime', 'array')
-                       ->etc()
-                 )
-                 ->has('config.core.avatars', fn (AssertableJson $j) =>
-                     $j->where('enabled', true)
-                       ->where('size_px', 128)
-                       ->where('format', 'webp')
-                       ->etc()
-                 )
+        $response->assertJson(fn (AssertableJson $json) => $json->where('ok', true)
+            ->has('config.core.rbac', fn (AssertableJson $j) => $j->where('enabled', true)
+                ->whereType('roles', 'array')
+                ->whereType('require_auth', 'boolean')
+                ->has('user_search', fn (AssertableJson $us) => $us->whereType('default_per_page', 'integer')->etc()
+                )
+                ->etc()
+            )
+            ->has('config.core.audit', fn (AssertableJson $j) => $j->where('enabled', true)
+                ->whereType('retention_days', 'integer')
+                ->etc()
+            )
+            ->has('config.core.evidence', fn (AssertableJson $j) => $j->where('enabled', true)
+                ->whereType('max_mb', 'integer')
+                ->whereType('allowed_mime', 'array')
+                ->etc()
+            )
+            ->has('config.core.avatars', fn (AssertableJson $j) => $j->where('enabled', true)
+                ->where('size_px', 128)
+                ->where('format', 'webp')
+                ->etc()
+            )
         );
     }
 
     public function test_post_settings_accepts_spec_shape_and_normalizes(): void
     {
         $payload = [
-            'rbac' => ['enabled' => true, 'roles' => ['Admin','Auditor','Risk Manager','User']],
+            'rbac' => ['enabled' => true, 'roles' => ['Admin', 'Auditor', 'Risk Manager', 'User']],
             'audit' => ['enabled' => true, 'retention_days' => 365],
-            'evidence' => ['enabled' => true, 'max_mb' => 25, 'allowed_mime' => ['application/pdf','image/png','image/jpeg','text/plain']],
+            'evidence' => ['enabled' => true, 'max_mb' => 25, 'allowed_mime' => ['application/pdf', 'image/png', 'image/jpeg', 'text/plain']],
             'avatars' => ['enabled' => true, 'size_px' => 128, 'format' => 'webp'],
         ];
 
@@ -59,15 +53,13 @@ final class SettingsControllerTest extends TestCase
 
         $response->assertOk();
 
-        $response->assertJson(fn (AssertableJson $json) =>
-            $json->where('ok', true)
-                 ->where('applied', false)
-                 ->where('note', 'stub-only')
-                 ->has('accepted', fn (AssertableJson $j) =>
-                     $j->hasAll(['rbac','audit','evidence','avatars'])
-                       ->where('avatars.size_px', 128)
-                       ->where('avatars.format', 'webp')
-                 )
+        $response->assertJson(fn (AssertableJson $json) => $json->where('ok', true)
+            ->where('applied', false)
+            ->where('note', 'stub-only')
+            ->has('accepted', fn (AssertableJson $j) => $j->hasAll(['rbac', 'audit', 'evidence', 'avatars'])
+                ->where('avatars.size_px', 128)
+                ->where('avatars.format', 'webp')
+            )
         );
     }
 
@@ -75,9 +67,9 @@ final class SettingsControllerTest extends TestCase
     {
         $payload = [
             'core' => [
-                'rbac' => ['enabled' => true, 'roles' => ['Admin','Auditor','Risk Manager','User']],
+                'rbac' => ['enabled' => true, 'roles' => ['Admin', 'Auditor', 'Risk Manager', 'User']],
                 'audit' => ['enabled' => true, 'retention_days' => 365],
-                'evidence' => ['enabled' => true, 'max_mb' => 25, 'allowed_mime' => ['application/pdf','image/png','image/jpeg','text/plain']],
+                'evidence' => ['enabled' => true, 'max_mb' => 25, 'allowed_mime' => ['application/pdf', 'image/png', 'image/jpeg', 'text/plain']],
                 'avatars' => ['enabled' => true, 'size_px' => 128, 'format' => 'webp'],
             ],
         ];
@@ -86,15 +78,13 @@ final class SettingsControllerTest extends TestCase
 
         $response->assertOk();
 
-        $response->assertJson(fn (AssertableJson $json) =>
-            $json->where('ok', true)
-                 ->where('applied', false)
-                 ->where('note', 'stub-only')
-                 ->has('accepted', fn (AssertableJson $j) =>
-                     $j->hasAll(['rbac','audit','evidence','avatars'])
-                       ->where('avatars.size_px', 128)
-                       ->where('avatars.format', 'webp')
-                 )
+        $response->assertJson(fn (AssertableJson $json) => $json->where('ok', true)
+            ->where('applied', false)
+            ->where('note', 'stub-only')
+            ->has('accepted', fn (AssertableJson $j) => $j->hasAll(['rbac', 'audit', 'evidence', 'avatars'])
+                ->where('avatars.size_px', 128)
+                ->where('avatars.format', 'webp')
+            )
         );
     }
 }

@@ -20,17 +20,17 @@ final class AuditRetentionTest extends TestCase
     private function makeEvent(string $id, CarbonImmutable $occurredAt): AuditEvent
     {
         return AuditEvent::query()->create([
-            'id'          => $id,
+            'id' => $id,
             'occurred_at' => $occurredAt,
-            'actor_id'    => null,
-            'action'      => 'test.event',
-            'category'    => 'AUDIT',
+            'actor_id' => null,
+            'action' => 'test.event',
+            'category' => 'AUDIT',
             'entity_type' => 'test',
-            'entity_id'   => 'fixture',
-            'ip'          => null,
-            'ua'          => null,
-            'meta'        => ['k' => 'v'],
-            'created_at'  => $occurredAt,
+            'entity_id' => 'fixture',
+            'ip' => null,
+            'ua' => null,
+            'meta' => ['k' => 'v'],
+            'created_at' => $occurredAt,
         ]);
     }
 
@@ -65,6 +65,7 @@ final class AuditRetentionTest extends TestCase
                 $commands[] = $event->command;
             }
         }
+
         return $commands;
     }
 
@@ -77,16 +78,16 @@ final class AuditRetentionTest extends TestCase
 
         $cutoff = $now->subDays(365);
 
-        $olderId    = Str::ulid()->toBase32();
+        $olderId = Str::ulid()->toBase32();
         $boundaryId = Str::ulid()->toBase32();
-        $newerId    = Str::ulid()->toBase32();
+        $newerId = Str::ulid()->toBase32();
 
         $this->makeEvent($olderId, $cutoff->subSecond());  // delete
         $this->makeEvent($boundaryId, $cutoff);            // keep (strict <)
         $this->makeEvent($newerId, $cutoff->addSecond());  // keep
 
         $exit = Artisan::call('audit:purge', ['--days' => '365']);
-        $out  = Artisan::output();
+        $out = Artisan::output();
         $json = json_decode($out, true);
 
         $this->assertSame(0, $exit, 'exit code');
@@ -102,7 +103,7 @@ final class AuditRetentionTest extends TestCase
 
         // Idempotent
         $exit2 = Artisan::call('audit:purge', ['--days' => '365']);
-        $out2  = Artisan::output();
+        $out2 = Artisan::output();
         $json2 = json_decode($out2, true);
 
         $this->assertSame(0, $exit2, 'second run exit code');
@@ -131,7 +132,7 @@ final class AuditRetentionTest extends TestCase
         $this->makeEvent($keep, $cutoff->addDay());
 
         $exit = Artisan::call('audit:purge', ['--days' => '365', '--dry-run' => true]);
-        $out  = Artisan::output();
+        $out = Artisan::output();
         $json = json_decode($out, true);
 
         $this->assertSame(0, $exit);
@@ -158,7 +159,7 @@ final class AuditRetentionTest extends TestCase
         $this->makeEvent($del, $cutoff->subSecond());
 
         $exit = Artisan::call('audit:purge', ['--days' => '365', '--emit-summary' => true]);
-        $out  = Artisan::output();
+        $out = Artisan::output();
         $json = json_decode($out, true);
 
         $this->assertSame(0, $exit);
@@ -166,10 +167,10 @@ final class AuditRetentionTest extends TestCase
         $this->assertSame(1, $json['deleted'] ?? null);
 
         $this->assertDatabaseHas('audit_events', [
-            'action'      => 'audit.retention.purged',
-            'category'    => 'AUDIT',
+            'action' => 'audit.retention.purged',
+            'category' => 'AUDIT',
             'entity_type' => 'audit',
-            'entity_id'   => 'retention',
+            'entity_id' => 'retention',
         ]);
     }
 
@@ -206,4 +207,3 @@ final class AuditRetentionTest extends TestCase
         $this->assertStringContainsString('--days=730', $joined); // clamped
     }
 }
-

@@ -22,7 +22,7 @@ final class Kernel extends ConsoleKernel
     {
         // Register only when enabled (tests assert omission when disabled).
         $enabled = self::boolFrom(config('core.audit.enabled'), true);
-        if (!$enabled) {
+        if (! $enabled) {
             return;
         }
 
@@ -33,7 +33,7 @@ final class Kernel extends ConsoleKernel
             ->timezone('UTC');
 
         // Avoid DB-backed cache locks during tests.
-        if (!app()->environment('testing')) {
+        if (! app()->environment('testing')) {
             $event->withoutOverlapping()->onOneServer()->runInBackground();
         }
     }
@@ -41,7 +41,7 @@ final class Kernel extends ConsoleKernel
     #[\Override]
     protected function commands(): void
     {
-        $this->load(__DIR__ . '/Commands');
+        $this->load(__DIR__.'/Commands');
 
         $console = base_path('routes/console.php');
         if (is_file($console)) {
@@ -58,6 +58,7 @@ final class Kernel extends ConsoleKernel
         if ($days > 730) {
             return 730;
         }
+
         return $days;
     }
 
@@ -71,8 +72,10 @@ final class Kernel extends ConsoleKernel
         }
         if (is_string($value)) {
             $v = filter_var($value, FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE);
+
             return $v ?? $default;
         }
+
         return $default;
     }
 
@@ -96,7 +99,7 @@ final class Kernel extends ConsoleKernel
         if (is_bool($value)) {
             return $value ? 1 : 0;
         }
+
         return $default;
     }
 }
-

@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
-use Tests\TestCase;
 use PHPUnit\Framework\Attributes\Test;
+use Tests\TestCase;
 
 final class ExportsApiTest extends TestCase
 {
@@ -34,7 +34,7 @@ final class ExportsApiTest extends TestCase
     public function create_legacy_accepts_type_in_body_and_echoes_params(): void
     {
         $this->postJson('/exports', [
-            'type'   => 'csv',
+            'type' => 'csv',
             'params' => ['a' => 1],
         ])
             ->assertStatus(202)

@@ -43,30 +43,30 @@ final class AuditListTest extends TestCase
         $t2 = Carbon::parse('2025-01-01T00:00:10Z');
 
         $this->insertEvent([
-            'id'          => Str::ulid()->toBase32(),
+            'id' => Str::ulid()->toBase32(),
             'occurred_at' => $t1,
-            'category'    => 'RBAC',
-            'action'      => 'rbac.user_role.attached',
+            'category' => 'RBAC',
+            'action' => 'rbac.user_role.attached',
             'entity_type' => 'user',
-            'entity_id'   => '1',
+            'entity_id' => '1',
         ]);
 
         $this->insertEvent([
-            'id'          => Str::ulid()->toBase32(),
+            'id' => Str::ulid()->toBase32(),
             'occurred_at' => $t0,
-            'category'    => 'AUTH',
-            'action'      => 'auth.login',
+            'category' => 'AUTH',
+            'action' => 'auth.login',
             'entity_type' => 'user',
-            'entity_id'   => '2',
+            'entity_id' => '2',
         ]);
 
         $this->insertEvent([
-            'id'          => Str::ulid()->toBase32(),
+            'id' => Str::ulid()->toBase32(),
             'occurred_at' => $t2,
-            'category'    => 'RBAC',
-            'action'      => 'rbac.user_role.detached',
+            'category' => 'RBAC',
+            'action' => 'rbac.user_role.detached',
             'entity_type' => 'user',
-            'entity_id'   => '3',
+            'entity_id' => '3',
         ]);
 
         $res = $this->getJson('/audit?category=RBAC&order=asc&limit=10');
@@ -95,21 +95,21 @@ final class AuditListTest extends TestCase
         $secondId = Str::ulid()->toBase32();
 
         $this->insertEvent([
-            'id'          => $firstId,
+            'id' => $firstId,
             'occurred_at' => $t1,
-            'category'    => 'SYSTEM',
-            'action'      => 'stub.a',
+            'category' => 'SYSTEM',
+            'action' => 'stub.a',
             'entity_type' => 'sys',
-            'entity_id'   => 'A',
+            'entity_id' => 'A',
         ]);
 
         $this->insertEvent([
-            'id'          => $secondId,
+            'id' => $secondId,
             'occurred_at' => $t0,
-            'category'    => 'SYSTEM',
-            'action'      => 'stub.b',
+            'category' => 'SYSTEM',
+            'action' => 'stub.b',
             'entity_type' => 'sys',
-            'entity_id'   => 'B',
+            'entity_id' => 'B',
         ]);
 
         // First page, limit=1, descending (newest first)
@@ -122,7 +122,7 @@ final class AuditListTest extends TestCase
 
         // Second page using cursor should yield a different id if available
         $cursor = $page1['nextCursor'];
-        $r2 = $this->getJson('/audit?limit=1&order=desc&cursor=' . urlencode($cursor));
+        $r2 = $this->getJson('/audit?limit=1&order=desc&cursor='.urlencode($cursor));
         $r2->assertStatus(200)->assertJsonPath('ok', true)->assertJsonCount(1, 'items');
 
         $page2 = $r2->json();
@@ -130,28 +130,29 @@ final class AuditListTest extends TestCase
     }
 
     /**
-     * @param array<string,mixed> $overrides
+     * @param  array<string,mixed>  $overrides
      */
     private function insertEvent(array $overrides = []): AuditEvent
     {
         $now = Carbon::now('UTC');
 
         $data = array_merge([
-            'id'          => Str::ulid()->toBase32(),
+            'id' => Str::ulid()->toBase32(),
             'occurred_at' => $now,
-            'actor_id'    => null,
-            'action'      => 'stub.event',
-            'category'    => 'SYSTEM',
+            'actor_id' => null,
+            'action' => 'stub.event',
+            'category' => 'SYSTEM',
             'entity_type' => 'stub',
-            'entity_id'   => '0',
-            'ip'          => null,
-            'ua'          => null,
-            'meta'        => null,
-            'created_at'  => $now,
+            'entity_id' => '0',
+            'ip' => null,
+            'ua' => null,
+            'meta' => null,
+            'created_at' => $now,
         ], $overrides);
 
         /** @var AuditEvent $ev */
         $ev = AuditEvent::query()->create($data);
+
         return $ev;
     }
 }

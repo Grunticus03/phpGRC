@@ -45,4 +45,3 @@ final class EvidenceUploadCapabilityTest extends TestCase
         $this->assertSame('capability', $e->meta['reason'] ?? null);
     }
 }
-

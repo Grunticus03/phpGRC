@@ -16,10 +16,10 @@ final class RoleValidationTest extends TestCase
     public function test_attach_and_detach_normalize_and_match_case_insensitively(): void
     {
         config([
-            'core.rbac.enabled'      => true,
+            'core.rbac.enabled' => true,
             'core.rbac.require_auth' => false,
-            'core.rbac.persistence'  => true,
-            'core.rbac.mode'         => 'persist',
+            'core.rbac.persistence' => true,
+            'core.rbac.mode' => 'persist',
         ]);
 
         /** @var User $u */
@@ -39,10 +39,10 @@ final class RoleValidationTest extends TestCase
     public function test_attach_accepts_canonical_slug_identifiers(): void
     {
         config([
-            'core.rbac.enabled'      => true,
+            'core.rbac.enabled' => true,
             'core.rbac.require_auth' => false,
-            'core.rbac.persistence'  => true,
-            'core.rbac.mode'         => 'persist',
+            'core.rbac.persistence' => true,
+            'core.rbac.mode' => 'persist',
         ]);
 
         /** @var User $u */

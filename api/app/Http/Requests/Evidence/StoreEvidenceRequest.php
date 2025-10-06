@@ -25,11 +25,11 @@ final class StoreEvidenceRequest extends FormRequest
         /** @var int $maxKb */
         $maxKb = max(1, $maxMb) * 1024;
 
-        $mimeRule = 'mimetypes:' . implode(',', $allowedMimes);
-        $maxRule  = 'max:' . (string) $maxKb;
+        $mimeRule = 'mimetypes:'.implode(',', $allowedMimes);
+        $maxRule = 'max:'.(string) $maxKb;
 
         return [
-            'file'     => ['required', 'file', $mimeRule, $maxRule],
+            'file' => ['required', 'file', $mimeRule, $maxRule],
             'filename' => ['sometimes', 'string', 'min:1', 'max:255'],
         ];
     }
@@ -39,13 +39,13 @@ final class StoreEvidenceRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'file.required'   => 'Evidence file is required.',
-            'file.file'       => 'Evidence must be an uploaded file.',
-            'file.mimetypes'  => 'Unsupported MIME type.',
-            'file.max'        => 'File exceeds the configured size limit.',
+            'file.required' => 'Evidence file is required.',
+            'file.file' => 'Evidence must be an uploaded file.',
+            'file.mimetypes' => 'Unsupported MIME type.',
+            'file.max' => 'File exceeds the configured size limit.',
             'filename.string' => 'Filename must be a string.',
-            'filename.min'    => 'Filename must be at least 1 character.',
-            'filename.max'    => 'Filename must be at most 255 characters.',
+            'filename.min' => 'Filename must be at least 1 character.',
+            'filename.max' => 'Filename must be at most 255 characters.',
         ];
     }
 
@@ -57,11 +57,10 @@ final class StoreEvidenceRequest extends FormRequest
     {
         throw new HttpResponseException(
             response()->json([
-                'ok'     => false,
-                'code'   => 'VALIDATION_FAILED',
+                'ok' => false,
+                'code' => 'VALIDATION_FAILED',
                 'errors' => $validator->errors(),
             ], 422)
         );
     }
 }
-

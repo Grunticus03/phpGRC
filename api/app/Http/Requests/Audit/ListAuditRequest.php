@@ -20,4 +20,3 @@ final class ListAuditRequest extends FormRequest
         return [];
     }
 }
-

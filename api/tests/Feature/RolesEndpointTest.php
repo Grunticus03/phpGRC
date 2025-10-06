@@ -15,15 +15,15 @@ final class RolesEndpointTest extends TestCase
     {
         config([
             'core.rbac.require_auth' => false,
-            'core.rbac.persistence'  => false,
-            'core.rbac.mode'         => 'stub',
+            'core.rbac.persistence' => false,
+            'core.rbac.mode' => 'stub',
         ]);
 
         $this->postJson('/rbac/roles', ['name' => 'Compliance-Lead'])
             ->assertStatus(202)
             ->assertJson([
-                'ok'       => true,
-                'note'     => 'stub-only',
+                'ok' => true,
+                'note' => 'stub-only',
                 'accepted' => ['name' => 'Compliance-Lead'],
             ]);
     }
@@ -32,8 +32,8 @@ final class RolesEndpointTest extends TestCase
     {
         config([
             'core.rbac.require_auth' => false,
-            'core.rbac.persistence'  => false,
-            'core.rbac.mode'         => 'stub',
+            'core.rbac.persistence' => false,
+            'core.rbac.mode' => 'stub',
         ]);
 
         $this->postJson('/rbac/roles', ['name' => 'Admin'])

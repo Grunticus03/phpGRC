@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace App\Http\Middleware\Auth;
@@ -19,24 +20,25 @@ final class BruteForceGuard
     public function __construct(private readonly AuditLogger $audit) {}
 
     /**
-     * @param \Closure(\Illuminate\Http\Request): \Symfony\Component\HttpFoundation\Response $next
+     * @param  \Closure(\Illuminate\Http\Request): \Symfony\Component\HttpFoundation\Response  $next
      */
     public function handle(Request $request, Closure $next): Response
     {
-        if (!(bool) config('core.auth.bruteforce.enabled', false)) {
+        if (! (bool) config('core.auth.bruteforce.enabled', false)) {
             /** @var Response $resp */
             $resp = $next($request);
+
             return $resp;
         }
 
-        $strategy      = $this->cfgString('core.auth.bruteforce.strategy', 'session'); // 'session'|'ip'
+        $strategy = $this->cfgString('core.auth.bruteforce.strategy', 'session'); // 'session'|'ip'
         $windowSeconds = max(1, $this->cfgInt('core.auth.bruteforce.window_seconds', 900));
-        $maxAttempts   = max(1, $this->cfgInt('core.auth.bruteforce.max_attempts', 5));
-        $lockStatus    = $this->cfgInt('core.auth.bruteforce.lock_http_status', 429);
+        $maxAttempts = max(1, $this->cfgInt('core.auth.bruteforce.max_attempts', 5));
+        $lockStatus = $this->cfgInt('core.auth.bruteforce.lock_http_status', 429);
 
         /** @var mixed $cookieNameCfg */
         $cookieNameCfg = config('core.auth.session_cookie.name');
-        $cookieName    = is_string($cookieNameCfg) && $cookieNameCfg !== '' ? $cookieNameCfg : 'phpgrc_auth_attempt';
+        $cookieName = is_string($cookieNameCfg) && $cookieNameCfg !== '' ? $cookieNameCfg : 'phpgrc_auth_attempt';
 
         $now = CarbonImmutable::now('UTC')->getTimestamp();
 
@@ -45,7 +47,7 @@ final class BruteForceGuard
         /** @var string $subject */
         $subject = $this->resolveSubject($request, $strategy, $cookieName, $setCookieValue);
 
-        $cache    = $this->cacheRepo();
+        $cache = $this->cacheRepo();
         $cacheKey = "auth_bf:{$strategy}:{$subject}";
 
         /** @var array{first:int,count:int}|null $state */
@@ -72,8 +74,8 @@ final class BruteForceGuard
             }
 
             $this->auditAuth('auth.login.locked', $request, [
-                'strategy'       => $strategy,
-                'attempts'       => $state['count'],
+                'strategy' => $strategy,
+                'attempts' => $state['count'],
                 'window_seconds' => $windowSeconds,
             ]);
 
@@ -89,8 +91,8 @@ final class BruteForceGuard
 
         // Not locked
         $this->auditAuth('auth.login.failed', $request, [
-            'strategy'       => $strategy,
-            'attempts'       => $state['count'],
+            'strategy' => $strategy,
+            'attempts' => $state['count'],
             'window_seconds' => $windowSeconds,
         ]);
 
@@ -124,11 +126,12 @@ final class BruteForceGuard
 
         if ($strategy === 'ip') {
             $ip = $request->ip();
+
             return is_string($ip) && $ip !== '' ? $ip : '0.0.0.0';
         }
 
         $existing = $request->cookie($cookieName);
-        if (!is_string($existing) || $existing === '') {
+        if (! is_string($existing) || $existing === '') {
             $alt = $request->cookies->get($cookieName);
             $existing = is_string($alt) ? $alt : '';
         }
@@ -136,7 +139,7 @@ final class BruteForceGuard
             $cookieHeader = $request->headers->get('Cookie', '');
             $raw = is_string($cookieHeader) ? $cookieHeader : '';
             if ($raw !== '') {
-                $pattern = '/(?:^|;\s*)' . preg_quote($cookieName, '/') . '=([^;]+)/';
+                $pattern = '/(?:^|;\s*)'.preg_quote($cookieName, '/').'=([^;]+)/';
                 if (preg_match($pattern, $raw, $m) === 1) {
                     $val = urldecode($m[1]);
                     if ($val !== '') {
@@ -154,29 +157,30 @@ final class BruteForceGuard
         $subject = is_string($ip) && $ip !== '' ? $ip : '0.0.0.0';
         $setCookieValue = $subject;
         $request->cookies->set($cookieName, $subject);
+
         return $subject;
     }
 
     /**
-     * @param non-empty-string $action
-     * @param array<string,mixed> $meta
+     * @param  non-empty-string  $action
+     * @param  array<string,mixed>  $meta
      */
     private function auditAuth(string $action, Request $request, array $meta): void
     {
         try {
-            if (!config('core.audit.enabled', true) || !Schema::hasTable('audit_events')) {
+            if (! config('core.audit.enabled', true) || ! Schema::hasTable('audit_events')) {
                 return;
             }
 
             $this->audit->log([
-                'actor_id'    => null,
-                'action'      => $action,
-                'category'    => 'AUTH',
+                'actor_id' => null,
+                'action' => $action,
+                'category' => 'AUTH',
                 'entity_type' => 'auth',
-                'entity_id'   => 'login',
-                'ip'          => $request->ip(),
-                'ua'          => $request->userAgent(),
-                'meta'        => $meta,
+                'entity_id' => 'login',
+                'ip' => $request->ip(),
+                'ua' => $request->userAgent(),
+                'meta' => $meta,
             ]);
         } catch (\Throwable) {
             // no-op
@@ -198,7 +202,7 @@ final class BruteForceGuard
         $repo = Cache::store($default);
 
         try {
-            if ($repo->getStore() instanceof \Illuminate\Cache\DatabaseStore && !Schema::hasTable('cache')) {
+            if ($repo->getStore() instanceof \Illuminate\Cache\DatabaseStore && ! Schema::hasTable('cache')) {
                 return Cache::store('array');
             }
         } catch (\Throwable) {
@@ -210,15 +214,17 @@ final class BruteForceGuard
 
     /**
      * @psalm-param non-empty-string $default
+     *
      * @psalm-return non-empty-string
      */
     private function cfgString(string $key, string $default): string
     {
         /** @var mixed $v */
         $v = config($key, $default);
-        if (!is_string($v) || $v === '') {
+        if (! is_string($v) || $v === '') {
             return $default;
         }
+
         return $v;
     }
 
@@ -232,6 +238,7 @@ final class BruteForceGuard
         if (is_string($v) && $v !== '' && ctype_digit($v)) {
             return (int) $v;
         }
+
         return $default;
     }
 }

@@ -20,11 +20,11 @@ final class UserStoreRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'name'     => ['required', 'string', 'min:2'],
-            'email'    => ['required', 'string', 'email', 'max:191', Rule::unique('users', 'email')],
+            'name' => ['required', 'string', 'min:2'],
+            'email' => ['required', 'string', 'email', 'max:191', Rule::unique('users', 'email')],
             'password' => ['required', 'string', 'min:8'],
-            'roles'    => ['sometimes', 'array'],
-            'roles.*'  => ['string', 'min:2', 'max:64'],
+            'roles' => ['sometimes', 'array'],
+            'roles.*' => ['string', 'min:2', 'max:64'],
         ];
     }
 
@@ -33,12 +33,12 @@ final class UserStoreRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'name.required'     => 'Name is required.',
-            'email.required'    => 'Email is required.',
-            'email.email'       => 'Email must be valid.',
-            'email.unique'      => 'Email is already taken.',
+            'name.required' => 'Name is required.',
+            'email.required' => 'Email is required.',
+            'email.email' => 'Email must be valid.',
+            'email.unique' => 'Email is already taken.',
             'password.required' => 'Password is required.',
-            'password.min'      => 'Password must be at least 8 characters.',
+            'password.min' => 'Password must be at least 8 characters.',
         ];
     }
 
@@ -46,8 +46,8 @@ final class UserStoreRequest extends FormRequest
     protected function failedValidation(ContractsValidator $validator): void
     {
         throw new HttpResponseException(response()->json([
-            'ok'     => false,
-            'code'   => 'VALIDATION_FAILED',
+            'ok' => false,
+            'code' => 'VALIDATION_FAILED',
             'errors' => $validator->errors(),
         ], 422));
     }

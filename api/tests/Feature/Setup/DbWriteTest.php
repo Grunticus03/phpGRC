@@ -11,9 +11,9 @@ final class DbWriteTest extends TestCase
     public function test_db_test_rejects_invalid_connection(): void
     {
         $payload = [
-            'driver'   => 'mysql',
-            'host'     => '127.0.0.1',
-            'port'     => 3306,
+            'driver' => 'mysql',
+            'host' => '127.0.0.1',
+            'port' => 3306,
             'database' => 'nope',
             'username' => 'nope',
             'password' => 'nope',
@@ -28,8 +28,8 @@ final class DbWriteTest extends TestCase
         config()->set('core.setup.enabled', false);
 
         $payload = [
-            'driver'   => 'mysql',
-            'host'     => 'localhost',
+            'driver' => 'mysql',
+            'host' => 'localhost',
             'database' => 'phpgrc',
             'username' => 'root',
             'password' => '',
@@ -39,4 +39,3 @@ final class DbWriteTest extends TestCase
         $res->assertStatus(400)->assertJsonPath('code', 'SETUP_STEP_DISABLED');
     }
 }
-

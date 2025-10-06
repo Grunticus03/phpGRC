@@ -20,17 +20,17 @@ final class DbIntegrityEvidenceTest extends TestCase
     {
         $user = User::factory()->create();
 
-        $id = 'ev_' . Str::ulid()->toBase32();
+        $id = 'ev_'.Str::ulid()->toBase32();
 
         Evidence::query()->create([
-            'id'         => $id,
-            'owner_id'   => $user->id,
-            'filename'   => 'ok.txt',
-            'mime'       => 'text/plain',
+            'id' => $id,
+            'owner_id' => $user->id,
+            'filename' => 'ok.txt',
+            'mime' => 'text/plain',
             'size_bytes' => 2,
-            'sha256'     => hash('sha256', 'ok'),
-            'version'    => 1,
-            'bytes'      => 'ok',
+            'sha256' => hash('sha256', 'ok'),
+            'version' => 1,
+            'bytes' => 'ok',
             'created_at' => now(),
             'updated_at' => now(),
         ]);
@@ -47,17 +47,16 @@ final class DbIntegrityEvidenceTest extends TestCase
         $this->expectException(QueryException::class);
 
         Evidence::query()->create([
-            'id'         => 'ev_' . Str::ulid()->toBase32(),
-            'owner_id'   => PHP_INT_MAX, // non-existent
-            'filename'   => 'bad.txt',
-            'mime'       => 'text/plain',
+            'id' => 'ev_'.Str::ulid()->toBase32(),
+            'owner_id' => PHP_INT_MAX, // non-existent
+            'filename' => 'bad.txt',
+            'mime' => 'text/plain',
             'size_bytes' => 3,
-            'sha256'     => hash('sha256', 'bad'),
-            'version'    => 1,
-            'bytes'      => 'bad',
+            'sha256' => hash('sha256', 'bad'),
+            'version' => 1,
+            'bytes' => 'bad',
             'created_at' => now(),
             'updated_at' => now(),
         ]);
     }
 }
-

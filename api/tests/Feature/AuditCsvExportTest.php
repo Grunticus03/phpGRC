@@ -25,18 +25,18 @@ final class AuditCsvExportTest extends TestCase
         // Seed deterministic rows
         $this->insertEvent([
             'occurred_at' => Carbon::parse('2025-02-01T00:00:00Z'),
-            'category'    => 'RBAC',
-            'action'      => 'rbac.user_role.attached',
+            'category' => 'RBAC',
+            'action' => 'rbac.user_role.attached',
             'entity_type' => 'user',
-            'entity_id'   => '10',
+            'entity_id' => '10',
         ]);
 
         $this->insertEvent([
             'occurred_at' => Carbon::parse('2025-02-01T00:00:05Z'),
-            'category'    => 'AUTH',
-            'action'      => 'auth.login',
+            'category' => 'AUTH',
+            'action' => 'auth.login',
             'entity_type' => 'user',
-            'entity_id'   => '11',
+            'entity_id' => '11',
         ]);
     }
 
@@ -74,29 +74,29 @@ final class AuditCsvExportTest extends TestCase
     }
 
     /**
-     * @param array<string,mixed> $overrides
+     * @param  array<string,mixed>  $overrides
      */
     private function insertEvent(array $overrides = []): AuditEvent
     {
         $now = Carbon::now('UTC');
 
         $data = array_merge([
-            'id'          => Str::ulid()->toBase32(),
+            'id' => Str::ulid()->toBase32(),
             'occurred_at' => $now,
-            'actor_id'    => null,
-            'action'      => 'stub.event',
-            'category'    => 'SYSTEM',
+            'actor_id' => null,
+            'action' => 'stub.event',
+            'category' => 'SYSTEM',
             'entity_type' => 'stub',
-            'entity_id'   => '0',
-            'ip'          => null,
-            'ua'          => null,
-            'meta'        => null,
-            'created_at'  => $now,
+            'entity_id' => '0',
+            'ip' => null,
+            'ua' => null,
+            'meta' => null,
+            'created_at' => $now,
         ], $overrides);
 
         /** @var AuditEvent $ev */
         $ev = AuditEvent::query()->create($data);
+
         return $ev;
     }
 }
-

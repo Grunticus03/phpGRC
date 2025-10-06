@@ -16,13 +16,13 @@ final class PolicyMapEffectiveApiTest extends TestCase
     public function test_admin_can_read_effective_policymap(): void
     {
         config([
-            'core.rbac.enabled'     => true,
-            'core.rbac.mode'        => 'persist',
+            'core.rbac.enabled' => true,
+            'core.rbac.mode' => 'persist',
             'core.rbac.persistence' => true,
-            'core.rbac.roles'       => ['Admin', 'Auditor'],
-            'core.rbac.policies'    => [
+            'core.rbac.roles' => ['Admin', 'Auditor'],
+            'core.rbac.policies' => [
                 'core.metrics.view' => ['Admin', 'Auditor'],
-                'core.rbac.view'    => ['Admin'],
+                'core.rbac.view' => ['Admin'],
             ],
         ]);
 
@@ -38,11 +38,11 @@ final class PolicyMapEffectiveApiTest extends TestCase
 
         $res->assertStatus(200)
             ->assertJson([
-                'ok'   => true,
+                'ok' => true,
                 'data' => [
                     'policies' => [
                         'core.metrics.view' => ['admin', 'auditor'],
-                        'core.rbac.view'    => ['admin'],
+                        'core.rbac.view' => ['admin'],
                     ],
                 ],
             ])
@@ -54,11 +54,11 @@ final class PolicyMapEffectiveApiTest extends TestCase
     public function test_auditor_forbidden(): void
     {
         config([
-            'core.rbac.enabled'     => true,
-            'core.rbac.mode'        => 'persist',
+            'core.rbac.enabled' => true,
+            'core.rbac.mode' => 'persist',
             'core.rbac.persistence' => true,
-            'core.rbac.roles'       => ['Admin', 'Auditor'],
-            'core.rbac.policies'    => [
+            'core.rbac.roles' => ['Admin', 'Auditor'],
+            'core.rbac.policies' => [
                 'core.rbac.view' => ['Admin'],
             ],
         ]);

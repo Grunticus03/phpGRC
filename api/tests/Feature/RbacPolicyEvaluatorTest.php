@@ -71,4 +71,3 @@ final class RbacPolicyEvaluatorTest extends TestCase
         $this->assertFalse(RbacEvaluator::allows($user, 'core.settings.manage'));
     }
 }
-

@@ -12,9 +12,8 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Hash;
-use Laravel\Sanctum\PersonalAccessToken;
-use function assert;
 use Illuminate\Validation\ValidationException;
+use Laravel\Sanctum\PersonalAccessToken;
 
 final class LoginController extends Controller
 {
@@ -28,7 +27,7 @@ final class LoginController extends Controller
 
         if ($email === '' || $pass === '') {
             throw ValidationException::withMessages([
-                'email'    => ['The email field is required.'],
+                'email' => ['The email field is required.'],
                 'password' => ['The password field is required.'],
             ])->status(422);
         }
@@ -36,7 +35,7 @@ final class LoginController extends Controller
         /** @var User|null $user */
         $user = User::query()->where('email', $email)->first();
 
-        if (!$user instanceof User || !Hash::check($pass, $user->getAuthPassword())) {
+        if (! $user instanceof User || ! Hash::check($pass, $user->getAuthPassword())) {
             $this->auditFailed($audit, $request, $email);
 
             throw ValidationException::withMessages([
@@ -54,24 +53,24 @@ final class LoginController extends Controller
             ->plainTextToken;
 
         $audit->log([
-            'actor_id'    => $user->id,
-            'action'      => 'auth.login',
-            'category'    => 'AUTH',
+            'actor_id' => $user->id,
+            'action' => 'auth.login',
+            'category' => 'AUTH',
             'entity_type' => 'core.auth',
-            'entity_id'   => 'login',
-            'ip'          => $request->ip(),
-            'ua'          => $request->userAgent(),
-            'meta'        => ['token_type' => 'sanctum_pat'],
+            'entity_id' => 'login',
+            'ip' => $request->ip(),
+            'ua' => $request->userAgent(),
+            'meta' => ['token_type' => 'sanctum_pat'],
         ]);
 
         /** @var array<int,string> $roleNames */
         $roleNames = $user->roles()->pluck('name')->filter(static fn ($v): bool => is_string($v))->values()->all();
 
         $response = response()->json([
-            'ok'   => true,
-            'token'=> $token,
+            'ok' => true,
+            'token' => $token,
             'user' => [
-                'id'    => $user->id,
+                'id' => $user->id,
                 'email' => $user->email,
                 'roles' => $roleNames,
             ],
@@ -91,10 +90,10 @@ final class LoginController extends Controller
         /** @var mixed $emailRaw */
         $emailRaw = $request->input('email');
         /** @var mixed $passRaw */
-        $passRaw  = $request->input('password');
+        $passRaw = $request->input('password');
 
         $e = is_string($emailRaw) ? trim($emailRaw) : '';
-        $p = is_string($passRaw)  ? $passRaw        : '';
+        $p = is_string($passRaw) ? $passRaw : '';
 
         if ($e !== '' && $p !== '') {
             return [$e, $p];
@@ -107,7 +106,7 @@ final class LoginController extends Controller
             /** @var mixed $jp */
             $jp = $request->json('password');
             $e2 = is_string($je) ? trim($je) : '';
-            $p2 = is_string($jp) ? $jp       : '';
+            $p2 = is_string($jp) ? $jp : '';
             if ($e2 !== '' && $p2 !== '') {
                 return [$e2, $p2];
             }
@@ -142,18 +141,14 @@ final class LoginController extends Controller
     private function auditFailed(AuditLogger $audit, Request $request, string $email): void
     {
         $audit->log([
-            'actor_id'    => null,
-            'action'      => 'auth.login.failed',
-            'category'    => 'AUTH',
+            'actor_id' => null,
+            'action' => 'auth.login.failed',
+            'category' => 'AUTH',
             'entity_type' => 'core.auth',
-            'entity_id'   => 'login',
-            'ip'          => $request->ip(),
-            'ua'          => $request->userAgent(),
-            'meta'        => ['email' => $email],
+            'entity_id' => 'login',
+            'ip' => $request->ip(),
+            'ua' => $request->userAgent(),
+            'meta' => ['email' => $email],
         ]);
     }
 }
-
-
-
-

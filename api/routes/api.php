@@ -65,42 +65,42 @@ Route::get('/health/fingerprint', function (SettingsService $settings) {
     $eff = $settings->effectiveConfig();
     $summary = [
         'rbac' => [
-            'enabled'       => (bool) ($eff['core']['rbac']['enabled'] ?? false),
-            'require_auth'  => (bool) config('core.rbac.require_auth', false),
-            'roles_count'   => count((array) ($eff['core']['rbac']['roles'] ?? [])),
+            'enabled' => (bool) ($eff['core']['rbac']['enabled'] ?? false),
+            'require_auth' => (bool) config('core.rbac.require_auth', false),
+            'roles_count' => count((array) ($eff['core']['rbac']['roles'] ?? [])),
         ],
         'audit' => [
-            'enabled'        => (bool) ($eff['core']['audit']['enabled'] ?? false),
+            'enabled' => (bool) ($eff['core']['audit']['enabled'] ?? false),
             'retention_days' => (int) ($eff['core']['audit']['retention_days'] ?? 0),
         ],
         'evidence' => [
-            'enabled'            => (bool) ($eff['core']['evidence']['enabled'] ?? false),
-            'max_mb'             => (int) ($eff['core']['evidence']['max_mb'] ?? 0),
+            'enabled' => (bool) ($eff['core']['evidence']['enabled'] ?? false),
+            'max_mb' => (int) ($eff['core']['evidence']['max_mb'] ?? 0),
             'allowed_mime_count' => count((array) ($eff['core']['evidence']['allowed_mime'] ?? [])),
         ],
         'avatars' => [
             'enabled' => (bool) ($eff['core']['avatars']['enabled'] ?? false),
             'size_px' => (int) ($eff['core']['avatars']['size_px'] ?? 0),
-            'format'  => (string) ($eff['core']['avatars']['format'] ?? ''),
+            'format' => (string) ($eff['core']['avatars']['format'] ?? ''),
         ],
         'api_throttle' => [
-            'enabled'        => (bool) ($eff['core']['api']['throttle']['enabled'] ?? config('core.api.throttle.enabled', false)),
-            'strategy'       => (string) ($eff['core']['api']['throttle']['strategy'] ?? config('core.api.throttle.strategy', 'ip')),
+            'enabled' => (bool) ($eff['core']['api']['throttle']['enabled'] ?? config('core.api.throttle.enabled', false)),
+            'strategy' => (string) ($eff['core']['api']['throttle']['strategy'] ?? config('core.api.throttle.strategy', 'ip')),
             'window_seconds' => (int) ($eff['core']['api']['throttle']['window_seconds'] ?? (int) config('core.api.throttle.window_seconds', 60)),
-            'max_requests'   => (int) ($eff['core']['api']['throttle']['max_requests'] ?? (int) config('core.api.throttle.max_requests', 30)),
+            'max_requests' => (int) ($eff['core']['api']['throttle']['max_requests'] ?? (int) config('core.api.throttle.max_requests', 30)),
         ],
     ];
     $meta = (array) config('phpgrc.overlay', ['loaded' => false, 'path' => null, 'mtime' => null]);
 
     return response()->json([
-        'ok'          => true,
-        'fingerprint' => 'sha256:' . hash('sha256', json_encode($summary, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)),
-        'overlay'     => [
+        'ok' => true,
+        'fingerprint' => 'sha256:'.hash('sha256', json_encode($summary, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)),
+        'overlay' => [
             'loaded' => (bool) ($meta['loaded'] ?? false),
-            'path'   => $meta['path'] ?? null,
-            'mtime'  => $meta['mtime'] ?? null,
+            'path' => $meta['path'] ?? null,
+            'mtime' => $meta['mtime'] ?? null,
         ],
-        'summary'     => $summary,
+        'summary' => $summary,
     ], 200);
 });
 
@@ -115,6 +115,7 @@ Route::get('/docs', function () {
     $html = <<<'HTML'
 <!doctype html><html lang="en"><head><meta charset="utf-8"><title>phpGRC API</title><meta name="viewport" content="width=device-width,initial-scale=1"><style>html,body,redoc{height:100%}body{margin:0}</style></head><body><redoc spec-url="/api/openapi.json"></redoc><script src="https://cdn.redoc.ly/redoc/latest/bundles/redoc.standalone.js"></script></body></html>
 HTML;
+
     return response($html, 200, ['Content-Type' => 'text/html; charset=UTF-8']);
 });
 
@@ -123,9 +124,9 @@ HTML;
  | Auth (token)
  |--------------------------------------------------------------------------
 */
-Route::post('/auth/login',  [LoginController::class,  'login'])->middleware(BruteForceGuard::class);
+Route::post('/auth/login', [LoginController::class,  'login'])->middleware(BruteForceGuard::class);
 Route::post('/auth/logout', [LogoutController::class, 'logout'])->middleware(['auth.cookie', 'auth:sanctum']);
-Route::get('/auth/me',      [MeController::class,     'me'])->middleware(['auth.cookie', 'auth:sanctum']);
+Route::get('/auth/me', [MeController::class,     'me'])->middleware(['auth.cookie', 'auth:sanctum']);
 
 Route::post('/auth/totp/enroll', [TotpController::class, 'enroll']);
 Route::post('/auth/totp/verify', [TotpController::class, 'verify']);
@@ -152,13 +153,13 @@ $rbacStack = ['auth.cookie', RbacMiddleware::class];
 Route::prefix('/admin')
     ->middleware($rbacStack)
     ->group(function (): void {
-        Route::match(['GET','HEAD'], '/settings', [SettingsController::class, 'index'])
+        Route::match(['GET', 'HEAD'], '/settings', [SettingsController::class, 'index'])
             ->defaults('roles', ['Admin'])
             ->defaults('policy', 'core.settings.manage');
         Route::post('/settings', [SettingsController::class, 'update'])
             ->defaults('roles', ['Admin'])
             ->defaults('policy', 'core.settings.manage');
-        Route::put('/settings',  [SettingsController::class, 'update'])
+        Route::put('/settings', [SettingsController::class, 'update'])
             ->defaults('roles', ['Admin'])
             ->defaults('policy', 'core.settings.manage');
         Route::patch('/settings', [SettingsController::class, 'update'])
@@ -254,7 +255,7 @@ Route::prefix('/exports')
 Route::prefix('/rbac')
     ->middleware($rbacStack)
     ->group(function (): void {
-        Route::match(['GET','HEAD'], '/roles', [RolesController::class, 'index'])
+        Route::match(['GET', 'HEAD'], '/roles', [RolesController::class, 'index'])
             ->defaults('roles', ['Admin'])
             ->defaults('policy', 'rbac.roles.manage');
         Route::post('/roles', [RolesController::class, 'store'])
@@ -269,7 +270,7 @@ Route::prefix('/rbac')
             ->defaults('roles', ['Admin'])
             ->defaults('policy', 'rbac.roles.manage');
 
-        Route::match(['GET','HEAD'], '/users/{user}/roles', [UserRolesController::class, 'show'])
+        Route::match(['GET', 'HEAD'], '/users/{user}/roles', [UserRolesController::class, 'show'])
             ->whereNumber('user')
             ->defaults('roles', ['Admin'])
             ->defaults('policy', 'rbac.user_roles.manage');
@@ -305,7 +306,7 @@ Route::prefix('/rbac')
  | Audit trail
  |--------------------------------------------------------------------------
 */
-Route::match(['GET','HEAD'], '/audit', [AuditController::class, 'index'])
+Route::match(['GET', 'HEAD'], '/audit', [AuditController::class, 'index'])
     ->middleware($rbacStack)
     ->defaults('roles', ['Admin', 'Auditor'])
     ->defaults('policy', 'core.audit.view');
@@ -331,7 +332,7 @@ Route::get('/audit/export.csv', [AuditExportController::class, 'exportCsv'])
 Route::prefix('/evidence')
     ->middleware($rbacStack)
     ->group(function (): void {
-        Route::match(['GET','HEAD'], '/', [EvidenceController::class, 'index'])
+        Route::match(['GET', 'HEAD'], '/', [EvidenceController::class, 'index'])
             ->defaults('roles', ['Admin', 'Auditor'])
             ->defaults('policy', 'core.evidence.view');
 
@@ -342,7 +343,7 @@ Route::prefix('/evidence')
             ->defaults('policy', 'core.evidence.manage')
             ->defaults('capability', 'core.evidence.upload');
 
-        Route::match(['GET','HEAD'], '/{id}', [EvidenceController::class, 'show'])
+        Route::match(['GET', 'HEAD'], '/{id}', [EvidenceController::class, 'show'])
             ->middleware(GenericRateLimit::class)
             ->defaults('throttle', ['strategy' => 'ip', 'window_seconds' => 60, 'max_requests' => 120])
             ->defaults('roles', ['Admin', 'Auditor'])
@@ -355,5 +356,4 @@ Route::prefix('/evidence')
  |--------------------------------------------------------------------------
 */
 Route::post('/avatar', [AvatarController::class, 'store']);
-Route::match(['GET','HEAD'], '/avatar/{user}', [AvatarController::class, 'show'])->whereNumber('user');
-
+Route::match(['GET', 'HEAD'], '/avatar/{user}', [AvatarController::class, 'show'])->whereNumber('user');

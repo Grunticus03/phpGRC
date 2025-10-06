@@ -17,11 +17,11 @@ final class RbacRoleCreateAuditTest extends TestCase
     public function test_role_create_emits_rbac_role_created_audit(): void
     {
         config([
-            'core.rbac.enabled'      => true,
+            'core.rbac.enabled' => true,
             'core.rbac.require_auth' => false,
-            'core.rbac.persistence'  => true,
-            'core.rbac.mode'         => 'persist',
-            'core.audit.enabled'     => true,
+            'core.rbac.persistence' => true,
+            'core.rbac.mode' => 'persist',
+            'core.audit.enabled' => true,
         ]);
 
         $this->postJson('/rbac/roles', ['name' => 'Compliance-Lead'])->assertStatus(201);
@@ -33,16 +33,16 @@ final class RbacRoleCreateAuditTest extends TestCase
         $this->assertSame('Compliance-Lead', $meta['name'] ?? null);
         $this->assertSame('compliance-lead', $meta['name_normalized'] ?? null);
         $this->assertSame('Compliance-Lead created by System', $meta['message'] ?? null);
-}
+    }
 
     public function test_role_update_emits_rbac_role_updated_audit(): void
     {
         config([
-            'core.rbac.enabled'      => true,
+            'core.rbac.enabled' => true,
             'core.rbac.require_auth' => false,
-            'core.rbac.persistence'  => true,
-            'core.rbac.mode'         => 'persist',
-            'core.audit.enabled'     => true,
+            'core.rbac.persistence' => true,
+            'core.rbac.mode' => 'persist',
+            'core.audit.enabled' => true,
         ]);
 
         $this->seed(RolesSeeder::class);
@@ -61,11 +61,11 @@ final class RbacRoleCreateAuditTest extends TestCase
     public function test_role_delete_emits_rbac_role_deleted_audit(): void
     {
         config([
-            'core.rbac.enabled'      => true,
+            'core.rbac.enabled' => true,
             'core.rbac.require_auth' => false,
-            'core.rbac.persistence'  => true,
-            'core.rbac.mode'         => 'persist',
-            'core.audit.enabled'     => true,
+            'core.rbac.persistence' => true,
+            'core.rbac.mode' => 'persist',
+            'core.audit.enabled' => true,
         ]);
 
         Role::query()->create(['id' => 'role_temp', 'name' => 'temp']);

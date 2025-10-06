@@ -6,9 +6,9 @@ use PHPUnit\Framework\TestCase;
 
 final class AutoloadTest extends TestCase
 {
-    public function testComposerAutoloadExists(): void
+    public function test_composer_autoload_exists(): void
     {
-        $this->assertFileExists(__DIR__ . '/../../vendor/autoload.php');
+        $this->assertFileExists(__DIR__.'/../../vendor/autoload.php');
         $this->assertTrue(class_exists(\Composer\Autoload\ClassLoader::class));
     }
 }

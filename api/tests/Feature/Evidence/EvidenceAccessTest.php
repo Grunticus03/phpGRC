@@ -38,7 +38,7 @@ final class EvidenceAccessTest extends TestCase
 
         $response->assertStatus(401);
         $response->assertJson([
-            'ok'   => false,
+            'ok' => false,
             'code' => 'UNAUTHENTICATED',
         ]);
     }
@@ -54,25 +54,25 @@ final class EvidenceAccessTest extends TestCase
     private function insertEvidence(): string
     {
         $userId = DB::table('users')->insertGetId([
-            'name'           => 'Owner',
-            'email'          => 'owner.' . Str::uuid() . '@example.test',
-            'password'       => bcrypt('secret1234'),
+            'name' => 'Owner',
+            'email' => 'owner.'.Str::uuid().'@example.test',
+            'password' => bcrypt('secret1234'),
             'remember_token' => Str::random(10),
-            'created_at'     => now(),
-            'updated_at'     => now(),
+            'created_at' => now(),
+            'updated_at' => now(),
         ]);
 
-        $evidenceId = 'ev_' . (string) Str::ulid();
+        $evidenceId = 'ev_'.(string) Str::ulid();
 
         DB::table('evidence')->insert([
-            'id'         => $evidenceId,
-            'owner_id'   => $userId,
-            'filename'   => 'report.pdf',
-            'mime'       => 'application/pdf',
+            'id' => $evidenceId,
+            'owner_id' => $userId,
+            'filename' => 'report.pdf',
+            'mime' => 'application/pdf',
             'size_bytes' => 123,
-            'sha256'     => str_repeat('a', 64),
-            'version'    => 1,
-            'bytes'      => '',
+            'sha256' => str_repeat('a', 64),
+            'version' => 1,
+            'bytes' => '',
             'created_at' => now(),
             'updated_at' => now(),
         ]);

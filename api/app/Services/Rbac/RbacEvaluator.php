@@ -22,6 +22,7 @@ final class RbacEvaluator
     {
         /** @var self $svc */
         $svc = app(self::class);
+
         return $svc->allowsUserPolicy($user, $policy);
     }
 
@@ -30,7 +31,7 @@ final class RbacEvaluator
      */
     public function allowsUserPolicy(?User $user, string $policy): bool
     {
-        if (!$this->isEnabled()) {
+        if (! $this->isEnabled()) {
             return true; // RBAC disabled => skip
         }
 
@@ -41,7 +42,7 @@ final class RbacEvaluator
         // Treat "1", 1, "true", "on", "yes" as true
         $persist = ($mode === 'persist') || self::boolish(config('core.rbac.persistence'));
 
-        if (!$persist) {
+        if (! $persist) {
             return true; // stub mode allows
         }
 
@@ -55,7 +56,7 @@ final class RbacEvaluator
     }
 
     /**
-     * @param array<int,string> $roles
+     * @param  array<int,string>  $roles
      */
     public function userHasAnyRole(?User $user, array $roles): bool
     {
@@ -101,8 +102,8 @@ final class RbacEvaluator
 
         // Global feature switch first. If disabled, deny.
         /** @var mixed $capVal */
-        $capVal = config('core.capabilities.' . $capKey);
-        if (!is_bool($capVal) || $capVal === false) {
+        $capVal = config('core.capabilities.'.$capKey);
+        if (! is_bool($capVal) || $capVal === false) {
             return false;
         }
 
@@ -140,8 +141,10 @@ final class RbacEvaluator
         }
         if (is_string($v)) {
             $t = strtolower(trim($v));
+
             return in_array($t, ['1', 'true', 'on', 'yes'], true);
         }
+
         return false;
     }
 
@@ -161,10 +164,10 @@ final class RbacEvaluator
         $collapsed = preg_replace('/\s+/', ' ', $name);
         $name = is_string($collapsed) ? $collapsed : $name;
         $name = str_replace(' ', '_', $name);
-        if (!preg_match('/^[\p{L}\p{N}_-]{2,64}$/u', $name)) {
+        if (! preg_match('/^[\p{L}\p{N}_-]{2,64}$/u', $name)) {
             return '';
         }
+
         return mb_strtolower($name);
     }
 }
-

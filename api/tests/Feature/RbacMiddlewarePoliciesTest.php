@@ -170,7 +170,7 @@ final class RbacMiddlewarePoliciesTest extends TestCase
             'password' => bcrypt('secret'),
         ]);
         $adminId = (string) DB::table('roles')->where('name', 'Admin')->value('id');
-        $riskId  = (string) DB::table('roles')->where('name', 'Risk Manager')->value('id');
+        $riskId = (string) DB::table('roles')->where('name', 'Risk Manager')->value('id');
 
         // Has Admin so role check passes, but lacks Risk Manager so policy fails.
         $user->roles()->attach($adminId);
@@ -182,4 +182,3 @@ final class RbacMiddlewarePoliciesTest extends TestCase
         $this->getJson('/test/role-and-policy')->assertStatus(200)->assertJson(['ok' => true]);
     }
 }
-

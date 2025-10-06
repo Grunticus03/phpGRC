@@ -27,26 +27,26 @@ final class UsersController extends Controller
         /** @var list<array<string,mixed>> $data */
         $data = [];
         foreach ($users->items() as $u) {
-            if (!$u instanceof User) {
+            if (! $u instanceof User) {
                 continue;
             }
             /** @var list<string> $roleNames */
             $roleNames = $u->roles->pluck('name')->filter(static fn ($v): bool => is_string($v))->values()->all();
             $data[] = [
-                'id'    => $u->id,
-                'name'  => $u->name,
+                'id' => $u->id,
+                'name' => $u->name,
                 'email' => $u->email,
                 'roles' => $roleNames,
             ];
         }
 
         return response()->json([
-            'ok'   => true,
+            'ok' => true,
             'data' => $data,
             'meta' => [
-                'page'        => $users->currentPage(),
-                'per_page'    => $users->perPage(),
-                'total'       => $users->total(),
+                'page' => $users->currentPage(),
+                'per_page' => $users->perPage(),
+                'total' => $users->total(),
                 'total_pages' => $users->lastPage(),
             ],
         ], 200);
@@ -65,8 +65,8 @@ final class UsersController extends Controller
 
         /** @var User $user */
         $user = User::query()->create([
-            'name'     => $payload['name'],
-            'email'    => $payload['email'],
+            'name' => $payload['name'],
+            'email' => $payload['email'],
             'password' => Hash::make($payload['password']),
         ]);
 
@@ -78,10 +78,10 @@ final class UsersController extends Controller
         $rolesOut = $user->roles()->pluck('name')->filter(static fn ($v): bool => is_string($v))->values()->all();
 
         return response()->json([
-            'ok'   => true,
+            'ok' => true,
             'user' => [
-                'id'    => $user->id,
-                'name'  => $user->name,
+                'id' => $user->id,
+                'name' => $user->name,
                 'email' => $user->email,
                 'roles' => $rolesOut,
             ],
@@ -119,10 +119,10 @@ final class UsersController extends Controller
         $rolesOut = $u->roles()->pluck('name')->filter(static fn ($v): bool => is_string($v))->values()->all();
 
         return response()->json([
-            'ok'   => true,
+            'ok' => true,
             'user' => [
-                'id'    => $u->id,
-                'name'  => $u->name,
+                'id' => $u->id,
+                'name' => $u->name,
                 'email' => $u->email,
                 'roles' => $rolesOut,
             ],
@@ -142,7 +142,7 @@ final class UsersController extends Controller
     /**
      * Resolve role IDs from a list of names or IDs.
      *
-     * @param  list<string> $values
+     * @param  list<string>  $values
      * @return list<string>
      */
     private function resolveRoleIds(array $values): array
@@ -160,6 +160,7 @@ final class UsersController extends Controller
             $byId = Role::query()->whereKey($v)->value('id');
             if (is_string($byId) && $byId !== '') {
                 $ids[] = $byId;
+
                 continue;
             }
 
@@ -167,14 +168,15 @@ final class UsersController extends Controller
             $byName = Role::query()->where('name', $v)->value('id');
             if (is_string($byName) && $byName !== '') {
                 $ids[] = $byName;
+
                 continue;
             }
 
             $target = mb_strtolower($v, 'UTF-8');
             foreach (Role::query()->get(['id', 'name']) as $r) {
                 $nameAttr = $r->getAttribute('name');
-                $idAttr   = $r->getAttribute('id');
-                if (!is_string($nameAttr) || !is_string($idAttr)) {
+                $idAttr = $r->getAttribute('id');
+                if (! is_string($nameAttr) || ! is_string($idAttr)) {
                     continue;
                 }
                 if (mb_strtolower($nameAttr, 'UTF-8') === $target) {

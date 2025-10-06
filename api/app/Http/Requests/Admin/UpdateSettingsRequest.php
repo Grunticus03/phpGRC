@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace App\Http\Requests\Admin;
@@ -29,10 +30,10 @@ final class UpdateSettingsRequest extends FormRequest
 
             if (array_key_exists('apply', $core)) {
                 /** @var mixed $applyVal */
-                $applyVal  = $core['apply'];
+                $applyVal = $core['apply'];
                 $applyNorm = is_bool($applyVal) ? $applyVal
                     : (is_int($applyVal) ? $applyVal === 1
-                    : (is_string($applyVal) ? in_array(strtolower($applyVal), ['1','true','on','yes'], true) : null));
+                    : (is_string($applyVal) ? in_array(strtolower($applyVal), ['1', 'true', 'on', 'yes'], true) : null));
                 if ($applyNorm !== null) {
                     $merge['apply'] = $applyNorm;
                 }
@@ -62,39 +63,39 @@ final class UpdateSettingsRequest extends FormRequest
         ];
 
         return [
-            'rbac'                                   => ['sometimes', 'array'],
-            'rbac.enabled'                           => ['sometimes', 'boolean'],
-            'rbac.require_auth'                      => ['sometimes', 'boolean'],
-            'rbac.roles'                             => ['sometimes', 'array', 'min:1'],
-            'rbac.roles.*'                           => ['string', 'min:2', 'max:64'],
-            'rbac.user_search'                       => ['sometimes', 'array'],
-            'rbac.user_search.default_per_page'      => ['sometimes', 'integer', 'min:1', 'max:500'],
+            'rbac' => ['sometimes', 'array'],
+            'rbac.enabled' => ['sometimes', 'boolean'],
+            'rbac.require_auth' => ['sometimes', 'boolean'],
+            'rbac.roles' => ['sometimes', 'array', 'min:1'],
+            'rbac.roles.*' => ['string', 'min:2', 'max:64'],
+            'rbac.user_search' => ['sometimes', 'array'],
+            'rbac.user_search.default_per_page' => ['sometimes', 'integer', 'min:1', 'max:500'],
 
-            'audit'                => ['sometimes', 'array'],
-            'audit.enabled'        => ['sometimes', 'boolean'],
+            'audit' => ['sometimes', 'array'],
+            'audit.enabled' => ['sometimes', 'boolean'],
             'audit.retention_days' => ['sometimes', 'integer', 'min:1', 'max:730'],
 
-            'evidence'                => ['sometimes', 'array'],
-            'evidence.enabled'        => ['sometimes', 'boolean'],
-            'evidence.max_mb'         => ['sometimes', 'integer', 'min:1'],
-            'evidence.allowed_mime'   => ['sometimes', 'array', 'min:1'],
-            'evidence.allowed_mime.*' => ['string', 'in:' . implode(',', $allowedMime)],
+            'evidence' => ['sometimes', 'array'],
+            'evidence.enabled' => ['sometimes', 'boolean'],
+            'evidence.max_mb' => ['sometimes', 'integer', 'min:1'],
+            'evidence.allowed_mime' => ['sometimes', 'array', 'min:1'],
+            'evidence.allowed_mime.*' => ['string', 'in:'.implode(',', $allowedMime)],
 
-            'avatars'         => ['sometimes', 'array'],
+            'avatars' => ['sometimes', 'array'],
             'avatars.enabled' => ['sometimes', 'boolean'],
             'avatars.size_px' => ['sometimes', 'integer', 'in:128'],
-            'avatars.format'  => ['sometimes', 'string', 'in:webp'],
+            'avatars.format' => ['sometimes', 'string', 'in:webp'],
 
-            'ui'             => ['sometimes', 'array'],
+            'ui' => ['sometimes', 'array'],
             'ui.time_format' => ['sometimes', 'string', 'in:ISO_8601,LOCAL,RELATIVE'],
 
             // Metrics (DB-backed)
-            'metrics'                           => ['sometimes', 'array'],
-            'metrics.cache_ttl_seconds'         => ['sometimes', 'integer', 'min:0'],     // 0 = disable
-            'metrics.evidence_freshness'        => ['sometimes', 'array'],
-            'metrics.evidence_freshness.days'   => ['sometimes', 'integer', 'min:1', 'max:365'],
-            'metrics.rbac_denies'               => ['sometimes', 'array'],
-            'metrics.rbac_denies.window_days'   => ['sometimes', 'integer', 'min:1', 'max:365'],
+            'metrics' => ['sometimes', 'array'],
+            'metrics.cache_ttl_seconds' => ['sometimes', 'integer', 'min:0'],     // 0 = disable
+            'metrics.evidence_freshness' => ['sometimes', 'array'],
+            'metrics.evidence_freshness.days' => ['sometimes', 'integer', 'min:1', 'max:365'],
+            'metrics.rbac_denies' => ['sometimes', 'array'],
+            'metrics.rbac_denies.window_days' => ['sometimes', 'integer', 'min:1', 'max:365'],
 
             'apply' => ['sometimes', 'boolean'],
         ];
@@ -105,17 +106,17 @@ final class UpdateSettingsRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'rbac.roles.min'                          => 'At least one role must be provided.',
-            'rbac.roles.*.min'                        => 'Role names must be at least :min characters.',
-            'rbac.roles.*.max'                        => 'Role names may not be greater than :max characters.',
-            'rbac.user_search.default_per_page.min'   => 'Per-page must be at least :min.',
-            'rbac.user_search.default_per_page.max'   => 'Per-page may not exceed :max.',
-            'audit.retention_days.min'                => 'Retention must be at least :min day.',
-            'audit.retention_days.max'                => 'Retention may not exceed :max days.',
-            'evidence.max_mb.min'                     => 'Maximum size must be at least :min MB.',
-            'evidence.allowed_mime.*.in'              => 'One or more MIME types are not allowed.',
-            'avatars.size_px.in'                      => 'Avatar size must be 128px.',
-            'avatars.format.in'                       => 'Avatar format must be WEBP.',
+            'rbac.roles.min' => 'At least one role must be provided.',
+            'rbac.roles.*.min' => 'Role names must be at least :min characters.',
+            'rbac.roles.*.max' => 'Role names may not be greater than :max characters.',
+            'rbac.user_search.default_per_page.min' => 'Per-page must be at least :min.',
+            'rbac.user_search.default_per_page.max' => 'Per-page may not exceed :max.',
+            'audit.retention_days.min' => 'Retention must be at least :min day.',
+            'audit.retention_days.max' => 'Retention may not exceed :max days.',
+            'evidence.max_mb.min' => 'Maximum size must be at least :min MB.',
+            'evidence.allowed_mime.*.in' => 'One or more MIME types are not allowed.',
+            'avatars.size_px.in' => 'Avatar size must be 128px.',
+            'avatars.format.in' => 'Avatar format must be WEBP.',
         ];
     }
 
@@ -127,6 +128,7 @@ final class UpdateSettingsRequest extends FormRequest
 
         /**
          * @psalm-param array<string, list<string>> $src
+         *
          * @psalm-return array<string, mixed>
          */
         $nest = static function (array $src): array {
@@ -148,22 +150,23 @@ final class UpdateSettingsRequest extends FormRequest
                 $parts = explode('.', $key);
 
                 /** @var array<string,mixed> $ref */
-                $ref =& $out;
+                $ref = &$out;
                 foreach ($parts as $i => $p) {
                     if ($i === count($parts) - 1) {
                         $ref[$p] = $errsList;
                     } else {
-                        if (!isset($ref[$p]) || !is_array($ref[$p])) {
+                        if (! isset($ref[$p]) || ! is_array($ref[$p])) {
                             $ref[$p] = [];
                         }
                         /** @var array<string,mixed> $child */
-                        $child =& $ref[$p];
-                        $ref   =& $child;
+                        $child = &$ref[$p];
+                        $ref = &$child;
                         unset($child);
                     }
                 }
                 unset($ref);
             }
+
             return $out;
         };
 
@@ -171,6 +174,7 @@ final class UpdateSettingsRequest extends FormRequest
          * Collapse numeric-index children (int or numeric-string keys) into a list of strings.
          *
          * @psalm-param array<string,mixed> $node
+         *
          * @psalm-return array<string,mixed>
          */
         $collapse = static function (array $node) use (&$collapse): array {
@@ -189,8 +193,7 @@ final class UpdateSettingsRequest extends FormRequest
 
                     $allNumish = $keys !== [] && array_reduce(
                         $keys,
-                        static fn (bool $acc, $kk): bool =>
-                            $acc && (is_int($kk) || ctype_digit((string) $kk)),
+                        static fn (bool $acc, $kk): bool => $acc && (is_int($kk) || ctype_digit((string) $kk)),
                         true
                     );
 
@@ -230,19 +233,19 @@ final class UpdateSettingsRequest extends FormRequest
                     }
                 }
             }
+
             return $out;
         };
 
         $grouped = $collapse($nest($flat));
 
         $payload = [
-            'ok'      => false,
-            'code'    => 'VALIDATION_FAILED',
+            'ok' => false,
+            'code' => 'VALIDATION_FAILED',
             'message' => 'Validation failed.',
-            'errors'  => $grouped,
+            'errors' => $grouped,
         ];
 
         throw new HttpResponseException(response()->json($payload, 422));
     }
 }
-

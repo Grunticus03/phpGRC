@@ -33,8 +33,8 @@ final class StoreAvatarRequest extends FormRequest
             'file' => [
                 'required',
                 'file',
-                'mimes:' . $format,
-                'max:' . $maxKb,
+                'mimes:'.$format,
+                'max:'.$maxKb,
             ],
         ];
     }
@@ -49,9 +49,9 @@ final class StoreAvatarRequest extends FormRequest
 
         return [
             'file.required' => 'Avatar file is required.',
-            'file.file'     => 'Invalid upload payload.',
-            'file.mimes'    => "Only .$format is accepted in Phase 4.",
-            'file.max'      => 'Avatar exceeds the allowed size.',
+            'file.file' => 'Invalid upload payload.',
+            'file.mimes' => "Only .$format is accepted in Phase 4.",
+            'file.max' => 'Avatar exceeds the allowed size.',
         ];
     }
 
@@ -60,12 +60,11 @@ final class StoreAvatarRequest extends FormRequest
     {
         throw new HttpResponseException(
             response()->json([
-                'ok'     => false,
-                'code'   => 'AVATAR_VALIDATION_FAILED',
-                'note'   => 'stub-only',
+                'ok' => false,
+                'code' => 'AVATAR_VALIDATION_FAILED',
+                'note' => 'stub-only',
                 'errors' => $validator->errors(),
             ], 422)
         );
     }
 }
-

@@ -13,6 +13,7 @@ final class AuditPolicy
         if (! (bool) config('core.rbac.enabled', false)) {
             return true;
         }
+
         return $user !== null && $user->hasAnyRole(['Admin', 'Auditor']);
     }
 }

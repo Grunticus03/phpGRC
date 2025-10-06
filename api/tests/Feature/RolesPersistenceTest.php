@@ -16,15 +16,15 @@ final class RolesPersistenceTest extends TestCase
     public function test_store_persists_role_and_index_reflects_db(): void
     {
         config([
-            'core.rbac.enabled'      => true,
+            'core.rbac.enabled' => true,
             'core.rbac.require_auth' => false,
-            'core.rbac.persistence'  => true,
-            'core.rbac.mode'         => 'persist',
+            'core.rbac.persistence' => true,
+            'core.rbac.mode' => 'persist',
         ]);
 
         $create = $this->postJson('/rbac/roles', ['name' => 'Compliance-Lead']);
         $create->assertStatus(201)
-               ->assertJsonPath('role.name', 'compliance-lead');
+            ->assertJsonPath('role.name', 'compliance-lead');
 
         $response = $this->getJson('/rbac/roles')
             ->assertStatus(200)
@@ -36,15 +36,15 @@ final class RolesPersistenceTest extends TestCase
         $this->assertContains('Auditor', $response);
         $this->assertContains('Risk Manager', $response);
         $this->assertContains('User', $response);
-}
+    }
 
     public function test_update_allows_renaming_existing_role(): void
     {
         config([
-            'core.rbac.enabled'      => true,
+            'core.rbac.enabled' => true,
             'core.rbac.require_auth' => false,
-            'core.rbac.persistence'  => true,
-            'core.rbac.mode'         => 'persist',
+            'core.rbac.persistence' => true,
+            'core.rbac.mode' => 'persist',
         ]);
 
         $this->seed(RolesSeeder::class);
@@ -59,10 +59,10 @@ final class RolesPersistenceTest extends TestCase
     public function test_update_rejects_duplicate_normalized_name(): void
     {
         config([
-            'core.rbac.enabled'      => true,
+            'core.rbac.enabled' => true,
             'core.rbac.require_auth' => false,
-            'core.rbac.persistence'  => true,
-            'core.rbac.mode'         => 'persist',
+            'core.rbac.persistence' => true,
+            'core.rbac.mode' => 'persist',
         ]);
 
         Role::query()->create(['id' => 'role_one', 'name' => 'one']);
@@ -76,10 +76,10 @@ final class RolesPersistenceTest extends TestCase
     public function test_delete_removes_role_and_does_not_reseed_defaults(): void
     {
         config([
-            'core.rbac.enabled'      => true,
+            'core.rbac.enabled' => true,
             'core.rbac.require_auth' => false,
-            'core.rbac.persistence'  => true,
-            'core.rbac.mode'         => 'persist',
+            'core.rbac.persistence' => true,
+            'core.rbac.mode' => 'persist',
         ]);
 
         $this->seed(RolesSeeder::class);

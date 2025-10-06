@@ -13,9 +13,8 @@ final class TestRbacSeeder extends Seeder
     public function run(): void
     {
         foreach (['Admin', 'Auditor', 'Risk Manager', 'User'] as $name) {
-            $id = 'role_' . Str::slug($name, '_');
+            $id = 'role_'.Str::slug($name, '_');
             Role::query()->updateOrCreate(['id' => $id], ['name' => $name]);
         }
     }
 }
-

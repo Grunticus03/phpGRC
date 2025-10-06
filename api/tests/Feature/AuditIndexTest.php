@@ -18,19 +18,19 @@ final class AuditIndexTest extends TestCase
     {
         // Seed 3 events
         $t0 = Carbon::parse('2025-01-01T00:00:00Z');
-        foreach ([0,1,2] as $i) {
+        foreach ([0, 1, 2] as $i) {
             AuditEvent::create([
-                'id'          => Str::ulid()->toBase32(),
+                'id' => Str::ulid()->toBase32(),
                 'occurred_at' => $t0->copy()->addMinutes($i),
-                'actor_id'    => 1,
-                'action'      => 'unit.test',
-                'category'    => 'TEST',
+                'actor_id' => 1,
+                'action' => 'unit.test',
+                'category' => 'TEST',
                 'entity_type' => 'x',
-                'entity_id'   => (string) $i,
-                'ip'          => null,
-                'ua'          => null,
-                'meta'        => null,
-                'created_at'  => $t0->copy()->addMinutes($i),
+                'entity_id' => (string) $i,
+                'ip' => null,
+                'ua' => null,
+                'meta' => null,
+                'created_at' => $t0->copy()->addMinutes($i),
             ]);
         }
 

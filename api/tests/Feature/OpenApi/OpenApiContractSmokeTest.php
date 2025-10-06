@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Tests\Feature\OpenApi;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Tests\TestCase;
 use PHPUnit\Framework\Attributes\Test;
+use Tests\TestCase;
 
 final class OpenApiContractSmokeTest extends TestCase
 {
@@ -49,6 +49,7 @@ final class OpenApiContractSmokeTest extends TestCase
                 return true;
             }
         }
+
         return false;
     }
 }

@@ -39,6 +39,7 @@ final class RbacUserRolesEdgeTest extends TestCase
         $adminRoleId = (string) Role::query()->where('id', 'role_admin')->value('id');
         $admin->roles()->syncWithoutDetaching([$adminRoleId]);
         Sanctum::actingAs($admin);
+
         return $admin;
     }
 

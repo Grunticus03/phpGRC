@@ -60,9 +60,9 @@ final class DashboardKpisComputationTest extends TestCase
         // Seed evidence for freshness calc (5 total, 2 stale at 30 days).
         $this->insertEvidence('application/pdf', $now->copy()->subDays(10));  // fresh
         $this->insertEvidence('application/pdf', $now->copy()->subDays(40));  // stale
-        $this->insertEvidence('image/png',        $now->copy()->subDays(5));   // fresh
-        $this->insertEvidence('image/png',        $now->copy()->subDays(60));  // stale
-        $this->insertEvidence('text/plain',       $now->copy()->subDays(2));   // fresh
+        $this->insertEvidence('image/png', $now->copy()->subDays(5));   // fresh
+        $this->insertEvidence('image/png', $now->copy()->subDays(60));  // stale
+        $this->insertEvidence('text/plain', $now->copy()->subDays(2));   // fresh
 
         $resp = $this->actingAs($admin, 'sanctum')->getJson('/dashboard/kpis');
         $resp->assertStatus(200);
@@ -72,31 +72,31 @@ final class DashboardKpisComputationTest extends TestCase
 
         // RBAC denies KPI — validate internal consistency against daily buckets and window.
         $rbac = $data['rbac_denies'] ?? [];
-        static::assertSame(7, (int) ($rbac['window_days'] ?? -1));
+        self::assertSame(7, (int) ($rbac['window_days'] ?? -1));
 
         $from = Carbon::parse((string) ($rbac['from'] ?? Carbon::now()->toDateString()))->startOfDay();
-        $to   = Carbon::parse((string) ($rbac['to']   ?? Carbon::now()->toDateString()))->endOfDay();
+        $to = Carbon::parse((string) ($rbac['to'] ?? Carbon::now()->toDateString()))->endOfDay();
 
-        static::assertIsArray($rbac['daily'] ?? null);
+        self::assertIsArray($rbac['daily'] ?? null);
         $days = (int) ($from->diffInDays($to) + 1);
-        static::assertCount($days, $rbac['daily'] ?? []);
+        self::assertCount($days, $rbac['daily'] ?? []);
 
-        $sumDailyTotal  = array_sum(array_map(static fn ($d) => (int) ($d['total'] ?? 0), $rbac['daily']));
+        $sumDailyTotal = array_sum(array_map(static fn ($d) => (int) ($d['total'] ?? 0), $rbac['daily']));
         $sumDailyDenies = array_sum(array_map(static fn ($d) => (int) ($d['denies'] ?? 0), $rbac['daily']));
 
-        static::assertSame($sumDailyTotal,  (int) ($rbac['total']  ?? -1));
-        static::assertSame($sumDailyDenies, (int) ($rbac['denies'] ?? -1));
+        self::assertSame($sumDailyTotal, (int) ($rbac['total'] ?? -1));
+        self::assertSame($sumDailyDenies, (int) ($rbac['denies'] ?? -1));
 
         $rate = (float) ($rbac['rate'] ?? -1.0);
         $calcRate = $sumDailyTotal > 0 ? $sumDailyDenies / $sumDailyTotal : 0.0;
-        static::assertThat($rate, static::logicalAnd(
-            static::greaterThanOrEqual(max(0.0, $calcRate - 0.001)),
-            static::lessThanOrEqual(min(1.0, $calcRate + 0.001)),
+        self::assertThat($rate, self::logicalAnd(
+            self::greaterThanOrEqual(max(0.0, $calcRate - 0.001)),
+            self::lessThanOrEqual(min(1.0, $calcRate + 0.001)),
         ));
 
         // Evidence freshness KPI — compute from DB to match flexible schema.
         $ev = $data['evidence_freshness'] ?? [];
-        static::assertSame(30, (int) ($ev['days'] ?? -1));
+        self::assertSame(30, (int) ($ev['days'] ?? -1));
 
         $daysParam = (int) ($ev['days'] ?? 30);
         $threshold = Carbon::now()->subDays($daysParam);
@@ -104,8 +104,8 @@ final class DashboardKpisComputationTest extends TestCase
         $evTotal = (int) DB::table('evidence')->count();
         $evStale = (int) DB::table('evidence')->where('updated_at', '<', $threshold)->count();
 
-        static::assertSame($evTotal, (int) ($ev['total'] ?? -1));
-        static::assertSame($evStale, (int) ($ev['stale'] ?? -1));
+        self::assertSame($evTotal, (int) ($ev['total'] ?? -1));
+        self::assertSame($evStale, (int) ($ev['stale'] ?? -1));
 
         $expectedPercent = $evTotal > 0 ? ($evStale / $evTotal) * 100.0 : 0.0;
 
@@ -115,12 +115,12 @@ final class DashboardKpisComputationTest extends TestCase
             $apiPercent *= 100.0;
         }
 
-        static::assertThat($apiPercent, static::logicalAnd(
-            static::greaterThanOrEqual(max(0.0, $expectedPercent - 1.0)),
-            static::lessThanOrEqual(min(100.0, $expectedPercent + 1.0)),
+        self::assertThat($apiPercent, self::logicalAnd(
+            self::greaterThanOrEqual(max(0.0, $expectedPercent - 1.0)),
+            self::lessThanOrEqual(min(100.0, $expectedPercent + 1.0)),
         ));
 
-        static::assertIsArray($ev['by_mime'] ?? null);
+        self::assertIsArray($ev['by_mime'] ?? null);
     }
 
     private function makeUser(string $name, string $email): User
@@ -134,7 +134,7 @@ final class DashboardKpisComputationTest extends TestCase
 
     private function attachNamedRole(User $user, string $name): void
     {
-        $id = 'role_' . strtolower(preg_replace('/[^a-z0-9]+/i', '_', $name));
+        $id = 'role_'.strtolower(preg_replace('/[^a-z0-9]+/i', '_', $name));
 
         $role = DB::table('roles')->where('id', $id)->first();
         if (! $role) {
@@ -152,20 +152,32 @@ final class DashboardKpisComputationTest extends TestCase
         $cols = Schema::getColumnListing('audit_events');
 
         $row = [
-            'id'          => (string) Str::ulid(),
+            'id' => (string) Str::ulid(),
             'occurred_at' => $occurredAt->toDateTimeString(),
-            'category'    => $category,
-            'action'      => $action,
+            'category' => $category,
+            'action' => $action,
             'entity_type' => 'system',
-            'entity_id'   => '0',
+            'entity_id' => '0',
         ];
 
-        if (in_array('created_at', $cols, true)) $row['created_at'] = $occurredAt->toDateTimeString();
-        if (in_array('updated_at', $cols, true)) $row['updated_at'] = $occurredAt->toDateTimeString();
-        if (in_array('actor_id', $cols, true))   $row['actor_id']   = null;
-        if (in_array('ip', $cols, true))         $row['ip']         = null;
-        if (in_array('ua', $cols, true))         $row['ua']         = null;
-        if (in_array('meta', $cols, true))       $row['meta']       = null;
+        if (in_array('created_at', $cols, true)) {
+            $row['created_at'] = $occurredAt->toDateTimeString();
+        }
+        if (in_array('updated_at', $cols, true)) {
+            $row['updated_at'] = $occurredAt->toDateTimeString();
+        }
+        if (in_array('actor_id', $cols, true)) {
+            $row['actor_id'] = null;
+        }
+        if (in_array('ip', $cols, true)) {
+            $row['ip'] = null;
+        }
+        if (in_array('ua', $cols, true)) {
+            $row['ua'] = null;
+        }
+        if (in_array('meta', $cols, true)) {
+            $row['meta'] = null;
+        }
 
         DB::table('audit_events')->insert($row);
     }
@@ -176,30 +188,48 @@ final class DashboardKpisComputationTest extends TestCase
 
         $ext = match ($mime) {
             'application/pdf' => 'pdf',
-            'image/png'       => 'png',
-            'image/jpeg'      => 'jpg',
-            'text/plain'      => 'txt',
-            default           => 'bin',
+            'image/png' => 'png',
+            'image/jpeg' => 'jpg',
+            'text/plain' => 'txt',
+            default => 'bin',
         };
         $base = "seed.$ext";
 
         $row = [
-            'id'   => (string) Str::ulid(),
+            'id' => (string) Str::ulid(),
             'mime' => $mime,
         ];
 
-        if (in_array('sha256', $cols, true))       $row['sha256']       = str_repeat('a', 64);
-        if (in_array('size', $cols, true))         $row['size']         = 123;
-        if (in_array('bytes', $cols, true))        $row['bytes']        = 123;
-        if (in_array('size_bytes', $cols, true))   $row['size_bytes']   = 123;
-        if (in_array('path', $cols, true))         $row['path']         = "/tmp/$base";
-        if (in_array('filename', $cols, true))     $row['filename']     = $base;
+        if (in_array('sha256', $cols, true)) {
+            $row['sha256'] = str_repeat('a', 64);
+        }
+        if (in_array('size', $cols, true)) {
+            $row['size'] = 123;
+        }
+        if (in_array('bytes', $cols, true)) {
+            $row['bytes'] = 123;
+        }
+        if (in_array('size_bytes', $cols, true)) {
+            $row['size_bytes'] = 123;
+        }
+        if (in_array('path', $cols, true)) {
+            $row['path'] = "/tmp/$base";
+        }
+        if (in_array('filename', $cols, true)) {
+            $row['filename'] = $base;
+        }
 
         $ownerId = DB::table('users')->value('id');
-        if (in_array('owner_id', $cols, true) && $ownerId !== null)     $row['owner_id']     = $ownerId;
+        if (in_array('owner_id', $cols, true) && $ownerId !== null) {
+            $row['owner_id'] = $ownerId;
+        }
 
-        if (in_array('created_at', $cols, true)) $row['created_at'] = $updatedAt->copy()->subDay()->toDateTimeString();
-        if (in_array('updated_at', $cols, true)) $row['updated_at'] = $updatedAt->toDateTimeString();
+        if (in_array('created_at', $cols, true)) {
+            $row['created_at'] = $updatedAt->copy()->subDay()->toDateTimeString();
+        }
+        if (in_array('updated_at', $cols, true)) {
+            $row['updated_at'] = $updatedAt->toDateTimeString();
+        }
 
         DB::table('evidence')->insert($row);
     }

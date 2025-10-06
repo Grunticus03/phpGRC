@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace App\Http\Controllers\Setup;
@@ -18,9 +19,8 @@ final class SmtpController extends Controller
         $data = $request->validated();
 
         return response()->json([
-            'ok'     => true,
+            'ok' => true,
             'stored' => ['host' => $data['host'], 'port' => $data['port'], 'secure' => $data['secure'], 'fromEmail' => $data['fromEmail']],
         ], 200);
     }
 }
-

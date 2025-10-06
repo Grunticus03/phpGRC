@@ -22,14 +22,14 @@ final class BreakGlassController extends Controller
 
         if (config('core.audit.enabled', true) && Schema::hasTable('audit_events')) {
             $audit->log([
-                'actor_id'    => $actorId,
-                'action'      => 'auth.break_glass.invoke',
-                'category'    => 'AUTH',
+                'actor_id' => $actorId,
+                'action' => 'auth.break_glass.invoke',
+                'category' => 'AUTH',
                 'entity_type' => 'core.auth',
-                'entity_id'   => 'break_glass',
-                'ip'          => $request->ip(),
-                'ua'          => $request->userAgent(),
-                'meta'        => ['applied' => false, 'note' => 'stub-only'],
+                'entity_id' => 'break_glass',
+                'ip' => $request->ip(),
+                'ua' => $request->userAgent(),
+                'meta' => ['applied' => false, 'note' => 'stub-only'],
             ]);
         }
 

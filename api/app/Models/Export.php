@@ -31,7 +31,9 @@ final class Export extends Model
     protected $table = 'exports';
 
     public $incrementing = false;
+
     protected $keyType = 'string';
+
     public $timestamps = false;
 
     /** @var array<int, string> */
@@ -55,15 +57,16 @@ final class Export extends Model
 
     /**
      * @phpstan-var array<string,string>
+     *
      * @psalm-var array<array-key, mixed>
      */
     protected $casts = [
-        'params'        => 'array',
-        'progress'      => 'integer',
+        'params' => 'array',
+        'progress' => 'integer',
         'artifact_size' => 'integer',
-        'created_at'    => 'immutable_datetime',
-        'completed_at'  => 'immutable_datetime',
-        'failed_at'     => 'immutable_datetime',
+        'created_at' => 'immutable_datetime',
+        'completed_at' => 'immutable_datetime',
+        'failed_at' => 'immutable_datetime',
     ];
 
     public static function newId(): string
@@ -72,16 +75,16 @@ final class Export extends Model
     }
 
     /**
-     * @param array<string,mixed> $params
+     * @param  array<string,mixed>  $params
      */
     public static function createPending(string $type, array $params = []): self
     {
         return self::query()->create([
-            'id'         => self::newId(),
-            'type'       => $type,
-            'params'     => $params,
-            'status'     => 'pending',
-            'progress'   => 0,
+            'id' => self::newId(),
+            'type' => $type,
+            'params' => $params,
+            'status' => 'pending',
+            'progress' => 0,
             'created_at' => now()->toImmutable(),
         ]);
     }
@@ -101,20 +104,19 @@ final class Export extends Model
 
     public function markCompleted(): void
     {
-        $this->status       = 'completed';
-        $this->progress     = 100;
+        $this->status = 'completed';
+        $this->progress = 100;
         $this->completed_at = now()->toImmutable();
         $this->save();
     }
 
     public function markFailed(string $code = 'INTERNAL_ERROR', string $note = ''): void
     {
-        $this->status    = 'failed';
-        $this->progress  = 0;
+        $this->status = 'failed';
+        $this->progress = 0;
         $this->failed_at = now()->toImmutable();
         $this->error_code = $code;
         $this->error_note = $note;
         $this->save();
     }
 }
-

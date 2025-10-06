@@ -22,8 +22,7 @@ final class TranscodeAvatar implements ShouldQueue
         public int $userId,
         public string $sourcePath,
         public int $targetSize
-    ) {
-    }
+    ) {}
 
     public function handle(AvatarProcessor $processor): void
     {
@@ -31,4 +30,3 @@ final class TranscodeAvatar implements ShouldQueue
         $processor->process($this->userId, $this->sourcePath, $sizes);
     }
 }
-

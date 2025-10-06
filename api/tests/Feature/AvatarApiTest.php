@@ -6,8 +6,8 @@ namespace Tests\Feature;
 
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Config;
-use Tests\TestCase;
 use PHPUnit\Framework\Attributes\Test;
+use Tests\TestCase;
 
 final class AvatarApiTest extends TestCase
 {
@@ -20,7 +20,7 @@ final class AvatarApiTest extends TestCase
 
         $res->assertStatus(202)
             ->assertJson([
-                'ok'   => false,
+                'ok' => false,
                 'note' => 'stub-only',
             ])
             ->assertJsonPath('file.original_name', 'avatar.webp')
@@ -60,7 +60,7 @@ final class AvatarApiTest extends TestCase
         $this->post('/avatar', ['file' => $file])
             ->assertStatus(400)
             ->assertJson([
-                'ok'   => false,
+                'ok' => false,
                 'code' => 'AVATAR_NOT_ENABLED',
                 'note' => 'stub-only',
             ]);

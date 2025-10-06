@@ -17,9 +17,13 @@ final class EvidenceListTest extends TestCase
     use RefreshDatabase;
 
     private int $u1Id;
+
     private int $u2Id;
+
     private string $evAId;
+
     private string $evBId;
+
     private string $evCId;
 
     protected function setUp(): void
@@ -42,37 +46,37 @@ final class EvidenceListTest extends TestCase
         $t2 = Carbon::parse('2025-01-01T00:02:00Z');
 
         $evA = Evidence::query()->create([
-            'owner_id'   => $this->u1Id,
-            'filename'   => 'report-a.txt',
-            'mime'       => 'text/plain',
+            'owner_id' => $this->u1Id,
+            'filename' => 'report-a.txt',
+            'mime' => 'text/plain',
             'size_bytes' => 11,
-            'sha256'     => hash('sha256', 'hello world'),
-            'version'    => 1,
-            'bytes'      => 'hello world',
+            'sha256' => hash('sha256', 'hello world'),
+            'version' => 1,
+            'bytes' => 'hello world',
             'created_at' => $t0,
         ]);
         $this->evAId = (string) $evA->getAttribute('id');
 
         $evB = Evidence::query()->create([
-            'owner_id'   => $this->u1Id,
-            'filename'   => 'image-1.png',
-            'mime'       => 'image/png',
+            'owner_id' => $this->u1Id,
+            'filename' => 'image-1.png',
+            'mime' => 'image/png',
             'size_bytes' => 3,
-            'sha256'     => hash('sha256', 'png'),
-            'version'    => 2,
-            'bytes'      => 'png',
+            'sha256' => hash('sha256', 'png'),
+            'version' => 2,
+            'bytes' => 'png',
             'created_at' => $t1,
         ]);
         $this->evBId = (string) $evB->getAttribute('id');
 
         $evC = Evidence::query()->create([
-            'owner_id'   => $this->u2Id,
-            'filename'   => 'photo.jpg',
-            'mime'       => 'image/jpeg',
+            'owner_id' => $this->u2Id,
+            'filename' => 'photo.jpg',
+            'mime' => 'image/jpeg',
             'size_bytes' => 3,
-            'sha256'     => hash('sha256', 'jpg'),
-            'version'    => 1,
-            'bytes'      => 'jpg',
+            'sha256' => hash('sha256', 'jpg'),
+            'version' => 1,
+            'bytes' => 'jpg',
             'created_at' => $t2,
         ]);
         $this->evCId = (string) $evC->getAttribute('id');
@@ -80,7 +84,7 @@ final class EvidenceListTest extends TestCase
 
     public function test_list_owner_and_mime_filters(): void
     {
-        $res = $this->getJson('/evidence?owner_id=' . $this->u1Id . '&mime=image/*&order=asc&limit=10');
+        $res = $this->getJson('/evidence?owner_id='.$this->u1Id.'&mime=image/*&order=asc&limit=10');
 
         $res->assertStatus(200)->assertJsonPath('ok', true);
         $json = $res->json();
@@ -99,7 +103,7 @@ final class EvidenceListTest extends TestCase
         $firstId = $r1->json('data.0.id');
         $this->assertNotEmpty($cursor);
 
-        $r2 = $this->getJson('/evidence?limit=1&order=desc&cursor=' . urlencode((string) $cursor));
+        $r2 = $this->getJson('/evidence?limit=1&order=desc&cursor='.urlencode((string) $cursor));
         $r2->assertStatus(200)->assertJsonPath('ok', true)->assertJsonCount(1, 'data');
         $this->assertNotSame($firstId, $r2->json('data.0.id'));
     }

@@ -71,50 +71,49 @@ final class DashboardKpisValidationTest extends TestCase
     }
 
     /** FUTURE PARAMS */
-
     public function test_invalid_timezone_rejected(): void
     {
         $r = $this->getJson('/dashboard/kpis?tz=Not/AZone');
         $r->assertStatus(422)
-          ->assertJsonPath('ok', false)
-          ->assertJsonPath('code', 'VALIDATION_FAILED')
-          ->assertJsonStructure(['errors' => ['tz']]);
+            ->assertJsonPath('ok', false)
+            ->assertJsonPath('code', 'VALIDATION_FAILED')
+            ->assertJsonStructure(['errors' => ['tz']]);
     }
 
     public function test_invalid_from_format_rejected(): void
     {
         $r = $this->getJson('/dashboard/kpis?from=invalid&to=2025-09-01');
         $r->assertStatus(422)
-          ->assertJsonPath('ok', false)
-          ->assertJsonPath('code', 'VALIDATION_FAILED')
-          ->assertJsonStructure(['errors' => ['from']]);
+            ->assertJsonPath('ok', false)
+            ->assertJsonPath('code', 'VALIDATION_FAILED')
+            ->assertJsonStructure(['errors' => ['from']]);
     }
 
     public function test_invalid_to_format_rejected(): void
     {
         $r = $this->getJson('/dashboard/kpis?from=2025-08-01&to=x');
         $r->assertStatus(422)
-          ->assertJsonPath('ok', false)
-          ->assertJsonPath('code', 'VALIDATION_FAILED')
-          ->assertJsonStructure(['errors' => ['to']]);
+            ->assertJsonPath('ok', false)
+            ->assertJsonPath('code', 'VALIDATION_FAILED')
+            ->assertJsonStructure(['errors' => ['to']]);
     }
 
     public function test_from_after_to_rejected(): void
     {
         $r = $this->getJson('/dashboard/kpis?from=2025-09-10&to=2025-09-01');
         $r->assertStatus(422)
-          ->assertJsonPath('ok', false)
-          ->assertJsonPath('code', 'VALIDATION_FAILED')
-          ->assertJsonStructure(['errors' => ['from']]);
+            ->assertJsonPath('ok', false)
+            ->assertJsonPath('code', 'VALIDATION_FAILED')
+            ->assertJsonStructure(['errors' => ['from']]);
     }
 
     public function test_unsupported_granularity_rejected(): void
     {
         $r = $this->getJson('/dashboard/kpis?granularity=hour');
         $r->assertStatus(422)
-          ->assertJsonPath('ok', false)
-          ->assertJsonPath('code', 'VALIDATION_FAILED')
-          ->assertJsonStructure(['errors' => ['granularity']]);
+            ->assertJsonPath('ok', false)
+            ->assertJsonPath('code', 'VALIDATION_FAILED')
+            ->assertJsonStructure(['errors' => ['granularity']]);
     }
 
     public function test_valid_from_to_tz_and_granularity_day_are_accepted_and_affect_window(): void
@@ -122,7 +121,7 @@ final class DashboardKpisValidationTest extends TestCase
         // Window spans 10 days inclusive -> rbac_days should resolve to 10 (capped/clamped if needed)
         $r = $this->getJson('/dashboard/kpis?from=2025-09-01&to=2025-09-10&tz=UTC&granularity=day');
         $r->assertOk()
-          ->assertJsonPath('ok', true);
+            ->assertJsonPath('ok', true);
 
         // window meta is optional, but if present assert the numbers we rely on
         $rbacDays = (int) ($r->json('meta.window.rbac_days') ?? $r->json('data.rbac_denies.window_days'));
@@ -133,10 +132,9 @@ final class DashboardKpisValidationTest extends TestCase
     {
         $r = $this->getJson('/dashboard/kpis?from=2024-01-01&to=2025-12-31&tz=UTC&granularity=day');
         $r->assertOk()
-          ->assertJsonPath('ok', true);
+            ->assertJsonPath('ok', true);
 
         $rbacDays = (int) ($r->json('meta.window.rbac_days') ?? $r->json('data.rbac_denies.window_days'));
         $this->assertSame(365, $rbacDays);
     }
 }
-

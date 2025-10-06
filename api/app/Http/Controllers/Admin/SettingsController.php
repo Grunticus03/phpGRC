@@ -20,7 +20,7 @@ final class SettingsController extends Controller
         $effective = $this->settings->effectiveConfig();
 
         return new JsonResponse([
-            'ok'     => true,
+            'ok' => true,
             'config' => $effective, // includes core.metrics
         ], 200);
     }
@@ -28,7 +28,7 @@ final class SettingsController extends Controller
     public function update(UpdateSettingsRequest $request): JsonResponse
     {
         /** @var array<string,mixed> $raw */
-        $raw       = $request->all();
+        $raw = $request->all();
         /** @var array<string,mixed> $validated */
         $validated = $request->validated();
 
@@ -57,14 +57,14 @@ final class SettingsController extends Controller
             $v = Arr::get($raw, 'core.apply');
             $apply = is_bool($v) ? $v
                 : (is_int($v) ? $v === 1
-                : (is_string($v) && in_array(strtolower($v), ['1','true','on','yes'], true)));
+                : (is_string($v) && in_array(strtolower($v), ['1', 'true', 'on', 'yes'], true)));
         }
 
-        if (!$apply || !$this->settings->persistenceAvailable()) {
+        if (! $apply || ! $this->settings->persistenceAvailable()) {
             return new JsonResponse([
-                'ok'       => true,
-                'applied'  => false,
-                'note'     => 'stub-only',
+                'ok' => true,
+                'applied' => false,
+                'note' => 'stub-only',
                 'accepted' => $accepted,
             ], 200);
         }
@@ -79,10 +79,10 @@ final class SettingsController extends Controller
         );
 
         return new JsonResponse([
-            'ok'       => true,
-            'applied'  => true,
+            'ok' => true,
+            'applied' => true,
             'accepted' => $accepted,
-            'changes'  => $result['changes'],
+            'changes' => $result['changes'],
         ], 200);
     }
 }

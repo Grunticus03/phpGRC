@@ -21,10 +21,10 @@ final class AuditExportCursorSmokeTest extends TestCase
     public function test_csv_export_streams_with_cursor_and_returns_csv(): void
     {
         config([
-            'core.rbac.enabled'         => true,
-            'core.rbac.require_auth'    => true,
-            'core.rbac.mode'            => 'persist',
-            'core.audit.enabled'        => true,
+            'core.rbac.enabled' => true,
+            'core.rbac.require_auth' => true,
+            'core.rbac.mode' => 'persist',
+            'core.audit.enabled' => true,
             'core.audit.csv_use_cursor' => true,
         ]);
 
@@ -37,18 +37,28 @@ final class AuditExportCursorSmokeTest extends TestCase
         for ($i = 0; $i < $count; $i++) {
             $when = $now->copy()->subSeconds($i);
             $row = [
-                'id'          => Str::ulid()->toBase32(),
+                'id' => Str::ulid()->toBase32(),
                 'occurred_at' => $when->toDateTimeString(),
-                'category'    => $i % 3 === 0 ? 'RBAC' : ($i % 3 === 1 ? 'AUTH' : 'SYSTEM'),
-                'action'      => $i % 3 === 0 ? 'rbac.allow' : 'auth.login.success',
+                'category' => $i % 3 === 0 ? 'RBAC' : ($i % 3 === 1 ? 'AUTH' : 'SYSTEM'),
+                'action' => $i % 3 === 0 ? 'rbac.allow' : 'auth.login.success',
                 'entity_type' => 'test',
-                'entity_id'   => 'seed',
+                'entity_id' => 'seed',
             ];
-            if (in_array('created_at', $cols, true)) $row['created_at'] = $when->toDateTimeString();
-            if (in_array('actor_id', $cols, true))   $row['actor_id']   = null;
-            if (in_array('ip', $cols, true))         $row['ip']         = null;
-            if (in_array('ua', $cols, true))         $row['ua']         = null;
-            if (in_array('meta', $cols, true))       $row['meta']       = null;
+            if (in_array('created_at', $cols, true)) {
+                $row['created_at'] = $when->toDateTimeString();
+            }
+            if (in_array('actor_id', $cols, true)) {
+                $row['actor_id'] = null;
+            }
+            if (in_array('ip', $cols, true)) {
+                $row['ip'] = null;
+            }
+            if (in_array('ua', $cols, true)) {
+                $row['ua'] = null;
+            }
+            if (in_array('meta', $cols, true)) {
+                $row['meta'] = null;
+            }
             $rows[] = $row;
         }
         foreach (array_chunk($rows, 200) as $chunk) {
@@ -88,12 +98,13 @@ final class AuditExportCursorSmokeTest extends TestCase
             'email' => $email,
             'password' => bcrypt('secret'),
         ]));
+
         return $user;
     }
 
     private function attachNamedRole(User $user, string $name): void
     {
-        $id = 'role_' . strtolower(preg_replace('/[^a-z0-9]+/i', '_', $name));
+        $id = 'role_'.strtolower(preg_replace('/[^a-z0-9]+/i', '_', $name));
         /** @var Role $role */
         $role = Role::query()->firstOrCreate(['id' => $id], ['name' => $name]);
         $user->roles()->syncWithoutDetaching([$role->getKey()]);

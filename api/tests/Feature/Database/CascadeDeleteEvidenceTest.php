@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 namespace Tests\Feature\Database;
 
@@ -10,7 +12,7 @@ use Tests\TestCase;
 
 /**
  * Verifies ON DELETE CASCADE from users -> evidence.
- * Evidence schema and FK are documented in docs/db/schema.md. 
+ * Evidence schema and FK are documented in docs/db/schema.md.
  */
 final class CascadeDeleteEvidenceTest extends TestCase
 {
@@ -39,14 +41,14 @@ final class CascadeDeleteEvidenceTest extends TestCase
     {
         $bytes = random_bytes(16);
         DB::table('evidence')->insert([
-            'id'         => 'ev_' . Str::ulid()->toBase32(),
-            'owner_id'   => $ownerId,
-            'filename'   => $filename,
-            'mime'       => 'application/pdf',
+            'id' => 'ev_'.Str::ulid()->toBase32(),
+            'owner_id' => $ownerId,
+            'filename' => $filename,
+            'mime' => 'application/pdf',
             'size_bytes' => strlen($bytes),
-            'sha256'     => hash('sha256', $bytes),
-            'version'    => 1,
-            'bytes'      => $bytes,
+            'sha256' => hash('sha256', $bytes),
+            'version' => 1,
+            'bytes' => $bytes,
             'created_at' => now('UTC'),
             'updated_at' => now('UTC'),
         ]);

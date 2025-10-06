@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace App\Http\Controllers\Setup;
@@ -25,8 +26,8 @@ final class AdminController extends Controller
         $data = $request->validated();
 
         $user = User::query()->create([
-            'name'     => $data['name'],
-            'email'    => $data['email'],
+            'name' => $data['name'],
+            'email' => $data['email'],
             'password' => Hash::make($data['password']),
         ]);
 
@@ -63,10 +64,9 @@ final class AdminController extends Controller
         );
 
         return response()->json([
-            'ok'   => true,
+            'ok' => true,
             'totp' => compact('issuer', 'account', 'secret', 'digits', 'period', 'algorithm', 'otpauthUri'),
             'user' => ['id' => $user->id, 'email' => $user->email, 'name' => $user->name],
         ], 200);
     }
 }
-

@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
-use Tests\TestCase;
 use PHPUnit\Framework\Attributes\Test;
+use Tests\TestCase;
 
 final class AdminSettingsApiTest extends TestCase
 {
@@ -19,9 +19,9 @@ final class AdminSettingsApiTest extends TestCase
             ->assertJsonStructure([
                 'config' => [
                     'core' => [
-                        'rbac'    => ['enabled', 'roles'],
-                        'audit'   => ['enabled', 'retention_days'],
-                        'evidence'=> ['enabled', 'max_mb', 'allowed_mime'],
+                        'rbac' => ['enabled', 'roles'],
+                        'audit' => ['enabled', 'retention_days'],
+                        'evidence' => ['enabled', 'max_mb', 'allowed_mime'],
                         'avatars' => ['enabled', 'size_px', 'format'],
                     ],
                 ],
@@ -34,21 +34,21 @@ final class AdminSettingsApiTest extends TestCase
         $payload = [
             'rbac' => [
                 'enabled' => false,
-                'roles'   => ['Admin', 'Auditor'],
+                'roles' => ['Admin', 'Auditor'],
             ],
             'audit' => [
-                'enabled'        => true,
+                'enabled' => true,
                 'retention_days' => 180,
             ],
             'evidence' => [
-                'enabled'      => true,
-                'max_mb'       => 50,
+                'enabled' => true,
+                'max_mb' => 50,
                 'allowed_mime' => ['application/pdf', 'image/png'],
             ],
             'avatars' => [
                 'enabled' => true,
                 'size_px' => 128,
-                'format'  => 'webp',
+                'format' => 'webp',
             ],
         ];
 

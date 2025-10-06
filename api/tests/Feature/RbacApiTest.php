@@ -15,16 +15,16 @@ final class RbacApiTest extends TestCase
     {
         config([
             'core.rbac.require_auth' => false,
-            'core.rbac.persistence'  => false,
-            'core.rbac.mode'         => 'stub',
+            'core.rbac.persistence' => false,
+            'core.rbac.mode' => 'stub',
         ]);
 
         $res = $this->postJson('/rbac/roles', ['name' => 'Compliance-Lead']);
 
         $res->assertStatus(202)
             ->assertJson([
-                'ok'       => true,
-                'note'     => 'stub-only',
+                'ok' => true,
+                'note' => 'stub-only',
                 'accepted' => ['name' => 'Compliance-Lead'],
             ]);
     }

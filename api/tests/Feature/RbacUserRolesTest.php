@@ -16,10 +16,10 @@ final class RbacUserRolesTest extends TestCase
     public function test_attach_and_detach_single_role(): void
     {
         config([
-            'core.rbac.enabled'      => true,
+            'core.rbac.enabled' => true,
             'core.rbac.require_auth' => false,
-            'core.rbac.persistence'  => true,
-            'core.rbac.mode'         => 'persist',
+            'core.rbac.persistence' => true,
+            'core.rbac.mode' => 'persist',
         ]);
 
         /** @var User $u */

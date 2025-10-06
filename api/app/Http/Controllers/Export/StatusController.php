@@ -25,40 +25,39 @@ final class StatusController extends Controller
 
             if ($export instanceof Export) {
                 return response()->json([
-                    'ok'       => true,
-                    'status'   => $export->status,
+                    'ok' => true,
+                    'status' => $export->status,
                     'progress' => $export->progress,
-                    'id'       => $export->id,
-                    'jobId'    => $export->id,
+                    'id' => $export->id,
+                    'jobId' => $export->id,
                 ], 200);
             }
 
             if (str_starts_with($jobId, 'exp_stub_')) {
                 return response()->json([
-                    'ok'       => true,
-                    'status'   => 'pending',
+                    'ok' => true,
+                    'status' => 'pending',
                     'progress' => 0,
-                    'id'       => $jobId,
-                    'jobId'    => $jobId,
-                    'note'     => 'stub-only',
+                    'id' => $jobId,
+                    'jobId' => $jobId,
+                    'note' => 'stub-only',
                 ], 200);
             }
 
             return response()->json([
-                'ok'   => false,
+                'ok' => false,
                 'code' => 'EXPORT_NOT_FOUND',
-                'id'   => $jobId,
+                'id' => $jobId,
             ], 404);
         }
 
         return response()->json([
-            'ok'       => true,
-            'status'   => 'pending',
+            'ok' => true,
+            'status' => 'pending',
             'progress' => 0,
-            'id'       => $jobId,
-            'jobId'    => $jobId,
-            'note'     => 'stub-only',
+            'id' => $jobId,
+            'jobId' => $jobId,
+            'note' => 'stub-only',
         ], 200);
     }
 }
-

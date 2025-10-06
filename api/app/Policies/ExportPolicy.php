@@ -21,8 +21,6 @@ final class ExportPolicy
 {
     /**
      * Determine whether the user can create an export job.
-     *
-     * @param  \App\Models\User|null  $user
      */
     public function create(?User $user): bool
     {
@@ -30,7 +28,7 @@ final class ExportPolicy
             return false;
         }
 
-        if (!$this->capabilityEnabled('core.exports.generate')) {
+        if (! $this->capabilityEnabled('core.exports.generate')) {
             return false;
         }
 
@@ -39,9 +37,6 @@ final class ExportPolicy
 
     /**
      * Determine whether the user can view export status.
-     *
-     * @param  \App\Models\User|null  $user
-     * @param  \App\Models\Export|null $export
      */
     public function viewStatus(?User $user, ?Export $export = null): bool
     {
@@ -54,9 +49,6 @@ final class ExportPolicy
 
     /**
      * Determine whether the user can download an export artifact.
-     *
-     * @param  \App\Models\User|null  $user
-     * @param  \App\Models\Export|null $export
      */
     public function download(?User $user, ?Export $export = null): bool
     {
@@ -68,8 +60,7 @@ final class ExportPolicy
     }
 
     /**
-     * @param  \App\Models\User  $user
-     * @param  array<int,string> $roles
+     * @param  array<int,string>  $roles
      */
     private function hasAnyRole(User $user, array $roles): bool
     {
@@ -79,7 +70,8 @@ final class ExportPolicy
     private function capabilityEnabled(string $capability): bool
     {
         /** @var bool $enabled */
-        $enabled = (bool) config('core.capabilities.' . $capability, true);
+        $enabled = (bool) config('core.capabilities.'.$capability, true);
+
         return $enabled;
     }
 }

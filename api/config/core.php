@@ -10,9 +10,9 @@ return [
 
     // Setup Wizard defaults
     'setup' => [
-        'enabled'            => true,
+        'enabled' => true,
         'shared_config_path' => '/opt/phpgrc/shared/config.php',
-        'allow_commands'     => false,
+        'allow_commands' => false,
     ],
 
     'auth' => [
@@ -22,9 +22,9 @@ return [
         'mfa' => [
             'totp' => [
                 'required_for_admin' => true,
-                'issuer'    => 'phpGRC',
-                'digits'    => 6,
-                'period'    => 30,
+                'issuer' => 'phpGRC',
+                'digits' => 6,
+                'period' => 30,
                 'algorithm' => 'SHA1',
             ],
         ],
@@ -34,10 +34,10 @@ return [
 
         // Brute-force guard knobs
         'bruteforce' => [
-            'enabled'          => true,
-            'strategy'         => 'session', // 'session' | 'ip'
-            'window_seconds'   => 900,
-            'max_attempts'     => 5,
+            'enabled' => true,
+            'strategy' => 'session', // 'session' | 'ip'
+            'window_seconds' => 900,
+            'max_attempts' => 5,
             'lock_http_status' => 429,
         ],
 
@@ -47,17 +47,17 @@ return [
         ],
 
         'token_cookie' => [
-            'name'        => 'phpgrc_token',
+            'name' => 'phpgrc_token',
             'ttl_minutes' => 120,
-            'same_site'   => 'strict',
+            'same_site' => 'strict',
         ],
     ],
 
     'rbac' => [
-        'enabled'      => true,
+        'enabled' => true,
         // Use DB to control persistence/require_auth; defaults below are safe for tests
-        'mode'         => 'stub',
-        'persistence'  => false,
+        'mode' => 'stub',
+        'persistence' => false,
 
         // Default false; set true via DB override: core.rbac.require_auth
         'require_auth' => false,
@@ -77,16 +77,16 @@ return [
 
         // PolicyMap defaults; override via DB if needed
         'policies' => [
-            'core.settings.manage'   => ['Admin'],
-            'core.audit.view'        => ['Admin', 'Auditor'],
-            'core.audit.export'      => ['Admin'],
-            'core.metrics.view'      => ['Admin'],
-            'core.users.view'        => ['Admin'],
-            'core.users.manage'      => ['Admin'],
-            'core.evidence.view'     => ['Admin', 'Auditor'],
-            'core.evidence.manage'   => ['Admin'],
-            'core.exports.generate'  => ['Admin'],
-            'rbac.roles.manage'      => ['Admin'],
+            'core.settings.manage' => ['Admin'],
+            'core.audit.view' => ['Admin', 'Auditor'],
+            'core.audit.export' => ['Admin'],
+            'core.metrics.view' => ['Admin'],
+            'core.users.view' => ['Admin'],
+            'core.users.manage' => ['Admin'],
+            'core.evidence.view' => ['Admin', 'Auditor'],
+            'core.evidence.manage' => ['Admin'],
+            'core.exports.generate' => ['Admin'],
+            'rbac.roles.manage' => ['Admin'],
             'rbac.user_roles.manage' => ['Admin'],
         ],
     ],
@@ -107,7 +107,7 @@ return [
     ],
 
     'audit' => [
-        'enabled'        => true,
+        'enabled' => true,
         'retention_days' => 365,
         // CSV export iteration mode
         'csv_use_cursor' => true,
@@ -129,8 +129,8 @@ return [
         ],
         // Deprecated: replaced by GenericRateLimit per-route in Phase 5
         'throttle' => [
-            'enabled'        => false,
-            'per_minute'     => 30,
+            'enabled' => false,
+            'per_minute' => 30,
             'window_seconds' => 60,
         ],
     ],
@@ -138,16 +138,16 @@ return [
     // General API throttle (reusable) — defaults may be overridden by DB core_settings
     'api' => [
         'throttle' => [
-            'enabled'        => env('CORE_API_THROTTLE_ENABLED', false),
-            'strategy'       => env('CORE_API_THROTTLE_STRATEGY', 'ip'),   // ip|session|user
+            'enabled' => env('CORE_API_THROTTLE_ENABLED', false),
+            'strategy' => env('CORE_API_THROTTLE_STRATEGY', 'ip'),   // ip|session|user
             'window_seconds' => (int) env('CORE_API_THROTTLE_WINDOW_SECONDS', 60),
-            'max_requests'   => (int) env('CORE_API_THROTTLE_MAX_REQUESTS', 30),
+            'max_requests' => (int) env('CORE_API_THROTTLE_MAX_REQUESTS', 30),
         ],
     ],
 
     'evidence' => [
-        'enabled'      => true,
-        'max_mb'       => 25,
+        'enabled' => true,
+        'max_mb' => 25,
         'allowed_mime' => [
             'application/pdf',
             'image/png',
@@ -159,7 +159,7 @@ return [
     'avatars' => [
         'enabled' => true,
         'size_px' => 128,
-        'format'  => 'webp',
+        'format' => 'webp',
     ],
 
     'ui' => [
@@ -169,8 +169,7 @@ return [
     // Exports defaults
     'exports' => [
         'enabled' => true,
-        'disk'    => 'local',
-        'dir'     => 'exports',
+        'disk' => 'local',
+        'dir' => 'exports',
     ],
 ];
-

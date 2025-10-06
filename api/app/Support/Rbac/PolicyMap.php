@@ -31,7 +31,7 @@ final class PolicyMap
     {
         /** @var mixed $raw */
         $raw = config('core.rbac.policies');
-        if (!is_array($raw)) {
+        if (! is_array($raw)) {
             return [];
         }
 
@@ -41,7 +41,7 @@ final class PolicyMap
         /** @var array<int, array-key> $keys */
         $keys = array_keys($raw);
         foreach ($keys as $key) {
-            if (!is_string($key) || $key === '') {
+            if (! is_string($key) || $key === '') {
                 continue;
             }
 
@@ -97,8 +97,9 @@ final class PolicyMap
             $norm = [];
 
             foreach ($roles as $raw) {
-                if (!isset($canon[$raw])) {
+                if (! isset($canon[$raw])) {
                     $unknown[] = $raw;
+
                     continue;
                 }
                 $norm[$raw] = true;
@@ -107,7 +108,7 @@ final class PolicyMap
             /** @var list<string> $effectiveList */
             $effectiveList = array_keys($norm);
 
-            if ($persist && $unknown !== [] && !isset(self::$auditedUnknownRoles[$policy])) {
+            if ($persist && $unknown !== [] && ! isset(self::$auditedUnknownRoles[$policy])) {
                 self::$auditedUnknownRoles[$policy] = true;
                 self::auditUnknownRoles($policy, $unknown);
             }
@@ -127,11 +128,12 @@ final class PolicyMap
     public static function rolesForPolicy(string $policy): ?array
     {
         $map = self::effective();
-        if (!array_key_exists($policy, $map)) {
+        if (! array_key_exists($policy, $map)) {
             return null;
         }
         /** @var list<string> $list */
         $list = $map[$policy];
+
         return $list;
     }
 
@@ -184,16 +186,17 @@ final class PolicyMap
                 }
             }
         }
+
         return $out;
     }
 
     /**
-     * @param list<string> $unknown
+     * @param  list<string>  $unknown
      */
     private static function auditUnknownRoles(string $policy, array $unknown): void
     {
         try {
-            if (!config('core.audit.enabled', true) || !Schema::hasTable('audit_events')) {
+            if (! config('core.audit.enabled', true) || ! Schema::hasTable('audit_events')) {
                 return;
             }
             if ($policy === '') {
@@ -203,14 +206,14 @@ final class PolicyMap
             /** @var AuditLogger $audit */
             $audit = app(AuditLogger::class);
             $audit->log([
-                'actor_id'    => null,
-                'action'      => 'rbac.policy.override.unknown_role',
-                'category'    => 'RBAC',
+                'actor_id' => null,
+                'action' => 'rbac.policy.override.unknown_role',
+                'category' => 'RBAC',
                 'entity_type' => 'rbac.policy',
-                'entity_id'   => $policy,
-                'ip'          => null,
-                'ua'          => null,
-                'meta'        => ['unknown_roles' => $unknown],
+                'entity_id' => $policy,
+                'ip' => null,
+                'ua' => null,
+                'meta' => ['unknown_roles' => $unknown],
             ]);
         } catch (\Throwable) {
             // swallow
@@ -233,9 +236,10 @@ final class PolicyMap
         $collapsed = preg_replace('/\s+/', ' ', $name);
         $name = is_string($collapsed) ? $collapsed : $name;
         $name = str_replace(' ', '_', $name);
-        if (!preg_match('/^[\p{L}\p{N}_-]{2,64}$/u', $name)) {
+        if (! preg_match('/^[\p{L}\p{N}_-]{2,64}$/u', $name)) {
             return '';
         }
+
         return mb_strtolower($name);
     }
 
@@ -245,15 +249,15 @@ final class PolicyMap
     public static function roleCapabilities(): array
     {
         return [
-            'admin'        => ['*'],
-            'auditor'      => [],
-            'user'         => [],
+            'admin' => ['*'],
+            'auditor' => [],
+            'user' => [],
             'risk_manager' => [],
         ];
     }
 
     /**
-     * @param list<string> $caps
+     * @param  list<string>  $caps
      */
     public static function hasWildcard(array $caps): bool
     {
@@ -295,8 +299,10 @@ final class PolicyMap
         }
         if (is_string($v)) {
             $t = strtolower(trim($v));
+
             return in_array($t, ['1', 'true', 'on', 'yes'], true);
         }
+
         return false;
     }
 }

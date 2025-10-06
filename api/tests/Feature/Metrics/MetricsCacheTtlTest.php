@@ -18,13 +18,13 @@ final class MetricsCacheTtlTest extends TestCase
         parent::setUp();
 
         config([
-            'core.rbac.enabled'                 => true,
-            'core.rbac.require_auth'            => false, // allow anonymous for simplicity
-            'core.metrics.cache_ttl_seconds'    => 2,
+            'core.rbac.enabled' => true,
+            'core.rbac.require_auth' => false, // allow anonymous for simplicity
+            'core.metrics.cache_ttl_seconds' => 2,
             'core.metrics.evidence_freshness.days' => 30,
             'core.metrics.rbac_denies.window_days' => 7,
             // Disable throttle to avoid 429s in tight CI loops
-            'core.metrics.throttle.enabled'     => false,
+            'core.metrics.throttle.enabled' => false,
         ]);
 
         // Extra guard in case middleware ignores the flag
@@ -58,4 +58,3 @@ final class MetricsCacheTtlTest extends TestCase
         $b->assertJsonPath('meta.cache.hit', false);
     }
 }
-

@@ -35,18 +35,18 @@ final class DashboardKpisDefaultsTest extends TestCase
 
         $json = $resp->json();
         $data = is_array($json) && array_key_exists('data', $json) ? $json['data'] : $json;
-        static::assertIsArray($data);
+        self::assertIsArray($data);
 
         $rbac = $data['rbac_denies'] ?? [];
         $fresh = $data['evidence_freshness'] ?? [];
         $meta = $json['meta'] ?? ($data['meta'] ?? []);
 
-        static::assertSame(10, (int) ($rbac['window_days'] ?? -1));
-        static::assertSame(45, (int) ($fresh['days'] ?? -1));
+        self::assertSame(10, (int) ($rbac['window_days'] ?? -1));
+        self::assertSame(45, (int) ($fresh['days'] ?? -1));
 
         if (is_array($meta)) {
-            static::assertSame(10, (int) ($meta['window']['rbac_days'] ?? -1));
-            static::assertSame(45, (int) ($meta['window']['fresh_days'] ?? -1));
+            self::assertSame(10, (int) ($meta['window']['rbac_days'] ?? -1));
+            self::assertSame(45, (int) ($meta['window']['fresh_days'] ?? -1));
         }
     }
 
@@ -59,12 +59,13 @@ final class DashboardKpisDefaultsTest extends TestCase
             'email' => $email,
             'password' => bcrypt('secret'),
         ]));
+
         return $user;
     }
 
     private function attachNamedRole(User $user, string $name): void
     {
-        $id = 'role_' . strtolower(preg_replace('/[^a-z0-9]+/i', '_', $name));
+        $id = 'role_'.strtolower(preg_replace('/[^a-z0-9]+/i', '_', $name));
 
         /** @var Role $role */
         $role = Role::query()->firstOrCreate(

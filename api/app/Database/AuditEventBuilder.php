@@ -12,6 +12,7 @@ use Illuminate\Database\Query\Builder as QueryBuilder;
  * Custom builder to JSON-encode `meta` for bulk insert methods.
  *
  * @extends EloquentBuilder<AuditEvent>
+ *
  * @psalm-suppress PropertyNotSetInConstructor
  */
 final class AuditEventBuilder extends EloquentBuilder
@@ -22,7 +23,7 @@ final class AuditEventBuilder extends EloquentBuilder
     }
 
     /**
-     * @param array<int,array<string,mixed>>|array<string,mixed> $values
+     * @param  array<int,array<string,mixed>>|array<string,mixed>  $values
      */
     public function insert(array $values): bool
     {
@@ -30,7 +31,7 @@ final class AuditEventBuilder extends EloquentBuilder
     }
 
     /**
-     * @param array<int,array<string,mixed>>|array<string,mixed> $values
+     * @param  array<int,array<string,mixed>>|array<string,mixed>  $values
      */
     public function insertOrIgnore(array $values): int
     {
@@ -38,18 +39,19 @@ final class AuditEventBuilder extends EloquentBuilder
     }
 
     /**
-     * @param array<string,mixed> $values
+     * @param  array<string,mixed>  $values
      * @return mixed
      */
     public function insertGetId(array $values, ?string $sequence = null)
     {
         /** @var array<string,mixed> $row */
         $row = $this->encodeMeta($values);
+
         return parent::insertGetId($row, $sequence);
     }
 
     /**
-     * @param array<int,array<string,mixed>>|array<string,mixed> $values
+     * @param  array<int,array<string,mixed>>|array<string,mixed>  $values
      * @return array<int,array<string,mixed>>|array<string,mixed>
      */
     private function encodeMeta(array $values): array
@@ -68,11 +70,12 @@ final class AuditEventBuilder extends EloquentBuilder
         foreach ($values as $row) {
             $out[] = $this->encodeRow($row);
         }
+
         return $out;
     }
 
     /**
-     * @param array<string,mixed> $row
+     * @param  array<string,mixed>  $row
      * @return array<string,mixed>
      */
     private function encodeRow(array $row): array
@@ -92,18 +95,19 @@ final class AuditEventBuilder extends EloquentBuilder
                 $row['meta'] = 'null';
             }
         }
+
         return $row;
     }
 
     /**
-     * @param array<mixed> $arr
+     * @param  array<mixed>  $arr
      */
     private function isAssoc(array $arr): bool
     {
         if ($arr === []) {
             return false;
         }
+
         return array_keys($arr) !== range(0, count($arr) - 1);
     }
 }
-

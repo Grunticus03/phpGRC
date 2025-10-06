@@ -12,21 +12,22 @@ final class OpenApiAugmentationTest extends TestCase
     use RefreshDatabase;
 
     private string $specDir;
+
     private string $yamlPath;
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        $this->specDir  = base_path('docs/api');
-        $this->yamlPath = $this->specDir . '/openapi.yaml';
+        $this->specDir = base_path('docs/api');
+        $this->yamlPath = $this->specDir.'/openapi.yaml';
 
-        if (!is_dir($this->specDir)) {
+        if (! is_dir($this->specDir)) {
             mkdir($this->specDir, 0777, true);
         }
 
         // Minimal spec with the paths we mutate at render-time.
-        $yaml = <<<YAML
+        $yaml = <<<'YAML'
 openapi: 3.1.0
 info:
   title: phpGRC API
@@ -71,7 +72,7 @@ YAML;
     public function test_json_contains_injected_validation_and_capability_responses(): void
     {
         $resp = $this->get('/openapi.json')->assertOk();
-        $doc  = $resp->json();
+        $doc = $resp->json();
 
         // Components exist
         $this->assertIsArray($doc['components'] ?? null);
@@ -117,4 +118,3 @@ YAML;
         $this->assertStringContainsString("'403':", $text);
     }
 }
-

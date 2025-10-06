@@ -14,7 +14,7 @@ use App\Models\Export;
 final class ExportService
 {
     /**
-     * @param array<string,mixed> $params
+     * @param  array<string,mixed>  $params
      */
     public function enqueue(string $type, array $params = []): Export
     {

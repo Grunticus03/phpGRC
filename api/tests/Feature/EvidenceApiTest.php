@@ -11,8 +11,8 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Gate;
 use Laravel\Sanctum\Sanctum;
-use Tests\TestCase;
 use PHPUnit\Framework\Attributes\Test;
+use Tests\TestCase;
 
 final class EvidenceApiTest extends TestCase
 {
@@ -51,7 +51,7 @@ final class EvidenceApiTest extends TestCase
 
         $res->assertStatus(201)
             ->assertJson([
-                'ok'   => true,
+                'ok' => true,
                 'mime' => 'application/pdf',
                 'name' => 'evidence.pdf',
             ])
@@ -107,7 +107,7 @@ final class EvidenceApiTest extends TestCase
         $this->post('/evidence', ['file' => $file])
             ->assertStatus(400)
             ->assertJson([
-                'ok'   => false,
+                'ok' => false,
                 'code' => 'EVIDENCE_NOT_ENABLED',
             ]);
     }
@@ -130,10 +130,10 @@ final class EvidenceApiTest extends TestCase
     #[Test]
     public function show_returns_bytes_and_headers_for_get(): void
     {
-        $upload  = UploadedFile::fake()->createWithContent('doc.txt', 'DOC', 'text/plain');
+        $upload = UploadedFile::fake()->createWithContent('doc.txt', 'DOC', 'text/plain');
         $created = $this->post('/evidence', ['file' => $upload])->assertCreated()->json();
 
-        $id  = $created['id'];
+        $id = $created['id'];
         $sha = $created['sha256'];
 
         $res = $this->get("/evidence/{$id}");
@@ -153,10 +153,10 @@ final class EvidenceApiTest extends TestCase
     #[Test]
     public function head_returns_headers_only(): void
     {
-        $upload  = UploadedFile::fake()->createWithContent('head.txt', 'HEAD', 'text/plain');
+        $upload = UploadedFile::fake()->createWithContent('head.txt', 'HEAD', 'text/plain');
         $created = $this->post('/evidence', ['file' => $upload])->assertCreated()->json();
 
-        $id  = $created['id'];
+        $id = $created['id'];
         $sha = $created['sha256'];
 
         $res = $this->call('HEAD', "/evidence/{$id}");
@@ -174,10 +174,10 @@ final class EvidenceApiTest extends TestCase
     #[Test]
     public function get_with_if_none_match_returns_304(): void
     {
-        $upload  = UploadedFile::fake()->createWithContent('etag.txt', 'ETAG', 'text/plain');
+        $upload = UploadedFile::fake()->createWithContent('etag.txt', 'ETAG', 'text/plain');
         $created = $this->post('/evidence', ['file' => $upload])->assertCreated()->json();
 
-        $id  = $created['id'];
+        $id = $created['id'];
         $sha = $created['sha256'];
 
         $res = $this->withHeaders(['If-None-Match' => "\"{$sha}\""])
@@ -193,9 +193,8 @@ final class EvidenceApiTest extends TestCase
         $this->get('/evidence/ev_does_not_exist')
             ->assertStatus(404)
             ->assertJson([
-                'ok'   => false,
+                'ok' => false,
                 'code' => 'EVIDENCE_NOT_FOUND',
             ]);
     }
 }
-

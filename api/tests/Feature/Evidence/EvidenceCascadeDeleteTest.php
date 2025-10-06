@@ -1,4 +1,5 @@
 <?php
+
 // FILE: api/tests/Feature/Evidence/EvidenceCascadeDeleteTest.php
 
 declare(strict_types=1);
@@ -19,7 +20,7 @@ class EvidenceCascadeDeleteTest extends TestCase
         // Create a user via DB to avoid model/factory coupling.
         $userId = DB::table('users')->insertGetId([
             'name' => 'Owner',
-            'email' => 'owner.' . Str::uuid() . '@example.test',
+            'email' => 'owner.'.Str::uuid().'@example.test',
             'password' => bcrypt('secret1234'),
             'remember_token' => Str::random(10),
             'created_at' => now(),
@@ -29,7 +30,7 @@ class EvidenceCascadeDeleteTest extends TestCase
         // Insert two evidence rows owned by the user.
         $evidenceRows = [
             [
-                'id' => 'ev_' . (string) Str::ulid(),
+                'id' => 'ev_'.(string) Str::ulid(),
                 'owner_id' => $userId,
                 'filename' => 'doc1.pdf',
                 'mime' => 'application/pdf',
@@ -41,7 +42,7 @@ class EvidenceCascadeDeleteTest extends TestCase
                 'updated_at' => now(),
             ],
             [
-                'id' => 'ev_' . (string) Str::ulid(),
+                'id' => 'ev_'.(string) Str::ulid(),
                 'owner_id' => $userId,
                 'filename' => 'img1.png',
                 'mime' => 'image/png',

@@ -14,14 +14,14 @@ final class TokenCookieGuard
     /**
      * Inject Authorization header from signed cookie when absent.
      *
-     * @param Closure(Request): Response $next
+     * @param  Closure(Request): Response  $next
      */
     public function handle(Request $request, Closure $next): Response
     {
         if ($request->bearerToken() === null) {
             $cookie = $request->cookie(AuthTokenCookie::name());
             if (is_string($cookie) && $cookie !== '') {
-                $token = 'Bearer ' . trim($cookie);
+                $token = 'Bearer '.trim($cookie);
                 $request->headers->set('Authorization', $token);
                 $request->server->set('HTTP_AUTHORIZATION', $token);
             }

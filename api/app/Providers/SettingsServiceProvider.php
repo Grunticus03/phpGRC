@@ -16,7 +16,7 @@ final class SettingsServiceProvider extends ServiceProvider
     {
         // no bindings
     }
-    
+
     public function boot(): void
     {
         /** @var ConfigRepository $config */
@@ -24,13 +24,15 @@ final class SettingsServiceProvider extends ServiceProvider
 
         // If DB not ready, bail.
         try {
-            if (!Schema::hasTable('core_settings')) {
+            if (! Schema::hasTable('core_settings')) {
                 // Ensure deprecated metrics throttle stays off even without DB
                 $config->set('core.metrics.throttle.enabled', false);
+
                 return;
             }
         } catch (\Throwable $e) {
             $config->set('core.metrics.throttle.enabled', false);
+
             return;
         }
 
@@ -41,21 +43,22 @@ final class SettingsServiceProvider extends ServiceProvider
                 ->get()
                 ->map(static function ($r): array {
                     return [
-                        'key'   => (string) ($r->key ?? ''),
+                        'key' => (string) ($r->key ?? ''),
                         'value' => (string) ($r->value ?? ''),
-                        'type'  => (string) ($r->type ?? 'json'),
+                        'type' => (string) ($r->type ?? 'json'),
                     ];
                 })
                 ->all();
         } catch (\Throwable $e) {
             // Still enforce deprecated toggle off
             $config->set('core.metrics.throttle.enabled', false);
+
             return;
         }
 
         foreach ($rows as $row) {
-            $key   = $row['key'];
-            $type  = strtolower($row['type']);
+            $key = $row['key'];
+            $type = strtolower($row['type']);
             $value = $row['value'];
 
             // ENV-first precedence: do NOT allow DB to overwrite global API throttle knobs.
@@ -77,22 +80,26 @@ final class SettingsServiceProvider extends ServiceProvider
                     continue;
                 }
                 $config->set($key, $decoded);
+
                 continue;
             }
 
             if ($type === 'bool') {
                 $v = strtolower(trim($value));
                 $config->set($key, in_array($v, ['1', 'true', 'on', 'yes'], true));
+
                 continue;
             }
 
             if ($type === 'int') {
                 $config->set($key, (int) $value);
+
                 continue;
             }
 
             if ($type === 'float') {
                 $config->set($key, (float) $value);
+
                 continue;
             }
 
@@ -104,4 +111,3 @@ final class SettingsServiceProvider extends ServiceProvider
         $config->set('core.metrics.throttle.enabled', false);
     }
 }
-

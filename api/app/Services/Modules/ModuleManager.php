@@ -33,14 +33,13 @@ final class ModuleManager
 
     public function __construct(
         private readonly CapabilitiesRegistry $capabilities
-    ) {
-    }
+    ) {}
 
     /**
      * Load a manifest into the manager.
      * Phase 3: assumes validated; no schema checks here.
      *
-     * @param array<string,mixed> $manifest
+     * @param  array<string,mixed>  $manifest
      */
     public function load(array $manifest): void
     {
@@ -76,6 +75,7 @@ final class ModuleManager
     {
         /** @var array<string,mixed>|null $m */
         $m = $this->manifests[$name] ?? null;
+
         return $m;
     }
 
@@ -88,6 +88,7 @@ final class ModuleManager
     {
         /** @var list<string> $names */
         $names = array_keys($this->manifests);
+
         return $names;
     }
 
@@ -127,10 +128,10 @@ final class ModuleManager
         $caps = $module->capabilities();
 
         $this->load([
-            'name'         => $module->name(),
-            'version'      => $version,
+            'name' => $module->name(),
+            'version' => $version,
             'capabilities' => $caps,
-            'enabled'      => $module->isEnabled(),
+            'enabled' => $module->isEnabled(),
         ]);
     }
 
@@ -140,8 +141,7 @@ final class ModuleManager
     public function clear(): void
     {
         $this->manifests = [];
-        $this->enabled   = [];
+        $this->enabled = [];
         $this->capabilities->clear();
     }
 }
-

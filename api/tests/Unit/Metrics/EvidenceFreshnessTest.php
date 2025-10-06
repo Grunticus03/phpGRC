@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace Tests\Unit\Metrics;
@@ -35,13 +36,13 @@ final class EvidenceFreshnessTest extends TestCase
         // Stale: 31d old (png)
         $this->evidence('image/png', $now->subDays(31));
 
-        $calc = new EvidenceFreshnessCalculator();
+        $calc = new EvidenceFreshnessCalculator;
         $out = $calc->compute(30);
 
         $this->assertSame(30, $out['days']);
         $this->assertSame(3, $out['total']);
         $this->assertSame(2, $out['stale']);
-        $this->assertEquals(2/3, $out['percent']);
+        $this->assertEquals(2 / 3, $out['percent']);
 
         $this->assertIsArray($out['by_mime']);
         $this->assertNotEmpty($out['by_mime']);
@@ -69,13 +70,13 @@ final class EvidenceFreshnessTest extends TestCase
     {
         Evidence::query()->create([
             // id omitted -> model autogenerates ev_<ULID>
-            'owner_id'   => $this->ownerId,
-            'filename'   => 'seed.txt',
-            'mime'       => $mime,
+            'owner_id' => $this->ownerId,
+            'filename' => 'seed.txt',
+            'mime' => $mime,
             'size_bytes' => 123,
-            'sha256'     => str_repeat('a', 64),
-            'version'    => 1,
-            'bytes'      => random_bytes(1),
+            'sha256' => str_repeat('a', 64),
+            'version' => 1,
+            'bytes' => random_bytes(1),
             'created_at' => $updatedAt,
             'updated_at' => $updatedAt,
         ]);

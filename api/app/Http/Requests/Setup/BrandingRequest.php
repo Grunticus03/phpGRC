@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace App\Http\Requests\Setup;
@@ -12,13 +13,13 @@ final class BrandingRequest extends FormRequest
     public function rules(): array
     {
         $themes = [
-            'cerulean','cosmo','cyborg','darkly','flatly','journal','litera','lumen','lux','materia','minty',
-            'pulse','sandstone','simplex','sketchy','slate','solar','spacelab','superhero','united','yeti'
+            'cerulean', 'cosmo', 'cyborg', 'darkly', 'flatly', 'journal', 'litera', 'lumen', 'lux', 'materia', 'minty',
+            'pulse', 'sandstone', 'simplex', 'sketchy', 'slate', 'solar', 'spacelab', 'superhero', 'united', 'yeti',
         ]; // :contentReference[oaicite:7]{index=7}
 
         return [
-            'name'     => ['required', 'string', 'min:1', 'max:60'],
-            'theme'    => ['required', Rule::in($themes)],
+            'name' => ['required', 'string', 'min:1', 'max:60'],
+            'theme' => ['required', Rule::in($themes)],
             'logo_url' => ['nullable', 'url'],
         ];
     }
@@ -28,4 +29,3 @@ final class BrandingRequest extends FormRequest
         return true;
     }
 }
-

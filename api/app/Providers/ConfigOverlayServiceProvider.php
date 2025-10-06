@@ -23,6 +23,7 @@ final class ConfigOverlayServiceProvider extends ServiceProvider
         if (is_file($path) && is_readable($path)) {
             /**
              * @psalm-suppress UnresolvableInclude
+             *
              * @var mixed $raw
              */
             $raw = require $path;
@@ -32,7 +33,7 @@ final class ConfigOverlayServiceProvider extends ServiceProvider
                 $rawArr = $raw;
                 $this->mergeCoreOverlay($rawArr);
                 $meta['loaded'] = true;
-                $meta['path']   = $path;
+                $meta['path'] = $path;
 
                 $mtime = @filemtime($path);
                 $meta['mtime'] = ($mtime === false) ? null : $mtime;
@@ -43,7 +44,7 @@ final class ConfigOverlayServiceProvider extends ServiceProvider
     }
 
     /**
-     * @param array<string,mixed> $overlay
+     * @param  array<string,mixed>  $overlay
      */
     private function mergeCoreOverlay(array $overlay): void
     {
@@ -122,4 +123,3 @@ final class ConfigOverlayServiceProvider extends ServiceProvider
         config()->set('core', $core);
     }
 }
-

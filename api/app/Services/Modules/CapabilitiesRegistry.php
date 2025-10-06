@@ -21,14 +21,14 @@ final class CapabilitiesRegistry
     /**
      * Register capabilities for a provider.
      *
-     * @param string   $provider  Module name or FQCN
-     * @param string[] $caps      Capability ids (e.g., "risks.read")
+     * @param  string  $provider  Module name or FQCN
+     * @param  string[]  $caps  Capability ids (e.g., "risks.read")
      */
     public function register(string $provider, array $caps): void
     {
         foreach ($caps as $cap) {
             $this->providersByCapability[$cap] ??= [];
-            if (!in_array($provider, $this->providersByCapability[$cap], true)) {
+            if (! in_array($provider, $this->providersByCapability[$cap], true)) {
                 $this->providersByCapability[$cap][] = $provider;
             }
         }
@@ -39,7 +39,7 @@ final class CapabilitiesRegistry
      */
     public function provides(string $capability): bool
     {
-        return !empty($this->providersByCapability[$capability] ?? []);
+        return ! empty($this->providersByCapability[$capability] ?? []);
     }
 
     /**

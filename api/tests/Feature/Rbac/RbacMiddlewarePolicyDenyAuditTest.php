@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace Tests\Feature\Rbac;
@@ -17,11 +18,11 @@ final class RbacMiddlewarePolicyDenyAuditTest extends TestCase
     public function test_policy_unknown_in_persist_denies_and_emits_audit(): void
     {
         config([
-            'core.rbac.enabled'      => true,
+            'core.rbac.enabled' => true,
             'core.rbac.require_auth' => true,
-            'core.rbac.mode'         => 'persist',
+            'core.rbac.mode' => 'persist',
             // Remove the policy mapping so roles pass but policy check fails
-            'core.rbac.policies'     => [],
+            'core.rbac.policies' => [],
         ]);
 
         $admin = $this->makeUser('Admin One', 'admin1@example.test');
@@ -63,7 +64,7 @@ final class RbacMiddlewarePolicyDenyAuditTest extends TestCase
 
     private function attachNamedRole(User $user, string $name): void
     {
-        $id = 'role_' . strtolower(preg_replace('/[^a-z0-9]+/i', '_', $name));
+        $id = 'role_'.strtolower(preg_replace('/[^a-z0-9]+/i', '_', $name));
 
         /** @var Role $role */
         $role = Role::query()->firstOrCreate(
@@ -74,4 +75,3 @@ final class RbacMiddlewarePolicyDenyAuditTest extends TestCase
         $user->roles()->syncWithoutDetaching([$role->getKey()]);
     }
 }
-

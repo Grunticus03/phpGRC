@@ -64,8 +64,8 @@ final class Handler extends ExceptionHandler
             $headers['Retry-After'] = (string) $retryAfter;
 
             return new JsonResponse([
-                'ok'          => false,
-                'code'        => 'RATE_LIMITED',
+                'ok' => false,
+                'code' => 'RATE_LIMITED',
                 'retry_after' => $retryAfter,
             ], 429, $headers);
         }

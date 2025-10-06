@@ -60,4 +60,3 @@ final class DashboardKpisMoreValidationTest extends TestCase
         }
     }
 }
-

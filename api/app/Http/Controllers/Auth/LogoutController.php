@@ -31,14 +31,14 @@ final class LogoutController extends Controller
 
         if (config('core.audit.enabled', true) && Schema::hasTable('audit_events')) {
             $audit->log([
-                'actor_id'    => $actorId,
-                'action'      => 'auth.logout',
-                'category'    => 'AUTH',
+                'actor_id' => $actorId,
+                'action' => 'auth.logout',
+                'category' => 'AUTH',
                 'entity_type' => 'core.auth',
-                'entity_id'   => 'logout',
-                'ip'          => $request->ip(),
-                'ua'          => $request->userAgent(),
-                'meta'        => ['applied' => true],
+                'entity_id' => 'logout',
+                'ip' => $request->ip(),
+                'ua' => $request->userAgent(),
+                'meta' => ['applied' => true],
             ]);
         }
 
@@ -47,4 +47,3 @@ final class LogoutController extends Controller
         return $response->withCookie(AuthTokenCookie::forget($request));
     }
 }
-

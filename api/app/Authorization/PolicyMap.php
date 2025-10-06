@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace App\Authorization;
@@ -23,8 +24,8 @@ final class PolicyMap
             'core.settings.manage' => ['Admin'],
 
             // Audit and evidence viewing
-            'core.audit.view'      => ['Admin', 'Auditor'],
-            'core.evidence.view'   => ['Admin', 'Auditor'],
+            'core.audit.view' => ['Admin', 'Auditor'],
+            'core.evidence.view' => ['Admin', 'Auditor'],
 
             // Evidence write
             'core.evidence.manage' => ['Admin'],
@@ -33,7 +34,7 @@ final class PolicyMap
             'core.exports.generate' => ['Admin'],
 
             // RBAC admin
-            'rbac.roles.manage'      => ['Admin'],
+            'rbac.roles.manage' => ['Admin'],
             'rbac.user_roles.manage' => ['Admin'],
         ];
 
@@ -49,12 +50,12 @@ final class PolicyMap
     }
 
     /**
-     * @param string $policy
      * @return array<int, string>
      */
     public static function rolesFor(string $policy): array
     {
         $map = self::map();
+
         return $map[$policy] ?? [];
     }
 
@@ -66,4 +67,3 @@ final class PolicyMap
         return array_keys(self::map());
     }
 }
-

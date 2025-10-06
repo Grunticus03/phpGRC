@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace Tests\Feature\Rbac;
@@ -15,9 +16,9 @@ final class RbacMiddlewareRoleDenyAuditTest extends TestCase
     public function test_role_mismatch_emits_single_rbac_deny_role_mismatch(): void
     {
         config([
-            'core.rbac.enabled'      => true,
+            'core.rbac.enabled' => true,
             'core.rbac.require_auth' => true,
-            'core.rbac.mode'         => 'persist',
+            'core.rbac.mode' => 'persist',
         ]);
 
         $user = User::query()->create([
@@ -48,4 +49,3 @@ final class RbacMiddlewareRoleDenyAuditTest extends TestCase
         $this->assertNotSame('', (string) ($row->meta['request_id'] ?? ''));
     }
 }
-

@@ -21,12 +21,12 @@ final class EvidenceUploadCapabilityTest extends TestCase
         parent::setUp();
 
         config([
-            'core.rbac.enabled'      => true,
-            'core.rbac.mode'         => 'persist',
-            'core.rbac.persistence'  => true,
+            'core.rbac.enabled' => true,
+            'core.rbac.mode' => 'persist',
+            'core.rbac.persistence' => true,
             'core.rbac.require_auth' => true,
-            'core.audit.enabled'     => true,
-            'core.evidence.enabled'  => true,
+            'core.audit.enabled' => true,
+            'core.evidence.enabled' => true,
         ]);
 
         $this->seed(TestRbacSeeder::class);
@@ -40,6 +40,7 @@ final class EvidenceUploadCapabilityTest extends TestCase
         if (is_string($adminId)) {
             $u->roles()->syncWithoutDetaching([$adminId]);
         }
+
         return $u;
     }
 
@@ -57,8 +58,8 @@ final class EvidenceUploadCapabilityTest extends TestCase
 
         $res->assertStatus(403)
             ->assertJson([
-                'ok'         => false,
-                'code'       => 'CAPABILITY_DISABLED',
+                'ok' => false,
+                'code' => 'CAPABILITY_DISABLED',
                 'capability' => 'core.evidence.upload',
             ]);
 
@@ -67,7 +68,7 @@ final class EvidenceUploadCapabilityTest extends TestCase
 
         $this->assertDatabaseHas('audit_events', [
             'category' => 'RBAC',
-            'action'   => 'rbac.deny.capability',
+            'action' => 'rbac.deny.capability',
         ]);
     }
 
@@ -83,8 +84,7 @@ final class EvidenceUploadCapabilityTest extends TestCase
         $resp = $this->post('/evidence', ['file' => $file]);
 
         $resp->assertStatus(201)
-             ->assertJson(['ok' => true])
-             ->assertJsonStructure(['id','version','sha256','size','mime','name']);
+            ->assertJson(['ok' => true])
+            ->assertJsonStructure(['id', 'version', 'sha256', 'size', 'mime', 'name']);
     }
 }
-

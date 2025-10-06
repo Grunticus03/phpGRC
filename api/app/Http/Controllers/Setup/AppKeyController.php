@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace App\Http\Controllers\Setup;
@@ -15,7 +16,7 @@ final class AppKeyController extends Controller
 {
     public function generate(ArtisanKernel $artisan): JsonResponse
     {
-        if (!Config::get('core.setup.enabled', true)) {
+        if (! Config::get('core.setup.enabled', true)) {
             return response()->json(['ok' => false, 'code' => 'SETUP_STEP_DISABLED'], 400);
         }
 
@@ -26,11 +27,12 @@ final class AppKeyController extends Controller
             return response()->json(['ok' => false, 'code' => 'APP_KEY_EXISTS'], 409);
         }
 
-        if (!Config::get('core.setup.allow_commands', false)) {
+        if (! Config::get('core.setup.allow_commands', false)) {
             return response()->json(['ok' => true, 'note' => 'stub-only'], 202);
         }
 
         $artisan->call('key:generate', ['--force' => true]);
+
         return response()->json(['ok' => true], 200);
     }
 }

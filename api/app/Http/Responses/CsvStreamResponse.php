@@ -14,11 +14,10 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 final class CsvStreamResponse extends StreamedResponse
 {
     /**
-     * @param callable():void|null $callback
-     * @param int $status
-     * @param array<string,string> $headers
+     * @param  callable():void|null  $callback
+     * @param  array<string,string>  $headers
      */
-    public function __construct(callable $callback = null, int $status = 200, array $headers = [])
+    public function __construct(?callable $callback = null, int $status = 200, array $headers = [])
     {
         parent::__construct($callback, $status, $headers);
         /** @psalm-suppress InaccessibleProperty */
@@ -32,13 +31,14 @@ final class CsvStreamResponse extends StreamedResponse
         $this->headers->set('Content-Type', 'text/csv');
         /** @psalm-suppress InaccessibleProperty */
         $this->charset = '';
+
         return $this;
     }
 
     #[\Override]
     public function getContent(): string
     {
-        if (!is_callable($this->callback)) {
+        if (! is_callable($this->callback)) {
             return '';
         }
 
@@ -50,4 +50,3 @@ final class CsvStreamResponse extends StreamedResponse
         return is_string($out) ? $out : '';
     }
 }
-

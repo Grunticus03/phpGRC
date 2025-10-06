@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace App\Http\Middleware;
@@ -20,27 +21,28 @@ final class RbacMiddleware
     public function __construct(
         private readonly RbacEvaluator $evaluator,
         private readonly AuditLogger $audit
-    ) {
-    }
+    ) {}
 
     /**
-     * @param \Closure(\Illuminate\Http\Request): \Symfony\Component\HttpFoundation\Response $next
+     * @param  \Closure(\Illuminate\Http\Request): \Symfony\Component\HttpFoundation\Response  $next
      */
     public function handle(Request $request, Closure $next): Response
     {
         $enabled = (bool) config('core.rbac.enabled', false);
         $request->attributes->set('rbac_enabled', $enabled);
 
-        if (!$enabled) {
+        if (! $enabled) {
             /** @var Response $resp */
             $resp = $next($request);
+
             return $resp;
         }
 
         $route = $request->route();
-        if (!$route instanceof \Illuminate\Routing\Route) {
+        if (! $route instanceof \Illuminate\Routing\Route) {
             /** @var Response $resp */
             $resp = $next($request);
+
             return $resp;
         }
 
@@ -53,23 +55,24 @@ final class RbacMiddleware
             : null;
 
         if ($capKey !== null) {
-            $capEnabled = config('core.capabilities.' . $capKey);
-            if (!is_bool($capEnabled) || $capEnabled === false) {
+            $capEnabled = config('core.capabilities.'.$capKey);
+            if (! is_bool($capEnabled) || $capEnabled === false) {
                 $this->auditDeny($request, null, 'rbac.deny.capability', [
-                    'capability'     => $capKey,
-                    'reason'         => 'capability',
-                    'rbac_mode'      => $this->rbacMode(),
+                    'capability' => $capKey,
+                    'reason' => 'capability',
+                    'rbac_mode' => $this->rbacMode(),
                     'required_roles' => $this->extractRequiredRoles($defaults),
-                    'policy'         => $this->extractPolicy($defaults),
+                    'policy' => $this->extractPolicy($defaults),
                 ]);
+
                 return new JsonResponse(['ok' => false, 'code' => 'CAPABILITY_DISABLED', 'capability' => $capKey], 403);
             }
         }
 
         /** @var list<string> $requiredRoles */
         $requiredRoles = $this->extractRequiredRoles($defaults);
-        $policy        = $this->extractPolicy($defaults);
-        $requireAuth   = (bool) config('core.rbac.require_auth', false);
+        $policy = $this->extractPolicy($defaults);
+        $requireAuth = (bool) config('core.rbac.require_auth', false);
 
         Auth::shouldUse('sanctum');
         /** @var User|null $user */
@@ -79,59 +82,64 @@ final class RbacMiddleware
             if ($requireAuth) {
                 $this->auditRedirect($request, $capKey, $requiredRoles, $policy);
                 $this->auditDeny($request, null, 'rbac.deny.unauthenticated', [
-                    'reason'         => 'unauthenticated',
-                    'rbac_mode'      => $this->rbacMode(),
+                    'reason' => 'unauthenticated',
+                    'rbac_mode' => $this->rbacMode(),
                     'required_roles' => $requiredRoles,
-                    'policy'         => $policy,
-                    'capability'     => $capKey,
+                    'policy' => $policy,
+                    'capability' => $capKey,
                 ]);
+
                 return response()->json(['ok' => false, 'code' => 'UNAUTHENTICATED'], 401);
             }
             /** @var Response $resp */
             $resp = $next($request);
+
             return $resp;
         }
 
-        if ($requiredRoles !== [] && !$this->evaluator->userHasAnyRole($user, $requiredRoles)) {
+        if ($requiredRoles !== [] && ! $this->evaluator->userHasAnyRole($user, $requiredRoles)) {
             $this->auditDeny($request, $user, 'rbac.deny.role_mismatch', [
-                'reason'         => 'role',
-                'rbac_mode'      => $this->rbacMode(),
+                'reason' => 'role',
+                'rbac_mode' => $this->rbacMode(),
                 'required_roles' => $requiredRoles,
-                'policy'         => $policy,
-                'capability'     => $capKey,
+                'policy' => $policy,
+                'capability' => $capKey,
             ]);
+
             return new JsonResponse(['ok' => false, 'code' => 'FORBIDDEN', 'message' => 'Forbidden'], 403);
         }
 
         if ($policy !== null && $policy !== '') {
             $policyAllowed = RbacEvaluator::allows($user, $policy);
             $request->attributes->set('rbac_policy_allowed', $policyAllowed);
-            if (!$policyAllowed) {
+            if (! $policyAllowed) {
                 $this->auditDeny($request, $user, 'rbac.deny.policy', [
-                    'reason'         => 'policy',
-                    'rbac_mode'      => $this->rbacMode(),
+                    'reason' => 'policy',
+                    'rbac_mode' => $this->rbacMode(),
                     'required_roles' => $requiredRoles,
-                    'policy'         => $policy,
-                    'capability'     => $capKey,
+                    'policy' => $policy,
+                    'capability' => $capKey,
                 ]);
+
                 return new JsonResponse(['ok' => false, 'code' => 'FORBIDDEN', 'message' => 'Forbidden'], 403);
             }
         }
 
         /** @var Response $resp */
         $resp = $next($request);
+
         return $resp;
     }
 
     /**
-     * @param list<string> $requiredRoles
+     * @param  list<string>  $requiredRoles
      */
     private function auditRedirect(Request $request, ?string $capability, array $requiredRoles, ?string $policy): void
     {
         try {
             /** @var \Illuminate\Routing\Route|null $routeObj */
-            $routeObj    = $request->route();
-            $routeName   = null;
+            $routeObj = $request->route();
+            $routeName = null;
             $routeAction = null;
 
             if ($routeObj !== null) {
@@ -146,30 +154,30 @@ final class RbacMiddleware
             }
 
             $method = $request->getMethod();
-            $path   = '/' . ltrim($request->path(), '/');
+            $path = '/'.ltrim($request->path(), '/');
 
             $meta = array_filter([
-                'reason'         => 'require_auth',
-                'capability'     => $capability,
-                'policy'         => $policy,
+                'reason' => 'require_auth',
+                'capability' => $capability,
+                'policy' => $policy,
                 'required_roles' => $requiredRoles !== [] ? $requiredRoles : null,
-                'rbac_mode'      => $this->rbacMode(),
-                'route_name'     => $routeName,
-                'route_action'   => $routeAction,
-                'route'          => $path,
-                'method'         => $method,
-                'request_id'     => (string) Str::ulid(),
+                'rbac_mode' => $this->rbacMode(),
+                'route_name' => $routeName,
+                'route_action' => $routeAction,
+                'route' => $path,
+                'method' => $method,
+                'request_id' => (string) Str::ulid(),
             ], static fn ($v) => $v !== null);
 
             $this->audit->log([
-                'actor_id'    => null,
-                'action'      => 'auth.login.redirected',
-                'category'    => 'AUTH',
+                'actor_id' => null,
+                'action' => 'auth.login.redirected',
+                'category' => 'AUTH',
                 'entity_type' => 'core.auth',
-                'entity_id'   => 'login_redirect',
-                'ip'          => $request->ip(),
-                'ua'          => $request->userAgent(),
-                'meta'        => $meta,
+                'entity_id' => 'login_redirect',
+                'ip' => $request->ip(),
+                'ua' => $request->userAgent(),
+                'meta' => $meta,
             ]);
         } catch (\Throwable) {
             // Intentionally swallow audit errors for redirects.
@@ -177,7 +185,7 @@ final class RbacMiddleware
     }
 
     /**
-     * @param array<string,mixed> $defaults
+     * @param  array<string,mixed>  $defaults
      * @return list<string>
      */
     private function extractRequiredRoles(array $defaults): array
@@ -188,13 +196,15 @@ final class RbacMiddleware
         if (isset($defaults['roles']) && is_array($defaults['roles'])) {
             /** @var list<string> $roles */
             $roles = array_values(array_map('strval', array_filter($defaults['roles'], 'is_string')));
+
             return $roles;
         }
+
         return [];
     }
 
     /**
-     * @param array<string,mixed> $defaults
+     * @param  array<string,mixed>  $defaults
      */
     private function extractPolicy(array $defaults): ?string
     {
@@ -210,14 +220,15 @@ final class RbacMiddleware
     {
         /** @var mixed $raw */
         $raw = config('core.rbac.mode');
+
         return is_string($raw) && $raw !== '' ? $raw : 'stub';
     }
 
     /**
      * Write exactly one RBAC deny audit for this request.
      *
-     * @param non-empty-string $action
-     * @param array<string,mixed> $extraMeta
+     * @param  non-empty-string  $action
+     * @param  array<string,mixed>  $extraMeta
      */
     private function auditDeny(Request $request, ?User $user, string $action, array $extraMeta = []): void
     {
@@ -227,8 +238,8 @@ final class RbacMiddleware
             }
 
             /** @var \Illuminate\Routing\Route|null $routeObj */
-            $routeObj    = $request->route();
-            $routeName   = null;
+            $routeObj = $request->route();
+            $routeName = null;
             $routeAction = null;
 
             if ($routeObj !== null) {
@@ -242,9 +253,9 @@ final class RbacMiddleware
                 }
             }
 
-            $method   = $request->getMethod();
-            $path     = '/' . ltrim($request->path(), '/');
-            $entityId = $method . ' ' . $path;
+            $method = $request->getMethod();
+            $path = '/'.ltrim($request->path(), '/');
+            $entityId = $method.' '.$path;
 
             /** @var list<string>|null $rolesUser */
             $rolesUser = null;
@@ -263,28 +274,28 @@ final class RbacMiddleware
             }
 
             $meta = array_filter([
-                'reason'         => $extraMeta['reason']         ?? null,
-                'policy'         => $extraMeta['policy']         ?? null,
-                'capability'     => $extraMeta['capability']     ?? null,
+                'reason' => $extraMeta['reason'] ?? null,
+                'policy' => $extraMeta['policy'] ?? null,
+                'capability' => $extraMeta['capability'] ?? null,
                 'required_roles' => $extraMeta['required_roles'] ?? null,
-                'roles_user'     => $rolesUser,
-                'rbac_mode'      => $extraMeta['rbac_mode']      ?? null,
-                'route_name'     => $routeName,
-                'route_action'   => $routeAction,
-                'route'          => $path,
-                'method'         => $method,
-                'request_id'     => (string) Str::ulid(),
+                'roles_user' => $rolesUser,
+                'rbac_mode' => $extraMeta['rbac_mode'] ?? null,
+                'route_name' => $routeName,
+                'route_action' => $routeAction,
+                'route' => $path,
+                'method' => $method,
+                'request_id' => (string) Str::ulid(),
             ], static fn ($v) => $v !== null);
 
             $this->audit->log([
-                'actor_id'    => $user?->id,
-                'action'      => $action,
-                'category'    => 'RBAC',
+                'actor_id' => $user?->id,
+                'action' => $action,
+                'category' => 'RBAC',
                 'entity_type' => 'route',
-                'entity_id'   => $entityId,
-                'ip'          => $request->ip(),
-                'ua'          => $request->userAgent(),
-                'meta'        => $meta,
+                'entity_id' => $entityId,
+                'ip' => $request->ip(),
+                'ua' => $request->userAgent(),
+                'meta' => $meta,
             ]);
 
             $request->attributes->set(self::ATTR_DENY_AUDITED, true);
@@ -305,9 +316,10 @@ final class RbacMiddleware
         $collapsed = preg_replace('/\s+/', ' ', $name);
         $name = is_string($collapsed) ? $collapsed : $name;
         $name = str_replace(' ', '_', $name);
-        if (!preg_match('/^[\p{L}\p{N}_-]{2,64}$/u', $name)) {
+        if (! preg_match('/^[\p{L}\p{N}_-]{2,64}$/u', $name)) {
             return '';
         }
+
         return mb_strtolower($name);
     }
 }

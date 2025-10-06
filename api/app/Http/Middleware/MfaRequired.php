@@ -19,13 +19,13 @@ use Symfony\Component\HttpFoundation\Response;
 final class MfaRequired
 {
     /**
-     * @param \Closure(\Illuminate\Http\Request): \Symfony\Component\HttpFoundation\Response $next
+     * @param  \Closure(\Illuminate\Http\Request): \Symfony\Component\HttpFoundation\Response  $next
      */
     public function handle(Request $request, Closure $next): Response
     {
         /** @var Response $resp */
         $resp = $next($request);
+
         return $resp;
     }
 }
-

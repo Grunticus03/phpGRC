@@ -21,12 +21,11 @@ final class AuthServiceProvider extends ServiceProvider
 
         foreach (PolicyMap::allKeys() as $policy) {
             Gate::define($policy, /**
-             * @param User|null $user
+             * @param  User|null  $user
              */
-            function ($user = null) use ($policy): bool {
-                return RbacEvaluator::allows($user, $policy);
-            });
+                function ($user = null) use ($policy): bool {
+                    return RbacEvaluator::allows($user, $policy);
+                });
         }
     }
 }
-

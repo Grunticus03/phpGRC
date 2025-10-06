@@ -13,6 +13,7 @@ final class SettingsPolicy
         if (! (bool) config('core.rbac.enabled', false)) {
             return true;
         }
+
         return $user !== null && $user->hasAnyRole(['Admin']);
     }
 
@@ -21,6 +22,7 @@ final class SettingsPolicy
         if (! (bool) config('core.rbac.enabled', false)) {
             return true;
         }
+
         return $user !== null && $user->hasAnyRole(['Admin']);
     }
 }

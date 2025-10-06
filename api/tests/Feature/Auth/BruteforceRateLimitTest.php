@@ -21,24 +21,27 @@ final class BruteforceRateLimitTest extends TestCase
         $this->withExceptionHandling();
 
         config([
-            'core.audit.enabled'                    => true,
-            'core.auth.bruteforce.enabled'          => true,
-            'core.auth.bruteforce.max_attempts'     => 3,
-            'core.auth.bruteforce.window_seconds'   => 5,
+            'core.audit.enabled' => true,
+            'core.auth.bruteforce.enabled' => true,
+            'core.auth.bruteforce.max_attempts' => 3,
+            'core.auth.bruteforce.window_seconds' => 5,
             'core.auth.bruteforce.lock_http_status' => 429,
-            'core.auth.bruteforce.strategy'         => 'session',
-            'core.auth.session_cookie.name'         => 'phpgrc_auth_attempt',
+            'core.auth.bruteforce.strategy' => 'session',
+            'core.auth.session_cookie.name' => 'phpgrc_auth_attempt',
         ]);
 
         Cache::store('array')->flush();
-        try { Cache::store('file')->flush(); } catch (\Throwable) {}
+        try {
+            Cache::store('file')->flush();
+        } catch (\Throwable) {
+        }
         DB::table('audit_events')->truncate();
     }
 
     public function test_session_strategy_locks_then_unlocks_and_sets_retry_after(): void
     {
         $cookieName = (string) config('core.auth.session_cookie.name');
-        $cookieVal  = 'session-abc';
+        $cookieVal = 'session-abc';
 
         $t0 = CarbonImmutable::create(2025, 9, 25, 6, 0, 0, 'UTC');
         CarbonImmutable::setTestNow($t0);
@@ -76,8 +79,8 @@ final class BruteforceRateLimitTest extends TestCase
     public function test_ip_strategy_counts_per_ip_and_uses_retry_after(): void
     {
         config([
-            'core.auth.bruteforce.strategy'       => 'ip',
-            'core.auth.bruteforce.max_attempts'   => 2,
+            'core.auth.bruteforce.strategy' => 'ip',
+            'core.auth.bruteforce.max_attempts' => 2,
             'core.auth.bruteforce.window_seconds' => 2,
         ]);
 

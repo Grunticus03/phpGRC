@@ -20,11 +20,11 @@ final class AuditApiTest extends TestCase
         parent::setUp();
 
         config([
-            'core.rbac.enabled'      => true,
-            'core.rbac.mode'         => 'persist',
-            'core.rbac.persistence'  => true,
+            'core.rbac.enabled' => true,
+            'core.rbac.mode' => 'persist',
+            'core.rbac.persistence' => true,
             'core.rbac.require_auth' => false,
-            'core.audit.enabled'     => true,
+            'core.audit.enabled' => true,
         ]);
 
         $this->seed(TestRbacSeeder::class);
@@ -37,6 +37,7 @@ final class AuditApiTest extends TestCase
         if (is_string($auditorId)) {
             $u->roles()->syncWithoutDetaching([$auditorId]);
         }
+
         return $u;
     }
 
@@ -49,10 +50,11 @@ final class AuditApiTest extends TestCase
     private function evt(array $overrides = []): array
     {
         $base = \Database\Factories\AuditEventFactory::new()->definition();
+
         return array_merge($base, $overrides, [
-            'id'          => (string) Str::ulid(),
+            'id' => (string) Str::ulid(),
             'occurred_at' => now('UTC'),
-            'created_at'  => now('UTC'),
+            'created_at' => now('UTC'),
         ]);
     }
 
@@ -121,4 +123,3 @@ final class AuditApiTest extends TestCase
         $res->assertStatus(403);
     }
 }
-

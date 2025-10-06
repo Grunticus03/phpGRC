@@ -12,7 +12,7 @@ final class CoreSettingsSeeder extends Seeder
 {
     public function run(): void
     {
-        if (!Schema::hasTable('core_settings')) {
+        if (! Schema::hasTable('core_settings')) {
             return;
         }
 
@@ -47,12 +47,12 @@ final class CoreSettingsSeeder extends Seeder
         }
 
         $type = match (true) {
-            is_bool($value)  => 'bool',
-            is_int($value)   => 'int',
+            is_bool($value) => 'bool',
+            is_int($value) => 'int',
             is_float($value) => 'float',
-            is_string($value)=> 'string',
+            is_string($value) => 'string',
             is_array($value) => 'array',
-            default          => 'mixed',
+            default => 'mixed',
         };
 
         DB::table('core_settings')->updateOrInsert(

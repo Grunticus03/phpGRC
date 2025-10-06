@@ -124,13 +124,12 @@ final class RbacUserRolesAuditTest extends TestCase
 
     private function makeUser(): User
     {
-        $u = new User();
+        $u = new User;
         $u->name = 'Test User';
-        $u->email = 'user+' . uniqid('', true) . '@example.test';
+        $u->email = 'user+'.uniqid('', true).'@example.test';
         $u->password = Hash::make('secret123!');
         $u->save();
 
         return $u;
-        }
+    }
 }
-

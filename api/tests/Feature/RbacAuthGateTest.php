@@ -27,8 +27,8 @@ final class RbacAuthGateTest extends TestCase
     private function actingAsAdmin(): User
     {
         $admin = User::query()->create([
-            'name'     => 'Admin One',
-            'email'    => 'admin1@example.com',
+            'name' => 'Admin One',
+            'email' => 'admin1@example.com',
             'password' => bcrypt('secret'),
         ]);
 

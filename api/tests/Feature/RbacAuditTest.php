@@ -15,11 +15,11 @@ final class RbacAuditTest extends TestCase
     public function test_role_create_logs_audit_event(): void
     {
         config([
-            'core.rbac.enabled'      => true,
+            'core.rbac.enabled' => true,
             'core.rbac.require_auth' => false,
-            'core.rbac.persistence'  => true,
-            'core.rbac.mode'         => 'persist',
-            'core.audit.enabled'     => true,
+            'core.rbac.persistence' => true,
+            'core.rbac.mode' => 'persist',
+            'core.audit.enabled' => true,
         ]);
 
         $this->postJson('/rbac/roles', ['name' => 'Compliance-Lead'])->assertStatus(201);

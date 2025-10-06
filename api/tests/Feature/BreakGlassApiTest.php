@@ -6,8 +6,8 @@ namespace Tests\Feature;
 
 use App\Services\Audit\AuditLogger;
 use Illuminate\Support\Facades\Config;
-use Tests\TestCase;
 use PHPUnit\Framework\Attributes\Test;
+use Tests\TestCase;
 
 final class BreakGlassApiTest extends TestCase
 {

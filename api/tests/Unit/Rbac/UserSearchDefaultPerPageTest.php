@@ -15,12 +15,12 @@ final class UserSearchDefaultPerPageTest extends TestCase
 {
     private function makeController(): UserSearchController
     {
-        return new UserSearchController();
+        return new UserSearchController;
     }
 
     private function makeSettingsService(): SettingsService
     {
-        return new SettingsService();
+        return new SettingsService;
     }
 
     private function stubSchemaNoTables(): void
@@ -38,9 +38,9 @@ final class UserSearchDefaultPerPageTest extends TestCase
             config(['core.rbac.user_search.default_per_page' => $cfgDefaultPerPage]);
         }
 
-        $request    = Request::create('/api/rbac/users/search', 'GET', $query);
+        $request = Request::create('/api/rbac/users/search', 'GET', $query);
         $controller = $this->makeController();
-        $settings   = $this->makeSettingsService();
+        $settings = $this->makeSettingsService();
 
         $resp = $controller->index($request, $settings);
         $this->assertSame(200, $resp->getStatusCode(), 'Expected HTTP 200 for stub path without users table');
@@ -68,10 +68,10 @@ final class UserSearchDefaultPerPageTest extends TestCase
     public static function settingsDefaultClampProvider(): iterable
     {
         yield 'below_minimum' => ['cfg' => 0, 'expected' => 1];
-        yield 'at_minimum'    => ['cfg' => 1, 'expected' => 1];
-        yield 'normal'        => ['cfg' => 50, 'expected' => 50];
-        yield 'upper_ok'      => ['cfg' => 500, 'expected' => 500];
-        yield 'above_max'     => ['cfg' => 9999, 'expected' => 500];
+        yield 'at_minimum' => ['cfg' => 1, 'expected' => 1];
+        yield 'normal' => ['cfg' => 50, 'expected' => 50];
+        yield 'upper_ok' => ['cfg' => 500, 'expected' => 500];
+        yield 'above_max' => ['cfg' => 9999, 'expected' => 500];
     }
 
     #[DataProvider('settingsDefaultClampProvider')]
@@ -89,12 +89,12 @@ final class UserSearchDefaultPerPageTest extends TestCase
     public static function queryPerPageClampProvider(): iterable
     {
         yield 'below_minimum' => ['input' => '0',    'expected' => 1];
-        yield 'minimum'       => ['input' => '1',    'expected' => 1];
-        yield 'normal'        => ['input' => '50',   'expected' => 50];
-        yield 'upper_ok'      => ['input' => '500',  'expected' => 500];
-        yield 'above_max'     => ['input' => '9999', 'expected' => 500];
+        yield 'minimum' => ['input' => '1',    'expected' => 1];
+        yield 'normal' => ['input' => '50',   'expected' => 50];
+        yield 'upper_ok' => ['input' => '500',  'expected' => 500];
+        yield 'above_max' => ['input' => '9999', 'expected' => 500];
         // Negative value strings are ignored by parser (not digits), so default applies (50 here).
-        yield 'negative_ignored_defaults'  => ['input' => '-5',  'expected' => 50];
+        yield 'negative_ignored_defaults' => ['input' => '-5',  'expected' => 50];
         // Non-numeric is ignored by parser, so default applies (50 here).
         yield 'nonnumeric_ignored_defaults' => ['input' => 'abc', 'expected' => 50];
     }
@@ -115,10 +115,10 @@ final class UserSearchDefaultPerPageTest extends TestCase
     public static function pageClampProvider(): iterable
     {
         yield 'below_minimum' => ['input' => '0',   'expected' => 1];
-        yield 'minimum'       => ['input' => '1',   'expected' => 1];
-        yield 'large'         => ['input' => '999', 'expected' => 999];
+        yield 'minimum' => ['input' => '1',   'expected' => 1];
+        yield 'large' => ['input' => '999', 'expected' => 999];
         // Negative and non-numeric fall back to default (1), due to digits-only parse.
-        yield 'negative_ignored_defaults'  => ['input' => '-2', 'expected' => 1];
+        yield 'negative_ignored_defaults' => ['input' => '-2', 'expected' => 1];
         yield 'nonnumeric_ignored_default' => ['input' => 'x',  'expected' => 1];
     }
 
@@ -131,4 +131,3 @@ final class UserSearchDefaultPerPageTest extends TestCase
         $this->assertSame($expected, $json['meta']['page']);
     }
 }
-

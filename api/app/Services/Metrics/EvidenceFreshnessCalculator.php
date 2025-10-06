@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace App\Services\Metrics;
@@ -61,20 +62,19 @@ final class EvidenceFreshnessCalculator implements EvidenceFreshnessCalculatorCo
             $p = $t > 0 ? (float) ($s / $t) : 0.0;
 
             $byMime[] = [
-                'mime'    => $m,
-                'total'   => $t,
-                'stale'   => $s,
+                'mime' => $m,
+                'total' => $t,
+                'stale' => $s,
                 'percent' => $p,
             ];
         }
 
         return [
-            'days'    => $days,
-            'total'   => $total,
-            'stale'   => $stale,
+            'days' => $days,
+            'total' => $total,
+            'stale' => $stale,
             'percent' => $total > 0 ? (float) ($stale / $total) : 0.0,
             'by_mime' => $byMime,
         ];
     }
 }
-

@@ -33,6 +33,7 @@ final class StoreRoleRequest extends FormRequest
         $flag = (bool) config('core.rbac.persistence', false);
         /** @var mixed $mode */
         $mode = config('core.rbac.mode');
+
         return $flag || $mode === 'persist' || $mode === 'db';
     }
 
@@ -44,7 +45,7 @@ final class StoreRoleRequest extends FormRequest
             'name' => ['required', 'string', 'min:2', 'max:64', 'regex:/^[\p{L}\p{N}_-]{2,64}$/u'],
         ];
 
-        if (!$this->persistenceEnabled()) {
+        if (! $this->persistenceEnabled()) {
             return $base;
         }
 
@@ -61,12 +62,12 @@ final class StoreRoleRequest extends FormRequest
     {
         return [
             'name.required' => 'Role name is required.',
-            'name.string'   => 'Role name must be a string.',
-            'name.min'      => 'Role name must be at least 2 characters.',
-            'name.max'      => 'Role name must be at most 64 characters.',
-            'name.regex'    => 'Role name may contain only letters, numbers, underscores, and hyphens.',
-            'name.unique'   => 'Role already exists.',
-            'name.not_in'   => 'Role already exists.',
+            'name.string' => 'Role name must be a string.',
+            'name.min' => 'Role name must be at least 2 characters.',
+            'name.max' => 'Role name must be at most 64 characters.',
+            'name.regex' => 'Role name may contain only letters, numbers, underscores, and hyphens.',
+            'name.unique' => 'Role already exists.',
+            'name.not_in' => 'Role already exists.',
         ];
     }
 
@@ -75,11 +76,10 @@ final class StoreRoleRequest extends FormRequest
     {
         throw new HttpResponseException(
             response()->json([
-                'ok'     => false,
-                'code'   => 'VALIDATION_FAILED',
+                'ok' => false,
+                'code' => 'VALIDATION_FAILED',
                 'errors' => $validator->errors(),
             ], 422)
         );
     }
 }
-

@@ -51,8 +51,7 @@ final class MetricsWindowClampConfigTest extends TestCase
             'granularity' => 'day',
         ]);
 
-        $r = $this->getJson('/dashboard/kpis?' . $q)->assertStatus(200);
+        $r = $this->getJson('/dashboard/kpis?'.$q)->assertStatus(200);
         $r->assertJsonPath('meta.window.rbac_days', 10);
     }
 }
-

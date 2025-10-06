@@ -57,4 +57,3 @@ final class MetricsCacheTest extends TestCase
         $this->assertFalse((bool) $c->json('meta.cache.hit'));
     }
 }
-

@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace App\Http\Middleware\Auth;
@@ -14,12 +15,13 @@ final class RequireSanctumWhenRequired
     /**
      * Enforce Sanctum authentication only when RBAC requires it.
      *
-     * @param Closure(Request):Response $next
+     * @param  Closure(Request):Response  $next
+     *
      * @throws AuthenticationException
      */
     public function handle(Request $request, Closure $next): Response
     {
-        if (!(bool) config('core.rbac.require_auth', false)) {
+        if (! (bool) config('core.rbac.require_auth', false)) {
             return $next($request);
         }
 
@@ -29,6 +31,6 @@ final class RequireSanctumWhenRequired
             return $next($request);
         }
 
-        throw new AuthenticationException();
+        throw new AuthenticationException;
     }
 }

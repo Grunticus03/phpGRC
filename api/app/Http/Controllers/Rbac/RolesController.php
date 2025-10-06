@@ -42,18 +42,20 @@ final class RolesController extends Controller
             return;
         }
 
-        if (!Schema::hasTable('roles')) {
+        if (! Schema::hasTable('roles')) {
             $this->seedDefaultsEnsured = true;
+
             return;
         }
 
         if (Role::query()->count() > 0) {
             $this->seedDefaultsEnsured = true;
+
             return;
         }
 
         try {
-            (new RolesSeeder())->run();
+            (new RolesSeeder)->run();
         } catch (\Throwable) {
             return;
         }
@@ -63,7 +65,7 @@ final class RolesController extends Controller
 
     public function index(): JsonResponse
     {
-        if (!$this->persistenceEnabled()) {
+        if (! $this->persistenceEnabled()) {
             /** @var array<array-key, mixed> $cfgArr */
             $cfgArr = (array) config('core.rbac.roles', ['Admin', 'Auditor', 'Risk Manager', 'User']);
 
@@ -119,10 +121,10 @@ final class RolesController extends Controller
 
     public function store(RoleCreateRequest $request): JsonResponse
     {
-        if (!$this->persistenceEnabled() || !Schema::hasTable('roles')) {
+        if (! $this->persistenceEnabled() || ! Schema::hasTable('roles')) {
             return response()->json([
-                'ok'       => true,
-                'note'     => 'stub-only',
+                'ok' => true,
+                'note' => 'stub-only',
                 'accepted' => ['name' => $request->string('name')->toString()],
             ], 202);
         }
@@ -147,20 +149,20 @@ final class RolesController extends Controller
         foreach ($existingNames as $ex) {
             if (mb_strtolower($ex, 'UTF-8') === $nameLower) {
                 return response()->json([
-                    'ok'      => false,
-                    'code'    => 'VALIDATION_FAILED',
+                    'ok' => false,
+                    'code' => 'VALIDATION_FAILED',
                     'message' => 'The given data was invalid.',
-                    'errors'  => ['name' => ['Role already exists after normalization.']],
+                    'errors' => ['name' => ['Role already exists after normalization.']],
                 ], 422);
             }
         }
 
-        $base = 'role_' . Str::slug($raw, '_');
+        $base = 'role_'.Str::slug($raw, '_');
 
         if (Role::query()->whereKey($base)->exists()) {
             /** @var list<string> $siblings */
             $siblings = Role::query()
-                ->where('id', 'like', $base . '\_%')
+                ->where('id', 'like', $base.'\_%')
                 ->pluck('id')
                 ->filter(static fn ($v): bool => is_string($v))
                 ->values()
@@ -168,14 +170,14 @@ final class RolesController extends Controller
 
             $max = 0;
             foreach ($siblings as $sibId) {
-                if (preg_match('/^' . preg_quote($base, '/') . '_(\d+)$/', $sibId, $m) === 1) {
+                if (preg_match('/^'.preg_quote($base, '/').'_(\d+)$/', $sibId, $m) === 1) {
                     $n = (int) $m[1];
                     if ($n > $max) {
                         $max = $n;
                     }
                 }
             }
-            $id = $base . '_' . ($max + 1);
+            $id = $base.'_'.($max + 1);
         } else {
             $id = $base;
         }
@@ -184,23 +186,23 @@ final class RolesController extends Controller
         $role = Role::query()->create(['id' => $id, 'name' => $nameLower]);
 
         $this->logRoleAudit($request, 'rbac.role.created', $role, [
-            'role'            => $collapsed,
-            'name'            => $collapsed,
+            'role' => $collapsed,
+            'name' => $collapsed,
             'name_normalized' => $nameLower,
         ]);
 
         return response()->json([
-            'ok'   => true,
+            'ok' => true,
             'role' => ['id' => $role->id, 'name' => $role->name],
         ], 201);
     }
 
     public function update(Request $request, string $role): JsonResponse
     {
-        if (!$this->persistenceEnabled() || !Schema::hasTable('roles')) {
+        if (! $this->persistenceEnabled() || ! Schema::hasTable('roles')) {
             return response()->json([
-                'ok'       => true,
-                'note'     => 'stub-only',
+                'ok' => true,
+                'note' => 'stub-only',
                 'accepted' => [
                     'role' => $role,
                     'name' => is_string($request->input('name')) ? $request->input('name') : null,
@@ -209,11 +211,11 @@ final class RolesController extends Controller
         }
 
         $target = $this->resolveRoleModel($role);
-        if (!$target instanceof Role) {
+        if (! $target instanceof Role) {
             return response()->json([
-                'ok'             => false,
-                'code'           => 'ROLE_NOT_FOUND',
-                'missing_roles'  => [$role],
+                'ok' => false,
+                'code' => 'ROLE_NOT_FOUND',
+                'missing_roles' => [$role],
             ], 404);
         }
 
@@ -223,12 +225,12 @@ final class RolesController extends Controller
         }
 
         $previousName = $target->name;
-        $collapsed     = $validated['collapsed'];
-        $normalized    = $validated['normalized'];
+        $collapsed = $validated['collapsed'];
+        $normalized = $validated['normalized'];
 
         if ($previousName === $normalized) {
             return response()->json([
-                'ok'   => true,
+                'ok' => true,
                 'role' => ['id' => $target->id, 'name' => $target->name],
                 'note' => 'unchanged',
             ], 200);
@@ -238,40 +240,40 @@ final class RolesController extends Controller
         $target->save();
 
         $this->logRoleAudit($request, 'rbac.role.updated', $target, [
-            'role'             => $collapsed,
-            'name'             => $collapsed,
-            'name_normalized'  => $normalized,
-            'name_previous'    => $previousName,
+            'role' => $collapsed,
+            'name' => $collapsed,
+            'name_normalized' => $normalized,
+            'name_previous' => $previousName,
         ]);
 
         return response()->json([
-            'ok'   => true,
+            'ok' => true,
             'role' => ['id' => $target->id, 'name' => $target->name],
         ], 200);
     }
 
     public function destroy(Request $request, string $role): JsonResponse
     {
-        if (!$this->persistenceEnabled() || !Schema::hasTable('roles')) {
+        if (! $this->persistenceEnabled() || ! Schema::hasTable('roles')) {
             return response()->json([
-                'ok'   => true,
+                'ok' => true,
                 'note' => 'stub-only',
             ], 202);
         }
 
         $target = $this->resolveRoleModel($role);
-        if (!$target instanceof Role) {
+        if (! $target instanceof Role) {
             return response()->json([
-                'ok'             => false,
-                'code'           => 'ROLE_NOT_FOUND',
-                'missing_roles'  => [$role],
+                'ok' => false,
+                'code' => 'ROLE_NOT_FOUND',
+                'missing_roles' => [$role],
             ], 404);
         }
 
         $meta = [
-            'role'            => $target->name,
-            'name'            => $target->name,
-            'role_id'         => $target->id,
+            'role' => $target->name,
+            'name' => $target->name,
+            'role_id' => $target->id,
             'name_normalized' => $target->name,
         ];
 
@@ -290,19 +292,20 @@ final class RolesController extends Controller
         if ($s === '') {
             throw new \LogicException('Expected non-empty string');
         }
+
         return $s;
     }
 
     /**
-     * @param array<string, list<string>> $errors
+     * @param  array<string, list<string>>  $errors
      */
     private function validationFailed(array $errors): JsonResponse
     {
         return response()->json([
-            'ok'      => false,
-            'code'    => 'VALIDATION_FAILED',
+            'ok' => false,
+            'code' => 'VALIDATION_FAILED',
             'message' => 'The given data was invalid.',
-            'errors'  => $errors,
+            'errors' => $errors,
         ], 422);
     }
 
@@ -313,7 +316,7 @@ final class RolesController extends Controller
     {
         /** @var mixed $raw */
         $raw = $request->input('name');
-        if (!is_string($raw)) {
+        if (! is_string($raw)) {
             return $this->validationFailed(['name' => ['Role name is required.']]);
         }
 
@@ -327,16 +330,17 @@ final class RolesController extends Controller
             ],
             [
                 'name.required' => 'Role name is required.',
-                'name.string'   => 'Role name must be a string.',
-                'name.min'      => 'Role name must be at least 2 characters.',
-                'name.max'      => 'Role name must be at most 64 characters.',
-                'name.regex'    => 'Role name may contain only letters, numbers, underscores, and hyphens.',
+                'name.string' => 'Role name must be a string.',
+                'name.min' => 'Role name must be at least 2 characters.',
+                'name.max' => 'Role name must be at most 64 characters.',
+                'name.regex' => 'Role name may contain only letters, numbers, underscores, and hyphens.',
             ]
         );
 
         if ($validator->fails()) {
             /** @var array<string,list<string>> $errors */
             $errors = $validator->errors()->toArray();
+
             return $this->validationFailed($errors);
         }
 
@@ -429,7 +433,7 @@ final class RolesController extends Controller
             $idAttr = $candidate->getAttribute('id');
             $nameAttr = $candidate->getAttribute('name');
 
-            if (!is_string($idAttr) || !is_string($nameAttr)) {
+            if (! is_string($idAttr) || ! is_string($nameAttr)) {
                 continue;
             }
 
@@ -442,46 +446,45 @@ final class RolesController extends Controller
     }
 
     /**
-     * @param non-empty-string $action
-     * @param array<string, mixed> $meta
+     * @param  non-empty-string  $action
+     * @param  array<string, mixed>  $meta
      */
     private function logRoleAudit(Request $request, string $action, Role $role, array $meta = []): void
     {
         try {
             /** @var AuditLogger $logger */
-            $logger  = app(AuditLogger::class);
-            $actor   = Auth::user();
+            $logger = app(AuditLogger::class);
+            $actor = Auth::user();
             $actorId = Auth::id();
 
-            $actorName  = ($actor instanceof User) ? trim($actor->name) : '';
+            $actorName = ($actor instanceof User) ? trim($actor->name) : '';
             $actorEmail = ($actor instanceof User) ? trim($actor->email) : '';
 
             $metaWithActor = $meta;
-            if ($actorName !== '' && !array_key_exists('actor_username', $metaWithActor)) {
+            if ($actorName !== '' && ! array_key_exists('actor_username', $metaWithActor)) {
                 $metaWithActor['actor_username'] = $actorName;
             }
-            if ($actorEmail !== '' && !array_key_exists('actor_email', $metaWithActor)) {
+            if ($actorEmail !== '' && ! array_key_exists('actor_email', $metaWithActor)) {
                 $metaWithActor['actor_email'] = $actorEmail;
             }
 
             $roleId = $role->getAttribute('id');
-            if (!is_string($roleId) || $roleId === '') {
+            if (! is_string($roleId) || $roleId === '') {
                 throw new \LogicException('Role id must be a non-empty string.');
             }
 
             $logger->log([
-                'actor_id'    => is_int($actorId) ? $actorId : null,
-                'action'      => $action,
-                'category'    => 'RBAC',
+                'actor_id' => is_int($actorId) ? $actorId : null,
+                'action' => $action,
+                'category' => 'RBAC',
                 'entity_type' => 'role',
-                'entity_id'   => $this->nes($roleId),
-                'ip'          => $request->ip(),
-                'ua'          => $request->userAgent(),
-                'meta'        => $metaWithActor,
+                'entity_id' => $this->nes($roleId),
+                'ip' => $request->ip(),
+                'ua' => $request->userAgent(),
+                'meta' => $metaWithActor,
             ]);
         } catch (\Throwable) {
             // ignore audit errors
         }
     }
 }
-

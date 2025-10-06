@@ -12,7 +12,6 @@ final class UserFactory extends Factory
 {
     protected $model = User::class;
 
-    /** @var int */
     private static int $seq = 0;
 
     public function definition(): array
@@ -27,4 +26,3 @@ final class UserFactory extends Factory
         ];
     }
 }
-

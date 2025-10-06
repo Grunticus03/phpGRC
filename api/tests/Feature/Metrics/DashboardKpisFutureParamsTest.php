@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Metrics;
 
-use App\Http\Middleware\RbacMiddleware;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -31,8 +30,8 @@ final class DashboardKpisFutureParamsTest extends TestCase
     {
         $r = $this->getJson('/dashboard/kpis?from=2025-09-01&to=2025-09-07&tz=Nope/City');
         $r->assertStatus(422)
-          ->assertJsonPath('ok', false)
-          ->assertJsonPath('code', 'VALIDATION_FAILED');
+            ->assertJsonPath('ok', false)
+            ->assertJsonPath('code', 'VALIDATION_FAILED');
         $this->assertArrayHasKey('tz', $r->json('errors') ?? []);
     }
 
@@ -40,8 +39,8 @@ final class DashboardKpisFutureParamsTest extends TestCase
     {
         $r = $this->getJson('/dashboard/kpis?from=2025-01-01&to=2025-01-02&granularity=hour');
         $r->assertStatus(422)
-          ->assertJsonPath('ok', false)
-          ->assertJsonPath('code', 'VALIDATION_FAILED');
+            ->assertJsonPath('ok', false)
+            ->assertJsonPath('code', 'VALIDATION_FAILED');
         $this->assertArrayHasKey('granularity', $r->json('errors') ?? []);
     }
 
@@ -49,8 +48,8 @@ final class DashboardKpisFutureParamsTest extends TestCase
     {
         $r = $this->getJson('/dashboard/kpis?from=2025-09-10&to=2025-09-01&tz=UTC');
         $r->assertStatus(422)
-          ->assertJsonPath('ok', false)
-          ->assertJsonPath('code', 'VALIDATION_FAILED');
+            ->assertJsonPath('ok', false)
+            ->assertJsonPath('code', 'VALIDATION_FAILED');
         $errs = $r->json('errors') ?? [];
         $this->assertArrayHasKey('from', $errs);
         $this->assertContains('AFTER_TO', $errs['from'] ?? []);
@@ -81,8 +80,7 @@ final class DashboardKpisFutureParamsTest extends TestCase
     {
         $r = $this->getJson('/metrics/dashboard?from=not-a-date&to=2025-01-01');
         $r->assertStatus(422)
-          ->assertJsonPath('ok', false)
-          ->assertJsonPath('code', 'VALIDATION_FAILED');
+            ->assertJsonPath('ok', false)
+            ->assertJsonPath('code', 'VALIDATION_FAILED');
     }
 }
-

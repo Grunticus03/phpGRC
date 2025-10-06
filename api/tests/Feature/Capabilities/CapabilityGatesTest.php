@@ -8,8 +8,8 @@ use App\Models\Role;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Testing\TestResponse;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Testing\TestResponse;
 use Tests\TestCase;
 
 final class CapabilityGatesTest extends TestCase
@@ -49,9 +49,10 @@ final class CapabilityGatesTest extends TestCase
         $r = $this->get($path, $headers);
         if ($r->getStatusCode() === 404 && str_starts_with($path, '/api/')) {
             $r = $this->get(substr($path, 4), $headers);
-        } elseif ($r->getStatusCode() === 404 && !str_starts_with($path, '/api/')) {
-            $r = $this->get('/api' . $path, $headers);
+        } elseif ($r->getStatusCode() === 404 && ! str_starts_with($path, '/api/')) {
+            $r = $this->get('/api'.$path, $headers);
         }
+
         return $r;
     }
 
@@ -62,9 +63,10 @@ final class CapabilityGatesTest extends TestCase
         $r = $this->post($path, $data, $headers);
         if ($r->getStatusCode() === 404 && str_starts_with($path, '/api/')) {
             $r = $this->post(substr($path, 4), $data, $headers);
-        } elseif ($r->getStatusCode() === 404 && !str_starts_with($path, '/api/')) {
-            $r = $this->post('/api' . $path, $data, $headers);
+        } elseif ($r->getStatusCode() === 404 && ! str_starts_with($path, '/api/')) {
+            $r = $this->post('/api'.$path, $data, $headers);
         }
+
         return $r;
     }
 
@@ -78,7 +80,7 @@ final class CapabilityGatesTest extends TestCase
         $resp = $this->actingAs($user)->getApi('/api/audit/export.csv');
         $resp->assertStatus(403);
         $json = $resp->json();
-        $this->assertSame('CAPABILITY_DISABLED', (string)($json['code'] ?? ''));
+        $this->assertSame('CAPABILITY_DISABLED', (string) ($json['code'] ?? ''));
     }
 
     public function test_audit_export_allowed_when_capability_enabled(): void
@@ -109,7 +111,7 @@ final class CapabilityGatesTest extends TestCase
 
         $resp->assertStatus(403);
         $json = $resp->json();
-        $this->assertSame('CAPABILITY_DISABLED', (string)($json['code'] ?? ''));
+        $this->assertSame('CAPABILITY_DISABLED', (string) ($json['code'] ?? ''));
     }
 
     public function test_evidence_upload_allowed_when_capability_enabled(): void
@@ -128,7 +130,7 @@ final class CapabilityGatesTest extends TestCase
 
         $this->assertContains($resp->getStatusCode(), [200, 201]);
         $json = $resp->json();
-        $this->assertTrue((bool)($json['ok'] ?? false));
+        $this->assertTrue((bool) ($json['ok'] ?? false));
         $this->assertArrayHasKey('id', $json);
     }
 }

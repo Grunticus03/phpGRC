@@ -4,12 +4,10 @@ declare(strict_types=1);
 
 namespace App\Services\Metrics;
 
-use App\Services\Metrics\EvidenceFreshnessCalculator;
-use App\Services\Metrics\RbacDeniesCalculator;
-
 final class MetricsService
 {
     private RbacDeniesCalculator $rbacDenies;
+
     private EvidenceFreshnessCalculator $evidenceFreshness;
 
     public function __construct(
@@ -42,7 +40,7 @@ final class MetricsService
      */
     public function snapshot(int $deniesWindowDays = 7, int $freshnessDays = 30): array
     {
-        $rbacDays  = self::clampDays($deniesWindowDays);
+        $rbacDays = self::clampDays($deniesWindowDays);
         $freshDays = self::clampDays($freshnessDays);
 
         /** @var array{
@@ -68,16 +66,20 @@ final class MetricsService
         $fresh = $this->evidenceFreshness->compute($freshDays);
 
         return [
-            'rbac_denies'        => $rbac,
+            'rbac_denies' => $rbac,
             'evidence_freshness' => $fresh,
         ];
     }
 
     private static function clampDays(int $n): int
     {
-        if ($n < 1) return 1;
-        if ($n > 365) return 365;
+        if ($n < 1) {
+            return 1;
+        }
+        if ($n > 365) {
+            return 365;
+        }
+
         return $n;
     }
 }
-

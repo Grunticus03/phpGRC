@@ -22,11 +22,11 @@ $dirs = [
 ];
 
 foreach ($dirs as $d) {
-    if (!is_dir($d)) {
+    if (! is_dir($d)) {
         @mkdir($d, 0775, true);
     }
 }
 
-if (!file_exists('.env') && file_exists('.env.example')) {
+if (! file_exists('.env') && file_exists('.env.example')) {
     @copy('.env.example', '.env');
 }

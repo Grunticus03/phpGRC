@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace App\Http\Controllers\Auth;
@@ -17,7 +18,7 @@ final class MeController extends Controller
 
         /** @var mixed $auth */
         $auth = Auth::user();
-        if (!$auth instanceof AppUser) {
+        if (! $auth instanceof AppUser) {
             return response()->json(['ok' => false, 'code' => 'UNAUTHENTICATED'], 401);
         }
 
@@ -29,7 +30,7 @@ final class MeController extends Controller
             ->all();
 
         return response()->json([
-            'ok'   => true,
+            'ok' => true,
             'user' => ['id' => $auth->id, 'email' => $auth->email, 'roles' => $roles],
         ], 200);
     }

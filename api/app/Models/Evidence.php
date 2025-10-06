@@ -1,4 +1,5 @@
 <?php
+
 // api/app/Models/Evidence.php
 
 declare(strict_types=1);
@@ -24,6 +25,7 @@ use Illuminate\Support\Str;
 final class Evidence extends Model
 {
     public $incrementing = false;
+
     protected $keyType = 'string';
 
     /** @var array<int,string> */
@@ -42,13 +44,14 @@ final class Evidence extends Model
 
     /**
      * @phpstan-var array<string,string>
+     *
      * @psalm-suppress NonInvariantDocblockPropertyType
      */
     protected $casts = [
-        'owner_id'   => 'integer',
+        'owner_id' => 'integer',
         'size_bytes' => 'integer',
-        'version'    => 'integer',
-        'bytes'      => 'string',
+        'version' => 'integer',
+        'bytes' => 'string',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];
@@ -59,14 +62,14 @@ final class Evidence extends Model
     #[\Override]
     protected static function booted(): void
     {
-        static::creating(function (self $model): void {
+        self::creating(function (self $model): void {
             /** @var mixed $attr */
             $attr = $model->getAttribute('id');
             /** @var string|null $id */
             $id = is_string($attr) ? $attr : null;
 
             if ($id === null || $id === '') {
-                $model->setAttribute('id', 'ev_' . (string) Str::ulid());
+                $model->setAttribute('id', 'ev_'.(string) Str::ulid());
             }
         });
     }

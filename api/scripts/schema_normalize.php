@@ -1,5 +1,6 @@
 <?php
-#!/usr/bin/env php
+
+// !/usr/bin/env php
 declare(strict_types=1);
 
 /**
@@ -10,7 +11,6 @@ declare(strict_types=1);
  *
  * Usage: php api/scripts/schema_normalize.php docs/db/DB-SCHEMA.md > /tmp/schema.norm
  */
-
 if ($argc < 2) {
     fwrite(STDERR, "Usage: php schema_normalize.php <DB-SCHEMA.md>\n");
     exit(1);
@@ -36,6 +36,7 @@ foreach ($lines as $line) {
         $tables[$cur] = ['columns' => [], 'indexes' => []];
         $inTable = true;
         $inIdx = false;
+
         continue;
     }
 
@@ -44,10 +45,11 @@ foreach ($lines as $line) {
         $cur = null;
         $inTable = false;
         $inIdx = false;
+
         continue;
     }
 
-    if (!$inTable || $cur === null) {
+    if (! $inTable || $cur === null) {
         continue;
     }
 
@@ -59,11 +61,12 @@ foreach ($lines as $line) {
     // Transition to indexes section marker
     if (preg_match('/^\*\*Indexes\s*&\s*Constraints\*\*/i', $line)) {
         $inIdx = true;
+
         continue;
     }
 
     // Column rows in markdown tables
-    if (!$inIdx && preg_match('/^\|/', $line)) {
+    if (! $inIdx && preg_match('/^\|/', $line)) {
         // Skip separator rows like |-----|
         if (preg_match('/^\|\s*-+/', $line)) {
             continue;
@@ -81,6 +84,7 @@ foreach ($lines as $line) {
         $default = preg_match('/^current/i', $default) ? 'CURRENT_TIMESTAMP' : $default;
 
         $tables[$cur]['columns'][$col] = "{$col}|{$type}|{$null}|{$default}";
+
         continue;
     }
 
@@ -90,6 +94,7 @@ foreach ($lines as $line) {
         // Remove duplicate spaces
         $norm = preg_replace('/\s+/', ' ', $norm);
         $tables[$cur]['indexes'][] = $norm;
+
         continue;
     }
 }
@@ -99,17 +104,17 @@ ksort($tables, SORT_NATURAL);
 $out = [];
 foreach ($tables as $t => $data) {
     $out[] = "TABLE {$t}";
-    $out[] = "COLUMNS";
+    $out[] = 'COLUMNS';
     ksort($data['columns'], SORT_NATURAL);
     foreach ($data['columns'] as $row) {
         $out[] = $row;
     }
-    $out[] = "INDEXES";
+    $out[] = 'INDEXES';
     sort($data['indexes'], SORT_NATURAL);
     foreach ($data['indexes'] as $idx) {
         $out[] = $idx;
     }
-    $out[] = "---";
+    $out[] = '---';
 }
 
-echo implode("\n", $out) . "\n";
+echo implode("\n", $out)."\n";

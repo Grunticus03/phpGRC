@@ -25,8 +25,8 @@ final class RbacUserRolesEdgeCasesTest extends TestCase
     private function user(string $name, string $email): User
     {
         return User::query()->create([
-            'name'     => $name,
-            'email'    => $email,
+            'name' => $name,
+            'email' => $email,
             'password' => bcrypt('secret'),
         ]);
     }

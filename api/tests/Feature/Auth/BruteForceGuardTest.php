@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace Tests\Feature\Auth;
@@ -18,14 +19,14 @@ final class BruteForceGuardTest extends TestCase
         $this->withExceptionHandling();
 
         config([
-            'cache.default'                         => 'file',
-            'core.audit.enabled'                    => true,
-            'core.auth.bruteforce.enabled'          => true,
-            'core.auth.bruteforce.strategy'         => 'session',
-            'core.auth.bruteforce.window_seconds'   => 900,
-            'core.auth.bruteforce.max_attempts'     => 3,
+            'cache.default' => 'file',
+            'core.audit.enabled' => true,
+            'core.auth.bruteforce.enabled' => true,
+            'core.auth.bruteforce.strategy' => 'session',
+            'core.auth.bruteforce.window_seconds' => 900,
+            'core.auth.bruteforce.max_attempts' => 3,
             'core.auth.bruteforce.lock_http_status' => 429,
-            'core.auth.session_cookie.name'         => 'phpgrc_auth_attempt',
+            'core.auth.session_cookie.name' => 'phpgrc_auth_attempt',
         ]);
         Cache::setDefaultDriver('file');
         Cache::store('file')->flush();
@@ -71,12 +72,12 @@ final class BruteForceGuardTest extends TestCase
         $this->withExceptionHandling();
 
         config([
-            'cache.default'                         => 'file',
-            'core.audit.enabled'                    => true,
-            'core.auth.bruteforce.enabled'          => true,
-            'core.auth.bruteforce.strategy'         => 'ip',
-            'core.auth.bruteforce.window_seconds'   => 900,
-            'core.auth.bruteforce.max_attempts'     => 2,
+            'cache.default' => 'file',
+            'core.audit.enabled' => true,
+            'core.auth.bruteforce.enabled' => true,
+            'core.auth.bruteforce.strategy' => 'ip',
+            'core.auth.bruteforce.window_seconds' => 900,
+            'core.auth.bruteforce.max_attempts' => 2,
             'core.auth.bruteforce.lock_http_status' => 429,
         ]);
         Cache::setDefaultDriver('file');
@@ -112,6 +113,7 @@ final class BruteForceGuardTest extends TestCase
                 return $c;
             }
         }
+
         return null;
     }
 }

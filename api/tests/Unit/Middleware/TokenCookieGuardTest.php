@@ -14,7 +14,7 @@ final class TokenCookieGuardTest extends TestCase
 {
     public function test_sets_bearer_header_from_cookie(): void
     {
-        $middleware = new TokenCookieGuard();
+        $middleware = new TokenCookieGuard;
         $request = Request::create('/dummy', 'GET');
         $request->cookies->set(AuthTokenCookie::name(), 'abc|def');
 
@@ -22,7 +22,8 @@ final class TokenCookieGuardTest extends TestCase
 
         $middleware->handle($request, function (Request $req) use (&$captured): Response {
             $captured = $req->bearerToken();
-            return new Response();
+
+            return new Response;
         });
 
         $this->assertSame('abc|def', $captured);
@@ -32,12 +33,13 @@ final class TokenCookieGuardTest extends TestCase
 
     public function test_skips_when_cookie_missing(): void
     {
-        $middleware = new TokenCookieGuard();
+        $middleware = new TokenCookieGuard;
         $request = Request::create('/dummy', 'GET');
 
         $middleware->handle($request, function (Request $req): Response {
             $this->assertNull($req->bearerToken());
-            return new Response();
+
+            return new Response;
         });
 
         $this->assertNull($request->headers->get('Authorization'));

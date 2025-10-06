@@ -13,7 +13,9 @@ use Illuminate\Database\Eloquent\Model;
 final class Avatar extends Model
 {
     protected $table = 'avatars';
+
     public $incrementing = false;
+
     protected $keyType = 'string';
 
     protected $fillable = [

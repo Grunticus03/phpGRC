@@ -129,4 +129,3 @@ final class RbacAuditTest extends TestCase
         $this->assertIsArray($ev->meta['after'] ?? null);
     }
 }
-

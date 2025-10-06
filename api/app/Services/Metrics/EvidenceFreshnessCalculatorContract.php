@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace App\Services\Metrics;
@@ -16,4 +17,3 @@ interface EvidenceFreshnessCalculatorContract
      */
     public function compute(int $days = 30): array;
 }
-

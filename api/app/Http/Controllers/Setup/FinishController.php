@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace App\Http\Controllers\Setup;
@@ -25,4 +26,3 @@ final class FinishController extends Controller
         return response()->json(['ok' => true], 200);
     }
 }
-

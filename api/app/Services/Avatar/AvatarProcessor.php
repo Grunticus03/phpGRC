@@ -12,13 +12,11 @@ final class AvatarProcessor
     /**
      * Transcode source image to WEBP and write multiple square variants.
      *
-     * @param int $userId
-     * @param string $sourcePath
-     * @param list<int> $sizes
+     * @param  list<int>  $sizes
      */
     public function process(int $userId, string $sourcePath, array $sizes): void
     {
-        if (!is_file($sourcePath) || !is_readable($sourcePath)) {
+        if (! is_file($sourcePath) || ! is_readable($sourcePath)) {
             throw new RuntimeException('Source image not readable.');
         }
 
@@ -27,7 +25,7 @@ final class AvatarProcessor
             throw new RuntimeException('Failed to read source image.');
         }
 
-        if (!function_exists('imagecreatefromstring') || !function_exists('imagewebp')) {
+        if (! function_exists('imagecreatefromstring') || ! function_exists('imagewebp')) {
             throw new RuntimeException('GD with WEBP support is required.');
         }
 
@@ -63,6 +61,7 @@ final class AvatarProcessor
             $tmp = tmpfile();
             if ($tmp === false) {
                 imagedestroy($dst);
+
                 continue;
             }
 
@@ -70,9 +69,10 @@ final class AvatarProcessor
             $meta = stream_get_meta_data($tmp);
             $tmpPath = $meta['uri'];
 
-            if (!imagewebp($dst, $tmpPath, 80)) {
+            if (! imagewebp($dst, $tmpPath, 80)) {
                 fclose($tmp);
                 imagedestroy($dst);
+
                 continue;
             }
 
@@ -87,4 +87,3 @@ final class AvatarProcessor
         imagedestroy($src);
     }
 }
-

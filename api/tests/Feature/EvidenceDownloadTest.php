@@ -16,7 +16,9 @@ final class EvidenceDownloadTest extends TestCase
     use RefreshDatabase;
 
     private string $id;
+
     private string $sha;
+
     private string $bytes;
 
     protected function setUp(): void
@@ -33,7 +35,7 @@ final class EvidenceDownloadTest extends TestCase
         ]);
         Sanctum::actingAs($u);
 
-        $this->bytes = "sample-bytes";
+        $this->bytes = 'sample-bytes';
         $file = UploadedFile::fake()->createWithContent('sample.txt', $this->bytes);
         $r = $this->post('/evidence', ['file' => $file]);
         $r->assertStatus(201);
@@ -46,20 +48,20 @@ final class EvidenceDownloadTest extends TestCase
     {
         $h = $this->head("/evidence/{$this->id}");
         $h->assertStatus(200);
-        $h->assertHeader('ETag', '"' . $this->sha . '"');
+        $h->assertHeader('ETag', '"'.$this->sha.'"');
         $h->assertHeader('X-Content-Type-Options', 'nosniff');
         $h->assertHeader('X-Checksum-SHA256', $this->sha);
 
         $g = $this->get("/evidence/{$this->id}?sha256={$this->sha}");
         $g->assertStatus(200);
-        $g->assertHeader('ETag', '"' . $this->sha . '"');
+        $g->assertHeader('ETag', '"'.$this->sha.'"');
         $this->assertFalse($g->getContent());
         $this->assertSame($this->bytes, $g->streamedContent());
     }
 
     public function test_if_none_match_304_and_hash_mismatch_412(): void
     {
-        $etag = '"' . $this->sha . '"';
+        $etag = '"'.$this->sha.'"';
 
         $n = $this->get("/evidence/{$this->id}", ['If-None-Match' => $etag]);
         $n->assertStatus(304);

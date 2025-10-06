@@ -50,7 +50,7 @@ final class SettingsValidationTest extends TestCase
     public function test_valid_payload_returns_stub_only(): void
     {
         $payload = [
-            'rbac' => ['enabled' => true, 'roles' => ['Admin','Auditor']],
+            'rbac' => ['enabled' => true, 'roles' => ['Admin', 'Auditor']],
             'audit' => ['enabled' => true, 'retention_days' => 365],
             'evidence' => ['enabled' => true, 'max_mb' => 25, 'allowed_mime' => ['application/pdf']],
             'avatars' => ['enabled' => true, 'size_px' => 128, 'format' => 'webp'],
@@ -65,4 +65,3 @@ final class SettingsValidationTest extends TestCase
             ]);
     }
 }
-

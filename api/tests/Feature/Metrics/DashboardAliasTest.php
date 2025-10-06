@@ -34,9 +34,9 @@ final class DashboardAliasTest extends TestCase
         $json = $resp->json();
         $data = is_array($json) && array_key_exists('data', $json) ? $json['data'] : $json;
 
-        static::assertIsArray($data);
-        static::assertArrayHasKey('rbac_denies', $data);
-        static::assertArrayHasKey('evidence_freshness', $data);
+        self::assertIsArray($data);
+        self::assertArrayHasKey('rbac_denies', $data);
+        self::assertArrayHasKey('evidence_freshness', $data);
     }
 
     private function makeUser(string $name, string $email): User
@@ -53,7 +53,7 @@ final class DashboardAliasTest extends TestCase
 
     private function attachNamedRole(User $user, string $name): void
     {
-        $id = 'role_' . strtolower(preg_replace('/[^a-z0-9]+/i', '_', $name));
+        $id = 'role_'.strtolower(preg_replace('/[^a-z0-9]+/i', '_', $name));
 
         /** @var Role $role */
         $role = Role::query()->firstOrCreate(

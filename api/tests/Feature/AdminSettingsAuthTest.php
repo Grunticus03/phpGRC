@@ -41,8 +41,8 @@ final class AdminSettingsAuthTest extends TestCase
         $res->assertStatus(401)->assertJsonPath('code', 'UNAUTHENTICATED');
 
         $this->assertDatabaseHas('audit_events', [
-            'action'    => 'auth.login.redirected',
-            'category'  => 'AUTH',
+            'action' => 'auth.login.redirected',
+            'category' => 'AUTH',
             'entity_id' => 'login_redirect',
         ]);
     }

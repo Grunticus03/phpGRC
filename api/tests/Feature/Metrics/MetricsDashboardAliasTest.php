@@ -34,15 +34,15 @@ final class MetricsDashboardAliasTest extends TestCase
         $json = $resp->json();
         $data = is_array($json) && array_key_exists('data', $json) ? $json['data'] : $json;
 
-        static::assertIsArray($data);
-        static::assertArrayHasKey('rbac_denies', $data);
-        static::assertArrayHasKey('evidence_freshness', $data);
+        self::assertIsArray($data);
+        self::assertArrayHasKey('rbac_denies', $data);
+        self::assertArrayHasKey('evidence_freshness', $data);
 
-        foreach (['window_days','from','to','denies','total','rate','daily'] as $key) {
-            static::assertArrayHasKey($key, $data['rbac_denies']);
+        foreach (['window_days', 'from', 'to', 'denies', 'total', 'rate', 'daily'] as $key) {
+            self::assertArrayHasKey($key, $data['rbac_denies']);
         }
-        foreach (['days','total','stale','percent','by_mime'] as $key) {
-            static::assertArrayHasKey($key, $data['evidence_freshness']);
+        foreach (['days', 'total', 'stale', 'percent', 'by_mime'] as $key) {
+            self::assertArrayHasKey($key, $data['evidence_freshness']);
         }
     }
 
@@ -55,12 +55,13 @@ final class MetricsDashboardAliasTest extends TestCase
             'email' => $email,
             'password' => bcrypt('secret'),
         ]));
+
         return $user;
     }
 
     private function attachNamedRole(User $user, string $name): void
     {
-        $id = 'role_' . strtolower(preg_replace('/[^a-z0-9]+/i', '_', $name));
+        $id = 'role_'.strtolower(preg_replace('/[^a-z0-9]+/i', '_', $name));
 
         /** @var Role $role */
         $role = Role::query()->firstOrCreate(

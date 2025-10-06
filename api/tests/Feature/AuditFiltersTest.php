@@ -20,31 +20,31 @@ final class AuditFiltersTest extends TestCase
         $t2 = $t0->addDays(2);
 
         AuditEvent::query()->create([
-            'id'          => '01AAAAAAAAAAAAAAAAAAAAAAA1',
+            'id' => '01AAAAAAAAAAAAAAAAAAAAAAA1',
             'occurred_at' => $t1,
-            'actor_id'    => null,
-            'action'      => 'rbac.role.created',
-            'category'    => 'RBAC',
+            'actor_id' => null,
+            'action' => 'rbac.role.created',
+            'category' => 'RBAC',
             'entity_type' => 'role',
-            'entity_id'   => 'role_admin',
-            'ip'          => null,
-            'ua'          => null,
-            'meta'        => ['name' => 'Admin'],
-            'created_at'  => $t1,
+            'entity_id' => 'role_admin',
+            'ip' => null,
+            'ua' => null,
+            'meta' => ['name' => 'Admin'],
+            'created_at' => $t1,
         ]);
 
         AuditEvent::query()->create([
-            'id'          => '01BBBBBBBBBBBBBBBBBBBBBBB2',
+            'id' => '01BBBBBBBBBBBBBBBBBBBBBBB2',
             'occurred_at' => $t2,
-            'actor_id'    => null,
-            'action'      => 'auth.login',
-            'category'    => 'AUTH',
+            'actor_id' => null,
+            'action' => 'auth.login',
+            'category' => 'AUTH',
             'entity_type' => 'user',
-            'entity_id'   => '1',
-            'ip'          => '127.0.0.1',
-            'ua'          => 'phpunit',
-            'meta'        => null,
-            'created_at'  => $t2,
+            'entity_id' => '1',
+            'ip' => '127.0.0.1',
+            'ua' => 'phpunit',
+            'meta' => null,
+            'created_at' => $t2,
         ]);
 
         // category=RBAC only
@@ -56,7 +56,7 @@ final class AuditFiltersTest extends TestCase
             ->assertJsonPath('items.0.action', 'rbac.role.created');
 
         // occurred_from filters out first record
-        $res2 = $this->getJson('/audit?occurred_from=' . urlencode($t2->toIso8601String()));
+        $res2 = $this->getJson('/audit?occurred_from='.urlencode($t2->toIso8601String()));
         $res2->assertStatus(200)
             ->assertJsonPath('ok', true)
             ->assertJsonCount(1, 'items')
@@ -71,8 +71,7 @@ final class AuditFiltersTest extends TestCase
         $cursor = $first->json('nextCursor');
         $this->assertIsString($cursor);
 
-        $second = $this->getJson('/audit?order=desc&cursor=' . urlencode($cursor));
+        $second = $this->getJson('/audit?order=desc&cursor='.urlencode($cursor));
         $second->assertStatus(200)->assertJsonPath('ok', true);
     }
 }
-

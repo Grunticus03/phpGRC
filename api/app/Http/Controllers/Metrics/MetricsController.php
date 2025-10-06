@@ -26,11 +26,11 @@ final class MetricsController extends Controller
     public function kpis(Request $request, CachedMetricsService $metrics): JsonResponse
     {
         $defaultFresh = $this->cfgInt('core.metrics.evidence_freshness.days', 30);
-        $defaultRbac  = $this->cfgInt('core.metrics.rbac_denies.window_days', 7);
+        $defaultRbac = $this->cfgInt('core.metrics.rbac_denies.window_days', 7);
 
         // Legacy numeric windows remain supported
         $freshDays = $this->parseWindow($request->query('days'), $defaultFresh);
-        $rbacDays  = $this->parseWindow($request->query('rbac_days'), $defaultRbac);
+        $rbacDays = $this->parseWindow($request->query('rbac_days'), $defaultRbac);
 
         /**
          * @var array{
@@ -85,29 +85,33 @@ final class MetricsController extends Controller
          */
         $res = $metrics->snapshotWithMeta($rbacDays, $freshDays);
 
-        $data  = $res['data'];
+        $data = $res['data'];
         $cache = $res['cache']; // array{ttl:int, hit:bool}
 
         // Compose meta.window without breaking existing shape
         $windowMeta = [
-            'rbac_days'  => $rbacDays,
+            'rbac_days' => $rbacDays,
             'fresh_days' => $freshDays,
         ];
         if (isset($future['window'])) {
             $win = $future['window'];
-            $windowMeta['tz']          = $win['tz'];
+            $windowMeta['tz'] = $win['tz'];
             $windowMeta['granularity'] = $win['granularity'];
-            if (isset($win['from'])) $windowMeta['from'] = $win['from'];
-            if (isset($win['to']))   $windowMeta['to']   = $win['to'];
+            if (isset($win['from'])) {
+                $windowMeta['from'] = $win['from'];
+            }
+            if (isset($win['to'])) {
+                $windowMeta['to'] = $win['to'];
+            }
         }
 
         return new JsonResponse([
-            'ok'   => true,
+            'ok' => true,
             'data' => $data,
             'meta' => [
                 'generated_at' => now('UTC')->toIso8601String(),
-                'window'       => $windowMeta,
-                'cache'        => ['ttl' => $cache['ttl'], 'hit' => $cache['hit']],
+                'window' => $windowMeta,
+                'cache' => ['ttl' => $cache['ttl'], 'hit' => $cache['hit']],
             ],
         ], 200);
     }
@@ -123,11 +127,13 @@ final class MetricsController extends Controller
         if (is_string($v) && $v !== '' && ctype_digit($v)) {
             return (int) $v;
         }
+
         return $fallback;
     }
 
     /**
      * Resolve min/max clamp bounds from config.
+     *
      * @return array{min:int,max:int}
      */
     private function clampBounds(): array
@@ -140,6 +146,7 @@ final class MetricsController extends Controller
         if ($max < $min) {
             $max = $min;
         }
+
         return ['min' => $min, 'max' => $max];
     }
 
@@ -149,7 +156,7 @@ final class MetricsController extends Controller
     }
 
     /**
-     * @param mixed $raw query param (int|string|array<int|string>|null)
+     * @param  mixed  $raw  query param (int|string|array<int|string>|null)
      */
     private function parseWindow(mixed $raw, int $fallback): int
     {
@@ -174,6 +181,7 @@ final class MetricsController extends Controller
         if ($n > $max) {
             return $max;
         }
+
         return $n;
     }
 
@@ -200,44 +208,45 @@ final class MetricsController extends Controller
     private function parseFutureParams(Request $request, int $maxDays): array
     {
         $fromStr = $this->qsString($request, 'from');
-        $toStr   = $this->qsString($request, 'to');
-        $tzStr   = $this->qsString($request, 'tz');
+        $toStr = $this->qsString($request, 'to');
+        $tzStr = $this->qsString($request, 'tz');
         $granStr = $this->qsString($request, 'granularity');
 
         $input = [
-            'from'        => $fromStr,
-            'to'          => $toStr,
-            'tz'          => $tzStr,
+            'from' => $fromStr,
+            'to' => $toStr,
+            'tz' => $tzStr,
             'granularity' => $granStr,
         ];
 
         /** @var LaravelValidator $v */
         $v = Validator::make($input, [
-            'from'        => ['nullable', 'string'],
-            'to'          => ['nullable', 'string'],
-            'tz'          => ['nullable', 'timezone'],
+            'from' => ['nullable', 'string'],
+            'to' => ['nullable', 'string'],
+            'tz' => ['nullable', 'timezone'],
             'granularity' => ['nullable', 'in:day'],
         ]);
 
         if ($v->fails()) {
             /** @var array<string, array<int, string>> $errs */
             $errs = $v->errors()->getMessages();
+
             return [
-                'ok'     => false,
+                'ok' => false,
                 'errors' => $errs,
             ];
         }
 
-        $tz   = ($tzStr !== null && $tzStr !== '') ? $tzStr : 'UTC';
+        $tz = ($tzStr !== null && $tzStr !== '') ? $tzStr : 'UTC';
         $gran = ($granStr !== null && $granStr !== '') ? $granStr : 'day';
 
         $out = [
-            'tz'          => $tz,
+            'tz' => $tz,
             'granularity' => $gran,
         ];
 
         $hasFrom = is_string($fromStr) && $fromStr !== '';
-        $hasTo   = is_string($toStr)   && $toStr   !== '';
+        $hasTo = is_string($toStr) && $toStr !== '';
 
         if (! $hasFrom && ! $hasTo) {
             return ['ok' => true, 'window' => $out];
@@ -251,13 +260,13 @@ final class MetricsController extends Controller
         // Format guard before parsing to avoid Carbon accepting garbage.
         if (! $this->isAcceptableDateTime($fromStr)) {
             return [
-                'ok'     => false,
+                'ok' => false,
                 'errors' => ['from' => ['INVALID_DATETIME']],
             ];
         }
         if (! $this->isAcceptableDateTime($toStr)) {
             return [
-                'ok'     => false,
+                'ok' => false,
                 'errors' => ['to' => ['INVALID_DATETIME']],
             ];
         }
@@ -266,7 +275,7 @@ final class MetricsController extends Controller
             $from = CarbonImmutable::parse((string) $fromStr, $tz)->startOfDay()->utc();
         } catch (\Throwable) {
             return [
-                'ok'     => false,
+                'ok' => false,
                 'errors' => ['from' => ['INVALID_DATETIME']],
             ];
         }
@@ -275,14 +284,14 @@ final class MetricsController extends Controller
             $to = CarbonImmutable::parse((string) $toStr, $tz)->endOfDay()->utc();
         } catch (\Throwable) {
             return [
-                'ok'     => false,
+                'ok' => false,
                 'errors' => ['to' => ['INVALID_DATETIME']],
             ];
         }
 
         if ($from->gt($to)) {
             return [
-                'ok'     => false,
+                'ok' => false,
                 'errors' => ['from' => ['AFTER_TO']],
             ];
         }
@@ -295,8 +304,8 @@ final class MetricsController extends Controller
             $days = $maxDays;
         }
 
-        $out['from']      = $from->toIso8601String();
-        $out['to']        = $to->toIso8601String();
+        $out['from'] = $from->toIso8601String();
+        $out['to'] = $to->toIso8601String();
         $out['rbac_days'] = $days;
 
         return ['ok' => true, 'window' => $out];
@@ -306,13 +315,13 @@ final class MetricsController extends Controller
      * Standardized validation error envelope.
      * { ok:false, code:"VALIDATION_FAILED", errors:{...} }
      *
-     * @param array<string, array<int, string>> $errors
+     * @param  array<string, array<int, string>>  $errors
      */
     private function validationError(array $errors): JsonResponse
     {
         return new JsonResponse([
-            'ok'     => false,
-            'code'   => 'VALIDATION_FAILED',
+            'ok' => false,
+            'code' => 'VALIDATION_FAILED',
             'errors' => $errors,
         ], 422);
     }
@@ -333,8 +342,10 @@ final class MetricsController extends Controller
             if ($strings !== []) {
                 return $strings[0];
             }
+
             return null;
         }
+
         return null;
     }
 
@@ -349,10 +360,10 @@ final class MetricsController extends Controller
         if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $s) === 1) {
             return true;
         }
+
         return preg_match(
             '/^\d{4}-\d{2}-\d{2}[Tt ][0-2]\d:[0-5]\d(?::[0-5]\d(?:\.\d{1,6})?)?(Z|[+\-][0-2]\d:[0-5]\d)$/',
             $s
         ) === 1;
     }
 }
-

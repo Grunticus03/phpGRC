@@ -11,7 +11,6 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
-use Laravel\Sanctum\PersonalAccessToken;
 
 /**
  * @property int $id
@@ -20,6 +19,7 @@ use Laravel\Sanctum\PersonalAccessToken;
  * @property-read EloquentCollection<int,\App\Models\Role> $roles
  *
  * @use \Laravel\Sanctum\HasApiTokens<\Laravel\Sanctum\PersonalAccessToken>
+ *
  * @psalm-suppress MissingTemplateParam
  */
 final class User extends Authenticatable
@@ -32,7 +32,8 @@ final class User extends Authenticatable
 
     /**
      * Allow tests using `User::factory()` without HasFactory generics.
-     * @param array<string,mixed> $state
+     *
+     * @param  array<string,mixed>  $state
      */
     public static function factory(?int $count = null, array $state = []): UserFactory
     {
@@ -40,30 +41,34 @@ final class User extends Authenticatable
         if ($count !== null) {
             $factory = $factory->count($count);
         }
-        if (!empty($state)) {
+        if (! empty($state)) {
             /** @var array<string,mixed> $stateArr */
             $stateArr = $state;
             $factory = $factory->state($stateArr);
         }
+
         return $factory;
     }
 
     /**
      * @phpstan-var array<int, string>
+     *
      * @psalm-var array<array-key, string>
      */
     protected $hidden = ['password', 'remember_token'];
 
     /**
-     * @return BelongsToMany
      * @phpstan-return BelongsToMany<\App\Models\Role,\App\Models\User>
+     *
      * @psalm-return BelongsToMany<\App\Models\Role>
+     *
      * @psalm-suppress TooManyTemplateParams
      */
     public function roles(): BelongsToMany
     {
         /** @var BelongsToMany<\App\Models\Role,\App\Models\User> $rel */
         $rel = $this->belongsToMany(Role::class, 'role_user', 'user_id', 'role_id');
+
         return $rel;
     }
 
@@ -92,7 +97,7 @@ final class User extends Authenticatable
     }
 
     /**
-     * @param array<int,string> $roles
+     * @param  array<int,string>  $roles
      */
     public function hasAnyRole(array $roles): bool
     {
@@ -101,7 +106,7 @@ final class User extends Authenticatable
                 return true;
             }
         }
+
         return false;
     }
 }
-

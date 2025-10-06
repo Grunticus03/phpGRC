@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 namespace Tests\Unit\Resources;
 
@@ -21,14 +23,14 @@ final class EvidenceResourceTest extends TestCase
 
         $bytes = random_bytes(7);
         $row = [
-            'id'         => 'ev_' . Str::ulid()->toBase32(),
-            'owner_id'   => $user->id,
-            'filename'   => 'doc.pdf',
-            'mime'       => 'application/pdf',
+            'id' => 'ev_'.Str::ulid()->toBase32(),
+            'owner_id' => $user->id,
+            'filename' => 'doc.pdf',
+            'mime' => 'application/pdf',
             'size_bytes' => strlen($bytes),
-            'sha256'     => hash('sha256', $bytes),
-            'version'    => 1,
-            'bytes'      => $bytes,
+            'sha256' => hash('sha256', $bytes),
+            'version' => 1,
+            'bytes' => $bytes,
             'created_at' => now('UTC'),
             'updated_at' => now('UTC'),
         ];

@@ -17,11 +17,11 @@ final class MetricsCacheTtlMetaTest extends TestCase
 
         // Allow unauthenticated access path (RBAC enabled but require_auth = false)
         config([
-            'core.rbac.enabled'               => true,
-            'core.rbac.mode'                  => 'stub',
-            'core.rbac.persistence'           => false,
-            'core.rbac.require_auth'          => false,
-            'core.metrics.cache_ttl_seconds'  => 60, // enable cache
+            'core.rbac.enabled' => true,
+            'core.rbac.mode' => 'stub',
+            'core.rbac.persistence' => false,
+            'core.rbac.require_auth' => false,
+            'core.metrics.cache_ttl_seconds' => 60, // enable cache
         ]);
     }
 
@@ -30,7 +30,7 @@ final class MetricsCacheTtlMetaTest extends TestCase
         // First call -> miss
         $r1 = $this->getJson('/dashboard/kpis');
         $r1->assertOk()
-           ->assertJsonPath('ok', true);
+            ->assertJsonPath('ok', true);
 
         $ttl1 = $r1->json('meta.cache.ttl');
         $hit1 = $r1->json('meta.cache.hit');
@@ -41,7 +41,7 @@ final class MetricsCacheTtlMetaTest extends TestCase
         // Second call -> hit
         $r2 = $this->getJson('/dashboard/kpis');
         $r2->assertOk()
-           ->assertJsonPath('ok', true);
+            ->assertJsonPath('ok', true);
 
         $ttl2 = $r2->json('meta.cache.ttl');
         $hit2 = $r2->json('meta.cache.hit');
@@ -50,4 +50,3 @@ final class MetricsCacheTtlMetaTest extends TestCase
         $this->assertTrue((bool) $hit2);
     }
 }
-

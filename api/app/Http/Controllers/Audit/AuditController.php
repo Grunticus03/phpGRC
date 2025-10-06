@@ -39,7 +39,7 @@ final class AuditController extends Controller
         // Normalize cursor without using Request::query default param
         /** @var mixed $cursorParamRaw */
         $cursorParamRaw = $request->query('cursor');
-        if (!is_string($cursorParamRaw) || $cursorParamRaw === '') {
+        if (! is_string($cursorParamRaw) || $cursorParamRaw === '') {
             /** @var mixed $nextRaw */
             $nextRaw = $request->query('nextCursor');
             $cursorParamRaw = is_string($nextRaw) && $nextRaw !== '' ? $nextRaw : $this->pageCursor($request);
@@ -47,49 +47,49 @@ final class AuditController extends Controller
         $cursorFilter = is_string($cursorParamRaw) && $cursorParamRaw !== '' ? $cursorParamRaw : null;
 
         $data = [
-            'order'          => $order,
-            'limit'          => $limitFromParam,
-            'cursor'         => $cursorFilter,
-            'category'       => $request->query('category'),
-            'action'         => $request->query('action'),
-            'occurred_from'  => $request->query('occurred_from'),
-            'occurred_to'    => $request->query('occurred_to'),
-            'actor_id'       => $request->query('actor_id'),
-            'entity_type'    => $request->query('entity_type'),
-            'entity_id'      => $request->query('entity_id'),
-            'ip'             => $request->query('ip'),
+            'order' => $order,
+            'limit' => $limitFromParam,
+            'cursor' => $cursorFilter,
+            'category' => $request->query('category'),
+            'action' => $request->query('action'),
+            'occurred_from' => $request->query('occurred_from'),
+            'occurred_to' => $request->query('occurred_to'),
+            'actor_id' => $request->query('actor_id'),
+            'entity_type' => $request->query('entity_type'),
+            'entity_id' => $request->query('entity_id'),
+            'ip' => $request->query('ip'),
         ];
 
         $rules = [
-            'order'         => ['in:asc,desc'],
-            'limit'         => ['nullable', 'integer', 'between:1,100'],
-            'cursor'        => ['nullable', 'string', 'regex:/^[A-Za-z0-9_\-:\|=]{1,200}$/'],
+            'order' => ['in:asc,desc'],
+            'limit' => ['nullable', 'integer', 'between:1,100'],
+            'cursor' => ['nullable', 'string', 'regex:/^[A-Za-z0-9_\-:\|=]{1,200}$/'],
             // Allow any category string to support new categories like "config"
-            'category'      => ['nullable', 'string', 'max:191'],
-            'action'        => ['nullable', 'string', 'max:191'],
+            'category' => ['nullable', 'string', 'max:191'],
+            'action' => ['nullable', 'string', 'max:191'],
             'occurred_from' => ['nullable', 'date'],
-            'occurred_to'   => ['nullable', 'date'],
-            'actor_id'      => ['nullable', 'integer'],
-            'entity_type'   => ['nullable', 'string', 'max:128'],
-            'entity_id'     => ['nullable', 'string', 'max:191'],
-            'ip'            => ['nullable', 'ip'],
+            'occurred_to' => ['nullable', 'date'],
+            'actor_id' => ['nullable', 'integer'],
+            'entity_type' => ['nullable', 'string', 'max:128'],
+            'entity_id' => ['nullable', 'string', 'max:191'],
+            'ip' => ['nullable', 'ip'],
         ];
 
         /** @var \Illuminate\Contracts\Validation\Validator $v */
         $v = Validator::make($data, $rules);
         if ($v->fails()) {
             return Resp::json([
-                'ok'      => false,
+                'ok' => false,
                 'message' => 'The given data was invalid.',
-                'code'    => 'VALIDATION_FAILED',
-                'errors'  => $v->errors()->toArray(),
+                'code' => 'VALIDATION_FAILED',
+                'errors' => $v->errors()->toArray(),
             ], 422);
         }
 
-        $decoded      = ($cursorFilter !== null) ? $this->decodeCursor($cursorFilter) : null;
-        $cursorTs     = $decoded[0] ?? null;
-        $cursorId     = $decoded[1] ?? null;
-        $cursorLimit  = $decoded[2] ?? null;
+        $decoded = ($cursorFilter !== null) ? $this->decodeCursor($cursorFilter) : null;
+        $cursorTs = $decoded[0] ?? null;
+        $cursorId = $decoded[1] ?? null;
+        $cursorLimit = $decoded[2] ?? null;
         $priorEmitted = $decoded[3] ?? 0;
 
         if ($limitFromParam !== null) {
@@ -103,7 +103,7 @@ final class AuditController extends Controller
         }
 
         $retentionDays = self::intFrom(Config::get('core.audit.retention_days'), 365);
-        $timeFormat    = $this->resolveTimeFormat();
+        $timeFormat = $this->resolveTimeFormat();
 
         /** @var Builder<AuditEvent> $q */
         $q = AuditEvent::query();
@@ -171,32 +171,32 @@ final class AuditController extends Controller
             $data['ip'] === null;
 
         if ($rows->isEmpty() && $noBusinessFilters) {
-            $TOTAL          = 3;
-            $remaining      = $cursorTs ? max(0, $TOTAL - $priorEmitted) : $TOTAL;
+            $TOTAL = 3;
+            $remaining = $cursorTs ? max(0, $TOTAL - $priorEmitted) : $TOTAL;
             $effectiveLimit = min($limit, $remaining);
 
-            $items      = $this->makeStubPage($effectiveLimit, $order, $cursorTs);
-            $tail       = $items !== [] ? $items[array_key_last($items)] : null;
+            $items = $this->makeStubPage($effectiveLimit, $order, $cursorTs);
+            $tail = $items !== [] ? $items[array_key_last($items)] : null;
             $emittedNow = $priorEmitted + count($items);
-            $hasMore    = $emittedNow < $TOTAL;
+            $hasMore = $emittedNow < $TOTAL;
 
             $wantsPaging = ($limitFromParam !== null) || ($cursorFilter !== null);
-            $next        = ($wantsPaging && $tail && $hasMore)
+            $next = ($wantsPaging && $tail && $hasMore)
                 ? $this->encodeCursor($tail['occurred_at'], $tail['id'], $limit, $emittedNow)
                 : null;
 
             return Resp::json([
-                'ok'              => true,
-                'note'            => 'stub-only',
-                '_categories'     => AuditCategories::ALL,
+                'ok' => true,
+                'note' => 'stub-only',
+                '_categories' => AuditCategories::ALL,
                 '_retention_days' => $retentionDays,
-                'time_format'     => $timeFormat,
-                'filters'         => [
-                    'order'  => $order,
-                    'limit'  => $limit,
+                'time_format' => $timeFormat,
+                'filters' => [
+                    'order' => $order,
+                    'limit' => $limit,
                     'cursor' => $cursorFilter,
                 ],
-                'items'      => $items,
+                'items' => $items,
                 'nextCursor' => $next,
             ], 200);
         }
@@ -217,49 +217,49 @@ final class AuditController extends Controller
 
             $meta = $row->meta;
             $items[] = [
-                'id'          => $row->id,
+                'id' => $row->id,
                 'occurred_at' => $row->occurred_at->toIso8601String(),
-                'actor_id'    => $row->actor_id,
+                'actor_id' => $row->actor_id,
                 'actor_label' => $actorLabel,
-                'action'      => $row->action,
-                'category'    => $row->category,
+                'action' => $row->action,
+                'category' => $row->category,
                 'entity_type' => $row->entity_type,
-                'entity_id'   => $row->entity_id,
-                'ip'          => $row->ip,
-                'ua'          => $row->ua,
-                'meta'        => $meta,
-                'changes'     => is_array($meta) && array_key_exists('changes', $meta) && is_array($meta['changes']) ? $meta['changes'] : null,
+                'entity_id' => $row->entity_id,
+                'ip' => $row->ip,
+                'ua' => $row->ua,
+                'meta' => $meta,
+                'changes' => is_array($meta) && array_key_exists('changes', $meta) && is_array($meta['changes']) ? $meta['changes'] : null,
             ];
         }
 
-        $tail       = $items !== [] ? $items[array_key_last($items)] : null;
+        $tail = $items !== [] ? $items[array_key_last($items)] : null;
         $emittedNow = $priorEmitted + count($items);
-        $hasMore    = count($items) === $limit;
+        $hasMore = count($items) === $limit;
 
         $wantsPaging = ($limitFromParam !== null) || ($cursorFilter !== null);
-        $next        = ($wantsPaging && $tail && $hasMore)
+        $next = ($wantsPaging && $tail && $hasMore)
             ? $this->encodeCursor($tail['occurred_at'], $tail['id'], $limit, $emittedNow)
             : null;
 
         return Resp::json([
-            'ok'              => true,
-            '_categories'     => AuditCategories::ALL,
+            'ok' => true,
+            '_categories' => AuditCategories::ALL,
             '_retention_days' => $retentionDays,
-            'time_format'     => $timeFormat,
-            'filters'         => [
-                'order'          => $order,
-                'limit'          => $limit,
-                'cursor'         => $cursorFilter,
-                'category'       => is_string($data['category']) ? $data['category'] : null,
-                'action'         => is_string($data['action']) ? $data['action'] : null,
-                'occurred_from'  => is_string($data['occurred_from']) ? $data['occurred_from'] : null,
-                'occurred_to'    => is_string($data['occurred_to']) ? $data['occurred_to'] : null,
-                'actor_id'       => $data['actor_id'] !== null && is_numeric($data['actor_id']) ? (int) $data['actor_id'] : null,
-                'entity_type'    => is_string($data['entity_type']) ? $data['entity_type'] : null,
-                'entity_id'      => is_string($data['entity_id']) ? $data['entity_id'] : null,
-                'ip'             => is_string($data['ip']) ? $data['ip'] : null,
+            'time_format' => $timeFormat,
+            'filters' => [
+                'order' => $order,
+                'limit' => $limit,
+                'cursor' => $cursorFilter,
+                'category' => is_string($data['category']) ? $data['category'] : null,
+                'action' => is_string($data['action']) ? $data['action'] : null,
+                'occurred_from' => is_string($data['occurred_from']) ? $data['occurred_from'] : null,
+                'occurred_to' => is_string($data['occurred_to']) ? $data['occurred_to'] : null,
+                'actor_id' => $data['actor_id'] !== null && is_numeric($data['actor_id']) ? (int) $data['actor_id'] : null,
+                'entity_type' => is_string($data['entity_type']) ? $data['entity_type'] : null,
+                'entity_id' => is_string($data['entity_id']) ? $data['entity_id'] : null,
+                'ip' => is_string($data['ip']) ? $data['ip'] : null,
             ],
-            'items'      => $items,
+            'items' => $items,
             'nextCursor' => $next,
         ], 200);
     }
@@ -325,7 +325,7 @@ final class AuditController extends Controller
             if ($candidate === '') {
                 return;
             }
-            if (!in_array($candidate, $matches, true)) {
+            if (! in_array($candidate, $matches, true)) {
                 $matches[] = $candidate;
             }
         };
@@ -350,7 +350,7 @@ final class AuditController extends Controller
 
     private function normalizeCategoryName(mixed $value): ?string
     {
-        if (!is_string($value)) {
+        if (! is_string($value)) {
             return null;
         }
 
@@ -386,6 +386,7 @@ final class AuditController extends Controller
         if (is_array($page) && array_key_exists('cursor', $page) && is_string($page['cursor']) && $page['cursor'] !== '') {
             return $page['cursor'];
         }
+
         return null;
     }
 
@@ -396,13 +397,12 @@ final class AuditController extends Controller
         }
         /** @var mixed $page */
         $page = $r->query('page');
+
         return is_array($page) && array_key_exists('cursor', $page) && is_string($page['cursor']) && $page['cursor'] !== '';
     }
 
     /**
-     * @param int $limit
-     * @param 'asc'|'desc' $order
-     * @param \Illuminate\Support\Carbon|null $cursorTs
+     * @param  'asc'|'desc'  $order
      * @return array<int, array{
      *   id:string,
      *   occurred_at:string,
@@ -419,7 +419,7 @@ final class AuditController extends Controller
      */
     private function makeStubPage(int $limit, string $order, ?Carbon $cursorTs): array
     {
-        $out  = [];
+        $out = [];
         $base = $cursorTs?->copy() ?? Carbon::now('UTC');
 
         for ($i = 0; $i < $limit; $i++) {
@@ -428,17 +428,17 @@ final class AuditController extends Controller
                 : ($cursorTs ? $base->copy()->subSeconds($i + 1) : $base->copy()->subSeconds($i));
 
             $out[] = [
-                'id'          => $this->ulid(),
+                'id' => $this->ulid(),
                 'occurred_at' => $ts->toIso8601String(),
-                'actor_id'    => null,
+                'actor_id' => null,
                 'actor_label' => null,
-                'action'      => 'stub.event',
-                'category'    => 'SYSTEM',
+                'action' => 'stub.event',
+                'category' => 'SYSTEM',
                 'entity_type' => 'stub',
-                'entity_id'   => (string) $i,
-                'ip'          => null,
-                'ua'          => null,
-                'meta'        => null,
+                'entity_id' => (string) $i,
+                'ip' => null,
+                'ua' => null,
+                'meta' => null,
             ];
         }
 
@@ -447,7 +447,8 @@ final class AuditController extends Controller
 
     private function encodeCursor(string $isoTs, string $id, int $limit, int $emittedCount): string
     {
-        $raw = $isoTs . '|' . $id . '|' . $limit . '|' . $emittedCount;
+        $raw = $isoTs.'|'.$id.'|'.$limit.'|'.$emittedCount;
+
         return rtrim(strtr(base64_encode($raw), '+/', '-_'), '=');
     }
 
@@ -458,20 +459,20 @@ final class AuditController extends Controller
     {
         $plain = $cursor;
 
-        if (!str_contains($cursor, '|')) {
+        if (! str_contains($cursor, '|')) {
             $s = strtr($cursor, '-_', '+/');
             $pad = strlen($s) % 4;
             if ($pad) {
                 $s .= str_repeat('=', 4 - $pad);
             }
             $decoded = base64_decode($s, true);
-            if (!is_string($decoded) || !str_contains($decoded, '|')) {
+            if (! is_string($decoded) || ! str_contains($decoded, '|')) {
                 return null;
             }
             $plain = $decoded;
         }
 
-        if (!is_string($plain)) {
+        if (! is_string($plain)) {
             return null;
         }
 
@@ -481,13 +482,14 @@ final class AuditController extends Controller
         }
         [$tsRaw, $id] = [$parts[0], $parts[1]];
         $lim = isset($parts[2]) && is_numeric($parts[2]) ? (int) $parts[2] : null;
-        $em  = isset($parts[3]) && is_numeric($parts[3]) ? (int) $parts[3] : 0;
+        $em = isset($parts[3]) && is_numeric($parts[3]) ? (int) $parts[3] : 0;
 
         try {
             $ts = Carbon::parse($tsRaw)->utc();
         } catch (\Throwable) {
             return null;
         }
+
         return [$ts, $id, $lim, $em];
     }
 
@@ -498,6 +500,7 @@ final class AuditController extends Controller
         for ($i = 0; $i < 26; $i++) {
             $s .= $alphabet[random_int(0, 31)];
         }
+
         return $s;
     }
 
@@ -515,6 +518,7 @@ final class AuditController extends Controller
         if (is_float($value)) {
             return (int) $value;
         }
+
         return $default;
     }
 }

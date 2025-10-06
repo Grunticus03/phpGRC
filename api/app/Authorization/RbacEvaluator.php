@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace App\Authorization;
@@ -22,11 +23,13 @@ final class RbacEvaluator
         }
         if (is_string($raw)) {
             $v = filter_var($raw, FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE);
+
             return $v ?? false;
         }
         if (is_int($raw)) {
             return $raw !== 0;
         }
+
         return false;
     }
 
@@ -39,11 +42,13 @@ final class RbacEvaluator
         }
         if (is_string($raw)) {
             $v = filter_var($raw, FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE);
+
             return $v ?? false;
         }
         if (is_int($raw)) {
             return $raw !== 0;
         }
+
         return false;
     }
 
@@ -56,10 +61,10 @@ final class RbacEvaluator
         /** @var mixed $persistenceRaw */
         $persistenceRaw = config('core.rbac.persistence');
         $persistence = match (true) {
-            is_bool($persistenceRaw)   => $persistenceRaw,
+            is_bool($persistenceRaw) => $persistenceRaw,
             is_string($persistenceRaw) => (filter_var($persistenceRaw, FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) ?? false),
-            is_int($persistenceRaw)    => $persistenceRaw !== 0,
-            default                    => false,
+            is_int($persistenceRaw) => $persistenceRaw !== 0,
+            default => false,
         };
 
         return $mode === 'persist' || $persistence === true;
@@ -75,11 +80,11 @@ final class RbacEvaluator
      */
     public static function allows(?User $user, string $policy): bool
     {
-        if (!self::enabled()) {
+        if (! self::enabled()) {
             return true;
         }
 
-        if (!self::persistenceEnabled()) {
+        if (! self::persistenceEnabled()) {
             // Stub mode: permissive
             return true;
         }
@@ -100,15 +105,16 @@ final class RbacEvaluator
 
     /**
      * Convenience for raw role checks in persist mode.
-     * @param array<int,string> $roles
+     *
+     * @param  array<int,string>  $roles
      */
     public static function userHasAnyRole(?User $user, array $roles): bool
     {
-        if (!self::enabled()) {
+        if (! self::enabled()) {
             return true;
         }
 
-        if (!self::persistenceEnabled()) {
+        if (! self::persistenceEnabled()) {
             return true;
         }
 

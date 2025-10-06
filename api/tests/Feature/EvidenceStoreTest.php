@@ -32,13 +32,13 @@ final class EvidenceStoreTest extends TestCase
 
     public function test_store_creates_record_and_returns_hash(): void
     {
-        $content = "hello world";
+        $content = 'hello world';
         $file = UploadedFile::fake()->createWithContent('hello.txt', $content);
 
         $res = $this->post('/evidence', ['file' => $file]);
 
         $res->assertStatus(201)->assertJsonPath('ok', true);
-        $res->assertJsonStructure(['id','version','sha256','size','mime','name']);
+        $res->assertJsonStructure(['id', 'version', 'sha256', 'size', 'mime', 'name']);
 
         $json = $res->json();
         $this->assertSame(hash('sha256', $content), $json['sha256']);

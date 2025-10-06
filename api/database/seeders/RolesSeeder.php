@@ -12,7 +12,7 @@ final class RolesSeeder extends Seeder
 {
     public function run(): void
     {
-        if (!Schema::hasTable('roles')) {
+        if (! Schema::hasTable('roles')) {
             return;
         }
 
@@ -20,7 +20,7 @@ final class RolesSeeder extends Seeder
             || (string) config('core.rbac.mode', 'stub') === 'persist'
             || (bool) (config('core.rbac.persistence') ?? false);
 
-        if (!$shouldSeed) {
+        if (! $shouldSeed) {
             return;
         }
 

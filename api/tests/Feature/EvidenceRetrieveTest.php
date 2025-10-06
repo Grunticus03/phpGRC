@@ -32,13 +32,13 @@ final class EvidenceRetrieveTest extends TestCase
     private function uploadSample(string $name = 'small.txt', string $mime = 'text/plain', string $body = "hello\n"): array
     {
         $file = UploadedFile::fake()->createWithContent($name, $body, $mime);
-        $res  = $this->postJson('/evidence', ['file' => $file])
+        $res = $this->postJson('/evidence', ['file' => $file])
             ->assertCreated()
-            ->assertJsonStructure(['id','sha256','size','mime','name']);
+            ->assertJsonStructure(['id', 'sha256', 'size', 'mime', 'name']);
 
         return [
-            'id'   => $res->json('id'),
-            'etag' => '"' . $res->json('sha256') . '"',
+            'id' => $res->json('id'),
+            'etag' => '"'.$res->json('sha256').'"',
             'body' => $body,
             'mime' => $mime,
             'size' => strlen($body),
@@ -105,6 +105,3 @@ final class EvidenceRetrieveTest extends TestCase
         $this->call('HEAD', '/evidence/ev_DOES_NOT_EXIST')->assertStatus(404);
     }
 }
-
-
-

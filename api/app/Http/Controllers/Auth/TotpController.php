@@ -22,20 +22,20 @@ final class TotpController extends Controller
 
         if (config('core.audit.enabled', true) && Schema::hasTable('audit_events')) {
             $audit->log([
-                'actor_id'    => $actorId,
-                'action'      => 'auth.totp.enroll',
-                'category'    => 'AUTH',
+                'actor_id' => $actorId,
+                'action' => 'auth.totp.enroll',
+                'category' => 'AUTH',
                 'entity_type' => 'core.auth',
-                'entity_id'   => 'totp',
-                'ip'          => $request->ip(),
-                'ua'          => $request->userAgent(),
-                'meta'        => ['applied' => false, 'note' => 'stub-only'],
+                'entity_id' => 'totp',
+                'ip' => $request->ip(),
+                'ua' => $request->userAgent(),
+                'meta' => ['applied' => false, 'note' => 'stub-only'],
             ]);
         }
 
         return response()->json([
             'otpauthUri' => 'otpauth://totp/phpGRC:placeholder?secret=PLACEHOLDER&issuer=phpGRC&digits=6&period=30&algorithm=SHA1',
-            'secret'     => 'PLACEHOLDER',
+            'secret' => 'PLACEHOLDER',
         ]);
     }
 
@@ -48,14 +48,14 @@ final class TotpController extends Controller
 
         if (config('core.audit.enabled', true) && Schema::hasTable('audit_events')) {
             $audit->log([
-                'actor_id'    => $actorId,
-                'action'      => 'auth.totp.verify',
-                'category'    => 'AUTH',
+                'actor_id' => $actorId,
+                'action' => 'auth.totp.verify',
+                'category' => 'AUTH',
                 'entity_type' => 'core.auth',
-                'entity_id'   => 'totp',
-                'ip'          => $request->ip(),
-                'ua'          => $request->userAgent(),
-                'meta'        => ['applied' => false, 'note' => 'stub-only'],
+                'entity_id' => 'totp',
+                'ip' => $request->ip(),
+                'ua' => $request->userAgent(),
+                'meta' => ['applied' => false, 'note' => 'stub-only'],
             ]);
         }
 

@@ -20,11 +20,11 @@ final class AuditExportCapabilityTest extends TestCase
         parent::setUp();
 
         config([
-            'core.rbac.enabled'      => true,
-            'core.rbac.mode'         => 'persist',
-            'core.rbac.persistence'  => true,
+            'core.rbac.enabled' => true,
+            'core.rbac.mode' => 'persist',
+            'core.rbac.persistence' => true,
             'core.rbac.require_auth' => true,
-            'core.audit.enabled'     => true,
+            'core.audit.enabled' => true,
         ]);
 
         $this->seed(TestRbacSeeder::class);
@@ -38,6 +38,7 @@ final class AuditExportCapabilityTest extends TestCase
         if (is_string($auditorId)) {
             $u->roles()->syncWithoutDetaching([$auditorId]);
         }
+
         return $u;
     }
 
@@ -54,8 +55,8 @@ final class AuditExportCapabilityTest extends TestCase
 
         $res->assertStatus(403)
             ->assertJson([
-                'ok'         => false,
-                'code'       => 'CAPABILITY_DISABLED',
+                'ok' => false,
+                'code' => 'CAPABILITY_DISABLED',
                 'capability' => 'core.audit.export',
             ]);
 
@@ -64,7 +65,7 @@ final class AuditExportCapabilityTest extends TestCase
 
         $this->assertDatabaseHas('audit_events', [
             'category' => 'RBAC',
-            'action'   => 'rbac.deny.capability',
+            'action' => 'rbac.deny.capability',
         ]);
     }
 
@@ -83,4 +84,3 @@ final class AuditExportCapabilityTest extends TestCase
         $this->assertStringStartsWith('text/csv', $ctype);
     }
 }
-

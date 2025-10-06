@@ -24,10 +24,10 @@ final class UserSearchAuthEnforcementTest extends TestCase
         $resp = $this->getJson('/rbac/users/search?q=alpha');
 
         $resp->assertStatus(401)
-             ->assertJson([
-                 'ok'   => false,
-                 'code' => 'UNAUTHENTICATED',
-             ]);
+            ->assertJson([
+                'ok' => false,
+                'code' => 'UNAUTHENTICATED',
+            ]);
     }
 
     public function test_allows_guest_when_flag_disabled(): void
@@ -39,16 +39,15 @@ final class UserSearchAuthEnforcementTest extends TestCase
         $resp = $this->getJson('/rbac/users/search?q=alpha');
 
         $resp->assertStatus(200)
-             ->assertJson([
-                 'ok' => true,
-                 'data' => [],
-                 'meta' => [
-                     'page' => 1,
-                     'per_page' => 50,
-                     'total' => 0,
-                     'total_pages' => 0,
-                 ],
-             ]);
+            ->assertJson([
+                'ok' => true,
+                'data' => [],
+                'meta' => [
+                    'page' => 1,
+                    'per_page' => 50,
+                    'total' => 0,
+                    'total_pages' => 0,
+                ],
+            ]);
     }
 }
-

@@ -38,53 +38,53 @@ final class UserRolesController extends Controller
     }
 
     /**
-     * @param non-empty-string $action
-     * @param array<string,mixed> $meta
+     * @param  non-empty-string  $action
+     * @param  array<string,mixed>  $meta
      */
     private function writeAudit(Request $request, User $target, string $action, array $meta = []): void
     {
-        if (!$this->auditEnabled()) {
+        if (! $this->auditEnabled()) {
             return;
         }
 
         /** @var AuditLogger $logger */
-        $logger  = app(AuditLogger::class);
-        $actor   = Auth::user();
+        $logger = app(AuditLogger::class);
+        $actor = Auth::user();
         $actorId = ($actor instanceof User) ? $actor->id : null;
 
-        $targetName  = trim($target->name);
+        $targetName = trim($target->name);
         $targetEmail = trim($target->email);
 
-        $actorName  = ($actor instanceof User) ? trim($actor->name) : '';
+        $actorName = ($actor instanceof User) ? trim($actor->name) : '';
         $actorEmail = ($actor instanceof User) ? trim($actor->email) : '';
 
         /** @var non-empty-string $entityId */
         $entityId = $this->nes((string) $target->id);
 
         $metaWithContext = $meta;
-        if (!isset($metaWithContext['target_username']) && $targetName !== '') {
+        if (! isset($metaWithContext['target_username']) && $targetName !== '') {
             $metaWithContext['target_username'] = $targetName;
         }
-        if (!isset($metaWithContext['target_email']) && $targetEmail !== '') {
+        if (! isset($metaWithContext['target_email']) && $targetEmail !== '') {
             $metaWithContext['target_email'] = $targetEmail;
         }
-        if (!isset($metaWithContext['actor_username']) && $actorName !== '') {
+        if (! isset($metaWithContext['actor_username']) && $actorName !== '') {
             $metaWithContext['actor_username'] = $actorName;
         }
-        if (!isset($metaWithContext['actor_email']) && $actorEmail !== '') {
+        if (! isset($metaWithContext['actor_email']) && $actorEmail !== '') {
             $metaWithContext['actor_email'] = $actorEmail;
         }
 
         try {
             $logger->log([
-                'actor_id'    => $actorId,
-                'action'      => $action,
-                'category'    => 'RBAC',
+                'actor_id' => $actorId,
+                'action' => $action,
+                'category' => 'RBAC',
                 'entity_type' => 'user',
-                'entity_id'   => $entityId,
-                'ip'          => $request->ip(),
-                'ua'          => $request->userAgent(),
-                'meta'        => $metaWithContext,
+                'entity_id' => $entityId,
+                'ip' => $request->ip(),
+                'ua' => $request->userAgent(),
+                'meta' => $metaWithContext,
             ]);
         } catch (\Throwable) {
             // swallow audit failures
@@ -94,22 +94,23 @@ final class UserRolesController extends Controller
     private static function normalizeRoleName(string $value): string
     {
         $trimmed = trim($value);
+
         return (string) preg_replace('/\s+/u', ' ', $trimmed);
     }
 
     private function validationError(string $field, string $message): JsonResponse
     {
         return response()->json([
-            'ok'      => false,
+            'ok' => false,
             'message' => 'The given data was invalid.',
-            'code'    => 'VALIDATION_FAILED',
-            'errors'  => [$field => [$message]],
+            'code' => 'VALIDATION_FAILED',
+            'errors' => [$field => [$message]],
         ], 422);
     }
 
     private static function resolveRoleId(string $value): ?string
     {
-        $norm      = self::normalizeRoleName($value);
+        $norm = self::normalizeRoleName($value);
         $canonical = self::canonicalRoleKey($value);
 
         foreach ($value === $norm ? [$value] : [$value, $norm] as $candidate) {
@@ -129,9 +130,9 @@ final class UserRolesController extends Controller
         $target = mb_strtolower($norm, 'UTF-8');
         foreach (Role::query()->get(['id', 'name']) as $r) {
             $nameAttr = $r->getAttribute('name');
-            $idAttr   = $r->getAttribute('id');
+            $idAttr = $r->getAttribute('id');
 
-            if (!is_string($nameAttr) || !is_string($idAttr) || $idAttr === '') {
+            if (! is_string($nameAttr) || ! is_string($idAttr) || $idAttr === '') {
                 continue;
             }
 
@@ -154,9 +155,6 @@ final class UserRolesController extends Controller
         return null;
     }
 
-    /**
-     * @return string
-     */
     private static function canonicalRoleKey(string $value): string
     {
         $value = trim($value);
@@ -186,7 +184,7 @@ final class UserRolesController extends Controller
 
     public function show(int $user): JsonResponse
     {
-        if (!$this->rbacActive()) {
+        if (! $this->rbacActive()) {
             return response()->json(['ok' => false, 'code' => 'RBAC_DISABLED'], 404);
         }
 
@@ -197,21 +195,21 @@ final class UserRolesController extends Controller
         $roles = $u->roles()->pluck('name')->values()->all();
 
         return response()->json([
-            'ok'    => true,
-            'user'  => ['id' => $u->id, 'name' => $u->name, 'email' => $u->email],
+            'ok' => true,
+            'user' => ['id' => $u->id, 'name' => $u->name, 'email' => $u->email],
             'roles' => $roles,
         ], 200);
     }
 
     public function replace(Request $request, int $user): JsonResponse
     {
-        if (!$this->rbacActive()) {
+        if (! $this->rbacActive()) {
             return response()->json(['ok' => false, 'code' => 'RBAC_DISABLED'], 404);
         }
 
         /** @var array{roles:list<string>} $payload */
         $payload = $request->validate([
-            'roles'   => ['present', 'array'],
+            'roles' => ['present', 'array'],
             'roles.*' => ['string', 'min:2', 'max:64', 'regex:/^[\p{L}\p{N}_-]{2,64}$/u'],
         ]);
 
@@ -222,17 +220,17 @@ final class UserRolesController extends Controller
         $before = $u->roles()->pluck('name')->sort()->values()->all();
 
         /** @var list<string> $values */
-        $values   = array_map('strval', $payload['roles']);
+        $values = array_map('strval', $payload['roles']);
         /** @var array<string, true> $normSeen */
         $normSeen = [];
         /** @var list<string> $ids */
-        $ids      = [];
+        $ids = [];
         /** @var list<string> $missing */
-        $missing  = [];
+        $missing = [];
 
         foreach ($values as $v) {
             $norm = self::normalizeRoleName($v);
-            $len  = mb_strlen($norm, 'UTF-8');
+            $len = mb_strlen($norm, 'UTF-8');
             if ($len < 2 || $len > 64) {
                 return $this->validationError('roles', 'Each role must be between 2 and 64 characters after normalization.');
             }
@@ -252,8 +250,8 @@ final class UserRolesController extends Controller
 
         if ($missing !== []) {
             return response()->json([
-                'ok'            => false,
-                'code'          => 'ROLE_NOT_FOUND',
+                'ok' => false,
+                'code' => 'ROLE_NOT_FOUND',
                 'missing_roles' => $missing,
             ], 422);
         }
@@ -261,34 +259,34 @@ final class UserRolesController extends Controller
         $u->roles()->sync(array_values(array_unique($ids)));
 
         /** @var list<string> $after */
-        $after   = $u->roles()->pluck('name')->sort()->values()->all();
+        $after = $u->roles()->pluck('name')->sort()->values()->all();
         /** @var list<string> $added */
-        $added   = array_values(array_diff($after, $before));
+        $added = array_values(array_diff($after, $before));
         /** @var list<string> $removed */
         $removed = array_values(array_diff($before, $after));
 
         $this->writeAudit($request, $u, 'rbac.user_role.replaced', [
-            'before'  => $before,
-            'after'   => $after,
-            'added'   => $added,
+            'before' => $before,
+            'after' => $after,
+            'added' => $added,
             'removed' => $removed,
         ]);
 
         return response()->json([
-            'ok'    => true,
-            'user'  => ['id' => $u->id, 'name' => $u->name, 'email' => $u->email],
+            'ok' => true,
+            'user' => ['id' => $u->id, 'name' => $u->name, 'email' => $u->email],
             'roles' => $after,
         ], 200);
     }
 
     public function attach(Request $request, int $user, string $role): JsonResponse
     {
-        if (!$this->rbacActive()) {
+        if (! $this->rbacActive()) {
             return response()->json(['ok' => false, 'code' => 'RBAC_DISABLED'], 404);
         }
 
         $norm = self::normalizeRoleName($role);
-        if (!preg_match('/^[\p{L}\p{N}_-]{2,64}$/u', $norm)) {
+        if (! preg_match('/^[\p{L}\p{N}_-]{2,64}$/u', $norm)) {
             return $this->validationError('role', 'Role name may contain only letters, numbers, underscores, and hyphens.');
         }
 
@@ -298,7 +296,7 @@ final class UserRolesController extends Controller
         }
 
         /** @var null|string $rawName */
-        $rawName  = Role::query()->whereKey($roleId)->value('name');
+        $rawName = Role::query()->whereKey($roleId)->value('name');
         $roleName = is_string($rawName) ? $rawName : '';
 
         /** @var User $u */
@@ -312,30 +310,30 @@ final class UserRolesController extends Controller
         /** @var list<string> $after */
         $after = $u->roles()->pluck('name')->sort()->values()->all();
 
-        if ($roleName !== '' && !in_array($roleName, $before, true)) {
+        if ($roleName !== '' && ! in_array($roleName, $before, true)) {
             $this->writeAudit($request, $u, 'rbac.user_role.attached', [
-                'role'    => $roleName,
+                'role' => $roleName,
                 'role_id' => $roleId,
-                'before'  => $before,
-                'after'   => $after,
+                'before' => $before,
+                'after' => $after,
             ]);
         }
 
         return response()->json([
-            'ok'    => true,
-            'user'  => ['id' => $u->id, 'name' => $u->name, 'email' => $u->email],
+            'ok' => true,
+            'user' => ['id' => $u->id, 'name' => $u->name, 'email' => $u->email],
             'roles' => $after,
         ], 200);
     }
 
     public function detach(Request $request, int $user, string $role): JsonResponse
     {
-        if (!$this->rbacActive()) {
+        if (! $this->rbacActive()) {
             return response()->json(['ok' => false, 'code' => 'RBAC_DISABLED'], 404);
         }
 
         $norm = self::normalizeRoleName($role);
-        if (!preg_match('/^[\p{L}\p{N}_-]{2,64}$/u', $norm)) {
+        if (! preg_match('/^[\p{L}\p{N}_-]{2,64}$/u', $norm)) {
             return $this->validationError('role', 'Role name may contain only letters, numbers, underscores, and hyphens.');
         }
 
@@ -345,7 +343,7 @@ final class UserRolesController extends Controller
         }
 
         /** @var null|string $rawName */
-        $rawName  = Role::query()->whereKey($roleId)->value('name');
+        $rawName = Role::query()->whereKey($roleId)->value('name');
         $roleName = is_string($rawName) ? $rawName : '';
 
         /** @var User $u */
@@ -359,18 +357,18 @@ final class UserRolesController extends Controller
         /** @var list<string> $after */
         $after = $u->roles()->pluck('name')->sort()->values()->all();
 
-        if ($roleName !== '' && in_array($roleName, $before, true) && !in_array($roleName, $after, true)) {
+        if ($roleName !== '' && in_array($roleName, $before, true) && ! in_array($roleName, $after, true)) {
             $this->writeAudit($request, $u, 'rbac.user_role.detached', [
-                'role'    => $roleName,
+                'role' => $roleName,
                 'role_id' => $roleId,
-                'before'  => $before,
-                'after'   => $after,
+                'before' => $before,
+                'after' => $after,
             ]);
         }
 
         return response()->json([
-            'ok'    => true,
-            'user'  => ['id' => $u->id, 'name' => $u->name, 'email' => $u->email],
+            'ok' => true,
+            'user' => ['id' => $u->id, 'name' => $u->name, 'email' => $u->email],
             'roles' => $after,
         ], 200);
     }
@@ -383,7 +381,7 @@ final class UserRolesController extends Controller
         if ($s === '') {
             throw new \LogicException('Expected non-empty string');
         }
+
         return $s;
     }
 }
-

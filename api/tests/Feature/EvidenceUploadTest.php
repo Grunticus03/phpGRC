@@ -50,9 +50,9 @@ final class EvidenceUploadTest extends TestCase
         $res = $this->postJson('/evidence', ['file' => $file]);
 
         $res->assertCreated()
-            ->assertJsonStructure(['ok','id','version','sha256','size','mime','name'])
+            ->assertJsonStructure(['ok', 'id', 'version', 'sha256', 'size', 'mime', 'name'])
             ->assertJson([
-                'ok'   => true,
+                'ok' => true,
                 'name' => 'small.txt',
                 'size' => strlen($content),
             ]);
@@ -61,10 +61,9 @@ final class EvidenceUploadTest extends TestCase
         $this->assertMatchesRegularExpression('/^ev_[0-9A-HJKMNP-TV-Z]{26}$/', $data['id']);
 
         $this->assertDatabaseHas('evidence', [
-            'id'       => $data['id'],
+            'id' => $data['id'],
             'filename' => 'small.txt',
-            'version'  => 1,
+            'version' => 1,
         ]);
     }
 }
-

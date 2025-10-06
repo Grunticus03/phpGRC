@@ -97,4 +97,3 @@ final class OpenApiSpecTest extends TestCase
         $this->assertSame('0', (string) $directives['max-age']);
     }
 }
-

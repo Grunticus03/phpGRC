@@ -35,12 +35,12 @@ final class AuditRetentionPurgeTest extends TestCase
         $ref->invoke($kernel, $schedule);
 
         $events = $schedule->events();
-        $found  = false;
+        $found = false;
 
         foreach ($events as $e) {
-            $cmd  = (string) ($e->command ?? '');
+            $cmd = (string) ($e->command ?? '');
             $expr = property_exists($e, 'expression') ? (string) $e->expression : '';
-            $tz   = property_exists($e, 'timezone') ? $e->timezone : null;
+            $tz = property_exists($e, 'timezone') ? $e->timezone : null;
 
             $tzOk = $tz instanceof \DateTimeZone ? ($tz->getName() === 'UTC') : ($tz === 'UTC' || $tz === null);
 
@@ -175,8 +175,7 @@ final class AuditRetentionPurgeTest extends TestCase
         self::assertNotNull($summary);
         /** @var array<string,mixed> $meta */
         $meta = $summary->meta;
-        self::assertSame(1, (int)($meta['deleted'] ?? -1));
-        self::assertSame(180, (int)($meta['days'] ?? -1));
+        self::assertSame(1, (int) ($meta['deleted'] ?? -1));
+        self::assertSame(180, (int) ($meta['days'] ?? -1));
     }
 }
-

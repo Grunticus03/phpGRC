@@ -14,7 +14,7 @@ return new class extends Migration
             return;
         }
 
-        if (!Schema::hasTable('evidence')) {
+        if (! Schema::hasTable('evidence')) {
             return;
         }
 

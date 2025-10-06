@@ -30,10 +30,9 @@ final class AuditCategoriesTest extends TestCase
         $res->assertStatus(200)
             ->assertJsonPath('ok', true)
             ->assertJsonStructure(['ok', 'categories'])
-            ->assertJson(fn ($json) =>
-                $json->whereType('categories', 'array')
-                     ->where('ok', true)
-                     ->etc() // allow additional documented fields
+            ->assertJson(fn ($json) => $json->whereType('categories', 'array')
+                ->where('ok', true)
+                ->etc() // allow additional documented fields
             );
     }
 
@@ -42,38 +41,37 @@ final class AuditCategoriesTest extends TestCase
         $now = CarbonImmutable::now('UTC');
 
         AuditEvent::query()->create([
-            'id'          => (string) Str::ulid(),
+            'id' => (string) Str::ulid(),
             'occurred_at' => $now,
-            'actor_id'    => null,
-            'action'      => 'settings.update',
-            'category'    => 'config',
+            'actor_id' => null,
+            'action' => 'settings.update',
+            'category' => 'config',
             'entity_type' => 'core.settings',
-            'entity_id'   => 'core',
-            'ip'          => null,
-            'ua'          => null,
-            'meta'        => [],
-            'created_at'  => $now,
+            'entity_id' => 'core',
+            'ip' => null,
+            'ua' => null,
+            'meta' => [],
+            'created_at' => $now,
         ]);
 
         AuditEvent::query()->create([
-            'id'          => (string) Str::ulid(),
+            'id' => (string) Str::ulid(),
             'occurred_at' => $now->addMinute(),
-            'actor_id'    => null,
-            'action'      => 'rbac.role.created',
-            'category'    => AuditCategories::RBAC,
+            'actor_id' => null,
+            'action' => 'rbac.role.created',
+            'category' => AuditCategories::RBAC,
             'entity_type' => 'core.rbac.role',
-            'entity_id'   => 'role_admin',
-            'ip'          => null,
-            'ua'          => null,
-            'meta'        => [],
-            'created_at'  => $now->addMinute(),
+            'entity_id' => 'role_admin',
+            'ip' => null,
+            'ua' => null,
+            'meta' => [],
+            'created_at' => $now->addMinute(),
         ]);
 
         $res = $this->getJson('/audit/categories');
 
         $res->assertOk();
         $payload = $res->json('categories');
-        static::assertSame([AuditCategories::RBAC, AuditCategories::SETTINGS], $payload);
+        self::assertSame([AuditCategories::RBAC, AuditCategories::SETTINGS], $payload);
     }
-
 }

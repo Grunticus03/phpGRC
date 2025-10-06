@@ -25,27 +25,27 @@ final class AvatarController extends Controller
     public function store(StoreAvatarRequest $request): JsonResponse
     {
         $enabled = self::boolFrom(config('core.avatars.enabled'), true);
-        if (!$enabled) {
+        if (! $enabled) {
             return response()->json([
-                'ok'   => false,
+                'ok' => false,
                 'code' => 'AVATAR_NOT_ENABLED',
                 'note' => 'stub-only',
             ], 400);
         }
 
         $file = $request->file('file');
-        if (!$file instanceof UploadedFile) {
+        if (! $file instanceof UploadedFile) {
             return response()->json([
-                'ok'   => false,
+                'ok' => false,
                 'code' => 'AVATAR_NO_FILE',
                 'note' => 'stub-only',
             ], 422);
         }
 
         [$w, $h] = @getimagesize($file->getPathname()) ?: [null, null];
-        if (!is_int($w) || !is_int($h)) {
+        if (! is_int($w) || ! is_int($h)) {
             return response()->json([
-                'ok'   => false,
+                'ok' => false,
                 'code' => 'AVATAR_INVALID_IMAGE',
                 'note' => 'stub-only',
             ], 422);
@@ -74,21 +74,21 @@ final class AvatarController extends Controller
         $mimeOut = $file->getClientMimeType();
 
         return response()->json([
-            'ok'     => false,
-            'note'   => 'stub-only',
+            'ok' => false,
+            'note' => 'stub-only',
             'queued' => $queued,
-            'file'   => [
+            'file' => [
                 'original_name' => $file->getClientOriginalName(),
-                'mime'          => $mimeOut,
-                'size_bytes'    => $file->getSize(),
-                'width'         => $w,
-                'height'        => $h,
-                'format'        => pathinfo($file->getClientOriginalName(), PATHINFO_EXTENSION),
+                'mime' => $mimeOut,
+                'size_bytes' => $file->getSize(),
+                'width' => $w,
+                'height' => $h,
+                'format' => pathinfo($file->getClientOriginalName(), PATHINFO_EXTENSION),
             ],
             'target' => [
                 'user_id' => $userId,
-                'sizes'   => [32, 64, $sizePx],
-                'format'  => $format,
+                'sizes' => [32, 64, $sizePx],
+                'format' => $format,
             ],
         ], 202);
     }
@@ -100,29 +100,29 @@ final class AvatarController extends Controller
     public function show(Request $request, int $user): Response
     {
         $enabled = self::boolFrom(config('core.avatars.enabled'), true);
-        if (!$enabled) {
+        if (! $enabled) {
             return response()->json([
-                'ok'   => false,
+                'ok' => false,
                 'code' => 'AVATAR_NOT_ENABLED',
             ], 400);
         }
 
-        $sizePx  = self::intFrom(config('core.avatars.size_px'), 128);
+        $sizePx = self::intFrom(config('core.avatars.size_px'), 128);
         $allowed = [32, 64, $sizePx];
         sort($allowed);
 
         $sizeParam = $request->query('size');
         $size = (is_scalar($sizeParam) && is_numeric($sizeParam)) ? (int) $sizeParam : max($allowed);
-        if (!in_array($size, $allowed, true)) {
+        if (! in_array($size, $allowed, true)) {
             $size = max($allowed);
         }
 
         $disk = Storage::disk('public');
-        $rel  = "avatars/{$user}/avatar-{$size}.webp";
+        $rel = "avatars/{$user}/avatar-{$size}.webp";
 
-        if (!$disk->exists($rel)) {
+        if (! $disk->exists($rel)) {
             return response()->json([
-                'ok'   => false,
+                'ok' => false,
                 'code' => 'AVATAR_NOT_FOUND',
                 'user' => $user,
                 'size' => $size,
@@ -130,10 +130,11 @@ final class AvatarController extends Controller
         }
 
         $path = $disk->path($rel);
+
         return response()->file($path, [
-            'Content-Type'           => 'image/webp',
+            'Content-Type' => 'image/webp',
             'X-Content-Type-Options' => 'nosniff',
-            'Cache-Control'          => 'public, max-age=3600, immutable',
+            'Cache-Control' => 'public, max-age=3600, immutable',
         ]);
     }
 
@@ -151,6 +152,7 @@ final class AvatarController extends Controller
                 return (int) $rawId;
             }
         }
+
         return 0;
     }
 
@@ -164,8 +166,10 @@ final class AvatarController extends Controller
         }
         if (is_string($value)) {
             $v = filter_var($value, FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE);
+
             return $v ?? $default;
         }
+
         return $default;
     }
 
@@ -183,6 +187,7 @@ final class AvatarController extends Controller
         if (is_float($value)) {
             return (int) $value;
         }
+
         return $default;
     }
 
@@ -193,9 +198,10 @@ final class AvatarController extends Controller
         }
         if (is_scalar($value)) {
             $s = (string) $value;
+
             return $s !== '' ? $s : $default;
         }
+
         return $default;
     }
 }
-

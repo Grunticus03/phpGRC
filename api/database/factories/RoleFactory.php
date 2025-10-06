@@ -12,7 +12,6 @@ final class RoleFactory extends Factory
 {
     protected $model = Role::class;
 
-    /** @var int */
     private static int $seq = 0;
 
     public function definition(): array
@@ -21,7 +20,7 @@ final class RoleFactory extends Factory
         $name = "Role {$n}";
 
         return [
-            'id'   => 'role_' . Str::slug($name, '_'),
+            'id' => 'role_'.Str::slug($name, '_'),
             'name' => $name,
         ];
     }
@@ -29,9 +28,8 @@ final class RoleFactory extends Factory
     public function named(string $name): self
     {
         return $this->state(fn () => [
-            'id'   => 'role_' . Str::slug($name, '_'),
+            'id' => 'role_'.Str::slug($name, '_'),
             'name' => $name,
         ]);
     }
 }
-

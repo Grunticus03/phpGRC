@@ -18,12 +18,12 @@ final class PolicyMapUnknownRoleAuditTest extends TestCase
     {
         // Enable persist mode & auditing
         config([
-            'core.rbac.mode'        => 'persist',
+            'core.rbac.mode' => 'persist',
             'core.rbac.persistence' => true,
-            'core.audit.enabled'    => true,
+            'core.audit.enabled' => true,
             // Only "admin" exists in catalog; "ghost_role" should be audited as unknown
-            'core.rbac.roles'       => ['Admin'],
-            'core.rbac.policies'    => [
+            'core.rbac.roles' => ['Admin'],
+            'core.rbac.policies' => [
                 'core.metrics.view' => ['Admin', 'ghost_role'],
             ],
         ]);

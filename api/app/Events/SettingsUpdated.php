@@ -17,14 +17,13 @@ final class SettingsUpdated
     use SerializesModels;
 
     /**
-     * @param array<int, array{key:string, old:mixed, new:mixed, action:string}> $changes
-     * @param array<string,mixed> $context
+     * @param  array<int, array{key:string, old:mixed, new:mixed, action:string}>  $changes
+     * @param  array<string,mixed>  $context
      */
     public function __construct(
         public readonly ?int $actorId,
         public readonly array $changes,
         public readonly array $context,
         public readonly CarbonInterface $occurredAt,
-    ) {
-    }
+    ) {}
 }

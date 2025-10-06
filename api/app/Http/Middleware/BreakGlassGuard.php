@@ -17,40 +17,39 @@ use Symfony\Component\HttpFoundation\Response;
  */
 final class BreakGlassGuard
 {
-    public function __construct(private AuditLogger $audit)
-    {
-    }
+    public function __construct(private AuditLogger $audit) {}
 
     /**
-     * @param \Closure(\Illuminate\Http\Request): \Symfony\Component\HttpFoundation\Response $next
+     * @param  \Closure(\Illuminate\Http\Request): \Symfony\Component\HttpFoundation\Response  $next
      */
     public function handle(Request $request, Closure $next): Response
     {
         $enabled = (bool) config('core.auth.break_glass.enabled', false);
 
-        if (!$enabled) {
+        if (! $enabled) {
             if ((bool) config('core.audit.enabled', true) && Schema::hasTable('audit_events')) {
                 $aid = Auth::id();
                 $actorId = is_int($aid) ? $aid : null;
 
                 $this->audit->log([
-                    'actor_id'    => $actorId,
-                    'action'      => 'auth.break_glass.guard',
-                    'category'    => 'AUTH',
+                    'actor_id' => $actorId,
+                    'action' => 'auth.break_glass.guard',
+                    'category' => 'AUTH',
                     'entity_type' => 'core.auth',
-                    'entity_id'   => 'break_glass',
-                    'ip'          => $request->ip(),
-                    'ua'          => $request->userAgent(),
+                    'entity_id' => 'break_glass',
+                    'ip' => $request->ip(),
+                    'ua' => $request->userAgent(),
                     /** @var array<string,mixed> */
-                    'meta'        => ['reason' => 'disabled', 'applied' => false],
+                    'meta' => ['reason' => 'disabled', 'applied' => false],
                 ]);
             }
+
             return response()->json(['error' => 'BREAK_GLASS_DISABLED'], 404);
         }
 
         /** @var Response $resp */
         $resp = $next($request);
+
         return $resp;
     }
 }
-

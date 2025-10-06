@@ -18,7 +18,7 @@ final class AuthAuditTest extends TestCase
     public function test_login_logout_totp_emit_audit_events(): void
     {
         $user = User::factory()->create([
-            'email'    => 'tester@example.com',
+            'email' => 'tester@example.com',
             'password' => Hash::make('secret123'),
         ]);
 

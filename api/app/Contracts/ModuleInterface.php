@@ -20,6 +20,7 @@ interface ModuleInterface
 
     /**
      * Raw module manifest as associative array parsed from module.json.
+     *
      * @return array<string,mixed>
      */
     public function manifest(): array;
@@ -27,6 +28,7 @@ interface ModuleInterface
     /**
      * Capability identifiers provided by this module.
      * Example: ["risks.read","risks.write"].
+     *
      * @return array<int,string>
      */
     public function capabilities(): array;
@@ -49,4 +51,3 @@ interface ModuleInterface
      */
     public function boot(): void;
 }
-

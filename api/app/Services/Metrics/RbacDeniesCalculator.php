@@ -34,8 +34,8 @@ final class RbacDeniesCalculator implements MetricsCalculator
     {
         $windowDays = max(1, $windowDays);
 
-        $now  = CarbonImmutable::now('UTC');
-        $to   = $now->endOfDay();
+        $now = CarbonImmutable::now('UTC');
+        $to = $now->endOfDay();
         $from = $to->subDays($windowDays - 1)->startOfDay();
 
         /** @var list<non-empty-string> $denyActions */
@@ -106,8 +106,8 @@ final class RbacDeniesCalculator implements MetricsCalculator
         }
 
         $denies = \count($uniqueDenies);
-        $total  = $authTotal + $denies;
-        $rate   = $total > 0 ? $denies / $total : 0.0;
+        $total = $authTotal + $denies;
+        $rate = $total > 0 ? $denies / $total : 0.0;
 
         // Build daily series
         /** @var list<array{date: non-empty-string, denies:int, total:int, rate:float}> $daily */
@@ -117,27 +117,27 @@ final class RbacDeniesCalculator implements MetricsCalculator
             /** @psalm-var non-empty-string $date */
             $drate = $vals['total'] > 0 ? $vals['denies'] / $vals['total'] : 0.0;
             $daily[] = [
-                'date'   => $date,
+                'date' => $date,
                 'denies' => $vals['denies'],
-                'total'  => $vals['total'],
-                'rate'   => (float) $drate,
+                'total' => $vals['total'],
+                'rate' => (float) $drate,
             ];
         }
 
         $fromIso = $from->toIso8601String();
-        $toIso   = $to->toIso8601String();
+        $toIso = $to->toIso8601String();
         assert($fromIso !== '' && $toIso !== '');
         /** @psalm-var non-empty-string $fromIso */
         /** @psalm-var non-empty-string $toIso */
 
         return [
             'window_days' => $windowDays,
-            'from'        => $fromIso,
-            'to'          => $toIso,
-            'denies'      => $denies,
-            'total'       => $total,
-            'rate'        => $rate,
-            'daily'       => $daily,
+            'from' => $fromIso,
+            'to' => $toIso,
+            'denies' => $denies,
+            'total' => $total,
+            'rate' => $rate,
+            'daily' => $daily,
         ];
     }
 }

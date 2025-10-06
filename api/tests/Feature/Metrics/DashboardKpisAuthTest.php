@@ -33,18 +33,18 @@ final class DashboardKpisAuthTest extends TestCase
 
         $kpis = $this->extractKpis($resp);
 
-        static::assertIsArray($kpis);
-        static::assertArrayHasKey('rbac_denies', $kpis);
-        static::assertArrayHasKey('evidence_freshness', $kpis);
+        self::assertIsArray($kpis);
+        self::assertArrayHasKey('rbac_denies', $kpis);
+        self::assertArrayHasKey('evidence_freshness', $kpis);
 
-        static::assertIsArray($kpis['rbac_denies']);
-        static::assertIsArray($kpis['evidence_freshness']);
+        self::assertIsArray($kpis['rbac_denies']);
+        self::assertIsArray($kpis['evidence_freshness']);
 
-        foreach (['window_days','from','to','denies','total','rate','daily'] as $key) {
-            static::assertArrayHasKey($key, $kpis['rbac_denies']);
+        foreach (['window_days', 'from', 'to', 'denies', 'total', 'rate', 'daily'] as $key) {
+            self::assertArrayHasKey($key, $kpis['rbac_denies']);
         }
-        foreach (['days','total','stale','percent','by_mime'] as $key) {
-            static::assertArrayHasKey($key, $kpis['evidence_freshness']);
+        foreach (['days', 'total', 'stale', 'percent', 'by_mime'] as $key) {
+            self::assertArrayHasKey($key, $kpis['evidence_freshness']);
         }
     }
 
@@ -83,7 +83,7 @@ final class DashboardKpisAuthTest extends TestCase
     /** Ensure a role exists and attach to user. */
     private function attachNamedRole(User $user, string $name): void
     {
-        $id = 'role_' . strtolower(preg_replace('/[^a-z0-9]+/i', '_', $name));
+        $id = 'role_'.strtolower(preg_replace('/[^a-z0-9]+/i', '_', $name));
 
         /** @var Role $role */
         $role = Role::query()->firstOrCreate(
@@ -101,6 +101,7 @@ final class DashboardKpisAuthTest extends TestCase
         if (is_array($json) && array_key_exists('data', $json) && is_array($json['data'])) {
             return $json['data'];
         }
+
         return is_array($json) ? $json : [];
     }
 }

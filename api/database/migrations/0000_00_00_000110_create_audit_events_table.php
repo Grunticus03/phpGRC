@@ -9,7 +9,8 @@ use Illuminate\Support\Facades\Schema;
 /**
  * Phase 4: enable persistence for audit events.
  */
-return new class extends Migration {
+return new class extends Migration
+{
     public function up(): void
     {
         Schema::create('audit_events', function (Blueprint $table): void {

@@ -18,18 +18,17 @@ final class AuditEventFactory extends Factory
         $ts = CarbonImmutable::now('UTC');
 
         return [
-            'id'          => (string) Str::ulid(),
+            'id' => (string) Str::ulid(),
             'occurred_at' => $ts,
-            'actor_id'    => null,
-            'action'      => 'test.event',
-            'category'    => 'TEST',
+            'actor_id' => null,
+            'action' => 'test.event',
+            'category' => 'TEST',
             'entity_type' => 'test',
-            'entity_id'   => (string) Str::ulid(),
-            'ip'          => '127.0.0.1',
-            'ua'          => 'phpunit',
-            'meta'        => [],
-            'created_at'  => $ts,
+            'entity_id' => (string) Str::ulid(),
+            'ip' => '127.0.0.1',
+            'ua' => 'phpunit',
+            'meta' => [],
+            'created_at' => $ts,
         ];
     }
 }
-

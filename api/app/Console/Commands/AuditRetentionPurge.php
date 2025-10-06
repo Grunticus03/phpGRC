@@ -24,16 +24,19 @@ final class AuditRetentionPurge extends Command
     protected $description = 'Delete audit events older than the configured retention window.';
 
     private const MIN_DAYS = 30;
+
     private const MAX_DAYS = 730;
-    private const CHUNK    = 1000;
+
+    private const CHUNK = 1000;
 
     public function handle(): int
     {
-        if (!Config::get('core.audit.enabled', true)) {
+        if (! Config::get('core.audit.enabled', true)) {
             $this->line($this->json([
                 'ok' => true,
                 'note' => 'audit disabled via config',
             ]));
+
             return self::SUCCESS;
         }
 
@@ -57,6 +60,7 @@ final class AuditRetentionPurge extends Command
                 'days' => $days,
                 'allowed_range' => [self::MIN_DAYS, self::MAX_DAYS],
             ]));
+
             return self::INVALID;
         }
 
@@ -77,6 +81,7 @@ final class AuditRetentionPurge extends Command
                 'cutoff_utc' => $cutoff->toIso8601String(),
                 'candidates' => $totalCandidates,
             ]));
+
             return self::SUCCESS;
         }
 
@@ -114,23 +119,23 @@ final class AuditRetentionPurge extends Command
                 $now = CarbonImmutable::now('UTC');
 
                 AuditEvent::query()->create([
-                    'id'           => Str::ulid()->toBase32(), // string
-                    'occurred_at'  => $now,
-                    'actor_id'     => null,
-                    'action'       => 'audit.retention.purged',
-                    'category'     => 'AUDIT',
-                    'entity_type'  => 'audit',
-                    'entity_id'    => 'retention',
-                    'ip'           => null,
-                    'ua'           => null,
-                    'meta'         => [
-                        'deleted'     => $deleted,
-                        'candidates'  => $totalCandidates,
-                        'cutoff_utc'  => $cutoff->toIso8601String(),
-                        'days'        => $days,
-                        'dry_run'     => false,
+                    'id' => Str::ulid()->toBase32(), // string
+                    'occurred_at' => $now,
+                    'actor_id' => null,
+                    'action' => 'audit.retention.purged',
+                    'category' => 'AUDIT',
+                    'entity_type' => 'audit',
+                    'entity_id' => 'retention',
+                    'ip' => null,
+                    'ua' => null,
+                    'meta' => [
+                        'deleted' => $deleted,
+                        'candidates' => $totalCandidates,
+                        'cutoff_utc' => $cutoff->toIso8601String(),
+                        'days' => $days,
+                        'dry_run' => false,
                     ],
-                    'created_at'   => $now,
+                    'created_at' => $now,
                 ]);
             } catch (\Throwable) {
                 // Swallow per spec.
@@ -149,12 +154,12 @@ final class AuditRetentionPurge extends Command
     }
 
     /**
-     * @param array<string,mixed> $payload
+     * @param  array<string,mixed>  $payload
      */
     private function json(array $payload): string
     {
         $json = json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+
         return $json !== false ? $json : '{}';
     }
 }
-

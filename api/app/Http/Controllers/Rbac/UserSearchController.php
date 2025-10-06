@@ -44,10 +44,10 @@ final class UserSearchController extends Controller
 
         if ($q === '') {
             return response()->json([
-                'ok'      => false,
-                'code'    => 'VALIDATION_FAILED',
+                'ok' => false,
+                'code' => 'VALIDATION_FAILED',
                 'message' => 'Query is required.',
-                'errors'  => ['q' => ['The q field is required.']],
+                'errors' => ['q' => ['The q field is required.']],
             ], 422);
         }
 
@@ -67,17 +67,17 @@ final class UserSearchController extends Controller
         $cfgDefault = max(1, min(500, $cfgDefault));
 
         // Pagination: page ≥1, per_page ∈ [1,500], default comes from settings.
-        $page    = self::parseIntQuery($request, 'page', 1, 1, PHP_INT_MAX);
+        $page = self::parseIntQuery($request, 'page', 1, 1, PHP_INT_MAX);
         $perPage = self::parseIntQuery($request, 'per_page', $cfgDefault, 1, 500);
 
-        if (!Schema::hasTable('users')) {
+        if (! Schema::hasTable('users')) {
             return response()->json([
-                'ok'   => true,
+                'ok' => true,
                 'data' => [],
                 'meta' => [
-                    'page'        => $page,
-                    'per_page'    => $perPage,
-                    'total'       => 0,
+                    'page' => $page,
+                    'per_page' => $perPage,
+                    'total' => 0,
                     'total_pages' => 0,
                 ],
             ], 200);
@@ -89,20 +89,20 @@ final class UserSearchController extends Controller
         $filters = $this->extractFilters($q);
 
         foreach ($filters['terms'] as $term) {
-            $like = '%' . $this->escapeLike($term) . '%';
+            $like = '%'.$this->escapeLike($term).'%';
             $base->where(static function (Builder $w) use ($like): void {
                 $w->where('name', 'like', $like)
-                  ->orWhere('email', 'like', $like);
+                    ->orWhere('email', 'like', $like);
             });
         }
 
         foreach ($filters['name'] as $namePart) {
-            $like = '%' . $this->escapeLike($namePart) . '%';
+            $like = '%'.$this->escapeLike($namePart).'%';
             $base->where('name', 'like', $like);
         }
 
         foreach ($filters['email'] as $emailPart) {
-            $like = '%' . $this->escapeLike($emailPart) . '%';
+            $like = '%'.$this->escapeLike($emailPart).'%';
             $base->where('email', 'like', $like);
         }
 
@@ -111,14 +111,14 @@ final class UserSearchController extends Controller
         }
 
         foreach ($filters['role'] as $rolePart) {
-            $like = '%' . $this->escapeLike($rolePart) . '%';
+            $like = '%'.$this->escapeLike($rolePart).'%';
             $lower = mb_strtolower($rolePart, 'UTF-8');
             $base->whereHas('roles', static function (Builder $q) use ($like, $lower): void {
                 $q->where(static function (Builder $inner) use ($like, $lower): void {
                     $inner->where('roles.name', 'like', $like)
                         ->orWhere('roles.id', 'like', $like)
-                        ->orWhereRaw('LOWER(roles.name) LIKE ?', ['%' . $lower . '%'])
-                        ->orWhereRaw('LOWER(roles.id) LIKE ?', ['%' . $lower . '%']);
+                        ->orWhereRaw('LOWER(roles.name) LIKE ?', ['%'.$lower.'%'])
+                        ->orWhereRaw('LOWER(roles.id) LIKE ?', ['%'.$lower.'%']);
                 });
             });
         }
@@ -138,19 +138,19 @@ final class UserSearchController extends Controller
         $data = [];
         foreach ($rows as $u) {
             $data[] = [
-                'id'    => $u->id,
-                'name'  => $u->name,
+                'id' => $u->id,
+                'name' => $u->name,
                 'email' => $u->email,
             ];
         }
 
         return response()->json([
-            'ok'   => true,
+            'ok' => true,
             'data' => $data,
             'meta' => [
-                'page'        => $page,
-                'per_page'    => $perPage,
-                'total'       => $total,
+                'page' => $page,
+                'per_page' => $perPage,
+                'total' => $total,
                 'total_pages' => $totalPages,
             ],
         ], 200);
@@ -183,6 +183,7 @@ final class UserSearchController extends Controller
             $colonPos = strpos($token, ':');
             if ($colonPos === false) {
                 $terms[] = $token;
+
                 continue;
             }
 
@@ -217,10 +218,10 @@ final class UserSearchController extends Controller
 
         return [
             'terms' => array_values(array_filter($terms, static fn ($v): bool => $v !== '')),
-            'name'  => array_values(array_filter($names, static fn ($v): bool => $v !== '')),
+            'name' => array_values(array_filter($names, static fn ($v): bool => $v !== '')),
             'email' => array_values(array_filter($emails, static fn ($v): bool => $v !== '')),
-            'id'    => array_values(array_unique($ids)),
-            'role'  => array_values(array_filter($roles, static fn ($v): bool => $v !== '')),
+            'id' => array_values(array_unique($ids)),
+            'role' => array_values(array_filter($roles, static fn ($v): bool => $v !== '')),
         ];
     }
 
@@ -255,7 +256,7 @@ final class UserSearchController extends Controller
         }
 
         $first = $value[0];
-        $last  = $value[strlen($value) - 1];
+        $last = $value[strlen($value) - 1];
 
         if (($first === '"' && $last === '"') || ($first === '\'' && $last === '\'')) {
             return substr($value, 1, -1);
@@ -265,7 +266,7 @@ final class UserSearchController extends Controller
     }
 
     /**
-     * @param non-empty-string $key
+     * @param  non-empty-string  $key
      */
     private static function parseIntQuery(Request $request, string $key, int $default, int $min, int $max): int
     {
@@ -288,10 +289,13 @@ final class UserSearchController extends Controller
             }
         }
 
-        if ($val < $min) { $val = $min; }
-        if ($val > $max) { $val = $max; }
+        if ($val < $min) {
+            $val = $min;
+        }
+        if ($val > $max) {
+            $val = $max;
+        }
 
         return $val;
     }
 }
-

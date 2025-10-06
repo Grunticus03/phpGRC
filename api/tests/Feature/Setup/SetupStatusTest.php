@@ -17,8 +17,7 @@ final class SetupStatusTest extends TestCase
         $res->assertStatus(200)
             ->assertJsonPath('ok', true)
             ->assertJsonStructure(['ok', 'setupComplete', 'nextStep', 'checks' => [
-                'db_config','app_key','schema_init','admin_seed','admin_mfa_verify','smtp','idp','branding'
+                'db_config', 'app_key', 'schema_init', 'admin_seed', 'admin_mfa_verify', 'smtp', 'idp', 'branding',
             ]]);
     }
 }
-

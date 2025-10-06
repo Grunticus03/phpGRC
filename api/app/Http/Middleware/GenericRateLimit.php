@@ -25,14 +25,15 @@ final class GenericRateLimit
      *   core.api.throttle.window_seconds: int
      *   core.api.throttle.max_requests: int
      *
-     * @param \Closure(\Illuminate\Http\Request): \Symfony\Component\HttpFoundation\Response $next
+     * @param  \Closure(\Illuminate\Http\Request): \Symfony\Component\HttpFoundation\Response  $next
      */
     public function handle(Request $request, Closure $next): Response
     {
         $routeObj = $request->route();
-        if (!$routeObj instanceof Route) {
+        if (! $routeObj instanceof Route) {
             /** @var Response $resp */
             $resp = $next($request);
+
             return $resp;
         }
 
@@ -43,9 +44,10 @@ final class GenericRateLimit
 
         $enabledDefault = (bool) (config('core.api.throttle.enabled') ?? false);
         $enabled = self::boolOrDefault($routeCfg['enabled'] ?? null, $enabledDefault);
-        if (!$enabled) {
+        if (! $enabled) {
             /** @var Response $resp */
             $resp = $next($request);
+
             return $resp;
         }
 
@@ -63,7 +65,7 @@ final class GenericRateLimit
         $maxRequests = self::intOrDefault($routeCfg['max_requests'] ?? null, is_int($maxCfg) ? $maxCfg : 30);
 
         $windowSeconds = max(1, $windowSeconds);
-        $maxRequests   = max(1, $maxRequests);
+        $maxRequests = max(1, $maxRequests);
 
         $key = $this->keyFor($request, $strategy);
 
@@ -125,7 +127,7 @@ final class GenericRateLimit
         $key = "grc:rl:ip:0.0.0.0:{$routeSig}";
 
         switch (strtolower($strategy)) {
-            case 'user': {
+            case 'user':
                 /** @var \Illuminate\Contracts\Auth\Authenticatable|null $user */
                 $user = $request->user();
                 /** @var int|string|null $uidRaw */
@@ -133,9 +135,8 @@ final class GenericRateLimit
                 $uid = (is_int($uidRaw) || is_string($uidRaw)) ? (string) $uidRaw : 'guest';
                 $key = "grc:rl:user:{$uid}:{$routeSig}";
                 break;
-            }
 
-            case 'session': {
+            case 'session':
                 $sid = '';
                 if (method_exists($request, 'hasSession') && $request->hasSession()) {
                     $sid = $request->session()->getId();
@@ -150,15 +151,14 @@ final class GenericRateLimit
                 }
                 $key = "grc:rl:sess:{$sid}:{$routeSig}";
                 break;
-            }
 
             case 'ip':
-            default: {
+            default:
                 $ip = $request->ip();
                 $ipStr = is_string($ip) && $ip !== '' ? $ip : '0.0.0.0';
                 $key = "grc:rl:ip:{$ipStr}:{$routeSig}";
                 break;
-            }
+
         }
 
         return $key;
@@ -166,19 +166,31 @@ final class GenericRateLimit
 
     private static function boolOrDefault(mixed $v, bool $default): bool
     {
-        if (is_bool($v)) return $v;
+        if (is_bool($v)) {
+            return $v;
+        }
         if (is_string($v)) {
             $x = strtolower(trim($v));
-            if (in_array($x, ['1','true','on','yes'], true)) return true;
-            if (in_array($x, ['0','false','off','no'], true)) return false;
+            if (in_array($x, ['1', 'true', 'on', 'yes'], true)) {
+                return true;
+            }
+            if (in_array($x, ['0', 'false', 'off', 'no'], true)) {
+                return false;
+            }
         }
+
         return $default;
     }
 
     private static function intOrDefault(mixed $v, int $default): int
     {
-        if (is_int($v)) return $v;
-        if (is_string($v) && $v !== '' && ctype_digit($v)) return (int) $v;
+        if (is_int($v)) {
+            return $v;
+        }
+        if (is_string($v) && $v !== '' && ctype_digit($v)) {
+            return (int) $v;
+        }
+
         return $default;
     }
 
@@ -187,4 +199,3 @@ final class GenericRateLimit
         return is_string($v) && $v !== '' ? $v : $default;
     }
 }
-

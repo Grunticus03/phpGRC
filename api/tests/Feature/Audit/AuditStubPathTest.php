@@ -35,7 +35,7 @@ final class AuditStubPathTest extends TestCase
         );
 
         // If any items are present, validate minimal event shape.
-        if (!empty($data['items'])) {
+        if (! empty($data['items'])) {
             $first = $data['items'][0];
             $this->assertIsArray($first);
             foreach (['id', 'occurred_at', 'action', 'category'] as $k) {
@@ -59,7 +59,7 @@ final class AuditStubPathTest extends TestCase
         // Use a valid cursor if provided, otherwise a dummy token.
         $q = is_string($cursor) && $cursor !== '' ? $cursor : 'dummy';
 
-        $res = $this->getJson('/audit?cursor=' . urlencode($q));
+        $res = $this->getJson('/audit?cursor='.urlencode($q));
         $res->assertOk();
 
         $data = $res->json();
@@ -72,7 +72,7 @@ final class AuditStubPathTest extends TestCase
             'nextCursor must be string|null'
         );
 
-        if (!empty($data['items'])) {
+        if (! empty($data['items'])) {
             $first = $data['items'][0];
             $this->assertIsArray($first);
             foreach (['id', 'occurred_at', 'action', 'category'] as $k) {

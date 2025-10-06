@@ -61,4 +61,3 @@ final class AuditExportCapabilityTest extends TestCase
         $resp->assertHeader('X-Content-Type-Options', 'nosniff');
     }
 }
-

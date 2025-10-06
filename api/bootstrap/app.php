@@ -14,9 +14,9 @@ use Illuminate\Http\Request;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
-        api: __DIR__ . '/../routes/api.php',
-        web: __DIR__ . '/../routes/web.php',
-        commands: __DIR__ . '/../routes/console.php',
+        api: __DIR__.'/../routes/api.php',
+        web: __DIR__.'/../routes/web.php',
+        commands: __DIR__.'/../routes/console.php',
         health: '/up',
         apiPrefix: '' // keep API at root, no automatic /api prefix
     )
@@ -37,6 +37,7 @@ return Application::configure(basePath: dirname(__DIR__))
                     return null;
                 }
             }
+
             return '/login';
         });
 
@@ -55,11 +56,12 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->render(function (AuthenticationException $e, Request $request) {
             if ($request->expectsJson()) {
                 return response()->json([
-                    'ok'      => false,
-                    'code'    => 'UNAUTHENTICATED',
+                    'ok' => false,
+                    'code' => 'UNAUTHENTICATED',
                     'message' => 'Authentication required.',
                 ], 401);
             }
+
             return null;
         });
     })

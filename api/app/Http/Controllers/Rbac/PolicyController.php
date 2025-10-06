@@ -39,38 +39,38 @@ final class PolicyController extends Controller
         $fingerprint = self::fingerprint($mode, $persistence, $effective, $allRoles);
 
         return response()->json([
-            'ok'          => true,
+            'ok' => true,
             // Legacy fields
-            'mode'        => $mode,
+            'mode' => $mode,
             'persistence' => $persistence,
-            'defaults'    => $defaults,
-            'overrides'   => $overrides,
-            'effective'   => $effective,
+            'defaults' => $defaults,
+            'overrides' => $overrides,
+            'effective' => $effective,
             // Normalized view
-            'data'        => [
+            'data' => [
                 'policies' => $effective,
-                'catalog'  => [
+                'catalog' => [
                     'policies' => $allPolicies,
-                    'roles'    => $allRoles,
+                    'roles' => $allRoles,
                 ],
             ],
-            'meta'        => [
-                'mode'         => $mode,
-                'persistence'  => $persistence,
-                'counts'       => [
-                    'defaults'  => \count($defaults),
+            'meta' => [
+                'mode' => $mode,
+                'persistence' => $persistence,
+                'counts' => [
+                    'defaults' => \count($defaults),
                     'overrides' => \count($overrides),
                     'effective' => \count($effective),
                 ],
-                'catalog'      => [
+                'catalog' => [
                     'policies' => $allPolicies,
-                    'roles'    => $allRoles,
+                    'roles' => $allRoles,
                 ],
-                'fingerprint'  => $fingerprint,
+                'fingerprint' => $fingerprint,
                 'generated_at' => $nowIso,
             ],
             'generated_at' => $nowIso,
-            'ts'           => $nowIso,
+            'ts' => $nowIso,
         ], 200, ['Content-Type' => 'application/json; charset=UTF-8']);
     }
 
@@ -95,31 +95,31 @@ final class PolicyController extends Controller
         $fingerprint = self::fingerprint($mode, $persistence, $effective, $allRoles);
 
         return response()->json([
-            'ok'   => true,
+            'ok' => true,
             'data' => [
                 'policies' => $effective,
-                'catalog'  => [
+                'catalog' => [
                     'policies' => $allPolicies,
-                    'roles'    => $allRoles,
+                    'roles' => $allRoles,
                 ],
             ],
             'meta' => [
-                'mode'         => $mode,
-                'persistence'  => $persistence,
-                'counts'       => [
-                    'defaults'  => \count($defaults),
+                'mode' => $mode,
+                'persistence' => $persistence,
+                'counts' => [
+                    'defaults' => \count($defaults),
                     'overrides' => \count($overrides),
                     'effective' => \count($effective),
                 ],
-                'catalog'      => [
+                'catalog' => [
                     'policies' => $allPolicies,
-                    'roles'    => $allRoles,
+                    'roles' => $allRoles,
                 ],
-                'fingerprint'  => $fingerprint,
+                'fingerprint' => $fingerprint,
                 'generated_at' => $nowIso,
             ],
             'generated_at' => $nowIso,
-            'ts'           => $nowIso,
+            'ts' => $nowIso,
         ], 200, ['Content-Type' => 'application/json; charset=UTF-8']);
     }
 
@@ -131,6 +131,7 @@ final class PolicyController extends Controller
      *   3:array<string,list<string>>,
      *   4:array<string,list<string>>
      * }
+     *
      * @psalm-return array{
      *   0:string,
      *   1:string,
@@ -151,15 +152,15 @@ final class PolicyController extends Controller
 
         /** @var array<string,list<string>> $baseline */
         $baseline = [
-            'core.settings.manage'   => ['admin'],
-            'core.audit.view'        => ['admin', 'auditor'],
-            'core.evidence.view'     => ['admin', 'auditor'],
-            'core.evidence.manage'   => ['admin'],
-            'core.exports.generate'  => ['admin'],
-            'rbac.roles.manage'      => ['admin'],
+            'core.settings.manage' => ['admin'],
+            'core.audit.view' => ['admin', 'auditor'],
+            'core.evidence.view' => ['admin', 'auditor'],
+            'core.evidence.manage' => ['admin'],
+            'core.exports.generate' => ['admin'],
+            'rbac.roles.manage' => ['admin'],
             'rbac.user_roles.manage' => ['admin'],
-            'core.metrics.view'      => ['admin', 'auditor'],
-            'core.rbac.view'         => ['admin'],
+            'core.metrics.view' => ['admin', 'auditor'],
+            'core.rbac.view' => ['admin'],
         ];
 
         /** @var array<string,mixed> $cfgDefaultsRaw */
@@ -174,7 +175,7 @@ final class PolicyController extends Controller
             $cfgDefaultsRaw = $cfgTopRaw;
         }
 
-        $defaults  = self::normalizePolicies(self::mergePolicies($baseline, $cfgDefaultsRaw));
+        $defaults = self::normalizePolicies(self::mergePolicies($baseline, $cfgDefaultsRaw));
         $overrides = self::normalizePolicies($cfgOverridesRaw);
 
         // Persist-mode only: emit audits for unknown roles in overrides once per policy per boot.
@@ -215,7 +216,7 @@ final class PolicyController extends Controller
                         : null)
             );
 
-            if (!isset($fromRoutes[$policy])) {
+            if (! isset($fromRoutes[$policy])) {
                 $fromRoutes[$policy] = [];
             }
             /** @var list<string> $existing */
@@ -234,14 +235,14 @@ final class PolicyController extends Controller
     /**
      * Emit once-per-policy-per-boot audits for unknown roles present in overrides.
      *
-     * @param array<string, list<string>> $overrides
+     * @param  array<string, list<string>>  $overrides
      */
     private function emitUnknownRoleAudits(string $mode, array $overrides): void
     {
         if ($mode !== 'persist') {
             return;
         }
-        if (!(bool) config('core.audit.enabled', true)) {
+        if (! (bool) config('core.audit.enabled', true)) {
             return;
         }
 
@@ -276,7 +277,7 @@ final class PolicyController extends Controller
                 if ($r === '') {
                     continue;
                 }
-                if (!isset($known[$r])) {
+                if (! isset($known[$r])) {
                     $unknown[] = $r;
                 }
             }
@@ -289,34 +290,36 @@ final class PolicyController extends Controller
             self::$unknownRoleAuditOnce[$policyKey] = true;
 
             $logger->log([
-                'action'      => 'rbac.policy.override.unknown_role',
-                'category'    => 'RBAC',
+                'action' => 'rbac.policy.override.unknown_role',
+                'category' => 'RBAC',
                 'entity_type' => 'policy',
-                'entity_id'   => $policyKey,
-                'meta'        => [
-                    'policy'        => $policyKey,
+                'entity_id' => $policyKey,
+                'meta' => [
+                    'policy' => $policyKey,
                     'unknown_roles' => \array_values(\array_unique($unknown)),
-                    'source'        => 'overrides',
+                    'source' => 'overrides',
                 ],
             ]);
         }
     }
 
     /**
-     * @param array<array-key,mixed> $a
-     * @param array<array-key,mixed> $b
+     * @param  array<array-key,mixed>  $a
+     * @param  array<array-key,mixed>  $b
      * @return array<string,list<string>>
+     *
      * @psalm-return array<string,list<string>>
      */
     private static function mergePolicies(array $a, array $b): array
     {
         $out = self::normalizePolicies($a);
-        $b   = self::normalizePolicies($b);
+        $b = self::normalizePolicies($b);
 
         foreach ($b as $key => $roles) {
             /** @var string $key */
-            if (!isset($out[$key])) {
+            if (! isset($out[$key])) {
                 $out[$key] = $roles;
+
                 continue;
             }
             $out[$key] = \array_values(\array_unique(\array_merge($out[$key], $roles)));
@@ -326,8 +329,9 @@ final class PolicyController extends Controller
     }
 
     /**
-     * @param array<array-key,mixed> $map
+     * @param  array<array-key,mixed>  $map
      * @return array<string,list<string>>
+     *
      * @psalm-return array<string,list<string>>
      */
     private static function normalizePolicies(array $map): array
@@ -336,7 +340,7 @@ final class PolicyController extends Controller
         $norm = [];
 
         foreach (\array_keys($map) as $k) {
-            if (!\is_string($k) || $k === '') {
+            if (! \is_string($k) || $k === '') {
                 continue;
             }
 
@@ -352,8 +356,8 @@ final class PolicyController extends Controller
     }
 
     /**
-     * @param mixed $input
      * @return list<non-empty-string>
+     *
      * @psalm-return list<non-empty-string>
      */
     private static function toStringList(mixed $input): array
@@ -362,10 +366,11 @@ final class PolicyController extends Controller
         if (\is_string($input) && $input !== '') {
             /** @var list<non-empty-string> $one */
             $one = [\mb_strtolower($input)];
+
             return $one;
         }
 
-        if (!\is_array($input)) {
+        if (! \is_array($input)) {
             return [];
         }
 
@@ -394,8 +399,8 @@ final class PolicyController extends Controller
     }
 
     /**
-     * @param array<string,list<string>> $effective
-     * @param list<string> $allRoles
+     * @param  array<string,list<string>>  $effective
+     * @param  list<string>  $allRoles
      */
     private static function fingerprint(string $mode, string $persistence, array $effective, array $allRoles): string
     {

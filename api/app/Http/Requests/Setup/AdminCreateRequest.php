@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace App\Http\Requests\Setup;
@@ -14,9 +15,9 @@ final class AdminCreateRequest extends FormRequest
         $pw = Password::min(12)->mixedCase()->numbers()->symbols();
 
         return [
-            'name'                  => ['required', 'string', 'min:1', 'max:120'],
-            'email'                 => ['required', 'email:rfc', 'max:190'],
-            'password'              => ['required', $pw],
+            'name' => ['required', 'string', 'min:1', 'max:120'],
+            'email' => ['required', 'email:rfc', 'max:190'],
+            'password' => ['required', $pw],
             'password_confirmation' => ['required', 'same:password'],
         ];
     }
@@ -26,4 +27,3 @@ final class AdminCreateRequest extends FormRequest
         return true;
     }
 }
-

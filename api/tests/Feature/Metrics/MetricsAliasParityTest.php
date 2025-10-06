@@ -48,8 +48,8 @@ final class MetricsAliasParityTest extends TestCase
             'granularity' => 'day',
         ]);
 
-        $a = $this->getJson('/dashboard/kpis?' . $qs)->assertStatus(200)->json();
-        $b = $this->getJson('/metrics/dashboard?' . $qs)->assertStatus(200)->json();
+        $a = $this->getJson('/dashboard/kpis?'.$qs)->assertStatus(200)->json();
+        $b = $this->getJson('/metrics/dashboard?'.$qs)->assertStatus(200)->json();
 
         $this->assertSame($this->stripVolatile($a), $this->stripVolatile($b));
     }
@@ -57,12 +57,12 @@ final class MetricsAliasParityTest extends TestCase
     /**
      * Remove keys that are expected to vary across requests.
      *
-     * @param mixed $json
+     * @param  mixed  $json
      * @return mixed
      */
     private function stripVolatile($json)
     {
-        if (!is_array($json)) {
+        if (! is_array($json)) {
             return $json;
         }
 
@@ -74,4 +74,3 @@ final class MetricsAliasParityTest extends TestCase
         return $json;
     }
 }
-

@@ -4,25 +4,25 @@ declare(strict_types=1);
 
 namespace App\Http\Middleware;
 
-use Closure;
 use Carbon\CarbonImmutable;
+use Closure;
 use Illuminate\Contracts\Cache\Repository as CacheRepository;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Schema;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\TooManyRequestsHttpException;
 
 final class MetricsThrottle
 {
     /**
-     * @param \Closure(\Illuminate\Http\Request): \Symfony\Component\HttpFoundation\Response $next
+     * @param  \Closure(\Illuminate\Http\Request): \Symfony\Component\HttpFoundation\Response  $next
      */
     public function handle(Request $request, Closure $next): Response
     {
-        if (!(bool) config('core.metrics.throttle.enabled', true)) {
+        if (! (bool) config('core.metrics.throttle.enabled', true)) {
             /** @var Response $resp */
             $resp = $next($request);
+
             return $resp;
         }
 
@@ -36,8 +36,8 @@ final class MetricsThrottle
         }
 
         $subject = $this->subject($request);
-        $now     = CarbonImmutable::now('UTC')->getTimestamp();
-        $key     = "metrics.throttle:{$subject}";
+        $now = CarbonImmutable::now('UTC')->getTimestamp();
+        $key = "metrics.throttle:{$subject}";
 
         $store = $this->repo();
 
@@ -72,6 +72,7 @@ final class MetricsThrottle
         $resp = $next($request);
         $resp->headers->set('X-RateLimit-Limit', (string) $limit);
         $resp->headers->set('X-RateLimit-Remaining', (string) $remaining);
+
         return $resp;
     }
 
@@ -82,11 +83,12 @@ final class MetricsThrottle
             /** @var mixed $id */
             $id = $user->getAuthIdentifier();
             if (is_int($id) || (is_string($id) && $id !== '')) {
-                return 'u:' . (string) $id;
+                return 'u:'.(string) $id;
             }
         }
         $ip = $request->ip();
-        return 'ip:' . (is_string($ip) && $ip !== '' ? $ip : '0.0.0.0');
+
+        return 'ip:'.(is_string($ip) && $ip !== '' ? $ip : '0.0.0.0');
     }
 
     private function repo(): CacheRepository
@@ -96,6 +98,7 @@ final class MetricsThrottle
         } catch (\Throwable) {
             // fall back
         }
+
         return Cache::store(is_string(config('cache.default')) ? (string) config('cache.default') : 'array');
     }
 
@@ -103,9 +106,13 @@ final class MetricsThrottle
     {
         /** @var mixed $v */
         $v = config($key, $default);
-        if (is_int($v)) return $v;
-        if (is_string($v) && ctype_digit($v)) return (int) $v;
+        if (is_int($v)) {
+            return $v;
+        }
+        if (is_string($v) && ctype_digit($v)) {
+            return (int) $v;
+        }
+
         return $default;
     }
 }
-

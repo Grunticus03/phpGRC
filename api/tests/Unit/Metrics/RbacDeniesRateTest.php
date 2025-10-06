@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace Tests\Unit\Metrics;
@@ -31,7 +32,7 @@ final class RbacDeniesRateTest extends TestCase
         // Day 0: 1 RBAC deny, 0 AUTH
         $this->audit('RBAC', 'rbac.deny.capability', $now->addHours(1));
 
-        $calc = new RbacDeniesCalculator();
+        $calc = new RbacDeniesCalculator;
         $out = $calc->compute(3);
 
         $this->assertSame(3, $out['window_days']);
@@ -53,18 +54,17 @@ final class RbacDeniesRateTest extends TestCase
     private function audit(string $category, string $action, CarbonImmutable $when): void
     {
         AuditEvent::query()->create([
-            'id'          => Str::ulid()->toBase32(),
+            'id' => Str::ulid()->toBase32(),
             'occurred_at' => $when,
-            'actor_id'    => null,
-            'action'      => $action,
-            'category'    => $category,
+            'actor_id' => null,
+            'action' => $action,
+            'category' => $category,
             'entity_type' => 'test',
-            'entity_id'   => 'seed',
-            'ip'          => '127.0.0.1',
-            'ua'          => 'phpunit',
-            'meta'        => ['seed' => true],
-            'created_at'  => $when,
+            'entity_id' => 'seed',
+            'ip' => '127.0.0.1',
+            'ua' => 'phpunit',
+            'meta' => ['seed' => true],
+            'created_at' => $when,
         ]);
     }
 }
-

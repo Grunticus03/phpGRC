@@ -29,6 +29,7 @@ final class OpenApiController extends BaseController
         $jsonFile = $this->tryLoadSpecJsonFileWithMeta();
         if ($jsonFile !== null) {
             $content = $this->tryMutateJson($jsonFile['content']);
+
             return $this->respondWithCaching(
                 $request,
                 $content,
@@ -55,12 +56,13 @@ final class OpenApiController extends BaseController
             );
         } catch (\Throwable $e) {
             $fallback = json_encode([
-                'ok'   => false,
+                'ok' => false,
                 'code' => 'OPENAPI_CONVERT_FAILED',
-                'error'=> $e->getMessage(),
+                'error' => $e->getMessage(),
             ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 
             $payload = ($fallback === false) ? '{"ok":false}' : $fallback;
+
             return response($payload, 500, ['Content-Type' => 'application/json']);
         }
     }
@@ -81,16 +83,17 @@ final class OpenApiController extends BaseController
                 $data = @file_get_contents($real);
                 if ($data !== false && $data !== '') {
                     $mtime = @filemtime($real);
+
                     return [
                         'content' => $data,
-                        'path'    => $real,
-                        'mtime'   => ($mtime === false) ? null : $mtime,
+                        'path' => $real,
+                        'mtime' => ($mtime === false) ? null : $mtime,
                     ];
                 }
             }
         }
 
-        $content = <<<YAML
+        $content = <<<'YAML'
 openapi: 3.1.0
 info:
   title: phpGRC API
@@ -108,8 +111,8 @@ YAML;
 
         return [
             'content' => $content,
-            'path'    => null,
-            'mtime'   => null,
+            'path' => null,
+            'mtime' => null,
         ];
     }
 
@@ -129,14 +132,16 @@ YAML;
                 $data = @file_get_contents($real);
                 if ($data !== false && $data !== '') {
                     $mtime = @filemtime($real);
+
                     return [
                         'content' => $data,
-                        'path'    => $real,
-                        'mtime'   => ($mtime === false) ? time() : $mtime,
+                        'path' => $real,
+                        'mtime' => ($mtime === false) ? time() : $mtime,
                     ];
                 }
             }
         }
+
         return null;
     }
 
@@ -145,7 +150,7 @@ YAML;
      */
     private function respondWithCaching(Request $request, string $body, string $contentType, ?int $mtime): Response
     {
-        $etag = '"sha256:' . hash('sha256', $body) . '"';
+        $etag = '"sha256:'.hash('sha256', $body).'"';
         $ifNoneMatch = (string) $request->headers->get('If-None-Match', '');
 
         $clientEtags = array_filter(array_map(static function (string $v): string {
@@ -156,7 +161,7 @@ YAML;
             return trim($v, " \t\"");
         }, $clientEtags);
 
-        $ourEtagUnquoted = trim($etag, "\"");
+        $ourEtagUnquoted = trim($etag, '"');
         $matches = in_array($etag, $clientEtags, true) || in_array($ourEtagUnquoted, $clientEtagsUnquoted, true);
 
         $status = $matches ? 304 : 200;
@@ -169,11 +174,11 @@ YAML;
         $h->set('X-Content-Type-Options', 'nosniff');
         $h->set('Vary', 'Accept-Encoding');
         if ($mtime !== null) {
-            $h->set('Last-Modified', gmdate('D, d M Y H:i:s', $mtime) . ' GMT');
+            $h->set('Last-Modified', gmdate('D, d M Y H:i:s', $mtime).' GMT');
         }
 
         if (method_exists($h, 'removeCacheControlDirective')) {
-            foreach (['private','public','no-cache','must-revalidate','proxy-revalidate','s-maxage','max-age','no-store','immutable'] as $dir) {
+            foreach (['private', 'public', 'no-cache', 'must-revalidate', 'proxy-revalidate', 's-maxage', 'max-age', 'no-store', 'immutable'] as $dir) {
                 $h->removeCacheControlDirective($dir);
             }
         }
@@ -216,13 +221,14 @@ YAML;
         try {
             /** @var array<string,mixed>|null $doc */
             $doc = json_decode($json, true, 512, JSON_THROW_ON_ERROR);
-            if (!is_array($doc)) {
+            if (! is_array($doc)) {
                 return $json;
             }
             $doc = $this->injectDocEnhancements($doc);
 
             /** @var string $out */
             $out = json_encode($doc, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+
             return $out;
         } catch (\Throwable) {
             return $json;
@@ -239,7 +245,7 @@ YAML;
      * - Attach 403 to /audit/export.csv GET and /evidence POST
      * - Attach 422 to /dashboard/kpis GET and /metrics/dashboard GET
      *
-     * @param array<string,mixed> $doc
+     * @param  array<string,mixed>  $doc
      * @return array<string,mixed>
      */
     private function injectDocEnhancements(array $doc): array
@@ -255,11 +261,11 @@ YAML;
 
         // CapabilityDisabled
         $schemas['CapabilityError'] = [
-            'type'       => 'object',
-            'required'   => ['ok', 'code'],
+            'type' => 'object',
+            'required' => ['ok', 'code'],
             'properties' => [
-                'ok'         => ['type' => 'boolean', 'const' => false],
-                'code'       => ['type' => 'string', 'enum' => ['CAPABILITY_DISABLED']],
+                'ok' => ['type' => 'boolean', 'const' => false],
+                'code' => ['type' => 'string', 'enum' => ['CAPABILITY_DISABLED']],
                 'capability' => ['type' => 'string'],
             ],
             'additionalProperties' => true,
@@ -281,15 +287,15 @@ YAML;
 
         // ValidationFailed
         $schemas['ValidationError'] = [
-            'type'       => 'object',
-            'required'   => ['ok', 'code', 'errors'],
+            'type' => 'object',
+            'required' => ['ok', 'code', 'errors'],
             'properties' => [
-                'ok'     => ['type' => 'boolean', 'const' => false],
-                'code'   => ['type' => 'string', 'enum' => ['VALIDATION_FAILED']],
+                'ok' => ['type' => 'boolean', 'const' => false],
+                'code' => ['type' => 'string', 'enum' => ['VALIDATION_FAILED']],
                 'errors' => [
-                    'type'                 => 'object',
+                    'type' => 'object',
                     'additionalProperties' => [
-                        'type'  => 'array',
+                        'type' => 'array',
                         'items' => ['type' => 'string'],
                     ],
                 ],
@@ -311,9 +317,9 @@ YAML;
             ],
         ];
 
-        $components['schemas']   = $schemas;
+        $components['schemas'] = $schemas;
         $components['responses'] = $respComp;
-        $doc['components']       = $components;
+        $doc['components'] = $components;
 
         /** @var array<string,mixed> $paths */
         $paths = isset($doc['paths']) && is_array($doc['paths']) ? $doc['paths'] : [];
@@ -336,7 +342,7 @@ YAML;
      * can assert the presence of the injected responses without breaking
      * existing content.
      *
-     * @param array<string,mixed> $paths
+     * @param  array<string,mixed>  $paths
      * @return array<string,mixed>
      */
     private function attachResponseToPaths(array $paths, string $path, string $method, string $status, string $ref): array
@@ -373,7 +379,7 @@ YAML;
     /**
      * Normalize array keys to strings.
      *
-     * @param array<array-key,mixed> $map
+     * @param  array<array-key,mixed>  $map
      * @return array<string,mixed>
      */
     private function stringifyKeys(array $map): array
@@ -388,7 +394,7 @@ YAML;
             /** @psalm-suppress MixedAssignment */
             $out[(string) $k] = $map[$k];
         }
+
         return $out;
     }
 }
-

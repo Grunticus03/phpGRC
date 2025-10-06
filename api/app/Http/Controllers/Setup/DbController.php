@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace App\Http\Controllers\Setup;
@@ -18,7 +19,7 @@ final class DbController extends Controller
 {
     public function test(DbConfigRequest $request): JsonResponse
     {
-        if (!Config::get('core.setup.enabled', true)) {
+        if (! Config::get('core.setup.enabled', true)) {
             return response()->json(['ok' => false, 'code' => 'SETUP_STEP_DISABLED'], 400);
         }
 
@@ -30,9 +31,9 @@ final class DbController extends Controller
             ? $portRaw
             : (is_string($portRaw) && ctype_digit($portRaw) ? (int) $portRaw : 3306);
 
-        $driver  = strtolower($cfg['driver']);
-        $host    = $cfg['host'];
-        $dbName  = $cfg['database'];
+        $driver = strtolower($cfg['driver']);
+        $host = $cfg['host'];
+        $dbName = $cfg['database'];
         $charset = strtolower($cfg['charset'] ?? 'utf8mb4');
 
         $dsn = sprintf(
@@ -46,16 +47,16 @@ final class DbController extends Controller
 
         try {
             $pdo = new PDO($dsn, $cfg['username'], $cfg['password'] ?? '', [
-                PDO::ATTR_TIMEOUT            => 3,
-                PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_TIMEOUT => 3,
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
                 PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
             ]);
             $pdo->query('SELECT 1');
         } catch (Throwable $e) {
             return response()->json([
-                'ok'    => false,
-                'code'  => 'DB_CONFIG_INVALID',
-                'error' => 'Connection failed: ' . $e->getMessage(),
+                'ok' => false,
+                'code' => 'DB_CONFIG_INVALID',
+                'error' => 'Connection failed: '.$e->getMessage(),
             ], 422);
         }
 
@@ -64,7 +65,7 @@ final class DbController extends Controller
 
     public function write(DbConfigRequest $request, ConfigFileWriter $writer): JsonResponse
     {
-        if (!Config::get('core.setup.enabled', true)) {
+        if (! Config::get('core.setup.enabled', true)) {
             return response()->json(['ok' => false, 'code' => 'SETUP_STEP_DISABLED'], 400);
         }
 
@@ -78,6 +79,7 @@ final class DbController extends Controller
 
         try {
             $path = $writer->writeAtomic($cfg, $targetPath);
+
             return response()->json(['ok' => true, 'path' => $path], 200);
         } catch (Throwable $e) {
             return response()->json(['ok' => false, 'code' => 'DB_WRITE_FAILED', 'error' => $e->getMessage()], 500);

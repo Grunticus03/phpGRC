@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace App\Http\Controllers\Setup;
@@ -16,7 +17,7 @@ final class BrandingController extends Controller
     {
         /** @var array<string,mixed> $data */
         $data = $request->validated();
+
         return response()->json(['ok' => true, 'branding' => $data], 200);
     }
 }
-

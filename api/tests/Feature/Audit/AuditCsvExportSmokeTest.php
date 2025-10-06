@@ -8,8 +8,8 @@ use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
-use Tests\TestCase;
 use PHPUnit\Framework\Attributes\Test;
+use Tests\TestCase;
 
 final class AuditCsvExportSmokeTest extends TestCase
 {
@@ -35,18 +35,18 @@ final class AuditCsvExportSmokeTest extends TestCase
             $limit = min($chunk, $rows - $i);
             for ($j = 0; $j < $limit; $j++) {
                 $batch[] = [
-                    'id'          => (string) Str::ulid(),
+                    'id' => (string) Str::ulid(),
                     'occurred_at' => $now,
-                    'created_at'  => $now,
-                    'category'    => 'RBAC',
-                    'action'      => 'rbac.user_role.attached',
+                    'created_at' => $now,
+                    'category' => 'RBAC',
+                    'action' => 'rbac.user_role.attached',
                     'entity_type' => 'user',
-                    'entity_id'   => (string) random_int(1, 1000),
-                    'actor_id'    => (string) random_int(1, 100),
-                    'ip'          => '127.0.0.1',
-                    'ua'          => 'phpunit',
+                    'entity_id' => (string) random_int(1, 1000),
+                    'actor_id' => (string) random_int(1, 100),
+                    'ip' => '127.0.0.1',
+                    'ua' => 'phpunit',
                     // Important: meta must be JSON string, not array.
-                    'meta'        => json_encode(['role' => 'role_auditor'], JSON_THROW_ON_ERROR),
+                    'meta' => json_encode(['role' => 'role_auditor'], JSON_THROW_ON_ERROR),
                 ];
             }
             DB::table('audit_events')->insert($batch);

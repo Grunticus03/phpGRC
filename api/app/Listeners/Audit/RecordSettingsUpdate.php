@@ -17,10 +17,10 @@ final class RecordSettingsUpdate implements ShouldQueue
 {
     public function handle(SettingsUpdated $event): void
     {
-        if (!config('core.audit.enabled', true)) {
+        if (! config('core.audit.enabled', true)) {
             return;
         }
-        if (!Schema::hasTable('audit_events')) {
+        if (! Schema::hasTable('audit_events')) {
             return;
         }
 
@@ -31,30 +31,30 @@ final class RecordSettingsUpdate implements ShouldQueue
         $redacted = $this->redactChanges($changes);
 
         $payload = [
-            'id'          => (string) Str::ulid(),
+            'id' => (string) Str::ulid(),
             'occurred_at' => $event->occurredAt,
-            'actor_id'    => $event->actorId,
-            'action'      => 'settings.update',
-            'category'    => AuditCategories::SETTINGS,
+            'actor_id' => $event->actorId,
+            'action' => 'settings.update',
+            'category' => AuditCategories::SETTINGS,
             'entity_type' => 'core.settings',
-            'entity_id'   => 'core',
-            'ip'          => Arr::get($event->context, 'ip'),
-            'ua'          => Arr::get($event->context, 'ua'),
-            'meta'        => [
-                'source'       => 'settings.apply',
-                'changes'      => $redacted,
+            'entity_id' => 'core',
+            'ip' => Arr::get($event->context, 'ip'),
+            'ua' => Arr::get($event->context, 'ua'),
+            'meta' => [
+                'source' => 'settings.apply',
+                'changes' => $redacted,
                 'touched_keys' => array_values(array_unique(array_map(
                     /**
-                     * @param array{key:string, old:mixed, new:mixed, action:string} $c
+                     * @param  array{key:string, old:mixed, new:mixed, action:string}  $c
                      */
                     static function (array $c): string {
                         return $c['key'];
                     },
                     $changes
                 ))),
-                'context'      => Arr::except($event->context, ['ip', 'ua']),
+                'context' => Arr::except($event->context, ['ip', 'ua']),
             ],
-            'created_at'  => now('UTC'),
+            'created_at' => now('UTC'),
         ];
 
         try {
@@ -65,7 +65,7 @@ final class RecordSettingsUpdate implements ShouldQueue
     }
 
     /**
-     * @param array<int, array{key:string, old:mixed, new:mixed, action:string}> $changes
+     * @param  array<int, array{key:string, old:mixed, new:mixed, action:string}>  $changes
      * @return array<int, array{key:string, old:mixed, new:mixed, action:string}>
      */
     private function redactChanges(array $changes): array
@@ -87,6 +87,7 @@ final class RecordSettingsUpdate implements ShouldQueue
                     return true;
                 }
             }
+
             return false;
         };
 
@@ -111,13 +112,13 @@ final class RecordSettingsUpdate implements ShouldQueue
             }
 
             $out[] = [
-                'key'    => $key,
-                'old'    => $old,
-                'new'    => $new,
+                'key' => $key,
+                'old' => $old,
+                'new' => $new,
                 'action' => $c['action'],
             ];
         }
+
         return $out;
     }
 }
-

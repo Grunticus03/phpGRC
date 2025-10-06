@@ -32,4 +32,3 @@ final class OpenApiHeadersTest extends TestCase
         $this->assertSame('nosniff', strtolower($xcto));
     }
 }
-

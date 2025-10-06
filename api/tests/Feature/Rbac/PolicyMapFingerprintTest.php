@@ -17,13 +17,13 @@ final class PolicyMapFingerprintTest extends TestCase
     public function test_effective_recomputes_when_role_catalog_changes_and_audit_not_duplicated(): void
     {
         config([
-            'core.rbac.mode'        => 'persist',
+            'core.rbac.mode' => 'persist',
             'core.rbac.persistence' => true,
-            'core.audit.enabled'    => true,
+            'core.audit.enabled' => true,
             // Catalog initially has only Admin
-            'core.rbac.roles'       => ['Admin'],
+            'core.rbac.roles' => ['Admin'],
             // Policy requests Admin + Auditor (Auditor unknown at first)
-            'core.rbac.policies'    => [
+            'core.rbac.policies' => [
                 'core.metrics.view' => ['Admin', 'Auditor'],
             ],
         ]);

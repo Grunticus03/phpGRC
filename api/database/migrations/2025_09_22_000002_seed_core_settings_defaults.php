@@ -1,14 +1,16 @@
 <?php
+
 declare(strict_types=1);
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
-return new class extends Migration {
+return new class extends Migration
+{
     public function up(): void
     {
-        if (!Schema::hasTable('core_settings')) {
+        if (! Schema::hasTable('core_settings')) {
             return;
         }
 
@@ -18,7 +20,7 @@ return new class extends Migration {
             // RBAC
             ['key' => 'core.rbac.enabled',                 'value' => '1',    'type' => 'bool', 'updated_by' => null, 'created_at' => $now, 'updated_at' => $now],
             ['key' => 'core.rbac.require_auth',            'value' => '0',    'type' => 'bool', 'updated_by' => null, 'created_at' => $now, 'updated_at' => $now],
-            ['key' => 'core.rbac.roles',                   'value' => json_encode(['Admin','Auditor','Risk Manager','User'], JSON_UNESCAPED_UNICODE), 'type' => 'json', 'updated_by' => null, 'created_at' => $now, 'updated_at' => $now],
+            ['key' => 'core.rbac.roles',                   'value' => json_encode(['Admin', 'Auditor', 'Risk Manager', 'User'], JSON_UNESCAPED_UNICODE), 'type' => 'json', 'updated_by' => null, 'created_at' => $now, 'updated_at' => $now],
             ['key' => 'core.rbac.persistence',            'value' => '1',    'type' => 'bool', 'updated_by' => null, 'created_at' => $now, 'updated_at' => $now],
 
             // Audit
@@ -28,7 +30,7 @@ return new class extends Migration {
             // Evidence
             ['key' => 'core.evidence.enabled',             'value' => '1',    'type' => 'bool', 'updated_by' => null, 'created_at' => $now, 'updated_at' => $now],
             ['key' => 'core.evidence.max_mb',              'value' => '25',   'type' => 'int',  'updated_by' => null, 'created_at' => $now, 'updated_at' => $now],
-            ['key' => 'core.evidence.allowed_mime',        'value' => json_encode(['application/pdf','image/png','image/jpeg','image/webp','text/plain'], JSON_UNESCAPED_UNICODE), 'type' => 'json', 'updated_by' => null, 'created_at' => $now, 'updated_at' => $now],
+            ['key' => 'core.evidence.allowed_mime',        'value' => json_encode(['application/pdf', 'image/png', 'image/jpeg', 'image/webp', 'text/plain'], JSON_UNESCAPED_UNICODE), 'type' => 'json', 'updated_by' => null, 'created_at' => $now, 'updated_at' => $now],
 
             // Avatars
             ['key' => 'core.avatars.enabled',              'value' => '1',    'type' => 'bool', 'updated_by' => null, 'created_at' => $now, 'updated_at' => $now],
@@ -47,13 +49,13 @@ return new class extends Migration {
         DB::table('core_settings')->upsert(
             $rows,
             ['key'],
-            ['value','type','updated_by','updated_at'] // keep created_at on existing rows
+            ['value', 'type', 'updated_by', 'updated_at'] // keep created_at on existing rows
         );
     }
 
     public function down(): void
     {
-        if (!Schema::hasTable('core_settings')) {
+        if (! Schema::hasTable('core_settings')) {
             return;
         }
 

@@ -70,8 +70,8 @@ final class GenerateExport implements ShouldQueue
             $params = is_array($paramsRaw) ? $paramsRaw : [];
 
             $artifact = '';
-            $mime     = '';
-            $path     = '';
+            $mime = '';
+            $path = '';
 
             if ($export->type === 'csv') {
                 /** @var list<list<string>> $rows */
@@ -87,40 +87,41 @@ final class GenerateExport implements ShouldQueue
                     $rows[] = ['param_key', $k, 'param_value', $vv];
                 }
                 $artifact = self::toCsv($rows);
-                $mime     = 'text/csv';
-                $path     = "{$dir}/{$export->id}.csv";
+                $mime = 'text/csv';
+                $path = "{$dir}/{$export->id}.csv";
             } elseif ($export->type === 'json') {
                 $payload = [
-                    'export_id'    => $export->id,
+                    'export_id' => $export->id,
                     'generated_at' => $nowUtc,
-                    'type'         => $export->type,
-                    'params'       => $params,
+                    'type' => $export->type,
+                    'params' => $params,
                 ];
                 $json = json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
                 if ($json === false) {
                     throw new RuntimeException('json_encode failed');
                 }
                 $artifact = $json;
-                $mime     = 'application/json';
-                $path     = "{$dir}/{$export->id}.json";
+                $mime = 'application/json';
+                $path = "{$dir}/{$export->id}.json";
             } elseif ($export->type === 'pdf') {
                 $text = "phpGRC export {$export->id} {$nowUtc}";
                 $artifact = self::minimalPdf($text);
-                $mime     = 'application/pdf';
-                $path     = "{$dir}/{$export->id}.pdf";
+                $mime = 'application/pdf';
+                $path = "{$dir}/{$export->id}.pdf";
             } else {
                 $export->error_code = 'EXPORT_TYPE_UNSUPPORTED';
                 $export->error_note = 'Supported types: csv, json, pdf.';
                 $this->failExport($export);
+
                 return;
             }
 
             Storage::disk($disk)->put($path, $artifact);
 
-            $export->artifact_disk   = $disk;
-            $export->artifact_path   = $path;
-            $export->artifact_mime   = $mime;
-            $export->artifact_size   = strlen($artifact);
+            $export->artifact_disk = $disk;
+            $export->artifact_path = $path;
+            $export->artifact_mime = $mime;
+            $export->artifact_size = strlen($artifact);
             $export->artifact_sha256 = hash('sha256', $artifact);
 
             $export->progress = 100;
@@ -134,7 +135,7 @@ final class GenerateExport implements ShouldQueue
     }
 
     /**
-     * @param list<list<string>> $rows
+     * @param  list<list<string>>  $rows
      */
     private static function toCsv(array $rows): string
     {
@@ -144,12 +145,14 @@ final class GenerateExport implements ShouldQueue
                 static function (string $cell): string {
                     $needsQuotes = strpbrk($cell, ",\"\n\r") !== false;
                     $cell = str_replace('"', '""', $cell);
+
                     return $needsQuotes ? "\"{$cell}\"" : $cell;
                 },
                 $row
             );
-            $out .= implode(',', $escaped) . "\n";
+            $out .= implode(',', $escaped)."\n";
         }
+
         return $out;
     }
 
@@ -160,11 +163,11 @@ final class GenerateExport implements ShouldQueue
     {
         $header = "%PDF-1.4\n";
 
-        $stream = "BT\n/F1 12 Tf\n72 720 Td\n(" . self::pdfEscape($text) . ") Tj\nET\n";
+        $stream = "BT\n/F1 12 Tf\n72 720 Td\n(".self::pdfEscape($text).") Tj\nET\n";
         $obj1 = "1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj\n";
         $obj2 = "2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj\n";
         $obj3 = "3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >> endobj\n";
-        $obj4 = "4 0 obj << /Length " . strlen($stream) . " >> stream\n{$stream}endstream\nendobj\n";
+        $obj4 = '4 0 obj << /Length '.strlen($stream)." >> stream\n{$stream}endstream\nendobj\n";
         $obj5 = "5 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj\n";
 
         $objects = [$obj1, $obj2, $obj3, $obj4, $obj5];
@@ -188,14 +191,14 @@ final class GenerateExport implements ShouldQueue
         $startxref = strlen($header) + strlen($body);
         $trailer = "trailer << /Size 6 /Root 1 0 R >>\nstartxref\n{$startxref}\n%%EOF";
 
-        return $header . $body . $xref . $trailer;
+        return $header.$body.$xref.$trailer;
     }
 
     private static function pdfEscape(string $s): string
     {
         return str_replace(
-            ["\\", "(", ")"],
-            ["\\\\", "\\(", "\\)"],
+            ['\\', '(', ')'],
+            ['\\\\', '\\(', '\\)'],
             $s
         );
     }
@@ -205,7 +208,7 @@ final class GenerateExport implements ShouldQueue
         if (method_exists($export, 'markFailed')) {
             $export->markFailed();
         } else {
-            $export->status    = 'failed';
+            $export->status = 'failed';
             $export->failed_at = CarbonImmutable::now('UTC');
             $export->save();
         }
@@ -214,7 +217,6 @@ final class GenerateExport implements ShouldQueue
     /** @return array<int,string> */
     public function tags(): array
     {
-        return ['exports', 'export:' . $this->exportId];
+        return ['exports', 'export:'.$this->exportId];
     }
 }
-

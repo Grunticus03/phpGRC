@@ -11,6 +11,7 @@ use Symfony\Component\HttpFoundation\Cookie;
 final class AuthTokenCookie
 {
     private const DEFAULT_NAME = 'phpgrc_token';
+
     private const DEFAULT_TTL_MINUTES = 120;
 
     /**
@@ -20,6 +21,7 @@ final class AuthTokenCookie
     {
         /** @var mixed $configured */
         $configured = config('core.auth.token_cookie.name');
+
         return is_string($configured) && $configured !== '' ? $configured : self::DEFAULT_NAME;
     }
 
@@ -71,6 +73,7 @@ final class AuthTokenCookie
         /** @var mixed $raw */
         $raw = config('core.auth.token_cookie.same_site', 'strict');
         $value = strtolower(is_string($raw) ? $raw : 'strict');
+
         return in_array($value, ['lax', 'strict', 'none'], true) ? $value : 'lax';
     }
 

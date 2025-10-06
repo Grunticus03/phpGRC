@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace App\Http\Controllers\Setup;
@@ -17,4 +18,3 @@ final class IdpController extends Controller
         return response()->json(['ok' => false, 'code' => 'IDP_UNSUPPORTED'], 400);
     }
 }
-

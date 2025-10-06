@@ -59,4 +59,3 @@ final class OpenApiParityTest extends TestCase
         }
     }
 }
-

@@ -13,4 +13,3 @@ final class ExportsEndpointTest extends TestCase
         $this->markTestSkipped('Laravel app wiring deferred; stub keeps CI green.');
     }
 }
-

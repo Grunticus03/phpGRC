@@ -90,7 +90,7 @@ final class SettingsControllerValidationTest extends TestCase
             'evidence' => [
                 'enabled' => true,
                 'max_mb' => 25,
-                'allowed_mime' => ['application/x-msdownload']
+                'allowed_mime' => ['application/x-msdownload'],
             ],
             'rbac' => ['enabled' => true, 'roles' => ['Admin']],
             'audit' => ['enabled' => true, 'retention_days' => 365],
@@ -132,15 +132,13 @@ final class SettingsControllerValidationTest extends TestCase
 
         $this->postJson('/admin/settings', $payload)
             ->assertStatus(422)
-            ->assertJson(fn ($json) =>
-                $json->has('errors.avatars.size_px')
-                     ->has('errors.avatars.format')
-                     ->has('errors.audit.retention_days')
-                     ->has('errors.evidence.max_mb')
-                     ->has('errors.evidence.allowed_mime')
-                     ->has('errors.rbac.roles')
-                     ->etc()
+            ->assertJson(fn ($json) => $json->has('errors.avatars.size_px')
+                ->has('errors.avatars.format')
+                ->has('errors.audit.retention_days')
+                ->has('errors.evidence.max_mb')
+                ->has('errors.evidence.allowed_mime')
+                ->has('errors.rbac.roles')
+                ->etc()
             );
     }
 }
-

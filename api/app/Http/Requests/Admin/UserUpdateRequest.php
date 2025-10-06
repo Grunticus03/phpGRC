@@ -34,11 +34,11 @@ final class UserUpdateRequest extends FormRequest
         }
 
         return [
-            'name'     => ['sometimes', 'string', 'min:2', 'max:255'],
-            'email'    => ['sometimes', 'string', 'email:rfc,dns', 'max:255', $uniqueEmail],
+            'name' => ['sometimes', 'string', 'min:2', 'max:255'],
+            'email' => ['sometimes', 'string', 'email:rfc,dns', 'max:255', $uniqueEmail],
             'password' => ['sometimes', 'string', 'min:8'],
-            'roles'    => ['sometimes', 'array'],
-            'roles.*'  => ['string', 'min:2', 'max:64'],
+            'roles' => ['sometimes', 'array'],
+            'roles.*' => ['string', 'min:2', 'max:64'],
         ];
     }
 
@@ -49,7 +49,7 @@ final class UserUpdateRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'email.email'  => 'Email must be valid.',
+            'email.email' => 'Email must be valid.',
             'email.unique' => 'Email is already taken.',
             'password.min' => 'Password must be at least 8 characters.',
         ];
@@ -59,8 +59,8 @@ final class UserUpdateRequest extends FormRequest
     protected function failedValidation(ContractsValidator $validator): void
     {
         throw new HttpResponseException(response()->json([
-            'ok'     => false,
-            'code'   => 'VALIDATION_FAILED',
+            'ok' => false,
+            'code' => 'VALIDATION_FAILED',
             'errors' => $validator->errors(),
         ], 422));
     }

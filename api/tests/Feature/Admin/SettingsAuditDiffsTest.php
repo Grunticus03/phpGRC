@@ -19,10 +19,10 @@ final class SettingsAuditDiffsTest extends TestCase
         parent::setUp();
 
         config([
-            'core.audit.enabled'     => true,
-            'core.rbac.enabled'      => true,
-            'core.rbac.mode'         => 'persist',
-            'core.rbac.persistence'  => true,
+            'core.audit.enabled' => true,
+            'core.rbac.enabled' => true,
+            'core.rbac.mode' => 'persist',
+            'core.rbac.persistence' => true,
             'core.rbac.require_auth' => false,
         ]);
 
@@ -36,6 +36,7 @@ final class SettingsAuditDiffsTest extends TestCase
         if (is_string($adminId)) {
             $u->roles()->syncWithoutDetaching([$adminId]);
         }
+
         return $u;
     }
 
@@ -86,4 +87,3 @@ final class SettingsAuditDiffsTest extends TestCase
         }
     }
 }
-

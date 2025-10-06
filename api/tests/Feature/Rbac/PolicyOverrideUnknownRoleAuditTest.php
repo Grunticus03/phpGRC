@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Rbac;
 
-use Illuminate\Foundation\Testing\RefreshDatabase;
-use Tests\TestCase;
-use App\Models\AuditEvent;
 use App\Http\Controllers\Rbac\PolicyController;
+use App\Models\AuditEvent;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
+use Tests\TestCase;
 
 final class PolicyOverrideUnknownRoleAuditTest extends TestCase
 {
@@ -28,8 +28,8 @@ final class PolicyOverrideUnknownRoleAuditTest extends TestCase
     {
         /** @var PolicyController $controller */
         $controller = $this->app->make(PolicyController::class);
-        $controller->effective(new Request());
-        $controller->show(new Request());
+        $controller->effective(new Request);
+        $controller->show(new Request);
     }
 
     public function test_emits_once_per_policy_per_boot_in_persist_mode(): void

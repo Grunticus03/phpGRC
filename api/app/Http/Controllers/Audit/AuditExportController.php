@@ -24,9 +24,9 @@ final class AuditExportController extends Controller
      */
     public function exportCsv(Request $request): Response
     {
-        if (!Config::get('core.audit.enabled', true)) {
+        if (! Config::get('core.audit.enabled', true)) {
             return Resp::json([
-                'ok'   => false,
+                'ok' => false,
                 'code' => 'AUDIT_NOT_ENABLED',
                 'note' => 'Audit disabled by configuration.',
             ], 400);
@@ -36,37 +36,37 @@ final class AuditExportController extends Controller
         $order = is_string($o) && $o === 'asc' ? 'asc' : 'desc';
 
         $data = [
-            'order'         => $order,
-            'category'      => $request->query('category'),
-            'action'        => $request->query('action'),
+            'order' => $order,
+            'category' => $request->query('category'),
+            'action' => $request->query('action'),
             'occurred_from' => $request->query('occurred_from'),
-            'occurred_to'   => $request->query('occurred_to'),
-            'actor_id'      => $request->query('actor_id'),
-            'entity_type'   => $request->query('entity_type'),
-            'entity_id'     => $request->query('entity_id'),
-            'ip'            => $request->query('ip'),
+            'occurred_to' => $request->query('occurred_to'),
+            'actor_id' => $request->query('actor_id'),
+            'entity_type' => $request->query('entity_type'),
+            'entity_id' => $request->query('entity_id'),
+            'ip' => $request->query('ip'),
         ];
 
         $rules = [
-            'order'         => ['in:asc,desc'],
-            'category'      => ['nullable', 'in:' . implode(',', AuditCategories::ALL)],
-            'action'        => ['nullable', 'string', 'max:191'],
+            'order' => ['in:asc,desc'],
+            'category' => ['nullable', 'in:'.implode(',', AuditCategories::ALL)],
+            'action' => ['nullable', 'string', 'max:191'],
             'occurred_from' => ['nullable', 'date'],
-            'occurred_to'   => ['nullable', 'date'],
-            'actor_id'      => ['nullable', 'integer'],
-            'entity_type'   => ['nullable', 'string', 'max:128'],
-            'entity_id'     => ['nullable', 'string', 'max:191'],
-            'ip'            => ['nullable', 'ip'],
+            'occurred_to' => ['nullable', 'date'],
+            'actor_id' => ['nullable', 'integer'],
+            'entity_type' => ['nullable', 'string', 'max:128'],
+            'entity_id' => ['nullable', 'string', 'max:191'],
+            'ip' => ['nullable', 'ip'],
         ];
 
         /** @var \Illuminate\Contracts\Validation\Validator $v */
         $v = Validator::make($data, $rules);
         if ($v->fails()) {
             return Resp::json([
-                'ok'      => false,
+                'ok' => false,
                 'message' => 'The given data was invalid.',
-                'code'    => 'VALIDATION_FAILED',
-                'errors'  => $v->errors()->toArray(),
+                'code' => 'VALIDATION_FAILED',
+                'errors' => $v->errors()->toArray(),
             ], 422);
         }
 
@@ -100,12 +100,12 @@ final class AuditExportController extends Controller
 
         $q->orderBy('occurred_at', $order)->orderBy('id', $order);
 
-        $filename = 'audit-' . gmdate('Ymd\THis\Z') . '.csv';
-        $headers  = [
-            'Content-Type'           => 'text/csv',
-            'Content-Disposition'    => 'attachment; filename="'.$filename.'"',
+        $filename = 'audit-'.gmdate('Ymd\THis\Z').'.csv';
+        $headers = [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
             'X-Content-Type-Options' => 'nosniff',
-            'Cache-Control'          => 'no-store, max-age=0',
+            'Cache-Control' => 'no-store, max-age=0',
         ];
 
         $useCursor = (bool) Config::get('core.audit.csv_use_cursor', true);
@@ -117,8 +117,8 @@ final class AuditExportController extends Controller
             }
 
             fputcsv($out, [
-                'id','occurred_at','actor_id','action','category',
-                'entity_type','entity_id','ip','ua','meta_json'
+                'id', 'occurred_at', 'actor_id', 'action', 'category',
+                'entity_type', 'entity_id', 'ip', 'ua', 'meta_json',
             ]);
 
             /** @var iterable<int,\App\Models\AuditEvent> $iter */
@@ -151,4 +151,3 @@ final class AuditExportController extends Controller
         return new CsvStreamResponse($callback, 200, $headers);
     }
 }
-

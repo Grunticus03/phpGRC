@@ -21,8 +21,8 @@ final class UserSearchControllerTest extends TestCase
     {
         for ($i = 1; $i <= $n; $i++) {
             User::query()->create([
-                'name'     => sprintf('%s %02d', $prefix, $i),
-                'email'    => sprintf('%s%02d@example.test', strtolower($prefix), $i),
+                'name' => sprintf('%s %02d', $prefix, $i),
+                'email' => sprintf('%s%02d@example.test', strtolower($prefix), $i),
                 'password' => bcrypt('secret'),
             ]);
         }
@@ -154,7 +154,7 @@ final class UserSearchControllerTest extends TestCase
         $this->assertCount(1, $emailJson['data'] ?? []);
         $this->assertSame($golfThree->id, $emailJson['data'][0]['id'] ?? null);
 
-        $idReq = Request::create('/rbac/users/search', 'GET', ['q' => 'id:' . $golfThree->id]);
+        $idReq = Request::create('/rbac/users/search', 'GET', ['q' => 'id:'.$golfThree->id]);
         $idJson = $this->callController($idReq)->getData(true);
         $this->assertCount(1, $idJson['data'] ?? []);
         $this->assertSame($golfThree->id, $idJson['data'][0]['id'] ?? null);
@@ -173,4 +173,3 @@ final class UserSearchControllerTest extends TestCase
         return $controller->index($request);
     }
 }
-
