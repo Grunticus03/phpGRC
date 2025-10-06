@@ -1,0 +1,50 @@
+name: web-ci
+
+on:
+  push:
+    paths:
+      - "web/**"
+      - ".github/workflows/web-ci.yml"
+  pull_request:
+    paths:
+      - "web/**"
+
+jobs:
+  build:
+    runs-on: self-hosted
+    defaults: { run: { working-directory: web } }
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node (cached)
+        uses: actions/setup-node@v5
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: "web/package-lock.json"
+      - name: Validate npm lockfile generated on Linux
+        shell: bash
+        run: |
+          npm install --package-lock-only --ignore-scripts
+          if ! git diff --quiet package-lock.json; then
+            echo '::error::web/package-lock.json must be generated on Linux. Run `npm install --package-lock-only` on Linux and commit the updated lockfile.'
+            git diff package-lock.json
+            exit 1
+          fi
+      - name: Install deps
+        run: npm ci
+      - name: ESLint
+        run: npm run lint
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Unit tests + coverage
+        run: npm run test:coverage
+      - name: Build
+        run: npm run build
+      - name: NPM audit (high+)
+        run: npm audit --audit-level=high
+      - name: Upload web coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-coverage
+          path: coverage

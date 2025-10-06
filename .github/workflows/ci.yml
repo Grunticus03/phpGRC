@@ -4,501 +4,159 @@ on:
   push:
     branches: [ main ]
     paths:
-      - 'api/**'
-      - 'web/**'
-      - 'docs/api/**'
-      - 'docs/db/**'
-      - 'scripts/**'
-      - '.github/workflows/**'
+      - "api/**"
+      - "web/**"
+      - "docs/api/**"
+      - "docs/db/**"
+      - "scripts/**"
+      - ".github/workflows/**"
   pull_request:
     paths:
-      - 'api/**'
-      - 'web/**'
-      - 'docs/api/**'
-      - 'docs/db/**'
-      - 'scripts/**'
-      - '.github/workflows/**'
-  schedule:
-    - cron: '0 6 * * 1'
+      - "api/**"
+      - "web/**"
+      - "docs/api/**"
+      - "docs/db/**"
+      - "scripts/**"
+      - ".github/workflows/**"
   workflow_dispatch:
 
-concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
-  changes:
-    name: Detect changes
+  spectral:
+    name: Spectral lint
     runs-on: self-hosted
-    outputs:
-      workflows: ${{ steps.filter.outputs.workflows }}
-      openapi: ${{ steps.filter.outputs.openapi }}
-      api: ${{ steps.filter.outputs.api }}
-      schema_docs: ${{ steps.filter.outputs.schema_docs }}
-      web: ${{ steps.filter.outputs.web }}
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - id: filter
-        uses: dorny/paths-filter@v3
-        with:
-          filters: |
-            workflows:
-              - '.github/workflows/**'
-            openapi:
-              - 'docs/api/**'
-            api:
-              - 'api/**'
-              - 'scripts/**'
-            schema_docs:
-              - 'api/**'
-              - 'docs/db/**'
-              - 'scripts/**'
-            web:
-              - 'web/**'
+      - uses: actions/setup-node@v5
+        with: { node-version: "20" }
+      - run: npx -y @stoplight/spectral-cli@6 lint docs/api/openapi.yaml -r .spectral.yaml
 
-  actionlint:
-    name: actionlint
-    runs-on: self-hosted
-    needs: [changes]
-    steps:
-      - name: Detect relevant changes
-        id: guard
-        shell: bash
-        env:
-          WORKFLOWS_CHANGED: ${{ needs.changes.outputs.workflows }}
-        run: |
-          if [ "$WORKFLOWS_CHANGED" = "true" ]; then
-            echo "skip=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-          fi
-      - uses: actions/checkout@v4
-        if: steps.guard.outputs.skip != 'true'
-        with:
-          fetch-depth: 0
-      - name: Install actionlint (script, pinned with fallback)
-        if: steps.guard.outputs.skip != 'true'
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir -p .bin
-          curl -fsSL -o .bin/download-actionlint.bash \
-            https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash
-          bash .bin/download-actionlint.bash 1.7.1 .bin || \
-          bash .bin/download-actionlint.bash latest .bin
-          ./.bin/actionlint --version
-      - name: Run actionlint
-        if: steps.guard.outputs.skip != 'true'
-        shell: bash
-        run: ./.bin/actionlint -color
-      - name: Skipped
-        if: steps.guard.outputs.skip == 'true'
-        run: echo '::notice::No workflow changes detected; skipping actionlint.'
-
-  openapi_lint:
+  openapi:
     name: OpenAPI lint
     runs-on: self-hosted
-    needs: [actionlint, changes]
+    needs: [spectral]
     steps:
-      - name: Detect relevant changes
-        id: guard
-        shell: bash
-        env:
-          OPENAPI_CHANGED: ${{ needs.changes.outputs.openapi }}
-        run: |
-          if [ "$OPENAPI_CHANGED" = "true" ]; then
-            echo "skip=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-          fi
       - uses: actions/checkout@v4
-        if: steps.guard.outputs.skip != 'true'
       - uses: actions/setup-node@v5
-        if: steps.guard.outputs.skip != 'true'
-        with:
-          node-version: '20'
-      - name: Redocly lint
-        if: steps.guard.outputs.skip != 'true'
-        run: npx -y @redocly/cli@1.29.0 lint docs/api/openapi.yaml
-      - name: Skipped
-        if: steps.guard.outputs.skip == 'true'
-        run: echo '::notice::No OpenAPI changes detected; skipping lint.'
+        with: { node-version: "20" }
+      - run: npx -y @redocly/cli@1.29.0 lint docs/api/openapi.yaml
 
   openapi_breaking:
     name: OpenAPI breaking-change gate
     runs-on: self-hosted
-    needs: [openapi_lint, changes]
+    if: github.event_name == 'pull_request'
+    needs: [openapi]
     steps:
-      - name: Detect relevant changes
-        id: guard
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - run: cp docs/api/openapi.yaml openapi.new.yaml
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.base_ref }}
+          path: base
+      - id: check
         shell: bash
-        env:
-          OPENAPI_CHANGED: ${{ needs.changes.outputs.openapi }}
-          EVENT_NAME: ${{ github.event_name }}
         run: |
-          if [ "$EVENT_NAME" = "pull_request" ] && [ "$OPENAPI_CHANGED" = "true" ]; then
+          if [ -f base/docs/api/openapi.yaml ]; then
             echo "skip=false" >> "$GITHUB_OUTPUT"
+            cp base/docs/api/openapi.yaml openapi.old.yaml
           else
             echo "skip=true" >> "$GITHUB_OUTPUT"
           fi
-      - uses: actions/checkout@v4
-        if: steps.guard.outputs.skip != 'true'
-        with:
-          fetch-depth: 0
-      - uses: actions/setup-java@v4
-        if: steps.guard.outputs.skip != 'true'
-        with:
-          distribution: temurin
-          java-version: '21'
-      - name: Prepare specs
-        if: steps.guard.outputs.skip != 'true'
-        id: specs
-        shell: bash
-        env:
-          BASE_REF: ${{ github.base_ref }}
+      - if: steps.check.outputs.skip != 'true'
         run: |
-          set -euo pipefail
-          cp docs/api/openapi.yaml openapi.new.yaml
-          if [ -n "$BASE_REF" ]; then
-            git fetch --no-tags --depth=1 origin "$BASE_REF"
-            if git cat-file -e "origin/$BASE_REF:docs/api/openapi.yaml" 2>/dev/null; then
-              git show "origin/$BASE_REF:docs/api/openapi.yaml" > openapi.old.yaml
-              echo "skip_diff=false" >> "$GITHUB_OUTPUT"
-            else
-              echo "skip_diff=true" >> "$GITHUB_OUTPUT"
-            fi
-          else
-            if git rev-parse HEAD^ >/dev/null 2>&1 && git show "HEAD^:docs/api/openapi.yaml" > openapi.old.yaml 2>/dev/null; then
-              echo "skip_diff=false" >> "$GITHUB_OUTPUT"
-            else
-              echo "skip_diff=true" >> "$GITHUB_OUTPUT"
-            fi
-          fi
-      - name: Download openapi-diff CLI
-        if: ${{ steps.guard.outputs.skip != 'true' && steps.specs.outputs.skip_diff != 'true' }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir -p .bin
-          curl -fsSL -o .bin/openapi-diff-cli.jar \
-            https://repo1.maven.org/maven2/org/openapitools/openapidiff/openapi-diff-cli/2.1.3/openapi-diff-cli-2.1.3-all.jar
-      - name: Run openapi-diff
-        if: ${{ steps.guard.outputs.skip != 'true' && steps.specs.outputs.skip_diff != 'true' }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          java -jar .bin/openapi-diff-cli.jar \
+          docker run --rm -v "$PWD":/spec openapitools/openapi-diff:2.1.0 \
+            /spec/openapi.old.yaml /spec/openapi.new.yaml \
             --fail-on-incompatible \
-            --format html \
-            --output openapi-diff.html \
-            openapi.old.yaml openapi.new.yaml
-      - name: Upload diff report
-        if: ${{ steps.guard.outputs.skip != 'true' && steps.specs.outputs.skip_diff != 'true' }}
+            --html /spec/openapi-diff.html
+      - if: steps.check.outputs.skip != 'true'
         uses: actions/upload-artifact@v4
         with:
           name: openapi-diff-report
           path: openapi-diff.html
-      - name: Cleanup
-        if: steps.guard.outputs.skip != 'true'
-        run: rm -f .bin/openapi-diff-cli.jar openapi.old.yaml openapi.new.yaml openapi-diff.html
-      - name: Skipped
-        if: steps.guard.outputs.skip == 'true'
-        run: echo '::notice::Breaking-change check skipped (no OpenAPI diffs needed).'
-      - name: No baseline available
-        if: ${{ steps.guard.outputs.skip != 'true' && steps.specs.outputs.skip_diff == 'true' }}
-        run: echo '::notice::Base branch has no OpenAPI document; skipping diff.'
 
-  api_deps:
-    name: API dependencies
+  schema_docs:
+    name: Schema docs drift + linter
     runs-on: self-hosted
-    needs: [actionlint, changes]
-    defaults:
-      run:
-        working-directory: api
-        shell: bash
-    outputs:
-      vendor_artifact: ${{ steps.meta.outputs.vendor_artifact }}
     steps:
-      - name: Detect relevant changes
-        id: guard
-        env:
-          API_CHANGED: ${{ needs.changes.outputs.api }}
-          SCHEMA_CHANGED: ${{ needs.changes.outputs.schema_docs }}
-          EVENT_NAME: ${{ github.event_name }}
-        run: |
-          if [ "$API_CHANGED" = "true" ] || [ "$SCHEMA_CHANGED" = "true" ] || [ "$EVENT_NAME" = "schedule" ] || [ "$EVENT_NAME" = "workflow_dispatch" ]; then
-            echo "skip=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-          fi
-      - name: Prepare artifact metadata
-        id: meta
-        run: echo "vendor_artifact=api-vendor-${GITHUB_RUN_ID}" >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@v4
-        if: steps.guard.outputs.skip != 'true'
+        with: { fetch-depth: 0 }
       - uses: shivammathur/setup-php@v2
-        if: steps.guard.outputs.skip != 'true'
         with:
-          php-version: '8.3'
+          php-version: "8.3"
+          coverage: none
+      - name: Make scripts executable
+        run: chmod +x scripts/check-migration-doc-drift.sh
+      - name: Check migration/doc drift
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: ./scripts/check-migration-doc-drift.sh
+      - name: Lint schema doc against migrations
+        run: php scripts/lint-schema-doc.php
+
+  api_static:
+    name: API static checks + audit
+    runs-on: self-hosted
+    needs: [openapi, schema_docs]
+    defaults: { run: { working-directory: api } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"
+          extensions: mbstring, intl, pdo_mysql, dom, xml, pcntl, posix, bcmath, fileinfo
           coverage: none
           tools: composer:v2
-          extensions: mbstring, intl, pdo_mysql, dom, xml, pcntl, posix, bcmath, fileinfo
       - uses: actions/cache@v4
-        if: steps.guard.outputs.skip != 'true'
         with:
           path: ~/.composer/cache
           key: ${{ runner.os }}-composer-${{ hashFiles('api/composer.lock') }}
           restore-keys: ${{ runner.os }}-composer-
-      - name: Install dependencies
-        if: steps.guard.outputs.skip != 'true'
-        working-directory: api
-        run: composer install --no-interaction --prefer-dist --no-progress
-      - name: Upload vendor artifact
-        if: steps.guard.outputs.skip != 'true'
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ steps.meta.outputs.vendor_artifact }}
-          path: api/vendor
-          retention-days: 1
-      - name: Skipped
-        if: steps.guard.outputs.skip == 'true'
-        run: echo '::notice::No API or schema doc changes; skipping dependency install.'
-
-  schema_drift:
-    name: Schema drift guard
-    runs-on: self-hosted
-    needs: [api_deps, changes]
-    services:
-      mysql:
-        image: mysql:8.0
-        ports: ['3307:3306']
-        env:
-          MYSQL_ROOT_PASSWORD: root
-          MYSQL_DATABASE: phpgrc_test
-        options: >-
-          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
-          --health-interval=5s
-          --health-timeout=5s
-          --health-retries=30
-    defaults:
-      run:
-        shell: bash
-    steps:
-      - name: Detect relevant changes
-        id: guard
-        env:
-          SCHEMA_CHANGED: ${{ needs.changes.outputs.schema_docs }}
-          EVENT_NAME: ${{ github.event_name }}
-        run: |
-          if [ "$SCHEMA_CHANGED" = "true" ] || [ "$EVENT_NAME" = "schedule" ] || [ "$EVENT_NAME" = "workflow_dispatch" ]; then
-            echo "skip=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-          fi
-      - uses: actions/checkout@v4
-        if: steps.guard.outputs.skip != 'true'
-        with:
-          fetch-depth: 0
-      - uses: shivammathur/setup-php@v2
-        if: steps.guard.outputs.skip != 'true'
-        with:
-          php-version: '8.3'
-          coverage: none
-          tools: composer:v2
-          extensions: pdo_mysql
-      - name: Clear vendor directory
-        if: steps.guard.outputs.skip != 'true'
-        run: rm -rf api/vendor
-      - name: Download vendor artifact
-        if: steps.guard.outputs.skip != 'true'
-        uses: actions/download-artifact@v4
-        with:
-          name: ${{ needs.api_deps.outputs.vendor_artifact }}
-          path: api
-      - name: Check migration/doc drift
-        if: steps.guard.outputs.skip != 'true'
-        env:
-          BASE_REF: ${{ github.base_ref }}
-        run: |
-          chmod +x scripts/check-migration-doc-drift.sh
-          scripts/check-migration-doc-drift.sh
-      - name: Install app key
-        if: steps.guard.outputs.skip != 'true'
-        working-directory: api
-        run: |
-          if [ ! -f .env ]; then
-            cp .env.example .env
-          fi
-          php artisan key:generate
-      - name: Wait for MySQL (TCP)
-        if: steps.guard.outputs.skip != 'true'
-        run: |
-          for i in {1..120}; do
-            if (echo > /dev/tcp/127.0.0.1/3307) >/dev/null 2>&1; then exit 0; fi
-            sleep 1
-          done
-          echo 'MySQL not reachable on 127.0.0.1:3307'
-          exit 1
-      - name: Reset and migrate schema
-        if: steps.guard.outputs.skip != 'true'
-        working-directory: api
-        env:
-          DB_CONNECTION: mysql
-          DB_HOST: 127.0.0.1
-          DB_PORT: 3307
-          DB_DATABASE: phpgrc_test
-          DB_USERNAME: root
-          DB_PASSWORD: root
-        run: php artisan migrate:fresh --force
-      - name: Generate live schema doc
-        if: steps.guard.outputs.skip != 'true'
-        working-directory: api
-        env:
-          DB_CONNECTION: mysql
-          DB_HOST: 127.0.0.1
-          DB_PORT: 3307
-          DB_DATABASE: phpgrc_test
-          DB_USERNAME: root
-          DB_PASSWORD: root
-        run: php scripts/schema_docgen.php > ../docs/db/schema.live.md
-      - name: Normalize docs DB-SCHEMA.md
-        if: steps.guard.outputs.skip != 'true'
-        run: php api/scripts/schema_normalize.php docs/db/DB-SCHEMA.md > /tmp/schema.doc.norm
-      - name: Normalize live schema
-        if: steps.guard.outputs.skip != 'true'
-        run: php api/scripts/schema_normalize.php docs/db/schema.live.md > /tmp/schema.live.norm
-      - name: Diff normalized structures
-        if: steps.guard.outputs.skip != 'true'
-        run: |
-          set -e
-          if ! diff -u /tmp/schema.doc.norm /tmp/schema.live.norm; then
-            echo '::error::Schema drift detected. Update docs/db/DB-SCHEMA.md or migrations to reconcile.'
-            exit 2
-          fi
-      - name: Upload artifacts (on drift)
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: schema-artifacts
-          path: |
-            docs/db/schema.live.md
-            /tmp/schema.doc.norm
-            /tmp/schema.live.norm
-      - name: Cleanup temp schema outputs
-        if: steps.guard.outputs.skip != 'true'
-        run: rm -f docs/db/schema.live.md /tmp/schema.doc.norm /tmp/schema.live.norm
-      - name: Skipped
-        if: steps.guard.outputs.skip == 'true'
-        run: echo '::notice::No schema-doc changes; skipping drift guard.'
-
-  api_static:
-    name: API static
-    runs-on: self-hosted
-    needs: [api_deps, changes]
-    defaults:
-      run:
-        working-directory: api
-        shell: bash
-    steps:
-      - name: Detect relevant changes
-        id: guard
-        env:
-          API_CHANGED: ${{ needs.changes.outputs.api }}
-        run: |
-          if [ "$API_CHANGED" = "true" ]; then
-            echo "skip=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-          fi
-      - uses: actions/checkout@v4
-        if: steps.guard.outputs.skip != 'true'
-      - uses: shivammathur/setup-php@v2
-        if: steps.guard.outputs.skip != 'true'
-        with:
-          php-version: '8.3'
-          coverage: none
-          tools: composer:v2
-          extensions: mbstring, intl, pdo_mysql, dom, xml, pcntl, posix, bcmath, fileinfo
-      - name: Clear vendor directory
-        if: steps.guard.outputs.skip != 'true'
-        run: rm -rf vendor
-      - name: Download vendor artifact
-        if: steps.guard.outputs.skip != 'true'
-        uses: actions/download-artifact@v4
-        with:
-          name: ${{ needs.api_deps.outputs.vendor_artifact }}
-          path: api
-      - name: Laravel Pint
-        if: steps.guard.outputs.skip != 'true'
-        run: vendor/bin/pint -v
-      - name: PHPStan (level 9)
-        if: steps.guard.outputs.skip != 'true'
-        run: vendor/bin/phpstan analyse --level=9 --error-format=github --no-progress --memory-limit=-1
-      - name: Psalm
-        if: steps.guard.outputs.skip != 'true'
-        run: vendor/bin/psalm --no-cache --long-progress
-      - name: Skipped
-        if: steps.guard.outputs.skip == 'true'
-        run: echo '::notice::No API changes; skipping static analysis.'
+      - name: Composer validate
+        run: composer validate --strict --no-check-publish
+      - name: Resolve lockfile (sync with composer.json)
+        run: composer update --no-interaction --prefer-dist --no-progress
+      - name: Install deps
+        run: composer install --no-interaction --prefer-dist
+      - run: vendor/bin/pint -v
+      - run: vendor/bin/phpstan analyse --level=9 --error-format=github --no-progress --memory-limit=-1
+      - run: vendor/bin/psalm --no-cache --long-progress
+      - name: Composer audit (prod only)
+        run: composer audit --locked --no-dev
 
   api_mysql:
     name: API tests (MySQL, PHP 8.3) + coverage
     runs-on: self-hosted
-    needs: [api_deps, changes]
+    needs: [openapi, schema_docs]
     services:
       mysql:
         image: mysql:8.0
-        ports: ['3307:3306']
         env:
-          MYSQL_ROOT_PASSWORD: secret
+          MYSQL_DATABASE: phpgrc_test
           MYSQL_USER: phpgrc
           MYSQL_PASSWORD: secret
-          MYSQL_DATABASE: phpgrc_test
+          MYSQL_ROOT_PASSWORD: secret
+        ports: [ "3307:3306" ]
         options: >-
-          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -psecret"
-          --health-interval=5s
+          --health-cmd="mysqladmin ping -uroot -psecret"
+          --health-interval=10s
           --health-timeout=5s
           --health-retries=30
-    defaults:
-      run:
-        working-directory: api
-        shell: bash
+    defaults: { run: { working-directory: api } }
     steps:
-      - name: Detect relevant changes
-        id: guard
-        env:
-          API_CHANGED: ${{ needs.changes.outputs.api }}
-        run: |
-          if [ "$API_CHANGED" = "true" ]; then
-            echo "skip=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-          fi
       - name: Docker preflight
-        if: steps.guard.outputs.skip != 'true'
         run: docker info
       - uses: actions/checkout@v4
-        if: steps.guard.outputs.skip != 'true'
       - uses: shivammathur/setup-php@v2
-        if: steps.guard.outputs.skip != 'true'
         with:
-          php-version: '8.3'
+          php-version: "8.3"
+          extensions: mbstring, intl, pdo_mysql
           coverage: xdebug
           tools: composer:v2
-          extensions: mbstring, intl, pdo_mysql
-      - name: Clear vendor directory
-        if: steps.guard.outputs.skip != 'true'
-        run: rm -rf vendor
-      - name: Download vendor artifact
-        if: steps.guard.outputs.skip != 'true'
-        uses: actions/download-artifact@v4
-        with:
-          name: ${{ needs.api_deps.outputs.vendor_artifact }}
-          path: api
+      - name: Resolve lockfile (sync with composer.json)
+        run: composer update --no-interaction --prefer-dist --no-progress
+      - run: composer install --no-interaction --prefer-dist
       - name: Wait for MySQL (PDO probe)
-        if: steps.guard.outputs.skip != 'true'
+        shell: bash
         run: |
           for i in {1..60}; do
             php -r 'try{$pdo=new PDO("mysql:host=127.0.0.1;port=3307","root","secret",[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]);exit(0);}catch(Throwable $e){exit(1);}'; ec=$?
@@ -506,7 +164,6 @@ jobs:
             sleep 1
           done
       - name: Write .env.testing (MySQL)
-        if: steps.guard.outputs.skip != 'true'
         run: |
           cat > .env.testing <<'EOF'
           APP_ENV=testing
@@ -524,7 +181,6 @@ jobs:
           FILESYSTEM_DISK=local
           EOF
       - name: Prepare Laravel dirs
-        if: steps.guard.outputs.skip != 'true'
         run: |
           mkdir -p bootstrap/cache \
             storage/app storage/framework/cache storage/framework/sessions storage/framework/views \
@@ -532,7 +188,6 @@ jobs:
           :> storage/logs/laravel.log
           :> storage/setup-config.php
       - name: Migrate schema
-        if: steps.guard.outputs.skip != 'true'
         env:
           APP_ENV: testing
           DB_CONNECTION: mysql
@@ -541,13 +196,12 @@ jobs:
           DB_DATABASE: phpgrc_test
           DB_USERNAME: phpgrc
           DB_PASSWORD: secret
-          CORE_SETUP_ENABLED: 'true'
-          CORE_SETUP_SHARED_CONFIG_PATH: '${{ github.workspace }}/api/storage/setup-config.php'
+          CORE_SETUP_ENABLED: "true"
+          CORE_SETUP_SHARED_CONFIG_PATH: "${{ github.workspace }}/api/storage/setup-config.php"
         run: |
           php artisan config:clear
           php artisan migrate --force
       - name: PHPUnit (full)
-        if: steps.guard.outputs.skip != 'true'
         env:
           APP_ENV: testing
           DB_CONNECTION: mysql
@@ -556,15 +210,14 @@ jobs:
           DB_DATABASE: phpgrc_test
           DB_USERNAME: phpgrc
           DB_PASSWORD: secret
-          CORE_SETUP_ENABLED: 'true'
-          CORE_SETUP_SHARED_CONFIG_PATH: '${{ github.workspace }}/api/storage/setup-config.php'
+          CORE_SETUP_ENABLED: "true"
+          CORE_SETUP_SHARED_CONFIG_PATH: "${{ github.workspace }}/api/storage/setup-config.php"
           XDEBUG_MODE: coverage
         run: |
           vendor/bin/phpunit --log-junit junit.xml \
             --coverage-clover coverage.xml \
             --coverage-filter app
-      - name: Upload test artifacts
-        if: ${{ steps.guard.outputs.skip != 'true' && always() }}
+      - if: always()
         uses: actions/upload-artifact@v4
         with:
           name: phpunit-mysql-8.3
@@ -572,40 +225,21 @@ jobs:
             api/junit.xml
             api/coverage.xml
             api/storage/logs/*.log
-      - name: Skipped
-        if: steps.guard.outputs.skip == 'true'
-        run: echo '::notice::No API changes; skipping MySQL test suite.'
 
   web:
     name: Web build + tests + coverage + audit
     runs-on: self-hosted
-    needs: [actionlint, changes]
-    defaults:
-      run:
-        working-directory: web
-        shell: bash
+    needs: [openapi]
+    defaults: { run: { working-directory: web } }
     steps:
-      - name: Detect relevant changes
-        id: guard
-        env:
-          WEB_CHANGED: ${{ needs.changes.outputs.web }}
-        run: |
-          if [ "$WEB_CHANGED" = "true" ]; then
-            echo "skip=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-          fi
       - uses: actions/checkout@v4
-        if: steps.guard.outputs.skip != 'true'
-      - name: Setup Node (cached)
-        if: steps.guard.outputs.skip != 'true'
-        uses: actions/setup-node@v5
+      - uses: actions/setup-node@v5
         with:
-          node-version: '20'
+          node-version: "20"
           cache: npm
           cache-dependency-path: web/package-lock.json
       - name: Validate npm lockfile generated on Linux
-        if: steps.guard.outputs.skip != 'true'
+        shell: bash
         run: |
           npm install --package-lock-only --ignore-scripts
           if ! git diff --quiet package-lock.json; then
@@ -614,90 +248,24 @@ jobs:
             exit 1
           fi
       - name: Install deps (auto-sync lock)
-        if: steps.guard.outputs.skip != 'true'
+        shell: bash
         run: |
           set -e
           npm ci || { echo "::warning::package-lock.json out of date. Regenerating..."; npm install --package-lock-only; npm ci; }
       - name: ESLint
-        if: steps.guard.outputs.skip != 'true'
         run: npm run lint
       - name: Typecheck
-        if: steps.guard.outputs.skip != 'true'
         run: npm run typecheck
-      - name: Unit tests + coverage
-        if: steps.guard.outputs.skip != 'true'
-        run: npm run test:coverage
-      - name: Build
-        if: steps.guard.outputs.skip != 'true'
-        run: npm run build
-      - name: NPM audit (high+)
-        if: steps.guard.outputs.skip != 'true'
-        continue-on-error: true
-        run: npm audit --audit-level=high
-      - name: Upload web coverage
-        if: ${{ steps.guard.outputs.skip != 'true' && always() }}
+      - run: npm run test:coverage
+      - run: npm run build
+      - run: npm audit --audit-level=high
+      - uses: actions/upload-artifact@v4
+        with:
+          name: web-dist
+          path: web/dist
+      - if: always()
         uses: actions/upload-artifact@v4
         with:
           name: web-coverage
           path: web/coverage
-      - name: Upload web build
-        if: steps.guard.outputs.skip != 'true'
-        uses: actions/upload-artifact@v4
-        with:
-          name: web-dist
-          path: web/dist
-      - name: Skipped
-        if: steps.guard.outputs.skip == 'true'
-        run: echo '::notice::No web changes; skipping frontend checks.'
 
-  psalm_security:
-    name: Psalm security scan
-    runs-on: self-hosted
-    needs: [api_deps, changes]
-    permissions:
-      contents: read
-      security-events: write
-    defaults:
-      run:
-        working-directory: api
-        shell: bash
-    steps:
-      - name: Detect trigger
-        id: guard
-        env:
-          EVENT_NAME: ${{ github.event_name }}
-        run: |
-          if [ "$EVENT_NAME" = "schedule" ] || [ "$EVENT_NAME" = "workflow_dispatch" ]; then
-            echo "skip=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-          fi
-      - uses: actions/checkout@v4
-        if: steps.guard.outputs.skip != 'true'
-      - uses: shivammathur/setup-php@v2
-        if: steps.guard.outputs.skip != 'true'
-        with:
-          php-version: '8.3'
-          coverage: none
-          tools: composer:v2
-      - name: Clear vendor directory
-        if: steps.guard.outputs.skip != 'true'
-        run: rm -rf vendor
-      - name: Download vendor artifact
-        if: steps.guard.outputs.skip != 'true'
-        uses: actions/download-artifact@v4
-        with:
-          name: ${{ needs.api_deps.outputs.vendor_artifact }}
-          path: api
-      - name: Psalm Security (SARIF)
-        if: steps.guard.outputs.skip != 'true'
-        run: vendor/bin/psalm --taint-analysis --no-progress --output-format=sarif --report=results.sarif
-      - name: Upload SARIF
-        if: steps.guard.outputs.skip != 'true'
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: api/results.sarif
-          category: psalm-security
-      - name: Skipped
-        if: steps.guard.outputs.skip == 'true'
-        run: echo '::notice::Psalm security scan runs on schedule or manual dispatch only.'

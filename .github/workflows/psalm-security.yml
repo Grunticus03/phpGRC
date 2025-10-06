@@ -1,0 +1,45 @@
+name: PHP Security Scan (Psalm)
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - "api/**"
+      - ".github/workflows/psalm-security.yml"
+  pull_request:
+    paths:
+      - "api/**"
+      - ".github/workflows/psalm-security.yml"
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+  actions: read
+
+jobs:
+  psalm-security:
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"
+          coverage: none
+
+      - name: Install deps (api)
+        working-directory: api
+        run: composer install --no-interaction --prefer-dist --no-scripts
+
+      - name: Psalm Security (SARIF)
+        working-directory: api
+        run: vendor/bin/psalm --taint-analysis --no-progress --output-format=sarif --report=results.sarif
+
+      - name: Upload SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: api/results.sarif
+          category: psalm-security
