@@ -173,6 +173,30 @@ export async function apiPut<TResponse = unknown, TBody = unknown>(
   return (parsed as TResponse) ?? ({} as TResponse);
 }
 
+/** PATCH helper mirroring apiPut. */
+export async function apiPatch<TResponse = unknown, TBody = unknown>(
+  path: string,
+  body?: TBody,
+  signal?: AbortSignal
+): Promise<TResponse> {
+  const p = path.startsWith("/") ? path : `/${path}`;
+  const url = `${API_BASE}${p}`;
+  const res = await fetch(url, {
+    method: "PATCH",
+    credentials: "same-origin",
+    headers: baseHeaders({ "Content-Type": "application/json" }),
+    body: body === undefined ? "{}" : JSON.stringify(body),
+    signal,
+  });
+  const parsed = (await parseBody(res)) as TResponse | null;
+  if (!res.ok) {
+    const err = new HttpError(res.status, parsed);
+    if (res.status === 401) notifyUnauthorized(err);
+    throw err;
+  }
+  return (parsed as TResponse) ?? ({} as TResponse);
+}
+
 /** POST helper mirroring apiPut. */
 export async function apiPost<TResponse = unknown, TBody = unknown>(
   path: string,

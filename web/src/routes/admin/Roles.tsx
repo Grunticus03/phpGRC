@@ -1,9 +1,19 @@
 import { useEffect, useState } from "react";
-import { listRoles, createRole, CreateRoleResult, RoleListResponse } from "../../lib/api/rbac";
+import {
+  listRoles,
+  createRole,
+  updateRole,
+  deleteRole,
+  type CreateRoleResult,
+  type UpdateRoleResult,
+  type DeleteRoleResult,
+  type RoleListResponse,
+} from "../../lib/api/rbac";
+import { roleOptionsFromList, type RoleOption } from "../../lib/roles";
 
 export default function Roles(): JSX.Element {
   const [loading, setLoading] = useState(true);
-  const [roles, setRoles] = useState<string[]>([]);
+  const [roles, setRoles] = useState<RoleOption[]>([]);
   const [note, setNote] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [name, setName] = useState<string>("");
@@ -16,7 +26,7 @@ export default function Roles(): JSX.Element {
       const res: RoleListResponse = await listRoles();
       if (abort?.aborted) return;
       if (res.ok) {
-        setRoles(res.roles);
+        setRoles(roleOptionsFromList(res.roles ?? []));
         setNote(res.note ?? null);
       } else {
         setMsg("Failed to load roles.");
@@ -61,6 +71,57 @@ export default function Roles(): JSX.Element {
     }
   };
 
+  async function renameRole(role: RoleOption) {
+    const next = prompt("Rename role", role.name);
+    if (next === null) return;
+    const trimmed = next.trim();
+    if (trimmed.length < 2) {
+      setMsg("Role name must be at least 2 characters.");
+      return;
+    }
+
+    setSubmitting(true);
+    setMsg(null);
+    try {
+      const result: UpdateRoleResult = await updateRole(role.id, trimmed);
+      if (result.kind === "updated") {
+        setMsg(`Renamed to ${result.roleName}.`);
+        await load();
+      } else if (result.kind === "stub") {
+        const accepted = result.acceptedName ?? trimmed;
+        setMsg(`Accepted: "${accepted}". Persistence not implemented.`);
+      } else {
+        setMsg(result.message ?? result.code ?? "Rename failed.");
+      }
+    } catch {
+      setMsg("Rename failed.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function removeRole(role: RoleOption) {
+    if (!confirm(`Delete ${role.name}?`)) return;
+
+    setSubmitting(true);
+    setMsg(null);
+    try {
+      const result: DeleteRoleResult = await deleteRole(role.id);
+      if (result.kind === "deleted") {
+        setMsg(`${role.name} deleted.`);
+        await load();
+      } else if (result.kind === "stub") {
+        setMsg("Accepted. Persistence not implemented.");
+      } else {
+        setMsg(result.message ?? result.code ?? "Delete failed.");
+      }
+    } catch {
+      setMsg("Delete failed.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   if (loading)
     return (
       <div className="container py-5" role="status" aria-live="polite" aria-busy="true">
@@ -89,14 +150,45 @@ export default function Roles(): JSX.Element {
       {roles.length === 0 ? (
         <p className="text-muted">No roles defined.</p>
       ) : (
-        <ul className="list-group mb-3">
-          {roles.map((r) => (
-            <li key={r} className="list-group-item d-flex justify-content-between align-items-center">
-              <span>{r}</span>
-              <span className="badge bg-secondary">read-only</span>
-            </li>
-          ))}
-        </ul>
+        <div className="table-responsive">
+          <table className="table table-sm align-middle">
+            <thead>
+              <tr>
+                <th scope="col">Role</th>
+                <th scope="col">Canonical</th>
+                <th scope="col" style={{ width: "14rem" }}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {roles.map((role) => (
+                <tr key={role.id}>
+                  <td>{role.name}</td>
+                  <td>
+                    <code>{role.id}</code>
+                  </td>
+                  <td className="d-flex gap-2">
+                    <button
+                      type="button"
+                      className="btn btn-outline-secondary btn-sm"
+                      onClick={() => void renameRole(role)}
+                      disabled={submitting}
+                    >
+                      Rename
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-outline-danger btn-sm"
+                      onClick={() => void removeRole(role)}
+                      disabled={submitting}
+                    >
+                      Delete
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
 
       <form className="card p-3" onSubmit={onSubmit} noValidate aria-busy={submitting}>

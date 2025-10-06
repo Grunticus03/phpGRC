@@ -260,6 +260,14 @@ Route::prefix('/rbac')
         Route::post('/roles', [RolesController::class, 'store'])
             ->defaults('roles', ['Admin'])
             ->defaults('policy', 'rbac.roles.manage');
+        Route::patch('/roles/{role}', [RolesController::class, 'update'])
+            ->where('role', '.*')
+            ->defaults('roles', ['Admin'])
+            ->defaults('policy', 'rbac.roles.manage');
+        Route::delete('/roles/{role}', [RolesController::class, 'destroy'])
+            ->where('role', '.*')
+            ->defaults('roles', ['Admin'])
+            ->defaults('policy', 'rbac.roles.manage');
 
         Route::match(['GET','HEAD'], '/users/{user}/roles', [UserRolesController::class, 'show'])
             ->whereNumber('user')

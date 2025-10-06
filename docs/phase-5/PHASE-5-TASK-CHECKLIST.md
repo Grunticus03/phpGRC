@@ -154,8 +154,8 @@ _Last updated: 2025-09-28_
 ## 7) Role-management UX constraints (API side)
 - [x] Validation rule: role names 2–64, Unicode letters/digits/`-`/`_`, no whitespace.
 - [x] Normalize to lowercase on store; case-insensitive comparison.
-- [ ] All roles editable and deletable. No reserved names in API. *(Deferred)*
-- [ ] Search endpoint accepts multi-field query (name/email/etc.). *(Deferred — role catalog is small; user search scoped separately in §15.)*
+  - [x] All roles editable and deletable. No reserved names in API.
+  - [x] Search endpoint accepts multi-field query (name/email/etc.).
 
 **Tests**
 - [x] Mixed case and extra spaces accepted and normalized.

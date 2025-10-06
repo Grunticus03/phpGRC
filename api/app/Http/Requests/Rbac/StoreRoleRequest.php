@@ -45,9 +45,6 @@ final class StoreRoleRequest extends FormRequest
         ];
 
         if (!$this->persistenceEnabled()) {
-            /** @var array<int,string> $existing */
-            $existing = (array) config('core.rbac.roles', ['Admin', 'Auditor', 'Risk Manager', 'User']);
-            $base['name'][] = Rule::notIn($existing);
             return $base;
         }
 

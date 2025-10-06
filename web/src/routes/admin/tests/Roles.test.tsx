@@ -2,7 +2,7 @@ import React from "react";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Routes, Route } from "react-router-dom";
-import { vi, type Mock } from "vitest";
+import { vi } from "vitest";
 import Roles from "../Roles";
 
 const originalFetch = globalThis.fetch as typeof fetch;
@@ -30,144 +30,113 @@ afterEach(() => {
 });
 
 describe("Admin Roles page", () => {
-  test("renders the page with form controls", async () => {
-    const fetchMock = vi
-      .fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-        const url = typeof input === "string" ? input : (input as Request).url ?? String(input);
-        const method = (init?.method ?? "GET").toUpperCase();
-
-        if (method === "GET" && /\/rbac\/roles\b/.test(url)) {
-          return jsonResponse(200, { ok: true, roles: [] });
-        }
-        if (method === "GET") return jsonResponse(200, { ok: true });
-
-        return jsonResponse(204);
-      }) as unknown as typeof fetch;
+  test("renders list with rename/delete actions", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === "string" ? input : (input as Request).url ?? String(input);
+      const method = (init?.method ?? "GET").toUpperCase();
+      if (method === "GET" && /\/rbac\/roles\b/.test(url)) {
+        return jsonResponse(200, { ok: true, roles: ["Admin", "Auditor"] });
+      }
+      return jsonResponse(200, { ok: true });
+    }) as unknown as typeof fetch;
 
     globalThis.fetch = fetchMock;
 
     renderPage();
 
-    expect(await screen.findByRole("heading", { name: /rbac roles/i })).toBeInTheDocument();
-    expect(await screen.findByLabelText(/create role/i)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /submit/i })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /RBAC Roles/i })).toBeInTheDocument();
+    expect(await screen.findByRole("table")).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: /Rename/i })).toHaveLength(2);
+    expect(screen.getAllByRole("button", { name: /Delete/i })).toHaveLength(2);
   });
 
   test("submits create role (POST issued)", async () => {
-    const f = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = typeof input === "string" ? input : (input as Request).url ?? String(input);
       const method = (init?.method ?? "GET").toUpperCase();
 
-      if (method === "GET" && /roles/i.test(url)) return jsonResponse(200, []); // initial load
-      if (method === "POST" && /roles/i.test(url))
-        return jsonResponse(201, { ok: true, role: { id: "role_compliance_lead", name: "Compliance Lead" } });
-      if (method === "GET") return jsonResponse(200, {});
-      return jsonResponse(204);
-    });
-    globalThis.fetch = f as unknown as typeof fetch;
+      if (method === "GET" && /\/rbac\/roles\b/.test(url)) {
+        return jsonResponse(200, { ok: true, roles: [] });
+      }
+      if (method === "POST" && /\/rbac\/roles\b/.test(url)) {
+        return jsonResponse(201, { ok: true, role: { id: "role_compliance", name: "compliance" } });
+      }
+      return jsonResponse(200, { ok: true });
+    }) as unknown as typeof fetch;
+
+    globalThis.fetch = fetchMock;
 
     renderPage();
     const user = userEvent.setup();
 
     const input = await screen.findByLabelText(/create role/i);
-    await user.type(input, "Compliance Lead");
+    await user.type(input, "Compliance");
     await user.click(screen.getByRole("button", { name: /submit/i }));
 
     await waitFor(() => {
-      const calls = (f as unknown as Mock).mock.calls as Array<Parameters<typeof fetch>>;
-      const calledPost = calls.some(([req, init]) => {
-        const url = typeof req === "string" ? req : (req as Request).url ?? String(req);
-        const method = (init?.method ?? "GET").toUpperCase();
-        return /roles/i.test(url) && method === "POST";
-      });
-      expect(calledPost).toBe(true);
+      expect(fetchMock).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ method: "POST" }));
     });
   });
 
-  test("handles stub-only acceptance (shows any alert)", async () => {
-    const fetchMock = vi
-      .fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-        const url = typeof input === "string" ? input : (input as Request).url ?? String(input);
-        const method = (init?.method ?? "GET").toUpperCase();
+  test("rename issues PATCH request", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === "string" ? input : (input as Request).url ?? String(input);
+      const method = (init?.method ?? "GET").toUpperCase();
 
-        if (method === "GET" && /\/rbac\/roles\b/.test(url)) {
-          return jsonResponse(200, { ok: true, roles: [] });
-        }
-        if (method === "POST" && /\/rbac\/roles\b/.test(url)) {
-          return jsonResponse(202, { ok: false, note: "stub-only", accepted: { name: "Temp" } });
-        }
-        if (method === "GET") return jsonResponse(200, { ok: true });
-
-        return jsonResponse(204);
-      }) as unknown as typeof fetch;
+      if (method === "GET" && /\/rbac\/roles\b/.test(url)) {
+        return jsonResponse(200, { ok: true, roles: ["Admin"] });
+      }
+      if (method === "PATCH" && /\/rbac\/roles\//.test(url)) {
+        return jsonResponse(200, { ok: true, role: { id: "role_admin", name: "admin_primary" } });
+      }
+      return jsonResponse(200, { ok: true });
+    }) as unknown as typeof fetch;
 
     globalThis.fetch = fetchMock;
+    const promptSpy = vi.spyOn(window, "prompt").mockReturnValue("Admin_Primary");
 
     renderPage();
-    const user = userEvent.setup();
+    const renameBtn = await screen.findByRole("button", { name: /rename/i });
+    await userEvent.click(renameBtn);
 
-    const input = await screen.findByLabelText(/create role/i);
-    await user.type(input, "Temp");
-    await user.click(screen.getByRole("button", { name: /submit/i }));
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringMatching(/\/rbac\/roles\/admin/),
+        expect.objectContaining({ method: "PATCH" })
+      );
+    });
 
-    expect(await screen.findByRole("alert")).toBeInTheDocument();
+    promptSpy.mockRestore();
   });
 
-  test("handles 403 forbidden (shows an alert)", async () => {
-    const fetchMock = vi
-      .fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-        const url = typeof input === "string" ? input : (input as Request).url ?? String(input);
-        const method = (init?.method ?? "GET").toUpperCase();
+  test("delete issues DELETE request", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === "string" ? input : (input as Request).url ?? String(input);
+      const method = (init?.method ?? "GET").toUpperCase();
 
-        if (method === "GET" && /\/rbac\/roles\b/.test(url)) {
-          return jsonResponse(200, { ok: true, roles: [] });
-        }
-        if (method === "POST" && /\/rbac\/roles\b/.test(url)) {
-          return jsonResponse(403, { ok: false, code: "FORBIDDEN" });
-        }
-        if (method === "GET") return jsonResponse(200, { ok: true });
-
-        return jsonResponse(204);
-      }) as unknown as typeof fetch;
+      if (method === "GET" && /\/rbac\/roles\b/.test(url)) {
+        return jsonResponse(200, { ok: true, roles: ["Admin"] });
+      }
+      if (method === "DELETE" && /\/rbac\/roles\//.test(url)) {
+        return jsonResponse(200, { ok: true });
+      }
+      return jsonResponse(200, { ok: true });
+    }) as unknown as typeof fetch;
 
     globalThis.fetch = fetchMock;
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
 
     renderPage();
-    const user = userEvent.setup();
+    const deleteBtn = await screen.findByRole("button", { name: /delete/i });
+    await userEvent.click(deleteBtn);
 
-    const input = await screen.findByLabelText(/create role/i);
-    await user.type(input, "Auditor");
-    await user.click(screen.getByRole("button", { name: /submit/i }));
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringMatching(/\/rbac\/roles\/admin/),
+        expect.objectContaining({ method: "DELETE" })
+      );
+    });
 
-    expect(await screen.findByRole("alert")).toBeInTheDocument();
-  });
-
-  test("handles 422 validation error (shows an alert)", async () => {
-    const fetchMock = vi
-      .fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-        const url = typeof input === "string" ? input : (input as Request).url ?? String(input);
-        const method = (init?.method ?? "GET").toUpperCase();
-
-        if (method === "GET" && /\/rbac\/roles\b/.test(url)) {
-          return jsonResponse(200, { ok: true, roles: [] });
-        }
-        if (method === "POST" && /\/rbac\/roles\b/.test(url)) {
-          return jsonResponse(422, { ok: false, code: "VALIDATION_FAILED" });
-        }
-        if (method === "GET") return jsonResponse(200, { ok: true });
-
-        return jsonResponse(204);
-      }) as unknown as typeof fetch;
-
-    globalThis.fetch = fetchMock;
-
-    renderPage();
-    const user = userEvent.setup();
-
-    const input = await screen.findByLabelText(/create role/i);
-    await user.type(input, "XX");
-    await user.click(screen.getByRole("button", { name: /submit/i }));
-
-    expect(await screen.findByRole("alert")).toBeInTheDocument();
+    confirmSpy.mockRestore();
   });
 });

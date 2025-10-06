@@ -23,6 +23,8 @@ final class AuditMessageFormatter
             'rbac.user_role.detached' => self::formatRoleDetached($event, $meta),
             'rbac.user_role.replaced' => self::formatRoleReplaced($event, $meta),
             'rbac.role.created'       => self::formatRoleCreated($event, $meta),
+            'rbac.role.updated'       => self::formatRoleUpdated($event, $meta),
+            'rbac.role.deleted'       => self::formatRoleDeleted($event, $meta),
             default                   => '',
         };
     }
@@ -182,5 +184,42 @@ final class AuditMessageFormatter
         $actor = self::resolveActor($meta);
 
         return sprintf('%s created by %s', $roleName, $actor);
+    }
+
+    /**
+     * @param array<string,mixed> $meta
+     */
+    private static function formatRoleUpdated(AuditEvent $event, array $meta): string
+    {
+        $newName = self::readString($meta, ['role', 'name', 'role_name']);
+        if ($newName === '') {
+            $entityId = trim($event->entity_id);
+            $newName  = $entityId !== '' ? $entityId : 'Role';
+        }
+
+        $previous = self::readString($meta, ['name_previous', 'previous_name', 'old_name']);
+        if ($previous === '') {
+            $previous = 'previous value';
+        }
+
+        $actor = self::resolveActor($meta);
+
+        return sprintf('%s renamed from %s by %s', $newName, $previous, $actor);
+    }
+
+    /**
+     * @param array<string,mixed> $meta
+     */
+    private static function formatRoleDeleted(AuditEvent $event, array $meta): string
+    {
+        $roleName = self::readString($meta, ['role', 'role_name', 'name']);
+        if ($roleName === '') {
+            $entityId = trim($event->entity_id);
+            $roleName = $entityId !== '' ? $entityId : 'Role';
+        }
+
+        $actor = self::resolveActor($meta);
+
+        return sprintf('%s deleted by %s', $roleName, $actor);
     }
 }

@@ -27,4 +27,17 @@ final class RolesEndpointTest extends TestCase
                 'accepted' => ['name' => 'Compliance-Lead'],
             ]);
     }
+
+    public function test_stub_mode_allows_reserved_role_name(): void
+    {
+        config([
+            'core.rbac.require_auth' => false,
+            'core.rbac.persistence'  => false,
+            'core.rbac.mode'         => 'stub',
+        ]);
+
+        $this->postJson('/rbac/roles', ['name' => 'Admin'])
+            ->assertStatus(202)
+            ->assertJsonPath('note', 'stub-only');
+    }
 }

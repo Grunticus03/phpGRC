@@ -86,11 +86,42 @@ final class UserSearchController extends Controller
         /** @var Builder<User> $base */
         $base = User::query()->select(['id', 'name', 'email']);
 
-        $like = '%' . $this->escapeLike($q) . '%';
-        $base->where(static function (Builder $w) use ($like): void {
-            $w->where('name', 'like', $like)
-              ->orWhere('email', 'like', $like);
-        });
+        $filters = $this->extractFilters($q);
+
+        foreach ($filters['terms'] as $term) {
+            $like = '%' . $this->escapeLike($term) . '%';
+            $base->where(static function (Builder $w) use ($like): void {
+                $w->where('name', 'like', $like)
+                  ->orWhere('email', 'like', $like);
+            });
+        }
+
+        foreach ($filters['name'] as $namePart) {
+            $like = '%' . $this->escapeLike($namePart) . '%';
+            $base->where('name', 'like', $like);
+        }
+
+        foreach ($filters['email'] as $emailPart) {
+            $like = '%' . $this->escapeLike($emailPart) . '%';
+            $base->where('email', 'like', $like);
+        }
+
+        if ($filters['id'] !== []) {
+            $base->whereIn('id', $filters['id']);
+        }
+
+        foreach ($filters['role'] as $rolePart) {
+            $like = '%' . $this->escapeLike($rolePart) . '%';
+            $lower = mb_strtolower($rolePart, 'UTF-8');
+            $base->whereHas('roles', static function (Builder $q) use ($like, $lower): void {
+                $q->where(static function (Builder $inner) use ($like, $lower): void {
+                    $inner->where('roles.name', 'like', $like)
+                        ->orWhere('roles.id', 'like', $like)
+                        ->orWhereRaw('LOWER(roles.name) LIKE ?', ['%' . $lower . '%'])
+                        ->orWhereRaw('LOWER(roles.id) LIKE ?', ['%' . $lower . '%']);
+                });
+            });
+        }
 
         $total = (clone $base)->count();
         $totalPages = $total === 0 ? 0 : (int) \ceil($total / $perPage);
@@ -128,6 +159,109 @@ final class UserSearchController extends Controller
     private function escapeLike(string $s): string
     {
         return \str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $s);
+    }
+
+    /**
+     * @return array{terms:list<string>,name:list<string>,email:list<string>,id:list<int>,role:list<string>}
+     */
+    private function extractFilters(string $query): array
+    {
+        $tokens = $this->tokenize($query);
+
+        /** @var list<string> $terms */
+        $terms = [];
+        /** @var list<string> $names */
+        $names = [];
+        /** @var list<string> $emails */
+        $emails = [];
+        /** @var list<int> $ids */
+        $ids = [];
+        /** @var list<string> $roles */
+        $roles = [];
+
+        foreach ($tokens as $token) {
+            $colonPos = strpos($token, ':');
+            if ($colonPos === false) {
+                $terms[] = $token;
+                continue;
+            }
+
+            $field = strtolower(substr($token, 0, $colonPos));
+            $value = substr($token, $colonPos + 1);
+            $value = $this->stripQuotes(trim($value));
+            if ($value === '') {
+                continue;
+            }
+
+            switch ($field) {
+                case 'name':
+                    $names[] = $value;
+                    break;
+                case 'email':
+                    $emails[] = $value;
+                    break;
+                case 'id':
+                    if (preg_match('/^\d+$/', $value) === 1) {
+                        $ids[] = (int) $value;
+                    }
+                    break;
+                case 'role':
+                case 'roles':
+                    $roles[] = $value;
+                    break;
+                default:
+                    $terms[] = $token;
+                    break;
+            }
+        }
+
+        return [
+            'terms' => array_values(array_filter($terms, static fn ($v): bool => $v !== '')),
+            'name'  => array_values(array_filter($names, static fn ($v): bool => $v !== '')),
+            'email' => array_values(array_filter($emails, static fn ($v): bool => $v !== '')),
+            'id'    => array_values(array_unique($ids)),
+            'role'  => array_values(array_filter($roles, static fn ($v): bool => $v !== '')),
+        ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function tokenize(string $query): array
+    {
+        /** @var list<string> $matches */
+        $matches = [];
+        if (preg_match_all('/(?:[^\s"\']+|"[^"]*"|\'[^\']*\')+/u', $query, $found) > 0) {
+            /** @var list<string> $matches */
+            $matches = array_map('strval', $found[0]);
+        }
+
+        $tokens = [];
+        foreach ($matches as $raw) {
+            $token = trim($raw);
+            if ($token === '') {
+                continue;
+            }
+            $tokens[] = $token;
+        }
+
+        return $tokens;
+    }
+
+    private function stripQuotes(string $value): string
+    {
+        if ($value === '') {
+            return '';
+        }
+
+        $first = $value[0];
+        $last  = $value[strlen($value) - 1];
+
+        if (($first === '"' && $last === '"') || ($first === '\'' && $last === '\'')) {
+            return substr($value, 1, -1);
+        }
+
+        return $value;
     }
 
     /**

@@ -90,6 +90,7 @@
 - [x] **KPI tests (Vitest)** stabilized with Response-like mocks; clamping verified; alias route parity covered.
 - [x] **Navbar & layout**: AppLayout bootstrap sequence loads config → session probe; Nav renders post-probe.
 - [x] **DB-as-source-of-truth**: removed runtime `.env` dependence for app behavior (DB only, except DB connection).
+- [x] **Role management polish**: Admin API supports rename/delete with audits; RBAC user search accepts field filters (`name:`, `email:`, `id:`, `role:`).
 
 - [ ] **KPI cache TTL** stored in DB (`core.metrics.cache_ttl_seconds`) and enforced in service layer.  
   - Child note: TTL key exists; enforcement to be implemented in MetricsService adapter.

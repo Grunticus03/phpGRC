@@ -245,6 +245,89 @@ paths:
         '429':
           $ref: '#/components/responses/RateLimited'
 
+  /rbac/roles/{role}:
+    parameters:
+      - name: role
+        in: path
+        required: true
+        description: Role id, canonical slug, or name.
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 128
+    patch:
+      operationId: rbacRolesUpdate
+      tags: [RBAC]
+      summary: Update role
+      description: Renames an existing role. Names remain normalized (lowercase, whitespace collapsed).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RoleCreateRequest'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleCreateResponse'
+        '202':
+          description: Accepted (stub-only)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleCreateAccepted'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Role not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleNotFoundError'
+        '422':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+    delete:
+      operationId: rbacRolesDelete
+      tags: [RBAC]
+      summary: Delete role
+      description: Removes a role and detaches it from any users.
+      responses:
+        '200':
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleDeleteResponse'
+        '202':
+          description: Accepted (stub-only)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleDeleteStubAccepted'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Role not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleNotFoundError'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
   /rbac/users/{user}/roles:
     parameters:
       - name: user
@@ -1549,6 +1632,25 @@ components:
           const: stub-only
         accepted:
           $ref: '#/components/schemas/RoleCreateRequest'
+
+    RoleDeleteResponse:
+      type: object
+      required: [ok]
+      properties:
+        ok:
+          type: boolean
+          const: true
+
+    RoleDeleteStubAccepted:
+      type: object
+      required: [ok, note]
+      properties:
+        ok:
+          type: boolean
+          const: true
+        note:
+          type: string
+          const: stub-only
 
     User:
       type: object

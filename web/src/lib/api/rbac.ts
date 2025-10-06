@@ -1,4 +1,4 @@
-import { apiDelete, apiGet, apiPost, apiPut, HttpError } from "../api";
+import { apiDelete, apiGet, apiPatch, apiPost, apiPut, HttpError } from "../api";
 
 export type RoleListResponse = {
   ok: boolean;
@@ -30,6 +30,33 @@ export type CreateRoleError = {
 };
 
 export type CreateRoleResult = CreateRoleCreated | CreateRoleStub | CreateRoleError;
+
+export type UpdateRoleResult =
+  | {
+      kind: "updated";
+      status: number;
+      roleId: string;
+      roleName: string;
+      raw: unknown;
+    }
+  | {
+      kind: "stub";
+      status: number;
+      acceptedName?: string;
+      raw: unknown;
+    }
+  | {
+      kind: "error";
+      status: number;
+      code?: string;
+      message?: string;
+      raw?: unknown;
+    };
+
+export type DeleteRoleResult =
+  | { kind: "deleted"; status: number; raw: unknown }
+  | { kind: "stub"; status: number; raw: unknown }
+  | { kind: "error"; status: number; code?: string; message?: string; raw?: unknown };
 
 export type UserSummary = { id: number; name: string; email: string };
 
@@ -152,6 +179,72 @@ export async function createRole(name: string): Promise<CreateRoleResult> {
     const code = typeof j.code === "string" ? (j.code as string) : undefined;
     return { kind: "error", status: 400, code, raw: res };
   } catch {
+    return { kind: "error", status: 0, code: "NETWORK_ERROR" };
+  }
+}
+
+export async function updateRole(identifier: string, name: string): Promise<UpdateRoleResult> {
+  try {
+    const res = await apiPatch<unknown, { name: string }>(
+      `/api/rbac/roles/${encodeURIComponent(identifier)}`,
+      { name }
+    );
+    const j = isObject(res) ? (res as Record<string, unknown>) : {};
+
+    if (j.ok === true && isObject(j.role)) {
+      const role = j.role as Record<string, unknown>;
+      const roleId = typeof role.id === "string" ? role.id : undefined;
+      const roleName = typeof role.name === "string" ? role.name : undefined;
+      if (roleId && roleName) {
+        return { kind: "updated", status: 200, roleId, roleName, raw: res };
+      }
+    }
+
+    const note = typeof j.note === "string" ? j.note : undefined;
+    if (note === "stub-only") {
+      const accepted = isObject(j.accepted) ? (j.accepted as Record<string, unknown>) : undefined;
+      const acceptedName = accepted && typeof accepted.name === "string" ? accepted.name : undefined;
+      return { kind: "stub", status: 202, acceptedName, raw: res };
+    }
+
+    const code = typeof j.code === "string" ? j.code : undefined;
+    const message = typeof j.message === "string" ? j.message : undefined;
+    return { kind: "error", status: typeof (j.status ?? 400) === "number" ? (j.status as number) : 400, code, message, raw: res };
+  } catch (err) {
+    if (err instanceof HttpError) {
+      const body = err.body;
+      const code = isObject(body) && typeof body.code === "string" ? body.code : undefined;
+      const message = isObject(body) && typeof body.message === "string" ? body.message : undefined;
+      return { kind: "error", status: err.status, code, message, raw: body ?? err };
+    }
+    return { kind: "error", status: 0, code: "NETWORK_ERROR" };
+  }
+}
+
+export async function deleteRole(identifier: string): Promise<DeleteRoleResult> {
+  try {
+    const res = await apiDelete<unknown>(`/api/rbac/roles/${encodeURIComponent(identifier)}`);
+    const j = isObject(res) ? (res as Record<string, unknown>) : {};
+
+    if (j.ok === true) {
+      return { kind: "deleted", status: 200, raw: res };
+    }
+
+    const note = typeof j.note === "string" ? j.note : undefined;
+    if (note === "stub-only") {
+      return { kind: "stub", status: 202, raw: res };
+    }
+
+    const code = typeof j.code === "string" ? j.code : undefined;
+    const message = typeof j.message === "string" ? j.message : undefined;
+    return { kind: "error", status: typeof (j.status ?? 400) === "number" ? (j.status as number) : 400, code, message, raw: res };
+  } catch (err) {
+    if (err instanceof HttpError) {
+      const body = err.body;
+      const code = isObject(body) && typeof body.code === "string" ? body.code : undefined;
+      const message = isObject(body) && typeof body.message === "string" ? body.message : undefined;
+      return { kind: "error", status: err.status, code, message, raw: body ?? err };
+    }
     return { kind: "error", status: 0, code: "NETWORK_ERROR" };
   }
 }
