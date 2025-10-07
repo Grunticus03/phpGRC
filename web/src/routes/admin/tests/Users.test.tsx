@@ -103,10 +103,10 @@ describe("Admin Users page", () => {
     const editButton = within(screen.getByRole("row", { name: /alice admin/i })).getByRole("button", { name: /edit/i });
     await user.click(editButton);
 
-    const editCard = screen.getByText(/edit user/i).closest(".card");
+    const editCard = screen.getByText(/edit user/i).closest(".card") as HTMLElement | null;
     expect(editCard).not.toBeNull();
-    const nameInput = await within(editCard!).findByLabelText(/name/i);
-    const passwordInput = within(editCard!).getByLabelText(/reset password/i);
+    const nameInput = await within(editCard!).findByLabelText(/name/i) as HTMLInputElement;
+    const passwordInput = within(editCard!).getByLabelText(/reset password/i) as HTMLInputElement;
     const rolesSelect = within(editCard!).getByLabelText(/^Roles$/i) as HTMLSelectElement;
 
     await user.clear(nameInput);
@@ -208,13 +208,18 @@ describe("Admin Users page", () => {
 
     await screen.findByText("Alice Admin");
 
-    const createCard = screen.getByText(/create user/i).closest(".card");
+    const createCard = screen.getByText(/create user/i).closest(".card") as HTMLElement | null;
     expect(createCard).not.toBeNull();
 
-    await user.type(within(createCard!).getByLabelText(/name/i), "Bob User");
-    await user.type(within(createCard!).getByLabelText(/email/i), "bob@example.test");
-    await user.type(within(createCard!).getByLabelText(/password/i), "secret123");
-    await user.selectOptions(within(createCard!).getByLabelText(/^Roles$/i) as HTMLSelectElement, ["admin"]);
+    const createNameInput = within(createCard!).getByLabelText(/name/i) as HTMLInputElement;
+    const createEmailInput = within(createCard!).getByLabelText(/email/i) as HTMLInputElement;
+    const createPasswordInput = within(createCard!).getByLabelText(/password/i) as HTMLInputElement;
+    const createRolesSelect = within(createCard!).getByLabelText(/^Roles$/i) as HTMLSelectElement;
+
+    await user.type(createNameInput, "Bob User");
+    await user.type(createEmailInput, "bob@example.test");
+    await user.type(createPasswordInput, "secret123");
+    await user.selectOptions(createRolesSelect, ["admin"]);
 
     await user.click(within(createCard!).getByRole("button", { name: /^create$/i }));
 
@@ -233,7 +238,7 @@ describe("Admin Users page", () => {
     await user.click(deleteButton);
 
     const confirmTitle = await screen.findByText(/delete bob@example.test\?/i);
-    const confirmAlert = confirmTitle.closest('[role="alert"]');
+    const confirmAlert = confirmTitle.closest('[role="alert"]') as HTMLElement | null;
     expect(confirmAlert).not.toBeNull();
 
     await user.click(within(confirmAlert!).getByRole("button", { name: /^delete$/i }));

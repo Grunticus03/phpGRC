@@ -99,7 +99,7 @@ export default function EvidenceTable({ items, fetchState, timeFormat }: Props):
     return () => {
       cancelled = true;
     };
-  }, [ownerIdsKey]);
+  }, [ownerIdsKey, ownerIds]);
 
   return (
     <div className="table-responsive">
