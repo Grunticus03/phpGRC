@@ -140,6 +140,18 @@ final class PolicyMap
     /**
      * @return list<string>
      */
+    public static function policyKeys(): array
+    {
+        $map = self::effective();
+        /** @var list<string> $keys */
+        $keys = array_keys($map);
+
+        return $keys;
+    }
+
+    /**
+     * @return list<string>
+     */
     public static function roleCatalog(): array
     {
         /** @var mixed $modeVal */

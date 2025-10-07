@@ -86,6 +86,7 @@ return [
             'core.evidence.view' => ['Admin', 'Auditor'],
             'core.evidence.manage' => ['Admin'],
             'core.exports.generate' => ['Admin'],
+            'core.rbac.view' => ['Admin'],
             'rbac.roles.manage' => ['Admin'],
             'rbac.user_roles.manage' => ['Admin'],
         ],

@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
-use App\Authorization\PolicyMap;
-use App\Authorization\RbacEvaluator;
 use App\Models\User;
+use App\Services\Rbac\RbacEvaluator;
+use App\Support\Rbac\PolicyMap;
 use Illuminate\Foundation\Support\Providers\AuthServiceProvider as ServiceProvider;
 use Illuminate\Support\Facades\Gate;
 
@@ -19,13 +19,16 @@ final class AuthServiceProvider extends ServiceProvider
     {
         $this->registerPolicies();
 
-        foreach (PolicyMap::allKeys() as $policy) {
-            Gate::define($policy, /**
-             * @param  User|null  $user
-             */
-                function ($user = null) use ($policy): bool {
+        foreach (PolicyMap::policyKeys() as $policy) {
+            Gate::define(
+                $policy,
+                /**
+                 * @param  User|null  $user
+                 */
+                function (?User $user) use ($policy): bool {
                     return RbacEvaluator::allows($user, $policy);
-                });
+                }
+            );
         }
     }
 }

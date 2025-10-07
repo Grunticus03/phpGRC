@@ -154,13 +154,16 @@ final class PolicyController extends Controller
         $baseline = [
             'core.settings.manage' => ['admin'],
             'core.audit.view' => ['admin', 'auditor'],
+            'core.audit.export' => ['admin'],
+            'core.metrics.view' => ['admin'],
+            'core.users.view' => ['admin'],
+            'core.users.manage' => ['admin'],
             'core.evidence.view' => ['admin', 'auditor'],
             'core.evidence.manage' => ['admin'],
             'core.exports.generate' => ['admin'],
+            'core.rbac.view' => ['admin'],
             'rbac.roles.manage' => ['admin'],
             'rbac.user_roles.manage' => ['admin'],
-            'core.metrics.view' => ['admin', 'auditor'],
-            'core.rbac.view' => ['admin'],
         ];
 
         /** @var array<string,mixed> $cfgDefaultsRaw */

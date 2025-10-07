@@ -65,7 +65,8 @@
     "sort-packages": true,
     "optimize-autoloader": true,
     "preferred-install": "dist",
-    "platform-check": true
+    "platform-check": true,
+    "autoloader-suffix": "ApiAutoload"
   },
   "minimum-stability": "stable",
   "prefer-stable": true
