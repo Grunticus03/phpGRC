@@ -89,28 +89,26 @@ final class UserSearchController extends Controller
         $filters = $this->extractFilters($q);
 
         foreach ($filters['terms'] as $term) {
-            $like = '%'.$this->escapeLike($term).'%';
-            $lower = mb_strtolower($term, 'UTF-8');
+            $like = $this->buildStartsWithLike($term);
+            $lower = $this->buildStartsWithLike(mb_strtolower($term, 'UTF-8'));
             $base->where(static function (Builder $w) use ($like, $lower): void {
                 $w->where('name', 'like', $like)
                     ->orWhere('email', 'like', $like)
                     ->orWhereHas('roles', static function (Builder $q) use ($like, $lower): void {
                         $q->where('roles.name', 'like', $like)
                             ->orWhere('roles.id', 'like', $like)
-                            ->orWhereRaw('LOWER(roles.name) LIKE ?', ['%'.$lower.'%'])
-                            ->orWhereRaw('LOWER(roles.id) LIKE ?', ['%'.$lower.'%']);
+                            ->orWhereRaw('LOWER(roles.name) LIKE ?', [$lower])
+                            ->orWhereRaw('LOWER(roles.id) LIKE ?', [$lower]);
                     });
             });
         }
 
         foreach ($filters['name'] as $namePart) {
-            $like = '%'.$this->escapeLike($namePart).'%';
-            $base->where('name', 'like', $like);
+            $base->where('name', 'like', $this->buildStartsWithLike($namePart));
         }
 
         foreach ($filters['email'] as $emailPart) {
-            $like = '%'.$this->escapeLike($emailPart).'%';
-            $base->where('email', 'like', $like);
+            $base->where('email', 'like', $this->buildStartsWithLike($emailPart));
         }
 
         if ($filters['id'] !== []) {
@@ -118,14 +116,14 @@ final class UserSearchController extends Controller
         }
 
         foreach ($filters['role'] as $rolePart) {
-            $like = '%'.$this->escapeLike($rolePart).'%';
-            $lower = mb_strtolower($rolePart, 'UTF-8');
+            $like = $this->buildStartsWithLike($rolePart);
+            $lower = $this->buildStartsWithLike(mb_strtolower($rolePart, 'UTF-8'));
             $base->whereHas('roles', static function (Builder $q) use ($like, $lower): void {
                 $q->where(static function (Builder $inner) use ($like, $lower): void {
                     $inner->where('roles.name', 'like', $like)
                         ->orWhere('roles.id', 'like', $like)
-                        ->orWhereRaw('LOWER(roles.name) LIKE ?', ['%'.$lower.'%'])
-                        ->orWhereRaw('LOWER(roles.id) LIKE ?', ['%'.$lower.'%']);
+                        ->orWhereRaw('LOWER(roles.name) LIKE ?', [$lower])
+                        ->orWhereRaw('LOWER(roles.id) LIKE ?', [$lower]);
                 });
             });
         }
@@ -166,6 +164,41 @@ final class UserSearchController extends Controller
     private function escapeLike(string $s): string
     {
         return \str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $s);
+    }
+
+    private function buildStartsWithLike(string $term): string
+    {
+        $pattern = '';
+        $length = \mb_strlen($term, 'UTF-8');
+
+        for ($i = 0; $i < $length; $i++) {
+            $char = \mb_substr($term, $i, 1, 'UTF-8');
+
+            if ($char === '\\') {
+                if ($i + 1 < $length) {
+                    $i++;
+                    $next = \mb_substr($term, $i, 1, 'UTF-8');
+                    $pattern .= $this->escapeLike($next);
+                } else {
+                    $pattern .= '\\\\';
+                }
+                continue;
+            }
+
+            if ($char === '*') {
+                $pattern .= '%';
+                continue;
+            }
+
+            if ($char === '.') {
+                $pattern .= '_%';
+                continue;
+            }
+
+            $pattern .= $this->escapeLike($char);
+        }
+
+        return \rtrim($pattern, '%').'%';
     }
 
     /**

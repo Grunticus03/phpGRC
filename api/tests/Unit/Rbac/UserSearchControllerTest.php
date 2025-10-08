@@ -170,6 +170,49 @@ final class UserSearchControllerTest extends TestCase
         $this->assertSame($foxtrotOne->id, $generalRoleJson['data'][0]['id'] ?? null);
     }
 
+    public function test_query_anchors_terms_and_supports_wildcards(): void
+    {
+        User::query()->create([
+            'name' => 'Admin User',
+            'email' => 'admin@example.com',
+            'password' => bcrypt('secret'),
+        ]);
+
+        $jane = User::query()->create([
+            'name' => 'Jane Doe',
+            'email' => 'janedoe@test.com',
+            'password' => bcrypt('secret'),
+        ]);
+
+        Role::query()->create(['id' => 'role_example', 'name' => 'example']);
+        $jane->roles()->sync(['role_example']);
+
+        $cases = [
+            'a' => ['admin@example.com'],
+            'ja' => ['janedoe@test.com'],
+            '*ex' => ['admin@example.com', 'janedoe@test.com'],
+            '.ane' => ['janedoe@test.com'],
+            '*@.t' => ['janedoe@test.com'],
+        ];
+
+        foreach ($cases as $query => $expectedEmails) {
+            $json = $this->callController(Request::create('/rbac/users/search', 'GET', ['q' => $query]))->getData(true);
+            $emails = array_map(static fn ($r) => $r['email'] ?? null, $json['data'] ?? []);
+
+            foreach ($expectedEmails as $email) {
+                $this->assertContains($email, $emails, sprintf('Query "%s" should include %s', $query, $email));
+            }
+        }
+
+        $aResult = $this->callController(Request::create('/rbac/users/search', 'GET', ['q' => 'a']))->getData(true);
+        $aEmails = array_map(static fn ($r) => $r['email'] ?? null, $aResult['data'] ?? []);
+        $this->assertNotContains('janedoe@test.com', $aEmails);
+
+        $jaResult = $this->callController(Request::create('/rbac/users/search', 'GET', ['q' => 'ja']))->getData(true);
+        $jaEmails = array_map(static fn ($r) => $r['email'] ?? null, $jaResult['data'] ?? []);
+        $this->assertNotContains('admin@example.com', $jaEmails);
+    }
+
     private function callController(Request $request): JsonResponse
     {
         /** @var UserSearchController $controller */

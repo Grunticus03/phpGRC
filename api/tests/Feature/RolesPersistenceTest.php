@@ -38,6 +38,25 @@ final class RolesPersistenceTest extends TestCase
         $this->assertContains('user', $response);
     }
 
+    public function test_store_canonicalizes_name_before_validation(): void
+    {
+        config([
+            'core.rbac.enabled' => true,
+            'core.rbac.require_auth' => false,
+            'core.rbac.persistence' => true,
+            'core.rbac.mode' => 'persist',
+        ]);
+
+        $response = $this->postJson('/rbac/roles', ['name' => '  Risk Analyst Lead  '])
+            ->assertStatus(201)
+            ->assertJsonPath('role.name', 'risk_analyst_lead')
+            ->json();
+
+        $roleId = $response['role']['id'] ?? null;
+        $this->assertIsString($roleId);
+        $this->assertDatabaseHas('roles', ['id' => $roleId, 'name' => 'risk_analyst_lead']);
+    }
+
     public function test_update_allows_renaming_existing_role(): void
     {
         config([

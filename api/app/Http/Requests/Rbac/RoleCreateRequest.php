@@ -23,10 +23,35 @@ final class RoleCreateRequest extends FormRequest
         /** @var mixed $name */
         $name = $this->input('name');
         if (is_string($name)) {
-            /** @var string $collapsed */
-            $collapsed = (string) preg_replace('/\s+/u', ' ', trim($name));
-            $this->merge(['name' => $collapsed]);
+            $this->merge(['name' => $this->canonicalizeName($name)]);
         }
+    }
+
+    private function canonicalizeName(string $value): string
+    {
+        $value = trim($value);
+        if ($value === '') {
+            return '';
+        }
+
+        if (class_exists('\\Normalizer')) {
+            $normalized = \Normalizer::normalize($value, \Normalizer::FORM_D);
+            if (is_string($normalized)) {
+                $value = $normalized;
+            }
+        }
+
+        $value = (string) preg_replace('/[\p{Mn}]+/u', '', $value);
+        $value = (string) preg_replace('/[^\p{L}\p{N}\s_-]+/u', '', $value);
+        $value = (string) preg_replace('/[\s-]+/u', '_', $value);
+        $value = (string) preg_replace('/_+/u', '_', $value);
+        $value = trim($value, '_');
+
+        if ($value === '') {
+            return '';
+        }
+
+        return mb_strtolower($value, 'UTF-8');
     }
 
     private function persistenceEnabled(): bool
