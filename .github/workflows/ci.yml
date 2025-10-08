@@ -122,14 +122,29 @@ jobs:
       - name: Generate app key for static analysis
         run: |
           KEY=$(php -r "echo 'base64:'.base64_encode(random_bytes(32));")
-          echo "APP_KEY=$KEY" >> "$GITHUB_ENV"
           {
-            echo "APP_ENV=testing"
+            echo "APP_ENV=local"
             echo "APP_DEBUG=false"
             echo "APP_KEY=$KEY"
+            echo "APP_URL=http://localhost"
+            echo "APP_NAME=phpGRC"
             echo "CACHE_DRIVER=array"
             echo "SESSION_DRIVER=array"
             echo "QUEUE_CONNECTION=sync"
+            echo "DB_CONNECTION=sqlite"
+            echo "DB_DATABASE=:memory:"
+          } >> "$GITHUB_ENV"
+          {
+            echo "APP_ENV=local"
+            echo "APP_DEBUG=false"
+            echo "APP_KEY=$KEY"
+            echo "APP_URL=http://localhost"
+            echo "APP_NAME=phpGRC"
+            echo "CACHE_DRIVER=array"
+            echo "SESSION_DRIVER=array"
+            echo "QUEUE_CONNECTION=sync"
+            echo "DB_CONNECTION=sqlite"
+            echo "DB_DATABASE=:memory:"
           } > .env
       - name: Prepare Laravel storage
         run: |
@@ -143,7 +158,18 @@ jobs:
         if: always()
         run: |
           rm -f .env
-          echo "APP_KEY=" >> "$GITHUB_ENV"
+          {
+            echo "APP_ENV="
+            echo "APP_DEBUG="
+            echo "APP_KEY="
+            echo "APP_URL="
+            echo "APP_NAME="
+            echo "CACHE_DRIVER="
+            echo "SESSION_DRIVER="
+            echo "QUEUE_CONNECTION="
+            echo "DB_CONNECTION="
+            echo "DB_DATABASE="
+          } >> "$GITHUB_ENV"
       - name: Composer audit (prod only)
         run: composer audit --locked --no-dev
 
