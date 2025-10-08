@@ -123,11 +123,27 @@ jobs:
         run: |
           KEY=$(php -r "echo 'base64:'.base64_encode(random_bytes(32));")
           echo "APP_KEY=$KEY" >> "$GITHUB_ENV"
+          cat > .env <<EOF
+APP_ENV=testing
+APP_DEBUG=false
+APP_KEY=$KEY
+CACHE_DRIVER=array
+SESSION_DRIVER=array
+QUEUE_CONNECTION=sync
+EOF
+      - name: Prepare Laravel storage
+        run: |
+          mkdir -p bootstrap/cache \
+            storage/app storage/framework/cache storage/framework/sessions storage/framework/views \
+            storage/logs storage/framework/testing/disks/local/exports
+          :> storage/logs/laravel.log
       - name: Psalm
         run: vendor/bin/psalm --no-cache --long-progress
       - name: Clear generated app key
         if: always()
-        run: echo "APP_KEY=" >> "$GITHUB_ENV"
+        run: |
+          rm -f .env
+          echo "APP_KEY=" >> "$GITHUB_ENV"
       - name: Composer audit (prod only)
         run: composer audit --locked --no-dev
 
