@@ -21,6 +21,7 @@ use Laravel\Sanctum\HasApiTokens;
  * @use \Laravel\Sanctum\HasApiTokens<\Laravel\Sanctum\PersonalAccessToken>
  *
  * @psalm-suppress MissingTemplateParam
+ * @psalm-suppress PropertyNotSetInConstructor
  */
 final class User extends Authenticatable
 {
@@ -52,7 +53,7 @@ final class User extends Authenticatable
     protected $hidden = ['password', 'remember_token'];
 
     /**
-     * @phpstan-return BelongsToMany<\App\Models\Role,\App\Models\User>
+     * @phpstan-return BelongsToMany<\App\Models\Role, \App\Models\User>
      *
      * @psalm-return BelongsToMany<\App\Models\Role>
      *
@@ -60,7 +61,7 @@ final class User extends Authenticatable
      */
     public function roles(): BelongsToMany
     {
-        /** @var BelongsToMany<\App\Models\Role,\App\Models\User> $rel */
+        /** @var BelongsToMany<\App\Models\Role, \App\Models\User> $rel */
         $rel = $this->belongsToMany(Role::class, 'role_user', 'user_id', 'role_id');
 
         return $rel;

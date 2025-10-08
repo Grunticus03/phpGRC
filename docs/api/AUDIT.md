@@ -6,10 +6,10 @@ Phase 4 behavior: read-only listing. Uses DB if table exists, else returns stub 
 - Requires Gate `core.audit.view` (stub allows all in Phase 4).
 
 ## Event catalog (Phase 4)
-- `settings.update` — emitted by Admin Settings API per section accepted.
-- `evidence.upload` — emitted on successful evidence POST.
-- `evidence.read` — emitted on GET evidence by id (200 only).
-- `evidence.head` — emitted on HEAD evidence by id (200 only).
+- `setting.modified` — emitted once per setting changed when Admin Settings API persists updates. Includes sanitized diff in `meta`.
+- `evidence.uploaded` — emitted on successful evidence POST.
+- `evidence.downloaded` — emitted on GET evidence by id (200 only).
+- `evidence.deleted` — emitted when evidence rows are deleted (future phases).
 
 ## Endpoint
 
@@ -27,13 +27,26 @@ Responses
     {
       "occurred_at": "2025-09-05T12:00:00Z",
       "actor_id": 1,
-      "action": "settings.update",
+      "action": "setting.modified",
       "category": "SETTINGS",
-      "entity_type": "core.config",
-      "entity_id": "rbac",
+      "entity_type": "core.setting",
+      "entity_id": "core.rbac.require_auth",
       "ip": "203.0.113.10",
       "ua": "Mozilla/5.0",
-      "meta": {}
+      "meta": {
+        "setting_key": "core.rbac.require_auth",
+        "setting_label": "rbac.require_auth",
+        "old_value": "false",
+        "new_value": "true",
+        "changes": [
+          {
+            "key": "core.rbac.require_auth",
+            "old": false,
+            "new": true,
+            "action": "update"
+          }
+        ]
+      }
     }
   ],
   "nextCursor": null,

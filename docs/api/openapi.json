@@ -2966,7 +2966,7 @@
             ]
           }
         },
-        "description": "Audit record. `meta` MAY include `changes: SettingsChange[]` for `SETTINGS` events such as `settings.update`.\n"
+        "description": "Audit record. `meta` MAY include `changes: SettingsChange[]` for `SETTINGS` events such as `setting.modified`.\n"
       },
       "SettingsChange": {
         "type": "object",

@@ -20,7 +20,7 @@ final class SettingsRedactionTest extends TestCase
     {
         config(['core.audit.enabled' => true]);
 
-        $listener = new RecordSettingsUpdate;
+        $listener = app(RecordSettingsUpdate::class);
 
         $when = CarbonImmutable::now('UTC');
 
@@ -49,26 +49,34 @@ final class SettingsRedactionTest extends TestCase
         // Call listener directly
         $listener->handle($evt);
 
-        /** @var AuditEvent|null $row */
-        $row = AuditEvent::query()->where('action', 'settings.update')->orderByDesc('occurred_at')->first();
-        self::assertNotNull($row, 'AuditEvent row should be written');
-        self::assertSame(AuditCategories::SETTINGS, $row->category);
+        $rows = AuditEvent::query()->where('action', 'setting.modified')->get();
+        self::assertCount(2, $rows);
 
-        $meta = $row->meta ?? [];
-        self::assertIsArray($meta);
-        self::assertArrayHasKey('changes', $meta);
-
-        $made = [];
-        foreach ((array) $meta['changes'] as $c) {
-            $made[$c['key'] ?? ''] = $c;
+        $byKey = [];
+        foreach ($rows as $row) {
+            self::assertSame(AuditCategories::SETTINGS, $row->category);
+            $meta = $row->meta ?? [];
+            self::assertIsArray($meta);
+            self::assertArrayHasKey('changes', $meta);
+            $changes = is_array($meta['changes']) ? $meta['changes'] : [];
+            self::assertCount(1, $changes);
+            $change = $changes[0];
+            self::assertArrayHasKey('key', $change);
+            $byKey[$change['key']] = [$change, $meta];
         }
 
-        self::assertArrayHasKey('core.smtp.password', $made);
-        self::assertSame('[REDACTED]', $made['core.smtp.password']['old'] ?? '');
-        self::assertSame('[REDACTED]', $made['core.smtp.password']['new'] ?? '');
+        self::assertArrayHasKey('core.smtp.password', $byKey);
+        [$smtpChange, $smtpMeta] = $byKey['core.smtp.password'];
+        self::assertSame('[REDACTED]', $smtpChange['old'] ?? '');
+        self::assertSame('[REDACTED]', $smtpChange['new'] ?? '');
+        self::assertSame('[REDACTED]', $smtpMeta['old_value'] ?? '');
+        self::assertSame('[REDACTED]', $smtpMeta['new_value'] ?? '');
 
-        self::assertArrayHasKey('core.metrics.cache_ttl_seconds', $made);
-        self::assertSame(0, $made['core.metrics.cache_ttl_seconds']['old'] ?? -1);
-        self::assertSame(60, $made['core.metrics.cache_ttl_seconds']['new'] ?? -1);
+        self::assertArrayHasKey('core.metrics.cache_ttl_seconds', $byKey);
+        [$metricChange, $metricMeta] = $byKey['core.metrics.cache_ttl_seconds'];
+        self::assertSame(0, $metricChange['old'] ?? -1);
+        self::assertSame(60, $metricChange['new'] ?? -1);
+        self::assertSame('0', $metricMeta['old_value'] ?? '');
+        self::assertSame('60', $metricMeta['new_value'] ?? '');
     }
 }

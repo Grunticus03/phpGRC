@@ -1764,7 +1764,7 @@ components:
                     $ref: '#/components/schemas/SettingsChange'
             - type: 'null'
       description: >
-        Audit record. `meta` MAY include `changes: SettingsChange[]` for `SETTINGS` events such as `settings.update`.
+        Audit record. `meta` MAY include `changes: SettingsChange[]` for `SETTINGS` events such as `setting.modified`.
 
     SettingsChange:
       type: object
@@ -2232,4 +2232,3 @@ components:
         password_confirmation:
           type: string
           minLength: 8
-

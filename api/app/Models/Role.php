@@ -25,12 +25,17 @@ final class Role extends Model
     protected $fillable = ['id', 'name'];
 
     /**
-     * @phpstan-return BelongsToMany<\App\Models\User, $this>
+     * @phpstan-return BelongsToMany<\App\Models\User, \App\Models\Role>
      *
      * @psalm-return BelongsToMany<\App\Models\User>
+     *
+     * @psalm-suppress TooManyTemplateParams
      */
     public function users(): BelongsToMany
     {
-        return $this->belongsToMany(User::class, 'role_user', 'role_id', 'user_id');
+        /** @var BelongsToMany<\App\Models\User, \App\Models\Role> $rel */
+        $rel = $this->belongsToMany(User::class, 'role_user', 'role_id', 'user_id');
+
+        return $rel;
     }
 }

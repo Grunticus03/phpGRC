@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Requests\Admin\UpdateSettingsRequest;
+use App\Models\User;
 use App\Services\Settings\SettingsService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Routing\Controller;
@@ -72,10 +73,38 @@ final class SettingsController extends Controller
         $uid = auth()->id();
         $actorId = is_int($uid) ? $uid : (is_string($uid) && ctype_digit($uid) ? (int) $uid : null);
 
+        $ipRaw = $request->ip();
+        $uaRaw = $request->userAgent();
+        $context = [
+            'origin' => 'admin.settings',
+            'ip' => is_string($ipRaw) && $ipRaw !== '' ? $ipRaw : null,
+            'ua' => is_string($uaRaw) && $uaRaw !== '' ? $uaRaw : null,
+        ];
+
+        $actor = $request->user();
+        if ($actor instanceof User) {
+            /** @var mixed $nameAttr */
+            $nameAttr = $actor->getAttribute('name');
+            if (is_string($nameAttr)) {
+                $name = trim($nameAttr);
+                if ($name !== '') {
+                    $context['actor_username'] = $name;
+                }
+            }
+            /** @var mixed $emailAttr */
+            $emailAttr = $actor->getAttribute('email');
+            if (is_string($emailAttr)) {
+                $email = trim($emailAttr);
+                if ($email !== '') {
+                    $context['actor_email'] = $email;
+                }
+            }
+        }
+
         $result = $this->settings->apply(
             accepted: $accepted,
             actorId: $actorId,
-            context: ['origin' => 'admin.settings']
+            context: $context
         );
 
         return new JsonResponse([

@@ -122,7 +122,7 @@
 - Redocly replaces Spectral in CI; Spectral usage optional for local checks.
 
 ## Planned (next iteration; not shipped in this release)
-- Audit diffs/traceability: include `{key, old, new}` per change in `settings.update` events and surface in `/api/audit`.
+- Audit diffs/traceability: include `{key, old, new}` per change in `setting.modified` events and surface in `/api/audit`.
 - KPI caching: honor `core.metrics.cache_ttl_seconds` with `meta.cache:{ttl,hit}`.
 - Optional: `/api/openapi.json` mirror with parity tests.
 ```

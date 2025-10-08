@@ -59,7 +59,7 @@ final class AuditControllerTest extends TestCase
             'id' => (string) Str::ulid(),
             'occurred_at' => $now,
             'actor_id' => null,
-            'action' => 'settings.update',
+            'action' => 'setting.modified',
             'category' => 'config',
             'entity_type' => 'core.settings',
             'entity_id' => 'core',
@@ -78,7 +78,7 @@ final class AuditControllerTest extends TestCase
         self::assertIsArray($json['items']);
         self::assertCount(1, $json['items']);
         $event = $json['items'][0];
-        self::assertSame('settings.update', $event['action']);
+        self::assertSame('setting.modified', $event['action']);
         self::assertSame('config', $event['category']);
     }
 }

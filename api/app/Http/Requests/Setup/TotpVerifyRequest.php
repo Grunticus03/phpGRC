@@ -6,6 +6,9 @@ namespace App\Http\Requests\Setup;
 
 use Illuminate\Foundation\Http\FormRequest;
 
+/**
+ * @psalm-suppress PropertyNotSetInConstructor
+ */
 final class TotpVerifyRequest extends FormRequest
 {
     /** @return array<string,mixed> */

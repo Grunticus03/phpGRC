@@ -24,7 +24,7 @@
 3) **Audit Integrity**
    - `rbac.deny.*` consistently labeled.
    - Unknown-role overrides emit `rbac.policy.override.unknown_role` with `meta.unknown_roles` (persist mode only).
-   - Settings changes emit `settings.update` with `meta.changes: [{key,old,new,action}]`; no secret values or raw bytes included.
+  - Settings changes emit `setting.modified` with `meta.changes: [{key,old,new,action}]`; no secret values or raw bytes included.
 
 4) **Data Residency**
    - **All non-connection Core settings persist in DB (`core_settings`).** Provider loads overrides at boot. `.env` is bootstrap-only.

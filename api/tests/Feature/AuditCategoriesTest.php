@@ -44,7 +44,7 @@ final class AuditCategoriesTest extends TestCase
             'id' => (string) Str::ulid(),
             'occurred_at' => $now,
             'actor_id' => null,
-            'action' => 'settings.update',
+            'action' => 'setting.modified',
             'category' => 'config',
             'entity_type' => 'core.settings',
             'entity_id' => 'core',

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Evidence;
 
 use App\Models\Evidence;
+use App\Models\User;
 use App\Services\Audit\AuditLogger;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
@@ -112,19 +113,19 @@ final class EvidenceController extends Controller
 
             $audit->log([
                 'actor_id' => $actorId,
-                'action' => 'evidence.upload',
+                'action' => 'evidence.uploaded',
                 'category' => 'EVIDENCE',
                 'entity_type' => 'evidence',
                 'entity_id' => $entityId,
                 'ip' => $request->ip(),
                 'ua' => $request->userAgent(),
-                'meta' => [
+                'meta' => array_merge($this->actorMeta($request), [
                     'filename' => $originalName,
                     'mime' => $mime,
                     'size_bytes' => $sizeBytes,
                     'sha256' => $sha256,
                     'version' => $saved['version'],
-                ],
+                ]),
             ]);
         }
 
@@ -177,7 +178,7 @@ final class EvidenceController extends Controller
             'X-Checksum-SHA256' => $ev->sha256,
         ];
 
-        if (config('core.audit.enabled', true) && Schema::hasTable('audit_events')) {
+        if (! $request->isMethod('HEAD') && config('core.audit.enabled', true) && Schema::hasTable('audit_events')) {
             $actorId = $this->resolveActorId($request);
 
             /** @var non-empty-string $entityId */
@@ -185,19 +186,19 @@ final class EvidenceController extends Controller
 
             $audit->log([
                 'actor_id' => $actorId,
-                'action' => $request->isMethod('HEAD') ? 'evidence.head' : 'evidence.read',
+                'action' => 'evidence.downloaded',
                 'category' => 'EVIDENCE',
                 'entity_type' => 'evidence',
                 'entity_id' => $entityId,
                 'ip' => $request->ip(),
                 'ua' => $request->userAgent(),
-                'meta' => [
+                'meta' => array_merge($this->actorMeta($request), [
                     'filename' => $ev->filename,
                     'mime' => $ev->mime,
                     'size_bytes' => $ev->size_bytes,
                     'sha256' => $ev->sha256,
                     'version' => $ev->version,
-                ],
+                ]),
             ]);
         }
 
@@ -450,6 +451,35 @@ final class EvidenceController extends Controller
         }
 
         return null;
+    }
+
+    /**
+     * @return array<string,string>
+     */
+    private function actorMeta(Request $request): array
+    {
+        $meta = [];
+        $user = $request->user();
+        if ($user instanceof User) {
+            /** @var mixed $nameAttr */
+            $nameAttr = $user->getAttribute('name');
+            if (is_string($nameAttr)) {
+                $name = trim($nameAttr);
+                if ($name !== '') {
+                    $meta['actor_username'] = $name;
+                }
+            }
+            /** @var mixed $emailAttr */
+            $emailAttr = $user->getAttribute('email');
+            if (is_string($emailAttr)) {
+                $email = trim($emailAttr);
+                if ($email !== '') {
+                    $meta['actor_email'] = $email;
+                }
+            }
+        }
+
+        return $meta;
     }
 
     private function etagMatches(string $etag, string $header): bool

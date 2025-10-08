@@ -25,6 +25,12 @@ final class AuditMessageFormatter
             'rbac.role.created' => self::formatRoleCreated($event, $meta),
             'rbac.role.updated' => self::formatRoleUpdated($event, $meta),
             'rbac.role.deleted' => self::formatRoleDeleted($event, $meta),
+            'rbac.user.created' => self::formatUserCreated($event, $meta),
+            'rbac.user.deleted' => self::formatUserDeleted($event, $meta),
+            'setting.modified' => self::formatSettingModified($event, $meta),
+            'evidence.uploaded' => self::formatEvidenceUploaded($event, $meta),
+            'evidence.downloaded' => self::formatEvidenceDownloaded($event, $meta),
+            'evidence.deleted' => self::formatEvidenceDeleted($event, $meta),
             default => '',
         };
     }
@@ -221,5 +227,198 @@ final class AuditMessageFormatter
         $actor = self::resolveActor($meta);
 
         return sprintf('%s deleted by %s', $roleName, $actor);
+    }
+
+    /**
+     * @param  array<string,mixed>  $meta
+     */
+    private static function formatUserCreated(AuditEvent $event, array $meta): string
+    {
+        $target = self::resolveTargetLabel($event, $meta);
+        $actor = self::resolveActor($meta);
+
+        $roles = self::readList($meta['roles'] ?? null);
+        if ($roles !== []) {
+            return sprintf('%s created by %s with roles: %s', $target, $actor, implode(', ', $roles));
+        }
+
+        return sprintf('%s created by %s', $target, $actor);
+    }
+
+    /**
+     * @param  array<string,mixed>  $meta
+     */
+    private static function formatUserDeleted(AuditEvent $event, array $meta): string
+    {
+        $target = self::resolveTargetLabel($event, $meta);
+        $actor = self::resolveActor($meta);
+
+        return sprintf('%s deleted by %s', $target, $actor);
+    }
+
+    /**
+     * @param  array<string,mixed>  $meta
+     */
+    private static function formatSettingModified(AuditEvent $event, array $meta): string
+    {
+        $label = self::readString($meta, ['setting_label', 'setting_key', 'key']);
+        if ($label === '') {
+            $entityId = trim($event->entity_id);
+            $label = $entityId !== '' ? $entityId : 'Setting';
+        }
+
+        $actor = self::resolveActor($meta);
+
+        $old = self::readString($meta, ['old_value']);
+        if ($old === '') {
+            $old = self::stringifyValue($meta['old'] ?? null);
+        }
+        $new = self::readString($meta, ['new_value']);
+        if ($new === '') {
+            $new = self::stringifyValue($meta['new'] ?? null);
+        }
+
+        $old = $old === '' ? 'n/a' : $old;
+        $new = $new === '' ? 'n/a' : $new;
+
+        return sprintf('%s update by %s. Old: %s - New: %s', $label, $actor, $old, $new);
+    }
+
+    /**
+     * @param  array<string,mixed>  $meta
+     */
+    private static function formatEvidenceUploaded(AuditEvent $event, array $meta): string
+    {
+        $filename = self::resolveEvidenceLabel($event, $meta);
+        $actor = self::resolveActor($meta);
+
+        $size = self::readSize($meta);
+        $sizeText = $size !== null ? ' ('.$size.')' : '';
+
+        return sprintf('%s uploaded to evidence by %s%s', $filename, $actor, $sizeText);
+    }
+
+    /**
+     * @param  array<string,mixed>  $meta
+     */
+    private static function formatEvidenceDownloaded(AuditEvent $event, array $meta): string
+    {
+        $filename = self::resolveEvidenceLabel($event, $meta);
+        $actor = self::resolveActor($meta);
+
+        $size = self::readSize($meta);
+        $sizeText = $size !== null ? ' ('.$size.')' : '';
+
+        return sprintf('%s downloaded by %s%s', $filename, $actor, $sizeText);
+    }
+
+    /**
+     * @param  array<string,mixed>  $meta
+     */
+    private static function formatEvidenceDeleted(AuditEvent $event, array $meta): string
+    {
+        $filename = self::resolveEvidenceLabel($event, $meta);
+        $actor = self::resolveActor($meta);
+
+        return sprintf('%s deleted by %s', $filename, $actor);
+    }
+
+    /**
+     * @param  array<string,mixed>  $meta
+     */
+    private static function resolveEvidenceLabel(AuditEvent $event, array $meta): string
+    {
+        $filename = self::readString($meta, ['filename', 'name', 'target']);
+        if ($filename !== '') {
+            return $filename;
+        }
+
+        $entityId = trim($event->entity_id);
+
+        return $entityId !== '' ? $entityId : 'Evidence';
+    }
+
+    /**
+     * @param  array<string,mixed>  $meta
+     */
+    private static function readSize(array $meta): ?string
+    {
+        $size = null;
+        foreach (['size_bytes', 'size', 'bytes'] as $key) {
+            if (! array_key_exists($key, $meta)) {
+                continue;
+            }
+            /** @var mixed $candidate */
+            $candidate = $meta[$key];
+            if (is_int($candidate)) {
+                $size = $candidate;
+                break;
+            }
+            if (is_string($candidate) && is_numeric($candidate)) {
+                $size = (int) $candidate;
+                break;
+            }
+        }
+
+        if ($size === null || $size < 0) {
+            return null;
+        }
+
+        return self::formatBytes($size);
+    }
+
+    private static function formatBytes(int $bytes): string
+    {
+        if ($bytes < 1024) {
+            return $bytes.' B';
+        }
+
+        $units = ['KB', 'MB', 'GB', 'TB', 'PB'];
+        $value = (float) $bytes;
+        $unit = 'KB';
+
+        foreach ($units as $candidate) {
+            $value /= 1024.0;
+            $unit = $candidate;
+            if ($value < 1024) {
+                break;
+            }
+        }
+
+        $roundedStr = $value >= 10.0
+            ? (string) round($value)
+            : rtrim(rtrim(number_format($value, 1, '.', ''), '0'), '.');
+        if ($roundedStr === '') {
+            $roundedStr = '0';
+        }
+
+        return $roundedStr.' '.$unit;
+    }
+
+    private static function stringifyValue(mixed $value): string
+    {
+        if (is_string($value)) {
+            $trim = trim($value);
+
+            return $trim;
+        }
+        if (is_bool($value)) {
+            return $value ? 'true' : 'false';
+        }
+        if (is_numeric($value)) {
+            return (string) $value;
+        }
+        if ($value === null) {
+            return 'null';
+        }
+        if (is_array($value)) {
+            try {
+                return json_encode($value, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+            } catch (\Throwable) {
+                return '[unserializable]';
+            }
+        }
+
+        return '';
     }
 }

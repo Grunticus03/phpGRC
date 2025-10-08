@@ -57,7 +57,7 @@ final class SettingsAuditDiffsTest extends TestCase
             'audit' => ['retention_days' => 365],
         ])->assertStatus(200)->assertJson(['ok' => true, 'applied' => true]);
 
-        // Fetch audit trail and verify at least one settings.update with structured changes.
+        // Fetch audit trail and verify setting.modified events with structured changes.
         $resp = $this->getJson('/audit?limit=50');
         $resp->assertStatus(200)->assertJson(['ok' => true]);
 
@@ -65,15 +65,16 @@ final class SettingsAuditDiffsTest extends TestCase
         $items = $resp->json('items') ?? [];
         $this->assertIsArray($items);
 
-        // Pull only settings.update events.
-        $settingsEvents = array_values(array_filter($items, static fn ($i) => ($i['action'] ?? null) === 'settings.update'));
+        // Pull only setting.modified events.
+        $settingsEvents = array_values(array_filter($items, static fn ($i) => ($i['action'] ?? null) === 'setting.modified'));
 
-        $this->assertNotEmpty($settingsEvents, 'Expected at least one settings.update event');
+        $this->assertNotEmpty($settingsEvents, 'Expected at least one setting.modified event');
 
-        // Each settings.update should include a top-level changes array.
+        // Each setting.modified should include a top-level changes array with one change.
         foreach ($settingsEvents as $evt) {
             $this->assertArrayHasKey('changes', $evt);
             $this->assertIsArray($evt['changes']);
+            $this->assertCount(1, $evt['changes']);
             // Ensure our retention key is represented in at least one change set.
             $found = false;
             foreach ($evt['changes'] as $c) {

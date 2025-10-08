@@ -35,10 +35,10 @@ final class SettingsAuditDiffsTest extends TestCase
 
         // Fetch latest config audit
         $q = http_build_query([
-            'category' => 'config',
-            'action' => 'settings.update',
+            'category' => 'SETTINGS',
+            'action' => 'setting.modified',
             'order' => 'desc',
-            'limit' => 1,
+            'limit' => 10,
         ]);
 
         $r = $this->getJson('/audit?'.$q);
@@ -48,21 +48,21 @@ final class SettingsAuditDiffsTest extends TestCase
         self::assertIsArray($items);
         self::assertNotEmpty($items);
 
-        $first = $items[0];
-        self::assertArrayHasKey('changes', $first);
-        self::assertIsArray($first['changes']);
+        $collected = [];
+        foreach ($items as $item) {
+            if (($item['action'] ?? '') !== 'setting.modified') {
+                continue;
+            }
+            $changes = $item['changes'] ?? null;
+            self::assertIsArray($changes);
+            self::assertCount(1, $changes);
+            $change = $changes[0];
+            self::assertArrayHasKey('key', $change);
+            self::assertTrue(Arr::has($change, ['old', 'new', 'action']));
+            $collected[$change['key']] = $change;
+        }
 
-        $keys = array_map(
-            static fn (array $c): string => (string) ($c['key'] ?? ''),
-            $first['changes']
-        );
-
-        self::assertContains('core.audit.retention_days', $keys);
-        self::assertContains('core.evidence.max_mb', $keys);
-
-        // Ensure no formatting: we expect structured triples
-        $sample = $first['changes'][0];
-        self::assertArrayHasKey('key', $sample);
-        self::assertTrue(Arr::has($sample, ['old', 'new', 'action']));
+        self::assertArrayHasKey('core.audit.retention_days', $collected);
+        self::assertArrayHasKey('core.evidence.max_mb', $collected);
     }
 }

@@ -128,7 +128,7 @@ It is binding on all sessions, files, commits, and releases.
 
 ## 10. Auditing & Telemetry
 - **One-audit-per-request** invariant for denies.  
-- **Settings changes** audited as `settings.update` with `meta.changes[{key,old,new,action}]`. No secrets or raw bytes.  
+- **Settings changes** audited as `setting.modified` with per-setting `meta.changes[{key,old,new,action}]`. No secrets or raw bytes.  
 - **RBAC deny codes** labeled in UI via mapping table; keep mapping in a single source.
 - **Add (Phase 5): Rate-limit audits.** Lock path audited once (`auth.bruteforce.locked`); failed attempts audited as `auth.login.failed`.
 

@@ -157,7 +157,28 @@ function buildAuditMessage(item: AuditItem, info: ActionInfo, actorLabel: string
   const metaMessage = typeof meta.message === "string" && meta.message.trim() !== '' ? meta.message.trim() : '';
   if (metaMessage) return metaMessage;
 
+  const formatValue = (value: unknown): string => {
+    if (value === null) return "null";
+    if (value === undefined) return "n/a";
+    if (typeof value === "string") return value;
+    if (typeof value === "number" || typeof value === "boolean") return String(value);
+    try {
+      return JSON.stringify(value);
+    } catch {
+      return String(value);
+    }
+  };
+
   const action = item.action ?? '';
+  if (action === 'setting.modified') {
+    const labelCandidates = [meta.setting_label, meta.setting_key, meta.key, item.entity_id];
+    const label = labelCandidates.find((v) => typeof v === 'string' && v.trim() !== '') as string | undefined;
+    const settingLabel = label ?? 'Setting';
+    const oldText = formatValue(meta.old_value ?? meta.old);
+    const newText = formatValue(meta.new_value ?? meta.new);
+    return `${settingLabel} update by ${actor}. Old: ${oldText} - New: ${newText}`;
+  }
+
   if (action === 'settings.update') {
     const changes = Array.isArray(meta.changes) ? meta.changes.length : 0;
     if (changes > 0) {
@@ -172,6 +193,13 @@ function buildAuditMessage(item: AuditItem, info: ActionInfo, actorLabel: string
     const size = readNumber(meta.size_bytes ?? meta.size);
     const sizePart = size && size > 0 ? ` (${formatBytes(size)})` : '';
     return `${filename} uploaded to evidence by ${actor}${sizePart}`;
+  }
+
+  if (action === 'evidence.downloaded') {
+    const filename = typeof meta.filename === 'string' && meta.filename ? meta.filename : (typeof item.entity_id === 'string' && item.entity_id ? item.entity_id : 'Evidence');
+    const size = readNumber(meta.size_bytes ?? meta.size);
+    const sizePart = size && size > 0 ? ` (${formatBytes(size)})` : '';
+    return `${filename} downloaded by ${actor}${sizePart}`;
   }
 
   if (action === 'evidence.deleted') {

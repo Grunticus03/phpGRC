@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace App\Listeners\Audit;
 
 use App\Events\SettingsUpdated;
-use App\Models\AuditEvent;
+use App\Models\User;
+use App\Services\Audit\AuditLogger;
 use App\Support\Audit\AuditCategories;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Support\Arr;
@@ -15,6 +16,8 @@ use Illuminate\Support\Str;
 
 final class RecordSettingsUpdate implements ShouldQueue
 {
+    public function __construct(private readonly AuditLogger $audit) {}
+
     public function handle(SettingsUpdated $event): void
     {
         if (! config('core.audit.enabled', true)) {
@@ -26,41 +29,57 @@ final class RecordSettingsUpdate implements ShouldQueue
 
         /** @var array<int, array{key:string, old:mixed, new:mixed, action:string}> $changes */
         $changes = $event->changes;
+        if ($changes === []) {
+            return;
+        }
 
         /** @var array<int, array{key:string, old:mixed, new:mixed, action:string}> $redacted */
         $redacted = $this->redactChanges($changes);
 
-        $payload = [
-            'id' => (string) Str::ulid(),
-            'occurred_at' => $event->occurredAt,
-            'actor_id' => $event->actorId,
-            'action' => 'settings.update',
-            'category' => AuditCategories::SETTINGS,
-            'entity_type' => 'core.settings',
-            'entity_id' => 'core',
-            'ip' => Arr::get($event->context, 'ip'),
-            'ua' => Arr::get($event->context, 'ua'),
-            'meta' => [
-                'source' => 'settings.apply',
-                'changes' => $redacted,
-                'touched_keys' => array_values(array_unique(array_map(
-                    /**
-                     * @param  array{key:string, old:mixed, new:mixed, action:string}  $c
-                     */
-                    static function (array $c): string {
-                        return $c['key'];
-                    },
-                    $changes
-                ))),
-                'context' => Arr::except($event->context, ['ip', 'ua']),
-            ],
-            'created_at' => now('UTC'),
-        ];
+        $actorMeta = $this->resolveActorMeta($event->actorId, $event->context);
 
-        try {
-            AuditEvent::query()->create($payload);
-        } catch (\Throwable $e) {
-            Log::warning('audit.write_failed', ['error' => $e->getMessage()]);
+        foreach ($redacted as $index => $change) {
+            $key = $change['key'];
+            $entityId = $this->ensureNonEmpty($key);
+
+            $changeType = $change['action'];
+
+            $meta = array_merge(
+                [
+                    'source' => 'settings.apply',
+                    'setting_key' => $key,
+                    'setting_label' => $this->settingLabel($key),
+                    'change_type' => $changeType,
+                    'old_value' => $this->stringifyValue($change['old']),
+                    'new_value' => $this->stringifyValue($change['new']),
+                    'changes' => [$change],
+                    'context' => Arr::except($event->context, ['ip', 'ua']),
+                ],
+                $actorMeta
+            );
+
+            try {
+                /** @var mixed $ipRaw */
+                $ipRaw = Arr::get($event->context, 'ip');
+                $ip = is_string($ipRaw) && $ipRaw !== '' ? $ipRaw : null;
+                /** @var mixed $uaRaw */
+                $uaRaw = Arr::get($event->context, 'ua');
+                $ua = is_string($uaRaw) && $uaRaw !== '' ? $uaRaw : null;
+
+                $this->audit->log([
+                    'actor_id' => $event->actorId,
+                    'action' => 'setting.modified',
+                    'category' => AuditCategories::SETTINGS,
+                    'entity_type' => 'core.setting',
+                    'entity_id' => $entityId,
+                    'ip' => $ip,
+                    'ua' => $ua,
+                    'meta' => $meta,
+                    'occurred_at' => $event->occurredAt,
+                ]);
+            } catch (\Throwable $e) {
+                Log::warning('audit.write_failed', ['error' => $e->getMessage(), 'setting' => $key]);
+            }
         }
     }
 
@@ -120,5 +139,111 @@ final class RecordSettingsUpdate implements ShouldQueue
         }
 
         return $out;
+    }
+
+    /**
+     * @param  array<string,mixed>  $context
+     * @return array<string,string>
+     */
+    private function resolveActorMeta(?int $actorId, array $context): array
+    {
+        $meta = [];
+
+        /** @var mixed $ctxName */
+        $ctxName = $context['actor_username'] ?? $context['actor_name'] ?? null;
+        if (is_string($ctxName) && trim($ctxName) !== '') {
+            $meta['actor_username'] = trim($ctxName);
+        }
+
+        /** @var mixed $ctxEmail */
+        $ctxEmail = $context['actor_email'] ?? null;
+        if (is_string($ctxEmail) && trim($ctxEmail) !== '') {
+            $meta['actor_email'] = trim($ctxEmail);
+        }
+
+        if (($meta['actor_username'] ?? '') === '' || ($meta['actor_email'] ?? '') === '') {
+            if (is_int($actorId)) {
+                try {
+                    /** @var User|null $actor */
+                    $actor = User::query()->find($actorId, ['id', 'name', 'email']);
+                    if ($actor instanceof User) {
+                        /** @var mixed $nameAttr */
+                        $nameAttr = $actor->getAttribute('name');
+                        if (($meta['actor_username'] ?? '') === '' && is_string($nameAttr)) {
+                            $name = trim($nameAttr);
+                            if ($name !== '') {
+                                $meta['actor_username'] = $name;
+                            }
+                        }
+                        /** @var mixed $emailAttr */
+                        $emailAttr = $actor->getAttribute('email');
+                        if (($meta['actor_email'] ?? '') === '' && is_string($emailAttr)) {
+                            $email = trim($emailAttr);
+                            if ($email !== '') {
+                                $meta['actor_email'] = $email;
+                            }
+                        }
+                    }
+                } catch (\Throwable) {
+                    // ignore lookup failures
+                }
+            }
+        }
+
+        return $meta;
+    }
+
+    private function settingLabel(string $key): string
+    {
+        $trim = trim($key);
+        if ($trim === '') {
+            return 'setting';
+        }
+
+        if (str_starts_with($trim, 'core.')) {
+            $trim = substr($trim, 5);
+        }
+
+        return $trim !== '' ? $trim : 'setting';
+    }
+
+    private function stringifyValue(mixed $value): string
+    {
+        if (is_string($value)) {
+            return $value;
+        }
+        if (is_bool($value)) {
+            return $value ? 'true' : 'false';
+        }
+        if (is_numeric($value)) {
+            return (string) $value;
+        }
+        if ($value === null) {
+            return 'null';
+        }
+        if (is_array($value)) {
+            try {
+                return json_encode($value, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+            } catch (\Throwable) {
+                return '[unserializable]';
+            }
+        }
+
+        $encoded = json_encode($value, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+
+        return is_string($encoded) ? $encoded : '[unserializable]';
+    }
+
+    /**
+     * @return non-empty-string
+     */
+    private function ensureNonEmpty(string $value): string
+    {
+        $trim = trim($value);
+        if ($trim !== '') {
+            return $trim;
+        }
+
+        return (string) Str::ulid();
     }
 }

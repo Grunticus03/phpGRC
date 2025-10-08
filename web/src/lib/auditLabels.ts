@@ -28,9 +28,12 @@ const byAction: Record<string, ActionInfo> = {
   "rbac.role.created":         { label: "Role created", category: "RBAC", variant: "success" },
   "rbac.role.updated":         { label: "Role updated", category: "RBAC", variant: "neutral" },
   "rbac.role.deleted":         { label: "Role deleted", category: "RBAC", variant: "warning" },
+  "rbac.user.created":         { label: "User created", category: "RBAC", variant: "success" },
+  "rbac.user.deleted":         { label: "User deleted", category: "RBAC", variant: "warning" },
 
   // EVIDENCE
   "evidence.uploaded":         { label: "Evidence uploaded", category: "EVIDENCE", variant: "success" },
+  "evidence.downloaded":       { label: "Evidence downloaded", category: "EVIDENCE", variant: "neutral" },
   "evidence.deleted":          { label: "Evidence deleted", category: "EVIDENCE", variant: "warning" },
 
   // EXPORTS
@@ -40,6 +43,7 @@ const byAction: Record<string, ActionInfo> = {
 
   // SETTINGS
   "settings.updated":          { label: "Settings updated", category: "SETTINGS", variant: "neutral" },
+  "setting.modified":          { label: "Setting modified", category: "SETTINGS", variant: "neutral" },
 
   // AUDIT maintenance
   "audit.retention.purged":    { label: "Audit purged", category: "AUDIT", variant: "warning" },
@@ -85,6 +89,9 @@ export function actionInfo(action: string, category?: string): ActionInfo {
   }
   if (action.startsWith("settings.")) {
     return { label: "Settings event", category: "SETTINGS", variant: "neutral" };
+  }
+  if (action.startsWith("setting.")) {
+    return { label: "Setting event", category: "SETTINGS", variant: "neutral" };
   }
   if (action.startsWith("audit.")) {
     return { label: "Audit event", category: "AUDIT", variant: "neutral" };
