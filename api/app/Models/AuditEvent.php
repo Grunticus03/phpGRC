@@ -62,7 +62,7 @@ final class AuditEvent extends Model
      */
     #[\Override]
     /**
-     * @param QueryBuilder $query
+     * @param  QueryBuilder  $query
      */
     public function newEloquentBuilder($query): AuditEventBuilder
     {

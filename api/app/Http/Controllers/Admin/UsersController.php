@@ -9,6 +9,7 @@ use App\Http\Requests\Admin\UserStoreRequest;
 use App\Http\Requests\Admin\UserUpdateRequest;
 use App\Models\Role;
 use App\Models\User;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -19,7 +20,12 @@ final class UsersController extends Controller
     {
         $perPage = $request->integer('per_page') ?: 25;
 
-        /** @var \Illuminate\Contracts\Pagination\LengthAwarePaginator<User> $users */
+        /** @psalm-suppress TooManyTemplateParams */
+        /**
+         * @var LengthAwarePaginator $users
+         *
+         * @phpstan-var LengthAwarePaginator<int, User> $users
+         */
         $users = User::query()
             ->with('roles:id,name')
             ->orderBy('id')
