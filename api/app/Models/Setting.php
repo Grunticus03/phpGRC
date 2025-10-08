@@ -26,7 +26,6 @@ final class Setting extends Model
 
     public $timestamps = true;
 
-    /** @var array<int,string> */
     protected $fillable = [
         'key',
         'value',

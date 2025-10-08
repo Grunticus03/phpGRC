@@ -65,9 +65,14 @@ final class AvatarProcessor
                 continue;
             }
 
-            /** @var array{uri:string} $meta */
             $meta = stream_get_meta_data($tmp);
-            $tmpPath = $meta['uri'];
+            $tmpPath = is_string($meta['uri'] ?? null) ? $meta['uri'] : '';
+            if ($tmpPath === '') {
+                fclose($tmp);
+                imagedestroy($dst);
+
+                continue;
+            }
 
             if (! imagewebp($dst, $tmpPath, 80)) {
                 fclose($tmp);

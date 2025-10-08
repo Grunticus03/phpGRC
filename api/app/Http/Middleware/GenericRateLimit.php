@@ -138,7 +138,7 @@ final class GenericRateLimit
 
             case 'session':
                 $sid = '';
-                if (method_exists($request, 'hasSession') && $request->hasSession()) {
+                if ($request->hasSession()) {
                     $sid = $request->session()->getId();
                 }
                 if ($sid === '') {

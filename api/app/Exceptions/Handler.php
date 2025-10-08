@@ -33,7 +33,7 @@ final class Handler extends ExceptionHandler
 
     /** @override */
     #[\Override]
-    protected function unauthenticated($request, AuthenticationException $exception): Response
+    protected function unauthenticated($request, AuthenticationException $exception): JsonResponse
     {
         return new JsonResponse(['ok' => false, 'code' => 'UNAUTHENTICATED'], 401);
     }
@@ -44,7 +44,7 @@ final class Handler extends ExceptionHandler
     {
         if ($e instanceof ThrottleRequestsException || $e instanceof TooManyRequestsHttpException) {
             /** @var array<string,mixed> $headers */
-            $headers = method_exists($e, 'getHeaders') ? $e->getHeaders() : [];
+            $headers = $e->getHeaders();
 
             $retryAfter = 60;
 

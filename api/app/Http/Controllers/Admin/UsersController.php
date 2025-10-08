@@ -19,6 +19,7 @@ final class UsersController extends Controller
     {
         $perPage = $request->integer('per_page') ?: 25;
 
+        /** @var \Illuminate\Contracts\Pagination\LengthAwarePaginator<User> $users */
         $users = User::query()
             ->with('roles:id,name')
             ->orderBy('id')
@@ -26,10 +27,9 @@ final class UsersController extends Controller
 
         /** @var list<array<string,mixed>> $data */
         $data = [];
-        foreach ($users->items() as $u) {
-            if (! $u instanceof User) {
-                continue;
-            }
+        /** @var list<User> $items */
+        $items = $users->items();
+        foreach ($items as $u) {
             /** @var list<string> $roleNames */
             $roleNames = $u->roles->pluck('name')->filter(static fn ($v): bool => is_string($v))->values()->all();
             $data[] = [

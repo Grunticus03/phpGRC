@@ -43,9 +43,8 @@ final class LoginController extends Controller
             ])->status(401);
         }
 
-        /**\n         * @var MorphMany<PersonalAccessToken> \n         * @psalm-var MorphMany<PersonalAccessToken> \n         * @phpstan-var MorphMany<PersonalAccessToken, User> \n         */
+        /** @var MorphMany<PersonalAccessToken> $tokens */
         $tokens = $user->tokens();
-        \assert($tokens instanceof MorphMany);
         $tokens->where('name', 'spa')->delete();
 
         $token = $user

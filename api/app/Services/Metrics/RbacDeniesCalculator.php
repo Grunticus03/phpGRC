@@ -52,7 +52,6 @@ final class RbacDeniesCalculator implements MetricsCalculator
         $dayMap = [];
         for ($i = 0; $i < $windowDays; $i++) {
             $d = $from->addDays($i)->format('Y-m-d');
-            assert($d !== '');
             $dayMap[$d] = ['denies' => 0, 'total' => 0];
         }
 
@@ -66,7 +65,6 @@ final class RbacDeniesCalculator implements MetricsCalculator
         $authTotal = 0;
         foreach ($authEvents as $e) {
             $d = CarbonImmutable::parse((string) $e->occurred_at)->setTimezone('UTC')->format('Y-m-d');
-            assert($d !== '');
             if (isset($dayMap[$d])) {
                 $dayMap[$d]['total']++;
                 $authTotal++;
@@ -90,7 +88,6 @@ final class RbacDeniesCalculator implements MetricsCalculator
                 $key = $meta['request_id'];
             }
             $iso = CarbonImmutable::parse((string) $e->occurred_at)->toIso8601String();
-            assert($iso !== '');
             /** @psalm-var non-empty-string $iso */
             $uniqueDenies[$key] = $iso;
         }
@@ -98,7 +95,6 @@ final class RbacDeniesCalculator implements MetricsCalculator
         // Tally denies into buckets and denominator
         foreach ($uniqueDenies as $iso) {
             $d = CarbonImmutable::parse($iso)->setTimezone('UTC')->format('Y-m-d');
-            assert($d !== '');
             if (isset($dayMap[$d])) {
                 $dayMap[$d]['denies']++;
                 $dayMap[$d]['total']++; // denominator includes unique denies
@@ -113,8 +109,6 @@ final class RbacDeniesCalculator implements MetricsCalculator
         /** @var list<array{date: non-empty-string, denies:int, total:int, rate:float}> $daily */
         $daily = [];
         foreach ($dayMap as $date => $vals) {
-            assert($date !== '');
-            /** @psalm-var non-empty-string $date */
             $drate = $vals['total'] > 0 ? $vals['denies'] / $vals['total'] : 0.0;
             $daily[] = [
                 'date' => $date,
@@ -124,11 +118,10 @@ final class RbacDeniesCalculator implements MetricsCalculator
             ];
         }
 
+        /** @var non-empty-string $fromIso */
         $fromIso = $from->toIso8601String();
+        /** @var non-empty-string $toIso */
         $toIso = $to->toIso8601String();
-        assert($fromIso !== '' && $toIso !== '');
-        /** @psalm-var non-empty-string $fromIso */
-        /** @psalm-var non-empty-string $toIso */
 
         return [
             'window_days' => $windowDays,

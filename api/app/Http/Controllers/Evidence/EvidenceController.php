@@ -442,7 +442,7 @@ final class EvidenceController extends Controller
     private function resolveActorId(Request $request): ?int
     {
         $user = $request->user();
-        if ($user !== null && method_exists($user, 'getAuthIdentifier')) {
+        if ($user !== null) {
             /** @var mixed $rawId */
             $rawId = $user->getAuthIdentifier();
 

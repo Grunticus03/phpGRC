@@ -27,7 +27,6 @@ final class User extends Authenticatable
     use HasApiTokens;
     use Notifiable;
 
-    /** @var array<int, string> */
     protected $fillable = ['name', 'email', 'password'];
 
     /**
@@ -50,11 +49,6 @@ final class User extends Authenticatable
         return $factory;
     }
 
-    /**
-     * @phpstan-var array<int, string>
-     *
-     * @psalm-var array<array-key, string>
-     */
     protected $hidden = ['password', 'remember_token'];
 
     /**

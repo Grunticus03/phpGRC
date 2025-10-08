@@ -142,7 +142,7 @@ final class AvatarController extends Controller
     {
         /** @var Authenticatable|null $u */
         $u = Auth::user();
-        if ($u && method_exists($u, 'getAuthIdentifier')) {
+        if ($u !== null) {
             /** @var mixed $rawId */
             $rawId = $u->getAuthIdentifier();
             if (is_int($rawId)) {

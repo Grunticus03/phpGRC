@@ -61,12 +61,11 @@ final class AuditEvent extends Model
      * Use a custom builder to normalize `meta` on bulk inserts.
      */
     #[\Override]
+    /**
+     * @param QueryBuilder $query
+     */
     public function newEloquentBuilder($query): AuditEventBuilder
     {
-        if (! $query instanceof QueryBuilder) {
-            throw new \InvalidArgumentException('Expected Illuminate\Database\Query\Builder');
-        }
-
         return new AuditEventBuilder($query);
     }
 }

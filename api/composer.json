@@ -11,16 +11,15 @@
     "symfony/uid": "^7.0"
   },
   "require-dev": {
-    "enlightn/enlightn": "^2.10",
     "fakerphp/faker": "^1.23",
-    "larastan/larastan": "^2.11",
-    "laravel/pint": "^1.17",
+    "larastan/larastan": "^3.7",
+    "laravel/pint": "^1.25",
     "mockery/mockery": "^1.6",
     "nunomaduro/collision": "^8.1",
-    "phpstan/phpstan": "^1.11",
+    "phpstan/phpstan": "^2.1",
     "phpunit/phpunit": "^11.5",
-    "psalm/plugin-laravel": "^3.0",
-    "vimeo/psalm": "^6.0"
+    "psalm/plugin-laravel": "^3.0.4",
+    "vimeo/psalm": "^6.13"
   },
   "autoload": {
     "psr-4": {

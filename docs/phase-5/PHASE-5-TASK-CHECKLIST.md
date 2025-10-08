@@ -340,5 +340,5 @@ _Last updated: 2025-09-28_
 - [ ] Static analysis: `composer stan` / `composer psalm`
 - [ ] Tests: `composer test` (PHPUnit)
 - [ ] OpenAPI diff: `openapi-diff docs/api/baseline/openapi-0.4.7.yaml docs/api/openapi.yaml`
-- [ ] Redocly: `npx -y @redocly/cli@1.29.0 lint docs/api/openapi.yaml`
+- [ ] Redocly: `npm run redocly:lint`
 - [ ] Cache clears (deploy): `php artisan config:clear && php artisan route:clear && php artisan cache:clear`

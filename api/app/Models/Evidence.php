@@ -28,7 +28,6 @@ final class Evidence extends Model
 
     protected $keyType = 'string';
 
-    /** @var array<int,string> */
     protected $fillable = [
         'id',
         'owner_id',

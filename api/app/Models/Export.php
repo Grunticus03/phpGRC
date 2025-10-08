@@ -36,7 +36,6 @@ final class Export extends Model
 
     public $timestamps = false;
 
-    /** @var array<int, string> */
     protected $fillable = [
         'id',
         'type',

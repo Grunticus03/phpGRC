@@ -79,7 +79,7 @@ final class MetricsThrottle
     private function subject(Request $request): string
     {
         $user = $request->user();
-        if ($user && method_exists($user, 'getAuthIdentifier')) {
+        if ($user !== null) {
             /** @var mixed $id */
             $id = $user->getAuthIdentifier();
             if (is_int($id) || (is_string($id) && $id !== '')) {

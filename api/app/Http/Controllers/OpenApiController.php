@@ -177,15 +177,11 @@ YAML;
             $h->set('Last-Modified', gmdate('D, d M Y H:i:s', $mtime).' GMT');
         }
 
-        if (method_exists($h, 'removeCacheControlDirective')) {
-            foreach (['private', 'public', 'no-cache', 'must-revalidate', 'proxy-revalidate', 's-maxage', 'max-age', 'no-store', 'immutable'] as $dir) {
-                $h->removeCacheControlDirective($dir);
-            }
+        foreach (['private', 'public', 'no-cache', 'must-revalidate', 'proxy-revalidate', 's-maxage', 'max-age', 'no-store', 'immutable'] as $dir) {
+            $h->removeCacheControlDirective($dir);
         }
-        if (method_exists($h, 'addCacheControlDirective')) {
-            $h->addCacheControlDirective('no-store', true);
-            $h->addCacheControlDirective('max-age', '0');
-        }
+        $h->addCacheControlDirective('no-store', true);
+        $h->addCacheControlDirective('max-age', '0');
         $h->set('Cache-Control', 'no-store, max-age=0');
 
         return $resp;
@@ -226,7 +222,6 @@ YAML;
             }
             $doc = $this->injectDocEnhancements($doc);
 
-            /** @var string $out */
             $out = json_encode($doc, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
 
             return $out;

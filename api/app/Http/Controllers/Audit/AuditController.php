@@ -115,8 +115,8 @@ final class AuditController extends Controller
             $matches = $this->resolvedCategoryMatches($data['category']);
             if ($matches !== []) {
                 $q->where(static function (Builder $inner) use ($matches): void {
-                    $primary = $matches[0] ?? null;
-                    if ($primary === null || $primary === '') {
+                    $primary = $matches[0];
+                    if ($primary === '') {
                         return;
                     }
                     $inner->whereRaw('LOWER(audit_events.category) = ?', [$primary]);
@@ -457,6 +457,7 @@ final class AuditController extends Controller
      */
     private function decodeCursor(string $cursor): ?array
     {
+        /** @var string $plain */
         $plain = $cursor;
 
         if (! str_contains($cursor, '|')) {
@@ -472,11 +473,7 @@ final class AuditController extends Controller
             $plain = $decoded;
         }
 
-        if (! is_string($plain)) {
-            return null;
-        }
-
-        $parts = explode('|', $plain);
+        $parts = explode('|', (string) $plain);
         if (count($parts) < 2) {
             return null;
         }

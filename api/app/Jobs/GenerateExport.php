@@ -205,13 +205,7 @@ final class GenerateExport implements ShouldQueue
 
     private function failExport(Export $export): void
     {
-        if (method_exists($export, 'markFailed')) {
-            $export->markFailed();
-        } else {
-            $export->status = 'failed';
-            $export->failed_at = CarbonImmutable::now('UTC');
-            $export->save();
-        }
+        $export->markFailed();
     }
 
     /** @return array<int,string> */
