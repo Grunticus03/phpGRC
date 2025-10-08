@@ -22,4 +22,3 @@ foreach ($defaultEnv as $key => $value) {
         $_SERVER[$key] = $value;
     }
 }
-
