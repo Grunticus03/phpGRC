@@ -182,16 +182,19 @@ final class UserSearchController extends Controller
                 } else {
                     $pattern .= '\\\\';
                 }
+
                 continue;
             }
 
             if ($char === '*') {
                 $pattern .= '%';
+
                 continue;
             }
 
             if ($char === '.') {
                 $pattern .= '_%';
+
                 continue;
             }
 

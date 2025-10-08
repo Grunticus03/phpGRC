@@ -14,14 +14,43 @@ function jsonResponse(body: unknown, init: ResponseInit = {}) {
 
 describe("Evidence List", () => {
   const originalFetch = globalThis.fetch as typeof fetch;
+  const originalCreateObjectURL = URL.createObjectURL;
+  const originalRevokeObjectURL = URL.revokeObjectURL;
   let calls: string[] = [];
+  let downloadResponse: Response;
+  let fetchMock: ReturnType<typeof vi.fn>;
+  let mockCreateObjectURL: ReturnType<typeof vi.fn>;
+  let mockRevokeObjectURL: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
     calls = [];
-    globalThis.fetch = vi.fn(async (...args: Parameters<typeof fetch>) => {
-      const url = String(args[0]);
+    downloadResponse = new Response("PDFDATA", {
+      status: 200,
+      headers: {
+        "Content-Type": "application/pdf",
+        "Content-Disposition": 'attachment; filename="report.pdf"',
+      },
+    });
+    mockCreateObjectURL = vi.fn(() => "blob:mock-url");
+    mockRevokeObjectURL = vi.fn();
+    Object.defineProperty(URL, "createObjectURL", {
+      configurable: true,
+      writable: true,
+      value: mockCreateObjectURL,
+    });
+    Object.defineProperty(URL, "revokeObjectURL", {
+      configurable: true,
+      writable: true,
+      value: mockRevokeObjectURL,
+    });
+
+    fetchMock = vi.fn(async (...args: Parameters<typeof fetch>) => {
+      const url = typeof args[0] === "string" ? args[0] : args[0].toString();
       calls.push(url);
 
+      if (url.startsWith("/api/evidence/")) {
+        return downloadResponse;
+      }
       if (url.startsWith("/api/rbac/users/search")) {
         return jsonResponse({
           ok: true,
@@ -59,11 +88,22 @@ describe("Evidence List", () => {
       }
 
       return jsonResponse({ ok: true });
-    }) as unknown as typeof fetch;
+    }) as ReturnType<typeof vi.fn>;
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
   });
 
   afterEach(() => {
     globalThis.fetch = originalFetch;
+    Object.defineProperty(URL, "createObjectURL", {
+      configurable: true,
+      writable: true,
+      value: originalCreateObjectURL,
+    });
+    Object.defineProperty(URL, "revokeObjectURL", {
+      configurable: true,
+      writable: true,
+      value: originalRevokeObjectURL,
+    });
     vi.restoreAllMocks();
   });
 
@@ -110,9 +150,47 @@ describe("Evidence List", () => {
       "SHA-256",
       "ID",
       "Version",
+      "Download",
     ]);
 
     expect(calls.some((u) => u.startsWith("/api/rbac/users/42/roles"))).toBe(true);
+  });
+
+  it("downloads evidence file when user clicks Download", async () => {
+    render(<EvidenceList />);
+
+    await screen.findByText("Evidence");
+
+    const table = await screen.findByRole("table", { name: "Evidence results" });
+    const downloadButton = within(table).getByRole("button", { name: "Download report.pdf" });
+
+    expect(downloadButton).not.toBeDisabled();
+    fireEvent.click(downloadButton);
+
+    await waitFor(() => {
+      expect(mockCreateObjectURL).toHaveBeenCalledTimes(1);
+      expect(calls.some((u) => u.startsWith("/api/evidence/ev_01X"))).toBe(true);
+    });
+
+    expect(downloadButton).not.toBeDisabled();
+  });
+
+  it("shows an error when download fails", async () => {
+    render(<EvidenceList />);
+    await screen.findByText("Evidence");
+
+    const table = await screen.findByRole("table", { name: "Evidence results" });
+    const downloadButton = within(table).getByRole("button", { name: "Download report.pdf" });
+
+    downloadResponse = new Response(JSON.stringify({ ok: false, code: "EVIDENCE_NOT_FOUND" }), {
+      status: 404,
+      headers: { "Content-Type": "application/json" },
+    });
+
+    fireEvent.click(downloadButton);
+
+    await screen.findByRole("alert");
+    expect(screen.getByRole("alert")).toHaveTextContent("Download failed: EVIDENCE_NOT_FOUND");
   });
 });
 

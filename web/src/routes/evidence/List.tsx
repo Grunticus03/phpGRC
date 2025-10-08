@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import { listEvidence, type Evidence, type EvidenceListOk } from "../../lib/api/evidence";
+import { downloadEvidenceFile, listEvidence, type Evidence, type EvidenceListOk } from "../../lib/api/evidence";
 import { searchUsers, type UserSummary, type UserSearchOk, type UserSearchMeta } from "../../lib/api/rbac";
 import { DEFAULT_TIME_FORMAT, normalizeTimeFormat, type TimeFormat } from "../../lib/format";
+import { HttpError } from "../../lib/api";
 import { primeUsers } from "../../lib/usersCache";
 import EvidenceTable from "./EvidenceTable";
 
@@ -46,6 +47,8 @@ export default function EvidenceList(): JSX.Element {
   const [items, setItems] = useState<Evidence[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
   const [prevStack, setPrevStack] = useState<string[]>([]);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
 
   const created_from = createdFrom ? `${createdFrom}T00:00:00Z` : undefined;
   const created_to = createdTo ? `${createdTo}T23:59:59Z` : undefined;
@@ -113,6 +116,7 @@ export default function EvidenceList(): JSX.Element {
     }
     setState("loading");
     setError("");
+    setDownloadError(null);
     try {
       const res = await listEvidence(resetCursor ? { ...params, cursor: null } : params);
       if (res.ok) {
@@ -133,6 +137,33 @@ export default function EvidenceList(): JSX.Element {
       setItems([]);
       setState("error");
       setError("Request failed");
+    }
+  }
+
+  async function handleDownload(item: Evidence) {
+    setDownloadError(null);
+    setDownloadingId(item.id);
+    try {
+      await downloadEvidenceFile(item);
+    } catch (err) {
+      let message = "Download failed. Please try again.";
+      if (err instanceof HttpError) {
+        const body = (err.body ?? null) as Record<string, unknown> | null;
+        const msgValue = body?.["message"];
+        const codeValue = body?.["code"];
+        const msg = typeof msgValue === "string" ? msgValue : null;
+        const code = typeof codeValue === "string" ? codeValue : null;
+        if (msg) {
+          message = `Download failed: ${msg}`;
+        } else if (code) {
+          message = `Download failed: ${code}`;
+        } else {
+          message = `Download failed (HTTP ${err.status}).`;
+        }
+      }
+      setDownloadError(message);
+    } finally {
+      setDownloadingId(null);
     }
   }
 
@@ -302,8 +333,15 @@ export default function EvidenceList(): JSX.Element {
 
       {state === "loading" && <p>Loading…</p>}
       {state === "error" && <p role="alert" className="text-danger">Error: {error}</p>}
+      {downloadError && <div className="alert alert-danger mt-3" role="alert">{downloadError}</div>}
 
-      <EvidenceTable items={items} fetchState={state} timeFormat={timeFormat} />
+      <EvidenceTable
+        items={items}
+        fetchState={state}
+        timeFormat={timeFormat}
+        onDownload={handleDownload}
+        downloadingId={downloadingId}
+      />
 
       <nav aria-label="Evidence pagination" className="d-flex align-items-center gap-2">
         <button type="button" className="btn btn-outline-secondary btn-sm" onClick={prevPage} disabled={state !== "ok" || prevStack.length === 0}>

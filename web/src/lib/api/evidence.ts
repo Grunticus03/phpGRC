@@ -1,4 +1,4 @@
-import { apiGet } from "../api";
+import { API_BASE, apiGet, baseHeaders, HttpError, qs } from "../api";
 import { normalizeTimeFormat, type TimeFormat } from "../formatters";
 
 export type Evidence = {
@@ -34,6 +34,31 @@ function isObject(v: unknown): v is Record<string, unknown> {
   return v !== null && typeof v === "object";
 }
 
+function parseFilename(contentDisposition: string | null): string | null {
+  if (!contentDisposition) return null;
+
+  const starMatch = /filename\*=(?:UTF-8'')?([^;]+)/i.exec(contentDisposition);
+  if (starMatch?.[1]) {
+    try {
+      return decodeURIComponent(starMatch[1].replace(/(^"|"$)/g, ""));
+    } catch {
+      return starMatch[1].replace(/(^"|"$)/g, "");
+    }
+  }
+
+  const quotedMatch = /filename="([^"]+)"/i.exec(contentDisposition);
+  if (quotedMatch?.[1]) {
+    return quotedMatch[1];
+  }
+
+  const plainMatch = /filename=([^;]+)/i.exec(contentDisposition);
+  if (plainMatch?.[1]) {
+    return plainMatch[1].trim().replace(/(^"|"$)/g, "");
+  }
+
+  return null;
+}
+
 export type EvidenceListParams = {
   owner_id?: number;
   filename?: string;
@@ -48,6 +73,75 @@ export type EvidenceListParams = {
   limit?: number;        // 1..100
   cursor?: string | null;
 };
+
+export type EvidenceDownloadResult = {
+  blob: Blob;
+  filename: string;
+  mime: string;
+};
+
+function buildEvidenceUrl(id: string, sha256?: string): string {
+  const encoded = encodeURIComponent(id);
+  const q = qs(sha256 ? { sha256 } : undefined);
+  return `${API_BASE}/api/evidence/${encoded}${q}`;
+}
+
+export async function fetchEvidenceFile(id: string, sha256?: string): Promise<EvidenceDownloadResult> {
+  const url = buildEvidenceUrl(id, sha256);
+  const res = await fetch(url, {
+    method: "GET",
+    credentials: "same-origin",
+    headers: baseHeaders({ Accept: "application/octet-stream" }),
+  });
+  const contentType = res.headers.get("content-type") ?? "";
+
+  if (!res.ok) {
+    let body: unknown = null;
+    const ct = contentType.toLowerCase();
+    try {
+      if (ct.includes("application/json") || ct.includes("+json")) {
+        body = await res.json();
+      } else {
+        body = await res.text();
+      }
+    } catch {
+      body = null;
+    }
+    throw new HttpError(res.status, body);
+  }
+
+  const blob = await res.blob();
+  const filename = parseFilename(res.headers.get("content-disposition")) ?? id;
+  const mime = contentType !== "" ? contentType : "application/octet-stream";
+  return { blob, filename, mime };
+}
+
+export async function downloadEvidenceFile(
+  evidence: Pick<Evidence, "id" | "filename" | "sha256">
+): Promise<void> {
+  if (typeof window === "undefined" || typeof document === "undefined") return;
+
+  const fallbackName = evidence.filename?.trim() !== "" ? evidence.filename.trim() : evidence.id;
+  const { blob, filename } = await fetchEvidenceFile(evidence.id, evidence.sha256);
+  if (typeof URL.createObjectURL === "function") {
+    const href = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = href;
+    anchor.download = filename?.trim() !== "" ? filename : fallbackName;
+    anchor.rel = "noopener noreferrer";
+    anchor.style.display = "none";
+    document.body.appendChild(anchor);
+    anchor.click();
+    document.body.removeChild(anchor);
+    window.setTimeout(() => {
+      URL.revokeObjectURL(href);
+    }, 1000);
+  } else if (typeof window.open === "function") {
+    window.open(buildEvidenceUrl(evidence.id, evidence.sha256), "_blank", "noopener");
+  } else {
+    window.location.assign(buildEvidenceUrl(evidence.id, evidence.sha256));
+  }
+}
 
 export async function listEvidence(params: EvidenceListParams = {}): Promise<EvidenceListResult> {
   try {

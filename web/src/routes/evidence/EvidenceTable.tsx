@@ -7,6 +7,8 @@ type Props = {
   items: Evidence[];
   fetchState: "idle" | "loading" | "error" | "ok";
   timeFormat: TimeFormat;
+  onDownload: (item: Evidence) => void;
+  downloadingId: string | null;
 };
 
 type OwnerMap = Map<number, UserCacheValue>;
@@ -53,7 +55,7 @@ function ownerLabel(id: number, owner: UserCacheValue | undefined): string {
   return String(id);
 }
 
-export default function EvidenceTable({ items, fetchState, timeFormat }: Props): JSX.Element {
+export default function EvidenceTable({ items, fetchState, timeFormat, onDownload, downloadingId }: Props): JSX.Element {
   const ownerIds = useMemo(() => computeOwnerIds(items), [items]);
   const ownerIdsKey = useMemo(() => ownerIds.join(","), [ownerIds]);
 
@@ -114,12 +116,13 @@ export default function EvidenceTable({ items, fetchState, timeFormat }: Props):
             <th>SHA-256</th>
             <th>ID</th>
             <th>Version</th>
+            <th>Download</th>
           </tr>
         </thead>
         <tbody>
           {items.length === 0 && fetchState === "ok" ? (
             <tr>
-              <td colSpan={8}>No results</td>
+              <td colSpan={9}>No results</td>
             </tr>
           ) : (
             items.map((item) => {
@@ -144,6 +147,17 @@ export default function EvidenceTable({ items, fetchState, timeFormat }: Props):
                   <td style={{ fontFamily: "monospace" }}>{shaPreview}</td>
                   <td style={{ fontFamily: "monospace" }}>{item.id}</td>
                   <td>{item.version}</td>
+                  <td>
+                    <button
+                      type="button"
+                      className="btn btn-outline-primary btn-sm"
+                      onClick={() => onDownload(item)}
+                      disabled={downloadingId === item.id}
+                      aria-label={`Download ${item.filename || item.id}`}
+                    >
+                      {downloadingId === item.id ? "Downloading…" : "Download"}
+                    </button>
+                  </td>
                 </tr>
               );
             })
