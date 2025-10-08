@@ -35,6 +35,7 @@ const byAction: Record<string, ActionInfo> = {
   "evidence.uploaded":         { label: "Evidence uploaded", category: "EVIDENCE", variant: "success" },
   "evidence.downloaded":       { label: "Evidence downloaded", category: "EVIDENCE", variant: "neutral" },
   "evidence.deleted":          { label: "Evidence deleted", category: "EVIDENCE", variant: "warning" },
+  "evidence.purged":           { label: "Evidence purged", category: "EVIDENCE", variant: "warning" },
 
   // EXPORTS
   "export.job.created":        { label: "Export started", category: "EXPORTS", variant: "neutral" },

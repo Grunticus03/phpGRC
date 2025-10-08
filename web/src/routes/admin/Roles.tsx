@@ -138,7 +138,7 @@ export default function Roles(): JSX.Element {
 
   return (
     <main id="main" className="container py-3" role="main" aria-busy={submitting}>
-      <h1 className="mb-3">RBAC Roles</h1>
+      <h1 className="mb-3">Roles Management</h1>
 
       <div aria-live="polite" role="status">
         {note && (
@@ -219,7 +219,6 @@ export default function Roles(): JSX.Element {
         <button type="submit" className="btn btn-primary" disabled={name.trim().length < 2 || submitting}>
           {submitting ? "Submitting…" : "Submit"}
         </button>
-        <p className="text-muted mt-2 mb-0">Stub path accepted when RBAC persistence is off.</p>
       </form>
     </main>
   );

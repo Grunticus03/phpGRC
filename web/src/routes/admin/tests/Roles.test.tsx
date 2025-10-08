@@ -44,7 +44,7 @@ describe("Admin Roles page", () => {
 
     renderPage();
 
-    expect(await screen.findByRole("heading", { name: /RBAC Roles/i })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /Roles Management/i })).toBeInTheDocument();
     expect(await screen.findByRole("table")).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: /Rename/i })).toHaveLength(2);
     expect(screen.getAllByRole("button", { name: /Delete/i })).toHaveLength(2);

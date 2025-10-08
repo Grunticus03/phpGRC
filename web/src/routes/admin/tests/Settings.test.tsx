@@ -12,15 +12,13 @@ function jsonResponse(body: unknown, init: ResponseInit = {}) {
   });
 }
 
-type CoreBody = {
-  core: {
-    rbac: { require_auth: boolean; user_search: { default_per_page: number } };
-    audit: { retention_days: number };
-    evidence: unknown;
-    avatars: unknown;
-    ui: { time_format: string };
-    metrics: { cache_ttl_seconds: number; rbac_denies: { window_days: number } };
-  };
+type Payload = {
+  apply: true;
+  rbac?: { require_auth?: boolean; user_search?: { default_per_page: number } };
+  audit?: { retention_days: number };
+  metrics?: { cache_ttl_seconds?: number; rbac_denies?: { window_days: number } };
+  ui?: { time_format: string };
+  evidence?: { blob_storage_path: string };
 };
 
 describe("Admin Settings page", () => {
@@ -50,6 +48,7 @@ describe("Admin Settings page", () => {
                 enabled: true,
                 max_mb: 25,
                 allowed_mime: ["application/pdf", "image/png", "image/jpeg", "text/plain"],
+                blob_storage_path: "/opt/phpgrc/shared/blobs",
               },
               avatars: { enabled: true, size_px: 128, format: "webp" },
               ui: { time_format: "LOCAL" },
@@ -84,7 +83,7 @@ describe("Admin Settings page", () => {
 
     await waitFor(() => expect(screen.queryByText("Loading")).toBeNull());
 
-    const requireAuth = screen.getByLabelText("Require Auth (Sanctum) for RBAC APIs") as HTMLInputElement;
+    const requireAuth = screen.getByLabelText("Enforce Authentication") as HTMLInputElement;
     expect(requireAuth.checked).toBe(false);
     fireEvent.click(requireAuth);
     expect(requireAuth.checked).toBe(true);
@@ -107,24 +106,26 @@ describe("Admin Settings page", () => {
     fireEvent.change(timeFormatSelect, { target: { value: "ISO_8601" } });
     expect(timeFormatSelect.value).toBe("ISO_8601");
 
+    const blobPath = screen.getByLabelText("Blob storage path") as HTMLInputElement;
+    expect(blobPath.value).toBe("");
+    fireEvent.change(blobPath, { target: { value: "/var/data/evidence" } });
+    expect(blobPath.value).toBe("/var/data/evidence");
+
     fireEvent.click(screen.getByRole("button", { name: /save/i }));
 
     await screen.findByText("Validated. Not persisted (stub).");
 
     expect(putBody).toBeTruthy();
-    expect(putBody).toHaveProperty("core");
+    expect(putBody).toMatchObject({ apply: true });
 
-    const core = (putBody as CoreBody).core;
-    expect(core).toHaveProperty("rbac");
-    expect(core.rbac.require_auth).toBe(true);
-    expect(core.rbac.user_search.default_per_page).toBe(200);
-
-    expect(core).toHaveProperty("audit");
-    expect(core.audit.retention_days).toBe(180);
-    expect(core).toHaveProperty("ui");
-    expect(core.ui.time_format).toBe("ISO_8601");
-    expect(core).toHaveProperty("metrics");
-    expect(core.metrics.rbac_denies.window_days).toBe(30);
+    const payload = putBody as Payload;
+    expect(payload.rbac?.require_auth).toBe(true);
+    expect(payload.rbac?.user_search?.default_per_page).toBe(200);
+    expect(payload.audit?.retention_days).toBe(180);
+    expect(payload.ui?.time_format).toBe("ISO_8601");
+    expect(payload.metrics?.rbac_denies?.window_days).toBe(30);
+    expect(payload.metrics?.cache_ttl_seconds).toBeUndefined();
+    expect(payload.evidence?.blob_storage_path).toBe("/var/data/evidence");
   });
 });
 

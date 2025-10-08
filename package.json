@@ -3,7 +3,8 @@
     "scan:vuln": "npm run scan:vuln:root && npm run scan:vuln:web",
     "scan:vuln:root": "npm audit --offline",
     "scan:vuln:web": "npm --prefix web audit --offline",
-    "redocly:lint": "redocly lint docs/api/openapi.yaml"
+    "redocly:lint": "redocly lint docs/api/openapi.yaml",
+    "redocly:scorecard": "redocly stats docs/api/openapi.yaml --format=json"
   },
   "dependencies": {
     "react": "^18.3.1",

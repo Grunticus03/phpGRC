@@ -118,6 +118,20 @@ final class SettingsControllerValidationTest extends TestCase
             ->assertJsonPath('errors.rbac.roles.0', fn ($v) => is_string($v));
     }
 
+    public function test_rejects_blob_storage_path_too_long(): void
+    {
+        $payload = [
+            'apply' => true,
+            'evidence' => [
+                'blob_storage_path' => str_repeat('/very/long/path', 400),
+            ],
+        ];
+
+        $this->postJson('/admin/settings', $payload)
+            ->assertStatus(422)
+            ->assertJsonPath('errors.evidence.blob_storage_path.0', fn ($v) => is_string($v));
+    }
+
     public function test_legacy_shape_with_invalid_values_is_rejected(): void
     {
         $payload = [

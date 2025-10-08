@@ -170,6 +170,34 @@ paths:
       <<: *SettingsUpdateOp
       operationId: settingsPatch
 
+  /admin/evidence/purge:
+    post:
+      operationId: evidencePurge
+      tags: [Evidence]
+      summary: Purge evidence records
+      description: Deletes all stored evidence records and audit logs the purge.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EvidencePurgeRequest'
+      responses:
+        '200':
+          description: Purge result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EvidencePurgeResponse'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
   /rbac/roles:
     get:
       operationId: rbacRolesList
@@ -2021,6 +2049,29 @@ components:
                   properties:
                     enabled:
                       type: boolean
+                    max_mb:
+                      type: integer
+                    allowed_mime:
+                      type: array
+                      items:
+                        type: string
+                    blob_storage_path:
+                      type: string
+                metrics:
+                  type: object
+                  properties:
+                    cache_ttl_seconds:
+                      type: integer
+                    rbac_denies:
+                      type: object
+                      properties:
+                        window_days:
+                          type: integer
+                ui:
+                  type: object
+                  properties:
+                    time_format:
+                      type: string
                 avatars:
                   type: object
                   properties:
@@ -2045,6 +2096,11 @@ components:
               type: array
               items:
                 type: string
+            user_search:
+              type: object
+              properties:
+                default_per_page:
+                  type: integer
         audit:
           type: object
           properties:
@@ -2057,6 +2113,14 @@ components:
           properties:
             enabled:
               type: boolean
+            max_mb:
+              type: integer
+            allowed_mime:
+              type: array
+              items:
+                type: string
+            blob_storage_path:
+              type: string
         avatars:
           type: object
           properties:
@@ -2065,6 +2129,21 @@ components:
             size_px:
               type: integer
             format:
+              type: string
+        metrics:
+          type: object
+          properties:
+            cache_ttl_seconds:
+              type: integer
+            rbac_denies:
+              type: object
+              properties:
+                window_days:
+                  type: integer
+        ui:
+          type: object
+          properties:
+            time_format:
               type: string
 
     SettingsUpdateLegacyShape:
@@ -2079,16 +2158,38 @@ components:
       properties:
         ok:
           type: boolean
-          const: true
         applied:
-          oneOf:
-            - type: boolean
-            - type: 'null'
-        changes:
+          type: boolean
+        accepted:
           type: object
           additionalProperties: true
-        config:
-          $ref: '#/components/schemas/SettingsGetResponse/properties/config'
+        changes:
+          type: array
+          items:
+            $ref: '#/components/schemas/SettingsChange'
+        note:
+          type: string
+
+    EvidencePurgeRequest:
+      type: object
+      required: [confirm]
+      properties:
+        confirm:
+          type: boolean
+          description: Must be true to confirm the purge.
+
+    EvidencePurgeResponse:
+      type: object
+      required: [ok, deleted]
+      properties:
+        ok:
+          type: boolean
+        deleted:
+          type: integer
+          minimum: 0
+        note:
+          type: string
+          description: Optional note when no rows were removed or persistence is unavailable.
 
     HealthFingerprintResponse:
       type: object

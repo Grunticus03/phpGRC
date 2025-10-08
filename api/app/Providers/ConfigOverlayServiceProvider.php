@@ -67,6 +67,7 @@ final class ConfigOverlayServiceProvider extends ServiceProvider
             'evidence.enabled',
             'evidence.max_mb',
             'evidence.allowed_mime',
+            'evidence.blob_storage_path',
 
             'avatars.enabled',
             'avatars.size_px',
@@ -106,6 +107,13 @@ final class ConfigOverlayServiceProvider extends ServiceProvider
                 $int = is_int($cur) ? $cur : (is_numeric($cur) ? (int) $cur : 0);
                 Arr::set($core, $i, $int);
             }
+        }
+
+        if (Arr::has($core, 'evidence.blob_storage_path')) {
+            /** @var mixed $pathRaw */
+            $pathRaw = Arr::get($core, 'evidence.blob_storage_path');
+            $path = is_string($pathRaw) ? trim($pathRaw) : '';
+            Arr::set($core, 'evidence.blob_storage_path', $path);
         }
 
         /** @var array<int,mixed> $rolesRaw */

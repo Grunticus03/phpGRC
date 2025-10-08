@@ -31,6 +31,7 @@ final class AuditMessageFormatter
             'evidence.uploaded' => self::formatEvidenceUploaded($event, $meta),
             'evidence.downloaded' => self::formatEvidenceDownloaded($event, $meta),
             'evidence.deleted' => self::formatEvidenceDeleted($event, $meta),
+            'evidence.purged' => self::formatEvidencePurged($event, $meta),
             default => '',
         };
     }
@@ -321,6 +322,32 @@ final class AuditMessageFormatter
         $actor = self::resolveActor($meta);
 
         return sprintf('%s deleted by %s', $filename, $actor);
+    }
+
+    /**
+     * @param  array<string,mixed>  $meta
+     */
+    private static function formatEvidencePurged(AuditEvent $event, array $meta): string
+    {
+        $actor = self::resolveActor($meta);
+
+        /** @var mixed $countRaw */
+        $countRaw = $meta['deleted_count'] ?? null;
+        $count = 0;
+        if (is_int($countRaw)) {
+            $count = $countRaw;
+        } elseif (is_string($countRaw) && is_numeric($countRaw)) {
+            $count = (int) $countRaw;
+        }
+
+        if ($count > 0) {
+            return sprintf('%d evidence records purged by %s', $count, $actor);
+        }
+
+        $entityId = trim($event->entity_id);
+        $target = $entityId !== '' ? $entityId : 'Evidence';
+
+        return sprintf('%s purge requested by %s', $target, $actor);
     }
 
     /**

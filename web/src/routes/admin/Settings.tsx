@@ -1,5 +1,5 @@
-import { FormEvent, useEffect, useState } from "react";
-import { apiGet, apiPut } from "../../lib/api";
+import { FormEvent, useEffect, useRef, useState } from "react";
+import { apiGet, apiPost, apiPut } from "../../lib/api";
 import { DEFAULT_TIME_FORMAT, normalizeTimeFormat, type TimeFormat } from "../../lib/formatters";
 
 type EffectiveConfig = {
@@ -10,11 +10,37 @@ type EffectiveConfig = {
     };
     rbac?: { require_auth?: boolean; user_search?: { default_per_page?: number } };
     audit?: { retention_days?: number };
-    evidence?: unknown;
-    avatars?: unknown;
+    evidence?: { blob_storage_path?: string };
     ui?: { time_format?: string };
   };
 };
+
+type SettingsSnapshot = {
+  cacheTtl: number;
+  rbacDays: number;
+  rbacRequireAuth: boolean;
+  rbacUserSearchPerPage: number;
+  retentionDays: number;
+  timeFormat: TimeFormat;
+  evidenceBlobPath: string;
+};
+
+type SettingsPayload = {
+  apply: true;
+  rbac?: {
+    require_auth?: boolean;
+    user_search?: { default_per_page: number };
+  };
+  audit?: { retention_days: number };
+  metrics?: {
+    cache_ttl_seconds?: number;
+    rbac_denies?: { window_days: number };
+  };
+  ui?: { time_format: TimeFormat };
+  evidence?: { blob_storage_path: string };
+};
+
+type EvidencePurgeResponse = { ok?: boolean; deleted?: number; note?: string };
 
 const TIME_FORMAT_OPTIONS: Array<{ value: TimeFormat; label: string; example: string }> = [
   { value: "LOCAL", label: "Local date & time", example: "Example: 9/30/2025, 5:23:01 PM" },
@@ -34,9 +60,10 @@ export default function Settings(): JSX.Element {
   const [rbacUserSearchPerPage, setRbacUserSearchPerPage] = useState<number>(50);
   const [retentionDays, setRetentionDays] = useState<number>(365);
   const [timeFormat, setTimeFormat] = useState<TimeFormat>(DEFAULT_TIME_FORMAT);
+  const [evidenceBlobPath, setEvidenceBlobPath] = useState<string>("");
+  const [purging, setPurging] = useState(false);
 
-  const [evidenceCfg, setEvidenceCfg] = useState<unknown>(null);
-  const [avatarsCfg, setAvatarsCfg] = useState<unknown>(null);
+  const snapshotRef = useRef<SettingsSnapshot | null>(null);
 
   useEffect(() => {
     void (async () => {
@@ -48,14 +75,33 @@ export default function Settings(): JSX.Element {
         const metrics = core.metrics ?? {};
         const rbac = core.rbac ?? {};
         const audit = core.audit ?? {};
-        setCacheTtl(Number(metrics.cache_ttl_seconds ?? 0));
-        setRbacDays(Number(metrics.rbac_denies?.window_days ?? 7));
-        setRbacRequireAuth(Boolean(rbac.require_auth ?? false));
-        setRbacUserSearchPerPage(Number(rbac.user_search?.default_per_page ?? 50));
-        setRetentionDays(Number(audit.retention_days ?? 365));
-        setTimeFormat(normalizeTimeFormat(core.ui?.time_format));
-        setEvidenceCfg(core.evidence ?? null);
-        setAvatarsCfg(core.avatars ?? null);
+        const evidence = core.evidence ?? {};
+
+        const nextCacheTtl = clamp(Number(metrics.cache_ttl_seconds ?? 0), 0, 2_592_000);
+        const nextRbacDays = clamp(Number(metrics.rbac_denies?.window_days ?? 7), 7, 365);
+        const nextRequireAuth = Boolean(rbac.require_auth ?? false);
+        const nextPerPage = clamp(Number(rbac.user_search?.default_per_page ?? 50), 1, 500);
+        const nextRetention = clamp(Number(audit.retention_days ?? 365), 1, 730);
+        const nextTimeFormat = normalizeTimeFormat(core.ui?.time_format);
+        const nextBlobPath = typeof evidence?.blob_storage_path === "string" ? evidence.blob_storage_path.trim() : "";
+
+        setCacheTtl(nextCacheTtl);
+        setRbacDays(nextRbacDays);
+        setRbacRequireAuth(nextRequireAuth);
+        setRbacUserSearchPerPage(nextPerPage);
+        setRetentionDays(nextRetention);
+        setTimeFormat(nextTimeFormat);
+        setEvidenceBlobPath(nextBlobPath);
+
+        snapshotRef.current = {
+          cacheTtl: nextCacheTtl,
+          rbacDays: nextRbacDays,
+          rbacRequireAuth: nextRequireAuth,
+          rbacUserSearchPerPage: nextPerPage,
+          retentionDays: nextRetention,
+          timeFormat: nextTimeFormat,
+          evidenceBlobPath: nextBlobPath,
+        };
       } catch {
         setMsg("Failed to load settings.");
       } finally {
@@ -66,32 +112,88 @@ export default function Settings(): JSX.Element {
 
   const clamp = (n: number, min: number, max: number) => Math.max(min, Math.min(max, Math.trunc(n)));
 
+  const snapshotFromState = (): SettingsSnapshot => ({
+    cacheTtl: clamp(Number(cacheTtl) || 0, 0, 2_592_000),
+    rbacDays: clamp(Number(rbacDays) || 7, 7, 365),
+    rbacRequireAuth,
+    rbacUserSearchPerPage: clamp(Number(rbacUserSearchPerPage) || 50, 1, 500),
+    retentionDays: clamp(Number(retentionDays) || 365, 1, 730),
+    timeFormat,
+    evidenceBlobPath: evidenceBlobPath.trim(),
+  });
+
+  const buildPayload = (): SettingsPayload => {
+    const current = snapshotFromState();
+    const baseline = snapshotRef.current;
+
+    const payload: SettingsPayload = { apply: true };
+
+    if (!baseline) {
+      payload.rbac = {
+        require_auth: current.rbacRequireAuth,
+        user_search: { default_per_page: current.rbacUserSearchPerPage },
+      };
+      payload.audit = { retention_days: current.retentionDays };
+      payload.metrics = {
+        cache_ttl_seconds: current.cacheTtl,
+        rbac_denies: { window_days: current.rbacDays },
+      };
+      payload.ui = { time_format: current.timeFormat };
+      payload.evidence = { blob_storage_path: current.evidenceBlobPath };
+
+      return payload;
+    }
+
+    const rbacDiffs: NonNullable<SettingsPayload["rbac"]> = {};
+    if (current.rbacRequireAuth !== baseline.rbacRequireAuth) {
+      rbacDiffs.require_auth = current.rbacRequireAuth;
+    }
+    if (current.rbacUserSearchPerPage !== baseline.rbacUserSearchPerPage) {
+      rbacDiffs.user_search = { default_per_page: current.rbacUserSearchPerPage };
+    }
+    if (Object.keys(rbacDiffs).length > 0) {
+      payload.rbac = rbacDiffs;
+    }
+
+    if (current.retentionDays !== baseline.retentionDays) {
+      payload.audit = { retention_days: current.retentionDays };
+    }
+
+    const metricsDiffs: NonNullable<SettingsPayload["metrics"]> = {};
+    if (current.cacheTtl !== baseline.cacheTtl) {
+      metricsDiffs.cache_ttl_seconds = current.cacheTtl;
+    }
+    if (current.rbacDays !== baseline.rbacDays) {
+      metricsDiffs.rbac_denies = { window_days: current.rbacDays };
+    }
+    if (Object.keys(metricsDiffs).length > 0) {
+      payload.metrics = metricsDiffs;
+    }
+
+    if (current.timeFormat !== baseline.timeFormat) {
+      payload.ui = { time_format: current.timeFormat };
+    }
+
+    if (current.evidenceBlobPath !== baseline.evidenceBlobPath) {
+      payload.evidence = { blob_storage_path: current.evidenceBlobPath };
+    }
+
+    return payload;
+  };
+
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setSaving(true);
     setMsg(null);
     try {
-      const body = {
-        core: {
-          metrics: {
-            cache_ttl_seconds: clamp(Number(cacheTtl) || 0, 0, 2_592_000),
-            rbac_denies: { window_days: clamp(Number(rbacDays) || 7, 7, 365) },
-          },
-          rbac: {
-            require_auth: !!rbacRequireAuth,
-            user_search: {
-              default_per_page: clamp(Number(rbacUserSearchPerPage) || 50, 1, 500),
-            },
-          },
-          audit: { retention_days: clamp(Number(retentionDays) || 365, 1, 730) },
-          evidence: evidenceCfg,
-          avatars: avatarsCfg,
-          ui: { time_format: timeFormat },
-        },
-        apply: true,
-      };
+      const body = buildPayload();
+      const hasChanges = Object.keys(body).some((key) => key !== "apply");
+      if (!hasChanges) {
+        setMsg("No changes to save.");
+        return;
+      }
 
-      const res = await apiPut<unknown, typeof body>("/api/admin/settings", body);
+      const res = await apiPut<unknown, SettingsPayload>("/api/admin/settings", body);
 
       let apiMsg: string | null = null;
       if (res && typeof res === "object") {
@@ -103,10 +205,40 @@ export default function Settings(): JSX.Element {
         }
       }
       setMsg(apiMsg ?? "Saved.");
+      const updated = snapshotFromState();
+      snapshotRef.current = updated;
+      setEvidenceBlobPath(updated.evidenceBlobPath);
     } catch {
       setMsg("Save failed.");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function onPurge(): Promise<void> {
+    if (purging) return;
+    if (!window.confirm("Purge all evidence records? This cannot be undone.")) return;
+
+    setPurging(true);
+    setMsg(null);
+    try {
+      const res = await apiPost<EvidencePurgeResponse, { confirm: true }>(
+        "/api/admin/evidence/purge",
+        { confirm: true }
+      );
+
+      const deleted = typeof res?.deleted === "number" ? res.deleted : 0;
+      if (deleted > 0) {
+        setMsg(`Purged ${deleted} evidence item${deleted === 1 ? "" : "s"}.`);
+      } else if (res?.note === "evidence-table-missing") {
+        setMsg("Evidence table not available.");
+      } else {
+        setMsg("No evidence to purge.");
+      }
+    } catch {
+      setMsg("Purge failed.");
+    } finally {
+      setPurging(false);
     }
   }
 
@@ -118,7 +250,7 @@ export default function Settings(): JSX.Element {
         <form onSubmit={onSubmit} className="vstack gap-3" aria-label="admin-settings">
           <section className="card">
             <div className="card-header">
-              <strong>RBAC</strong>
+              <strong>Authentication</strong>
             </div>
             <div className="card-body vstack gap-3">
               <div className="form-check">
@@ -130,7 +262,7 @@ export default function Settings(): JSX.Element {
                   onChange={(e) => setRbacRequireAuth(e.target.checked)}
                 />
                 <label htmlFor="rbacRequireAuth" className="form-check-label">
-                  Require Auth (Sanctum) for RBAC APIs
+                  Enforce Authentication
                 </label>
               </div>
 
@@ -198,6 +330,38 @@ export default function Settings(): JSX.Element {
 
           <section className="card">
             <div className="card-header">
+              <strong>Evidence</strong>
+            </div>
+            <div className="card-body vstack gap-3">
+              <div>
+                <label htmlFor="evidenceBlobPath" className="form-label">Blob storage path</label>
+                <input
+                  id="evidenceBlobPath"
+                  type="text"
+                  className="form-control"
+                  value={evidenceBlobPath}
+                  onChange={(e) => setEvidenceBlobPath(e.target.value)}
+                  placeholder="/opt/phpgrc/shared/blobs"
+                  autoComplete="off"
+                />
+                <div className="form-text">Leave blank to keep storing evidence in the database.</div>
+              </div>
+              <div className="d-flex flex-column flex-sm-row align-items-sm-center gap-2">
+                <button
+                  type="button"
+                  className="btn btn-outline-danger"
+                  onClick={() => void onPurge()}
+                  disabled={saving || purging}
+                >
+                  {purging ? "Purging…" : "Purge evidence"}
+                </button>
+                <span className="text-muted small">Irreversibly deletes all stored evidence records.</span>
+              </div>
+            </div>
+          </section>
+
+          <section className="card">
+            <div className="card-header">
               <strong>Metrics</strong>
             </div>
             <div className="card-body vstack gap-3">
@@ -234,7 +398,7 @@ export default function Settings(): JSX.Element {
           </section>
 
           <div className="hstack gap-2">
-            <button type="submit" className="btn btn-primary" disabled={saving}>Save</button>
+            <button type="submit" className="btn btn-primary" disabled={saving || purging}>Save</button>
             {msg && <span aria-live="polite" className="text-muted">{msg}</span>}
           </div>
         </form>

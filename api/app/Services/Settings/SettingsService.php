@@ -27,6 +27,7 @@ final class SettingsService
         'evidence.enabled',
         'evidence.max_mb',
         'evidence.allowed_mime',
+        'evidence.blob_storage_path',
         // Avatars
         'avatars.enabled',
         'avatars.size_px',
@@ -117,34 +118,93 @@ final class SettingsService
         /** @var array<string, mixed> $current */
         $current = $this->currentOverrides();
 
-        /** @var list<string> $touchedKeys */
-        $touchedKeys = array_keys($flatAccepted);
+        /** @var array<string,mixed> $defaultsRaw */
+        $defaultsRaw = (array) config('core', []);
+        /** @var array<string,mixed> $filteredDefaults */
+        $filteredDefaults = $this->filterForContract($defaultsRaw);
+        /** @var array<string,mixed> $flatDefaultsInput */
+        $flatDefaultsInput = Arr::dot($filteredDefaults);
+        /** @var array<string,mixed> $flatDefaults */
+        $flatDefaults = $this->prefixWithCore($flatDefaultsInput);
 
         /** @var array<string, mixed> $toUpsert */
         $toUpsert = [];
+        /** @var list<string> $toDelete */
+        $toDelete = [];
+        /** @var list<string> $silentDeletes */
+        $silentDeletes = [];
+
         /** @var string $k */
         /** @var mixed $v */
         foreach ($flatAccepted as $k => $v) {
             /** @var mixed $cur */
             $cur = array_key_exists($k, $current) ? $current[$k] : null;
-            if ($cur === null || ! $this->valuesEqual($cur, $v)) {
+            /** @var mixed $default */
+            $default = array_key_exists($k, $flatDefaults) ? $flatDefaults[$k] : null;
+
+            if ($cur !== null) {
+                if ($this->valuesEqual($cur, $v)) {
+                    if ($this->valuesEqual($cur, $default)) {
+                        $toDelete[] = $k;
+                        $silentDeletes[] = $k;
+                    }
+
+                    continue;
+                }
+
+                if ($this->valuesEqual($default, $v)) {
+                    if ($this->valuesEqual($cur, $default)) {
+                        $toDelete[] = $k;
+                        $silentDeletes[] = $k;
+
+                        continue;
+                    }
+
+                    /** @psalm-suppress MixedAssignment */
+                    $toUpsert[$k] = $v;
+
+                    continue;
+                }
+
                 /** @psalm-suppress MixedAssignment */
                 $toUpsert[$k] = $v;
+
+                continue;
             }
+
+            if ($this->valuesEqual($default, $v)) {
+                continue;
+            }
+
+            /** @psalm-suppress MixedAssignment */
+            $toUpsert[$k] = $v;
         }
 
-        if ($this->persistenceAvailable() && $toUpsert !== []) {
-            DB::transaction(function () use ($toUpsert, $actorId): void {
-                /**
-                 * @psalm-var list<array{
-                 *   key:string,
-                 *   value:string,
-                 *   type:string,
-                 *   updated_by:int|null,
-                 *   updated_at:\Illuminate\Support\Carbon,
-                 *   created_at:\Illuminate\Support\Carbon
-                 * }> $rows
-                 */
+        /** @var list<string> $touchedKeys */
+        $touchedKeys = array_values(array_unique(array_merge(array_keys($toUpsert), $toDelete)));
+
+        if ($touchedKeys === []) {
+            event(new SettingsUpdated(
+                actorId: $actorId,
+                changes: [],
+                context: $context,
+                occurredAt: now()
+            ));
+
+            return ['changes' => []];
+        }
+
+        if ($this->persistenceAvailable()) {
+            DB::transaction(function () use ($toDelete, $toUpsert, $actorId): void {
+                if ($toDelete !== []) {
+                    Setting::query()->whereIn('key', $toDelete)->delete();
+                }
+
+                if ($toUpsert === []) {
+                    return;
+                }
+
+                /** @psalm-suppress MixedAssignment */
                 $rows = [];
                 $now = now();
                 /** @var string $key */
@@ -162,6 +222,16 @@ final class SettingsService
                     ];
                 }
 
+                /**
+                 * @psalm-var list<array{
+                 *   key:string,
+                 *   value:string,
+                 *   type:string,
+                 *   updated_by:int|null,
+                 *   updated_at:\Illuminate\Support\Carbon,
+                 *   created_at:\Illuminate\Support\Carbon
+                 * }> $rows
+                 */
                 Setting::query()->getQuery()->upsert(
                     $rows,
                     ['key'],
@@ -172,21 +242,30 @@ final class SettingsService
 
         /** @var list<array{key:string, old:mixed, new:mixed, action:string}> $changes */
         $changes = [];
-        foreach ($touchedKeys as $k) {
+
+        foreach ($toDelete as $k) {
             /** @var mixed $old */
             $old = array_key_exists($k, $current) ? $current[$k] : null;
-
-            /** @var mixed $new */
-            $new = array_key_exists($k, $toUpsert) ? $toUpsert[$k] : $old;
-
-            if ($old === null && $new === null) {
+            if ($old === null || in_array($k, $silentDeletes, true)) {
                 continue;
             }
+
+            $changes[] = [
+                'key' => $k,
+                'old' => $old,
+                'new' => null,
+                'action' => 'unset',
+            ];
+        }
+
+        /** @var mixed $new */
+        foreach ($toUpsert as $k => $new) {
+            /** @var mixed $old */
+            $old = array_key_exists($k, $current) ? $current[$k] : null;
 
             /** @var 'set'|'update' $action */
             $action = $old === null ? 'set' : 'update';
 
-            // If nothing actually changed, skip logging a change.
             if ($action === 'update' && $this->valuesEqual($old, $new)) {
                 continue;
             }
@@ -432,6 +511,7 @@ final class SettingsService
             'enabled' => $this->toBool($this->scalarOrDefault($evidenceRaw['enabled'] ?? false, false)),
             'max_mb' => $this->toInt($this->scalarOrDefault($evidenceRaw['max_mb'] ?? 0, 0)),
             'allowed_mime' => $this->toStringList($evidenceRaw['allowed_mime'] ?? []),
+            'blob_storage_path' => trim($this->toString($evidenceRaw['blob_storage_path'] ?? '')),
         ];
 
         /** @var array<string,mixed> $avatars */

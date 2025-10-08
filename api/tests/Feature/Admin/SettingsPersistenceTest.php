@@ -82,4 +82,28 @@ final class SettingsPersistenceTest extends TestCase
             'key' => 'core.audit.retention_days',
         ]);
     }
+
+    public function test_update_skips_persisting_defaults(): void
+    {
+        $this->json('POST', '/admin/settings', [
+            'apply' => true,
+            'rbac' => ['require_auth' => false],
+            'metrics' => [
+                'cache_ttl_seconds' => 0,
+                'rbac_denies' => ['window_days' => 7],
+            ],
+        ])->assertStatus(200)
+            ->assertJson(['ok' => true, 'applied' => true])
+            ->assertJsonPath('changes', []);
+
+        $this->assertDatabaseMissing('core_settings', [
+            'key' => 'core.rbac.require_auth',
+        ]);
+        $this->assertDatabaseMissing('core_settings', [
+            'key' => 'core.metrics.cache_ttl_seconds',
+        ]);
+        $this->assertDatabaseMissing('core_settings', [
+            'key' => 'core.metrics.rbac_denies.window_days',
+        ]);
+    }
 }

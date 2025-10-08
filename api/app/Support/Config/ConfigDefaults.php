@@ -19,6 +19,8 @@ final class ConfigDefaults
 
     public const EVIDENCE_MAX_MB = 25;
 
+    public const EVIDENCE_BLOB_PATH = '/opt/phpgrc/shared/blobs';
+
     /** @var array<int,string> */
     public const EVIDENCE_ALLOWED_MIME = [
         'application/pdf',
@@ -49,6 +51,7 @@ final class ConfigDefaults
                 'enabled' => self::EVIDENCE_ENABLED,
                 'max_mb' => self::EVIDENCE_MAX_MB,
                 'allowed_mime' => self::EVIDENCE_ALLOWED_MIME,
+                'blob_storage_path' => self::EVIDENCE_BLOB_PATH,
             ],
             'avatars' => [
                 'enabled' => self::AVATARS_ENABLED,

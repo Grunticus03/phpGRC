@@ -30,6 +30,7 @@ final class SettingsControllerTest extends TestCase
             ->has('config.core.evidence', fn (AssertableJson $j) => $j->where('enabled', true)
                 ->whereType('max_mb', 'integer')
                 ->whereType('allowed_mime', 'array')
+                ->whereType('blob_storage_path', 'string')
                 ->etc()
             )
             ->has('config.core.avatars', fn (AssertableJson $j) => $j->where('enabled', true)
@@ -45,7 +46,7 @@ final class SettingsControllerTest extends TestCase
         $payload = [
             'rbac' => ['enabled' => true, 'roles' => ['Admin', 'Auditor', 'Risk Manager', 'User']],
             'audit' => ['enabled' => true, 'retention_days' => 365],
-            'evidence' => ['enabled' => true, 'max_mb' => 25, 'allowed_mime' => ['application/pdf', 'image/png', 'image/jpeg', 'text/plain']],
+            'evidence' => ['enabled' => true, 'max_mb' => 25, 'allowed_mime' => ['application/pdf', 'image/png', 'image/jpeg', 'text/plain'], 'blob_storage_path' => '/opt/phpgrc/shared/blobs'],
             'avatars' => ['enabled' => true, 'size_px' => 128, 'format' => 'webp'],
         ];
 
@@ -69,7 +70,7 @@ final class SettingsControllerTest extends TestCase
             'core' => [
                 'rbac' => ['enabled' => true, 'roles' => ['Admin', 'Auditor', 'Risk Manager', 'User']],
                 'audit' => ['enabled' => true, 'retention_days' => 365],
-                'evidence' => ['enabled' => true, 'max_mb' => 25, 'allowed_mime' => ['application/pdf', 'image/png', 'image/jpeg', 'text/plain']],
+                'evidence' => ['enabled' => true, 'max_mb' => 25, 'allowed_mime' => ['application/pdf', 'image/png', 'image/jpeg', 'text/plain'], 'blob_storage_path' => '/opt/phpgrc/shared/blobs'],
                 'avatars' => ['enabled' => true, 'size_px' => 128, 'format' => 'webp'],
             ],
         ];

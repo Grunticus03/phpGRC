@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\Admin\EvidencePurgeController;
 use App\Http\Controllers\Admin\SettingsController;
 use App\Http\Controllers\Admin\UsersController;
 use App\Http\Controllers\Audit\AuditController;
@@ -165,6 +166,10 @@ Route::prefix('/admin')
         Route::patch('/settings', [SettingsController::class, 'update'])
             ->defaults('roles', ['Admin'])
             ->defaults('policy', 'core.settings.manage');
+
+        Route::post('/evidence/purge', EvidencePurgeController::class)
+            ->defaults('roles', ['Admin'])
+            ->defaults('policy', 'core.evidence.manage');
 
         Route::prefix('/users')->group(function (): void {
             Route::get('/', [UsersController::class, 'index'])

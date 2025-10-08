@@ -21,7 +21,7 @@ final class AdminSettingsApiTest extends TestCase
                     'core' => [
                         'rbac' => ['enabled', 'roles'],
                         'audit' => ['enabled', 'retention_days'],
-                        'evidence' => ['enabled', 'max_mb', 'allowed_mime'],
+                        'evidence' => ['enabled', 'max_mb', 'allowed_mime', 'blob_storage_path'],
                         'avatars' => ['enabled', 'size_px', 'format'],
                     ],
                 ],
@@ -44,6 +44,7 @@ final class AdminSettingsApiTest extends TestCase
                 'enabled' => true,
                 'max_mb' => 50,
                 'allowed_mime' => ['application/pdf', 'image/png'],
+                'blob_storage_path' => '/tmp/phpgrc/blobs',
             ],
             'avatars' => [
                 'enabled' => true,
@@ -60,7 +61,8 @@ final class AdminSettingsApiTest extends TestCase
             ->assertJsonPath('note', 'stub-only')
             ->assertJsonPath('accepted.rbac.roles.0', 'Admin')
             ->assertJsonPath('accepted.audit.retention_days', 180)
-            ->assertJsonPath('accepted.avatars.format', 'webp');
+            ->assertJsonPath('accepted.avatars.format', 'webp')
+            ->assertJsonPath('accepted.evidence.blob_storage_path', '/tmp/phpgrc/blobs');
     }
 
     #[Test]

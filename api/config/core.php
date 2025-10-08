@@ -152,6 +152,7 @@ return [
             'image/jpeg',
             'text/plain',
         ],
+        'blob_storage_path' => '/opt/phpgrc/shared/blobs',
     ],
 
     'avatars' => [
