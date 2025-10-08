@@ -14,6 +14,7 @@ final class SettingsController extends Controller
 {
     public function __construct(private readonly SettingsService $settings) {}
 
+
     public function index(): JsonResponse
     {
         /** @var array{core: array<string, mixed>} $effective */
