@@ -75,23 +75,6 @@ Snapshot generated from migrations against **phpgrc** as of 2025-10-08 (UTC).
 **Indexes & Constraints**
 - `PRIMARY KEY (key)`
 
-**Seeded Defaults**
-- `core.rbac.enabled` → `true`
-- `core.rbac.require_auth` → `false`
-- `core.rbac.roles` → `["Admin","Auditor","Risk Manager","User"]`
-- `core.rbac.persistence` → `true`
-- `core.audit.enabled` → `true`
-- `core.audit.retention_days` → `365`
-- `core.evidence.enabled` → `true`
-- `core.evidence.max_mb` → `25`
-- `core.evidence.allowed_mime` → `["application/pdf","image/png","image/jpeg","image/webp","text/plain"]`
-- `core.avatars.enabled` → `true`
-- `core.avatars.size_px` → `128`
-- `core.avatars.format` → `"webp"`
-- `core.ui.time_format` → `"LOCAL"`
-- `core.metrics.cache_ttl_seconds` → `0`
-- `core.metrics.rbac_denies.window_days` → `7`
-
 ---
 
 ### `evidence`
