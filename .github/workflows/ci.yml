@@ -122,6 +122,9 @@ jobs:
       - name: Generate app key for static analysis
         run: |
           KEY=$(php -r "echo 'base64:'.base64_encode(random_bytes(32));")
+          SQLITE_DB="$GITHUB_WORKSPACE/api/database/psalm.sqlite"
+          mkdir -p "$GITHUB_WORKSPACE/api/database"
+          : > "$SQLITE_DB"
           {
             echo "APP_ENV=local"
             echo "APP_DEBUG=false"
@@ -132,7 +135,7 @@ jobs:
             echo "SESSION_DRIVER=array"
             echo "QUEUE_CONNECTION=sync"
             echo "DB_CONNECTION=sqlite"
-            echo "DB_DATABASE=:memory:"
+            echo "DB_DATABASE=$SQLITE_DB"
           } >> "$GITHUB_ENV"
           {
             echo "APP_ENV=local"
@@ -144,7 +147,7 @@ jobs:
             echo "SESSION_DRIVER=array"
             echo "QUEUE_CONNECTION=sync"
             echo "DB_CONNECTION=sqlite"
-            echo "DB_DATABASE=:memory:"
+            echo "DB_DATABASE=$SQLITE_DB"
           } > .env
       - name: Prepare Laravel storage
         run: |
@@ -152,6 +155,9 @@ jobs:
             storage/app storage/framework/cache storage/framework/sessions storage/framework/views \
             storage/logs storage/framework/testing/disks/local/exports
           :> storage/logs/laravel.log
+      - name: Bootstrap Laravel (sanity check)
+        run: |
+          php -r 'require "vendor/autoload.php"; $app = require "bootstrap/app.php"; $app->make(\Illuminate\Contracts\Console\Kernel::class)->bootstrap();'
       - name: Psalm
         run: vendor/bin/psalm --no-cache --long-progress
       - name: Clear generated app key
