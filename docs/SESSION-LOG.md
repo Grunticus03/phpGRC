@@ -1255,7 +1255,7 @@ SESSION-LOG.md entry
 - Deliverables produced: Full UpdateSettingsRequest (flat + legacy support, strict rules, nested error envelope with code), Admin SettingsController (index/update), revised tests provided by you integrated, guidance for metrics alias + RBAC test harness, static-analysis cleanups (Override attributes, typed arrays, mixed→typed).
 - Phase/Step status: partial (most validation now consistent; remaining items: metrics alias action + routes; confirm legacy error payload in one test; ensure cache driver/table for metrics tests).
 - Next action (you): 
-  - Run full suite: `php artisan migrate --env=testing && vendor/bin/phpunit`.
+  - Run full suite: `(cd api && php artisan migrate --env=testing && vendor/bin/phpunit)`.
   - If cache table error returns, set cache to array in tests (`config(['cache.default'=>'array'])`) or migrate cache table.
   - Confirm three previously failing tests pass after UpdateSettingsRequest swap.
 - Next action (me): 
