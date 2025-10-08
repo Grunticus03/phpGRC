@@ -1,7 +1,7 @@
 # phpGRC Ops Runbook — Metrics & Dashboard
 
 ## Scope
-Enable and operate the Phase-5 metrics KPIs: RBAC denies rate and Evidence freshness. Admin-only endpoints; no OpenAPI surface change in 0.4.7. :contentReference[oaicite:2]{index=2}
+Enable and operate the Phase-5 metrics KPIs: Authentication activity, Evidence MIME distribution, and Admin activity. Admin-only endpoints; no OpenAPI surface change in 0.4.7. :contentReference[oaicite:2]{index=2}
 
 ## Endpoints
 - Internal KPIs: `GET /api/dashboard/kpis`
@@ -13,30 +13,31 @@ Enable and operate the Phase-5 metrics KPIs: RBAC denies rate and Evidence fresh
 {
   "ok": true,
   "data": {
-    "rbac_denies": {
+    "auth_activity": {
       "window_days": 7,
       "from": "YYYY-MM-DD",
       "to": "YYYY-MM-DD",
-      "denies": 0,
-      "total": 0,
-      "rate": 0.0,
       "daily": [
-        {"date": "YYYY-MM-DD", "denies": 0, "total": 0, "rate": 0.0}
+        {"date": "YYYY-MM-DD", "success": 0, "failed": 0, "total": 0}
+      ],
+      "totals": {"success": 0, "failed": 0, "total": 0},
+      "max_daily_total": 0
+    },
+    "evidence_mime": {
+      "total": 0,
+      "by_mime": [
+        {"mime": "application/pdf", "count": 0, "percent": 0.0}
       ]
     },
-    "evidence_freshness": {
-      "days": 30,
-      "total": 0,
-      "stale": 0,
-      "percent": 0.0,
-      "by_mime": [
-        {"mime": "application/pdf", "total": 0, "stale": 0, "percent": 0.0}
+    "admin_activity": {
+      "admins": [
+        {"id": 1, "name": "Admin User", "email": "admin@example.test", "last_login_at": "YYYY-MM-DDTHH:MM:SSZ"}
       ]
     }
   },
   "meta": {
     "generated_at": "ISO-8601",
-    "window": {"rbac_days": 7, "fresh_days": 30}
+    "window": {"auth_days": 7, "rbac_days": 7}
   }
 }
 ```
@@ -45,14 +46,12 @@ This is the authoritative contract for Phase-5 KPIs. :contentReference[oaicite:4
 ## Defaults and tuning
 Metrics code reads **config**, not env, at runtime. Set env, then map to config in `config/core.php`. :contentReference[oaicite:5]{index=5} :contentReference[oaicite:6]{index=6}
 
-Recommended defaults:
-- Evidence freshness days: `30` → `core.metrics.evidence_freshness.days`
-- RBAC denies window days: `7` → `core.metrics.rbac_denies.window_days`
-These values are the documented fallbacks for KPIs. :contentReference[oaicite:7]{index=7}
+Recommended default:
+- Authentication window days: `7` → `core.metrics.rbac_denies.window_days`
+This value is the documented fallback for the dashboard chart. :contentReference[oaicite:7]{index=7}
 
 ### Env keys (mapped at bootstrap)
 Add to `.env` or server secrets, then ensure `config/core.php` maps them into `core.metrics.*`:
-- `CORE_METRICS_EVIDENCE_FRESHNESS_DAYS=30`
 - `CORE_METRICS_RBAC_DENIES_WINDOW_DAYS=7`
 
 > Note: Do not call `env()` in code paths. Use `config('core.metrics.*')`. :contentReference[oaicite:8]{index=8}
@@ -63,8 +62,9 @@ Add to `.env` or server secrets, then ensure `config/core.php` maps them into `c
 
 ## Web UI
 - Dashboard consumes `/api/dashboard/kpis` (or `/api/metrics/dashboard`) and renders:
-  - KPI tiles for Evidence freshness and RBAC denies rate
-  - Per-MIME table for Evidence freshness
+  - Stacked bar chart for authentication successes vs failures (click-through to audit)
+  - Pie chart summarizing evidence MIME counts (click-through to evidence filtered view)
+  - Admin activity table listing admins and last successful login timestamps
 - Phase-5 acceptance notes call for Admin-only UI and custom 403 on deny. :contentReference[oaicite:11]{index=11}
 
 ## Operations
@@ -75,8 +75,8 @@ Add to `.env` or server secrets, then ensure `config/core.php` maps them into `c
 
 ### Smoke tests
 - Auth as Admin, then:
-  - `curl -H "Authorization: Bearer <token>" https://<host>/api/dashboard/kpis`
-  - Expect `ok:true`, `data.rbac_denies.window_days=7` and `data.evidence_freshness.days=30` by default. :contentReference[oaicite:12]{index=12}
+- `curl -H "Authorization: Bearer <token>" https://<host>/api/dashboard/kpis`
+- Expect `ok:true`, `data.auth_activity.window_days=7`, and chart totals reflecting recent authentication traffic. :contentReference[oaicite:12]{index=12}
 
 ### Performance target
 - Each KPI call ≤ 200 ms on ~10k `audit_events`. Investigate slow queries or missing indexes if exceeded. :contentReference[oaicite:13]{index=13}

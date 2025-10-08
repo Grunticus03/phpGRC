@@ -1,5 +1,6 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { listCategories } from "../../lib/api/audit";
 import { actionInfo, type ActionInfo } from "../../lib/auditLabels";
 import { searchUsers, type UserSummary, type UserSearchOk } from "../../lib/api/rbac";
@@ -68,10 +69,12 @@ function buildCategoryOptions(values: string[]): CategoryOption[] {
   return options.sort((a, b) => a.label.localeCompare(b.label));
 }
 
-function buildQuery(params: Record<string, string | number | undefined>) {
+function buildQuery(params: QueryInit) {
   const qs = new URLSearchParams();
   Object.entries(params).forEach(([k, v]) => {
-    if (v !== undefined && String(v).length > 0) qs.set(k, String(v));
+    if (v === undefined || v === null) return;
+    const value = typeof v === "boolean" ? (v ? "true" : "false") : String(v);
+    if (value.length > 0) qs.set(k, value);
   });
   return qs.toString();
 }
@@ -202,6 +205,7 @@ function buildAuditMessage(item: AuditItem, info: ActionInfo, actorLabel: string
 }
 
 export default function Audit(): JSX.Element {
+  const location = useLocation();
   const [category, setCategory] = useState("");
   const [action, setAction] = useState("");
   const [dateFrom, setDateFrom] = useState("");
@@ -249,7 +253,7 @@ export default function Audit(): JSX.Element {
   const isDirty = query !== lastAppliedQuery;
   const canSubmit = isDirty && isDateOrderValid && state !== "loading";
 
-  async function load() {
+  async function load(resetCursor: boolean = false, overrides?: Partial<QueryInit>) {
     try {
       setState("loading");
       setError("");
@@ -264,9 +268,12 @@ export default function Audit(): JSX.Element {
         occurred_to,
         limit,
         actor_id: selectedActor ? selectedActor.id : undefined,
+        ...overrides,
       };
 
-      const data = await apiGet<unknown>("/api/audit", params, ctrl.current.signal);
+      const effectiveParams = resetCursor ? { ...params, cursor: null } : params;
+
+      const data = await apiGet<unknown>("/api/audit", effectiveParams, ctrl.current.signal);
       let list: AuditItem[] = [];
       let nextTimeFormat: TimeFormat | null = null;
       if (Array.isArray(data)) {
@@ -283,7 +290,16 @@ export default function Audit(): JSX.Element {
       setTimeFormat((prev) => nextTimeFormat ?? prev);
       setItems(list);
       setState("ok");
-      setLastAppliedQuery(query);
+      setLastAppliedQuery(
+        buildQuery({
+          category: effectiveParams.category,
+          action: effectiveParams.action,
+          occurred_from: effectiveParams.occurred_from,
+          occurred_to: effectiveParams.occurred_to,
+          limit: effectiveParams.limit,
+          actor_id: effectiveParams.actor_id,
+        })
+      );
     } catch (err: unknown) {
       if (isAbortError(err)) return;
       if (err && typeof err === "object" && (err as { status?: unknown }).status === 422) {
@@ -313,6 +329,37 @@ export default function Audit(): JSX.Element {
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    const search = new URLSearchParams(location.search);
+    const nextCategory = search.get("category") ?? "";
+    const nextAction = search.get("action") ?? "";
+    const nextFrom = search.get("occurred_from") ?? "";
+    const nextTo = search.get("occurred_to") ?? "";
+
+    const normalizedFrom = nextFrom ? nextFrom.slice(0, 10) : "";
+    const normalizedTo = nextTo ? nextTo.slice(0, 10) : "";
+
+    const changed =
+      nextCategory !== category ||
+      nextAction !== action ||
+      normalizedFrom !== dateFrom ||
+      normalizedTo !== dateTo;
+
+    if (!changed) return;
+
+    setCategory(nextCategory);
+    setAction(nextAction);
+    setDateFrom(normalizedFrom);
+    setDateTo(normalizedTo);
+    void load(true, {
+      category: nextCategory || undefined,
+      action: nextAction || undefined,
+      occurred_from: nextFrom || undefined,
+      occurred_to: nextTo || undefined,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.search]);
 
   const csvHref = useMemo(() => `/api/audit/export.csv?${query}`, [query]);
 
@@ -364,7 +411,7 @@ export default function Audit(): JSX.Element {
             }));
             return;
           }
-          void load();
+          void load(true);
         }}
         style={{
           display: "grid",

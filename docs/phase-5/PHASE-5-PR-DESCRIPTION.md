@@ -6,8 +6,8 @@ Implements KPI dashboard polish and metrics API hardening. Adds explicit RBAC de
 
 ## Changes
 - Web
-  - Dashboard KPI controls for `rbac_days` and evidence `days` with clamping to [1,365].
-  - Sparkline for RBAC daily denies series.
+  - Dashboard renders stacked authentication activity chart (window configurable 7–365 days).
+  - Pie chart summarizes evidence MIME counts; admin table surfaces last login timestamps.
   - Audit list shows human labels and ARIA text for `rbac.deny.*` actions.
   - **Admin Settings**: new numeric input under RBAC for `User search default per-page` (1–500, default 50).
   - **Admin → User Roles**: user lookup UI adopts paged `/rbac/users/search` contract and handles `meta.total`/`total_pages`.
@@ -23,7 +23,6 @@ Implements KPI dashboard polish and metrics API hardening. Adds explicit RBAC de
   - **RBAC user search**: add Redoc snippet with paged example and auth header. (If not yet merged, this remains an open doc task.)
 
 ## Defaults (config → env)
-- `core.metrics.evidence_freshness.days` ← `CORE_METRICS_EVIDENCE_FRESHNESS_DAYS` default **30**.
 - `core.metrics.rbac_denies.window_days` ← `CORE_METRICS_RBAC_DENIES_WINDOW_DAYS` default **7**.
 
 ## Settings (DB-backed)

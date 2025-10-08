@@ -92,10 +92,8 @@ final class UpdateSettingsRequest extends FormRequest
             // Metrics (DB-backed)
             'metrics' => ['sometimes', 'array'],
             'metrics.cache_ttl_seconds' => ['sometimes', 'integer', 'min:0'],     // 0 = disable
-            'metrics.evidence_freshness' => ['sometimes', 'array'],
-            'metrics.evidence_freshness.days' => ['sometimes', 'integer', 'min:1', 'max:365'],
             'metrics.rbac_denies' => ['sometimes', 'array'],
-            'metrics.rbac_denies.window_days' => ['sometimes', 'integer', 'min:1', 'max:365'],
+            'metrics.rbac_denies.window_days' => ['sometimes', 'integer', 'min:7', 'max:365'],
 
             'apply' => ['sometimes', 'boolean'],
         ];

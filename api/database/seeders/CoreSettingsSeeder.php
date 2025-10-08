@@ -17,7 +17,6 @@ final class CoreSettingsSeeder extends Seeder
         }
 
         $this->put('core.metrics.cache_ttl_seconds', 0);
-        $this->put('core.metrics.evidence_freshness.days', 30);
         $this->put('core.metrics.rbac_denies.window_days', 7);
 
         // Metrics throttle defaults

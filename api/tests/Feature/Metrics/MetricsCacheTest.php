@@ -51,7 +51,7 @@ final class MetricsCacheTest extends TestCase
         $this->assertTrue((bool) $b->json('meta.cache.hit'));
 
         // Change window param -> miss (different cache key)
-        $c = $this->getJson('/dashboard/kpis?days=31&rbac_days=7');
+        $c = $this->getJson('/dashboard/kpis?auth_days=31');
         $c->assertOk();
         $c->assertJsonPath('meta.cache.ttl', 60);
         $this->assertFalse((bool) $c->json('meta.cache.hit'));

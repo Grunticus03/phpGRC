@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { downloadEvidenceFile, listEvidence, type Evidence, type EvidenceListOk } from "../../lib/api/evidence";
 import { searchUsers, type UserSummary, type UserSearchOk, type UserSearchMeta } from "../../lib/api/rbac";
 import { DEFAULT_TIME_FORMAT, normalizeTimeFormat, type TimeFormat } from "../../lib/format";
@@ -49,6 +50,8 @@ export default function EvidenceList(): JSX.Element {
   const [prevStack, setPrevStack] = useState<string[]>([]);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [downloadError, setDownloadError] = useState<string | null>(null);
+
+  const location = useLocation();
 
   const created_from = createdFrom ? `${createdFrom}T00:00:00Z` : undefined;
   const created_to = createdTo ? `${createdTo}T23:59:59Z` : undefined;
@@ -108,7 +111,7 @@ export default function EvidenceList(): JSX.Element {
     setOwnerInput("");
   }
 
-  async function load(resetCursor: boolean = false) {
+  async function load(resetCursor: boolean = false, overrides?: Partial<typeof params>) {
     if (!isDateOrderValid) {
       setError("From must be on or before To");
       setState("error");
@@ -118,7 +121,10 @@ export default function EvidenceList(): JSX.Element {
     setError("");
     setDownloadError(null);
     try {
-      const res = await listEvidence(resetCursor ? { ...params, cursor: null } : params);
+      const effectiveParams = resetCursor
+        ? { ...params, ...overrides, cursor: null }
+        : { ...params, ...overrides };
+      const res = await listEvidence(effectiveParams);
       if (res.ok) {
         const ok = res as EvidenceListOk;
         setTimeFormat((prev) => (ok.time_format ? normalizeTimeFormat(ok.time_format) : prev));
@@ -171,6 +177,18 @@ export default function EvidenceList(): JSX.Element {
     void load(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    const paramsFromUrl = new URLSearchParams(location.search);
+    const nextMime = paramsFromUrl.get("mime") ?? "";
+    if (nextMime === mime) return;
+
+    setMime(nextMime);
+    setCursor(null);
+    setPrevStack([]);
+    void load(true, { mime: nextMime || undefined });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.search]);
 
   function nextPage() {
     if (!cursor) return;

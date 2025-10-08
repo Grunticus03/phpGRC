@@ -117,15 +117,12 @@ return [
     // KPI defaults; DB overrides take precedence
     'metrics' => [
         'cache_ttl_seconds' => 0, // 0 disables caching
-        'evidence_freshness' => [
-            'days' => 30,
-        ],
         'rbac_denies' => [
             'window_days' => 7,
         ],
         // Clamp bounds for window parameters and future range computations
         'window' => [
-            'min_days' => 1,
+            'min_days' => 7,
             'max_days' => 365,
         ],
         // Deprecated: replaced by GenericRateLimit per-route in Phase 5

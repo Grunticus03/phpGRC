@@ -34,18 +34,21 @@ final class DashboardKpisAuthTest extends TestCase
         $kpis = $this->extractKpis($resp);
 
         self::assertIsArray($kpis);
-        self::assertArrayHasKey('rbac_denies', $kpis);
-        self::assertArrayHasKey('evidence_freshness', $kpis);
+        self::assertArrayHasKey('auth_activity', $kpis);
+        self::assertArrayHasKey('evidence_mime', $kpis);
+        self::assertArrayHasKey('admin_activity', $kpis);
 
-        self::assertIsArray($kpis['rbac_denies']);
-        self::assertIsArray($kpis['evidence_freshness']);
+        self::assertIsArray($kpis['auth_activity']);
+        self::assertIsArray($kpis['evidence_mime']);
+        self::assertIsArray($kpis['admin_activity']);
 
-        foreach (['window_days', 'from', 'to', 'denies', 'total', 'rate', 'daily'] as $key) {
-            self::assertArrayHasKey($key, $kpis['rbac_denies']);
+        foreach (['window_days', 'from', 'to', 'daily', 'totals', 'max_daily_total'] as $key) {
+            self::assertArrayHasKey($key, $kpis['auth_activity']);
         }
-        foreach (['days', 'total', 'stale', 'percent', 'by_mime'] as $key) {
-            self::assertArrayHasKey($key, $kpis['evidence_freshness']);
+        foreach (['total', 'by_mime'] as $key) {
+            self::assertArrayHasKey($key, $kpis['evidence_mime']);
         }
+        self::assertArrayHasKey('admins', $kpis['admin_activity']);
     }
 
     public function test_auditor_is_forbidden_from_kpis(): void

@@ -20,43 +20,37 @@ final class DashboardKpisMoreValidationTest extends TestCase
 
     public function test_negative_values_clamp_to_min(): void
     {
-        $res = $this->getJson('/dashboard/kpis?days=-5&rbac_days=-2');
+        $res = $this->getJson('/dashboard/kpis?auth_days=-5&rbac_days=-2');
         $res->assertOk();
 
         if ($res->json('data')) {
-            $res->assertJsonPath('data.rbac_denies.window_days', 1);
-            $res->assertJsonPath('data.evidence_freshness.days', 1);
+            $res->assertJsonPath('data.auth_activity.window_days', 7);
         } else {
-            $res->assertJsonPath('rbac_denies.window_days', 1);
-            $res->assertJsonPath('evidence_freshness.days', 1);
+            $res->assertJsonPath('auth_activity.window_days', 7);
         }
     }
 
     public function test_array_params_use_first_value_and_clamp(): void
     {
-        $res = $this->getJson('/dashboard/kpis?days[]=4&days[]=9&rbac_days[]=8');
+        $res = $this->getJson('/dashboard/kpis?auth_days[]=8&auth_days[]=14');
         $res->assertOk();
 
         if ($res->json('data')) {
-            $res->assertJsonPath('data.rbac_denies.window_days', 8);
-            $res->assertJsonPath('data.evidence_freshness.days', 4);
+            $res->assertJsonPath('data.auth_activity.window_days', 8);
         } else {
-            $res->assertJsonPath('rbac_denies.window_days', 8);
-            $res->assertJsonPath('evidence_freshness.days', 4);
+            $res->assertJsonPath('auth_activity.window_days', 8);
         }
     }
 
     public function test_float_values_fall_back_to_defaults(): void
     {
-        $res = $this->getJson('/dashboard/kpis?days=3.5&rbac_days=12.7');
+        $res = $this->getJson('/dashboard/kpis?auth_days=12.7');
         $res->assertOk();
 
         if ($res->json('data')) {
-            $res->assertJsonPath('data.rbac_denies.window_days', 7);
-            $res->assertJsonPath('data.evidence_freshness.days', 30);
+            $res->assertJsonPath('data.auth_activity.window_days', 7);
         } else {
-            $res->assertJsonPath('rbac_denies.window_days', 7);
-            $res->assertJsonPath('evidence_freshness.days', 30);
+            $res->assertJsonPath('auth_activity.window_days', 7);
         }
     }
 }

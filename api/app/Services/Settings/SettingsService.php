@@ -33,7 +33,6 @@ final class SettingsService
         'avatars.format',
         // Metrics (DB-backed knobs)
         'metrics.cache_ttl_seconds',
-        'metrics.evidence_freshness.days',
         'metrics.rbac_denies.window_days',
         'ui.time_format',
     ];
@@ -442,10 +441,6 @@ final class SettingsService
             'format' => $this->toString($avatarsRaw['format'] ?? ''),
         ];
 
-        /** @var array<string, mixed> $efRaw */
-        $efRaw = is_array($metricsRaw['evidence_freshness'] ?? null)
-            ? (array) $metricsRaw['evidence_freshness']
-            : [];
         /** @var array<string, mixed> $rdRaw */
         $rdRaw = is_array($metricsRaw['rbac_denies'] ?? null)
             ? (array) $metricsRaw['rbac_denies']
@@ -454,9 +449,6 @@ final class SettingsService
         /** @var array<string,mixed> $metrics */
         $metrics = [
             'cache_ttl_seconds' => $this->toInt($this->scalarOrDefault($metricsRaw['cache_ttl_seconds'] ?? 0, 0)),
-            'evidence_freshness' => [
-                'days' => $this->toInt($this->scalarOrDefault($efRaw['days'] ?? 0, 0)),
-            ],
             'rbac_denies' => [
                 'window_days' => $this->toInt($this->scalarOrDefault($rdRaw['window_days'] ?? 0, 0)),
             ],

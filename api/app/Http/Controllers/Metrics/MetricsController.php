@@ -25,12 +25,15 @@ final class MetricsController extends Controller
 
     public function kpis(Request $request, CachedMetricsService $metrics): JsonResponse
     {
-        $defaultFresh = $this->cfgInt('core.metrics.evidence_freshness.days', 30);
-        $defaultRbac = $this->cfgInt('core.metrics.rbac_denies.window_days', 7);
+        $defaultAuth = $this->cfgInt('core.metrics.rbac_denies.window_days', 7);
 
-        // Legacy numeric windows remain supported
-        $freshDays = $this->parseWindow($request->query('days'), $defaultFresh);
-        $rbacDays = $this->parseWindow($request->query('rbac_days'), $defaultRbac);
+        // Legacy query param 'rbac_days' is still accepted.
+        $authParam = $request->query('auth_days');
+        if ($authParam === null) {
+            $authParam = $request->query('rbac_days');
+        }
+
+        $authDays = $this->parseWindow($authParam, $defaultAuth);
 
         /**
          * @var array{
@@ -41,7 +44,7 @@ final class MetricsController extends Controller
          *     granularity: string,
          *     from?: string,
          *     to?: string,
-         *     rbac_days?: int
+         *     auth_days?: int
          *   }
          * } $future
          */
@@ -54,44 +57,43 @@ final class MetricsController extends Controller
             return $this->validationError($future['errors'] ?? []);
         }
 
-        if (isset($future['window']['rbac_days'])) {
+        if (isset($future['window']['auth_days'])) {
             /** @var int $resolved */
-            $resolved = $future['window']['rbac_days'];
-            $rbacDays = $resolved;
+            $resolved = $future['window']['auth_days'];
+            $authDays = $resolved;
         }
 
         /**
          * @var array{
          *   data: array{
-         *     rbac_denies: array{
+         *     auth_activity: array{
          *       window_days:int,
          *       from: non-empty-string,
          *       to: non-empty-string,
-         *       denies:int,
-         *       total:int,
-         *       rate:float,
-         *       daily: list<array{date: non-empty-string, denies:int, total:int, rate:float}>
+         *       daily:list<array{date:non-empty-string,success:int,failed:int,total:int}>,
+         *       totals:array{success:int,failed:int,total:int},
+         *       max_daily_total:int
          *     },
-         *     evidence_freshness: array{
-         *       days:int,
+         *     evidence_mime: array{
          *       total:int,
-         *       stale:int,
-         *       percent:float,
-         *       by_mime: list<array{mime: non-empty-string, total:int, stale:int, percent:float}>
+         *       by_mime:list<array{mime:non-empty-string,count:int,percent:float}>
+         *     },
+         *     admin_activity: array{
+         *       admins:list<array{id:int,name:string,email:string,last_login_at:string|null}>
          *     }
          *   },
          *   cache: array{ttl:int, hit:bool}
          * } $res
          */
-        $res = $metrics->snapshotWithMeta($rbacDays, $freshDays);
+        $res = $metrics->snapshotWithMeta($authDays);
 
         $data = $res['data'];
         $cache = $res['cache']; // array{ttl:int, hit:bool}
 
         // Compose meta.window without breaking existing shape
         $windowMeta = [
-            'rbac_days' => $rbacDays,
-            'fresh_days' => $freshDays,
+            'auth_days' => $authDays,
+            'rbac_days' => $authDays, // legacy alias for consumers expecting rbac_days
         ];
         if (isset($future['window'])) {
             $win = $future['window'];
@@ -201,6 +203,7 @@ final class MetricsController extends Controller
      *     granularity: string,
      *     from?: string,
      *     to?: string,
+     *     auth_days?: int,
      *     rbac_days?: int
      *   }
      * }
@@ -306,6 +309,7 @@ final class MetricsController extends Controller
 
         $out['from'] = $from->toIso8601String();
         $out['to'] = $to->toIso8601String();
+        $out['auth_days'] = $days;
         $out['rbac_days'] = $days;
 
         return ['ok' => true, 'window' => $out];

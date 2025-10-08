@@ -192,24 +192,37 @@ final class BruteForceGuard
      */
     private function cacheRepo(): CacheRepository
     {
-        try {
-            return Cache::store('file');
-        } catch (\Throwable) {
-            // fall back below
+        $fileStore = $this->attemptCacheStore('file');
+        if ($fileStore !== null) {
+            return $fileStore;
         }
 
         $default = is_string(config('cache.default')) ? (string) config('cache.default') : 'array';
-        $repo = Cache::store($default);
-
-        try {
-            if ($repo->getStore() instanceof \Illuminate\Cache\DatabaseStore && ! Schema::hasTable('cache')) {
-                return Cache::store('array');
-            }
-        } catch (\Throwable) {
-            return Cache::store('array');
+        $defaultStore = $this->attemptCacheStore($default);
+        if ($defaultStore !== null) {
+            return $defaultStore;
         }
 
-        return $repo;
+        return Cache::store('array');
+    }
+
+    private function attemptCacheStore(string $store): ?CacheRepository
+    {
+        try {
+            $repo = Cache::store($store);
+
+            if ($repo->getStore() instanceof \Illuminate\Cache\DatabaseStore && ! Schema::hasTable('cache')) {
+                return null;
+            }
+
+            $probeKey = 'auth_bf_probe:'.bin2hex(random_bytes(8));
+            $repo->put($probeKey, true, 1);
+            $repo->forget($probeKey);
+
+            return $repo;
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     /**

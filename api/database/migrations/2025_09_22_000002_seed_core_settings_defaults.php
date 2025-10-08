@@ -42,7 +42,6 @@ return new class extends Migration
 
             // Metrics (DB-backed)
             ['key' => 'core.metrics.cache_ttl_seconds',          'value' => '0',   'type' => 'int',  'updated_by' => null, 'created_at' => $now, 'updated_at' => $now],
-            ['key' => 'core.metrics.evidence_freshness.days',    'value' => '30',  'type' => 'int',  'updated_by' => null, 'created_at' => $now, 'updated_at' => $now],
             ['key' => 'core.metrics.rbac_denies.window_days',    'value' => '7',   'type' => 'int',  'updated_by' => null, 'created_at' => $now, 'updated_at' => $now],
         ];
 
@@ -74,7 +73,6 @@ return new class extends Migration
             'core.avatars.format',
             'core.ui.time_format',
             'core.metrics.cache_ttl_seconds',
-            'core.metrics.evidence_freshness.days',
             'core.metrics.rbac_denies.window_days',
         ])->delete();
     }

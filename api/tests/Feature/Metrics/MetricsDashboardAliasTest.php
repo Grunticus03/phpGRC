@@ -35,15 +35,17 @@ final class MetricsDashboardAliasTest extends TestCase
         $data = is_array($json) && array_key_exists('data', $json) ? $json['data'] : $json;
 
         self::assertIsArray($data);
-        self::assertArrayHasKey('rbac_denies', $data);
-        self::assertArrayHasKey('evidence_freshness', $data);
+        self::assertArrayHasKey('auth_activity', $data);
+        self::assertArrayHasKey('evidence_mime', $data);
+        self::assertArrayHasKey('admin_activity', $data);
 
-        foreach (['window_days', 'from', 'to', 'denies', 'total', 'rate', 'daily'] as $key) {
-            self::assertArrayHasKey($key, $data['rbac_denies']);
+        foreach (['window_days', 'from', 'to', 'daily', 'totals', 'max_daily_total'] as $key) {
+            self::assertArrayHasKey($key, $data['auth_activity']);
         }
-        foreach (['days', 'total', 'stale', 'percent', 'by_mime'] as $key) {
-            self::assertArrayHasKey($key, $data['evidence_freshness']);
+        foreach (['total', 'by_mime'] as $key) {
+            self::assertArrayHasKey($key, $data['evidence_mime']);
         }
+        self::assertArrayHasKey('admins', $data['admin_activity']);
     }
 
     /** Helpers */

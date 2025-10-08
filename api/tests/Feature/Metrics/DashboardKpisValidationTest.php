@@ -23,50 +23,43 @@ final class DashboardKpisValidationTest extends TestCase
 
         // Ensure deterministic defaults used by assertions below.
         config([
-            'core.metrics.evidence_freshness.days' => 30,
             'core.metrics.rbac_denies.window_days' => 7,
         ]);
     }
 
     public function test_clamps_low_values_to_min(): void
     {
-        $res = $this->getJson('/dashboard/kpis?days=0&rbac_days=0');
+        $res = $this->getJson('/dashboard/kpis?auth_days=0&rbac_days=0');
         $res->assertOk();
 
         if ($res->json('data')) {
-            $res->assertJsonPath('data.rbac_denies.window_days', 1);
-            $res->assertJsonPath('data.evidence_freshness.days', 1);
+            $res->assertJsonPath('data.auth_activity.window_days', 7);
         } else {
-            $res->assertJsonPath('rbac_denies.window_days', 1);
-            $res->assertJsonPath('evidence_freshness.days', 1);
+            $res->assertJsonPath('auth_activity.window_days', 7);
         }
     }
 
     public function test_clamps_high_values_to_max(): void
     {
-        $res = $this->getJson('/dashboard/kpis?days=999&rbac_days=999');
+        $res = $this->getJson('/dashboard/kpis?auth_days=999&rbac_days=999');
         $res->assertOk();
 
         if ($res->json('data')) {
-            $res->assertJsonPath('data.rbac_denies.window_days', 365);
-            $res->assertJsonPath('data.evidence_freshness.days', 365);
+            $res->assertJsonPath('data.auth_activity.window_days', 365);
         } else {
-            $res->assertJsonPath('rbac_denies.window_days', 365);
-            $res->assertJsonPath('evidence_freshness.days', 365);
+            $res->assertJsonPath('auth_activity.window_days', 365);
         }
     }
 
     public function test_non_numeric_values_fall_back_to_defaults(): void
     {
-        $res = $this->getJson('/dashboard/kpis?days=foo&rbac_days=bar');
+        $res = $this->getJson('/dashboard/kpis?auth_days=foo&rbac_days=bar');
         $res->assertOk();
 
         if ($res->json('data')) {
-            $res->assertJsonPath('data.rbac_denies.window_days', 7);
-            $res->assertJsonPath('data.evidence_freshness.days', 30);
+            $res->assertJsonPath('data.auth_activity.window_days', 7);
         } else {
-            $res->assertJsonPath('rbac_denies.window_days', 7);
-            $res->assertJsonPath('evidence_freshness.days', 30);
+            $res->assertJsonPath('auth_activity.window_days', 7);
         }
     }
 
@@ -124,8 +117,8 @@ final class DashboardKpisValidationTest extends TestCase
             ->assertJsonPath('ok', true);
 
         // window meta is optional, but if present assert the numbers we rely on
-        $rbacDays = (int) ($r->json('meta.window.rbac_days') ?? $r->json('data.rbac_denies.window_days'));
-        $this->assertSame(10, $rbacDays);
+        $authDays = (int) ($r->json('meta.window.auth_days') ?? $r->json('meta.window.rbac_days') ?? $r->json('data.auth_activity.window_days'));
+        $this->assertSame(10, $authDays);
     }
 
     public function test_from_to_exceeding_max_is_clamped_to_365(): void
@@ -134,7 +127,7 @@ final class DashboardKpisValidationTest extends TestCase
         $r->assertOk()
             ->assertJsonPath('ok', true);
 
-        $rbacDays = (int) ($r->json('meta.window.rbac_days') ?? $r->json('data.rbac_denies.window_days'));
-        $this->assertSame(365, $rbacDays);
+        $authDays = (int) ($r->json('meta.window.auth_days') ?? $r->json('meta.window.rbac_days') ?? $r->json('data.auth_activity.window_days'));
+        $this->assertSame(365, $authDays);
     }
 }

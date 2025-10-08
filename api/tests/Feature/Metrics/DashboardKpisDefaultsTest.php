@@ -23,8 +23,7 @@ final class DashboardKpisDefaultsTest extends TestCase
             'core.rbac.policies' => array_merge(config('core.rbac.policies', []), [
                 'core.metrics.view' => ['Admin'],
             ]),
-            'core.metrics.evidence_freshness.days' => 45,
-            'core.metrics.rbac_denies.window_days' => 10,
+            'core.metrics.rbac_denies.window_days' => 12,
         ]);
 
         $admin = $this->makeUser('Admin Metrics', 'admin-metrics-defaults@example.test');
@@ -37,16 +36,14 @@ final class DashboardKpisDefaultsTest extends TestCase
         $data = is_array($json) && array_key_exists('data', $json) ? $json['data'] : $json;
         self::assertIsArray($data);
 
-        $rbac = $data['rbac_denies'] ?? [];
-        $fresh = $data['evidence_freshness'] ?? [];
+        $auth = $data['auth_activity'] ?? [];
         $meta = $json['meta'] ?? ($data['meta'] ?? []);
 
-        self::assertSame(10, (int) ($rbac['window_days'] ?? -1));
-        self::assertSame(45, (int) ($fresh['days'] ?? -1));
+        self::assertSame(12, (int) ($auth['window_days'] ?? -1));
 
         if (is_array($meta)) {
-            self::assertSame(10, (int) ($meta['window']['rbac_days'] ?? -1));
-            self::assertSame(45, (int) ($meta['window']['fresh_days'] ?? -1));
+            self::assertSame(12, (int) ($meta['window']['rbac_days'] ?? -1));
+            self::assertSame(12, (int) ($meta['window']['auth_days'] ?? -1));
         }
     }
 

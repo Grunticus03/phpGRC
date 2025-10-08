@@ -21,7 +21,7 @@ final class MetricsWindowClampConfigTest extends TestCase
             'core.rbac.require_auth' => false, // focus on clamps, not auth
             'core.metrics.cache_ttl_seconds' => 0, // avoid cache variance
             'core.metrics.throttle.enabled' => false, // avoid 429 in CI
-            'core.metrics.window.min_days' => 3,
+            'core.metrics.window.min_days' => 7,
             'core.metrics.window.max_days' => 10,
         ]);
 
@@ -31,14 +31,12 @@ final class MetricsWindowClampConfigTest extends TestCase
     public function test_numeric_params_clamp_to_configured_bounds(): void
     {
         // Below min clamps up
-        $r1 = $this->getJson('/dashboard/kpis?days=1&rbac_days=0')->assertStatus(200);
-        $r1->assertJsonPath('data.evidence_freshness.days', 3);
-        $r1->assertJsonPath('data.rbac_denies.window_days', 3);
+        $r1 = $this->getJson('/dashboard/kpis?auth_days=1&rbac_days=0')->assertStatus(200);
+        $r1->assertJsonPath('data.auth_activity.window_days', 7);
 
         // Above max clamps down
-        $r2 = $this->getJson('/dashboard/kpis?days=999&rbac_days=999')->assertStatus(200);
-        $r2->assertJsonPath('data.evidence_freshness.days', 10);
-        $r2->assertJsonPath('data.rbac_denies.window_days', 10);
+        $r2 = $this->getJson('/dashboard/kpis?auth_days=999&rbac_days=999')->assertStatus(200);
+        $r2->assertJsonPath('data.auth_activity.window_days', 10);
     }
 
     public function test_future_range_clamps_rbac_days_to_configured_max(): void
@@ -52,6 +50,6 @@ final class MetricsWindowClampConfigTest extends TestCase
         ]);
 
         $r = $this->getJson('/dashboard/kpis?'.$q)->assertStatus(200);
-        $r->assertJsonPath('meta.window.rbac_days', 10);
+        $r->assertJsonPath('meta.window.auth_days', 10);
     }
 }

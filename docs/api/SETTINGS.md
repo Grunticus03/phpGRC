@@ -223,7 +223,6 @@ Content-Type: application/zip
 
 These defaults are used by the internal KPIs for Phase-5. They do **not** change the OpenAPI schema in 0.4.7.
 
-- `CORE_METRICS_EVIDENCE_FRESHNESS_DAYS=30` → `config('core.metrics.evidence_freshness.days')`
 - `CORE_METRICS_RBAC_DENIES_WINDOW_DAYS=7` → `config('core.metrics.rbac_denies.window_days')`
 
-Client and server **clamp** user-supplied windows to `1..365`. Non-numeric values fall back to defaults.
+Client and server **clamp** user-supplied windows to `7..365`. Non-numeric values fall back to defaults.

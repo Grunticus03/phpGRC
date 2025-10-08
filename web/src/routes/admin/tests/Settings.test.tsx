@@ -19,6 +19,7 @@ type CoreBody = {
     evidence: unknown;
     avatars: unknown;
     ui: { time_format: string };
+    metrics: { cache_ttl_seconds: number; rbac_denies: { window_days: number } };
   };
 };
 
@@ -97,6 +98,11 @@ describe("Admin Settings page", () => {
     fireEvent.change(retention, { target: { value: "180" } });
     expect(retention.value).toBe("180");
 
+    const authWindow = screen.getByLabelText("Authentication window (days)") as HTMLInputElement;
+    expect(authWindow.value).toBe("7");
+    fireEvent.change(authWindow, { target: { value: "30" } });
+    expect(authWindow.value).toBe("30");
+
     const timeFormatSelect = screen.getByLabelText(/Timestamp display/i) as HTMLSelectElement;
     fireEvent.change(timeFormatSelect, { target: { value: "ISO_8601" } });
     expect(timeFormatSelect.value).toBe("ISO_8601");
@@ -117,6 +123,8 @@ describe("Admin Settings page", () => {
     expect(core.audit.retention_days).toBe(180);
     expect(core).toHaveProperty("ui");
     expect(core.ui.time_format).toBe("ISO_8601");
+    expect(core).toHaveProperty("metrics");
+    expect(core.metrics.rbac_denies.window_days).toBe(30);
   });
 });
 

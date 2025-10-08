@@ -10,5 +10,6 @@ api/database/*.sqlite
 api/database/database.sqlite-journal
 node_modules
 web/coverage
+web/node_modules_bak*
 /tmp
 vendor

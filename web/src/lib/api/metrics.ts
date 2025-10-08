@@ -1,144 +1,147 @@
-// FILE: web/src/lib/api/metrics.ts
-export type RbacDaily = {
-  date: string;          // YYYY-MM-DD
-  denies: number;
+import { apiGet } from "../api";
+
+export type AuthDaily = {
+  date: string; // YYYY-MM-DD
+  success: number;
+  failed: number;
   total: number;
-  rate: number;          // 0..1
 };
 
-export type RbacDenies = {
+export type AuthActivity = {
   window_days: number;
-  from: string;          // YYYY-MM-DD
-  to: string;            // YYYY-MM-DD
-  denies: number;
-  total: number;
-  rate: number;          // 0..1
-  daily: RbacDaily[];
+  from: string; // ISO8601
+  to: string;   // ISO8601
+  daily: AuthDaily[];
+  totals: { success: number; failed: number; total: number };
+  max_daily_total: number;
 };
 
-export type EvidenceByMime = {
+export type EvidenceMimeSlice = {
   mime: string;
-  total: number;
-  stale: number;
-  percent: number;       // 0..100 (normalized here)
+  count: number;
+  percent: number; // 0..100 (normalized)
 };
 
-export type EvidenceFreshness = {
-  days: number;
+export type EvidenceMime = {
   total: number;
-  stale: number;
-  percent: number;       // 0..100 (normalized here)
-  by_mime: EvidenceByMime[];
+  by_mime: EvidenceMimeSlice[];
+};
+
+export type AdminActivityRow = {
+  id: number;
+  name: string;
+  email: string;
+  last_login_at: string | null;
+};
+
+export type AdminActivity = {
+  admins: AdminActivityRow[];
 };
 
 export type Kpis = {
-  rbac_denies: RbacDenies;
-  evidence_freshness: EvidenceFreshness;
+  auth_activity: AuthActivity;
+  evidence_mime: EvidenceMime;
+  admin_activity: AdminActivity;
 };
 
-type RawEvidenceByMime = Omit<EvidenceByMime, "percent"> & { percent: number }; // 0..1 or 0..100
-type RawEvidenceFreshness = Omit<EvidenceFreshness, "percent" | "by_mime"> & {
-  percent: number;        // 0..1 or 0..100
-  by_mime: RawEvidenceByMime[];
+type RawAuthDaily = Partial<AuthDaily>;
+type RawAuthActivity = Partial<Omit<AuthActivity, "daily" | "totals">> & {
+  daily?: RawAuthDaily[];
+  totals?: Partial<AuthActivity["totals"]>;
 };
 
-type RawRbacDenies = RbacDenies; // already 0..1 rate
+type RawEvidenceSlice = Partial<EvidenceMimeSlice>;
+type RawEvidenceMime = Partial<Omit<EvidenceMime, "by_mime">> & { by_mime?: RawEvidenceSlice[] };
 
-function toPct(n: unknown): number {
-  const v = typeof n === "number" && isFinite(n) ? n : 0;
+type RawAdminRow = Partial<AdminActivityRow>;
+type RawAdminActivity = Partial<Omit<AdminActivity, "admins">> & { admins?: RawAdminRow[] };
+
+type RawKpis = {
+  auth_activity?: RawAuthActivity;
+  evidence_mime?: RawEvidenceMime;
+  admin_activity?: RawAdminActivity;
+};
+
+function toPct(value: unknown): number {
+  const v = typeof value === "number" && Number.isFinite(value) ? value : 0;
   const pct = v <= 1 ? v * 100 : v;
   return Math.max(0, Math.min(100, pct));
 }
 
 function normalize(raw: unknown): Kpis {
-  const root =
-    raw && typeof raw === "object"
-      ? (raw as { rbac_denies?: RawRbacDenies; evidence_freshness?: RawEvidenceFreshness })
-      : {};
+  const root: RawKpis = raw && typeof raw === "object" ? (raw as RawKpis) : {};
 
-  const rd = root.rbac_denies as RawRbacDenies | undefined;
-  const ev = root.evidence_freshness as RawEvidenceFreshness | undefined;
+  const authRaw = root.auth_activity ?? {};
+  const auth: AuthActivity = {
+    window_days: Number.isFinite(authRaw.window_days) ? Number(authRaw.window_days) : 7,
+    from: typeof authRaw.from === "string" ? authRaw.from : "",
+    to: typeof authRaw.to === "string" ? authRaw.to : "",
+    daily: Array.isArray(authRaw.daily)
+      ? authRaw.daily.map((row) => ({
+          date: typeof row.date === "string" ? row.date : "",
+          success: Number.isFinite(row.success) ? Number(row.success) : 0,
+          failed: Number.isFinite(row.failed) ? Number(row.failed) : 0,
+          total: Number.isFinite(row.total) ? Number(row.total) : 0,
+        }))
+      : [],
+    totals: {
+      success: Number.isFinite(authRaw.totals?.success) ? Number(authRaw.totals?.success) : 0,
+      failed: Number.isFinite(authRaw.totals?.failed) ? Number(authRaw.totals?.failed) : 0,
+      total: Number.isFinite(authRaw.totals?.total) ? Number(authRaw.totals?.total) : 0,
+    },
+    max_daily_total: Number.isFinite(authRaw.max_daily_total) ? Number(authRaw.max_daily_total) : 0,
+  };
 
-  const evidence: EvidenceFreshness = {
-    days: Number(ev?.days ?? 30),
-    total: Number(ev?.total ?? 0),
-    stale: Number(ev?.stale ?? 0),
-    percent: toPct(ev?.percent ?? 0),
-    by_mime: Array.isArray(ev?.by_mime)
-      ? (ev.by_mime as RawEvidenceByMime[]).map((row) => ({
-          mime: String(row.mime ?? ""),
-          total: Number(row.total ?? 0),
-          stale: Number(row.stale ?? 0),
+  const evidenceRaw = root.evidence_mime ?? {};
+  const evidence: EvidenceMime = {
+    total: Number.isFinite(evidenceRaw.total) ? Number(evidenceRaw.total) : 0,
+    by_mime: Array.isArray(evidenceRaw.by_mime)
+      ? evidenceRaw.by_mime.map((row) => ({
+          mime: typeof row.mime === "string" && row.mime.length > 0 ? row.mime : "Unknown",
+          count: Number.isFinite(row.count) ? Number(row.count) : 0,
           percent: toPct(row.percent ?? 0),
         }))
       : [],
   };
 
-  const denies: RbacDenies = {
-    window_days: Number(rd?.window_days ?? 7),
-    from: String(rd?.from ?? ""),
-    to: String(rd?.to ?? ""),
-    denies: Number(rd?.denies ?? 0),
-    total: Number(rd?.total ?? 0),
-    rate: Math.max(0, Math.min(1, Number(rd?.rate ?? 0))),
-    daily: Array.isArray(rd?.daily)
-      ? (rd.daily as RbacDaily[]).map((d) => ({
-          date: String(d.date ?? ""),
-          denies: Number(d.denies ?? 0),
-          total: Number(d.total ?? 0),
-          rate: Math.max(0, Math.min(1, Number(d.rate ?? 0))),
+  const adminRaw = root.admin_activity ?? {};
+  const admin: AdminActivity = {
+    admins: Array.isArray(adminRaw.admins)
+      ? adminRaw.admins.map((row) => ({
+          id: Number.isFinite(row.id) ? Number(row.id) : 0,
+          name: typeof row.name === "string" ? row.name : "",
+          email: typeof row.email === "string" ? row.email : "",
+          last_login_at:
+            typeof row.last_login_at === "string" && row.last_login_at.length > 0
+              ? row.last_login_at
+              : null,
         }))
       : [],
   };
 
-  return { rbac_denies: denies, evidence_freshness: evidence };
+  return { auth_activity: auth, evidence_mime: evidence, admin_activity: admin };
 }
 
-function buildQuery(params: Record<string, string | number | undefined>): string {
-  const qs = new URLSearchParams();
-  Object.entries(params).forEach(([k, v]) => {
-    if (v !== undefined && String(v).length > 0) qs.set(k, String(v));
-  });
-  const s = qs.toString();
-  return s ? `?${s}` : "";
-}
+export type FetchKpisOptions = {
+  auth_days?: number;
+};
 
 /**
  * Fetch KPI snapshot from /api/dashboard/kpis.
- * Optional params: { rbac_days, days }.
- * Returns normalized KPIs with percent fields scaled to 0..100 for UI.
  * Throws Error('forbidden') on 403.
  */
-export async function fetchKpis(
-  signal?: AbortSignal,
-  opts?: { rbac_days?: number; days?: number }
-): Promise<Kpis> {
-  const query = buildQuery({
-    rbac_days:
-      typeof opts?.rbac_days === "number"
-        ? Math.max(1, Math.min(365, Math.trunc(opts.rbac_days)))
-        : undefined,
-    days:
-      typeof opts?.days === "number"
-        ? Math.max(1, Math.min(365, Math.trunc(opts.days)))
-        : undefined,
-  });
+export async function fetchKpis(signal?: AbortSignal, opts?: FetchKpisOptions): Promise<Kpis> {
+  const authDays = typeof opts?.auth_days === "number" ? Math.trunc(opts.auth_days) : undefined;
+  const clampedAuthDays = authDays !== undefined ? Math.max(7, Math.min(365, authDays)) : undefined;
 
-  const res = await fetch(`/api/dashboard/kpis${query}`, {
-    credentials: "same-origin",
-    signal,
-  });
+  const params = clampedAuthDays !== undefined ? { auth_days: clampedAuthDays } : undefined;
 
-  if (res.status === 403) throw new Error("forbidden");
-  if (!res.ok) throw new Error(`http_${res.status}`);
+  const json = await apiGet<unknown>('/api/dashboard/kpis', params, signal);
 
-  const json = (await res.json()) as unknown;
-
-  // Accept either envelope { ok, data } or raw object
   const data =
     json && typeof json === "object" && "data" in (json as Record<string, unknown>)
-      ? (json as Record<string, unknown>)["data"]
+      ? (json as Record<string, unknown>).data
       : json;
 
-  return normalize(data as unknown);
+  return normalize(data);
 }

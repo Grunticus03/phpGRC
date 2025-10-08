@@ -14,130 +14,73 @@ use Illuminate\Support\Facades\Cache;
  */
 final class CachedMetricsService
 {
-    private RbacDeniesCalculator $rbacDenies;
-
-    private EvidenceFreshnessCalculator $evidenceFreshness;
-
-    private SettingsService $settings;
-
     public function __construct(
-        RbacDeniesCalculator $rbacDenies,
-        EvidenceFreshnessCalculator $evidenceFreshness,
-        SettingsService $settings
-    ) {
-        $this->rbacDenies = $rbacDenies;
-        $this->evidenceFreshness = $evidenceFreshness;
-        $this->settings = $settings;
-    }
+        private readonly AuthActivityCalculator $authActivity,
+        private readonly EvidenceMimeBreakdownCalculator $evidenceMime,
+        private readonly AdminActivityCalculator $adminActivity,
+        private readonly SettingsService $settings,
+    ) {}
 
     /**
-     * Back-compat. Returns only the data payload.
+     * Back-compat helper. Returns only the data payload.
      *
      * @return array{
-     *   rbac_denies: array{
+     *   auth_activity: array{
      *     window_days:int,
      *     from: non-empty-string,
      *     to: non-empty-string,
-     *     denies:int,
-     *     total:int,
-     *     rate:float,
-     *     daily: list<array{date: non-empty-string, denies:int, total:int, rate:float}>
+     *     daily:list<array{date:non-empty-string,success:int,failed:int,total:int}>,
+     *     totals:array{success:int,failed:int,total:int},
+     *     max_daily_total:int
      *   },
-     *   evidence_freshness: array{
-     *     days:int,
+     *   evidence_mime: array{
      *     total:int,
-     *     stale:int,
-     *     percent:float,
-     *     by_mime: list<array{mime: non-empty-string, total:int, stale:int, percent:float}>
+     *     by_mime:list<array{mime:non-empty-string,count:int,percent:float}>
+     *   },
+     *   admin_activity: array{
+     *     admins:list<array{id:int,name:string,email:string,last_login_at:string|null}>
      *   }
      * }
      */
-    public function snapshot(?int $deniesWindowDays = null, ?int $freshnessDays = null): array
+    public function snapshot(?int $authWindowDays = null): array
     {
-        /** @var array{
-         *   data: array{
-         *     rbac_denies: array{
-         *       window_days:int,
-         *       from: non-empty-string,
-         *       to: non-empty-string,
-         *       denies:int,
-         *       total:int,
-         *       rate:float,
-         *       daily: list<array{date: non-empty-string, denies:int, total:int, rate:float}>
-         *     },
-         *     evidence_freshness: array{
-         *       days:int,
-         *       total:int,
-         *       stale:int,
-         *       percent:float,
-         *       by_mime: list<array{mime: non-empty-string, total:int, stale:int, percent:float}>
-         *     }
-         *   },
-         *   cache: array{ttl:int, hit:bool}
-         * } $out
-         */
-        $out = $this->snapshotWithMeta($deniesWindowDays, $freshnessDays);
+        $out = $this->snapshotWithMeta($authWindowDays);
 
-        /** @var array{
-         *   rbac_denies: array{
-         *     window_days:int,
-         *     from: non-empty-string,
-         *     to: non-empty-string,
-         *     denies:int,
-         *     total:int,
-         *     rate:float,
-         *     daily: list<array{date: non-empty-string, denies:int, total:int, rate:float}>
-         *   },
-         *   evidence_freshness: array{
-         *     days:int,
-         *     total:int,
-         *     stale:int,
-         *     percent:float,
-         *     by_mime: list<array{mime: non-empty-string, total:int, stale:int, percent:float}>
-         *   }
-         * } $data
-         */
-        $data = $out['data'];
-
-        return $data;
+        return $out['data'];
     }
 
     /**
      * Produce the dashboard metrics snapshot and return cache meta.
      *
-     * @param  int|null  $deniesWindowDays  Optional override for RBAC denies window (1..365). Null uses DB default.
-     * @param  int|null  $freshnessDays  Optional override for Evidence freshness days (1..365). Null uses DB default.
      * @return array{
      *   data: array{
-     *     rbac_denies: array{
+     *     auth_activity: array{
      *       window_days:int,
      *       from: non-empty-string,
      *       to: non-empty-string,
-     *       denies:int,
-     *       total:int,
-     *       rate:float,
-     *       daily: list<array{date: non-empty-string, denies:int, total:int, rate:float}>
+     *       daily:list<array{date:non-empty-string,success:int,failed:int,total:int}>,
+     *       totals:array{success:int,failed:int,total:int},
+     *       max_daily_total:int
      *     },
-     *     evidence_freshness: array{
-     *       days:int,
+     *     evidence_mime: array{
      *       total:int,
-     *       stale:int,
-     *       percent:float,
-     *       by_mime: list<array{mime: non-empty-string, total:int, stale:int, percent:float}>
+     *       by_mime:list<array{mime:non-empty-string,count:int,percent:float}>
+     *     },
+     *     admin_activity: array{
+     *       admins:list<array{id:int,name:string,email:string,last_login_at:string|null}>
      *     }
      *   },
      *   cache: array{ttl:int, hit:bool}
      * }
      */
-    public function snapshotWithMeta(?int $deniesWindowDays = null, ?int $freshnessDays = null): array
+    public function snapshotWithMeta(?int $authWindowDays = null): array
     {
-        $defaults = $this->loadDefaults(); // [rbac_days:int, fresh_days:int, ttl:int]
+        $defaults = $this->loadDefaults(); // [auth_days:int, ttl:int]
 
-        $rbacDays = $this->clampDays($deniesWindowDays ?? $defaults['rbac_days']);
-        $freshDays = $this->clampDays($freshnessDays ?? $defaults['fresh_days']);
+        $authDays = $this->clampAuthDays($authWindowDays ?? $defaults['auth_days']);
         $ttl = $this->clampTtlAllowZero($defaults['ttl']); // 0 disables
 
-        $key = sprintf('metrics.snapshot.v1:rbac=%d:fresh=%d', $rbacDays, $freshDays);
+        $key = sprintf('metrics.snapshot.v2:auth=%d', $authDays);
 
         $store = Cache::store('array');
 
@@ -146,21 +89,20 @@ final class CachedMetricsService
             $raw = $store->get($key);
             if (is_array($raw)) {
                 /** @var array{
-                 *   rbac_denies: array{
+                 *   auth_activity: array{
                  *     window_days:int,
                  *     from: non-empty-string,
                  *     to: non-empty-string,
-                 *     denies:int,
-                 *     total:int,
-                 *     rate:float,
-                 *     daily: list<array{date: non-empty-string, denies:int, total:int, rate:float}>
+                 *     daily:list<array{date:non-empty-string,success:int,failed:int,total:int}>,
+                 *     totals:array{success:int,failed:int,total:int},
+                 *     max_daily_total:int
                  *   },
-                 *   evidence_freshness: array{
-                 *     days:int,
+                 *   evidence_mime: array{
                  *     total:int,
-                 *     stale:int,
-                 *     percent:float,
-                 *     by_mime: list<array{mime: non-empty-string, total:int, stale:int, percent:float}>
+                 *     by_mime:list<array{mime:non-empty-string,count:int,percent:float}>
+                 *   },
+                 *   admin_activity: array{
+                 *     admins:list<array{id:int,name:string,email:string,last_login_at:string|null}>
                  *   }
                  * } $cachedPayload
                  */
@@ -174,46 +116,48 @@ final class CachedMetricsService
          *   window_days:int,
          *   from: non-empty-string,
          *   to: non-empty-string,
-         *   denies:int,
-         *   total:int,
-         *   rate:float,
-         *   daily: list<array{date: non-empty-string, denies:int, total:int, rate:float}>
-         * } $rbac
+         *   daily:list<array{date:non-empty-string,success:int,failed:int,total:int}>,
+         *   totals:array{success:int,failed:int,total:int},
+         *   max_daily_total:int
+         * } $auth
          */
-        $rbac = $this->rbacDenies->compute($rbacDays);
+        $auth = $this->authActivity->compute($authDays);
 
         /** @var array{
-         *   days:int,
          *   total:int,
-         *   stale:int,
-         *   percent:float,
-         *   by_mime: list<array{mime: non-empty-string, total:int, stale:int, percent:float}>
-         * } $fresh
+         *   by_mime:list<array{mime:non-empty-string,count:int,percent:float}>
+         * } $mime
          */
-        $fresh = $this->evidenceFreshness->compute($freshDays);
+        $mime = $this->evidenceMime->compute();
 
         /** @var array{
-         *   rbac_denies: array{
+         *   admins:list<array{id:int,name:string,email:string,last_login_at:string|null}>
+         * } $admins
+         */
+        $admins = $this->adminActivity->compute();
+
+        /** @var array{
+         *   auth_activity: array{
          *     window_days:int,
          *     from: non-empty-string,
          *     to: non-empty-string,
-         *     denies:int,
-         *     total:int,
-         *     rate:float,
-         *     daily: list<array{date: non-empty-string, denies:int, total:int, rate:float}>
+         *     daily:list<array{date:non-empty-string,success:int,failed:int,total:int}>,
+         *     totals:array{success:int,failed:int,total:int},
+         *     max_daily_total:int
          *   },
-         *   evidence_freshness: array{
-         *     days:int,
+         *   evidence_mime: array{
          *     total:int,
-         *     stale:int,
-         *     percent:float,
-         *     by_mime: list<array{mime: non-empty-string, total:int, stale:int, percent:float}>
+         *     by_mime:list<array{mime:non-empty-string,count:int,percent:float}>
+         *   },
+         *   admin_activity: array{
+         *     admins:list<array{id:int,name:string,email:string,last_login_at:string|null}>
          *   }
          * } $payload
          */
         $payload = [
-            'rbac_denies' => $rbac,
-            'evidence_freshness' => $fresh,
+            'auth_activity' => $auth,
+            'evidence_mime' => $mime,
+            'admin_activity' => $admins,
         ];
 
         if ($ttl > 0) {
@@ -226,7 +170,7 @@ final class CachedMetricsService
     /**
      * Read DB-backed defaults from SettingsService with hard fallbacks.
      *
-     * @return array{rbac_days:int, fresh_days:int, ttl:int}
+     * @return array{auth_days:int, ttl:int}
      */
     private function loadDefaults(): array
     {
@@ -245,28 +189,22 @@ final class CachedMetricsService
             $metrics = $eff['core']['metrics'];
         }
 
-        $freshDays = 30;
-        if (isset($metrics['evidence_freshness']) && is_array($metrics['evidence_freshness']) && isset($metrics['evidence_freshness']['days'])) {
-            $freshDays = $this->clampDays($metrics['evidence_freshness']['days']);
-        }
-
-        $rbacDays = 7;
+        $authDays = 7;
         if (isset($metrics['rbac_denies']) && is_array($metrics['rbac_denies']) && isset($metrics['rbac_denies']['window_days'])) {
-            $rbacDays = $this->clampDays($metrics['rbac_denies']['window_days']);
+            $authDays = $this->clampAuthDays($metrics['rbac_denies']['window_days']);
         }
 
         return [
-            'rbac_days' => $rbacDays,
-            'fresh_days' => $freshDays,
+            'auth_days' => $authDays,
             'ttl' => $ttl,
         ];
     }
 
-    private function clampDays(mixed $n): int
+    private function clampAuthDays(mixed $n): int
     {
         $v = is_int($n) ? $n : (is_string($n) && ctype_digit($n) ? (int) $n : 0);
-        if ($v < 1) {
-            $v = 1;
+        if ($v < 7) {
+            $v = 7;
         }
         if ($v > 365) {
             $v = 365;

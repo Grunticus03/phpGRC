@@ -34,15 +34,17 @@ final class DashboardKpisTest extends TestCase
         $kpis = $this->extractKpis($resp);
 
         self::assertIsArray($kpis);
-        self::assertArrayHasKey('rbac_denies', $kpis);
-        self::assertArrayHasKey('evidence_freshness', $kpis);
+        self::assertArrayHasKey('auth_activity', $kpis);
+        self::assertArrayHasKey('evidence_mime', $kpis);
+        self::assertArrayHasKey('admin_activity', $kpis);
 
-        foreach (['window_days', 'from', 'to', 'denies', 'total', 'rate', 'daily'] as $key) {
-            self::assertArrayHasKey($key, $kpis['rbac_denies']);
+        foreach (['window_days', 'from', 'to', 'daily', 'totals', 'max_daily_total'] as $key) {
+            self::assertArrayHasKey($key, $kpis['auth_activity']);
         }
-        foreach (['days', 'total', 'stale', 'percent', 'by_mime'] as $key) {
-            self::assertArrayHasKey($key, $kpis['evidence_freshness']);
+        foreach (['total', 'by_mime'] as $key) {
+            self::assertArrayHasKey($key, $kpis['evidence_mime']);
         }
+        self::assertArrayHasKey('admins', $kpis['admin_activity']);
     }
 
     /** Create a user without factories. */

@@ -69,21 +69,20 @@ Response envelope:
 {
   "ok": true,
   "data": {
-    "rbac_denies": {
+    "auth_activity": {
       "window_days": 7,
       "from": "YYYY-MM-DD",
       "to": "YYYY-MM-DD",
-      "denies": 0,
-      "total": 0,
-      "rate": 0.0,
-      "daily": [{"date":"YYYY-MM-DD","denies":0,"total":0,"rate":0.0}]
+      "daily": [{"date":"YYYY-MM-DD","success":0,"failed":0,"total":0}],
+      "totals": {"success": 0, "failed": 0, "total": 0},
+      "max_daily_total": 0
     },
-    "evidence_freshness": {
-      "days": 30,
+    "evidence_mime": {
       "total": 0,
-      "stale": 0,
-      "percent": 0.0,
-      "by_mime": [{"mime":"application/pdf","total":0,"stale":0,"percent":0.0}]
+      "by_mime": [{"mime":"application/pdf","count":0,"percent":0.0}]
+    },
+    "admin_activity": {
+      "admins": [{"id": 1, "name": "Admin User", "email": "admin@example.test", "last_login_at": "YYYY-MM-DDTHH:MM:SSZ" }]
     }
   },
   "meta": { "generated_at": "ISO-8601" }

@@ -1,6 +1,7 @@
 /** @vitest-environment jsdom */
 import { describe, expect, it, beforeEach, afterEach, vi, type Mock } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import React from "react";
 import Audit from "../Audit";
 
@@ -62,8 +63,16 @@ describe("Admin Audit page", () => {
     vi.restoreAllMocks();
   });
 
+  function renderAudit(initialEntries?: string[]) {
+    render(
+      <MemoryRouter initialEntries={initialEntries}>
+        <Audit />
+      </MemoryRouter>
+    );
+  }
+
   it("loads categories and builds occurred_from/occurred_to query", async () => {
-    render(<Audit />);
+    renderAudit();
 
     const catSelect = await screen.findByRole("combobox", { name: "Category" });
     expect(catSelect.tagName.toLowerCase()).toBe("select");
@@ -91,7 +100,7 @@ describe("Admin Audit page", () => {
   });
 
   it("lets you select an actor and includes actor_id in the query", async () => {
-    render(<Audit />);
+    renderAudit();
 
     await screen.findByLabelText("Category");
 
@@ -121,9 +130,22 @@ describe("Admin Audit page", () => {
       return jsonResponse({ ok: true, items: [], nextCursor: null });
     });
 
-    render(<Audit />);
+    renderAudit();
 
     const catInput = await screen.findByLabelText("Category");
     expect(catInput.tagName.toLowerCase()).toBe("input");
+  });
+
+  it("applies filters supplied in the query string", async () => {
+    renderAudit(["/admin/audit?category=AUTH&occurred_from=2025-01-10&occurred_to=2025-01-10"]);
+
+    await waitFor(() => {
+      const hits = calls.filter((u) => u.startsWith("/api/audit?"));
+      expect(hits.length).toBeGreaterThan(0);
+      const hit = hits[hits.length - 1];
+      expect(hit).toContain("category=AUTH");
+      expect(hit).toContain("occurred_from=2025-01-10");
+      expect(hit).toContain("occurred_to=2025-01-10");
+    });
   });
 });

@@ -6,7 +6,6 @@ type EffectiveConfig = {
   core: {
     metrics?: {
       cache_ttl_seconds?: number;
-      evidence_freshness?: { days?: number };
       rbac_denies?: { window_days?: number };
     };
     rbac?: { require_auth?: boolean; user_search?: { default_per_page?: number } };
@@ -30,7 +29,6 @@ export default function Settings(): JSX.Element {
   const [msg, setMsg] = useState<string | null>(null);
 
   const [cacheTtl, setCacheTtl] = useState<number>(0);
-  const [freshDays, setFreshDays] = useState<number>(30);
   const [rbacDays, setRbacDays] = useState<number>(7);
   const [rbacRequireAuth, setRbacRequireAuth] = useState<boolean>(false);
   const [rbacUserSearchPerPage, setRbacUserSearchPerPage] = useState<number>(50);
@@ -51,7 +49,6 @@ export default function Settings(): JSX.Element {
         const rbac = core.rbac ?? {};
         const audit = core.audit ?? {};
         setCacheTtl(Number(metrics.cache_ttl_seconds ?? 0));
-        setFreshDays(Number(metrics.evidence_freshness?.days ?? 30));
         setRbacDays(Number(metrics.rbac_denies?.window_days ?? 7));
         setRbacRequireAuth(Boolean(rbac.require_auth ?? false));
         setRbacUserSearchPerPage(Number(rbac.user_search?.default_per_page ?? 50));
@@ -78,8 +75,7 @@ export default function Settings(): JSX.Element {
         core: {
           metrics: {
             cache_ttl_seconds: clamp(Number(cacheTtl) || 0, 0, 2_592_000),
-            evidence_freshness: { days: clamp(Number(freshDays) || 30, 1, 365) },
-            rbac_denies: { window_days: clamp(Number(rbacDays) || 7, 1, 365) },
+            rbac_denies: { window_days: clamp(Number(rbacDays) || 7, 7, 365) },
           },
           rbac: {
             require_auth: !!rbacRequireAuth,
@@ -221,29 +217,17 @@ export default function Settings(): JSX.Element {
                 </div>
 
                 <div className="col-sm-4">
-                  <label htmlFor="freshDays" className="form-label">Evidence freshness (days)</label>
-                  <input
-                    id="freshDays"
-                    type="number"
-                    min={1}
-                    max={365}
-                    className="form-control"
-                    value={freshDays}
-                    onChange={(e) => setFreshDays(Math.max(1, Math.min(365, Number(e.target.value) || 1)))}
-                  />
-                </div>
-
-                <div className="col-sm-4">
-                  <label htmlFor="rbacDays" className="form-label">RBAC window (days)</label>
+                  <label htmlFor="rbacDays" className="form-label">Authentication window (days)</label>
                   <input
                     id="rbacDays"
                     type="number"
-                    min={1}
+                    min={7}
                     max={365}
                     className="form-control"
                     value={rbacDays}
-                    onChange={(e) => setRbacDays(Math.max(1, Math.min(365, Number(e.target.value) || 1)))}
+                    onChange={(e) => setRbacDays(Math.max(7, Math.min(365, Number(e.target.value) || 7)))}
                   />
+                  <div className="form-text">Controls the dashboard authentication chart. Range 7–365.</div>
                 </div>
               </div>
             </div>

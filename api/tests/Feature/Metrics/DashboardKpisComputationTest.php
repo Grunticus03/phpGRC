@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Metrics;
 
 use App\Models\User;
+use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -30,39 +31,45 @@ final class DashboardKpisComputationTest extends TestCase
         $admin = $this->makeUser('Admin Metrics', 'admin-metrics@example.test');
         $this->attachNamedRole($admin, 'Admin');
 
-        // Seed 7 days of AUTH/RBAC traffic plus RBAC denies.
-        $now = Carbon::now()->startOfDay();
-        $totalPerDay = 10; // AUTH+RBAC non-deny events
-        $deniesPerDay = 3; // RBAC deny events
+        $otherAdmin = $this->makeUser('Admin Two', 'admin2@example.test');
+        $this->attachNamedRole($otherAdmin, 'Admin');
+
+        $now = Carbon::now('UTC')->startOfDay();
+        $successPerDay = 5;
+        $failPerDay = 2;
 
         for ($d = 0; $d < 7; $d++) {
             $day = (clone $now)->subDays($d);
-            for ($i = 0; $i < $totalPerDay; $i++) {
-                $this->insertAudit(
-                    occurredAt: (clone $day)->addMinutes($i),
-                    category: $i % 2 === 0 ? 'AUTH' : 'RBAC',
-                    action: $i % 2 === 0 ? 'auth.login.success' : 'rbac.allow',
-                );
+            for ($i = 0; $i < $successPerDay; $i++) {
+                $ts = (clone $day)->addMinutes($i);
+                $this->insertAudit($ts, 'AUTH', 'auth.login', $admin->getKey());
             }
-            for ($j = 0; $j < $deniesPerDay; $j++) {
-                $this->insertAudit(
-                    occurredAt: (clone $day)->addMinutes(100 + $j),
-                    category: 'RBAC',
-                    action: match ($j % 3) {
-                        0 => 'rbac.deny.role',
-                        1 => 'rbac.deny.policy',
-                        default => 'rbac.deny.capability',
-                    },
-                );
+            for ($j = 0; $j < $failPerDay; $j++) {
+                $ts = (clone $day)->addMinutes(200 + $j);
+                $this->insertAudit($ts, 'AUTH', 'auth.login.failed', null);
             }
         }
 
-        // Seed evidence for freshness calc (5 total, 2 stale at 30 days).
-        $this->insertEvidence('application/pdf', $now->copy()->subDays(10));  // fresh
-        $this->insertEvidence('application/pdf', $now->copy()->subDays(40));  // stale
-        $this->insertEvidence('image/png', $now->copy()->subDays(5));   // fresh
-        $this->insertEvidence('image/png', $now->copy()->subDays(60));  // stale
-        $this->insertEvidence('text/plain', $now->copy()->subDays(2));   // fresh
+        $mimeCounts = [
+            'application/pdf' => 3,
+            'image/png' => 2,
+            'text/plain' => 1,
+        ];
+
+        foreach ($mimeCounts as $mime => $count) {
+            for ($i = 0; $i < $count; $i++) {
+                $this->insertEvidence($mime, (clone $now)->subDays($i + 1));
+            }
+        }
+
+        $latestLoginRaw = DB::table('audit_events')
+            ->where('action', '=', 'auth.login')
+            ->where('actor_id', '=', $admin->getKey())
+            ->max('occurred_at');
+
+        $expectedLastLoginIso = $latestLoginRaw
+            ? CarbonImmutable::parse((string) $latestLoginRaw)->setTimezone('UTC')->toIso8601String()
+            : null;
 
         $resp = $this->actingAs($admin, 'sanctum')->getJson('/dashboard/kpis');
         $resp->assertStatus(200);
@@ -70,57 +77,44 @@ final class DashboardKpisComputationTest extends TestCase
         $json = $resp->json();
         $data = is_array($json) && array_key_exists('data', $json) ? $json['data'] : $json;
 
-        // RBAC denies KPI — validate internal consistency against daily buckets and window.
-        $rbac = $data['rbac_denies'] ?? [];
-        self::assertSame(7, (int) ($rbac['window_days'] ?? -1));
+        $auth = $data['auth_activity'] ?? [];
+        self::assertSame(7, (int) ($auth['window_days'] ?? -1));
+        self::assertIsArray($auth['daily'] ?? null);
+        self::assertCount(7, $auth['daily'] ?? []);
 
-        $from = Carbon::parse((string) ($rbac['from'] ?? Carbon::now()->toDateString()))->startOfDay();
-        $to = Carbon::parse((string) ($rbac['to'] ?? Carbon::now()->toDateString()))->endOfDay();
+        $sumSuccess = array_sum(array_map(static fn ($d) => (int) ($d['success'] ?? 0), $auth['daily']));
+        $sumFailed = array_sum(array_map(static fn ($d) => (int) ($d['failed'] ?? 0), $auth['daily']));
+        $sumTotal = array_sum(array_map(static fn ($d) => (int) ($d['total'] ?? 0), $auth['daily']));
 
-        self::assertIsArray($rbac['daily'] ?? null);
-        $days = (int) ($from->diffInDays($to) + 1);
-        self::assertCount($days, $rbac['daily'] ?? []);
+        self::assertSame($successPerDay * 7, $sumSuccess);
+        self::assertSame($failPerDay * 7, $sumFailed);
+        self::assertSame($sumSuccess + $sumFailed, $sumTotal);
 
-        $sumDailyTotal = array_sum(array_map(static fn ($d) => (int) ($d['total'] ?? 0), $rbac['daily']));
-        $sumDailyDenies = array_sum(array_map(static fn ($d) => (int) ($d['denies'] ?? 0), $rbac['daily']));
+        $totals = $auth['totals'] ?? [];
+        self::assertSame($sumSuccess, (int) ($totals['success'] ?? -1));
+        self::assertSame($sumFailed, (int) ($totals['failed'] ?? -1));
+        self::assertSame($sumTotal, (int) ($totals['total'] ?? -1));
+        self::assertSame($successPerDay + $failPerDay, (int) ($auth['max_daily_total'] ?? -1));
 
-        self::assertSame($sumDailyTotal, (int) ($rbac['total'] ?? -1));
-        self::assertSame($sumDailyDenies, (int) ($rbac['denies'] ?? -1));
+        $evidence = $data['evidence_mime'] ?? [];
+        self::assertSame(array_sum($mimeCounts), (int) ($evidence['total'] ?? -1));
 
-        $rate = (float) ($rbac['rate'] ?? -1.0);
-        $calcRate = $sumDailyTotal > 0 ? $sumDailyDenies / $sumDailyTotal : 0.0;
-        self::assertThat($rate, self::logicalAnd(
-            self::greaterThanOrEqual(max(0.0, $calcRate - 0.001)),
-            self::lessThanOrEqual(min(1.0, $calcRate + 0.001)),
-        ));
-
-        // Evidence freshness KPI — compute from DB to match flexible schema.
-        $ev = $data['evidence_freshness'] ?? [];
-        self::assertSame(30, (int) ($ev['days'] ?? -1));
-
-        $daysParam = (int) ($ev['days'] ?? 30);
-        $threshold = Carbon::now()->subDays($daysParam);
-
-        $evTotal = (int) DB::table('evidence')->count();
-        $evStale = (int) DB::table('evidence')->where('updated_at', '<', $threshold)->count();
-
-        self::assertSame($evTotal, (int) ($ev['total'] ?? -1));
-        self::assertSame($evStale, (int) ($ev['stale'] ?? -1));
-
-        $expectedPercent = $evTotal > 0 ? ($evStale / $evTotal) * 100.0 : 0.0;
-
-        // Accept API percent as 0–100 or 0–1
-        $apiPercent = (float) ($ev['percent'] ?? -1.0);
-        if ($apiPercent >= 0.0 && $apiPercent <= 1.0) {
-            $apiPercent *= 100.0;
+        $byMime = collect($evidence['by_mime'] ?? []);
+        foreach ($mimeCounts as $mime => $expectedCount) {
+            $row = $byMime->firstWhere('mime', $mime);
+            $this->assertNotNull($row, "Missing MIME row for {$mime}");
+            $this->assertSame($expectedCount, (int) ($row['count'] ?? -1));
         }
 
-        self::assertThat($apiPercent, self::logicalAnd(
-            self::greaterThanOrEqual(max(0.0, $expectedPercent - 1.0)),
-            self::lessThanOrEqual(min(100.0, $expectedPercent + 1.0)),
-        ));
+        $admins = collect($data['admin_activity']['admins'] ?? []);
+        $primary = $admins->firstWhere('email', $admin->email);
+        $this->assertNotNull($primary);
+        $this->assertSame($admin->getKey(), (int) ($primary['id'] ?? 0));
+        $this->assertSame($expectedLastLoginIso, $primary['last_login_at'] ?? null);
 
-        self::assertIsArray($ev['by_mime'] ?? null);
+        $secondary = $admins->firstWhere('email', $otherAdmin->email);
+        $this->assertNotNull($secondary);
+        $this->assertNull($secondary['last_login_at'] ?? null);
     }
 
     private function makeUser(string $name, string $email): User
@@ -147,7 +141,7 @@ final class DashboardKpisComputationTest extends TestCase
         );
     }
 
-    private function insertAudit(Carbon $occurredAt, string $category, string $action): void
+    private function insertAudit(Carbon $occurredAt, string $category, string $action, ?int $actorId = null): void
     {
         $cols = Schema::getColumnListing('audit_events');
 
@@ -167,7 +161,7 @@ final class DashboardKpisComputationTest extends TestCase
             $row['updated_at'] = $occurredAt->toDateTimeString();
         }
         if (in_array('actor_id', $cols, true)) {
-            $row['actor_id'] = null;
+            $row['actor_id'] = $actorId;
         }
         if (in_array('ip', $cols, true)) {
             $row['ip'] = null;

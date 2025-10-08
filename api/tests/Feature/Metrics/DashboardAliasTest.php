@@ -35,8 +35,9 @@ final class DashboardAliasTest extends TestCase
         $data = is_array($json) && array_key_exists('data', $json) ? $json['data'] : $json;
 
         self::assertIsArray($data);
-        self::assertArrayHasKey('rbac_denies', $data);
-        self::assertArrayHasKey('evidence_freshness', $data);
+        self::assertArrayHasKey('auth_activity', $data);
+        self::assertArrayHasKey('evidence_mime', $data);
+        self::assertArrayHasKey('admin_activity', $data);
     }
 
     private function makeUser(string $name, string $email): User
