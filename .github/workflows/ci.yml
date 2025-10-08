@@ -123,14 +123,14 @@ jobs:
         run: |
           KEY=$(php -r "echo 'base64:'.base64_encode(random_bytes(32));")
           echo "APP_KEY=$KEY" >> "$GITHUB_ENV"
-          cat > .env <<EOF
-          APP_ENV=testing
-          APP_DEBUG=false
-          APP_KEY=$KEY
-          CACHE_DRIVER=array
-          SESSION_DRIVER=array
-          QUEUE_CONNECTION=sync
-          EOF
+          {
+            echo "APP_ENV=testing"
+            echo "APP_DEBUG=false"
+            echo "APP_KEY=$KEY"
+            echo "CACHE_DRIVER=array"
+            echo "SESSION_DRIVER=array"
+            echo "QUEUE_CONNECTION=sync"
+          } > .env
       - name: Prepare Laravel storage
         run: |
           mkdir -p bootstrap/cache \
