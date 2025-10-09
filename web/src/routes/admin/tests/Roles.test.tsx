@@ -83,6 +83,23 @@ describe("Admin Roles page", () => {
     expect(await screen.findByText("Compliance Lead")).toBeInTheDocument();
   });
 
+  test("renders numeric role names from API payload", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === "string" ? input : (input as Request).url ?? String(input);
+      const method = (init?.method ?? "GET").toUpperCase();
+      if (method === "GET" && /\/rbac\/roles\b/.test(url)) {
+        return jsonResponse(200, { ok: true, roles: ["admin", 123] });
+      }
+      return jsonResponse(200, { ok: true });
+    }) as unknown as typeof fetch;
+
+    globalThis.fetch = fetchMock;
+
+    renderPage();
+
+    expect(await screen.findByText("123")).toBeInTheDocument();
+  });
+
   test("shows friendly validation message on duplicate name", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = typeof input === "string" ? input : (input as Request).url ?? String(input);

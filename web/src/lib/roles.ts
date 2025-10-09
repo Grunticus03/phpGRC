@@ -5,13 +5,25 @@ export type RoleOption = {
 
 export type RoleOptionInput =
   | string
+  | number
   | {
-      id?: string | null | undefined;
-      name?: string | null | undefined;
+      id?: string | number | null | undefined;
+      name?: string | number | null | undefined;
     };
 
 function stripDiacritics(value: string): string {
   return value.normalize("NFKD").replace(/[\u0300-\u036f]/g, "");
+}
+
+function coerceRoleString(value: unknown): string | null {
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    return trimmed === "" ? null : trimmed;
+  }
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return String(value);
+  }
+  return null;
 }
 
 export function canonicalRoleId(raw: string): string {
@@ -44,14 +56,16 @@ export function roleOptionsFromList(source: RoleOptionInput[] | undefined | null
     let idSource: string | null = null;
     let labelSource: string | null = null;
 
-    if (typeof entry === "string") {
-      idSource = entry;
-      labelSource = entry;
+    if (typeof entry === "string" || typeof entry === "number") {
+      const asString = coerceRoleString(entry);
+      if (!asString) continue;
+      idSource = asString;
+      labelSource = asString;
     } else if (entry && typeof entry === "object") {
-      const possibleId = typeof entry.id === "string" ? entry.id : undefined;
-      const possibleName = typeof entry.name === "string" ? entry.name : undefined;
-      idSource = possibleId && possibleId.trim() !== "" ? possibleId : possibleName ?? null;
-      labelSource = possibleName && possibleName.trim() !== "" ? possibleName : possibleId ?? null;
+      const possibleId = coerceRoleString(entry.id);
+      const possibleName = coerceRoleString(entry.name);
+      idSource = possibleId ?? possibleName;
+      labelSource = possibleName ?? possibleId;
     }
 
     if (idSource === null) {
@@ -71,16 +85,15 @@ export function roleOptionsFromList(source: RoleOptionInput[] | undefined | null
   return options.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
 }
 
-export function roleIdsFromNames(input: string[] | undefined | null): string[] {
+export function roleIdsFromNames(input: Array<string | number> | undefined | null): string[] {
   if (!Array.isArray(input)) return [];
   const seen = new Set<string>();
   const ids: string[] = [];
 
   for (const value of input) {
-    if (typeof value !== "string") {
-      continue;
-    }
-    const id = canonicalRoleId(value);
+    const candidate = coerceRoleString(value);
+    if (!candidate) continue;
+    const id = canonicalRoleId(candidate);
     if (id === "" || seen.has(id)) {
       continue;
     }

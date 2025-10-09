@@ -262,7 +262,7 @@ export default function Kpis(): JSX.Element {
             </div>
           </section>
 
-          <div className="row g-3">
+          <div className="row g-3 align-items-stretch">
             <section className="col-md-6">
               <div className="card h-100">
                 <div className="card-header">
@@ -282,54 +282,58 @@ export default function Kpis(): JSX.Element {
 
             <section className="col-md-6">
               <div className="card h-100">
-                <div className="card-header d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-2">
+                <div className="card-header">
                   <span className="fw-semibold">Admin Activity</span>
+                </div>
+                <div className="card-body d-flex flex-column p-0">
+                  {reportError && (
+                    <div className="alert alert-warning mb-0 rounded-0 py-2 px-3" role="alert">
+                      {reportError}
+                    </div>
+                  )}
+                  <div className="flex-grow-1">
+                    {admins.length === 0 ? (
+                      <p className="text-muted px-3 py-3 mb-0">No admin users found.</p>
+                    ) : (
+                      <div className="table-responsive">
+                        <table className="table table-sm table-striped mb-0">
+                          <thead>
+                            <tr>
+                              <th scope="col">User</th>
+                              <th scope="col">Last Login</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {admins.map((admin) => {
+                              const lastLogin = admin.last_login_at
+                                ? formatTimestamp(admin.last_login_at, DEFAULT_TIME_FORMAT)
+                                : "—";
+                              return (
+                                <tr key={`${admin.id}-${admin.email}`}>
+                                  <td>
+                                    <div className="fw-semibold">{admin.name || admin.email || `User ${admin.id}`}</div>
+                                    {admin.email && <div className="text-muted small">{admin.email}</div>}
+                                  </td>
+                                  <td>{lastLogin}</td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="card-footer text-end bg-transparent border-top">
                   <button
                     type="button"
-                    className="btn btn-outline-secondary btn-sm ms-md-auto"
+                    className="btn btn-outline-secondary btn-sm"
                     onClick={handleDownloadAdminReport}
                     disabled={downloadingReport}
                     aria-busy={downloadingReport}
                   >
                     {downloadingReport ? "Downloading…" : "Download CSV"}
                   </button>
-                </div>
-                <div className="card-body p-0">
-                  {reportError && (
-                    <div className="alert alert-warning mb-0 rounded-0 py-2 px-3" role="alert">
-                      {reportError}
-                    </div>
-                  )}
-                  {admins.length === 0 ? (
-                    <p className="text-muted px-3 py-3 mb-0">No admin users found.</p>
-                  ) : (
-                    <div className="table-responsive">
-                      <table className="table table-sm table-striped mb-0">
-                        <thead>
-                          <tr>
-                            <th scope="col">User</th>
-                            <th scope="col">Last Login</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {admins.map((admin) => {
-                            const lastLogin = admin.last_login_at
-                              ? formatTimestamp(admin.last_login_at, DEFAULT_TIME_FORMAT)
-                              : "—";
-                            return (
-                              <tr key={`${admin.id}-${admin.email}`}>
-                                <td>
-                                  <div className="fw-semibold">{admin.name || admin.email || `User ${admin.id}`}</div>
-                                  {admin.email && <div className="text-muted small">{admin.email}</div>}
-                                </td>
-                                <td>{lastLogin}</td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
                 </div>
               </div>
             </section>

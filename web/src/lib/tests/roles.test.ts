@@ -35,8 +35,20 @@ describe("roles helper", () => {
     ]);
   });
 
+  test("roleOptionsFromList coerces numeric entries", () => {
+    const options = roleOptionsFromList([123, { id: 456, name: 789 }]);
+    expect(options).toEqual([
+      { id: "123", name: "123" },
+      { id: "456", name: "789" },
+    ]);
+  });
+
   test("roleIdsFromNames normalizes arbitrary strings", () => {
     expect(roleIdsFromNames(["Admin", "Risk Manager", "Admin"]))
       .toEqual(["admin", "risk_manager"]);
+  });
+
+  test("roleIdsFromNames accepts numeric values", () => {
+    expect(roleIdsFromNames(["Admin", 123, "ADMIN"])).toEqual(["admin", "123"]);
   });
 });

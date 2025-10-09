@@ -4,7 +4,6 @@ import {
   getUserRoles,
   attachUserRole,
   detachUserRole,
-  replaceUserRoles,
   searchUsers,
   type UserRolesResponse,
   type UserRolesResponseOk,
@@ -27,10 +26,8 @@ export default function UserRoles(): JSX.Element {
   const [user, setUser] = useState<User | null>(null);
   const [userRoleIds, setUserRoleIds] = useState<string[]>([]);
 
-  // Attach/replace state
+  // Attach state
   const [attachChoice, setAttachChoice] = useState<string>("");
-  const [replaceSelection, setReplaceSelection] = useState<string[]>([]);
-  const [replaceBusy, setReplaceBusy] = useState<boolean>(false);
 
   // Search state
   const [q, setQ] = useState<string>("");
@@ -74,7 +71,6 @@ export default function UserRoles(): JSX.Element {
     setMsg(null);
     setUser(null);
     setUserRoleIds([]);
-    setReplaceSelection([]);
     const idNum = Number(userIdInput);
     if (!Number.isInteger(idNum) || idNum <= 0) {
       setMsg("Enter a valid User ID.");
@@ -88,7 +84,6 @@ export default function UserRoles(): JSX.Element {
         setUser(ok.user);
         const roleIds = roleIdsFromNames(ok.roles ?? []);
         setUserRoleIds(roleIds);
-        setReplaceSelection(roleIds);
         setAttachChoice("");
         setMsg(null);
         queueMicrotask(() => attachBtnRef.current?.focus());
@@ -107,6 +102,16 @@ export default function UserRoles(): JSX.Element {
     [roleOptions, userRoleIds]
   );
 
+  useEffect(() => {
+    if (attachable.length === 0) {
+      if (attachChoice !== "") setAttachChoice("");
+      return;
+    }
+    if (!attachable.some((opt) => opt.id === attachChoice)) {
+      setAttachChoice(attachable[0].id);
+    }
+  }, [attachable, attachChoice]);
+
   async function attachRole() {
     if (!user) return;
     if (!attachChoice) return;
@@ -117,7 +122,6 @@ export default function UserRoles(): JSX.Element {
         const ok = res as UserRolesResponseOk;
         const roleIds = roleIdsFromNames(ok.roles ?? []);
         setUserRoleIds(roleIds);
-        setReplaceSelection(roleIds);
         const attachedLabel = roleLabelFromId(attachChoice);
         setAttachChoice("");
         setMsg(attachedLabel ? `${attachedLabel} attached.` : "Role attached.");
@@ -138,7 +142,6 @@ export default function UserRoles(): JSX.Element {
         const ok = res as UserRolesResponseOk;
         const roleIds = roleIdsFromNames(ok.roles ?? []);
         setUserRoleIds(roleIds);
-        setReplaceSelection(roleIds);
         const detachedLabel = roleLabelFromId(roleId);
         setMsg(detachedLabel ? `${detachedLabel} detached.` : "Role detached.");
       } else {
@@ -146,42 +149,6 @@ export default function UserRoles(): JSX.Element {
       }
     } catch {
       setMsg("Detach failed.");
-    }
-  }
-
-  function onReplaceSelectChange(e: React.ChangeEvent<HTMLSelectElement>) {
-    const opts = Array.from(e.currentTarget.options);
-    const selected = opts.filter((o) => o.selected).map((o) => o.value);
-    setReplaceSelection(selected);
-  }
-
-  function arraysEqualUnordered(a: string[], b: string[]): boolean {
-    if (a.length !== b.length) return false;
-    const sa = [...a].sort();
-    const sb = [...b].sort();
-    for (let i = 0; i < sa.length; i++) if (sa[i] !== sb[i]) return false;
-    return true;
-  }
-
-  async function doReplace() {
-    if (!user) return;
-    setMsg(null);
-    setReplaceBusy(true);
-    try {
-      const res = await replaceUserRoles(user.id, replaceSelection);
-      if (res.ok) {
-        const ok = res as UserRolesResponseOk;
-        const roleIds = roleIdsFromNames(ok.roles ?? []);
-        setUserRoleIds(roleIds);
-        setReplaceSelection(roleIds);
-        setMsg("Roles replaced.");
-      } else {
-        setMsg(`Replace failed: ${res.code}${res.message ? " - " + res.message : ""}`);
-      }
-    } catch {
-      setMsg("Replace failed.");
-    } finally {
-      setReplaceBusy(false);
     }
   }
 
@@ -223,7 +190,6 @@ export default function UserRoles(): JSX.Element {
     setMsg(null);
     setUser(null);
     setUserRoleIds([]);
-    setReplaceSelection([]);
     setLoadingUser(true);
     try {
       const res: UserRolesResponse = await getUserRoles(id);
@@ -232,7 +198,6 @@ export default function UserRoles(): JSX.Element {
         setUser(ok.user);
         const roleIds = roleIdsFromNames(ok.roles ?? []);
         setUserRoleIds(roleIds);
-        setReplaceSelection(roleIds);
         setAttachChoice("");
         queueMicrotask(() => attachBtnRef.current?.focus());
       } else {
@@ -402,7 +367,6 @@ export default function UserRoles(): JSX.Element {
                     disabled={loadingRoles || attachable.length === 0}
                     aria-disabled={loadingRoles || attachable.length === 0}
                   >
-                    <option value="">Select role…</option>
                     {attachable.map((option) => (
                       <option key={option.id} value={option.id}>{option.name}</option>
                     ))}
@@ -414,7 +378,7 @@ export default function UserRoles(): JSX.Element {
                     onClick={attachRole}
                     disabled={!attachChoice}
                   >
-                    Attach
+                    Add
                   </button>
                 </div>
                 {loadingRoles && <div className="form-text">Loading roles…</div>}
@@ -433,55 +397,14 @@ export default function UserRoles(): JSX.Element {
                           type="button"
                           className="btn btn-outline-danger btn-sm"
                           onClick={() => detachRole(roleId)}
-                          aria-label={`Detach ${label}`}
+                          aria-label={`Remove ${label}`}
                         >
-                          Detach
+                          Remove
                         </button>
                       </li>
                     );
                   })}
                 </ul>
-              </div>
-
-              <div>
-                <label htmlFor="replace_roles" className="form-label">Replace roles</label>
-                <div className="row g-2">
-                  <div className="col-12 col-md-8">
-                    <select
-                      id="replace_roles"
-                      className="form-select"
-                      multiple
-                      size={Math.max(4, Math.min(8, roleOptions.length || 4))}
-                      value={replaceSelection}
-                      onChange={onReplaceSelectChange}
-                      aria-describedby="replace_help"
-                    >
-                      {roleOptions.map((option) => (
-                        <option key={option.id} value={option.id}>{option.name}</option>
-                      ))}
-                    </select>
-                    <div id="replace_help" className="form-text">
-                      Select one or more roles. Use Ctrl/Cmd-click to toggle selections.
-                    </div>
-                  </div>
-                  <div className="col-12 col-md-4 d-flex align-items-start">
-                    <button
-                      type="button"
-                      className="btn btn-warning"
-                      onClick={doReplace}
-                      disabled={
-                        replaceBusy ||
-                        arraysEqualUnordered(replaceSelection, userRoleIds)
-                      }
-                      aria-busy={replaceBusy}
-                    >
-                      {replaceBusy ? "Replacing…" : "Replace"}
-                    </button>
-                  </div>
-                </div>
-                <p className="text-muted mt-2 mb-0">
-                  Replaces the user&apos;s roles with exactly the selected set.
-                </p>
               </div>
             </div>
           </div>

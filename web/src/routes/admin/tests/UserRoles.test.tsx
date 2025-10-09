@@ -77,9 +77,10 @@ describe("Admin UserRoles page", () => {
 
     const attachSelect = await screen.findByLabelText(/attach role/i);
     expect(within(attachSelect).getByRole("option", { name: "Risk Manager" })).toBeInTheDocument();
+    expect(within(attachSelect).queryByRole("option", { name: /select role/i })).toBeNull();
 
     await user.selectOptions(attachSelect, "risk_manager");
-    await user.click(screen.getByRole("button", { name: /attach/i }));
+    await user.click(screen.getByRole("button", { name: /add/i }));
 
     await waitFor(() => {
       const list = screen.getByRole("list");
@@ -133,125 +134,14 @@ describe("Admin UserRoles page", () => {
     });
 
     const adminItem = within(screen.getByRole("list")).getByText("Admin").closest("li") as HTMLElement;
-    const detachBtn = within(adminItem).getByRole("button", { name: /detach/i });
-    await user.click(detachBtn);
+    const removeBtn = within(adminItem).getByRole("button", { name: /remove/i });
+    await user.click(removeBtn);
 
     await waitFor(() => {
       const list = screen.getByRole("list");
       expect(within(list).queryByText("Admin")).toBeNull();
     });
     expect(screen.getByText(/admin detached\./i)).toBeInTheDocument();
-  });
-
-  test("replaces roles successfully", async () => {
-    const user = userEvent.setup();
-
-    const fetchMock = vi
-      .fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-        const url = typeof input === "string" ? input : (input as Request).url ?? String(input);
-        const method = (init?.method ?? "GET").toUpperCase();
-
-        // catalog
-        if (method === "GET" && /\/api\/rbac\/roles\b/.test(url)) {
-          return jsonResponse(200, { ok: true, roles: ["admin", "risk_manager", "user"] });
-        }
-        // lookup with initial role User
-        if (method === "GET" && /\/api\/rbac\/users\/123\/roles\b/.test(url)) {
-          return jsonResponse(200, {
-            ok: true,
-            user: { id: 123, name: "Jane Admin", email: "jane@example.com" },
-            roles: ["User"],
-          });
-        }
-        // replace to Risk Manager only
-        if (method === "PUT" && /\/api\/rbac\/users\/123\/roles\b/.test(url)) {
-          const payload = JSON.parse(String(init?.body ?? "{}"));
-          expect(payload.roles).toEqual(["risk_manager"]);
-          return jsonResponse(200, {
-            ok: true,
-            user: { id: 123, name: "Jane Admin", email: "jane@example.com" },
-            roles: ["Risk Manager"],
-          });
-        }
-        return jsonResponse(200, { ok: true });
-      }) as unknown as typeof fetch;
-
-    globalThis.fetch = fetchMock;
-
-    renderPage();
-
-    await user.type(screen.getByLabelText(/user id/i), "123");
-    await user.click(screen.getByRole("button", { name: /load/i }));
-    await screen.findByRole("heading", { level: 2, name: /^User$/ });
-
-    const multi = screen.getByLabelText(/replace roles/i) as HTMLSelectElement;
-
-    // Deselect "User", select "Risk Manager"
-    await user.deselectOptions(multi, "user");
-    await user.selectOptions(multi, "risk_manager");
-
-    await user.click(screen.getByRole("button", { name: /^replace$/i }));
-
-    await waitFor(() => {
-      const list = screen.getByRole("list");
-      expect(within(list).getByText("Risk Manager")).toBeInTheDocument();
-      expect(within(list).queryByText("User")).toBeNull();
-      expect(screen.getByText(/roles replaced\./i)).toBeInTheDocument();
-    });
-  });
-
-  test("replace surfaces ROLE_NOT_FOUND with message", async () => {
-    const user = userEvent.setup();
-
-    const fetchMock = vi
-      .fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-        const url = typeof input === "string" ? input : (input as Request).url ?? String(input);
-        const method = (init?.method ?? "GET").toUpperCase();
-
-        if (method === "GET" && /\/api\/rbac\/roles\b/.test(url)) {
-          // include "Manager" so UI can select it
-          return jsonResponse(200, { ok: true, roles: ["admin", "manager", "user"] });
-        }
-        if (method === "GET" && /\/api\/rbac\/users\/123\/roles\b/.test(url)) {
-          return jsonResponse(200, {
-            ok: true,
-            user: { id: 123, name: "Jane Admin", email: "jane@example.com" },
-            roles: ["User"],
-          });
-        }
-        if (method === "PUT" && /\/api\/rbac\/users\/123\/roles\b/.test(url)) {
-          const payload = JSON.parse(String(init?.body ?? "{}"));
-          expect(payload.roles).toEqual(["manager"]);
-          // API says unknown role; include message listing missing roles
-          return jsonResponse(422, {
-            ok: false,
-            code: "ROLE_NOT_FOUND",
-            message: "Unknown roles: Manager",
-            missing_roles: ["Manager"],
-          });
-        }
-        return jsonResponse(200, { ok: true });
-      }) as unknown as typeof fetch;
-
-    globalThis.fetch = fetchMock;
-
-    renderPage();
-
-    await user.type(screen.getByLabelText(/user id/i), "123");
-    await user.click(screen.getByRole("button", { name: /load/i }));
-    await screen.findByRole("heading", { level: 2, name: /^User$/ });
-
-    const multi = screen.getByLabelText(/replace roles/i) as HTMLSelectElement;
-    await user.deselectOptions(multi, "user");
-    await user.selectOptions(multi, "manager"); // not actually valid on server
-
-    await user.click(screen.getByRole("button", { name: /^replace$/i }));
-
-    await waitFor(() => {
-      const alert = screen.getByRole("status");
-      expect(within(alert).getByText(/replace failed: role_not_found/i)).toBeInTheDocument();
-      expect(within(alert).getByText(/unknown roles: manager/i)).toBeInTheDocument();
-    });
   });
 
   test("searches users then selects one to load roles", async () => {
