@@ -1431,6 +1431,55 @@
                         "description": "Not Found"
                     }
                 }
+            },
+            "delete": {
+                "operationId": "evidenceDelete",
+                "tags": [
+                    "Evidence"
+                ],
+                "summary": "Delete evidence",
+                "description": "Deletes the evidence row and removes stored bytes. Audits the deletion event.",
+                "responses": {
+                    "200": {
+                        "description": "Deleted",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "ok",
+                                        "id",
+                                        "deleted"
+                                    ],
+                                    "properties": {
+                                        "ok": {
+                                            "type": "boolean",
+                                            "const": true
+                                        },
+                                        "id": {
+                                            "type": "string"
+                                        },
+                                        "deleted": {
+                                            "type": "boolean"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "404": {
+                        "description": "Not Found"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
+                    }
+                }
             }
         },
         "/exports": {

@@ -7,6 +7,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use Carbon\CarbonInterface;
+use Database\Factories\EvidenceFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
 
@@ -71,5 +72,10 @@ final class Evidence extends Model
                 $model->setAttribute('id', 'ev_'.(string) Str::ulid());
             }
         });
+    }
+
+    public static function factory(): EvidenceFactory
+    {
+        return EvidenceFactory::new();
     }
 }

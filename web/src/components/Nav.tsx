@@ -10,6 +10,8 @@ const linkCls = ({ isActive }: { isActive: boolean }) => "nav-link" + (isActive 
 
 export default function Nav({ requireAuth, authed }: NavProps): JSX.Element {
   const showUsers = !requireAuth || authed;
+  const showLogout = requireAuth && authed;
+  const showLogin = requireAuth && !authed;
 
   async function onLogout(): Promise<void> {
     await authLogout();
@@ -55,15 +57,15 @@ export default function Nav({ requireAuth, authed }: NavProps): JSX.Element {
 
           {/* right side */}
           <div style={{ marginLeft: "auto" }}>
-            {authed ? (
+            {showLogout ? (
               <button className="btn btn-outline-secondary btn-sm" type="button" onClick={onLogout}>
                 Logout
               </button>
-            ) : (
+            ) : showLogin ? (
               <NavLink to="/auth/login" className={linkCls}>
                 Login
               </NavLink>
-            )}
+            ) : null}
           </div>
         </div>
       </nav>

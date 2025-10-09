@@ -80,7 +80,9 @@ final class RbacMiddleware
 
         if ($user === null) {
             if ($requireAuth) {
-                $this->auditRedirect($request, $capKey, $requiredRoles, $policy);
+                if (! $this->shouldSkipRedirectAudit($request)) {
+                    $this->auditRedirect($request, $capKey, $requiredRoles, $policy);
+                }
                 $this->auditDeny($request, null, 'rbac.deny.unauthenticated', [
                     'reason' => 'unauthenticated',
                     'rbac_mode' => $this->rbacMode(),
@@ -129,6 +131,16 @@ final class RbacMiddleware
         $resp = $next($request);
 
         return $resp;
+    }
+
+    private function shouldSkipRedirectAudit(Request $request): bool
+    {
+        $method = strtoupper($request->getMethod());
+        if (in_array($method, ['GET', 'HEAD', 'OPTIONS'], true)) {
+            return true;
+        }
+
+        return false;
     }
 
     /**

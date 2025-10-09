@@ -4,6 +4,7 @@ Phase 4 behavior: persisted create/list/retrieve. Bytes stored in DB. Basic RBAC
 
 ## AuthZ
 - Requires Gate `core.evidence.manage` (stub allows all in Phase 4).
+- Capability `core.evidence.delete` gates the DELETE endpoint (defaults to enabled).
 
 ## Settings
 - `core.evidence.enabled`: boolean, default true
@@ -81,6 +82,19 @@ Responses
   - GET → `action="evidence.read"`, `category="EVIDENCE"`
   - HEAD → `action="evidence.head"`, `category="EVIDENCE"`
 - Not logged for 304 or 404.
+
+### DELETE /api/evidence/{id}
+
+Responses
+- 200 OK
+```
+{ "ok": true, "id": "ev_01J...", "deleted": true }
+```
+- 404 Not Found
+
+**Audit**
+- Emits `action="evidence.deleted"`, `category="EVIDENCE"`, `entity_type="evidence"`, `entity_id=<id>`.
+- `meta`: `filename`, `mime`, `size_bytes`, `sha256`, `version`, `owner_id`.
 
 ## Versioning
 - First upload per `(owner_id, filename)` starts at version 1. Subsequent uploads with the same tuple increment `version` in a transaction.

@@ -6,6 +6,7 @@ export type ActionInfo = {
 
 const byAction: Record<string, ActionInfo> = {
   // AUTH
+  "auth.login":                { label: "Login", category: "AUTH", variant: "success" },
   "auth.login.success":        { label: "Login success", category: "AUTH", variant: "success" },
   "auth.login.failed":         { label: "Login failed", category: "AUTH", variant: "warning" },
   "auth.login.redirected":     { label: "Login redirected", category: "AUTH", variant: "neutral" },

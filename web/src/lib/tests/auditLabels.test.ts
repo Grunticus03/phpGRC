@@ -25,4 +25,10 @@ describe("auditLabels RBAC denies", () => {
     expect(info.variant).toBe("danger");
     expect(info.label.toLowerCase()).toContain("denied");
   });
+
+  it("maps auth.login to Login label", () => {
+    const info = actionInfo("auth.login", "AUTH");
+    expect(info.category).toBe("AUTH");
+    expect(info.label).toBe("Login");
+  });
 });

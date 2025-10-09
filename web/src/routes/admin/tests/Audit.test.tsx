@@ -148,4 +148,42 @@ describe("Admin Audit page", () => {
       expect(hit).toContain("occurred_to=2025-01-10");
     });
   });
+
+  it("renders login label and message", async () => {
+    (globalThis.fetch as unknown as Mock).mockImplementation(async (...args: Parameters<typeof fetch>) => {
+      const url = String(args[0]);
+      calls.push(url);
+
+      if (url.includes("/api/audit/categories")) {
+        return jsonResponse(["AUTH"]);
+      }
+
+      if (url.startsWith("/api/audit?")) {
+        return jsonResponse({
+          ok: true,
+          time_format: "ISO_8601",
+          items: [
+            {
+              id: "ULIDLOGIN",
+              occurred_at: "2025-01-02T00:00:00Z",
+              category: "AUTH",
+              action: "auth.login",
+              actor_label: "Alice Example",
+              actor_id: 3,
+              entity_type: "core.auth",
+              entity_id: "login",
+            },
+          ],
+          nextCursor: null,
+        });
+      }
+
+      return jsonResponse({ ok: true });
+    });
+
+    renderAudit();
+
+    await screen.findByText("Login");
+    await screen.findByText("Alice Example logged in");
+  });
 });

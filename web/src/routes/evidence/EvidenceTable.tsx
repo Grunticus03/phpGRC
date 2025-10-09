@@ -9,6 +9,8 @@ type Props = {
   timeFormat: TimeFormat;
   onDownload: (item: Evidence) => void;
   downloadingId: string | null;
+  onDelete: (item: Evidence) => void;
+  deletingId: string | null;
 };
 
 type OwnerMap = Map<number, UserCacheValue>;
@@ -55,7 +57,15 @@ function ownerLabel(id: number, owner: UserCacheValue | undefined): string {
   return String(id);
 }
 
-export default function EvidenceTable({ items, fetchState, timeFormat, onDownload, downloadingId }: Props): JSX.Element {
+export default function EvidenceTable({
+  items,
+  fetchState,
+  timeFormat,
+  onDownload,
+  downloadingId,
+  onDelete,
+  deletingId,
+}: Props): JSX.Element {
   const ownerIds = useMemo(() => computeOwnerIds(items), [items]);
   const ownerIdsKey = useMemo(() => ownerIds.join(","), [ownerIds]);
 
@@ -117,12 +127,13 @@ export default function EvidenceTable({ items, fetchState, timeFormat, onDownloa
             <th>ID</th>
             <th>Version</th>
             <th>Download</th>
+            <th>Delete</th>
           </tr>
         </thead>
         <tbody>
           {items.length === 0 && fetchState === "ok" ? (
             <tr>
-              <td colSpan={9}>No results</td>
+              <td colSpan={10}>No results</td>
             </tr>
           ) : (
             items.map((item) => {
@@ -156,6 +167,17 @@ export default function EvidenceTable({ items, fetchState, timeFormat, onDownloa
                       aria-label={`Download ${item.filename || item.id}`}
                     >
                       {downloadingId === item.id ? "Downloading…" : "Download"}
+                    </button>
+                  </td>
+                  <td>
+                    <button
+                      type="button"
+                      className="btn btn-outline-danger btn-sm"
+                      onClick={() => onDelete(item)}
+                      disabled={deletingId === item.id}
+                      aria-label={`Delete ${item.filename || item.id}`}
+                    >
+                      {deletingId === item.id ? "Deleting…" : "Delete"}
                     </button>
                   </td>
                 </tr>

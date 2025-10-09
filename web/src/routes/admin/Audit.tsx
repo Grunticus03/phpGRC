@@ -212,6 +212,10 @@ function buildAuditMessage(item: AuditItem, info: ActionInfo, actorLabel: string
     return `${filename} viewed by ${actor}`;
   }
 
+  if (action === 'auth.login') {
+    return `${actor} logged in`;
+  }
+
   if (action.startsWith('auth.')) {
     return `${info.label} by ${actor}`;
   }

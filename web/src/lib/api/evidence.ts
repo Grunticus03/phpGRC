@@ -1,4 +1,4 @@
-import { API_BASE, apiGet, baseHeaders, HttpError, qs } from "../api";
+import { API_BASE, apiDelete, apiGet, apiPostFormData, baseHeaders, HttpError, qs } from "../api";
 import { normalizeTimeFormat, type TimeFormat } from "../formatters";
 
 export type Evidence = {
@@ -186,4 +186,69 @@ export async function listEvidence(params: EvidenceListParams = {}): Promise<Evi
   } catch {
     return { ok: false, status: 0, code: "NETWORK_ERROR" };
   }
+}
+
+export type EvidenceUploadResponse = {
+  ok: true;
+  id: string;
+  version: number;
+  sha256: string;
+  size: number;
+  mime: string;
+  name: string;
+};
+
+export async function uploadEvidence(file: File, signal?: AbortSignal): Promise<EvidenceUploadResponse> {
+  const form = new FormData();
+  form.append("file", file);
+  const json = await apiPostFormData<unknown>("/api/evidence", form, signal);
+  if (!isObject(json) || json.ok !== true) {
+    throw new Error("Invalid response from upload endpoint");
+  }
+
+  const idValue = typeof json.id === "string" ? json.id : "";
+  if (!idValue) {
+    throw new Error("Missing id in upload response");
+  }
+
+  const versionRaw = (json as Record<string, unknown>).version;
+  const sizeRaw = (json as Record<string, unknown>).size ?? (json as Record<string, unknown>).size_bytes;
+  const shaValue = typeof json.sha256 === "string" ? json.sha256 : "";
+  const mimeValue = typeof json.mime === "string" ? json.mime : "";
+  const nameValue = typeof json.name === "string" ? json.name : "";
+
+  const versionValue = Number(versionRaw ?? 0);
+  const sizeValue = Number(sizeRaw ?? 0);
+
+  return {
+    ok: true,
+    id: idValue,
+    version: Number.isNaN(versionValue) ? 0 : versionValue,
+    sha256: shaValue,
+    size: Number.isNaN(sizeValue) ? 0 : sizeValue,
+    mime: mimeValue,
+    name: nameValue,
+  };
+}
+
+export type EvidenceDeleteResponse = {
+  ok: true;
+  id: string;
+  deleted: boolean;
+};
+
+export async function deleteEvidence(id: string, signal?: AbortSignal): Promise<EvidenceDeleteResponse> {
+  const json = await apiDelete<unknown>(`/api/evidence/${encodeURIComponent(id)}`, signal);
+  if (!isObject(json) || json.ok !== true) {
+    throw new Error("Invalid response from delete endpoint");
+  }
+
+  const idValue = typeof json.id === "string" && json.id ? json.id : id;
+  const deletedRaw = (json as Record<string, unknown>).deleted;
+
+  return {
+    ok: true,
+    id: idValue,
+    deleted: deletedRaw === undefined ? true : Boolean(deletedRaw),
+  };
 }

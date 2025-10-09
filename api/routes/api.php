@@ -353,6 +353,13 @@ Route::prefix('/evidence')
             ->defaults('throttle', ['strategy' => 'ip', 'window_seconds' => 60, 'max_requests' => 120])
             ->defaults('roles', ['Admin', 'Auditor'])
             ->defaults('policy', 'core.evidence.view');
+
+        Route::delete('/{id}', [EvidenceController::class, 'destroy'])
+            ->middleware(GenericRateLimit::class)
+            ->defaults('throttle', ['strategy' => 'user', 'window_seconds' => 60, 'max_requests' => 10])
+            ->defaults('roles', ['Admin'])
+            ->defaults('policy', 'core.evidence.manage')
+            ->defaults('capability', 'core.evidence.delete');
     });
 
 /*

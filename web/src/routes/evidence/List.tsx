@@ -1,6 +1,13 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
-import { downloadEvidenceFile, listEvidence, type Evidence, type EvidenceListOk } from "../../lib/api/evidence";
+import {
+  deleteEvidence,
+  downloadEvidenceFile,
+  listEvidence,
+  uploadEvidence,
+  type Evidence,
+  type EvidenceListOk,
+} from "../../lib/api/evidence";
 import { searchUsers, type UserSummary, type UserSearchOk, type UserSearchMeta } from "../../lib/api/rbac";
 import { DEFAULT_TIME_FORMAT, normalizeTimeFormat, type TimeFormat } from "../../lib/format";
 import { HttpError } from "../../lib/api";
@@ -50,8 +57,15 @@ export default function EvidenceList(): JSX.Element {
   const [prevStack, setPrevStack] = useState<string[]>([]);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [downloadError, setDownloadError] = useState<string | null>(null);
+  const [uploading, setUploading] = useState<boolean>(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [uploadSuccess, setUploadSuccess] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deleteSuccess, setDeleteSuccess] = useState<string | null>(null);
 
   const location = useLocation();
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const created_from = createdFrom ? `${createdFrom}T00:00:00Z` : undefined;
   const created_to = createdTo ? `${createdTo}T23:59:59Z` : undefined;
@@ -173,6 +187,86 @@ export default function EvidenceList(): JSX.Element {
     }
   }
 
+  async function handleUpload(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const input = fileInputRef.current;
+    if (!input || !input.files || input.files.length === 0) {
+      setUploadError("Please choose a file to upload.");
+      setUploadSuccess(null);
+      return;
+    }
+
+    const file = input.files[0];
+    setUploading(true);
+    setUploadError(null);
+    setUploadSuccess(null);
+    try {
+      const res = await uploadEvidence(file);
+      const name = res.name?.trim() !== "" ? res.name.trim() : res.id;
+      setUploadSuccess(`${name} uploaded successfully.`);
+      input.value = "";
+      await load(true);
+    } catch (err) {
+      let message = "Upload failed. Please try again.";
+      if (err instanceof HttpError) {
+        const body = (err.body ?? null) as Record<string, unknown> | null;
+        const msgValue = body?.["message"];
+        const codeValue = body?.["code"];
+        const msg = typeof msgValue === "string" ? msgValue : null;
+        const code = typeof codeValue === "string" ? codeValue : null;
+        if (msg) {
+          message = `Upload failed: ${msg}`;
+        } else if (code) {
+          message = `Upload failed: ${code}`;
+        } else {
+          message = `Upload failed (HTTP ${err.status}).`;
+        }
+      } else if (err instanceof Error && err.message) {
+        message = err.message;
+      }
+      setUploadError(message);
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  async function handleDelete(item: Evidence) {
+    if (deletingId) return;
+    const name = item.filename?.trim() !== "" ? item.filename.trim() : item.id;
+    const confirmed = window.confirm(`Delete ${name}? This cannot be undone.`);
+    if (!confirmed) return;
+
+    setDeleteError(null);
+    setDeleteSuccess(null);
+    setDeletingId(item.id);
+    try {
+      await deleteEvidence(item.id);
+      setDeleteSuccess(`${name} deleted.`);
+      await load(true);
+    } catch (err) {
+      let message = "Delete failed. Please try again.";
+      if (err instanceof HttpError) {
+        const body = (err.body ?? null) as Record<string, unknown> | null;
+        const msgValue = body?.["message"];
+        const codeValue = body?.["code"];
+        const msg = typeof msgValue === "string" ? msgValue : null;
+        const code = typeof codeValue === "string" ? codeValue : null;
+        if (msg) {
+          message = `Delete failed: ${msg}`;
+        } else if (code) {
+          message = `Delete failed: ${code}`;
+        } else {
+          message = `Delete failed (HTTP ${err.status}).`;
+        }
+      } else if (err instanceof Error && err.message) {
+        message = err.message;
+      }
+      setDeleteError(message);
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
   useEffect(() => {
     void load(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -208,6 +302,45 @@ export default function EvidenceList(): JSX.Element {
   return (
     <main className="container py-3">
       <h1 className="mb-3">Evidence</h1>
+
+      <section className="mb-4">
+        <h2 className="h5">Upload Evidence</h2>
+        <form
+          onSubmit={handleUpload}
+          className="row g-3 align-items-end"
+          encType="multipart/form-data"
+          aria-label="Upload evidence"
+        >
+          <div className="col-12 col-md-6 col-lg-4">
+            <label htmlFor="evidence-file" className="form-label">
+              File
+            </label>
+            <input
+              ref={fileInputRef}
+              type="file"
+              id="evidence-file"
+              className="form-control"
+              required
+              disabled={uploading}
+            />
+          </div>
+          <div className="col-12 col-md-auto">
+            <button type="submit" className="btn btn-primary" disabled={uploading}>
+              {uploading ? "Uploading…" : "Upload"}
+            </button>
+          </div>
+        </form>
+        {uploadError && (
+          <div className="alert alert-danger mt-2" role="alert">
+            {uploadError}
+          </div>
+        )}
+        {uploadSuccess && (
+          <div className="alert alert-success mt-2" role="status">
+            {uploadSuccess}
+          </div>
+        )}
+      </section>
 
       <form
         onSubmit={(e) => {
@@ -352,6 +485,12 @@ export default function EvidenceList(): JSX.Element {
       {state === "loading" && <p>Loading…</p>}
       {state === "error" && <p role="alert" className="text-danger">Error: {error}</p>}
       {downloadError && <div className="alert alert-danger mt-3" role="alert">{downloadError}</div>}
+      {deleteError && <div className="alert alert-danger mt-3" role="alert">{deleteError}</div>}
+      {deleteSuccess && (
+        <div className="alert alert-success mt-3" role="status">
+          {deleteSuccess}
+        </div>
+      )}
 
       <EvidenceTable
         items={items}
@@ -359,6 +498,8 @@ export default function EvidenceList(): JSX.Element {
         timeFormat={timeFormat}
         onDownload={handleDownload}
         downloadingId={downloadingId}
+        onDelete={handleDelete}
+        deletingId={deletingId}
       />
 
       <nav aria-label="Evidence pagination" className="d-flex align-items-center gap-2">

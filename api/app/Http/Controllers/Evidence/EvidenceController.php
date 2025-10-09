@@ -140,6 +140,73 @@ final class EvidenceController extends Controller
         ], 201);
     }
 
+    public function destroy(Request $request, string $id, AuditLogger $audit): JsonResponse
+    {
+        Gate::authorize('core.evidence.manage');
+
+        /** @var array{id:string,owner_id:int,filename:string,mime:string,size_bytes:int,sha256:string,version:int}|null $deleted */
+        $deleted = DB::transaction(function () use ($id): ?array {
+            /** @var Evidence|null $row */
+            $row = Evidence::query()
+                ->whereKey($id)
+                ->lockForUpdate()
+                ->first(['id', 'owner_id', 'filename', 'mime', 'size_bytes', 'sha256', 'version']);
+
+            if ($row === null) {
+                return null;
+            }
+
+            $payload = [
+                'id' => $row->id,
+                'owner_id' => self::toIntOrZero($row->owner_id),
+                'filename' => $row->filename,
+                'mime' => $row->mime,
+                'size_bytes' => self::toIntOrZero($row->size_bytes),
+                'sha256' => $row->sha256,
+                'version' => self::toIntOrZero($row->version),
+            ];
+
+            $row->delete();
+
+            return $payload;
+        });
+
+        if ($deleted === null) {
+            return response()->json(['ok' => false, 'code' => 'EVIDENCE_NOT_FOUND'], 404);
+        }
+
+        if (config('core.audit.enabled', true) && Schema::hasTable('audit_events')) {
+            $actorId = $this->resolveActorId($request);
+
+            /** @var non-empty-string $entityId */
+            $entityId = $this->nes($deleted['id']);
+
+            $audit->log([
+                'actor_id' => $actorId,
+                'action' => 'evidence.deleted',
+                'category' => 'EVIDENCE',
+                'entity_type' => 'evidence',
+                'entity_id' => $entityId,
+                'ip' => $request->ip(),
+                'ua' => $request->userAgent(),
+                'meta' => array_merge($this->actorMeta($request), [
+                    'filename' => $deleted['filename'],
+                    'mime' => $deleted['mime'],
+                    'size_bytes' => $deleted['size_bytes'],
+                    'sha256' => $deleted['sha256'],
+                    'version' => $deleted['version'],
+                    'owner_id' => $deleted['owner_id'],
+                ]),
+            ]);
+        }
+
+        return response()->json([
+            'ok' => true,
+            'id' => $deleted['id'],
+            'deleted' => true,
+        ]);
+    }
+
     public function show(Request $request, string $id, AuditLogger $audit): Response
     {
         $this->authorizeViewWhenRequired();

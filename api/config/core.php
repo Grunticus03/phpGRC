@@ -100,6 +100,7 @@ return [
             ],
             'evidence' => [
                 'upload' => true,
+                'delete' => true,
             ],
             'audit' => [
                 'export' => true,

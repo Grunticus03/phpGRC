@@ -40,7 +40,7 @@ final class AdminSettingsAuthTest extends TestCase
         $res = $this->getJson('/admin/settings');
         $res->assertStatus(401)->assertJsonPath('code', 'UNAUTHENTICATED');
 
-        $this->assertDatabaseHas('audit_events', [
+        $this->assertDatabaseMissing('audit_events', [
             'action' => 'auth.login.redirected',
             'category' => 'AUTH',
             'entity_id' => 'login_redirect',
@@ -68,5 +68,21 @@ final class AdminSettingsAuthTest extends TestCase
 
         $res = $this->getJson('/admin/settings');
         $res->assertStatus(200)->assertJsonPath('ok', true);
+    }
+
+    public function test_unauthenticated_post_is_logged(): void
+    {
+        config()->set('core.rbac.enabled', true);
+        config()->set('core.rbac.mode', 'persist');
+        config()->set('core.rbac.require_auth', true);
+
+        $res = $this->postJson('/admin/evidence/purge', ['confirm' => true]);
+        $res->assertStatus(401)->assertJsonPath('code', 'UNAUTHENTICATED');
+
+        $this->assertDatabaseHas('audit_events', [
+            'action' => 'auth.login.redirected',
+            'category' => 'AUTH',
+            'entity_id' => 'login_redirect',
+        ]);
     }
 }
