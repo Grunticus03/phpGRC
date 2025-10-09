@@ -24,6 +24,7 @@ type Payload = {
 describe("Admin Settings page", () => {
   const originalFetch = globalThis.fetch as typeof fetch;
   let putBody: unknown = null;
+  const blobHelperText = "Leave blank to keep storing evidence in the database.";
 
   beforeEach(() => {
     putBody = null;
@@ -82,6 +83,9 @@ describe("Admin Settings page", () => {
     render(<Settings />);
 
     await waitFor(() => expect(screen.queryByText("Loading")).toBeNull());
+    expect(screen.queryByText("Default page size for Admin → User Roles search. Range 1–500.")).toBeNull();
+    expect(screen.queryByText("0=Disable - Max=30d")).toBeNull();
+    expect(screen.queryByText("Controls the dashboard authentication chart. Range 7–365.")).toBeNull();
 
     const requireAuth = screen.getByLabelText("Enforce Authentication") as HTMLInputElement;
     expect(requireAuth.checked).toBe(false);
@@ -99,8 +103,8 @@ describe("Admin Settings page", () => {
 
     const authWindow = screen.getByLabelText("Authentication window (days)") as HTMLInputElement;
     expect(authWindow.value).toBe("7");
-    fireEvent.change(authWindow, { target: { value: "30" } });
-    expect(authWindow.value).toBe("30");
+    fireEvent.change(authWindow, { target: { value: "3" } });
+    expect(authWindow.value).toBe("3");
 
     const timeFormatSelect = screen.getByLabelText(/Timestamp display/i) as HTMLSelectElement;
     fireEvent.change(timeFormatSelect, { target: { value: "ISO_8601" } });
@@ -108,12 +112,18 @@ describe("Admin Settings page", () => {
 
     const blobPath = screen.getByLabelText("Blob storage path") as HTMLInputElement;
     expect(blobPath.value).toBe("");
+    expect(screen.getByText(blobHelperText)).toBeInTheDocument();
+    fireEvent.focus(blobPath);
+    expect(screen.queryByText(blobHelperText)).toBeNull();
     fireEvent.change(blobPath, { target: { value: "/var/data/evidence" } });
     expect(blobPath.value).toBe("/var/data/evidence");
+    fireEvent.blur(blobPath);
+    expect(screen.getByText(blobHelperText)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /save/i }));
 
     await screen.findByText("Validated. Not persisted (stub).");
+    expect(authWindow.value).toBe("7");
 
     expect(putBody).toBeTruthy();
     expect(putBody).toMatchObject({ apply: true });
@@ -123,9 +133,28 @@ describe("Admin Settings page", () => {
     expect(payload.rbac?.user_search?.default_per_page).toBe(200);
     expect(payload.audit?.retention_days).toBe(180);
     expect(payload.ui?.time_format).toBe("ISO_8601");
-    expect(payload.metrics?.rbac_denies?.window_days).toBe(30);
+    expect(payload.metrics?.rbac_denies).toBeUndefined();
     expect(payload.metrics?.cache_ttl_seconds).toBeUndefined();
     expect(payload.evidence?.blob_storage_path).toBe("/var/data/evidence");
   });
-});
 
+  it("clamps authentication window above max on save", async () => {
+    render(<Settings />);
+
+    await waitFor(() => expect(screen.queryByText("Loading")).toBeNull());
+
+    const authWindow = screen.getByLabelText("Authentication window (days)") as HTMLInputElement;
+    expect(authWindow.value).toBe("7");
+
+    fireEvent.change(authWindow, { target: { value: "400" } });
+    expect(authWindow.value).toBe("400");
+
+    fireEvent.click(screen.getByRole("button", { name: /save/i }));
+    await screen.findByText("Validated. Not persisted (stub).");
+
+    expect(putBody).toBeTruthy();
+    const payload = putBody as Payload;
+    expect(payload.metrics?.rbac_denies?.window_days).toBe(365);
+    expect(authWindow.value).toBe("365");
+  });
+});

@@ -61,6 +61,7 @@ export default function Settings(): JSX.Element {
   const [retentionDays, setRetentionDays] = useState<number>(365);
   const [timeFormat, setTimeFormat] = useState<TimeFormat>(DEFAULT_TIME_FORMAT);
   const [evidenceBlobPath, setEvidenceBlobPath] = useState<string>("");
+  const [blobPathFocused, setBlobPathFocused] = useState(false);
   const [purging, setPurging] = useState(false);
 
   const snapshotRef = useRef<SettingsSnapshot | null>(null);
@@ -208,6 +209,7 @@ export default function Settings(): JSX.Element {
       const updated = snapshotFromState();
       snapshotRef.current = updated;
       setEvidenceBlobPath(updated.evidenceBlobPath);
+      setRbacDays(updated.rbacDays);
     } catch {
       setMsg("Save failed.");
     } finally {
@@ -280,7 +282,6 @@ export default function Settings(): JSX.Element {
                       setRbacUserSearchPerPage(clamp(Number(e.target.value) || 50, 1, 500))
                     }
                   />
-                  <div className="form-text">Default page size for Admin → User Roles search. Range 1–500.</div>
                 </div>
               </div>
             </div>
@@ -343,8 +344,12 @@ export default function Settings(): JSX.Element {
                   onChange={(e) => setEvidenceBlobPath(e.target.value)}
                   placeholder="/opt/phpgrc/shared/blobs"
                   autoComplete="off"
+                  onFocus={() => setBlobPathFocused(true)}
+                  onBlur={() => setBlobPathFocused(false)}
                 />
-                <div className="form-text">Leave blank to keep storing evidence in the database.</div>
+                {!blobPathFocused && (
+                  <div className="form-text">Leave blank to keep storing evidence in the database.</div>
+                )}
               </div>
               <div className="d-flex flex-column flex-sm-row align-items-sm-center gap-2">
                 <button
@@ -377,7 +382,6 @@ export default function Settings(): JSX.Element {
                     value={cacheTtl}
                     onChange={(e) => setCacheTtl(Math.max(0, Math.min(2_592_000, Number(e.target.value) || 0)))}
                   />
-                  <div className="form-text">0=Disable - Max=30d</div>
                 </div>
 
                 <div className="col-sm-4">
@@ -385,13 +389,13 @@ export default function Settings(): JSX.Element {
                   <input
                     id="rbacDays"
                     type="number"
-                    min={7}
-                    max={365}
                     className="form-control"
                     value={rbacDays}
-                    onChange={(e) => setRbacDays(Math.max(7, Math.min(365, Number(e.target.value) || 7)))}
+                    onChange={(e) => {
+                      const next = Math.trunc(Number(e.target.value));
+                      setRbacDays(Number.isFinite(next) ? next : 0);
+                    }}
                   />
-                  <div className="form-text">Controls the dashboard authentication chart. Range 7–365.</div>
                 </div>
               </div>
             </div>
