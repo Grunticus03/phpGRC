@@ -158,6 +158,13 @@ Snapshot generated from migrations against **phpgrc** as of 2025-10-08 (UTC).
 - `PRIMARY KEY (id)`
 - `UNIQUE INDEX roles_name_unique (name)`
 
+**Seed Data**
+- Inserted by migration `2025_09_22_000003_seed_default_roles.php`:
+  - `role_admin` → `Admin`
+  - `role_auditor` → `Auditor`
+  - `role_risk_mgr` → `Risk Manager`
+  - `role_user` → `User`
+
 ---
 
 ### `users`

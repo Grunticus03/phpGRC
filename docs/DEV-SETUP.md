@@ -65,6 +65,7 @@ curl -fsS  http://phpgrc.gruntlabs.net:9000/api/evidence
 # format, static analysis, types, tests
 composer check
 composer test
+composer phpmd
 ```
 
 ## Common issues

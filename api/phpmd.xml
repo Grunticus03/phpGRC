@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ruleset
+  name="phpGRC PHPMD"
+  xmlns="http://pmd.sf.net/ruleset/2.0.0"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://pmd.sf.net/ruleset/2.0.0 https://pmd.sf.net/ruleset_xml_schema.xsd"
+>
+  <description>
+    Baseline PHPMD rules for phpGRC API. Keeps common quality gates while
+    relaxing limits that conflict with framework conventions.
+  </description>
+
+  <ref href="rulesets/cleancode.xml" />
+  <ref href="rulesets/codesize.xml">
+    <exclude name="CyclomaticComplexity" />
+    <exclude name="TooManyPublicMethods" />
+  </ref>
+  <ref href="rulesets/controversial.xml">
+    <exclude name="CamelCaseVariableName" />
+    <exclude name="Superglobals" />
+  </ref>
+  <ref href="rulesets/design.xml">
+    <exclude name="CouplingBetweenObjects" />
+  </ref>
+  <ref href="rulesets/naming.xml">
+    <exclude name="ShortVariable" />
+  </ref>
+  <ref href="rulesets/unusedcode.xml" />
+
+  <exclude-pattern>tests/</exclude-pattern>
+  <exclude-pattern>database/factories/</exclude-pattern>
+</ruleset>
