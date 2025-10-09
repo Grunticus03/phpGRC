@@ -263,8 +263,8 @@ export default function Kpis(): JSX.Element {
           </section>
 
           <div className="row g-3 align-items-stretch">
-            <section className="col-md-6">
-              <div className="card h-100">
+            <div className="col-12 col-lg-6 d-flex">
+              <section className="card h-100 flex-fill">
                 <div className="card-header">
                   <Link to={evidenceLink} className="fw-semibold text-decoration-none">
                     Evidence MIME types
@@ -277,11 +277,11 @@ export default function Kpis(): JSX.Element {
                     <p className="text-muted mb-0">No evidence uploads yet.</p>
                   )}
                 </div>
-              </div>
-            </section>
+              </section>
+            </div>
 
-            <section className="col-md-6">
-              <div className="card h-100">
+            <div className="col-12 col-lg-6 d-flex">
+              <section className="card h-100 flex-fill">
                 <div className="card-header">
                   <span className="fw-semibold">Admin Activity</span>
                 </div>
@@ -335,8 +335,8 @@ export default function Kpis(): JSX.Element {
                     {downloadingReport ? "Downloading…" : "Download CSV"}
                   </button>
                 </div>
-              </div>
-            </section>
+              </section>
+            </div>
           </div>
         </div>
       )}
