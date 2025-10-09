@@ -6,14 +6,19 @@ namespace Database\Seeders;
 
 use App\Models\Role;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Str;
 
 final class TestRbacSeeder extends Seeder
 {
     public function run(): void
     {
-        foreach (['Admin', 'Auditor', 'Risk Manager', 'User'] as $name) {
-            $id = 'role_'.Str::slug($name, '_');
+        $seed = [
+            'Admin' => 'role_admin',
+            'Auditor' => 'role_auditor',
+            'Risk Manager' => 'role_risk_mgr',
+            'User' => 'role_user',
+        ];
+
+        foreach ($seed as $name => $id) {
             Role::query()->updateOrCreate(['id' => $id], ['name' => $name]);
         }
     }

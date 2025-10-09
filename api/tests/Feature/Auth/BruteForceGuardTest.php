@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Auth;
 
 use App\Models\AuditEvent;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Symfony\Component\HttpFoundation\Cookie;
@@ -104,6 +105,36 @@ final class BruteForceGuardTest extends TestCase
 
         $this->assertSame(1, $locked);
         $this->assertSame(2, $failed);
+    }
+
+    public function test_successful_login_does_not_emit_failed_event(): void
+    {
+        config([
+            'cache.default' => 'file',
+            'core.audit.enabled' => true,
+            'core.auth.bruteforce.enabled' => true,
+            'core.auth.bruteforce.strategy' => 'session',
+            'core.auth.bruteforce.window_seconds' => 900,
+            'core.auth.bruteforce.max_attempts' => 5,
+        ]);
+        Cache::setDefaultDriver('file');
+        Cache::store('file')->flush();
+
+        $user = User::query()->create([
+            'name' => 'Test User',
+            'email' => 'success@example.test',
+            'password' => bcrypt('pass-123'),
+        ]);
+
+        $this->postJson('/auth/login', ['email' => $user->email, 'password' => 'pass-123'])
+            ->assertStatus(200);
+
+        $failed = AuditEvent::query()
+            ->where('category', 'AUTH')
+            ->where('action', 'auth.login.failed')
+            ->count();
+
+        $this->assertSame(0, $failed);
     }
 
     private function getCookieFromResponse(\Illuminate\Testing\TestResponse $resp, string $name): ?Cookie

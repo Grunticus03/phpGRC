@@ -3,6 +3,13 @@ export type RoleOption = {
   name: string;
 };
 
+export type RoleOptionInput =
+  | string
+  | {
+      id?: string | null | undefined;
+      name?: string | null | undefined;
+    };
+
 function stripDiacritics(value: string): string {
   return value.normalize("NFKD").replace(/[\u0300-\u036f]/g, "");
 }
@@ -27,22 +34,38 @@ export function roleLabelFromId(id: string): string {
     .join(" ");
 }
 
-export function roleOptionsFromList(source: string[] | undefined | null): RoleOption[] {
+export function roleOptionsFromList(source: RoleOptionInput[] | undefined | null): RoleOption[] {
   if (!Array.isArray(source)) return [];
 
   const seen = new Set<string>();
   const options: RoleOption[] = [];
 
   for (const entry of source) {
-    if (typeof entry !== "string") {
+    let idSource: string | null = null;
+    let labelSource: string | null = null;
+
+    if (typeof entry === "string") {
+      idSource = entry;
+      labelSource = entry;
+    } else if (entry && typeof entry === "object") {
+      const possibleId = typeof entry.id === "string" ? entry.id : undefined;
+      const possibleName = typeof entry.name === "string" ? entry.name : undefined;
+      idSource = possibleId && possibleId.trim() !== "" ? possibleId : possibleName ?? null;
+      labelSource = possibleName && possibleName.trim() !== "" ? possibleName : possibleId ?? null;
+    }
+
+    if (idSource === null) {
       continue;
     }
-    const id = canonicalRoleId(entry);
+
+    const id = canonicalRoleId(idSource);
     if (id === "" || seen.has(id)) {
       continue;
     }
     seen.add(id);
-    options.push({ id, name: roleLabelFromId(id) });
+    const labelCandidate = labelSource ?? idSource;
+    const label = roleLabelFromId(labelCandidate) || roleLabelFromId(id) || labelCandidate;
+    options.push({ id, name: label });
   }
 
   return options.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));

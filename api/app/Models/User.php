@@ -82,7 +82,6 @@ final class User extends Authenticatable
             }
         }
 
-        /** @psalm-suppress TooManyTemplateParams */
         $rel = $this->roles();
 
         /** @var EloquentBuilder<\App\Models\Role> $qb */

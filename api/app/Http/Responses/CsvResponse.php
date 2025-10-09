@@ -16,7 +16,6 @@ final class CsvResponse extends Response
     public function prepare(Request $request): static
     {
         $this->headers->set('Content-Type', 'text/csv');
-        /** @psalm-suppress InaccessibleProperty */
         $this->charset = null; // prevent "; charset=UTF-8"
 
         return $this;

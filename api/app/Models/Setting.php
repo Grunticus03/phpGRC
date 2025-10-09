@@ -36,8 +36,6 @@ final class Setting extends Model
     /**
      * Store JSON as text; service decodes/encodes explicitly.
      *
-     * @psalm-suppress NonInvariantDocblockPropertyType
-     *
      * @psalm-var array<array-key,mixed>
      *
      * @phpstan-var array<string,string>

@@ -17,7 +17,7 @@ const byAction: Record<string, ActionInfo> = {
 
   // RBAC denies (Phase-5 middleware emits these)
   "rbac.deny.unauthenticated": { label: "Denied: unauthenticated", category: "RBAC", variant: "danger" },
-  "rbac.deny.role_mismatch":   { label: "Denied: role", category: "RBAC", variant: "danger" },
+  "rbac.deny.role_mismatch":   { label: "Denied: missing required role", category: "RBAC", variant: "danger" },
   "rbac.deny.policy":          { label: "Denied: policy", category: "RBAC", variant: "danger" },
   "rbac.deny.capability":      { label: "Denied: capability", category: "RBAC", variant: "danger" },
   "rbac.deny.unknown_policy":  { label: "Denied: unknown policy", category: "RBAC", variant: "danger" },

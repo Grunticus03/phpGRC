@@ -20,7 +20,6 @@ final class CsvStreamResponse extends StreamedResponse
     public function __construct(?callable $callback = null, int $status = 200, array $headers = [])
     {
         parent::__construct($callback, $status, $headers);
-        /** @psalm-suppress InaccessibleProperty */
         $this->content = '';
     }
 
@@ -29,7 +28,6 @@ final class CsvStreamResponse extends StreamedResponse
     {
         // Force exact header and skip parent prepare to avoid charset suffix.
         $this->headers->set('Content-Type', 'text/csv');
-        /** @psalm-suppress InaccessibleProperty */
         $this->charset = '';
 
         return $this;

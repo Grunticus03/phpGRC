@@ -306,7 +306,9 @@ final class RolesController extends Controller
         }
 
         if ($query->exists()) {
-            return $this->validationFailed(['name' => ['Role already exists after normalization.']]);
+            $label = $this->humanizeRole($canonical);
+
+            return $this->validationFailed(['name' => [sprintf('Role "%s" already exists.', $label)]]);
         }
 
         return ['display' => $this->humanizeRole($canonical), 'canonical' => $canonical];

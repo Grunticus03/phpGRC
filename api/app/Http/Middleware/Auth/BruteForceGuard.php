@@ -11,6 +11,7 @@ use Illuminate\Contracts\Cache\Repository as CacheRepository;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\Cookie;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\TooManyRequestsHttpException;
@@ -89,19 +90,30 @@ final class BruteForceGuard
             throw $ex;
         }
 
-        // Not locked
-        $this->auditAuth('auth.login.failed', $request, [
+        // Not locked; only log failure when downstream rejects the attempt.
+        $failureMeta = [
             'strategy' => $strategy,
             'attempts' => $state['count'],
             'window_seconds' => $windowSeconds,
-        ]);
+        ];
 
-        /** @var Response $resp */
-        $resp = $next($request);
+        try {
+            $response = $next($request);
+        } catch (ValidationException $validation) {
+            if ($validation->status === 401) {
+                $this->auditAuth('auth.login.failed', $request, $failureMeta);
+            }
+
+            throw $validation;
+        }
+
+        if ($response->getStatusCode() === 401) {
+            $this->auditAuth('auth.login.failed', $request, $failureMeta);
+        }
 
         if ($setCookieValue !== null) {
             $expire = time() + $windowSeconds; // int
-            $resp->headers->setCookie(new Cookie(
+            $response->headers->setCookie(new Cookie(
                 $cookieName,                 // name
                 $setCookieValue,             // value
                 $expire,                     // expiresAt
@@ -114,7 +126,7 @@ final class BruteForceGuard
             ));
         }
 
-        return $resp;
+        return $response;
     }
 
     /**

@@ -50,15 +50,18 @@ describe("Admin Roles page", () => {
     expect(screen.getAllByRole("button", { name: /Delete/i })).toHaveLength(2);
   });
 
-  test("submits create role (POST issued)", async () => {
+  test("submits create role and refreshes list", async () => {
+    const roles: string[] = [];
+
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = typeof input === "string" ? input : (input as Request).url ?? String(input);
       const method = (init?.method ?? "GET").toUpperCase();
 
       if (method === "GET" && /\/rbac\/roles\b/.test(url)) {
-        return jsonResponse(200, { ok: true, roles: [] });
+        return jsonResponse(200, { ok: true, roles });
       }
       if (method === "POST" && /\/rbac\/roles\b/.test(url)) {
+        roles.push("compliance_lead");
         return jsonResponse(201, { ok: true, role: { id: "role_compliance", name: "compliance_lead" } });
       }
       return jsonResponse(200, { ok: true });
@@ -76,6 +79,40 @@ describe("Admin Roles page", () => {
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ method: "POST" }));
     });
+
+    expect(await screen.findByText("Compliance Lead")).toBeInTheDocument();
+  });
+
+  test("shows friendly validation message on duplicate name", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === "string" ? input : (input as Request).url ?? String(input);
+      const method = (init?.method ?? "GET").toUpperCase();
+
+      if (method === "GET" && /\/rbac\/roles\b/.test(url)) {
+        return jsonResponse(200, { ok: true, roles: ["admin"] });
+      }
+      if (method === "POST" && /\/rbac\/roles\b/.test(url)) {
+        return jsonResponse(422, {
+          ok: false,
+          code: "VALIDATION_FAILED",
+          message: "The given data was invalid.",
+          errors: { name: ['Role "Admin" already exists.'] },
+        });
+      }
+      return jsonResponse(200, { ok: true });
+    }) as unknown as typeof fetch;
+
+    globalThis.fetch = fetchMock;
+
+    renderPage();
+    const user = userEvent.setup();
+
+    const input = await screen.findByLabelText(/create role/i);
+    await user.clear(input);
+    await user.type(input, "Admin");
+    await user.click(screen.getByRole("button", { name: /submit/i }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent('Role "Admin" already exists.');
   });
 
   test("rename issues PATCH request", async () => {

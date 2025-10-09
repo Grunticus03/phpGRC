@@ -162,20 +162,37 @@ final class PolicyMap
 
         if ($persist && class_exists(\App\Models\Role::class) && Schema::hasTable('roles')) {
             try {
-                /** @var array<int, mixed> $names */
-                $names = \App\Models\Role::query()->orderBy('name')->pluck('name')->all();
-                if ($names !== []) {
-                    /** @var list<string> $nameStrs */
-                    $nameStrs = array_values(array_filter($names, 'is_string'));
-                    /** @var list<string> $out */
-                    $out = [];
-                    foreach ($nameStrs as $n) {
-                        $tok = self::normalizeToken($n);
-                        if ($tok !== '') {
-                            $out[] = $tok;
+                /** @var \Illuminate\Support\Collection<int,\App\Models\Role> $rows */
+                $rows = \App\Models\Role::query()
+                    ->orderBy('name')
+                    ->get(['id', 'name']);
+
+                if ($rows->isNotEmpty()) {
+                    $tokens = [];
+                    foreach ($rows as $role) {
+                        /** @var mixed $rawName */
+                        $rawName = $role->getAttribute('name');
+                        if (is_string($rawName) && $rawName !== '') {
+                            $tok = self::normalizeToken($rawName);
+                            if ($tok !== '') {
+                                $tokens[$tok] = true;
+                            }
+                        }
+
+                        /** @var mixed $rawId */
+                        $rawId = $role->getAttribute('id');
+                        if (is_string($rawId) && $rawId !== '') {
+                            $tok = self::normalizeToken($rawId);
+                            if ($tok !== '') {
+                                $tokens[$tok] = true;
+                            }
                         }
                     }
-                    if ($out !== []) {
+
+                    if ($tokens !== []) {
+                        /** @var list<string> $out */
+                        $out = array_keys($tokens);
+
                         return $out;
                     }
                 }

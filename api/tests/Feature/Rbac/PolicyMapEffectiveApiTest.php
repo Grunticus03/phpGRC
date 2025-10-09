@@ -27,11 +27,11 @@ final class PolicyMapEffectiveApiTest extends TestCase
         ]);
 
         // Role IDs are string PKs; set explicitly to avoid DB default issues.
-        Role::query()->create(['id' => 'admin',   'name' => 'Admin']);
-        Role::query()->create(['id' => 'auditor', 'name' => 'Auditor']);
+        Role::query()->updateOrCreate(['id' => 'role_admin'], ['name' => 'Admin']);
+        Role::query()->updateOrCreate(['id' => 'role_auditor'], ['name' => 'Auditor']);
 
         $admin = User::factory()->create();
-        $admin->roles()->attach('admin');
+        $admin->roles()->attach('role_admin');
         $this->actingAs($admin, 'sanctum');
 
         $res = $this->getJson('/rbac/policies/effective');
@@ -63,11 +63,11 @@ final class PolicyMapEffectiveApiTest extends TestCase
             ],
         ]);
 
-        Role::query()->create(['id' => 'admin',   'name' => 'Admin']);
-        Role::query()->create(['id' => 'auditor', 'name' => 'Auditor']);
+        Role::query()->updateOrCreate(['id' => 'role_admin'], ['name' => 'Admin']);
+        Role::query()->updateOrCreate(['id' => 'role_auditor'], ['name' => 'Auditor']);
 
         $aud = User::factory()->create();
-        $aud->roles()->attach('auditor');
+        $aud->roles()->attach('role_auditor');
         $this->actingAs($aud, 'sanctum');
 
         $this->getJson('/rbac/policies/effective')->assertStatus(403);

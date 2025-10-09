@@ -28,8 +28,9 @@ final class PolicyMapUnknownRoleAuditTest extends TestCase
             ],
         ]);
 
-        // Seed catalog with only "admin" (explicit string PK)
-        Role::query()->create(['id' => 'admin', 'name' => 'Admin']);
+        // Ensure only the canonical Admin role is present in the catalog.
+        Role::query()->where('id', '!=', 'role_admin')->delete();
+        Role::query()->updateOrCreate(['id' => 'role_admin'], ['name' => 'Admin']);
 
         // Prime & compute
         PolicyMap::clearCache();

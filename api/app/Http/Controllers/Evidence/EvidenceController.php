@@ -397,7 +397,6 @@ final class EvidenceController extends Controller
         $q->orderBy('created_at', $order)->orderBy('id', $order);
 
         if ($afterTs !== null && $afterId !== null) {
-            /** @psalm-suppress InvalidArgument */
             if ($order === 'desc') {
                 $q->where(function (Builder $w) use ($afterTs, $afterId): void {
                     $w->where('created_at', '<', $afterTs)

@@ -204,7 +204,6 @@ final class SettingsService
                     return;
                 }
 
-                /** @psalm-suppress MixedAssignment */
                 $rows = [];
                 $now = now();
                 /** @var string $key */
@@ -408,7 +407,6 @@ final class SettingsService
                 if (is_array($v)) {
                     /** @var array<int|string, mixed> $nested */
                     $nested = $v;
-                    /** @psalm-suppress MixedAssignment */
                     $arr[$k] = $this->normalizeArray($nested);
                 }
             }

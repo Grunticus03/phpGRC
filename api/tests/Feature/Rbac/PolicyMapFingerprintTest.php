@@ -29,7 +29,8 @@ final class PolicyMapFingerprintTest extends TestCase
         ]);
 
         // Seed catalog: only admin exists
-        Role::query()->create(['id' => 'admin', 'name' => 'Admin']);
+        Role::query()->delete();
+        Role::query()->create(['id' => 'role_admin', 'name' => 'Admin']);
 
         // First compute → only 'admin' allowed; unknown 'auditor' audited once
         PolicyMap::clearCache();
@@ -44,7 +45,7 @@ final class PolicyMapFingerprintTest extends TestCase
         $this->assertSame(1, $count1, 'Should emit one unknown-role audit on first compute');
 
         // Now add 'auditor' to the catalog; do NOT clear the cache.
-        Role::query()->create(['id' => 'auditor', 'name' => 'Auditor']);
+        Role::query()->updateOrCreate(['id' => 'role_auditor'], ['name' => 'Auditor']);
 
         // Second compute should re-run due to fingerprint change and include 'auditor'
         $map2 = PolicyMap::effective();

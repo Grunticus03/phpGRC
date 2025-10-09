@@ -23,7 +23,7 @@ final class CapabilityGatesTest extends TestCase
 
         /** @var Role $role */
         $role = Role::query()->firstOrCreate(
-            ['id' => 'admin'],
+            ['id' => 'role_admin'],
             ['name' => 'Admin']
         );
 

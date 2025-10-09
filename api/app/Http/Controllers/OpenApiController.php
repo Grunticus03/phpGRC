@@ -199,7 +199,6 @@ YAML;
 
             $flags = 0;
             if (\defined('\Symfony\Component\Yaml\Yaml::DUMP_NUMERIC_KEY_AS_STRING')) {
-                /** @psalm-suppress UndefinedConstant */
                 $flags |= Yaml::DUMP_NUMERIC_KEY_AS_STRING;
             }
 

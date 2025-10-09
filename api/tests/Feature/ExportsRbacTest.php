@@ -29,9 +29,9 @@ final class ExportsRbacTest extends TestCase
         ]);
 
         // Minimal role catalog.
-        Role::query()->create(['id' => 'admin', 'name' => 'Admin']);
-        Role::query()->create(['id' => 'auditor', 'name' => 'Auditor']);
-        Role::query()->create(['id' => 'user', 'name' => 'User']);
+        Role::query()->updateOrCreate(['id' => 'role_admin'], ['name' => 'Admin']);
+        Role::query()->updateOrCreate(['id' => 'role_auditor'], ['name' => 'Auditor']);
+        Role::query()->updateOrCreate(['id' => 'role_user'], ['name' => 'User']);
     }
 
     private function makeUserWithRoles(array $roleNames): User

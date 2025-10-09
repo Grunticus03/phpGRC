@@ -45,7 +45,6 @@ final class Kernel extends ConsoleKernel
 
         $console = base_path('routes/console.php');
         if (is_file($console)) {
-            /** @psalm-suppress UnresolvableInclude */
             require $console;
         }
     }

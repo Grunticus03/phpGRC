@@ -9,7 +9,7 @@ import {
   type DeleteRoleResult,
   type RoleListResponse,
 } from "../../lib/api/rbac";
-import { roleOptionsFromList, roleLabelFromId, type RoleOption } from "../../lib/roles";
+import { roleOptionsFromList, roleLabelFromId, canonicalRoleId, type RoleOption } from "../../lib/roles";
 
 export default function Roles(): JSX.Element {
   const [loading, setLoading] = useState(true);
@@ -53,21 +53,37 @@ export default function Roles(): JSX.Element {
     try {
       const result: CreateRoleResult = await createRole(trimmed);
       if (result.kind === "created") {
-        const label = roleLabelFromId(result.roleName) ?? result.roleName;
+        const id = canonicalRoleId(result.roleName);
+        const label = roleLabelFromId(id || result.roleName) || result.roleName;
         setMsg(`Created role ${label} (${result.roleId}).`);
         setName("");
+        if (id) {
+          setRoles((prev) => {
+            if (prev.some((role) => role.id === id)) {
+              return prev;
+            }
+            const next = [...prev, { id, name: label }];
+            return next.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
+          });
+        }
         await load();
       } else if (result.kind === "stub") {
         const accepted = result.acceptedName ?? trimmed;
         const label = roleLabelFromId(accepted) ?? accepted;
         setMsg(`Accepted: "${label}". Persistence not implemented.`);
         setName("");
-      } else if (result.kind === "error" && result.code === "FORBIDDEN") {
-        setMsg("Forbidden. Admin required.");
-      } else if (result.kind === "error" && result.code === "VALIDATION_FAILED") {
-        setMsg("Validation error. Name must be 2–64 chars.");
-      } else {
-        setMsg("Request failed.");
+      } else if (result.kind === "error") {
+        if (result.code === "FORBIDDEN") {
+          setMsg("Forbidden. Admin required.");
+        } else if (result.code === "VALIDATION_FAILED") {
+          setMsg(result.message ?? "Validation error.");
+        } else if (result.message) {
+          setMsg(result.message);
+        } else if (result.code === "NETWORK_ERROR") {
+          setMsg("Network error. Please retry.");
+        } else {
+          setMsg("Request failed.");
+        }
       }
     } finally {
       setSubmitting(false);

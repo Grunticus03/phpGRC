@@ -45,6 +45,11 @@ final class AdminSettingsAuthTest extends TestCase
             'category' => 'AUTH',
             'entity_id' => 'login_redirect',
         ]);
+        $this->assertDatabaseMissing('audit_events', [
+            'action' => 'auth.login.failed',
+            'category' => 'AUTH',
+            'entity_id' => 'login',
+        ]);
     }
 
     public function test_authenticated_admin_gets_200_when_require_auth_true(): void

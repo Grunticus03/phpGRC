@@ -28,8 +28,8 @@ final class RbacUserRolesAuditTest extends TestCase
         config()->set('core.audit.enabled', true);
 
         // Seed roles table for tests.
-        Role::query()->create(['id' => 'role_admin', 'name' => 'Admin']);
-        Role::query()->create(['id' => 'role_auditor', 'name' => 'Auditor']);
+        Role::query()->updateOrCreate(['id' => 'role_admin'], ['name' => 'Admin']);
+        Role::query()->updateOrCreate(['id' => 'role_auditor'], ['name' => 'Auditor']);
     }
 
     public function test_attach_emits_canonical_event_with_friendly_message(): void

@@ -1,8 +1,9 @@
 import { apiDelete, apiGet, apiPatch, apiPost, apiPut, HttpError } from "../api";
+import { type RoleOptionInput } from "../roles";
 
 export type RoleListResponse = {
   ok: boolean;
-  roles: string[];
+  roles: RoleOptionInput[];
   note?: string;
 };
 
@@ -132,19 +133,25 @@ export async function listRoles(): Promise<RoleListResponse> {
     const json = await apiGet<unknown>("/api/rbac/roles");
     const j = isObject(json) ? (json as Record<string, unknown>) : {};
 
-    const rolesFromArray = Array.isArray(json) ? (json as unknown[]) : null;
-    const rolesFromProp =
-      Array.isArray(j.roles) ? (j.roles as unknown[]) :
-      Array.isArray(j.data) ? (j.data as unknown[]) : null;
+    const collected: RoleOptionInput[] = [];
+    let foundArray = false;
 
-    const raw = (rolesFromArray ?? rolesFromProp ?? []).filter((r): r is string => typeof r === "string");
+    const append = (value: unknown): void => {
+      if (!Array.isArray(value)) return;
+      foundArray = true;
+      collected.push(...value);
+    };
 
-    if (raw.length > 0 || (Array.isArray(rolesFromProp) && rolesFromProp.length === 0)) {
-      const note = typeof j.note === "string" ? (j.note as string) : undefined;
-      return { ok: true, roles: raw, note };
+    append(json);
+    append(j.roles);
+    append(j.data);
+
+    if (!foundArray) {
+      return { ok: false, roles: [], note: "invalid_response" };
     }
 
-    return { ok: false, roles: [], note: "invalid_response" };
+    const note = typeof j.note === "string" ? (j.note as string) : undefined;
+    return { ok: true, roles: collected, note };
   } catch {
     return { ok: false, roles: [], note: "network_error" };
   }
@@ -178,7 +185,36 @@ export async function createRole(name: string): Promise<CreateRoleResult> {
 
     const code = typeof j.code === "string" ? (j.code as string) : undefined;
     return { kind: "error", status: 400, code, raw: res };
-  } catch {
+  } catch (err) {
+    if (err instanceof HttpError) {
+      const body = err.body;
+      const code = isObject(body) && typeof body.code === "string" ? (body.code as string) : undefined;
+      const baseMessage =
+        isObject(body) && typeof body.message === "string" ? (body.message as string) : undefined;
+
+      let detailedMessage: string | undefined;
+      if (isObject(body?.errors)) {
+        const errors = body.errors as Record<string, unknown>;
+        for (const value of Object.values(errors)) {
+          if (Array.isArray(value)) {
+            const found = value.find((item): item is string => typeof item === "string" && item.trim() !== "");
+            if (found) {
+              detailedMessage = found;
+              break;
+            }
+          }
+        }
+      }
+
+      return {
+        kind: "error",
+        status: err.status,
+        code,
+        message: detailedMessage ?? baseMessage,
+        raw: body,
+      };
+    }
+
     return { kind: "error", status: 0, code: "NETWORK_ERROR" };
   }
 }

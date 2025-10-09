@@ -105,7 +105,7 @@ describe("Admin Audit page", () => {
     await screen.findByLabelText("Category");
 
     fireEvent.change(screen.getByLabelText("Actor"), { target: { value: "alpha" } });
-    fireEvent.click(screen.getByRole("button", { name: "Search" }));
+    fireEvent.click(screen.getByRole("button", { name: "Find Actor" }));
 
     const selectBtns = await screen.findAllByRole("button", { name: "Select" });
     fireEvent.click(selectBtns[0]); // pick id 7

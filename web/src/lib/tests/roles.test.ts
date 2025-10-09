@@ -23,6 +23,18 @@ describe("roles helper", () => {
     ]);
   });
 
+  test("roleOptionsFromList accepts object entries", () => {
+    const options = roleOptionsFromList([
+      { id: "role_admin", name: "Admin" },
+      { name: "Risk Manager" },
+      { id: "role_admin", name: "Duplicate" },
+    ]);
+    expect(options).toEqual([
+      { id: "role_admin", name: "Admin" },
+      { id: "risk_manager", name: "Risk Manager" },
+    ]);
+  });
+
   test("roleIdsFromNames normalizes arbitrary strings", () => {
     expect(roleIdsFromNames(["Admin", "Risk Manager", "Admin"]))
       .toEqual(["admin", "risk_manager"]);
