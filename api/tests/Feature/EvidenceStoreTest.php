@@ -15,6 +15,8 @@ final class EvidenceStoreTest extends TestCase
 {
     use RefreshDatabase;
 
+    private User $user;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -22,16 +24,17 @@ final class EvidenceStoreTest extends TestCase
         config()->set('core.rbac.enabled', false);
 
         Gate::define('core.evidence.manage', fn (User $u) => true);
-        $u = User::query()->create([
+        $this->user = User::query()->create([
             'name' => 'T',
             'email' => 't@example.com',
             'password' => bcrypt('x'),
         ]);
-        Sanctum::actingAs($u);
     }
 
     public function test_store_creates_record_and_returns_hash(): void
     {
+        Sanctum::actingAs($this->user);
+
         $content = 'hello world';
         $file = UploadedFile::fake()->createWithContent('hello.txt', $content);
 
@@ -48,11 +51,25 @@ final class EvidenceStoreTest extends TestCase
 
     public function test_store_rejects_when_disabled(): void
     {
+        Sanctum::actingAs($this->user);
+
         config()->set('core.evidence.enabled', false);
 
         $file = UploadedFile::fake()->createWithContent('note.txt', 'x');
         $res = $this->post('/evidence', ['file' => $file]);
 
         $res->assertStatus(400)->assertJsonPath('code', 'EVIDENCE_NOT_ENABLED');
+    }
+
+    public function test_store_allows_guest_when_auth_not_required(): void
+    {
+        config()->set('core.rbac.enabled', true);
+        config()->set('core.rbac.require_auth', false);
+
+        $file = UploadedFile::fake()->createWithContent('guest.txt', 'hello');
+
+        $res = $this->post('/evidence', ['file' => $file]);
+
+        $res->assertStatus(201)->assertJsonPath('ok', true);
     }
 }

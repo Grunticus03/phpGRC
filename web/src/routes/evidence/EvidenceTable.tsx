@@ -125,6 +125,14 @@ export default function EvidenceTable({
     };
   }, [ownerIdsKey, ownerIds]);
 
+  if (items.length === 0 && fetchState === "ok") {
+    return (
+      <div className="alert alert-light border" role="status">
+        No evidence is currently being stored.
+      </div>
+    );
+  }
+
   return (
     <div className="table-responsive">
       <table className="table" aria-label="Evidence results">
@@ -150,12 +158,7 @@ export default function EvidenceTable({
           </tr>
         </thead>
         <tbody>
-          {items.length === 0 && fetchState === "ok" ? (
-            <tr>
-              <td colSpan={10}>No results</td>
-            </tr>
-          ) : (
-            items.map((item) => {
+          {items.map((item) => {
               const ownerVal = owners.get(item.owner_id);
               const createdLabel = formatDate(item.created_at, timeFormat);
               const sizeLabel = formatBytes(item.size);
@@ -201,8 +204,7 @@ export default function EvidenceTable({
                   </td>
                 </tr>
               );
-            })
-          )}
+            })}
         </tbody>
       </table>
     </div>

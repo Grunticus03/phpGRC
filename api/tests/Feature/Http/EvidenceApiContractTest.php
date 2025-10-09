@@ -72,7 +72,7 @@ final class EvidenceApiContractTest extends TestCase
         $res->assertStatus(422)
             ->assertJsonPath('ok', false)
             ->assertJsonPath('code', 'VALIDATION_FAILED')
-            ->assertJsonPath('message', 'Validation failed')
+            ->assertJsonPath('message', 'Upload validation failed: The file field is required.')
             ->assertJsonStructure(['errors' => ['file']]);
     }
 

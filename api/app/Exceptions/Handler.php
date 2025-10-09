@@ -6,6 +6,7 @@ namespace App\Exceptions;
 
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Exceptions\Handler as ExceptionHandler;
+use Illuminate\Http\Exceptions\PostTooLargeException;
 use Illuminate\Http\Exceptions\ThrottleRequestsException;
 use Illuminate\Http\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
@@ -42,6 +43,14 @@ final class Handler extends ExceptionHandler
     #[\Override]
     public function render($request, Throwable $e): Response
     {
+        if ($e instanceof PostTooLargeException) {
+            return new JsonResponse([
+                'ok' => false,
+                'code' => 'UPLOAD_TOO_LARGE',
+                'message' => 'Upload greater than '.$this->maxUploadSizeLabel(),
+            ], 413);
+        }
+
         if ($e instanceof ThrottleRequestsException || $e instanceof TooManyRequestsHttpException) {
             /** @var array<string,mixed> $headers */
             $headers = $e->getHeaders();
@@ -71,5 +80,90 @@ final class Handler extends ExceptionHandler
         }
 
         return parent::render($request, $e);
+    }
+
+    private function maxUploadSizeLabel(): string
+    {
+        /** @var array<int, array{bytes:int}> $limits */
+        $limits = [];
+        foreach (['upload_max_filesize', 'post_max_size'] as $key) {
+            /** @var string|false $raw */
+            $raw = ini_get($key);
+            if (! is_string($raw)) {
+                continue;
+            }
+            $trimmed = trim($raw);
+            if ($trimmed === '') {
+                continue;
+            }
+            $bytes = $this->parseIniSizeToBytes($trimmed);
+            if ($bytes === null || $bytes <= 0) {
+                continue;
+            }
+            $limits[] = ['bytes' => $bytes];
+        }
+
+        if ($limits === []) {
+            return 'the configured limit';
+        }
+
+        usort($limits, static fn (array $a, array $b): int => $a['bytes'] <=> $b['bytes']);
+        $minBytes = $limits[0]['bytes'];
+
+        return $this->formatBytes($minBytes);
+    }
+
+    private function parseIniSizeToBytes(string $value): ?int
+    {
+        if ($value === '') {
+            return null;
+        }
+
+        $number = $value;
+        $unit = '';
+
+        if (! is_numeric($value)) {
+            $unit = strtolower(substr($value, -1));
+            $number = substr($value, 0, -1);
+        }
+
+        if (! is_numeric($number)) {
+            return null;
+        }
+
+        $base = (float) $number;
+        if ($base <= 0) {
+            return null;
+        }
+
+        $multiplier = match ($unit) {
+            'k' => 1024,
+            'm' => 1024 * 1024,
+            'g' => 1024 * 1024 * 1024,
+            't' => 1024 * 1024 * 1024 * 1024,
+            'p' => 1024 * 1024 * 1024 * 1024 * 1024,
+            default => 1,
+        };
+
+        return (int) floor($base * (float) $multiplier);
+    }
+
+    private function formatBytes(int $bytes): string
+    {
+        if ($bytes < 1024) {
+            return sprintf('%d bytes', $bytes);
+        }
+
+        $units = ['KB', 'MB', 'GB', 'TB', 'PB'];
+        $value = (float) $bytes;
+
+        foreach ($units as $unit) {
+            $value /= 1024.0;
+            if ($value < 1024) {
+                return sprintf('%s %s', rtrim(rtrim(number_format($value, 2, '.', ''), '0'), '.'), $unit);
+            }
+        }
+
+        return sprintf('%d bytes', $bytes);
     }
 }

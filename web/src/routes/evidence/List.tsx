@@ -258,6 +258,48 @@ export default function EvidenceList(): JSX.Element {
     }
   }
 
+  function extractBodyMessage(body: unknown): string | null {
+    if (body && typeof body === "object") {
+      const msg = (body as Record<string, unknown>).message;
+      if (typeof msg === "string" && msg.trim() !== "") {
+        return msg.trim();
+      }
+    }
+    if (typeof body === "string" && body.trim() !== "") {
+      return body.trim();
+    }
+    return null;
+  }
+
+  function extractValidationDetail(errors: unknown): string | null {
+    if (!errors || typeof errors !== "object") {
+      return null;
+    }
+    for (const value of Object.values(errors as Record<string, unknown>)) {
+      if (Array.isArray(value)) {
+        const found = value.find((item) => typeof item === "string" && item.trim() !== "");
+        if (typeof found === "string") {
+          return found.trim();
+        }
+      } else if (typeof value === "string" && value.trim() !== "") {
+        return value.trim();
+      }
+    }
+    return null;
+  }
+
+  function extractValidationMessage(body: Record<string, unknown> | null): string | null {
+    if (!body) {
+      return null;
+    }
+    const detail = extractValidationDetail(body.errors ?? null);
+    if (detail) {
+      return `Upload validation failed: ${detail}`;
+    }
+    const msg = body.message;
+    return typeof msg === "string" && msg.trim() !== "" ? msg.trim() : null;
+  }
+
   async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
     if (uploading) return;
     const input = event.currentTarget;
@@ -278,17 +320,28 @@ export default function EvidenceList(): JSX.Element {
     } catch (err) {
       let message = "Upload failed. Please try again.";
       if (err instanceof HttpError) {
-        const body = (err.body ?? null) as Record<string, unknown> | null;
-        const msgValue = body?.["message"];
-        const codeValue = body?.["code"];
-        const msg = typeof msgValue === "string" ? msgValue : null;
-        const code = typeof codeValue === "string" ? codeValue : null;
-        if (msg) {
-          message = `Upload failed: ${msg}`;
-        } else if (code) {
-          message = `Upload failed: ${code}`;
+        const rawBody = err.body ?? null;
+        const body = rawBody && typeof rawBody === "object" ? (rawBody as Record<string, unknown>) : null;
+        if (err.status === 422) {
+          message = extractValidationMessage(body) ?? "Upload validation failed. Please check the selected file.";
+        } else if (err.status === 413) {
+          message = extractBodyMessage(rawBody) ?? "Upload greater than the configured limit.";
         } else {
-          message = `Upload failed (HTTP ${err.status}).`;
+          const msg = extractBodyMessage(rawBody);
+          if (msg) {
+            message = `Upload failed: ${msg}`;
+          } else if (body) {
+            const codeValue = body.code;
+            if (typeof codeValue === "string" && codeValue.trim() !== "") {
+              message = `Upload failed: ${codeValue.trim()}`;
+            } else if (typeof err.message === "string" && err.message.trim() !== "") {
+              message = err.message;
+            }
+          } else if (typeof err.message === "string" && err.message.trim() !== "") {
+            message = err.message;
+          } else {
+            message = `Upload failed (HTTP ${err.status}).`;
+          }
         }
       } else if (err instanceof Error && err.message) {
         message = err.message;

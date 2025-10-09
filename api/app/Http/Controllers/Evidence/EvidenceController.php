@@ -17,6 +17,7 @@ use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
@@ -28,7 +29,7 @@ final class EvidenceController extends Controller
 
     public function store(Request $request, AuditLogger $audit): JsonResponse
     {
-        Gate::authorize('core.evidence.manage');
+        $this->authorizeManageWhenRequired();
 
         if (! (bool) config('core.evidence.enabled', true)) {
             return response()->json(['ok' => false, 'code' => 'EVIDENCE_NOT_ENABLED'], 400);
@@ -39,10 +40,16 @@ final class EvidenceController extends Controller
             'file' => ['required', 'file'],
         ]);
         if ($v->fails()) {
+            $errors = $v->errors()->all();
+            $message = 'Upload validation failed';
+            if ($errors !== []) {
+                $message .= ': '.implode('; ', array_map(static fn (string $error): string => trim($error), $errors));
+            }
+
             return response()->json([
                 'ok' => false,
                 'code' => 'VALIDATION_FAILED',
-                'message' => 'Validation failed',
+                'message' => $message,
                 'errors' => $v->errors()->toArray(),
             ], 422);
         }
@@ -61,7 +68,7 @@ final class EvidenceController extends Controller
         $bytes = $bytesMaybe;
         $sha256 = hash('sha256', $bytes);
 
-        $ownerId = self::toIntOrZero(Auth::id());
+        $ownerId = $this->resolveOwnerIdForStore();
         $originalName = $uploaded->getClientOriginalName();
         $guessedMime = $uploaded->getMimeType();
         $clientMime = $uploaded->getClientMimeType();
@@ -142,7 +149,7 @@ final class EvidenceController extends Controller
 
     public function destroy(Request $request, string $id, AuditLogger $audit): JsonResponse
     {
-        Gate::authorize('core.evidence.manage');
+        $this->authorizeManageWhenRequired();
 
         /** @var array{id:string,owner_id:int,filename:string,mime:string,size_bytes:int,sha256:string,version:int}|null $deleted */
         $deleted = DB::transaction(function () use ($id): ?array {
@@ -504,6 +511,45 @@ final class EvidenceController extends Controller
         if (Auth::guard('sanctum')->check()) {
             Gate::authorize('core.evidence.view');
         }
+    }
+
+    private function authorizeManageWhenRequired(): void
+    {
+        if ((bool) config('core.rbac.require_auth', false)) {
+            Gate::authorize('core.evidence.manage');
+
+            return;
+        }
+
+        Auth::shouldUse('sanctum');
+        if (Auth::guard('sanctum')->check()) {
+            Gate::authorize('core.evidence.manage');
+        }
+    }
+
+    private function resolveOwnerIdForStore(): int
+    {
+        $authId = self::toIntOrNull(Auth::id());
+        if ($authId !== null && $authId > 0) {
+            return $authId;
+        }
+
+        /** @var int|string|null $fallbackRaw */
+        $fallbackRaw = User::query()->min('id');
+        $fallbackId = self::toIntOrNull($fallbackRaw);
+        if ($fallbackId !== null && $fallbackId > 0) {
+            return $fallbackId;
+        }
+
+        $user = User::query()->firstOrCreate(
+            ['email' => 'system@phpgrc.local'],
+            [
+                'name' => 'System',
+                'password' => Hash::make(Str::random(48)),
+            ]
+        );
+
+        return self::toIntOrZero($user->id);
     }
 
     private function resolveActorId(Request $request): ?int
