@@ -342,14 +342,12 @@ export default function Settings(): JSX.Element {
                   className="form-control"
                   value={evidenceBlobPath}
                   onChange={(e) => setEvidenceBlobPath(e.target.value)}
-                  placeholder="/opt/phpgrc/shared/blobs"
+                  placeholder={blobPathFocused ? "" : "/opt/phpgrc/shared/blobs"}
                   autoComplete="off"
                   onFocus={() => setBlobPathFocused(true)}
                   onBlur={() => setBlobPathFocused(false)}
                 />
-                {!blobPathFocused && (
-                  <div className="form-text">Leave blank to keep storing evidence in the database.</div>
-                )}
+                <div className="form-text">Leave blank to keep storing evidence in the database.</div>
               </div>
               <div className="d-flex flex-column flex-sm-row align-items-sm-center gap-2">
                 <button

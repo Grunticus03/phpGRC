@@ -112,12 +112,15 @@ describe("Admin Settings page", () => {
 
     const blobPath = screen.getByLabelText("Blob storage path") as HTMLInputElement;
     expect(blobPath.value).toBe("");
+    expect(blobPath.placeholder).toBe("/opt/phpgrc/shared/blobs");
     expect(screen.getByText(blobHelperText)).toBeInTheDocument();
     fireEvent.focus(blobPath);
-    expect(screen.queryByText(blobHelperText)).toBeNull();
+    expect(screen.getByText(blobHelperText)).toBeInTheDocument();
+    expect(blobPath.placeholder).toBe("");
     fireEvent.change(blobPath, { target: { value: "/var/data/evidence" } });
     expect(blobPath.value).toBe("/var/data/evidence");
     fireEvent.blur(blobPath);
+    expect(blobPath.placeholder).toBe("/opt/phpgrc/shared/blobs");
     expect(screen.getByText(blobHelperText)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /save/i }));

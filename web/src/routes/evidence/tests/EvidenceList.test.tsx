@@ -120,15 +120,13 @@ describe("Evidence List", () => {
 
     await screen.findByText("Evidence");
 
-    const ownerInput = screen.getByLabelText("Owner") as HTMLInputElement;
+    const ownerColumnToggle = screen.getByRole("button", { name: "Owner" });
+    fireEvent.click(ownerColumnToggle);
+
+    const ownerInput = screen.getByLabelText("Filter by owner") as HTMLInputElement;
     fireEvent.change(ownerInput, { target: { value: "alice" } });
 
     fireEvent.click(screen.getByRole("button", { name: "Search" }));
-
-    const selectButtons = await screen.findAllByRole("button", { name: "Select" });
-    fireEvent.click(selectButtons[0]);
-
-    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
 
     await waitFor(() => {
       const hits = calls.filter((u) => u.startsWith("/api/evidence?"));
@@ -198,8 +196,7 @@ describe("Evidence List", () => {
 
     await screen.findByText("Evidence");
 
-    const evidenceTable = await screen.findByRole("table", { name: "Evidence results" });
-    await within(evidenceTable).findByText("image/png");
+    await screen.findByRole("cell", { name: "image/png" });
 
     const hits = calls.filter((u) => u.startsWith("/api/evidence?"));
     expect(hits.some((u) => u.includes("mime=image%2Fpng"))).toBe(true);

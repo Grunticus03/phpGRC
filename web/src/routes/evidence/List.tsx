@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { useLocation } from "react-router-dom";
 import {
   deleteEvidence,
@@ -12,7 +12,7 @@ import { searchUsers, type UserSummary, type UserSearchOk, type UserSearchMeta }
 import { DEFAULT_TIME_FORMAT, normalizeTimeFormat, type TimeFormat } from "../../lib/format";
 import { HttpError } from "../../lib/api";
 import { primeUsers } from "../../lib/usersCache";
-import EvidenceTable from "./EvidenceTable";
+import EvidenceTable, { type HeaderConfig } from "./EvidenceTable";
 
 type FetchState = "idle" | "loading" | "error" | "ok";
 
@@ -30,6 +30,8 @@ function chipStyle(): React.CSSProperties {
   };
 }
 
+type FilterKey = "created" | "owner" | "filename" | "mime";
+
 export default function EvidenceList(): JSX.Element {
   // Filters
   const [ownerInput, setOwnerInput] = useState("");
@@ -40,6 +42,13 @@ export default function EvidenceList(): JSX.Element {
   const [mime, setMime] = useState("");
   const [order, setOrder] = useState<"asc" | "desc">("desc");
   const [limit, setLimit] = useState<number>(20);
+  const [activeFilter, setActiveFilter] = useState<FilterKey | null>(null);
+  const [createdFromDraft, setCreatedFromDraft] = useState("");
+  const [createdToDraft, setCreatedToDraft] = useState("");
+  const [filenameDraft, setFilenameDraft] = useState("");
+  const [mimeDraft, setMimeDraft] = useState("");
+  const [limitDraft, setLimitDraft] = useState("20");
+  const [dateRangeError, setDateRangeError] = useState<string | null>(null);
 
   // Owner search
   const [ownerResults, setOwnerResults] = useState<UserSummary[]>([]);
@@ -66,6 +75,45 @@ export default function EvidenceList(): JSX.Element {
 
   const location = useLocation();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const ownerInputRef = useRef<HTMLInputElement | null>(null);
+  const filenameInputRef = useRef<HTMLInputElement | null>(null);
+  const mimeInputRef = useRef<HTMLInputElement | null>(null);
+  const createdFromInputRef = useRef<HTMLInputElement | null>(null);
+  const createdToInputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    if (activeFilter === "owner") {
+      ownerInputRef.current?.focus();
+    } else if (activeFilter === "filename") {
+      filenameInputRef.current?.focus();
+      filenameInputRef.current?.select();
+    } else if (activeFilter === "mime") {
+      mimeInputRef.current?.focus();
+      mimeInputRef.current?.select();
+    } else if (activeFilter === "created") {
+      createdFromInputRef.current?.focus();
+    }
+  }, [activeFilter]);
+
+  useEffect(() => {
+    setFilenameDraft(filename);
+  }, [filename]);
+
+  useEffect(() => {
+    setMimeDraft(mime);
+  }, [mime]);
+
+  useEffect(() => {
+    setCreatedFromDraft(createdFrom);
+  }, [createdFrom]);
+
+  useEffect(() => {
+    setCreatedToDraft(createdTo);
+  }, [createdTo]);
+
+  useEffect(() => {
+    setLimitDraft(String(limit));
+  }, [limit]);
 
   const created_from = createdFrom ? `${createdFrom}T00:00:00Z` : undefined;
   const created_to = createdTo ? `${createdTo}T23:59:59Z` : undefined;
@@ -89,18 +137,27 @@ export default function EvidenceList(): JSX.Element {
     return createdFrom <= createdTo;
   }, [createdFrom, createdTo]);
 
-  async function runOwnerSearch(targetPage?: number) {
-    if (!ownerInput.trim()) return;
+  async function runOwnerSearch(targetPage?: number, opts?: { autoApply?: boolean }) {
+    const query = ownerInput.trim();
+    if (!query) {
+      setOwnerResults([]);
+      setOwnerMeta(null);
+      setOwnerPage(1);
+      return;
+    }
     setOwnerSearching(true);
     try {
       const p = typeof targetPage === "number" ? targetPage : ownerPage;
-      const res = await searchUsers(ownerInput.trim(), p, ownerPerPage);
+      const res = await searchUsers(query, p, ownerPerPage);
       if (res.ok) {
         const ok = res as UserSearchOk;
         setOwnerResults(ok.data);
         setOwnerMeta(ok.meta);
         setOwnerPage(ok.meta.page);
         primeUsers(ok.data);
+        if (opts?.autoApply && ok.data.length === 1) {
+          applyOwnerFilter(ok.data[0]);
+        }
       } else {
         setOwnerResults([]);
         setOwnerMeta(null);
@@ -110,27 +167,41 @@ export default function EvidenceList(): JSX.Element {
     }
   }
 
-  function selectOwner(u: UserSummary) {
-    primeUsers([u]);
-    setOwnerSelected(u);
+  function applyOwnerFilter(user: UserSummary) {
+    primeUsers([user]);
+    setOwnerSelected(user);
     setOwnerResults([]);
     setOwnerMeta(null);
     setOwnerInput("");
+    setOwnerPage(1);
+    setCursor(null);
+    setPrevStack([]);
+    setActiveFilter(null);
+    void load(true, { owner_id: user.id });
   }
 
-  function clearOwner() {
+  function clearOwnerFilter(apply: boolean = true) {
     setOwnerSelected(null);
     setOwnerResults([]);
     setOwnerMeta(null);
     setOwnerInput("");
+    setOwnerPage(1);
+    if (apply) {
+      setCursor(null);
+      setPrevStack([]);
+      setActiveFilter(null);
+      void load(true, { owner_id: undefined });
+    }
   }
 
   async function load(resetCursor: boolean = false, overrides?: Partial<typeof params>) {
     if (!isDateOrderValid) {
+      setDateRangeError("From must be on or before To");
       setError("From must be on or before To");
       setState("error");
       return;
     }
+    setDateRangeError(null);
     setState("loading");
     setError("");
     setDownloadError(null);
@@ -187,12 +258,10 @@ export default function EvidenceList(): JSX.Element {
     }
   }
 
-  async function handleUpload(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const input = fileInputRef.current;
-    if (!input || !input.files || input.files.length === 0) {
-      setUploadError("Please choose a file to upload.");
-      setUploadSuccess(null);
+  async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
+    if (uploading) return;
+    const input = event.currentTarget;
+    if (!input.files || input.files.length === 0) {
       return;
     }
 
@@ -299,18 +368,519 @@ export default function EvidenceList(): JSX.Element {
     void load(false);
   }
 
+  const hasActiveFilters =
+    ownerSelected !== null ||
+    filename.trim() !== "" ||
+    mime.trim() !== "" ||
+    createdFrom.trim() !== "" ||
+    createdTo.trim() !== "" ||
+    order !== "desc" ||
+    limit !== 20;
+
+  const toggleFilter = useCallback(
+    (key: FilterKey) => {
+      setActiveFilter((prev) => {
+        const next = prev === key ? null : key;
+        if (next === key) {
+          if (key === "created") {
+            setCreatedFromDraft(createdFrom);
+            setCreatedToDraft(createdTo);
+            setDateRangeError(null);
+          } else if (key === "filename") {
+            setFilenameDraft(filename);
+          } else if (key === "mime") {
+            setMimeDraft(mime);
+          }
+        }
+        if (next === null && key === "owner") {
+          setOwnerResults([]);
+          setOwnerMeta(null);
+        }
+        return next;
+      });
+    },
+    [createdFrom, createdTo, filename, mime]
+  );
+
+  function applyFilenameFilter(value: string) {
+    const trimmed = value.trim();
+    setFilename(trimmed);
+    setFilenameDraft(trimmed);
+    setCursor(null);
+    setPrevStack([]);
+    void load(true, { filename: trimmed || undefined });
+    setActiveFilter(null);
+  }
+
+  function applyMimeFilter(value: string) {
+    const trimmed = value.trim();
+    setMime(trimmed);
+    setMimeDraft(trimmed);
+    setCursor(null);
+    setPrevStack([]);
+    void load(true, { mime: trimmed || undefined });
+    setActiveFilter(null);
+  }
+
+  function applyCreatedFilter(fromValue: string, toValue: string, closeAfter: boolean = true) {
+    const trimmedFrom = fromValue.trim();
+    const trimmedTo = toValue.trim();
+    if (trimmedFrom && trimmedTo && trimmedFrom > trimmedTo) {
+      setDateRangeError("From must be on or before To");
+      return;
+    }
+    setDateRangeError(null);
+    setCreatedFrom(trimmedFrom);
+    setCreatedTo(trimmedTo);
+    setCreatedFromDraft(trimmedFrom);
+    setCreatedToDraft(trimmedTo);
+    setCursor(null);
+    setPrevStack([]);
+    void load(true, {
+      created_from: trimmedFrom ? `${trimmedFrom}T00:00:00Z` : undefined,
+      created_to: trimmedTo ? `${trimmedTo}T23:59:59Z` : undefined,
+    });
+    if (closeAfter) {
+      setActiveFilter(null);
+    }
+  }
+
+  function toggleOrderDirection() {
+    const next = order === "asc" ? "desc" : "asc";
+    setOrder(next);
+    setCursor(null);
+    setPrevStack([]);
+    void load(true, { order: next });
+  }
+
+  function applyLimitFromDraft() {
+    const trimmed = limitDraft.trim();
+    if (trimmed === "") {
+      setLimitDraft(String(limit));
+      return;
+    }
+    const parsed = Number(trimmed);
+    if (Number.isNaN(parsed) || !Number.isFinite(parsed)) {
+      setLimitDraft(String(limit));
+      return;
+    }
+    const clamped = Math.max(1, Math.min(100, Math.trunc(parsed)));
+    if (clamped === limit) {
+      setLimitDraft(String(clamped));
+      return;
+    }
+    setLimit(clamped);
+    setLimitDraft(String(clamped));
+    setCursor(null);
+    setPrevStack([]);
+    void load(true, { limit: clamped });
+  }
+
+  function clearAllFilters() {
+    setActiveFilter(null);
+    setDateRangeError(null);
+    clearOwnerFilter(false);
+    setFilename("");
+    setFilenameDraft("");
+    setMime("");
+    setMimeDraft("");
+    setCreatedFrom("");
+    setCreatedTo("");
+    setCreatedFromDraft("");
+    setCreatedToDraft("");
+    setOrder("desc");
+    setLimit(20);
+    setLimitDraft("20");
+    setCursor(null);
+    setPrevStack([]);
+    void load(true, {
+      owner_id: undefined,
+      filename: undefined,
+      mime: undefined,
+      created_from: undefined,
+      created_to: undefined,
+      order: "desc",
+      limit: 20,
+    });
+  }
+
+  const ownerSummaryLabel = ownerSelected
+    ? [ownerSelected.name?.trim() || null, ownerSelected.email?.trim() ? `<${ownerSelected.email.trim()}>` : null, `id ${ownerSelected.id}`]
+        .filter((part): part is string => !!part)
+        .join(" ")
+    : "";
+
+  const ownerSummaryContent = ownerSelected ? (
+    <div className="mt-1">
+      <span style={chipStyle()}>{ownerSummaryLabel}</span>
+    </div>
+  ) : null;
+
+  const ownerFilterContent =
+    activeFilter === "owner" ? (
+      <div className="mt-2">
+        {ownerSelected && (
+          <div className="d-flex align-items-center gap-2 mb-2">
+            <span style={chipStyle()}>{ownerSummaryLabel}</span>
+            <button type="button" className="btn btn-outline-secondary btn-sm" onClick={() => clearOwnerFilter()}>
+              Clear
+            </button>
+          </div>
+        )}
+        <label htmlFor="filter-owner" className="visually-hidden">
+          Filter by owner
+        </label>
+        <input
+          ref={ownerInputRef}
+          id="filter-owner"
+          className="form-control form-control-sm"
+          value={ownerInput}
+          onChange={(e) => setOwnerInput(e.currentTarget.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              setOwnerPage(1);
+              void runOwnerSearch(1, { autoApply: true });
+            } else if (e.key === "Escape") {
+              e.preventDefault();
+              setActiveFilter(null);
+            }
+          }}
+          placeholder="Name or email"
+          autoComplete="off"
+        />
+        <div className="form-text">Supports * wildcards.</div>
+        <div className="d-flex gap-2 mt-2">
+          <button
+            type="button"
+            className="btn btn-outline-secondary btn-sm"
+            onClick={() => {
+              setOwnerPage(1);
+              void runOwnerSearch(1, { autoApply: true });
+            }}
+            disabled={ownerSearching || ownerInput.trim() === ""}
+          >
+            {ownerSearching ? "Searching…" : "Search"}
+          </button>
+          {!ownerSelected && (
+            <button
+              type="button"
+              className="btn btn-outline-secondary btn-sm"
+              onClick={() => {
+                setOwnerInput("");
+                setOwnerResults([]);
+                setOwnerMeta(null);
+                setOwnerPage(1);
+              }}
+            >
+              Reset
+            </button>
+          )}
+        </div>
+        {!ownerSearching && ownerInput.trim() !== "" && ownerResults.length === 0 && (
+          <div className="small text-muted mt-2">No matches.</div>
+        )}
+        {ownerResults.length > 0 && (
+          <ul className="list-unstyled mt-3 mb-0">
+            {ownerResults.map((u) => (
+              <li key={u.id} className="d-flex align-items-center justify-content-between gap-2 mb-2">
+                <div>
+                  <div className="small fw-semibold">{u.name?.trim() || u.email || `id ${u.id}`}</div>
+                  <div className="small text-muted">
+                    {u.email?.trim() ? `${u.email} • id ${u.id}` : `id ${u.id}`}
+                  </div>
+                </div>
+                <button type="button" className="btn btn-outline-primary btn-sm" onClick={() => applyOwnerFilter(u)}>
+                  Select
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+        {ownerMeta && ownerResults.length > 0 && (
+          <div className="d-flex align-items-center gap-2 mt-2">
+            <button
+              type="button"
+              className="btn btn-outline-secondary btn-sm"
+              onClick={() => {
+                if (ownerMeta.page > 1) {
+                  void runOwnerSearch(ownerMeta.page - 1);
+                }
+              }}
+              disabled={ownerSearching || ownerMeta.page <= 1}
+            >
+              Prev
+            </button>
+            <span className="small text-muted">
+              Page {ownerMeta.page} of {ownerMeta.total_pages} • {ownerMeta.total} total
+            </span>
+            <button
+              type="button"
+              className="btn btn-outline-secondary btn-sm"
+              onClick={() => {
+                if (ownerMeta.page < ownerMeta.total_pages) {
+                  void runOwnerSearch(ownerMeta.page + 1);
+                }
+              }}
+              disabled={ownerSearching || ownerMeta.page >= ownerMeta.total_pages}
+            >
+              Next
+            </button>
+          </div>
+        )}
+      </div>
+    ) : null;
+
+  const filenameSummaryContent = filename ? (
+    <div className="small text-muted mt-1">{filename}</div>
+  ) : null;
+
+  const filenameFilterContent =
+    activeFilter === "filename" ? (
+      <div className="mt-2">
+        <label htmlFor="filter-filename" className="visually-hidden">
+          Filter by filename
+        </label>
+        <input
+          ref={filenameInputRef}
+          id="filter-filename"
+          className="form-control form-control-sm"
+          value={filenameDraft}
+          onChange={(e) => setFilenameDraft(e.currentTarget.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              applyFilenameFilter(e.currentTarget.value);
+            } else if (e.key === "Escape") {
+              e.preventDefault();
+              setActiveFilter(null);
+            }
+          }}
+          placeholder="e.g. report*.pdf"
+          autoComplete="off"
+        />
+        <div className="form-text">Supports * wildcards.</div>
+        <div className="d-flex gap-2 mt-2">
+          <button type="button" className="btn btn-primary btn-sm" onClick={() => applyFilenameFilter(filenameDraft)}>
+            Apply
+          </button>
+          <button
+            type="button"
+            className="btn btn-outline-secondary btn-sm"
+            onClick={() => {
+              setFilenameDraft("");
+              applyFilenameFilter("");
+            }}
+          >
+            Clear
+          </button>
+        </div>
+      </div>
+    ) : null;
+
+  const mimeSummaryContent = mime ? (
+    <div className="small text-muted mt-1">{mime}</div>
+  ) : null;
+
+  const mimeFilterContent =
+    activeFilter === "mime" ? (
+      <div className="mt-2">
+        <label htmlFor="filter-mime" className="visually-hidden">
+          Filter by MIME
+        </label>
+        <input
+          ref={mimeInputRef}
+          id="filter-mime"
+          className="form-control form-control-sm"
+          value={mimeDraft}
+          onChange={(e) => setMimeDraft(e.currentTarget.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              applyMimeFilter(e.currentTarget.value);
+            } else if (e.key === "Escape") {
+              e.preventDefault();
+              setActiveFilter(null);
+            }
+          }}
+          placeholder="e.g. image/*"
+          autoComplete="off"
+        />
+        <div className="form-text">Supports family wildcards like image/*.</div>
+        <div className="d-flex gap-2 mt-2">
+          <button type="button" className="btn btn-primary btn-sm" onClick={() => applyMimeFilter(mimeDraft)}>
+            Apply
+          </button>
+          <button
+            type="button"
+            className="btn btn-outline-secondary btn-sm"
+            onClick={() => {
+              setMimeDraft("");
+              applyMimeFilter("");
+            }}
+          >
+            Clear
+          </button>
+        </div>
+      </div>
+    ) : null;
+
+  const createdSummaryContent =
+    createdFrom || createdTo ? (
+      <div className="small text-muted mt-1">
+        {createdFrom ? `From ${createdFrom}` : ""}
+        {createdFrom && createdTo ? " • " : ""}
+        {createdTo ? `To ${createdTo}` : ""}
+      </div>
+    ) : null;
+
+  const createdFilterContent =
+    activeFilter === "created" ? (
+      <div className="mt-2">
+        <div className="d-flex flex-column gap-2">
+          <div className="d-flex gap-2">
+            <div className="flex-grow-1">
+              <label htmlFor="filter-created-from" className="visually-hidden">
+                Created from
+              </label>
+              <input
+                ref={createdFromInputRef}
+                id="filter-created-from"
+                type="date"
+                className="form-control form-control-sm"
+                value={createdFromDraft}
+                onChange={(e) => setCreatedFromDraft(e.currentTarget.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    applyCreatedFilter(e.currentTarget.value, createdToDraft);
+                  } else if (e.key === "Escape") {
+                    e.preventDefault();
+                    setActiveFilter(null);
+                  }
+                }}
+              />
+            </div>
+            <div className="flex-grow-1">
+              <label htmlFor="filter-created-to" className="visually-hidden">
+                Created to
+              </label>
+              <input
+                ref={createdToInputRef}
+                id="filter-created-to"
+                type="date"
+                className="form-control form-control-sm"
+                value={createdToDraft}
+                onChange={(e) => setCreatedToDraft(e.currentTarget.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    applyCreatedFilter(createdFromDraft, e.currentTarget.value);
+                  } else if (e.key === "Escape") {
+                    e.preventDefault();
+                    setActiveFilter(null);
+                  }
+                }}
+              />
+            </div>
+          </div>
+          {dateRangeError && <div className="text-danger small">{dateRangeError}</div>}
+          <div className="d-flex flex-wrap align-items-center gap-2">
+            <button
+              type="button"
+              className="btn btn-primary btn-sm"
+              onClick={() => applyCreatedFilter(createdFromDraft, createdToDraft)}
+            >
+              Apply
+            </button>
+            <button
+              type="button"
+              className="btn btn-outline-secondary btn-sm"
+              onClick={() => {
+                setCreatedFromDraft("");
+                setCreatedToDraft("");
+                applyCreatedFilter("", "", false);
+              }}
+              disabled={!createdFromDraft && !createdToDraft}
+            >
+              Clear dates
+            </button>
+            <button type="button" className="btn btn-outline-secondary btn-sm" onClick={toggleOrderDirection}>
+              Sort {order === "asc" ? "↑" : "↓"}
+            </button>
+          </div>
+        </div>
+      </div>
+    ) : null;
+
+  const tableHeaders: HeaderConfig[] = [
+    {
+      key: "created",
+      label: `Created ${order === "asc" ? "↑" : "↓"}`,
+      onToggle: () => toggleFilter("created"),
+      isActive: activeFilter === "created",
+      summaryContent: createdSummaryContent,
+      filterContent: createdFilterContent,
+    },
+    {
+      key: "owner",
+      label: "Owner",
+      onToggle: () => toggleFilter("owner"),
+      isActive: activeFilter === "owner",
+      summaryContent: ownerSummaryContent,
+      filterContent: ownerFilterContent,
+    },
+    {
+      key: "filename",
+      label: "Filename",
+      onToggle: () => toggleFilter("filename"),
+      isActive: activeFilter === "filename",
+      summaryContent: filenameSummaryContent,
+      filterContent: filenameFilterContent,
+    },
+    {
+      key: "size",
+      label: "Size",
+    },
+    {
+      key: "mime",
+      label: "MIME",
+      onToggle: () => toggleFilter("mime"),
+      isActive: activeFilter === "mime",
+      summaryContent: mimeSummaryContent,
+      filterContent: mimeFilterContent,
+    },
+    {
+      key: "sha256",
+      label: "SHA-256",
+    },
+    {
+      key: "id",
+      label: "ID",
+    },
+    {
+      key: "version",
+      label: "Version",
+    },
+    {
+      key: "download",
+      label: "Download",
+      className: "text-nowrap",
+    },
+    {
+      key: "delete",
+      label: "Delete",
+      className: "text-nowrap",
+    },
+  ];
+
   return (
     <main className="container py-3">
       <h1 className="mb-3">Evidence</h1>
 
       <section className="mb-4">
         <h2 className="h5">Upload Evidence</h2>
-        <form
-          onSubmit={handleUpload}
-          className="row g-3 align-items-end"
-          encType="multipart/form-data"
-          aria-label="Upload evidence"
-        >
+        <div className="row g-3 align-items-end" aria-label="Upload evidence">
           <div className="col-12 col-md-6 col-lg-4">
             <label htmlFor="evidence-file" className="form-label">
               File
@@ -320,16 +890,14 @@ export default function EvidenceList(): JSX.Element {
               type="file"
               id="evidence-file"
               className="form-control"
-              required
               disabled={uploading}
+              onChange={handleFileChange}
             />
           </div>
-          <div className="col-12 col-md-auto">
-            <button type="submit" className="btn btn-primary" disabled={uploading}>
-              {uploading ? "Uploading…" : "Upload"}
-            </button>
+          <div className="col-12 col-md-6 col-lg-4">
+            <div className="form-text">Selecting a file uploads immediately.</div>
           </div>
-        </form>
+        </div>
         {uploadError && (
           <div className="alert alert-danger mt-2" role="alert">
             {uploadError}
@@ -342,143 +910,43 @@ export default function EvidenceList(): JSX.Element {
         )}
       </section>
 
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          setCursor(null);
-          void load(true);
-        }}
-        className="row g-3"
-        aria-label="Evidence filters"
-      >
-        <div className="col-12">
-          <label htmlFor="owner" className="form-label">Owner</label>
-          {ownerSelected ? (
-            <div className="d-flex align-items-center gap-2">
-              <span style={chipStyle()}>{ownerSelected.name} &lt;{ownerSelected.email}&gt; • id {ownerSelected.id}</span>
-              <button type="button" className="btn btn-link p-0" onClick={clearOwner} aria-label="Clear owner">Clear</button>
-            </div>
-          ) : (
-            <div className="d-flex gap-2">
-              <input
-                id="owner"
-                value={ownerInput}
-                onChange={(e) => setOwnerInput(e.currentTarget.value)}
-                className="form-control"
-                placeholder="name or email"
-              />
-              <button
-                type="button"
-                className="btn btn-outline-secondary"
-                onClick={() => { setOwnerPage(1); void runOwnerSearch(1); }}
-                disabled={ownerSearching || !ownerInput.trim()}
-              >
-                {ownerSearching ? "Searching…" : "Search"}
-              </button>
-            </div>
-          )}
-        </div>
-
-        <div className="col-12 col-md-4">
-          <label htmlFor="from" className="form-label">From</label>
-          <input id="from" type="date" className="form-control" value={createdFrom} onChange={(e) => setCreatedFrom(e.currentTarget.value)} />
-        </div>
-        <div className="col-12 col-md-4">
-          <label htmlFor="to" className="form-label">To</label>
-          <input id="to" type="date" className="form-control" value={createdTo} onChange={(e) => setCreatedTo(e.currentTarget.value)} />
-          {!isDateOrderValid && <div className="text-danger small mt-1">To must be ≥ From</div>}
-        </div>
-
-        <div className="col-12 col-md-4">
-          <label htmlFor="filename" className="form-label">Filename</label>
-          <input id="filename" className="form-control" value={filename} onChange={(e) => setFilename(e.currentTarget.value)} />
-        </div>
-
-        <div className="col-12 col-md-4">
-          <label htmlFor="mime" className="form-label">MIME</label>
-          <input id="mime" className="form-control" value={mime} onChange={(e) => setMime(e.currentTarget.value)} />
-        </div>
-
-        <div className="col-6 col-md-2">
-          <label htmlFor="order" className="form-label">Order</label>
-          <select id="order" className="form-select" value={order} onChange={(e) => setOrder(e.currentTarget.value as "asc" | "desc")}>
-            <option value="desc">desc</option>
-            <option value="asc">asc</option>
-          </select>
-        </div>
-
-        <div className="col-6 col-md-2">
-          <label htmlFor="limit" className="form-label">Limit</label>
+      <section className="d-flex flex-wrap align-items-center gap-3 mb-3">
+        <button
+          type="button"
+          className="btn btn-outline-secondary btn-sm"
+          onClick={clearAllFilters}
+          disabled={!hasActiveFilters || state === "loading"}
+        >
+          Clear filters
+        </button>
+        <div className="d-flex align-items-center gap-2">
+          <label htmlFor="evidence-limit" className="form-label mb-0">Limit</label>
           <input
-            id="limit"
+            id="evidence-limit"
             type="number"
             inputMode="numeric"
             min={1}
             max={100}
-            className="form-control"
-            value={limit}
-            onChange={(e) => {
-              const v = Number(e.currentTarget.value) || 20;
-              const clamped = Math.max(1, Math.min(100, v));
-              setLimit(clamped);
+            className="form-control form-control-sm"
+            style={{ width: "5rem" }}
+            value={limitDraft}
+            onChange={(e) => setLimitDraft(e.currentTarget.value)}
+            onBlur={applyLimitFromDraft}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                applyLimitFromDraft();
+              } else if (e.key === "Escape") {
+                e.preventDefault();
+                setLimitDraft(String(limit));
+              }
             }}
           />
         </div>
-
-        <div className="col-12">
-          <button type="submit" className="btn btn-primary" disabled={state === "loading"}>Apply</button>
+        <div className="small text-muted">
+          Sort: {order === "asc" ? "oldest first" : "newest first"}
         </div>
-      </form>
-
-      {ownerResults.length > 0 && (
-        <div className="table-responsive mt-3" aria-label="Owner search results">
-          <table className="table table-sm align-middle">
-            <thead>
-              <tr>
-                <th style={{ width: "6rem" }}>ID</th>
-                <th>Name</th>
-                <th>Email</th>
-                <th style={{ width: "8rem" }}>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {ownerResults.map((u) => (
-                <tr key={u.id}>
-                  <td>{u.id}</td>
-                  <td>{u.name}</td>
-                  <td>{u.email}</td>
-                  <td>
-                    <button type="button" className="btn btn-outline-primary btn-sm" onClick={() => selectOwner(u)}>Select</button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {ownerMeta && (
-            <nav aria-label="Owner pagination" className="d-flex align-items-center gap-2">
-              <button
-                type="button"
-                className="btn btn-outline-secondary btn-sm"
-                onClick={() => { if (ownerMeta.page > 1) void runOwnerSearch(ownerMeta.page - 1); }}
-                disabled={ownerSearching || ownerMeta.page <= 1}
-              >
-                Prev
-              </button>
-              <span>
-                Page {ownerMeta.page} of {ownerMeta.total_pages} • {ownerMeta.total} total
-              </span>
-              <button
-                type="button"
-                className="btn btn-outline-secondary btn-sm"
-                onClick={() => { if (ownerMeta.page < ownerMeta.total_pages) void runOwnerSearch(ownerMeta.page + 1); }}
-                disabled={ownerSearching || ownerMeta.page >= ownerMeta.total_pages}
-              >
-                Next
-              </button>
-            </nav>
-          )}
-        </div>
-      )}
+      </section>
 
       <hr className="my-4" />
 
@@ -493,6 +961,7 @@ export default function EvidenceList(): JSX.Element {
       )}
 
       <EvidenceTable
+        headers={tableHeaders}
         items={items}
         fetchState={state}
         timeFormat={timeFormat}

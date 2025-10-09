@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import type { Evidence } from "../../lib/api/evidence";
 import { formatBytes, formatDate, type TimeFormat } from "../../lib/format";
 import { getCachedUser, loadUsers, type UserCacheValue } from "../../lib/usersCache";
 
 type Props = {
+  headers: HeaderConfig[];
   items: Evidence[];
   fetchState: "idle" | "loading" | "error" | "ok";
   timeFormat: TimeFormat;
@@ -11,6 +12,16 @@ type Props = {
   downloadingId: string | null;
   onDelete: (item: Evidence) => void;
   deletingId: string | null;
+};
+
+export type HeaderConfig = {
+  key: string;
+  label: string;
+  onToggle?: () => void;
+  isActive?: boolean;
+  filterContent?: ReactNode;
+  summaryContent?: ReactNode;
+  className?: string;
 };
 
 type OwnerMap = Map<number, UserCacheValue>;
@@ -58,6 +69,7 @@ function ownerLabel(id: number, owner: UserCacheValue | undefined): string {
 }
 
 export default function EvidenceTable({
+  headers,
   items,
   fetchState,
   timeFormat,
@@ -118,16 +130,23 @@ export default function EvidenceTable({
       <table className="table" aria-label="Evidence results">
         <thead>
           <tr>
-            <th>Created</th>
-            <th>Owner</th>
-            <th>Filename</th>
-            <th>Size</th>
-            <th>MIME</th>
-            <th>SHA-256</th>
-            <th>ID</th>
-            <th>Version</th>
-            <th>Download</th>
-            <th>Delete</th>
+            {headers.map(({ key, label, onToggle, isActive, filterContent, summaryContent, className }) => (
+              <th key={key} scope="col" className={className}>
+                {onToggle ? (
+                  <button
+                    type="button"
+                    className={`btn btn-link p-0 fw-semibold text-start ${isActive ? "" : "link-underline-opacity-0"}`}
+                    onClick={onToggle}
+                  >
+                    {label}
+                  </button>
+                ) : (
+                  <span className="fw-semibold">{label}</span>
+                )}
+                {summaryContent}
+                {filterContent}
+              </th>
+            ))}
           </tr>
         </thead>
         <tbody>
