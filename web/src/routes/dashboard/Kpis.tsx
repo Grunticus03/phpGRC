@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   Chart as ChartJS,
@@ -13,6 +13,7 @@ import {
 import { Bar, Pie } from "react-chartjs-2";
 
 import { fetchKpis, type Kpis } from "../../lib/api/metrics";
+import { downloadAdminActivityCsv } from "../../lib/api/reports";
 import { DEFAULT_TIME_FORMAT, formatTimestamp } from "../../lib/formatters";
 import { HttpError } from "../../lib/api";
 
@@ -44,6 +45,8 @@ export default function Kpis(): JSX.Element {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [kpis, setKpis] = useState<Kpis | null>(null);
+  const [downloadingReport, setDownloadingReport] = useState(false);
+  const [reportError, setReportError] = useState<string | null>(null);
 
   const navigate = useNavigate();
 
@@ -208,6 +211,25 @@ export default function Kpis(): JSX.Element {
 
   const evidenceLink = "/admin/evidence";
 
+  const handleDownloadAdminReport = useCallback(async () => {
+    if (downloadingReport) return;
+    try {
+      setDownloadingReport(true);
+      setReportError(null);
+      await downloadAdminActivityCsv();
+    } catch (err: unknown) {
+      if (err instanceof HttpError) {
+        if (err.status === 401) setReportError("You must log in to download the report.");
+        else if (err.status === 403) setReportError("You do not have access to this report.");
+        else setReportError(`Download failed (HTTP ${err.status}).`);
+      } else {
+        setReportError("Network error while downloading report.");
+      }
+    } finally {
+      setDownloadingReport(false);
+    }
+  }, [downloadingReport]);
+
   const authTotals = kpis?.auth_activity.totals ?? { success: 0, failed: 0, total: 0 };
   const admins = kpis?.admin_activity.admins ?? [];
 
@@ -260,8 +282,24 @@ export default function Kpis(): JSX.Element {
 
             <section className="col-md-6">
               <div className="card h-100">
-                <div className="card-header fw-semibold">Admin Activity</div>
+                <div className="card-header d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-2">
+                  <span className="fw-semibold">Admin Activity</span>
+                  <button
+                    type="button"
+                    className="btn btn-outline-secondary btn-sm ms-md-auto"
+                    onClick={handleDownloadAdminReport}
+                    disabled={downloadingReport}
+                    aria-busy={downloadingReport}
+                  >
+                    {downloadingReport ? "Downloading…" : "Download CSV"}
+                  </button>
+                </div>
                 <div className="card-body p-0">
+                  {reportError && (
+                    <div className="alert alert-warning mb-0 rounded-0 py-2 px-3" role="alert">
+                      {reportError}
+                    </div>
+                  )}
                   {admins.length === 0 ? (
                     <p className="text-muted px-3 py-3 mb-0">No admin users found.</p>
                   ) : (

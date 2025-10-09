@@ -7,7 +7,10 @@ import { MemoryRouter } from "react-router-dom";
 import Kpis from "../Kpis";
 
 const KPIS_URL = "/api/dashboard/kpis";
+const REPORT_URL = "/api/reports/admin-activity";
 const originalFetch = globalThis.fetch as typeof fetch;
+const originalCreateObjectURL = globalThis.URL.createObjectURL;
+const originalRevokeObjectURL = globalThis.URL.revokeObjectURL;
 const mockNavigate = vi.fn();
 
 vi.mock("react-router-dom", async () => {
@@ -46,6 +49,15 @@ function json(body: unknown, init: ResponseInit = {}) {
 describe("Dashboard KPIs", () => {
   beforeEach(() => {
     mockNavigate.mockReset();
+    Object.defineProperty(globalThis.URL, "createObjectURL", {
+      configurable: true,
+      value: vi.fn(() => "blob:mock-url"),
+    });
+    Object.defineProperty(globalThis.URL, "revokeObjectURL", {
+      configurable: true,
+      value: vi.fn(),
+    });
+
     globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
       const url = typeof input === "string" ? input : (input as Request).url ?? String(input);
 
@@ -91,11 +103,38 @@ describe("Dashboard KPIs", () => {
         });
       }
 
+      if (url.startsWith(REPORT_URL)) {
+        return new Response("id,name\\n1,Alice Admin", {
+          status: 200,
+          headers: {
+            "Content-Type": "text/csv",
+            "Content-Disposition": 'attachment; filename="admin-activity-report.csv"',
+          },
+        });
+      }
+
       return json({ ok: true });
     }) as unknown as typeof fetch;
   });
 
   afterEach(() => {
+    if (originalCreateObjectURL) {
+      Object.defineProperty(globalThis.URL, "createObjectURL", {
+        configurable: true,
+        value: originalCreateObjectURL,
+      });
+    } else {
+      delete (globalThis.URL as unknown as Record<string, unknown>).createObjectURL;
+    }
+
+    if (originalRevokeObjectURL) {
+      Object.defineProperty(globalThis.URL, "revokeObjectURL", {
+        configurable: true,
+        value: originalRevokeObjectURL,
+      });
+    } else {
+      delete (globalThis.URL as unknown as Record<string, unknown>).revokeObjectURL;
+    }
     globalThis.fetch = originalFetch;
     vi.restoreAllMocks();
   });
@@ -157,5 +196,76 @@ describe("Dashboard KPIs", () => {
     );
 
     await screen.findByText(/access to KPIs/i);
+  });
+
+  it("downloads admin activity report when button clicked", async () => {
+    render(
+      <MemoryRouter>
+        <Kpis />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.queryByText("Loading…")).not.toBeInTheDocument();
+    });
+
+    const button = screen.getByRole("button", { name: /download csv/i });
+    fireEvent.click(button);
+
+    await waitFor(() => {
+      expect(globalThis.URL.createObjectURL).toHaveBeenCalled();
+    });
+
+    const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>;
+    expect(fetchMock.mock.calls.some((call) => {
+      const url = typeof call[0] === "string" ? call[0] : (call[0] as Request).url;
+      return typeof url === "string" && url.startsWith(`${REPORT_URL}?format=csv`);
+    })).toBe(true);
+  });
+
+  it("shows error when report download is forbidden", async () => {
+    globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
+      const url = typeof input === "string" ? input : (input as Request).url ?? String(input);
+
+      if (url.startsWith(KPIS_URL)) {
+        return json({
+          ok: true,
+          data: {
+            auth_activity: {
+              window_days: 7,
+              from: "2025-01-01T00:00:00Z",
+              to: "2025-01-07T23:59:59Z",
+              daily: [{ date: "2025-01-01", success: 1, failed: 0, total: 1 }],
+              totals: { success: 1, failed: 0, total: 1 },
+              max_daily_total: 1,
+            },
+            evidence_mime: { total: 0, by_mime: [] },
+            admin_activity: { admins: [] },
+          },
+        });
+      }
+
+      if (url.startsWith(REPORT_URL)) {
+        return json({ ok: false, code: "FORBIDDEN" }, { status: 403 });
+      }
+
+      return json({ ok: true });
+    }) as unknown as typeof fetch;
+
+    render(
+      <MemoryRouter>
+        <Kpis />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.queryByText("Loading…")).not.toBeInTheDocument();
+    });
+
+    const button = screen.getByRole("button", { name: /download csv/i });
+    fireEvent.click(button);
+
+    await screen.findByRole("alert");
+    expect(screen.getByRole("alert")).toHaveTextContent(/do not have access/i);
   });
 });

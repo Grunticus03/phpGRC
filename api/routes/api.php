@@ -22,6 +22,7 @@ use App\Http\Controllers\Rbac\PolicyController;
 use App\Http\Controllers\Rbac\RolesController;
 use App\Http\Controllers\Rbac\UserRolesController;
 use App\Http\Controllers\Rbac\UserSearchController;
+use App\Http\Controllers\Reports\AdminActivityReportController;
 use App\Http\Middleware\Auth\BruteForceGuard;
 use App\Http\Middleware\Auth\RequireSanctumWhenRequired;
 use App\Http\Middleware\Auth\TokenCookieGuard;
@@ -223,6 +224,21 @@ Route::prefix('/metrics')
             ->defaults('throttle', ['strategy' => 'user', 'window_seconds' => 60, 'max_requests' => 20])
             ->defaults('roles', ['Admin'])
             ->defaults('policy', 'core.metrics.view');
+    });
+
+/*
+ |--------------------------------------------------------------------------
+ | Reports
+ |--------------------------------------------------------------------------
+*/
+Route::prefix('/reports')
+    ->middleware($rbacStack)
+    ->group(function (): void {
+        Route::match(['GET', 'HEAD'], '/admin-activity', AdminActivityReportController::class)
+            ->middleware(GenericRateLimit::class)
+            ->defaults('throttle', ['strategy' => 'user', 'window_seconds' => 60, 'max_requests' => 20])
+            ->defaults('roles', ['Admin'])
+            ->defaults('policy', 'core.reports.view');
     });
 
 /*

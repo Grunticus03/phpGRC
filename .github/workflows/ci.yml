@@ -114,7 +114,7 @@ jobs:
       - name: Composer validate
         run: composer validate --strict --no-check-publish
       - name: Resolve lockfile (sync with composer.json)
-        run: composer update --no-interaction --prefer-dist --no-progress
+        run: composer update --no-interaction --prefer-dist --no-progress --prefer-stable
       - name: Install deps
         run: composer install --no-interaction --prefer-dist
       - run: vendor/bin/pint -v
@@ -209,7 +209,7 @@ jobs:
           coverage: xdebug
           tools: composer:v2
       - name: Resolve lockfile (sync with composer.json)
-        run: composer update --no-interaction --prefer-dist --no-progress
+        run: composer update --no-interaction --prefer-dist --no-progress --prefer-stable
       - run: composer install --no-interaction --prefer-dist
       - name: Wait for MySQL (PDO probe)
         shell: bash

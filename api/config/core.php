@@ -81,6 +81,7 @@ return [
             'core.audit.view' => ['Admin', 'Auditor'],
             'core.audit.export' => ['Admin'],
             'core.metrics.view' => ['Admin'],
+            'core.reports.view' => ['Admin'],
             'core.users.view' => ['Admin'],
             'core.users.manage' => ['Admin'],
             'core.evidence.view' => ['Admin', 'Auditor'],
