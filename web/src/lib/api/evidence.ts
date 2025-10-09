@@ -134,7 +134,9 @@ export async function downloadEvidenceFile(
     anchor.click();
     document.body.removeChild(anchor);
     window.setTimeout(() => {
-      URL.revokeObjectURL(href);
+      if (typeof URL.revokeObjectURL === "function") {
+        URL.revokeObjectURL(href);
+      }
     }, 1000);
   } else if (typeof window.open === "function") {
     window.open(buildEvidenceUrl(evidence.id, evidence.sha256), "_blank", "noopener");
