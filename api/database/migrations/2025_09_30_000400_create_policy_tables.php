@@ -66,6 +66,32 @@ return new class extends Migration
             ['label', 'updated_at']
         );
 
+        $roleDefaults = [
+            ['id' => 'role_admin', 'name' => 'Admin'],
+            ['id' => 'role_auditor', 'name' => 'Auditor'],
+            ['id' => 'role_risk_manager', 'name' => 'Risk Manager'],
+            ['id' => 'role_user', 'name' => 'User'],
+        ];
+
+        $existingRoles = [];
+        if (Schema::hasTable('roles')) {
+            $roleRows = array_map(static function (array $row) use ($timestamp): array {
+                return array_merge($row, [
+                    'created_at' => $timestamp,
+                    'updated_at' => $timestamp,
+                ]);
+            }, $roleDefaults);
+
+            DB::table('roles')->upsert(
+                $roleRows,
+                ['id'],
+                ['name', 'updated_at']
+            );
+
+            /** @var list<string> $existingRoles */
+            $existingRoles = DB::table('roles')->pluck('id')->all();
+        }
+
         $assignments = [
             ['policy' => 'core.settings.manage',   'role_id' => 'role_admin'],
             ['policy' => 'core.audit.view',        'role_id' => 'role_admin'],
@@ -95,18 +121,27 @@ return new class extends Migration
             ['policy' => 'rbac.user_roles.manage', 'role_id' => 'role_admin'],
         ];
 
-        $assignments = array_map(static function (array $row) use ($timestamp): array {
-            return array_merge($row, [
-                'created_at' => $timestamp,
-                'updated_at' => $timestamp,
-            ]);
-        }, $assignments);
+        if ($existingRoles !== []) {
+            $assignments = array_values(array_filter(
+                $assignments,
+                static fn (array $row): bool => in_array($row['role_id'], $existingRoles, true)
+            ));
 
-        DB::table('policy_role_assignments')->upsert(
-            $assignments,
-            ['policy', 'role_id'],
-            ['updated_at']
-        );
+            if ($assignments !== []) {
+                $assignments = array_map(static function (array $row) use ($timestamp): array {
+                    return array_merge($row, [
+                        'created_at' => $timestamp,
+                        'updated_at' => $timestamp,
+                    ]);
+                }, $assignments);
+
+                DB::table('policy_role_assignments')->upsert(
+                    $assignments,
+                    ['policy', 'role_id'],
+                    ['updated_at']
+                );
+            }
+        }
     }
 
     public function down(): void
