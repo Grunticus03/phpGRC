@@ -76,17 +76,30 @@ describe("Admin Audit page", () => {
   it("loads categories and builds occurred_from/occurred_to query", async () => {
     renderAudit();
 
+    const timestampToggle = await screen.findByRole("button", { name: "Timestamp" });
+    fireEvent.click(timestampToggle);
+
+    const fromInput = await screen.findByLabelText("From");
+    const toInput = await screen.findByLabelText("To");
+    fireEvent.change(fromInput, { target: { value: "2025-01-01" } });
+    fireEvent.change(toInput, { target: { value: "2025-01-02" } });
+
+    // Close the timestamp filter before opening category filters.
+    fireEvent.click(timestampToggle);
+
+    const categoryToggle = await screen.findByRole("button", { name: "Category" });
+    fireEvent.click(categoryToggle);
+
     const catSelect = await screen.findByRole("combobox", { name: "Category" });
     expect(catSelect.tagName.toLowerCase()).toBe("select");
     fireEvent.change(catSelect, { target: { value: "RBAC" } });
 
-    fireEvent.change(screen.getByLabelText("From"), { target: { value: "2025-01-01" } });
-    fireEvent.change(screen.getByLabelText("To"), { target: { value: "2025-01-02" } });
     const limitInput = screen.getByLabelText("Limit") as HTMLInputElement;
     fireEvent.change(limitInput, { target: { value: "25" } });
     expect(limitInput.value).toBe("25");
 
-    fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+    const refreshButton = await screen.findByRole("button", { name: "Refresh" });
+    fireEvent.click(refreshButton);
 
     await waitFor(() => {
       const hits = calls.filter((u) => u.startsWith("/api/audit?"));
@@ -106,9 +119,17 @@ describe("Admin Audit page", () => {
   it("lets you select an actor and includes actor_id in the query", async () => {
     renderAudit();
 
-    await screen.findByLabelText("Category");
+    const categoryToggle = await screen.findByRole("button", { name: "Category" });
+    fireEvent.click(categoryToggle);
+    await screen.findByRole("combobox", { name: "Category" });
+    // Close category filter to open user filter.
+    fireEvent.click(categoryToggle);
 
-    fireEvent.change(screen.getByLabelText("Actor"), { target: { value: "alpha" } });
+    const userToggle = await screen.findByRole("button", { name: "User" });
+    fireEvent.click(userToggle);
+
+    const actorInput = await screen.findByLabelText("Actor");
+    fireEvent.change(actorInput, { target: { value: "alpha" } });
     fireEvent.click(screen.getByRole("button", { name: "Find actor" }));
 
     const selectBtns = await screen.findAllByRole("button", { name: "Select" });
@@ -135,6 +156,9 @@ describe("Admin Audit page", () => {
     });
 
     renderAudit();
+
+    const categoryToggle = await screen.findByRole("button", { name: "Category" });
+    fireEvent.click(categoryToggle);
 
     const catInput = await screen.findByLabelText("Category");
     expect(catInput.tagName.toLowerCase()).toBe("input");

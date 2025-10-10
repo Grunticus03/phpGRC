@@ -651,7 +651,7 @@ export default function Audit(): JSX.Element {
         ) : (
           <>
             <label htmlFor="audit-actor" className="form-label visually-hidden">
-              Actor search
+              Actor
             </label>
             <input
               id="audit-actor"
