@@ -7,6 +7,7 @@ namespace Tests\Feature\Rbac;
 use App\Models\AuditEvent;
 use App\Support\Rbac\PolicyMap;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 final class PolicyMapUnknownRolesTest extends TestCase
@@ -29,6 +30,8 @@ final class PolicyMapUnknownRolesTest extends TestCase
         config()->set('core.rbac.policies', [
             'core.metrics.view' => ['role_admin', 'NoSuch', 'other unknown'],
         ]);
+
+        DB::table('policy_role_assignments')->delete();
 
         // Start from a clean slate.
         PolicyMap::clearCache();

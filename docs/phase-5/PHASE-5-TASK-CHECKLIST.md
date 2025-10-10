@@ -165,11 +165,11 @@ _Last updated: 2025-09-28_
 
 ## 7a) **Admin Users Management (beta) — added this session**
 **API**
-- [x] `GET /api/admin/users` (paged search: `q`, `page`, `per_page` — clamps `[1..500]`).
-- [x] `POST /api/admin/users` (create).
-- [x] `PATCH /api/admin/users/{id}` (update).  
+- [x] `GET /api/users` (paged search: `q`, `page`, `per_page` — clamps `[1..500]`).
+- [x] `POST /api/users` (create).
+- [x] `PATCH /api/users/{id}` (update).  
   - Fields: `name`, `email`, optional `password` (min 8), optional `roles` (ids or names; normalized + deduped).
-- [x] `DELETE /api/admin/users/{id}` (idempotent delete).  
+- [x] `DELETE /api/users/{id}` (idempotent delete).  
 - [x] Validation requests: `UserStoreRequest`, `UserUpdateRequest` with strict messages and normalized errors.
 - [x] UsersController returns minimal shape for list/single: `{id, name, email, roles?}`.
 

@@ -27,7 +27,7 @@ final class RolesSeeder extends Seeder
         $seed = [
             ['id' => 'role_admin',    'name' => 'Admin'],
             ['id' => 'role_auditor',  'name' => 'Auditor'],
-            ['id' => 'role_risk_mgr', 'name' => 'Risk Manager'],
+            ['id' => 'role_risk_manager', 'name' => 'Risk Manager'],
             ['id' => 'role_user',     'name' => 'User'],
         ];
 

@@ -8,6 +8,7 @@ use App\Http\Controllers\Rbac\PolicyController;
 use App\Models\AuditEvent;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 final class PolicyOverrideUnknownRoleAuditTest extends TestCase
@@ -22,6 +23,8 @@ final class PolicyOverrideUnknownRoleAuditTest extends TestCase
         config()->set('core.rbac.require_auth', false);
         config()->set('core.metrics.throttle.enabled', false);
         config()->set('core.rbac.policies.overrides', $overrides);
+        DB::table('policy_role_assignments')->delete();
+        \App\Support\Rbac\PolicyMap::clearCache();
     }
 
     private function buildOnce(): void

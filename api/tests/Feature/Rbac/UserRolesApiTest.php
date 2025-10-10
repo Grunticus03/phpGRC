@@ -26,8 +26,8 @@ final class UserRolesApiTest extends TestCase
         /** @var User $u */
         $u = User::factory()->create();
 
-        Role::query()->create(['id' => 'role_risk_manager', 'name' => 'risk_manager']);
-        Role::query()->create(['id' => 'role_compliance_lead', 'name' => 'compliance_lead']);
+        Role::query()->updateOrCreate(['id' => 'role_risk_manager'], ['name' => 'risk_manager']);
+        Role::query()->updateOrCreate(['id' => 'role_compliance_lead'], ['name' => 'compliance_lead']);
 
         $this->putJson("/rbac/users/{$u->id}/roles", ['roles' => ['risk_manager', 'Compliance Lead']])
             ->assertStatus(200)

@@ -6,7 +6,10 @@ namespace Tests\Feature\Rbac;
 
 use App\Models\Role;
 use App\Models\User;
+use App\Support\Rbac\PolicyMap;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
 final class PolicyMapEffectiveApiTest extends TestCase
@@ -19,12 +22,14 @@ final class PolicyMapEffectiveApiTest extends TestCase
             'core.rbac.enabled' => true,
             'core.rbac.mode' => 'persist',
             'core.rbac.persistence' => true,
-            'core.rbac.roles' => ['Admin', 'Auditor'],
+            'core.rbac.roles' => ['Admin', 'Auditor', 'Risk Manager'],
             'core.rbac.policies' => [
-                'core.metrics.view' => ['Admin', 'Auditor'],
-                'core.rbac.view' => ['Admin'],
+                'core.metrics.view' => ['role_admin', 'role_auditor', 'role_risk_manager'],
+                'core.rbac.view' => ['role_admin'],
             ],
         ]);
+
+        $this->setPolicyAssignments('core.rbac.view', ['role_admin']);
 
         // Role IDs are string PKs; set explicitly to avoid DB default issues.
         Role::query()->updateOrCreate(['id' => 'role_admin'], ['name' => 'Admin']);
@@ -41,8 +46,8 @@ final class PolicyMapEffectiveApiTest extends TestCase
                 'ok' => true,
                 'data' => [
                     'policies' => [
-                        'core.metrics.view' => ['admin', 'auditor'],
-                        'core.rbac.view' => ['admin'],
+                        'core.metrics.view' => ['role_admin', 'role_auditor', 'role_risk_manager'],
+                        'core.rbac.view' => ['role_admin'],
                     ],
                 ],
             ])
@@ -59,9 +64,11 @@ final class PolicyMapEffectiveApiTest extends TestCase
             'core.rbac.persistence' => true,
             'core.rbac.roles' => ['Admin', 'Auditor'],
             'core.rbac.policies' => [
-                'core.rbac.view' => ['Admin'],
+                'core.rbac.view' => ['role_admin'],
             ],
         ]);
+
+        $this->setPolicyAssignments('core.rbac.view', ['role_admin']);
 
         Role::query()->updateOrCreate(['id' => 'role_admin'], ['name' => 'Admin']);
         Role::query()->updateOrCreate(['id' => 'role_auditor'], ['name' => 'Auditor']);
@@ -71,5 +78,23 @@ final class PolicyMapEffectiveApiTest extends TestCase
         $this->actingAs($aud, 'sanctum');
 
         $this->getJson('/rbac/policies/effective')->assertStatus(403);
+    }
+
+    private function setPolicyAssignments(string $policy, array $roles): void
+    {
+        if (Schema::hasTable('policy_role_assignments')) {
+            DB::table('policy_role_assignments')->where('policy', $policy)->delete();
+            if ($roles !== []) {
+                $now = now('UTC')->toDateTimeString();
+                $rows = array_map(static fn (string $roleId) => [
+                    'policy' => $policy,
+                    'role_id' => $roleId,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ], $roles);
+                DB::table('policy_role_assignments')->insert($rows);
+            }
+        }
+        PolicyMap::clearCache();
     }
 }

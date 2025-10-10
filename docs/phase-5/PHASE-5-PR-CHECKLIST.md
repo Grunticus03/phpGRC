@@ -64,11 +64,11 @@
 - **Note**: Legacy `MetricsThrottle` replaced on metrics routes by `GenericRateLimit`; metrics knob may be disabled. ✅
 
 ## Admin Users Management (beta) — API & Web UI (added)
-- API routes under `/api/admin/users`:
-  - `GET /admin/users?q=&page=&per_page=` (paged search; stable by `id`)
-  - `POST /admin/users` (create: name, email, password?, roles[])
-  - `PATCH /admin/users/{id}` (update: name?, email?, password?, roles[])
-  - `DELETE /admin/users/{id}` (delete)
+- API routes under `/api/users`:
+  - `GET /users?q=&page=&per_page=` (paged search; stable by `id`)
+  - `POST /users` (create: name, email, password?, roles[])
+  - `PATCH /users/{id}` (update: name?, email?, password?, roles[])
+  - `DELETE /users/{id}` (delete)
 - Validation:
   - name: string ≥2
   - email: RFC email, unique

@@ -5,9 +5,12 @@ declare(strict_types=1);
 namespace App\Services\Mime;
 
 use App\Models\MimeLabel;
+use Illuminate\Support\Facades\Schema;
 
 final class MimeLabelService
 {
+    private const LIKE_ESCAPE = '!';
+
     private const TYPE_DEFAULTS = [
         'image' => 'Image',
         'audio' => 'Audio',
@@ -60,12 +63,18 @@ final class MimeLabelService
             return [];
         }
 
+        if (! Schema::hasTable('mime_labels')) {
+            return [];
+        }
+
         $escaped = $this->escapeForLike($term);
+
+        $escapeChar = self::LIKE_ESCAPE;
 
         /** @var list<MimeLabel> $rows */
         $rows = MimeLabel::query()
             ->select(['value', 'match_type'])
-            ->whereRaw("LOWER(label) LIKE ? ESCAPE '\\'", ['%'.$escaped.'%'])
+            ->whereRaw("LOWER(label) LIKE ? ESCAPE '".$escapeChar."'", ['%'.$escaped.'%'])
             ->get();
 
         $matches = [];
@@ -124,6 +133,13 @@ final class MimeLabelService
     private function loadCaches(): void
     {
         if ($this->exactCache !== null && $this->prefixCache !== null) {
+            return;
+        }
+
+        if (! Schema::hasTable('mime_labels')) {
+            $this->exactCache = [];
+            $this->prefixCache = [];
+
             return;
         }
 
@@ -213,6 +229,12 @@ final class MimeLabelService
 
     private function escapeForLike(string $value): string
     {
-        return str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $value);
+        $escape = self::LIKE_ESCAPE;
+
+        return str_replace(
+            [$escape, '%', '_'],
+            [$escape.$escape, $escape.'%', $escape.'_'],
+            $value
+        );
     }
 }

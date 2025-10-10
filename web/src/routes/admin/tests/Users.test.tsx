@@ -42,7 +42,7 @@ describe("Admin Users page", () => {
         return jsonResponse(200, { ok: true, roles: ["Admin", "User"] });
       }
 
-      if (method === "GET" && /\/api\/admin\/users\b/.test(url)) {
+      if (method === "GET" && /\/api\/users\b/.test(url)) {
         if (!updateCalled) {
           return jsonResponse(200, {
             ok: true,
@@ -71,7 +71,7 @@ describe("Admin Users page", () => {
         });
       }
 
-      if (method === "PUT" && /\/api\/admin\/users\/1\b/.test(url)) {
+      if (method === "PUT" && /\/api\/users\/1\b/.test(url)) {
         updateCalled = true;
         const body = JSON.parse(String(init?.body ?? "{}"));
         expect(body).toEqual({
@@ -138,7 +138,7 @@ describe("Admin Users page", () => {
         return jsonResponse(200, { ok: true, roles: ["Admin"] });
       }
 
-      if (method === "GET" && /\/api\/admin\/users\b/.test(url)) {
+      if (method === "GET" && /\/api\/users\b/.test(url)) {
         if (deleted) {
           return jsonResponse(200, {
             ok: true,
@@ -174,7 +174,7 @@ describe("Admin Users page", () => {
         });
       }
 
-      if (method === "POST" && /\/api\/admin\/users\b/.test(url)) {
+      if (method === "POST" && /\/api\/users\b/.test(url)) {
         const body = JSON.parse(String(init?.body ?? "{}"));
         expect(body).toEqual({
           name: "Bob User",
@@ -194,7 +194,7 @@ describe("Admin Users page", () => {
         });
       }
 
-      if (method === "DELETE" && /\/api\/admin\/users\/2\b/.test(url)) {
+      if (method === "DELETE" && /\/api\/users\/2\b/.test(url)) {
         deleted = true;
         return jsonResponse(200, { ok: true });
       }

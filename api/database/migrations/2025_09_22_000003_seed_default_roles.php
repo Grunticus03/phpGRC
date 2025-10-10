@@ -19,7 +19,7 @@ return new class extends Migration
         $roles = [
             ['id' => 'role_admin',    'name' => 'Admin',        'created_at' => $timestamp, 'updated_at' => $timestamp],
             ['id' => 'role_auditor',  'name' => 'Auditor',      'created_at' => $timestamp, 'updated_at' => $timestamp],
-            ['id' => 'role_risk_mgr', 'name' => 'Risk Manager', 'created_at' => $timestamp, 'updated_at' => $timestamp],
+            ['id' => 'role_risk_manager', 'name' => 'Risk Manager', 'created_at' => $timestamp, 'updated_at' => $timestamp],
             ['id' => 'role_user',     'name' => 'User',         'created_at' => $timestamp, 'updated_at' => $timestamp],
         ];
 
@@ -37,7 +37,7 @@ return new class extends Migration
         }
 
         DB::table('roles')
-            ->whereIn('id', ['role_admin', 'role_auditor', 'role_risk_mgr', 'role_user'])
+            ->whereIn('id', ['role_admin', 'role_auditor', 'role_risk_manager', 'role_user'])
             ->delete();
     }
 };

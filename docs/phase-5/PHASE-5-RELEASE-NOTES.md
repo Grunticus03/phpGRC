@@ -17,10 +17,10 @@
   - Guard lives in `AppLayout` and runs on initial load and hard reloads. When `require_auth` is false, no auth checks or redirects are performed.
 - **Admin Users Management (beta)**
   - API (admin-only):  
-    - `GET /api/admin/users` — search & paginate users.  
-    - `POST /api/admin/users` — create user (name, email, password) and optional role assignment.  
-    - `PATCH /api/admin/users/{id}` — update name/email/password and roles.  
-    - `DELETE /api/admin/users/{id}` — delete user.  
+    - `GET /api/users` — search & paginate users.  
+    - `POST /api/users` — create user (name, email, password) and optional role assignment.  
+    - `PATCH /api/users/{id}` — update name/email/password and roles.  
+    - `DELETE /api/users/{id}` — delete user.  
   - UI: `/admin` → **Users** lets admins list/create/edit/delete users and assign roles; supports idempotent role updates and normalization.
   - Audit: user CRUD and role changes emit RBAC and AUTH audit events (where enabled).
 - **Global Navigation (added)**
@@ -41,6 +41,7 @@
 - **Alias (added):** `GET /api/metrics/dashboard` → same controller/shape as `/api/dashboard/kpis`.
 - **Response meta (added):** KPI responses may include `meta.window: { rbac_days, fresh_days }` for UI display.
 - **Settings load (added):** DB overrides are loaded at boot via `SettingsServiceProvider`; API returns effective config (defaults overlaid by DB).
+- **PolicyMap persistence (added):** new `policy_roles` and `policy_role_assignments` tables seed the default matrix and power RBAC enforcement in persist mode.
 - **OpenAPI serve (hardened):** exact `Content-Type` for YAML, `ETag: "sha256:<hex>"`, `Cache-Control: no-store, max-age=0`, `X-Content-Type-Options: nosniff`; optional `Last-Modified` when file exists.
 - **Prefix clarification:** In `bootstrap/app.php` the API routing `prefix` is set to `''`. Route list shows bare paths like `health`, `dashboard/kpis`. Apache mounts these under `/api/*`.
 - **Rate limiting (standardized):**
@@ -51,7 +52,7 @@
   - **Exclusions:** No public route throttles for `/health` and `/openapi.*`. Login remains guarded only by `BruteForceGuard` to avoid double throttling.
   - `/health/fingerprint` now includes `summary.api_throttle:{ enabled, strategy, window_seconds, max_requests }`.
 - **Admin Users API (beta):**
-  - Routes live under `/api/admin/users` (see **New** above). Enforced by RBAC with `Admin` role and `core.users.manage` policy; respects `require_auth` and global `rbac.enabled`.
+  - Routes live under `/api/users` (see **New** above). Enforced by RBAC with `Admin` role and `core.users.manage` policy; respects `require_auth` and global `rbac.enabled`.
 
 ## Config Defaults
 - Evidence freshness days: **30** via config fallback.  
@@ -87,7 +88,7 @@
 - Redoc x-logo path fixed: `x-logo.url: "/api/images/phpGRC-light-horizontal-trans.png"`.
 - API docs UI is now served at **/api/docs** and linked from the Admin UI.
 - **OpenAPI:** `components.responses.RateLimited` documents headers `Retry-After`, `X-RateLimit-Limit`, `X-RateLimit-Remaining`. `HealthFingerprintResponse.summary.api_throttle` documented.
-- **OpenAPI (pending, next):** `/api/admin/users*` endpoints will be added with full request/response schemas and examples in the next doc sweep (beta feature).
+- **OpenAPI (pending, next):** `/api/users*` endpoints will be added with full request/response schemas and examples in the next doc sweep (beta feature).
 
 ## Tests
 - PHPUnit: all routes in tests updated to **drop** `/api` prefix (framework serves bare paths in test kernel).
@@ -114,7 +115,7 @@
 
 ## Known Issues / Follow-ups
 - Admin Users (beta): fine-grained permission assignment UI is scoped to role assignment in this release; per-permission toggles are planned.
-- OpenAPI coverage for `/api/admin/users*` pending; use in-app docs link for other endpoints until the next doc sweep.
+- OpenAPI coverage for `/api/users*` pending; use in-app docs link for other endpoints until the next doc sweep.
 - Optional KPI caching knobs are planned and not enabled in this release.
 
 ## CI

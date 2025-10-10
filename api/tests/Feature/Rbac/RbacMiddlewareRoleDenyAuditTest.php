@@ -4,14 +4,25 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Rbac;
 
+use App\Http\Middleware\RbacMiddleware;
 use App\Models\AuditEvent;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Route;
 use Tests\TestCase;
 
 final class RbacMiddlewareRoleDenyAuditTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        Route::middleware([RbacMiddleware::class])
+            ->get('/test/role-gate', static fn () => response()->json(['ok' => true]))
+            ->defaults('roles', ['Admin', 'Auditor']);
+    }
 
     public function test_role_mismatch_emits_single_rbac_deny_role_mismatch(): void
     {
@@ -28,7 +39,7 @@ final class RbacMiddlewareRoleDenyAuditTest extends TestCase
         ]);
 
         // Route requires Admin or Auditor; user has none -> 403
-        $res = $this->actingAs($user, 'sanctum')->getJson('/exports/abc/status');
+        $res = $this->actingAs($user, 'sanctum')->getJson('/test/role-gate');
         $res->assertStatus(403)->assertJson(['ok' => false, 'code' => 'FORBIDDEN']);
 
         $rows = AuditEvent::query()

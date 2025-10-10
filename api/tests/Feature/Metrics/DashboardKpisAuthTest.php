@@ -6,8 +6,11 @@ namespace Tests\Feature\Metrics;
 
 use App\Models\Role;
 use App\Models\User;
+use App\Support\Rbac\PolicyMap;
 use Illuminate\Database\Eloquent\Model as EloquentModel;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
 final class DashboardKpisAuthTest extends TestCase
@@ -21,9 +24,11 @@ final class DashboardKpisAuthTest extends TestCase
             'core.rbac.require_auth' => true,
             'core.rbac.mode' => 'persist',
             'core.rbac.policies' => array_merge(config('core.rbac.policies', []), [
-                'core.metrics.view' => ['Admin'],
+                'core.metrics.view' => ['role_admin'],
             ]),
         ]);
+
+        $this->resetPolicyAssignments('core.metrics.view', ['role_admin']);
 
         $admin = $this->makeUser('Admin One', 'admin1@example.test');
         $this->attachNamedRole($admin, 'Admin');
@@ -58,9 +63,11 @@ final class DashboardKpisAuthTest extends TestCase
             'core.rbac.require_auth' => true,
             'core.rbac.mode' => 'persist',
             'core.rbac.policies' => array_merge(config('core.rbac.policies', []), [
-                'core.metrics.view' => ['Admin'],
+                'core.metrics.view' => ['role_admin'],
             ]),
         ]);
+
+        $this->resetPolicyAssignments('core.metrics.view', ['role_admin']);
 
         $auditor = $this->makeUser('Auditor One', 'auditor1@example.test');
         $this->attachNamedRole($auditor, 'Auditor');
@@ -106,5 +113,28 @@ final class DashboardKpisAuthTest extends TestCase
         }
 
         return is_array($json) ? $json : [];
+    }
+
+    private function resetPolicyAssignments(string $policy, ?array $roles = null): void
+    {
+        if (Schema::hasTable('policy_role_assignments')) {
+            DB::table('policy_role_assignments')->where('policy', $policy)->delete();
+            if ($roles !== null) {
+                $rows = [];
+                $now = now('UTC')->toDateTimeString();
+                foreach ($roles as $roleId) {
+                    $rows[] = [
+                        'policy' => $policy,
+                        'role_id' => $roleId,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ];
+                }
+                if ($rows !== []) {
+                    DB::table('policy_role_assignments')->insert($rows);
+                }
+            }
+        }
+        PolicyMap::clearCache();
     }
 }

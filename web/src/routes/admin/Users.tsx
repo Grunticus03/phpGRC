@@ -180,7 +180,7 @@ export default function Users(): JSX.Element {
   const load = useCallback(async () => {
     setListLoading(true);
     try {
-      const res = await apiGet<unknown>("/api/admin/users", { q, page, per_page: perPage });
+      const res = await apiGet<unknown>("/api/users", { q, page, per_page: perPage });
       if (isPagedUsers(res)) {
         setItems(res.data);
         setMeta(res.meta);
@@ -228,7 +228,7 @@ export default function Users(): JSX.Element {
     setBanner(null);
 
     try {
-      await apiPost<UserResponse, typeof payload>("/api/admin/users", payload);
+      await apiPost<UserResponse, typeof payload>("/api/users", payload);
       formEl.reset();
       setCreateRoles([]);
       setBanner({ kind: "success", text: "User created." });
@@ -287,7 +287,7 @@ export default function Users(): JSX.Element {
     setBanner(null);
 
     try {
-      const res = await apiPut<UserResponse, typeof payload>(`/api/admin/users/${selectedUser.id}`, payload);
+      const res = await apiPut<UserResponse, typeof payload>(`/api/users/${selectedUser.id}`, payload);
       setSelectedUser(res.user);
       setBanner({ kind: "success", text: "User updated." });
       await load();
@@ -311,7 +311,7 @@ export default function Users(): JSX.Element {
     setBanner(null);
 
     try {
-      await apiDelete<{ ok: true }>(`/api/admin/users/${deleteCandidate.id}`);
+      await apiDelete<{ ok: true }>(`/api/users/${deleteCandidate.id}`);
       if (selectedUser && selectedUser.id === deleteCandidate.id) {
         setSelectedUser(null);
       }

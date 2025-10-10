@@ -64,15 +64,28 @@ final class RbacEvaluator
             return false;
         }
 
-        /** @var Collection<int,string> $namesCol */
-        $namesCol = $user->roles()->pluck('name');
+        /** @var Collection<int,\App\Models\Role> $roleModels */
+        $roleModels = $user->roles()->get(['id', 'name']);
 
         /** @var array<string, true> $userTokens */
         $userTokens = [];
-        foreach ($namesCol as $n) {
-            $tok = self::normalizeToken($n);
-            if ($tok !== '') {
-                $userTokens[$tok] = true;
+        foreach ($roleModels as $role) {
+            /** @var mixed $nameRaw */
+            $nameRaw = $role->getAttribute('name');
+            if (is_string($nameRaw)) {
+                $nameTok = self::normalizeToken($nameRaw);
+                if ($nameTok !== '') {
+                    $userTokens[$nameTok] = true;
+                }
+            }
+
+            /** @var mixed $idRaw */
+            $idRaw = $role->getAttribute('id');
+            if (is_string($idRaw)) {
+                $idTok = self::normalizeToken($idRaw);
+                if ($idTok !== '') {
+                    $userTokens[$idTok] = true;
+                }
             }
         }
         if ($userTokens === []) {

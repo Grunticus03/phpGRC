@@ -6,6 +6,7 @@ namespace Tests\Feature;
 
 use App\Http\Middleware\RbacMiddleware;
 use App\Models\User;
+use App\Support\Rbac\PolicyMap;
 use Database\Seeders\RolesSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -153,9 +154,14 @@ final class RbacMiddlewarePoliciesTest extends TestCase
             ->defaults('policy', 'core.settings.manage');
 
         // Override policy map to require Risk Manager instead of Admin
-        config()->set('core.rbac.policies', [
-            'core.settings.manage' => ['Risk Manager'],
+        DB::table('policy_role_assignments')->where('policy', 'core.settings.manage')->delete();
+        DB::table('policy_role_assignments')->insert([
+            'policy' => 'core.settings.manage',
+            'role_id' => 'role_risk_manager',
+            'created_at' => now('UTC'),
+            'updated_at' => now('UTC'),
         ]);
+        PolicyMap::clearCache();
 
         config()->set('core.rbac.enabled', true);
         config()->set('core.rbac.mode', 'persist');

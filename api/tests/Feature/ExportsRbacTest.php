@@ -22,6 +22,8 @@ final class ExportsRbacTest extends TestCase
         config([
             'core.rbac.enabled' => true,
             'core.rbac.require_auth' => true,
+            'core.rbac.mode' => 'persist',
+            'core.rbac.persistence' => true,
             // Keep persistence disabled so we hit the stub path and avoid DB/filesystem coupling.
             'core.exports.enabled' => false,
             // Capability default on; specific tests toggle it.
@@ -31,6 +33,7 @@ final class ExportsRbacTest extends TestCase
         // Minimal role catalog.
         Role::query()->updateOrCreate(['id' => 'role_admin'], ['name' => 'Admin']);
         Role::query()->updateOrCreate(['id' => 'role_auditor'], ['name' => 'Auditor']);
+        Role::query()->updateOrCreate(['id' => 'role_risk_manager'], ['name' => 'Risk Manager']);
         Role::query()->updateOrCreate(['id' => 'role_user'], ['name' => 'User']);
     }
 
@@ -96,7 +99,7 @@ final class ExportsRbacTest extends TestCase
             ->assertJson(['ok' => false, 'code' => 'FORBIDDEN']);
     }
 
-    public function test_admin_and_auditor_can_check_status(): void
+    public function test_admin_and_risk_manager_can_check_status(): void
     {
         // Admin
         $admin = $this->makeUserWithRoles(['Admin']);
@@ -104,16 +107,26 @@ final class ExportsRbacTest extends TestCase
         $this->getJson('/exports/exp_stub_0001/status')
             ->assertStatus(200)
             ->assertJson(['ok' => true]);
-        // Auditor
-        $aud = $this->makeUserWithRoles(['Auditor']);
-        Sanctum::actingAs($aud);
+        // Risk Manager
+        $risk = $this->makeUserWithRoles(['Risk Manager']);
+        Sanctum::actingAs($risk);
         $this->getJson('/exports/exp_stub_0001/status')
             ->assertStatus(200)
             ->assertJson(['ok' => true]);
     }
 
-    public function test_user_forbidden_from_status_and_download(): void
+    public function test_auditor_and_user_forbidden_from_status_and_download(): void
     {
+        $auditor = $this->makeUserWithRoles(['Auditor']);
+        Sanctum::actingAs($auditor);
+
+        $this->getJson('/exports/exp_stub_0001/status')
+            ->assertStatus(403)
+            ->assertJson(['ok' => false, 'code' => 'FORBIDDEN']);
+
+        $this->get('/exports/exp_stub_0001/download')
+            ->assertStatus(403);
+
         $user = $this->makeUserWithRoles(['User']);
         Sanctum::actingAs($user);
 

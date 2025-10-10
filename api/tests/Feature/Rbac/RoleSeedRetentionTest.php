@@ -25,7 +25,7 @@ final class RoleSeedRetentionTest extends TestCase
 
         $this->assertDatabaseHas('roles', ['id' => 'role_admin']);
         $this->assertDatabaseHas('roles', ['id' => 'role_auditor']);
-        $this->assertDatabaseHas('roles', ['id' => 'role_risk_mgr']);
+        $this->assertDatabaseHas('roles', ['id' => 'role_risk_manager']);
         $this->assertDatabaseHas('roles', ['id' => 'role_user']);
 
         $roles = Role::query()->orderBy('name')->pluck('name')->all();

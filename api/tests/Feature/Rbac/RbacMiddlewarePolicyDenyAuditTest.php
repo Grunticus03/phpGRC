@@ -9,6 +9,7 @@ use App\Models\Role;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model as EloquentModel;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 final class RbacMiddlewarePolicyDenyAuditTest extends TestCase
@@ -24,6 +25,10 @@ final class RbacMiddlewarePolicyDenyAuditTest extends TestCase
             // Remove the policy mapping so roles pass but policy check fails
             'core.rbac.policies' => [],
         ]);
+
+        DB::table('policy_role_assignments')->where('policy', 'core.settings.manage')->delete();
+        DB::table('policy_roles')->where('policy', 'core.settings.manage')->delete();
+        \App\Support\Rbac\PolicyMap::clearCache();
 
         $admin = $this->makeUser('Admin One', 'admin1@example.test');
         $this->attachNamedRole($admin, 'Admin');

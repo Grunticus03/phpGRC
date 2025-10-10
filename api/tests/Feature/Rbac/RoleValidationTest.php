@@ -25,7 +25,7 @@ final class RoleValidationTest extends TestCase
         /** @var User $u */
         $u = User::factory()->create();
 
-        Role::query()->updateOrCreate(['id' => 'role_risk_mgr'], ['name' => 'Risk Manager']);
+        Role::query()->updateOrCreate(['id' => 'role_risk_manager'], ['name' => 'Risk Manager']);
 
         $this->postJson("/rbac/users/{$u->id}/roles/RiSk-ManAgeR")
             ->assertStatus(200)
@@ -48,14 +48,14 @@ final class RoleValidationTest extends TestCase
         /** @var User $u */
         $u = User::factory()->create();
 
-        Role::query()->updateOrCreate(['id' => 'role_risk_mgr'], ['name' => 'Risk Manager']);
+        Role::query()->updateOrCreate(['id' => 'role_risk_manager'], ['name' => 'Risk Manager']);
 
         $this->postJson("/rbac/users/{$u->id}/roles/risk_manager")
             ->assertStatus(200)
             ->assertJsonFragment(['roles' => ['Risk Manager']]);
 
         $this->assertDatabaseHas('role_user', [
-            'role_id' => 'role_risk_mgr',
+            'role_id' => 'role_risk_manager',
             'user_id' => $u->id,
         ]);
     }

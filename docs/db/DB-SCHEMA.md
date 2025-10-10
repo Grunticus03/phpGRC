@@ -180,10 +180,70 @@ Snapshot generated from migrations against **phpgrc** as of 2025-10-08 (UTC).
 
 **Seed Data**
 - Inserted by migration `2025_09_22_000003_seed_default_roles.php`:
-  - `role_admin` → `Admin`
-  - `role_auditor` → `Auditor`
-  - `role_risk_mgr` → `Risk Manager`
-  - `role_user` → `User`
+- `role_admin` → `Admin`
+- `role_auditor` → `Auditor`
+- `role_risk_manager` → `Risk Manager`
+- `role_user` → `User`
+
+---
+
+### `policy_roles`
+
+| Column | Type | Null | Default | Extra |
+|-------:|------|------|---------|-------|
+| policy | varchar(191) | ✗ | NULL | PRIMARY KEY |
+| label | varchar(255) | ✓ | NULL | — |
+| created_at | timestamp with time zone | ✗ | NULL | — |
+| updated_at | timestamp with time zone | ✗ | NULL | — |
+
+**Indexes & Constraints**
+- `PRIMARY KEY (policy)`
+
+**Seed Data** (migration `2025_09_30_000400_create_policy_tables.php`)
+- core.settings.manage — Manage core settings
+- core.audit.view — View audit events
+- core.audit.export — Export audit events
+- core.metrics.view — View metrics
+- core.reports.view — View reports
+- core.users.view — View users
+- core.users.manage — Manage users
+- core.evidence.view — View evidence
+- core.evidence.manage — Manage evidence
+- core.exports.generate — Generate exports
+- core.rbac.view — View RBAC policies
+- rbac.roles.manage — Manage roles
+- rbac.user_roles.manage — Manage user roles
+
+---
+
+### `policy_role_assignments`
+
+| Column | Type | Null | Default | Extra |
+|-------:|------|------|---------|-------|
+| policy | varchar(191) | ✗ | NULL | part of PRIMARY KEY |
+| role_id | varchar(191) | ✗ | NULL | part of PRIMARY KEY |
+| created_at | timestamp with time zone | ✗ | NULL | — |
+| updated_at | timestamp with time zone | ✗ | NULL | — |
+
+**Indexes & Constraints**
+- `PRIMARY KEY (policy, role_id)`
+- `FOREIGN KEY (policy)` REFERENCES `policy_roles`(`policy`) ON DELETE CASCADE
+- `FOREIGN KEY (role_id)` REFERENCES `roles`(`id`) ON DELETE CASCADE
+
+**Seed Data** (migration `2025_09_30_000400_create_policy_tables.php`)
+- core.settings.manage → role_admin
+- core.audit.view → role_admin, role_auditor, role_risk_manager
+- core.audit.export → role_admin, role_auditor
+- core.metrics.view → role_admin, role_auditor, role_risk_manager
+- core.reports.view → role_admin, role_auditor, role_risk_manager
+- core.users.view → role_admin
+- core.users.manage → role_admin
+- core.evidence.view → role_admin, role_auditor, role_risk_manager, role_user
+- core.evidence.manage → role_admin, role_risk_manager
+- core.exports.generate → role_admin, role_risk_manager
+- core.rbac.view → role_admin, role_auditor
+- rbac.roles.manage → role_admin
+- rbac.user_roles.manage → role_admin
 
 ---
 

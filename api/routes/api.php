@@ -156,42 +156,34 @@ Route::prefix('/admin')
     ->middleware($rbacStack)
     ->group(function (): void {
         Route::match(['GET', 'HEAD'], '/settings', [SettingsController::class, 'index'])
-            ->defaults('roles', ['Admin'])
             ->defaults('policy', 'core.settings.manage');
         Route::post('/settings', [SettingsController::class, 'update'])
-            ->defaults('roles', ['Admin'])
             ->defaults('policy', 'core.settings.manage');
         Route::put('/settings', [SettingsController::class, 'update'])
-            ->defaults('roles', ['Admin'])
             ->defaults('policy', 'core.settings.manage');
         Route::patch('/settings', [SettingsController::class, 'update'])
-            ->defaults('roles', ['Admin'])
             ->defaults('policy', 'core.settings.manage');
 
         Route::post('/evidence/purge', EvidencePurgeController::class)
-            ->defaults('roles', ['Admin'])
             ->defaults('policy', 'core.evidence.manage');
+    });
 
-        Route::prefix('/users')->group(function (): void {
-            Route::get('/', [UsersController::class, 'index'])
-                ->defaults('roles', ['Admin'])
-                ->defaults('policy', 'core.users.view');
-            Route::post('/', [UsersController::class, 'store'])
-                ->defaults('roles', ['Admin'])
-                ->defaults('policy', 'core.users.manage');
-            Route::get('/{user}', [UsersController::class, 'show'])
-                ->whereNumber('user')
-                ->defaults('roles', ['Admin'])
-                ->defaults('policy', 'core.users.view');
-            Route::put('/{user}', [UsersController::class, 'update'])
-                ->whereNumber('user')
-                ->defaults('roles', ['Admin'])
-                ->defaults('policy', 'core.users.manage');
-            Route::delete('/{user}', [UsersController::class, 'destroy'])
-                ->whereNumber('user')
-                ->defaults('roles', ['Admin'])
-                ->defaults('policy', 'core.users.manage');
-        });
+Route::prefix('/users')
+    ->middleware($rbacStack)
+    ->group(function (): void {
+        Route::get('/', [UsersController::class, 'index'])
+            ->defaults('policy', 'core.users.view');
+        Route::post('/', [UsersController::class, 'store'])
+            ->defaults('policy', 'core.users.manage');
+        Route::get('/{user}', [UsersController::class, 'show'])
+            ->whereNumber('user')
+            ->defaults('policy', 'core.users.view');
+        Route::put('/{user}', [UsersController::class, 'update'])
+            ->whereNumber('user')
+            ->defaults('policy', 'core.users.manage');
+        Route::delete('/{user}', [UsersController::class, 'destroy'])
+            ->whereNumber('user')
+            ->defaults('policy', 'core.users.manage');
     });
 
 /*
@@ -207,7 +199,6 @@ Route::prefix('/dashboard')
         Route::get('/kpis', [MetricsController::class, 'kpis'])
             ->middleware(GenericRateLimit::class)
             ->defaults('throttle', ['strategy' => 'user', 'window_seconds' => 60, 'max_requests' => 20])
-            ->defaults('roles', ['Admin'])
             ->defaults('policy', 'core.metrics.view');
     });
 
@@ -222,7 +213,6 @@ Route::prefix('/metrics')
         Route::get('/dashboard', [MetricsController::class, 'index'])
             ->middleware(GenericRateLimit::class)
             ->defaults('throttle', ['strategy' => 'user', 'window_seconds' => 60, 'max_requests' => 20])
-            ->defaults('roles', ['Admin'])
             ->defaults('policy', 'core.metrics.view');
     });
 
@@ -237,7 +227,6 @@ Route::prefix('/reports')
         Route::match(['GET', 'HEAD'], '/admin-activity', AdminActivityReportController::class)
             ->middleware(GenericRateLimit::class)
             ->defaults('throttle', ['strategy' => 'user', 'window_seconds' => 60, 'max_requests' => 20])
-            ->defaults('roles', ['Admin'])
             ->defaults('policy', 'core.reports.view');
     });
 
@@ -252,20 +241,18 @@ Route::prefix('/exports')
         Route::post('/{type}', [ExportController::class, 'createType'])
             ->middleware(GenericRateLimit::class)
             ->defaults('throttle', ['strategy' => 'user', 'window_seconds' => 60, 'max_requests' => 5])
-            ->defaults('roles', ['Admin'])
             ->defaults('capability', 'core.exports.generate')
             ->defaults('policy', 'core.exports.generate');
         Route::post('/', [ExportController::class, 'create'])
             ->middleware(GenericRateLimit::class)
             ->defaults('throttle', ['strategy' => 'user', 'window_seconds' => 60, 'max_requests' => 5])
-            ->defaults('roles', ['Admin'])
             ->defaults('capability', 'core.exports.generate')
             ->defaults('policy', 'core.exports.generate');
 
         Route::get('/{jobId}/status', [StatusController::class, 'show'])
-            ->defaults('roles', ['Admin', 'Auditor']);
+            ->defaults('policy', 'core.exports.generate');
         Route::get('/{jobId}/download', [ExportController::class, 'download'])
-            ->defaults('roles', ['Admin', 'Auditor']);
+            ->defaults('policy', 'core.exports.generate');
     });
 
 /*
@@ -277,39 +264,30 @@ Route::prefix('/rbac')
     ->middleware($rbacStack)
     ->group(function (): void {
         Route::match(['GET', 'HEAD'], '/roles', [RolesController::class, 'index'])
-            ->defaults('roles', ['Admin'])
             ->defaults('policy', 'rbac.roles.manage');
         Route::post('/roles', [RolesController::class, 'store'])
-            ->defaults('roles', ['Admin'])
             ->defaults('policy', 'rbac.roles.manage');
         Route::patch('/roles/{role}', [RolesController::class, 'update'])
             ->where('role', '.*')
-            ->defaults('roles', ['Admin'])
             ->defaults('policy', 'rbac.roles.manage');
         Route::delete('/roles/{role}', [RolesController::class, 'destroy'])
             ->where('role', '.*')
-            ->defaults('roles', ['Admin'])
             ->defaults('policy', 'rbac.roles.manage');
 
         Route::match(['GET', 'HEAD'], '/users/{user}/roles', [UserRolesController::class, 'show'])
             ->whereNumber('user')
-            ->defaults('roles', ['Admin'])
             ->defaults('policy', 'rbac.user_roles.manage');
         Route::put('/users/{user}/roles', [UserRolesController::class, 'replace'])
             ->whereNumber('user')
-            ->defaults('roles', ['Admin'])
             ->defaults('policy', 'rbac.user_roles.manage');
         Route::post('/users/{user}/roles/{role}', [UserRolesController::class, 'attach'])
             ->whereNumber('user')
-            ->defaults('roles', ['Admin'])
             ->defaults('policy', 'rbac.user_roles.manage');
         Route::delete('/users/{user}/roles/{role}', [UserRolesController::class, 'detach'])
             ->whereNumber('user')
-            ->defaults('roles', ['Admin'])
             ->defaults('policy', 'rbac.user_roles.manage');
 
         Route::get('/policies/effective', [PolicyController::class, 'effective'])
-            ->defaults('roles', ['Admin'])
             ->defaults('policy', 'core.rbac.view');
 
         // Require auth only when configured; cookie guard still injects bearer tokens.
@@ -318,8 +296,7 @@ Route::prefix('/rbac')
             ->middleware('auth.require_sanctum')
             ->middleware(GenericRateLimit::class)
             ->defaults('throttle', ['strategy' => 'user', 'window_seconds' => 60, 'max_requests' => 30])
-            ->defaults('roles', ['Admin'])
-            ->defaults('policy', 'core.users.view');
+            ->defaults('policy', 'rbac.user_roles.manage');
     });
 
 /*
@@ -329,19 +306,16 @@ Route::prefix('/rbac')
 */
 Route::match(['GET', 'HEAD'], '/audit', [AuditController::class, 'index'])
     ->middleware($rbacStack)
-    ->defaults('roles', ['Admin', 'Auditor'])
     ->defaults('policy', 'core.audit.view');
 
 Route::get('/audit/categories', [AuditController::class, 'categories'])
     ->middleware($rbacStack)
-    ->defaults('roles', ['Admin', 'Auditor'])
     ->defaults('policy', 'core.audit.view');
 
 Route::get('/audit/export.csv', [AuditExportController::class, 'exportCsv'])
     ->middleware($rbacStack)
     ->middleware(GenericRateLimit::class)
     ->defaults('throttle', ['strategy' => 'ip', 'window_seconds' => 60, 'max_requests' => 5])
-    ->defaults('roles', ['Admin', 'Auditor'])
     ->defaults('policy', 'core.audit.view')
     ->defaults('capability', 'core.audit.export');
 
@@ -354,26 +328,22 @@ Route::prefix('/evidence')
     ->middleware($rbacStack)
     ->group(function (): void {
         Route::match(['GET', 'HEAD'], '/', [EvidenceController::class, 'index'])
-            ->defaults('roles', ['Admin', 'Auditor'])
             ->defaults('policy', 'core.evidence.view');
 
         Route::post('/', [EvidenceController::class, 'store'])
             ->middleware(GenericRateLimit::class)
             ->defaults('throttle', ['strategy' => 'user', 'window_seconds' => 60, 'max_requests' => 10])
-            ->defaults('roles', ['Admin'])
             ->defaults('policy', 'core.evidence.manage')
             ->defaults('capability', 'core.evidence.upload');
 
         Route::match(['GET', 'HEAD'], '/{id}', [EvidenceController::class, 'show'])
             ->middleware(GenericRateLimit::class)
             ->defaults('throttle', ['strategy' => 'ip', 'window_seconds' => 60, 'max_requests' => 120])
-            ->defaults('roles', ['Admin', 'Auditor'])
             ->defaults('policy', 'core.evidence.view');
 
         Route::delete('/{id}', [EvidenceController::class, 'destroy'])
             ->middleware(GenericRateLimit::class)
             ->defaults('throttle', ['strategy' => 'user', 'window_seconds' => 60, 'max_requests' => 10])
-            ->defaults('roles', ['Admin'])
             ->defaults('policy', 'core.evidence.manage')
             ->defaults('capability', 'core.evidence.delete');
     });

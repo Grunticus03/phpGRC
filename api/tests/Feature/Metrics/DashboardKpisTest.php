@@ -21,7 +21,7 @@ final class DashboardKpisTest extends TestCase
             'core.rbac.require_auth' => true,
             'core.rbac.mode' => 'persist',
             'core.rbac.policies' => array_merge(config('core.rbac.policies', []), [
-                'core.metrics.view' => ['Admin'],
+                'core.metrics.view' => ['role_admin'],
             ]),
         ]);
 

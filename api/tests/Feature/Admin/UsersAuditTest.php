@@ -46,7 +46,7 @@ final class UsersAuditTest extends TestCase
         $admin = $this->makeAdmin();
         $this->actingAs($admin, 'sanctum');
 
-        $this->postJson('/admin/users', [
+        $this->postJson('/users', [
             'name' => 'Audit Target',
             'email' => 'audit.target@example.test',
             'password' => 'Secret123!',
@@ -80,7 +80,7 @@ final class UsersAuditTest extends TestCase
             $target->roles()->sync([$auditorRole]);
         }
 
-        $this->deleteJson('/admin/users/'.$target->id)->assertOk();
+        $this->deleteJson('/users/'.$target->id)->assertOk();
 
         /** @var AuditEvent|null $event */
         $event = AuditEvent::query()->where('action', 'rbac.user.deleted')->first();

@@ -27,7 +27,7 @@ final class AdminActivityReportTest extends TestCase
             'core.rbac.require_auth' => true,
             'core.rbac.mode' => 'persist',
             'core.rbac.policies' => array_merge(config('core.rbac.policies', []), [
-                'core.reports.view' => ['Admin'],
+                'core.reports.view' => ['role_admin'],
             ]),
         ]);
     }

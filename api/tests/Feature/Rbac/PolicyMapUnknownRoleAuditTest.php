@@ -8,6 +8,7 @@ use App\Models\AuditEvent;
 use App\Models\Role;
 use App\Support\Rbac\PolicyMap;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 final class PolicyMapUnknownRoleAuditTest extends TestCase
@@ -22,9 +23,9 @@ final class PolicyMapUnknownRoleAuditTest extends TestCase
             'core.rbac.persistence' => true,
             'core.audit.enabled' => true,
             // Only "admin" exists in catalog; "ghost_role" should be audited as unknown
-            'core.rbac.roles' => ['Admin'],
+            'core.rbac.roles' => ['role_admin'],
             'core.rbac.policies' => [
-                'core.metrics.view' => ['Admin', 'ghost_role'],
+                'core.metrics.view' => ['role_admin', 'ghost_role'],
             ],
         ]);
 
@@ -32,10 +33,12 @@ final class PolicyMapUnknownRoleAuditTest extends TestCase
         Role::query()->where('id', '!=', 'role_admin')->delete();
         Role::query()->updateOrCreate(['id' => 'role_admin'], ['name' => 'Admin']);
 
+        DB::table('policy_role_assignments')->delete();
+
         // Prime & compute
         PolicyMap::clearCache();
         $map = PolicyMap::effective();
-        $this->assertSame(['admin'], $map['core.metrics.view'] ?? []);
+        $this->assertSame(['role_admin'], $map['core.metrics.view'] ?? []);
 
         // One audit row emitted
         $rows = AuditEvent::query()
@@ -51,7 +54,7 @@ final class PolicyMapUnknownRoleAuditTest extends TestCase
 
         // Call again — still only one row (once per policy per boot)
         $again = PolicyMap::effective();
-        $this->assertSame(['admin'], $again['core.metrics.view'] ?? []);
+        $this->assertSame(['role_admin'], $again['core.metrics.view'] ?? []);
         $this->assertSame(
             1,
             AuditEvent::query()

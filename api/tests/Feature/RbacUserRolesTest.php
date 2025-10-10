@@ -25,7 +25,7 @@ final class RbacUserRolesTest extends TestCase
         /** @var User $u */
         $u = User::factory()->create();
 
-        Role::query()->updateOrCreate(['id' => 'role_risk_mgr'], ['name' => 'Risk Manager']);
+        Role::query()->updateOrCreate(['id' => 'role_risk_manager'], ['name' => 'Risk Manager']);
 
         $this->postJson("/rbac/users/{$u->id}/roles/risk-manager")
             ->assertStatus(200)

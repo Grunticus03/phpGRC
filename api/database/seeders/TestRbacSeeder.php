@@ -14,7 +14,7 @@ final class TestRbacSeeder extends Seeder
         $seed = [
             'Admin' => 'role_admin',
             'Auditor' => 'role_auditor',
-            'Risk Manager' => 'role_risk_mgr',
+            'Risk Manager' => 'role_risk_manager',
             'User' => 'role_user',
         ];
 

@@ -18,6 +18,16 @@ Define:
 
 ---
 
+## 1a) Decision snapshot — 2025-09-30
+- **Route alignment:** Admin user CRUD routes move to `/api/users` (and `/api/users/{id}` variants) to match the policy catalog; existing controller logic reused.
+- **Policy persistence:** Introduce dedicated tables (`policy_roles`, `policy_role_assignments`) seeded with the default matrix when RBAC persistence is enabled; PolicyMap reads from these tables in persist mode and falls back to config otherwise.
+- **Route role defaults:** Remove hard-coded `roles` defaults from protected routes so the PolicyMap is the single enforcement source; middleware continues to emit audits on denies.
+- **Audit export guard:** `/api/audit/export.csv` continues to require `core.audit.view` plus capability `core.audit.export`; no standalone `core.audit.export` policy key.
+- **Policy catalog endpoint:** Keep `/api/rbac/policies/effective` as the canonical map endpoint (add a lightweight alias only if a consumer demands it).
+- **Role slugs:** Use `role_risk_manager` consistently for Risk Manager across seeds, config, and PolicyMap.
+
+---
+
 ## 2) Terminology
 - **Role**: Human display name. Persisted catalog optional. IDs are `role_<slug>`; policy uses display names.
 - **Policy**: Named permission key evaluated by `RbacEvaluator` via PolicyMap.
@@ -31,17 +41,27 @@ Define:
 ## 3) Default PolicyMap (effective base)
 ```json
 {
-  "core.settings.manage":  ["Admin"],
-  "core.audit.view":       ["Admin", "Auditor"],
-  "core.evidence.view":    ["Admin", "Auditor"],
-  "core.evidence.manage":  ["Admin"],
-  "core.exports.generate": ["Admin"],
-  "rbac.roles.manage":     ["Admin"],
-  "rbac.user_roles.manage":["Admin"],
-  "core.metrics.view":     ["Admin"]
+  "core.settings.manage":  ["role_admin"],
+  "core.audit.view":       ["role_admin", "role_auditor", "role_risk_manager"],
+  "core.evidence.view":    ["role_admin", "role_auditor", "role_risk_manager", "role_user"],
+  "core.evidence.manage":  ["role_admin", "role_risk_manager"],
+  "core.exports.generate": ["role_admin", "role_risk_manager"],
+  "rbac.roles.manage":     ["role_admin"],
+  "rbac.user_roles.manage":["role_admin"],
+  "core.metrics.view":     ["role_admin", "role_auditor", "role_risk_manager"]
 }
 ```
 Overrides come from `config('core.rbac.policies')`.
+
+---
+
+## 3a) Persistence store (persist mode)
+- Tables:
+  - `policy_roles(policy PK, label, timestamps)` tracks the catalog of policy keys.
+  - `policy_role_assignments(policy, role_id, timestamps)` maps policy keys to normalized role IDs.
+- Migration `2025_09_30_000400_create_policy_tables.php` seeds the default baseline matrix (Admin/Auditor/Risk Manager/User coverage).
+- In persist mode the effective map comes from these tables; config defaults remain the fallback when assignments are absent.
+- Deleting rows from `policy_role_assignments` removes grants for that policy; deleting a `policy_roles` row treats the policy as unknown.
 
 ---
 

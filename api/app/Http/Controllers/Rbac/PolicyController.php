@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Rbac;
 
 use App\Http\Controllers\Controller;
 use App\Services\Audit\AuditLogger;
+use App\Support\Rbac\PolicyMap;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -152,18 +153,18 @@ final class PolicyController extends Controller
 
         /** @var array<string,list<string>> $baseline */
         $baseline = [
-            'core.settings.manage' => ['admin'],
-            'core.audit.view' => ['admin', 'auditor'],
-            'core.audit.export' => ['admin'],
-            'core.metrics.view' => ['admin'],
-            'core.users.view' => ['admin'],
-            'core.users.manage' => ['admin'],
-            'core.evidence.view' => ['admin', 'auditor'],
-            'core.evidence.manage' => ['admin'],
-            'core.exports.generate' => ['admin'],
-            'core.rbac.view' => ['admin'],
-            'rbac.roles.manage' => ['admin'],
-            'rbac.user_roles.manage' => ['admin'],
+            'core.settings.manage' => ['role_admin'],
+            'core.audit.view' => ['role_admin', 'role_auditor', 'role_risk_manager'],
+            'core.audit.export' => ['role_admin', 'role_auditor'],
+            'core.metrics.view' => ['role_admin', 'role_auditor', 'role_risk_manager'],
+            'core.users.view' => ['role_admin'],
+            'core.users.manage' => ['role_admin'],
+            'core.evidence.view' => ['role_admin', 'role_auditor', 'role_risk_manager', 'role_user'],
+            'core.evidence.manage' => ['role_admin', 'role_risk_manager'],
+            'core.exports.generate' => ['role_admin', 'role_risk_manager'],
+            'core.rbac.view' => ['role_admin', 'role_auditor'],
+            'rbac.roles.manage' => ['role_admin'],
+            'rbac.user_roles.manage' => ['role_admin'],
         ];
 
         /** @var array<string,mixed> $cfgDefaultsRaw */
@@ -183,6 +184,13 @@ final class PolicyController extends Controller
 
         // Persist-mode only: emit audits for unknown roles in overrides once per policy per boot.
         $this->emitUnknownRoleAudits($mode, $overrides);
+
+        /** @var array<string,list<string>>|null $dbAssignments */
+        $dbAssignments = $mode === 'persist' ? PolicyMap::databaseAssignmentsForController() : null;
+
+        if ($dbAssignments !== null) {
+            $defaults = self::normalizePolicies(array_replace($defaults, $dbAssignments));
+        }
 
         /** @var RouteCollectionInterface $collection */
         $collection = Router::getRoutes();
@@ -249,10 +257,8 @@ final class PolicyController extends Controller
             return;
         }
 
-        /** @var list<string> $roleCatalogRaw */
-        $roleCatalogRaw = (array) config('core.rbac.roles', []);
-        /** @var list<non-empty-string> $roleCatalog */
-        $roleCatalog = self::toStringList($roleCatalogRaw);
+        /** @var list<string> $roleCatalog */
+        $roleCatalog = PolicyMap::roleCatalog();
 
         /** @var array<string, true> $known */
         $known = [];

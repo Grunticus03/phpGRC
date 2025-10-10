@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Support\Rbac;
 
 use App\Services\Audit\AuditLogger;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 final class PolicyMap
@@ -77,19 +78,23 @@ final class PolicyMap
             return self::$cache;
         }
 
-        $base = self::defaults();
+        /** @var mixed $modeVal */
+        $modeVal = config('core.rbac.mode');
+        $mode = is_string($modeVal) ? $modeVal : 'stub';
+        $persist = ($mode === 'persist') || self::boolish(config('core.rbac.persistence'));
 
-        // Catalog tokens (lowercase, underscores)
+        $base = self::defaults();
+        $dbAssignments = $persist ? self::databaseAssignments() : null;
+
+        if ($persist && $dbAssignments !== null) {
+            $base = array_replace($base, $dbAssignments);
+        }
+
         $catalog = self::roleCatalog();
         $canon = [];
         foreach ($catalog as $name) {
             $canon[$name] = true;
         }
-
-        /** @var mixed $modeVal */
-        $modeVal = config('core.rbac.mode');
-        $mode = is_string($modeVal) ? $modeVal : 'stub';
-        $persist = ($mode === 'persist') || self::boolish(config('core.rbac.persistence'));
 
         $normalized = [];
         foreach ($base as $policy => $roles) {
@@ -160,7 +165,7 @@ final class PolicyMap
 
         $persist = ($mode === 'persist') || self::boolish(config('core.rbac.persistence'));
 
-        if ($persist && class_exists(\App\Models\Role::class) && Schema::hasTable('roles')) {
+        if ($persist && class_exists(\App\Models\Role::class) && self::hasTable('roles')) {
             try {
                 /** @var \Illuminate\Support\Collection<int,\App\Models\Role> $rows */
                 $rows = \App\Models\Role::query()
@@ -225,7 +230,7 @@ final class PolicyMap
     private static function auditUnknownRoles(string $policy, array $unknown): void
     {
         try {
-            if (! config('core.audit.enabled', true) || ! Schema::hasTable('audit_events')) {
+            if (! config('core.audit.enabled', true) || ! self::hasTable('audit_events')) {
                 return;
             }
             if ($policy === '') {
@@ -309,13 +314,118 @@ final class PolicyMap
         /** @var mixed $persist */
         $persist = config('core.rbac.persistence');
         $catalog = self::roleCatalog();
+        $db = null;
+        if (self::hasTable('policy_role_assignments')) {
+            try {
+                /** @var list<array{policy:string,role_id:string}> $rows */
+                $rows = DB::table('policy_role_assignments')
+                    ->select(['policy', 'role_id'])
+                    ->orderBy('policy')
+                    ->orderBy('role_id')
+                    ->get()
+                    ->map(static fn ($row): array => ['policy' => (string) $row->policy, 'role_id' => (string) $row->role_id])
+                    ->all();
+                $db = $rows;
+            } catch (\Throwable) {
+                $db = null;
+            }
+        }
 
-        $payload = json_encode([$pol, $mode, $persist, $catalog], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        $payload = json_encode([$pol, $mode, $persist, $catalog, $db], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         if ($payload === false) {
             $payload = (string) microtime(true);
         }
 
         return hash('sha1', $payload);
+    }
+
+    /**
+     * @return array<string, list<string>>|null
+     */
+    private static function databaseAssignments(): ?array
+    {
+        if (! self::hasTable('policy_role_assignments') || ! self::hasTable('policy_roles')) {
+            return null;
+        }
+
+        /** @var array<string, list<string>> $map */
+        $map = [];
+
+        try {
+            /** @var list<array{policy:string}> $policies */
+            $policies = DB::table('policy_roles')
+                ->select(['policy'])
+                ->orderBy('policy')
+                ->get()
+                ->map(static fn ($row): array => ['policy' => (string) $row->policy])
+                ->all();
+        } catch (\Throwable) {
+            return null;
+        }
+
+        foreach ($policies as $policyRow) {
+            $map[$policyRow['policy']] = [];
+        }
+
+        try {
+            /** @var list<array{policy:string,role_id:string}> $rows */
+            $rows = DB::table('policy_role_assignments')
+                ->select(['policy', 'role_id'])
+                ->get()
+                ->map(static fn ($row): array => [
+                    'policy' => (string) $row->policy,
+                    'role_id' => (string) $row->role_id,
+                ])
+                ->all();
+        } catch (\Throwable) {
+            return null;
+        }
+
+        if ($rows === []) {
+            return null;
+        }
+
+        foreach ($rows as $row) {
+            $policy = $row['policy'];
+            if ($policy === '') {
+                continue;
+            }
+            $token = self::normalizeToken($row['role_id']);
+            if ($token === '') {
+                continue;
+            }
+            if (! isset($map[$policy])) {
+                $map[$policy] = [];
+            }
+            $map[$policy][] = $token;
+        }
+
+        /** @var array<string, list<string>> $dedup */
+        $dedup = [];
+        foreach ($map as $policy => $roles) {
+            $dedup[$policy] = array_values(array_unique($roles));
+        }
+
+        return $dedup;
+    }
+
+    /**
+     * Exposed for controllers/tests that need the raw DB-backed map without touching cached state.
+     *
+     * @return array<string, list<string>>|null
+     */
+    public static function databaseAssignmentsForController(): ?array
+    {
+        return self::databaseAssignments();
+    }
+
+    private static function hasTable(string $table): bool
+    {
+        try {
+            return Schema::hasTable($table);
+        } catch (\Throwable) {
+            return false;
+        }
     }
 
     private static function boolish(mixed $v): bool

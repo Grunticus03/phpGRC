@@ -8,6 +8,7 @@ use App\Models\AuditEvent;
 use App\Models\Role;
 use App\Support\Rbac\PolicyMap;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 final class PolicyMapFingerprintTest extends TestCase
@@ -21,12 +22,14 @@ final class PolicyMapFingerprintTest extends TestCase
             'core.rbac.persistence' => true,
             'core.audit.enabled' => true,
             // Catalog initially has only Admin
-            'core.rbac.roles' => ['Admin'],
+            'core.rbac.roles' => ['role_admin'],
             // Policy requests Admin + Auditor (Auditor unknown at first)
             'core.rbac.policies' => [
-                'core.metrics.view' => ['Admin', 'Auditor'],
+                'core.metrics.view' => ['role_admin', 'role_auditor'],
             ],
         ]);
+
+        DB::table('policy_role_assignments')->delete();
 
         // Seed catalog: only admin exists
         Role::query()->delete();
@@ -35,7 +38,7 @@ final class PolicyMapFingerprintTest extends TestCase
         // First compute → only 'admin' allowed; unknown 'auditor' audited once
         PolicyMap::clearCache();
         $map1 = PolicyMap::effective();
-        $this->assertSame(['admin'], $map1['core.metrics.view'] ?? []);
+        $this->assertSame(['role_admin'], $map1['core.metrics.view'] ?? []);
 
         $count1 = AuditEvent::query()
             ->where('action', 'rbac.policy.override.unknown_role')
@@ -49,7 +52,7 @@ final class PolicyMapFingerprintTest extends TestCase
 
         // Second compute should re-run due to fingerprint change and include 'auditor'
         $map2 = PolicyMap::effective();
-        $this->assertSame(['admin', 'auditor'], $map2['core.metrics.view'] ?? []);
+        $this->assertSame(['role_admin', 'role_auditor'], $map2['core.metrics.view'] ?? []);
 
         // Unknown-role audit should NOT duplicate
         $count2 = AuditEvent::query()

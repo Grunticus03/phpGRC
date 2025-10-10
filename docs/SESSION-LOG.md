@@ -1486,10 +1486,10 @@ SESSION-LOG.md entry
 
 ### Closeout
 - Deliverables produced: 
-  - API: `RolesController` + `UserRolesController` normalization; `RoleCreateRequest` & `RoleReplaceRequest`; `Admin\UsersController` + `UserStoreRequest`/`UserUpdateRequest`; route updates under `/rbac` & `/admin/users`; consistent 401/422/404 codes.
+- API: `RolesController` + `UserRolesController` normalization; `RoleCreateRequest` & `RoleReplaceRequest`; `Admin\UsersController` + `UserStoreRequest`/`UserUpdateRequest`; route updates under `/rbac` & `/users`; consistent 401/422/404 codes.
   - OpenAPI: Role name patterns & examples; attach/detach path schema; replace-request constraints; examples for 422.
   - WebUI: `AppLayout` auth gate + `<Nav />` render; Login route; Admin Users page scaffold; typed `api.ts` helpers (`apiPatch`, auth helpers, overloads); tests updated (KPI tests fixed).
   - Tooling: Psalm/PHPStan green; ESLint & TS clean; PHPUnit passing after route/test updates.
 - Phase/Step status: advance
 - Next action (you): Run end-to-end QA in an environment toggling `core.rbac.require_auth` true/false; validate login redirect + data load; verify Users CRUD with role assignment.
-- Next action (me): Finish Users UI (CRUD + role/permission pickers, form validation, toasts), add OpenAPI entries for `/admin/users/*`, extend feature tests (API + WebUI), and prepare migration guidance for legacy roles containing spaces.
+- Next action (me): Finish Users UI (CRUD + role/permission pickers, form validation, toasts), add OpenAPI entries for `/users/*`, extend feature tests (API + WebUI), and prepare migration guidance for legacy roles containing spaces.

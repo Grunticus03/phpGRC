@@ -85,7 +85,7 @@
 - [x] **Metrics routes finalized**: `GET /api/dashboard/kpis` and alias `GET /api/metrics/dashboard`; controller clamps windows and returns `meta.window`.
 - [x] **Web UI settings form** updated to DB-backed metrics fields; Vitest adjusted for PUT and stub/persist modes.
 - [x] **Apache deploy verified**: `/api/*` routes to Laravel public; health and KPIs reachable.
-- [x] **Admin Users Management (beta)**: `/admin/users` API + Web UI for list/create/update/delete; role assign supported.  
+- [x] **Admin Users Management (beta)**: `/users` API + Web UI for list/create/update/delete; role assign supported.  
       Fine-grained per-permission toggles **planned** (tracked for Phase 5 hardening).
 - [x] **KPI tests (Vitest)** stabilized with Response-like mocks; clamping verified; alias route parity covered.
 - [x] **Navbar & layout**: AppLayout bootstrap sequence loads config → session probe; Nav renders post-probe.
