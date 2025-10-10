@@ -16,6 +16,11 @@ use Illuminate\Support\Str;
 
 final class RecordSettingsUpdate implements ShouldQueue
 {
+    /**
+     * @var array<string, true>
+     */
+    private static array $processed = [];
+
     public function __construct(private readonly AuditLogger $audit) {}
 
     public function handle(SettingsUpdated $event): void
@@ -26,6 +31,12 @@ final class RecordSettingsUpdate implements ShouldQueue
         if (! Schema::hasTable('audit_events')) {
             return;
         }
+
+        $signature = $this->eventSignature($event);
+        if (isset(self::$processed[$signature])) {
+            return;
+        }
+        self::$processed[$signature] = true;
 
         /** @var array<int, array{key:string, old:mixed, new:mixed, action:string}> $changes */
         $changes = $event->changes;
@@ -38,7 +49,9 @@ final class RecordSettingsUpdate implements ShouldQueue
 
         $actorMeta = $this->resolveActorMeta($event->actorId, $event->context);
 
-        foreach ($redacted as $index => $change) {
+        $deduped = $this->deduplicateChanges($redacted);
+
+        foreach ($deduped as $index => $change) {
             $key = $change['key'];
             $entityId = $this->ensureNonEmpty($key);
 
@@ -139,6 +152,69 @@ final class RecordSettingsUpdate implements ShouldQueue
         }
 
         return $out;
+    }
+
+    /**
+     * @param  array<int, array{key:string, old:mixed, new:mixed, action:string}>  $changes
+     * @return array<int, array{key:string, old:mixed, new:mixed, action:string}>
+     */
+    private function deduplicateChanges(array $changes): array
+    {
+        $seen = [];
+        $unique = [];
+
+        foreach ($changes as $change) {
+            $signature = $this->hashChange($change);
+            if ($signature === null) {
+                $unique[] = $change;
+
+                continue;
+            }
+            if (isset($seen[$signature])) {
+                continue;
+            }
+            $seen[$signature] = true;
+            $unique[] = $change;
+        }
+
+        return $unique;
+    }
+
+    /**
+     * @param  array{key:string, old:mixed, new:mixed, action:string}  $change
+     */
+    private function hashChange(array $change): ?string
+    {
+        try {
+            return md5(serialize([$change['key'], $change['action'], $change['old'], $change['new']]));
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    private function eventSignature(SettingsUpdated $event): string
+    {
+        $normalizedChanges = array_map(static function (array $change): array {
+            ksort($change);
+
+            return $change;
+        }, $event->changes);
+
+        try {
+            return md5(json_encode([
+                'actor' => $event->actorId,
+                'at' => $event->occurredAt->toIso8601String(),
+                'context' => $event->context,
+                'changes' => $normalizedChanges,
+            ], JSON_THROW_ON_ERROR));
+        } catch (\JsonException) {
+            return md5(serialize([
+                $event->actorId,
+                $event->occurredAt->toIso8601String(),
+                $event->context,
+                $normalizedChanges,
+            ]));
+        }
     }
 
     /**

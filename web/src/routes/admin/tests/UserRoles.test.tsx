@@ -5,6 +5,8 @@ import { MemoryRouter, Routes, Route } from "react-router-dom";
 import { vi } from "vitest";
 import UserRoles from "../UserRoles";
 
+const ROUTER_FUTURE_FLAGS = { v7_startTransition: true, v7_relativeSplatPath: true } as const;
+
 const originalFetch = globalThis.fetch as typeof fetch;
 
 function jsonResponse(status: number, body?: unknown) {
@@ -16,7 +18,7 @@ function jsonResponse(status: number, body?: unknown) {
 
 function renderPage() {
   render(
-    <MemoryRouter initialEntries={["/admin/user-roles"]}>
+    <MemoryRouter future={ROUTER_FUTURE_FLAGS} initialEntries={["/admin/user-roles"]}>
       <Routes>
         <Route path="/admin/user-roles" element={<UserRoles />} />
       </Routes>

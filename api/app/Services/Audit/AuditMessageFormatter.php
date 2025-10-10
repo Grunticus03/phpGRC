@@ -293,10 +293,7 @@ final class AuditMessageFormatter
         $filename = self::resolveEvidenceLabel($event, $meta);
         $actor = self::resolveActor($meta);
 
-        $size = self::readSize($meta);
-        $sizeText = $size !== null ? ' ('.$size.')' : '';
-
-        return sprintf('%s uploaded to evidence by %s%s', $filename, $actor, $sizeText);
+        return sprintf('%s uploaded to evidence by %s', $filename, $actor);
     }
 
     /**

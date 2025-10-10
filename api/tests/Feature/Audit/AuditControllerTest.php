@@ -81,4 +81,63 @@ final class AuditControllerTest extends TestCase
         self::assertSame('setting.modified', $event['action']);
         self::assertSame('config', $event['category']);
     }
+
+    public function test_action_filter_accepts_label_matches_case_insensitively(): void
+    {
+        $now = CarbonImmutable::now('UTC');
+
+        AuditEvent::query()->create([
+            'id' => (string) Str::ulid(),
+            'occurred_at' => $now,
+            'actor_id' => 42,
+            'action' => 'rbac.user_role.attached',
+            'category' => 'RBAC',
+            'entity_type' => 'rbac.user',
+            'entity_id' => '99',
+            'ip' => '10.0.0.1',
+            'ua' => 'phpunit',
+            'meta' => [],
+            'created_at' => $now,
+        ]);
+
+        $response = $this->getJson('/audit?limit=10&action=Role%20attached');
+        $response->assertOk();
+        $items = $response->json('items');
+        self::assertIsArray($items);
+        self::assertCount(1, $items);
+        self::assertSame('rbac.user_role.attached', $items[0]['action']);
+
+        $responseLower = $this->getJson('/audit?limit=10&action=role%20attached');
+        $responseLower->assertOk();
+        $itemsLower = $responseLower->json('items');
+        self::assertIsArray($itemsLower);
+        self::assertCount(1, $itemsLower);
+        self::assertSame('rbac.user_role.attached', $itemsLower[0]['action']);
+    }
+
+    public function test_entity_type_filter_is_case_insensitive(): void
+    {
+        $now = CarbonImmutable::now('UTC');
+
+        AuditEvent::query()->create([
+            'id' => (string) Str::ulid(),
+            'occurred_at' => $now,
+            'actor_id' => null,
+            'action' => 'setting.modified',
+            'category' => 'SETTINGS',
+            'entity_type' => 'Core.Setting',
+            'entity_id' => 'core.audit.retention_days',
+            'ip' => '127.0.0.1',
+            'ua' => 'phpunit',
+            'meta' => [],
+            'created_at' => $now,
+        ]);
+
+        $response = $this->getJson('/audit?limit=10&entity_type=core.setting');
+        $response->assertOk();
+        $items = $response->json('items');
+        self::assertIsArray($items);
+        self::assertCount(1, $items);
+        self::assertSame('Core.Setting', $items[0]['entity_type']);
+    }
 }

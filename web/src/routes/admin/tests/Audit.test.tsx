@@ -5,6 +5,8 @@ import { MemoryRouter } from "react-router-dom";
 import React from "react";
 import Audit from "../Audit";
 
+const ROUTER_FUTURE_FLAGS = { v7_startTransition: true, v7_relativeSplatPath: true } as const;
+
 function jsonResponse(body: unknown, init: ResponseInit = {}) {
   return new Response(JSON.stringify(body), {
     status: init.status ?? 200,
@@ -65,7 +67,7 @@ describe("Admin Audit page", () => {
 
   function renderAudit(initialEntries?: string[]) {
     render(
-      <MemoryRouter initialEntries={initialEntries}>
+      <MemoryRouter future={ROUTER_FUTURE_FLAGS} initialEntries={initialEntries}>
         <Audit />
       </MemoryRouter>
     );
@@ -80,9 +82,11 @@ describe("Admin Audit page", () => {
 
     fireEvent.change(screen.getByLabelText("From"), { target: { value: "2025-01-01" } });
     fireEvent.change(screen.getByLabelText("To"), { target: { value: "2025-01-02" } });
-    fireEvent.change(screen.getByLabelText("Limit"), { target: { value: "25" } });
+    const limitInput = screen.getByLabelText("Limit") as HTMLInputElement;
+    fireEvent.change(limitInput, { target: { value: "25" } });
+    expect(limitInput.value).toBe("25");
 
-    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+    fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
 
     await waitFor(() => {
       const hits = calls.filter((u) => u.startsWith("/api/audit?"));
@@ -91,7 +95,7 @@ describe("Admin Audit page", () => {
       expect(hit).toContain("category=RBAC");
       expect(hit).toContain("occurred_from=2025-01-01T00%3A00%3A00Z");
       expect(hit).toContain("occurred_to=2025-01-02T23%3A59%3A59Z");
-      expect(hit).toContain("limit=25");
+      expect(hit).toContain(`limit=${limitInput.value}`);
     });
 
     await screen.findByText("ULID001");
@@ -105,12 +109,12 @@ describe("Admin Audit page", () => {
     await screen.findByLabelText("Category");
 
     fireEvent.change(screen.getByLabelText("Actor"), { target: { value: "alpha" } });
-    fireEvent.click(screen.getByRole("button", { name: "Find Actor" }));
+    fireEvent.click(screen.getByRole("button", { name: "Find actor" }));
 
     const selectBtns = await screen.findAllByRole("button", { name: "Select" });
     fireEvent.click(selectBtns[0]); // pick id 7
 
-    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+    fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
 
     await waitFor(() => {
       const hits = calls.filter((u) => u.startsWith("/api/audit?"));

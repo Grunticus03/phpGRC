@@ -121,6 +121,7 @@ export default function Kpis(): JSX.Element {
         x: {
           stacked: true,
           title: { display: true, text: "Date" },
+          grid: { display: false },
         },
         y: {
           stacked: true,
@@ -194,7 +195,14 @@ export default function Kpis(): JSX.Element {
       responsive: true,
       maintainAspectRatio: false,
       plugins: {
-        legend: { position: "bottom" },
+        legend: {
+          position: "left",
+          align: "start",
+          labels: {
+            usePointStyle: true,
+            boxWidth: 12,
+          },
+        },
       },
       onClick: (_, elements) => {
         if (!pieData || elements.length === 0) return;
@@ -267,17 +275,17 @@ export default function Kpis(): JSX.Element {
             </div>
           </section>
 
-          <div className="row g-3 align-items-stretch">
+          <div className="row g-3 align-items-start">
             <div className="col-12 col-lg-6 d-flex">
               <section className="card h-100 flex-fill">
                 <div className="card-header">
                   <Link to={evidenceLink} className="fw-semibold text-decoration-none">
-                    Evidence MIME types
+                    Evidence File Types
                   </Link>
                 </div>
                 <div className="card-body" style={{ height: PIE_HEIGHT }}>
                   {pieData ? (
-                    <Pie data={pieData} options={pieOptions} aria-label="Evidence MIME distribution" />
+                    <Pie data={pieData} options={pieOptions} aria-label="Evidence file type distribution" />
                   ) : (
                     <p className="text-muted mb-0">No evidence uploads yet.</p>
                   )}

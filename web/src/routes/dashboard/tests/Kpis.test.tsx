@@ -12,6 +12,7 @@ const originalFetch = globalThis.fetch as typeof fetch;
 const originalCreateObjectURL = globalThis.URL.createObjectURL;
 const originalRevokeObjectURL = globalThis.URL.revokeObjectURL;
 const mockNavigate = vi.fn();
+const ROUTER_FUTURE_FLAGS = { v7_startTransition: true, v7_relativeSplatPath: true } as const;
 
 vi.mock("react-router-dom", async () => {
   const actual = await vi.importActual<typeof import("react-router-dom")>("react-router-dom");
@@ -141,7 +142,7 @@ describe("Dashboard KPIs", () => {
 
   it("renders charts and admin table when data loads", async () => {
     render(
-      <MemoryRouter>
+      <MemoryRouter future={ROUTER_FUTURE_FLAGS}>
         <Kpis />
       </MemoryRouter>
     );
@@ -151,7 +152,7 @@ describe("Dashboard KPIs", () => {
     });
 
     expect(screen.getByText(/Authentications last 7 days/i)).toBeInTheDocument();
-    expect(screen.getByText(/Evidence MIME types/i)).toBeInTheDocument();
+    expect(screen.getByText(/Evidence File Types/i)).toBeInTheDocument();
     expect(screen.getByText(/Admin Activity/i)).toBeInTheDocument();
 
     expect(screen.getByText("Alice Admin")).toBeInTheDocument();
@@ -161,7 +162,7 @@ describe("Dashboard KPIs", () => {
 
   it("navigates to audit view when bar chart clicked", async () => {
     render(
-      <MemoryRouter>
+      <MemoryRouter future={ROUTER_FUTURE_FLAGS}>
         <Kpis />
       </MemoryRouter>
     );
@@ -190,7 +191,7 @@ describe("Dashboard KPIs", () => {
     }) as unknown as typeof fetch;
 
     render(
-      <MemoryRouter>
+      <MemoryRouter future={ROUTER_FUTURE_FLAGS}>
         <Kpis />
       </MemoryRouter>
     );
@@ -200,7 +201,7 @@ describe("Dashboard KPIs", () => {
 
   it("downloads admin activity report when button clicked", async () => {
     render(
-      <MemoryRouter>
+      <MemoryRouter future={ROUTER_FUTURE_FLAGS}>
         <Kpis />
       </MemoryRouter>
     );
@@ -253,7 +254,7 @@ describe("Dashboard KPIs", () => {
     }) as unknown as typeof fetch;
 
     render(
-      <MemoryRouter>
+      <MemoryRouter future={ROUTER_FUTURE_FLAGS}>
         <Kpis />
       </MemoryRouter>
     );

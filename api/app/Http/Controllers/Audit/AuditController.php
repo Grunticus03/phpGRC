@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Audit;
 
 use App\Models\AuditEvent;
+use App\Support\Audit\ActionLabels;
 use App\Support\Audit\AuditCategories;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -126,20 +127,33 @@ final class AuditController extends Controller
                 });
             }
         }
-        if (is_string($data['action']) && $data['action'] !== '') {
-            $q->where('audit_events.action', '=', $data['action']);
+        $actionFilter = is_string($data['action']) ? trim($data['action']) : '';
+        $appliedActions = null;
+        if ($actionFilter !== '') {
+            $matches = ActionLabels::search($actionFilter);
+            if ($matches !== []) {
+                $appliedActions = $matches;
+                if (count($matches) === 1) {
+                    $q->where('audit_events.action', '=', $matches[0]);
+                } else {
+                    $q->whereIn('audit_events.action', $matches);
+                }
+            } else {
+                $q->whereRaw('LOWER(audit_events.action) = ?', [strtolower($actionFilter)]);
+                $appliedActions = [$actionFilter];
+            }
         }
         if ($data['actor_id'] !== null && is_numeric($data['actor_id'])) {
             $q->where('actor_id', '=', (int) $data['actor_id']);
         }
         if (is_string($data['entity_type']) && $data['entity_type'] !== '') {
-            $q->where('entity_type', '=', $data['entity_type']);
+            $q->whereRaw('LOWER(audit_events.entity_type) = ?', [strtolower($data['entity_type'])]);
         }
         if (is_string($data['entity_id']) && $data['entity_id'] !== '') {
-            $q->where('entity_id', '=', $data['entity_id']);
+            $q->whereRaw('LOWER(audit_events.entity_id) = ?', [strtolower($data['entity_id'])]);
         }
         if (is_string($data['ip']) && $data['ip'] !== '') {
-            $q->where('ip', '=', $data['ip']);
+            $q->whereRaw('LOWER(audit_events.ip) = ?', [strtolower($data['ip'])]);
         }
         if (is_string($data['occurred_from']) && $data['occurred_from'] !== '') {
             $q->where('occurred_at', '>=', Carbon::parse($data['occurred_from'])->utc());
@@ -251,7 +265,7 @@ final class AuditController extends Controller
                 'limit' => $limit,
                 'cursor' => $cursorFilter,
                 'category' => is_string($data['category']) ? $data['category'] : null,
-                'action' => is_string($data['action']) ? $data['action'] : null,
+                'action' => ($appliedActions !== null && count($appliedActions) === 1) ? $appliedActions[0] : (is_string($data['action']) ? $data['action'] : null),
                 'occurred_from' => is_string($data['occurred_from']) ? $data['occurred_from'] : null,
                 'occurred_to' => is_string($data['occurred_to']) ? $data['occurred_to'] : null,
                 'actor_id' => $data['actor_id'] !== null && is_numeric($data['actor_id']) ? (int) $data['actor_id'] : null,

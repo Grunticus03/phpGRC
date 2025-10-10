@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Admin;
 
+use App\Models\AuditEvent;
 use App\Models\Role;
 use App\Models\User;
 use Database\Seeders\TestRbacSeeder;
@@ -86,5 +87,23 @@ final class SettingsAuditDiffsTest extends TestCase
             }
             $this->assertTrue($found, 'Expected core.audit.retention_days to be present in changes');
         }
+    }
+
+    public function test_settings_update_does_not_duplicate_audit_events(): void
+    {
+        $admin = $this->makeAdmin();
+        $this->actingAs($admin, 'sanctum');
+
+        $this->postJson('/admin/settings', [
+            'apply' => true,
+            'audit' => ['retention_days' => 180],
+        ])->assertStatus(200)->assertJson(['ok' => true, 'applied' => true]);
+
+        $events = AuditEvent::query()
+            ->where('action', 'setting.modified')
+            ->orderBy('occurred_at')
+            ->get();
+
+        self::assertCount(1, $events);
     }
 }

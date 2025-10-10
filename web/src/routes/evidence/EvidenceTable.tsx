@@ -128,7 +128,7 @@ export default function EvidenceTable({
   if (items.length === 0 && fetchState === "ok") {
     return (
       <div className="alert alert-light border" role="status">
-        No evidence is currently being stored.
+        No evidence to display.
       </div>
     );
   }

@@ -6,6 +6,8 @@ import { MemoryRouter } from "react-router-dom";
 
 import EvidenceList from "../List";
 
+const ROUTER_FUTURE_FLAGS = { v7_startTransition: true, v7_relativeSplatPath: true } as const;
+
 function jsonResponse(body: unknown, init: ResponseInit = {}) {
   return new Response(JSON.stringify(body), {
     status: init.status ?? 200,
@@ -121,7 +123,7 @@ describe("Evidence List", () => {
 
   it("selects owner via search and includes owner_id in evidence request", async () => {
     render(
-      <MemoryRouter>
+      <MemoryRouter future={ROUTER_FUTURE_FLAGS}>
         <EvidenceList />
       </MemoryRouter>
     );
@@ -154,7 +156,7 @@ describe("Evidence List", () => {
 
   it("downloads evidence file when user clicks Download", async () => {
     render(
-      <MemoryRouter>
+      <MemoryRouter future={ROUTER_FUTURE_FLAGS}>
         <EvidenceList />
       </MemoryRouter>
     );
@@ -174,7 +176,7 @@ describe("Evidence List", () => {
 
   it("shows an error when download fails", async () => {
     render(
-      <MemoryRouter>
+      <MemoryRouter future={ROUTER_FUTURE_FLAGS}>
         <EvidenceList />
       </MemoryRouter>
     );
@@ -197,7 +199,7 @@ describe("Evidence List", () => {
 
   it("applies MIME label filter from query string", async () => {
     render(
-      <MemoryRouter initialEntries={["/admin/evidence?mime_label=PNG%20image"]}>
+      <MemoryRouter future={ROUTER_FUTURE_FLAGS} initialEntries={["/admin/evidence?mime_label=PNG%20image"]}>
         <EvidenceList />
       </MemoryRouter>
     );
@@ -216,7 +218,7 @@ describe("Evidence List", () => {
 
   it("applies friendly MIME filter via UI", async () => {
     render(
-      <MemoryRouter>
+      <MemoryRouter future={ROUTER_FUTURE_FLAGS}>
         <EvidenceList />
       </MemoryRouter>
     );

@@ -191,7 +191,7 @@ function buildAuditMessage(item: AuditItem, info: ActionInfo, actorLabel: string
   if (action === 'evidence.upload' || action === 'evidence.uploaded') {
     const filename = typeof meta.filename === 'string' && meta.filename ? meta.filename : (typeof item.entity_id === 'string' && item.entity_id ? item.entity_id : 'Evidence');
     const size = readNumber(meta.size_bytes ?? meta.size);
-    const sizePart = size && size > 0 ? ` (${formatBytes(size)})` : '';
+    const sizePart = action === 'evidence.uploaded' ? '' : (size && size > 0 ? ` (${formatBytes(size)})` : '');
     return `${filename} uploaded to evidence by ${actor}${sizePart}`;
   }
 
@@ -260,7 +260,6 @@ export default function Audit(): JSX.Element {
   const [error, setError] = useState<string>("");
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
 
-  const [lastAppliedQuery, setLastAppliedQuery] = useState<string>("");
   const ctrl = useRef<AbortController | null>(null);
 
   const occurred_from = dateFrom ? `${dateFrom}T00:00:00Z` : undefined;
@@ -284,8 +283,6 @@ export default function Audit(): JSX.Element {
     return dateFrom <= dateTo;
   }, [dateFrom, dateTo]);
 
-  const isDirty = query !== lastAppliedQuery;
-  const canSubmit = isDirty && isDateOrderValid;
 
   async function load(resetCursor: boolean = false, overrides?: Partial<QueryInit>) {
     try {
@@ -324,16 +321,6 @@ export default function Audit(): JSX.Element {
       setTimeFormat((prev) => nextTimeFormat ?? prev);
       setItems(list);
       setState("ok");
-      setLastAppliedQuery(
-        buildQuery({
-          category: effectiveParams.category,
-          action: effectiveParams.action,
-          occurred_from: effectiveParams.occurred_from,
-          occurred_to: effectiveParams.occurred_to,
-          limit: effectiveParams.limit,
-          actor_id: effectiveParams.actor_id,
-        })
-      );
     } catch (err: unknown) {
       if (isAbortError(err)) return;
       if (err && typeof err === "object" && (err as { status?: unknown }).status === 422) {
@@ -500,7 +487,6 @@ export default function Audit(): JSX.Element {
     setActorQ("");
     setFieldErrors({});
     setError("");
-    setLastAppliedQuery("");
     void load(true, {
       category: undefined,
       action: undefined,
@@ -515,204 +501,353 @@ export default function Audit(): JSX.Element {
     <section aria-busy={state === "loading"}>
       <h1>Audit</h1>
 
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (!isDateOrderValid) {
-            showDateOrderError();
-            return;
-          }
+      {state === "loading" && <p>Loading.</p>}
+      {state === "error" && <p role="alert">Error: {error}</p>}
 
-          const raw = limitInputRef.current?.value ?? "";
-          let next = limitRef.current;
-          if (raw !== "") {
-            const parsed = Number(raw);
-            if (!Number.isNaN(parsed)) {
-              next = clampLimit(parsed);
-            }
-          }
-
-          limitRef.current = next;
-          if (limit !== next) {
-            setLimit(next);
-          }
-
-          void load(true, { limit: next });
-        }}
-        style={{ display: "grid", gap: "1rem", marginBottom: "1rem" }}
-        aria-label="Audit filters"
-      >
-        <div
-          style={{
-            display: "grid",
-            gap: "0.75rem",
-            gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-          }}
-        >
-          <div>
-            <label htmlFor="f-cat">Category</label>
-            {hasCategorySelect ? (
-              <select
-                id="f-cat"
-                value={category}
-                onChange={(e) => {
-                  const nextValue = e.target.value;
-                  setCategory(nextValue);
-                  applyCategoryValue(nextValue);
-                }}
-                aria-invalid={!!fieldErrors.category?.length}
-              >
-                <option value="">(any)</option>
-                {categoryOptions.map((c) => (
-                  <option key={c.value} value={c.value}>
-                    {c.label}
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <input
-                id="f-cat"
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                onBlur={(e) => applyCategoryValue(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    applyCategoryValue(e.currentTarget.value);
-                  }
-                }}
-                placeholder="e.g. RBAC"
-                aria-invalid={!!fieldErrors.category?.length}
-              />
-            )}
-            {fieldErrors.category?.length ? (
-              <ul role="alert" style={{ margin: "0.25rem 0 0 0", paddingLeft: "1rem" }}>
-                {fieldErrors.category.map((m, i) => (
-                  <li key={i}>{m}</li>
-                ))}
-              </ul>
-            ) : null}
-          </div>
-
-          <div>
-            <label htmlFor="f-act">Action</label>
-            <input
-              id="f-act"
-              value={action}
-              onChange={(e) => setAction(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  if (isDateOrderValid) {
-                    void load(true);
-                  } else {
-                    showDateOrderError();
-                  }
-                }
-              }}
-              placeholder="e.g. rbac.user_role.attached"
-              aria-invalid={!!fieldErrors.action?.length}
-            />
-            {fieldErrors.action?.length ? (
-              <ul role="alert" style={{ margin: "0.25rem 0 0 0", paddingLeft: "1rem" }}>
-                {fieldErrors.action.map((m, i) => (
-                  <li key={i}>{m}</li>
-                ))}
-              </ul>
-            ) : null}
-          </div>
-
-          <div>
-            <label htmlFor="f-from">From</label>
-            <input
-              id="f-from"
-              type="date"
-              value={dateFrom}
-              onChange={(e) => {
-                const nextValue = e.target.value;
-                setDateFrom(nextValue);
-                if (nextValue && dateTo && nextValue > dateTo) {
-                  showDateOrderError();
-                  return;
-                }
-                clearDateFieldErrors();
-                void load(true, {
-                  occurred_from: nextValue ? `${nextValue}T00:00:00Z` : undefined,
-                  occurred_to: dateTo ? `${dateTo}T23:59:59Z` : undefined,
-                });
-              }}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  if (isDateOrderValid) {
-                    void load(true);
-                  } else {
-                    showDateOrderError();
-                  }
-                }
-              }}
-              aria-invalid={!isDateOrderValid || !!fieldErrors.occurred_from?.length}
-            />
-            {!isDateOrderValid ? <p role="alert" style={{ margin: "0.25rem 0 0 0" }}>From must be &lt;= To</p> : null}
-            {fieldErrors.occurred_from?.length ? (
-              <ul role="alert" style={{ margin: "0.25rem 0 0 0", paddingLeft: "1rem" }}>
-                {fieldErrors.occurred_from.map((m, i) => (
-                  <li key={i}>{m}</li>
-                ))}
-              </ul>
-            ) : null}
-          </div>
-
-          <div>
-            <label htmlFor="f-to">To</label>
-            <input
-              id="f-to"
-              type="date"
-              value={dateTo}
-              onChange={(e) => {
-                const nextValue = e.target.value;
-                setDateTo(nextValue);
-                if (dateFrom && nextValue && dateFrom > nextValue) {
-                  showDateOrderError();
-                  return;
-                }
-                clearDateFieldErrors();
-                void load(true, {
-                  occurred_from: dateFrom ? `${dateFrom}T00:00:00Z` : undefined,
-                  occurred_to: nextValue ? `${nextValue}T23:59:59Z` : undefined,
-                });
-              }}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  if (isDateOrderValid) {
-                    void load(true);
-                  } else {
-                    showDateOrderError();
-                  }
-                }
-              }}
-              aria-invalid={!isDateOrderValid || !!fieldErrors.occurred_to?.length}
-            />
-            {!isDateOrderValid ? <p role="alert" style={{ margin: "0.25rem 0 0 0" }}>To must be &gt;= From</p> : null}
-            {fieldErrors.occurred_to?.length ? (
-              <ul role="alert" style={{ margin: "0.25rem 0 0 0", paddingLeft: "1rem" }}>
-                {fieldErrors.occurred_to.map((m, i) => (
-                  <li key={i}>{m}</li>
-                ))}
-              </ul>
-            ) : null}
-          </div>
-
-          <div>
-            <label htmlFor="f-limit">Limit</label>
-            <input
-              ref={limitInputRef}
-              id="f-limit"
-              type="number"
-              min={1}
-              max={100}
-              step={1}
+      <div style={{ overflowX: "auto" }}>
+        <table aria-label="Audit events" className="table">
+          <thead>
+            <tr>
+              <th>Timestamp</th>
+              <th>User</th>
+              <th>IP</th>
+              <th>Category</th>
+              <th>Action</th>
+              <th>Message</th>
+              <th>ID / Limit</th>
+            </tr>
+            <tr className="align-top">
+              <th>
+                <div className="d-flex flex-column gap-2">
+                  <div className="d-flex flex-wrap gap-2">
+                    <label htmlFor="f-from" className="form-label visually-hidden">
+                      From
+                    </label>
+                    <input
+                      id="f-from"
+                      type="date"
+                      className="form-control form-control-sm"
+                      value={dateFrom}
+                      onChange={(e) => {
+                        const nextValue = e.target.value;
+                        setDateFrom(nextValue);
+                        if (nextValue && dateTo && nextValue > dateTo) {
+                          showDateOrderError();
+                          return;
+                        }
+                        clearDateFieldErrors();
+                        void load(true, {
+                          occurred_from: nextValue ? `${nextValue}T00:00:00Z` : undefined,
+                          occurred_to: dateTo ? `${dateTo}T23:59:59Z` : undefined,
+                        });
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          if (isDateOrderValid) {
+                            void load(true);
+                          } else {
+                            showDateOrderError();
+                          }
+                        }
+                      }}
+                      aria-invalid={!isDateOrderValid || !!fieldErrors.occurred_from?.length}
+                    />
+                    <label htmlFor="f-to" className="form-label visually-hidden">
+                      To
+                    </label>
+                    <input
+                      id="f-to"
+                      type="date"
+                      className="form-control form-control-sm"
+                      value={dateTo}
+                      onChange={(e) => {
+                        const nextValue = e.target.value;
+                        setDateTo(nextValue);
+                        if (dateFrom && nextValue && dateFrom > nextValue) {
+                          showDateOrderError();
+                          return;
+                        }
+                        clearDateFieldErrors();
+                        void load(true, {
+                          occurred_from: dateFrom ? `${dateFrom}T00:00:00Z` : undefined,
+                          occurred_to: nextValue ? `${nextValue}T23:59:59Z` : undefined,
+                        });
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          if (isDateOrderValid) {
+                            void load(true);
+                          } else {
+                            showDateOrderError();
+                          }
+                        }
+                      }}
+                      aria-invalid={!isDateOrderValid || !!fieldErrors.occurred_to?.length}
+                    />
+                  </div>
+                  {!isDateOrderValid ? (
+                    <p role="alert" className="text-danger small mb-0">
+                      From must be ≤ To
+                    </p>
+                  ) : null}
+                  {fieldErrors.occurred_from?.length ? (
+                    <ul role="alert" className="text-danger small mb-0 ps-3">
+                      {fieldErrors.occurred_from.map((m, i) => (
+                        <li key={i}>{m}</li>
+                      ))}
+                    </ul>
+                  ) : null}
+                  {fieldErrors.occurred_to?.length ? (
+                    <ul role="alert" className="text-danger small mb-0 ps-3">
+                      {fieldErrors.occurred_to.map((m, i) => (
+                        <li key={i}>{m}</li>
+                      ))}
+                    </ul>
+                  ) : null}
+                  <div className="d-flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      className="btn btn-outline-secondary btn-sm"
+                      onClick={() => {
+                        setDateFrom("");
+                        setDateTo("");
+                        clearDateFieldErrors();
+                        void load(true, {
+                          occurred_from: undefined,
+                          occurred_to: undefined,
+                        });
+                      }}
+                      disabled={!dateFrom && !dateTo}
+                    >
+                      Clear dates
+                    </button>
+                  </div>
+                </div>
+              </th>
+              <th>
+                <div className="d-flex flex-column gap-2">
+                  {selectedActor ? (
+                    <div className="d-flex flex-column gap-2">
+                      <div className="small">
+                        <span className="fw-semibold">{selectedActor.name || selectedActor.email || `id ${selectedActor.id}`}</span>
+                        <span className="text-muted ms-2">id {selectedActor.id}</span>
+                      </div>
+                      <button type="button" className="btn btn-outline-secondary btn-sm" onClick={clearActor}>
+                        Clear actor
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <label htmlFor="f-actor" className="form-label visually-hidden">
+                        Actor
+                      </label>
+                      <input
+                        id="f-actor"
+                        className="form-control form-control-sm"
+                        value={actorQ}
+                        onChange={(e) => setActorQ(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key !== "Enter") return;
+                          e.preventDefault();
+                          handleActorInputEnter();
+                        }}
+                        placeholder="Search name or email"
+                      />
+                      <div className="d-flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          className="btn btn-outline-secondary btn-sm"
+                          onClick={() => void runActorSearch()}
+                          aria-busy={actorSearching}
+                          disabled={actorSearching || actorQ.trim() === ""}
+                        >
+                          {actorSearching ? "Searching…" : "Find actor"}
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-outline-secondary btn-sm"
+                          onClick={() => {
+                            setActorResults([]);
+                            setActorMeta(null);
+                            setActorQ("");
+                          }}
+                          disabled={actorSearching && actorResults.length === 0}
+                        >
+                          Clear results
+                        </button>
+                      </div>
+                      {actorResults.length > 0 && (
+                        <div className="border rounded p-2" style={{ maxHeight: "220px", overflowY: "auto" }}>
+                          <ul className="list-unstyled mb-0">
+                            {actorResults.map((u) => (
+                              <li key={u.id} className="d-flex justify-content-between gap-2 mb-2">
+                                <div>
+                                  <div className="small fw-semibold">{u.name?.trim() || u.email || `id ${u.id}`}</div>
+                                  {u.email && <div className="small text-muted">{u.email}</div>}
+                                </div>
+                                <button type="button" className="btn btn-outline-primary btn-sm" onClick={() => selectActor(u)}>
+                                  Select
+                                </button>
+                              </li>
+                            ))}
+                          </ul>
+                          {actorMeta && (
+                            <div className="d-flex align-items-center justify-content-between gap-2 mt-2">
+                              <button
+                                type="button"
+                                className="btn btn-outline-secondary btn-sm"
+                                onClick={() => actorMeta.page > 1 && void runActorSearch(actorMeta.page - 1)}
+                                disabled={actorSearching || actorMeta.page <= 1}
+                              >
+                                Prev
+                              </button>
+                              <span className="small text-muted">
+                                Page {actorMeta.page} of {actorMeta.total_pages}
+                              </span>
+                              <button
+                                type="button"
+                                className="btn btn-outline-secondary btn-sm"
+                                onClick={() =>
+                                  actorMeta.page < actorMeta.total_pages && void runActorSearch(actorMeta.page + 1)
+                                }
+                                disabled={actorSearching || actorMeta.page >= actorMeta.total_pages}
+                              >
+                                Next
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              </th>
+              <th>
+                <div className="d-flex flex-column gap-2">
+                  <button type="button" className="btn btn-outline-secondary btn-sm" onClick={resetFilters}>
+                    Reset filters
+                  </button>
+                </div>
+              </th>
+              <th>
+                <div className="d-flex flex-column gap-2">
+                  <label htmlFor="f-cat" className="form-label visually-hidden">
+                    Category
+                  </label>
+                  {hasCategorySelect ? (
+                    <select
+                      id="f-cat"
+                      className="form-select form-select-sm"
+                      value={category}
+                      onChange={(e) => {
+                        const nextValue = e.target.value;
+                        setCategory(nextValue);
+                        applyCategoryValue(nextValue);
+                      }}
+                      aria-invalid={!!fieldErrors.category?.length}
+                    >
+                      <option value="">(any)</option>
+                      {categoryOptions.map((c) => (
+                        <option key={c.value} value={c.value}>
+                          {c.label}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      id="f-cat"
+                      className="form-control form-control-sm"
+                      value={category}
+                      onChange={(e) => setCategory(e.target.value)}
+                      onBlur={(e) => applyCategoryValue(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          applyCategoryValue(e.currentTarget.value);
+                        }
+                      }}
+                      placeholder="e.g. RBAC"
+                      aria-invalid={!!fieldErrors.category?.length}
+                    />
+                  )}
+                  {fieldErrors.category?.length ? (
+                    <ul role="alert" className="text-danger small mb-0 ps-3">
+                      {fieldErrors.category.map((m, i) => (
+                        <li key={i}>{m}</li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </div>
+              </th>
+              <th>
+                <div className="d-flex flex-column gap-2">
+                  <label htmlFor="f-act" className="form-label visually-hidden">
+                    Action
+                  </label>
+                  <input
+                    id="f-act"
+                    className="form-control form-control-sm"
+                    value={action}
+                    onChange={(e) => setAction(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        if (isDateOrderValid) {
+                          void load(true);
+                        } else {
+                          showDateOrderError();
+                        }
+                      }
+                    }}
+                    placeholder="e.g. Role attached"
+                    aria-invalid={!!fieldErrors.action?.length}
+                  />
+                  <div className="form-text">
+                    Matches action labels, e.g. "Role attached" or "Example: 9/30/2025, 5:23:01 PM".
+                  </div>
+                  {fieldErrors.action?.length ? (
+                    <ul role="alert" className="text-danger small mb-0 ps-3">
+                      {fieldErrors.action.map((m, i) => (
+                        <li key={i}>{m}</li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </div>
+              </th>
+              <th>
+                <div className="d-flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    className="btn btn-outline-secondary btn-sm"
+                    onClick={() => {
+                      if (!isDateOrderValid) {
+                        showDateOrderError();
+                        return;
+                      }
+                      void load(true, { limit: limitRef.current });
+                    }}
+                    disabled={state === "loading"}
+                    aria-disabled={state === "loading"}
+                  >
+                    Refresh
+                  </button>
+                </div>
+              </th>
+              <th>
+                <div className="d-flex flex-column gap-2">
+                  <label htmlFor="f-limit" className="form-label visually-hidden">
+                    Limit
+                  </label>
+                  <input
+                    ref={limitInputRef}
+                    id="f-limit"
+                    type="number"
+                    min={1}
+                    max={100}
+                    step={1}
+                    className="form-control form-control-sm"
               value={limit}
               onChange={(e) => {
                 const raw = e.target.value;
@@ -727,162 +862,25 @@ export default function Audit(): JSX.Element {
                   setLimit(1);
                   return;
                 }
-                limitRef.current = parsed;
-                setLimit(parsed);
+                applyLimitValue(parsed);
               }}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  applyLimitValue(limitRef.current || 10);
-                }
-              }}
-              aria-invalid={!!fieldErrors.limit?.length}
-            />
-            {fieldErrors.limit?.length ? (
-              <ul role="alert" style={{ margin: "0.25rem 0 0 0", paddingLeft: "1rem" }}>
-                {fieldErrors.limit.map((m, i) => (
-                  <li key={i}>{m}</li>
-                ))}
-              </ul>
-            ) : null}
-          </div>
-
-          <div style={{ gridColumn: "1 / -1" }}>
-            <label htmlFor="f-actor">Actor</label>
-            {selectedActor ? (
-              <div>
-                <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
-                  <span>{selectedActor.name} &lt;{selectedActor.email}&gt; (id {selectedActor.id})</span>
-                  <button type="button" onClick={clearActor}>Clear</button>
-                </div>
-              </div>
-            ) : (
-              <div style={{ display: "grid", gap: "0.25rem" }}>
-                <input
-                  id="f-actor"
-                  value={actorQ}
-                  onChange={(e) => setActorQ(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key !== "Enter") return;
-                    e.preventDefault();
-                    handleActorInputEnter();
-                  }}
-                  placeholder="search name or email"
-                />
-                <div style={{ display: "flex", gap: "0.5rem" }}>
-                  <button type="button" onClick={() => void runActorSearch()} aria-busy={actorSearching}>
-                    {actorSearching ? "Searching…" : "Find Actor"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setActorResults([]);
-                      setActorMeta(null);
-                      setActorQ("");
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        applyLimitValue(limitRef.current || 10);
+                      }
                     }}
-                  >
-                    Clear Results
-                  </button>
+                    aria-invalid={!!fieldErrors.limit?.length}
+                  />
+                  {fieldErrors.limit?.length ? (
+                    <ul role="alert" className="text-danger small mb-0 ps-3">
+                      {fieldErrors.limit.map((m, i) => (
+                        <li key={i}>{m}</li>
+                      ))}
+                    </ul>
+                  ) : null}
                 </div>
-                {actorResults.length > 0 && (
-                  <div style={{ overflowX: "auto" }}>
-                    <table className="table">
-                      <thead>
-                        <tr>
-                          <th>ID</th>
-                          <th>Name</th>
-                          <th>Email</th>
-                          <th />
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {actorResults.map((u) => (
-                          <tr key={u.id}>
-                            <td>{u.id}</td>
-                            <td>{u.name}</td>
-                            <td>{u.email}</td>
-                            <td>
-                              <button type="button" onClick={() => selectActor(u)}>Select</button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                    {actorMeta && (
-                      <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
-                        <button
-                          type="button"
-                          onClick={() => actorMeta.page > 1 && void runActorSearch(actorMeta.page - 1)}
-                          disabled={actorSearching || actorMeta.page <= 1}
-                        >
-                          Prev
-                        </button>
-                        <span>
-                          Page {actorMeta.page} of {actorMeta.total_pages}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            actorMeta.page < actorMeta.total_pages && void runActorSearch(actorMeta.page + 1)
-                          }
-                          disabled={actorSearching || actorMeta.page >= actorMeta.total_pages}
-                        >
-                          Next
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            gap: "0.5rem",
-            justifyContent: "flex-start",
-          }}
-        >
-          <button
-            type="button"
-            onClick={() => {
-              if (!isDateOrderValid) {
-                showDateOrderError();
-                return;
-              }
-              void load(true, { limit: limitRef.current });
-            }}
-            disabled={state === "loading"}
-            aria-disabled={state === "loading"}
-          >
-            Search
-          </button>
-          <button type="button" onClick={resetFilters}>
-            Reset
-          </button>
-          <button type="submit" disabled={!canSubmit} aria-disabled={!canSubmit}>
-            Apply
-          </button>
-        </div>
-      </form>
-
-      {state === "loading" && <p>Loading.</p>}
-      {state === "error" && <p role="alert">Error: {error}</p>}
-
-      <div style={{ overflowX: "auto" }}>
-        <table aria-label="Audit events" className="table">
-          <thead>
-            <tr>
-              <th>Timestamp</th>
-              <th>User</th>
-              <th>IP</th>
-              <th>Category</th>
-              <th>Action</th>
-              <th>Message</th>
-              <th>ID</th>
+              </th>
             </tr>
           </thead>
           <tbody>
