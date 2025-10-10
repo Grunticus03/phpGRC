@@ -104,6 +104,9 @@ final class DashboardKpisComputationTest extends TestCase
             $row = $byMime->firstWhere('mime', $mime);
             $this->assertNotNull($row, "Missing MIME row for {$mime}");
             $this->assertSame($expectedCount, (int) ($row['count'] ?? -1));
+            $this->assertArrayHasKey('mime_label', $row);
+            $this->assertIsString($row['mime_label']);
+            $this->assertNotSame('', trim((string) $row['mime_label']));
         }
 
         $admins = collect($data['admin_activity']['admins'] ?? []);

@@ -7,6 +7,7 @@ namespace App\Http\Controllers\Evidence;
 use App\Models\Evidence;
 use App\Models\User;
 use App\Services\Audit\AuditLogger;
+use App\Services\Mime\MimeLabelService;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
@@ -317,7 +318,7 @@ final class EvidenceController extends Controller
         }, 200, $headers);
     }
 
-    public function index(Request $request): JsonResponse
+    public function index(Request $request, MimeLabelService $mimeLabels): JsonResponse
     {
         $this->authorizeViewWhenRequired();
 
@@ -359,6 +360,25 @@ final class EvidenceController extends Controller
         $filename = is_string($filenameQ) ? trim($filenameQ) : '';
         if ($filename !== '') {
             $q->where('filename', 'like', '%'.$this->escapeLike($filename).'%');
+        }
+
+        $mimeLabelQ = $request->query('mime_label', '');
+        $mimeLabel = is_string($mimeLabelQ) ? trim($mimeLabelQ) : '';
+        if ($mimeLabel !== '') {
+            $matches = $mimeLabels->matchesForLabel($mimeLabel);
+            if ($matches === []) {
+                $q->whereRaw('1 = 0');
+            } else {
+                $q->where(function (Builder $where) use ($matches): void {
+                    foreach ($matches as $match) {
+                        if ($match['match_type'] === 'prefix') {
+                            $where->orWhereRaw("LOWER(mime) LIKE ? ESCAPE '\\\\'", [$this->escapeLike($match['value']).'%']);
+                        } else {
+                            $where->orWhereRaw('LOWER(mime) = ?', [$match['value']]);
+                        }
+                    }
+                });
+            }
         }
 
         $mimeQ = $request->query('mime', '');
@@ -442,6 +462,18 @@ final class EvidenceController extends Controller
             $rows = $rows->slice(0, $limit)->values();
         }
 
+        $labelSource = $rows
+            ->pluck('mime')
+            ->filter(static fn ($mime): bool => is_string($mime) && $mime !== '')
+            ->map(static fn ($mime): string => (string) $mime)
+            ->values()
+            ->all();
+
+        /** @var array<int,string> $labelSource */
+        $labelSource = $labelSource;
+
+        $mimeLabelMap = $mimeLabels->labelsFor($labelSource);
+
         $nextCursor = null;
         if ($hasMore && $rows->isNotEmpty()) {
             /** @var Evidence $last */
@@ -455,18 +487,28 @@ final class EvidenceController extends Controller
         $data = $rows->toBase()->map(
             /**
              * @return array{
-             *   id:string,owner_id:int,filename:string,mime:string,size:int,sha256:string,version:int,created_at:string
+             *   id:string,
+             *   owner_id:int,
+             *   filename:string,
+             *   mime:string,
+             *   mime_label:string,
+             *   size:int,
+             *   sha256:string,
+             *   version:int,
+             *   created_at:string
              * }
              */
-            function (Evidence $e): array {
+            function (Evidence $e) use ($mimeLabelMap, $mimeLabels): array {
                 /** @var CarbonInterface $createdAt */
                 $createdAt = $e->created_at;
+                $mime = $e->mime;
 
                 return [
                     'id' => $e->id,
                     'owner_id' => $e->owner_id,
                     'filename' => $e->filename,
-                    'mime' => $e->mime,
+                    'mime' => $mime,
+                    'mime_label' => $mimeLabelMap[$mime] ?? $mimeLabels->labelFor($mime),
                     'size' => $e->size_bytes,
                     'sha256' => $e->sha256,
                     'version' => $e->version,
@@ -484,6 +526,7 @@ final class EvidenceController extends Controller
                 'owner_id' => $ownerIdFilter,
                 'filename' => $filename !== '' ? $filename : null,
                 'mime' => $mime !== '' ? $mime : null,
+                'mime_label' => $mimeLabel !== '' ? $mimeLabel : null,
                 'sha256' => $shaExact !== '' ? $shaExact : null,
                 'sha256_prefix' => $shaPrefix !== '' ? $shaPrefix : null,
                 'version_from' => $vFrom,

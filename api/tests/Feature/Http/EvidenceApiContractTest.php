@@ -60,6 +60,9 @@ final class EvidenceApiContractTest extends TestCase
         $this->assertArrayNotHasKey('size_bytes', $first);
         $this->assertIsInt($first['size']);
         $this->assertGreaterThanOrEqual(3 * 1024, $first['size']);
+        $this->assertArrayHasKey('mime_label', $first);
+        $this->assertIsString($first['mime_label']);
+        $this->assertNotSame('', trim($first['mime_label']));
     }
 
     public function test_missing_file_returns_validation_failed_shape(): void

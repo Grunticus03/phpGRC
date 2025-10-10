@@ -93,6 +93,7 @@ final class EvidenceListTest extends TestCase
         $this->assertCount(1, $json['data']);
         $this->assertSame($this->evBId, $json['data'][0]['id']);
         $this->assertSame('image/png', $json['data'][0]['mime']);
+        $this->assertSame('PNG image', $json['data'][0]['mime_label']);
     }
 
     public function test_cursor_pagination_desc(): void
@@ -106,5 +107,45 @@ final class EvidenceListTest extends TestCase
         $r2 = $this->getJson('/evidence?limit=1&order=desc&cursor='.urlencode((string) $cursor));
         $r2->assertStatus(200)->assertJsonPath('ok', true)->assertJsonCount(1, 'data');
         $this->assertNotSame($firstId, $r2->json('data.0.id'));
+    }
+
+    public function test_filter_by_friendly_label(): void
+    {
+        $res = $this->getJson('/evidence?mime_label=png');
+        $res->assertStatus(200)->assertJsonPath('ok', true);
+
+        $data = $res->json('data');
+        $this->assertIsArray($data);
+        $this->assertCount(1, $data);
+        $this->assertSame('PNG image', $data[0]['mime_label']);
+        $this->assertSame('image/png', $data[0]['mime']);
+    }
+
+    public function test_filter_by_prefix_friendly_label(): void
+    {
+        $now = Carbon::parse('2025-01-01T00:03:00Z');
+
+        $ppt = Evidence::query()->create([
+            'owner_id' => $this->u1Id,
+            'filename' => 'deck.pptx',
+            'mime' => 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+            'size_bytes' => 42,
+            'sha256' => hash('sha256', 'pptx'),
+            'version' => 1,
+            'bytes' => 'pptx',
+            'created_at' => $now,
+        ]);
+
+        $res = $this->getJson('/evidence?mime_label=powerpoint');
+        $res->assertStatus(200)->assertJsonPath('ok', true);
+
+        $data = $res->json('data');
+        $this->assertIsArray($data);
+        $ids = array_map(static fn (array $row): string => (string) $row['id'], $data);
+        $this->assertContains((string) $ppt->getAttribute('id'), $ids);
+
+        $match = collect($data)->firstWhere('id', (string) $ppt->getAttribute('id'));
+        $this->assertIsArray($match);
+        $this->assertSame('Microsoft PowerPoint presentation', $match['mime_label']);
     }
 }

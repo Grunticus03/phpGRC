@@ -159,11 +159,15 @@ export default function Kpis(): JSX.Element {
     [authDataset]
   );
 
+  const pieSlices = useMemo(
+    () => kpis?.evidence_mime.by_mime ?? [],
+    [kpis]
+  );
+
   const pieData = useMemo(() => {
-    const slices = kpis?.evidence_mime.by_mime ?? [];
-    if (slices.length === 0) return null;
-    const labels = slices.map((slice) => slice.mime);
-    const counts = slices.map((slice) => slice.count);
+    if (pieSlices.length === 0) return null;
+    const labels = pieSlices.map((slice) => slice.mime_label ?? slice.mime);
+    const counts = pieSlices.map((slice) => slice.count);
     const colors = [
       "#0d6efd",
       "#6f42c1",
@@ -183,7 +187,7 @@ export default function Kpis(): JSX.Element {
         },
       ],
     };
-  }, [kpis]);
+  }, [pieSlices]);
 
   const pieOptions: ChartOptions<"pie"> = useMemo(
     () => ({
@@ -195,13 +199,14 @@ export default function Kpis(): JSX.Element {
       onClick: (_, elements) => {
         if (!pieData || elements.length === 0) return;
         const index = elements[0].index;
-        const label = pieData.labels?.[index];
-        if (!label) return;
-        const params = new URLSearchParams({ mime: label });
+        const slice = pieSlices[index];
+        if (!slice) return;
+        const friendly = slice.mime_label ?? slice.mime;
+        const params = new URLSearchParams({ mime_label: friendly });
         navigate(`/admin/evidence?${params.toString()}`);
       },
     }),
-    [pieData, navigate]
+    [pieData, pieSlices, navigate]
   );
 
   const auditLink = useMemo(() => {

@@ -5,11 +5,12 @@ declare(strict_types=1);
 namespace App\Services\Metrics;
 
 use App\Models\Evidence;
+use App\Services\Mime\MimeLabelService;
 
 /**
  * Summarize evidence MIME type usage for dashboard pie chart.
  *
- * @psalm-type SliceShape=array{mime:string,count:int,percent:float}
+ * @psalm-type SliceShape=array{mime:string,mime_label:string,count:int,percent:float}
  * @psalm-type OutputShape=array{
  *   total:int,
  *   by_mime:list<SliceShape>
@@ -17,6 +18,10 @@ use App\Models\Evidence;
  */
 final class EvidenceMimeBreakdownCalculator
 {
+    public function __construct(
+        private readonly MimeLabelService $mimeLabels,
+    ) {}
+
     /**
      * @return OutputShape
      */
@@ -37,7 +42,7 @@ final class EvidenceMimeBreakdownCalculator
             ];
         }
 
-        /** @var list<array{mime:string,count:int,percent:float}> $slices */
+        /** @var list<array{mime:string,mime_label:string,count:int,percent:float}> $slices */
         $slices = [];
         if ($rows !== []) {
             foreach ($rows as $row) {
@@ -51,9 +56,11 @@ final class EvidenceMimeBreakdownCalculator
                 if ($count === 0) {
                     continue;
                 }
+                $label = $this->mimeLabels->labelFor($mime);
                 $percent = $total > 0 ? (float) ($count / $total) : 0.0;
                 $slices[] = [
                     'mime' => $mime,
+                    'mime_label' => $label,
                     'count' => $count,
                     'percent' => $percent,
                 ];

@@ -40,6 +40,7 @@ export default function EvidenceList(): JSX.Element {
   const [createdTo, setCreatedTo] = useState("");
   const [filename, setFilename] = useState("");
   const [mime, setMime] = useState("");
+  const [mimeFilterType, setMimeFilterType] = useState<"label" | "raw" | null>(null);
   const [sha, setSha] = useState("");
   const [order, setOrder] = useState<"asc" | "desc">("desc");
   const [limit, setLimit] = useState<number>(20);
@@ -138,10 +139,14 @@ export default function EvidenceList(): JSX.Element {
       shaPrefix = shaClean;
     }
 
+    const mimeParam = mimeFilterType === "raw" ? mime || undefined : undefined;
+    const mimeLabelParam = mimeFilterType === "label" ? mime || undefined : undefined;
+
     return {
       owner_id: ownerSelected ? ownerSelected.id : undefined,
       filename: filename || undefined,
-      mime: mime || undefined,
+      mime: mimeParam,
+      mime_label: mimeLabelParam,
       created_from,
       created_to,
       order,
@@ -150,7 +155,7 @@ export default function EvidenceList(): JSX.Element {
       sha256: shaExact || undefined,
       sha256_prefix: shaPrefix || undefined,
     };
-  }, [ownerSelected, filename, mime, created_from, created_to, order, limit, cursor, sha]);
+  }, [ownerSelected, filename, mime, mimeFilterType, created_from, created_to, order, limit, cursor, sha]);
 
   const isDateOrderValid = useMemo(() => {
     if (!createdFrom || !createdTo) return true;
@@ -416,13 +421,32 @@ export default function EvidenceList(): JSX.Element {
 
   useEffect(() => {
     const paramsFromUrl = new URLSearchParams(location.search);
-    const nextMime = paramsFromUrl.get("mime") ?? "";
-    if (nextMime === mime) return;
+    const nextMimeLabel = paramsFromUrl.get("mime_label") ?? "";
+    const nextMimeRaw = paramsFromUrl.get("mime") ?? "";
 
-    setMime(nextMime);
+    let nextType: "label" | "raw" | null = null;
+    let nextValue = "";
+    if (nextMimeLabel.trim() !== "") {
+      nextType = "label";
+      nextValue = nextMimeLabel;
+    } else if (nextMimeRaw.trim() !== "") {
+      nextType = "raw";
+      nextValue = nextMimeRaw;
+    }
+
+    if (nextType === mimeFilterType && nextValue === mime) return;
+
+    setMime(nextValue);
+    setMimeFilterType(nextType);
     setCursor(null);
     setPrevStack([]);
-    void load(true, { mime: nextMime || undefined });
+    const overrides =
+      nextType === "label"
+        ? { mime_label: nextValue || undefined, mime: undefined }
+        : nextType === "raw"
+        ? { mime: nextValue || undefined, mime_label: undefined }
+        : { mime: undefined, mime_label: undefined };
+    void load(true, overrides);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.search]);
 
@@ -444,7 +468,7 @@ export default function EvidenceList(): JSX.Element {
   const hasActiveFilters =
     ownerSelected !== null ||
     filename.trim() !== "" ||
-    mime.trim() !== "" ||
+    (mimeFilterType !== null && mime.trim() !== "") ||
     sha.trim() !== "" ||
     createdFrom.trim() !== "" ||
     createdTo.trim() !== "" ||
@@ -492,9 +516,10 @@ export default function EvidenceList(): JSX.Element {
     const trimmed = value.trim();
     setMime(trimmed);
     setMimeDraft(trimmed);
+    setMimeFilterType(trimmed === "" ? null : "label");
     setCursor(null);
     setPrevStack([]);
-    void load(true, { mime: trimmed || undefined });
+    void load(true, { mime_label: trimmed || undefined, mime: undefined });
     setActiveFilter(null);
   }
 
@@ -573,6 +598,7 @@ export default function EvidenceList(): JSX.Element {
     setFilenameDraft("");
     setMime("");
     setMimeDraft("");
+    setMimeFilterType(null);
     setSha("");
     setShaDraft("");
     setCreatedFrom("");
@@ -588,6 +614,7 @@ export default function EvidenceList(): JSX.Element {
       owner_id: undefined,
       filename: undefined,
       mime: undefined,
+      mime_label: undefined,
       sha256: undefined,
       sha256_prefix: undefined,
       created_from: undefined,

@@ -6,6 +6,7 @@ export type Evidence = {
   owner_id: number;
   filename: string;
   mime: string;
+  mime_label: string;
   size: number;
   sha256: string;
   version: number;
@@ -63,6 +64,7 @@ export type EvidenceListParams = {
   owner_id?: number;
   filename?: string;
   mime?: string;
+  mime_label?: string;
   sha256?: string;
   sha256_prefix?: string;
   version_from?: number;
@@ -159,6 +161,10 @@ export async function listEvidence(params: EvidenceListParams = {}): Promise<Evi
           owner_id: Number(r.owner_id ?? 0),
           filename: String(r.filename ?? ""),
           mime: String(r.mime ?? ""),
+          mime_label:
+            typeof r.mime_label === "string" && r.mime_label.trim() !== ""
+              ? r.mime_label
+              : String(r.mime ?? ""),
           size: Number(r.size ?? 0),
           sha256: String(r.sha256 ?? ""),
           version: Number(r.version ?? 0),

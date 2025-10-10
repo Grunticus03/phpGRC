@@ -72,6 +72,13 @@ describe("Evidence List", () => {
       if (url.startsWith("/api/evidence")) {
         const urlObj = new URL(url, "http://localhost");
         const mimeFilter = urlObj.searchParams.get("mime");
+        const mimeLabelFilter = urlObj.searchParams.get("mime_label");
+        const effectiveMime =
+          mimeFilter ??
+          (mimeLabelFilter && mimeLabelFilter.toLowerCase().includes("png") ? "image/png" : "application/pdf");
+        const effectiveLabel =
+          mimeLabelFilter ??
+          (mimeFilter === "image/png" ? "PNG image" : "PDF document");
         return jsonResponse({
           ok: true,
           time_format: "ISO_8601",
@@ -80,7 +87,8 @@ describe("Evidence List", () => {
               id: "ev_01X",
               owner_id: 42,
               filename: "report.pdf",
-              mime: mimeFilter ?? "application/pdf",
+              mime: effectiveMime,
+              mime_label: effectiveLabel,
               size: 1234,
               sha256: "7F9C2BA4E88F827D616045507605853ED73B8063F4A9A6F5D5B1E5F0E9D5A1C3",
               version: 1,
@@ -187,9 +195,9 @@ describe("Evidence List", () => {
     expect(screen.getByRole("alert")).toHaveTextContent("Download failed: EVIDENCE_NOT_FOUND");
   });
 
-  it("applies MIME filter from query string", async () => {
+  it("applies MIME label filter from query string", async () => {
     render(
-      <MemoryRouter initialEntries={["/admin/evidence?mime=image/png"]}>
+      <MemoryRouter initialEntries={["/admin/evidence?mime_label=PNG%20image"]}>
         <EvidenceList />
       </MemoryRouter>
     );
@@ -198,7 +206,38 @@ describe("Evidence List", () => {
 
     await screen.findByRole("cell", { name: "PNG image" });
 
-    const hits = calls.filter((u) => u.startsWith("/api/evidence?"));
-    expect(hits.some((u) => u.includes("mime=image%2Fpng"))).toBe(true);
+    await waitFor(() => {
+      const hits = calls.filter((u) => u.startsWith("/api/evidence?"));
+      expect(hits.length).toBeGreaterThan(0);
+      const last = hits[hits.length - 1];
+      expect(last).toContain("mime_label=PNG+image");
+    });
+  });
+
+  it("applies friendly MIME filter via UI", async () => {
+    render(
+      <MemoryRouter>
+        <EvidenceList />
+      </MemoryRouter>
+    );
+
+    await screen.findByText("Evidence");
+
+    const mimeToggle = screen.getByRole("button", { name: "MIME" });
+    fireEvent.click(mimeToggle);
+
+    const input = screen.getByLabelText("Filter by MIME") as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "PDF document" } });
+
+    const applyButton = screen.getByRole("button", { name: "Apply" });
+    fireEvent.click(applyButton);
+
+    await waitFor(() => {
+      const hits = calls.filter((u) => u.startsWith("/api/evidence?"));
+      expect(hits.length).toBeGreaterThan(1);
+      expect(hits[hits.length - 1]).toContain("mime_label=PDF+document");
+    });
+
+    await screen.findByRole("cell", { name: "PDF document" });
   });
 });

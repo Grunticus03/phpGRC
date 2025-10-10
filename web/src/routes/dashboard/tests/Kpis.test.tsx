@@ -79,8 +79,8 @@ describe("Dashboard KPIs", () => {
             evidence_mime: {
               total: 5,
               by_mime: [
-                { mime: "application/pdf", count: 3, percent: 0.6 },
-                { mime: "image/png", count: 2, percent: 0.4 },
+                { mime: "application/pdf", mime_label: "PDF document", count: 3, percent: 0.6 },
+                { mime: "image/png", mime_label: "PNG image", count: 2, percent: 0.4 },
               ],
             },
             admin_activity: {

@@ -102,6 +102,26 @@ Snapshot generated from migrations against **phpgrc** as of 2025-10-08 (UTC).
 
 ---
 
+### `mime_labels`
+
+| Column | Type | Null | Default | Extra |
+|-------:|------|------|---------|-------|
+| id | bigint unsigned | ✓ | NULL | auto_increment |
+| value | varchar(191) | ✓ | NULL | — |
+| match_type | enum('exact','prefix') | ✓ | 'exact' | — |
+| label | varchar(191) | ✓ | NULL | — |
+| created_at | timestamp | ✗ | NULL | — |
+| updated_at | timestamp | ✗ | NULL | — |
+
+**Indexes & Constraints**
+- `PRIMARY KEY (id)`
+- `UNIQUE INDEX mime_labels_value_match_type_unique (value, match_type)`
+
+**Seed Data**
+- Installed by migration `0000_00_00_000150_create_mime_labels_table.php` with common MIME to label mappings (e.g., PDF document, PNG image) and vendor prefixes (e.g., Office formats).
+
+---
+
 ### `exports`
 
 | Column | Type | Null | Default | Extra |

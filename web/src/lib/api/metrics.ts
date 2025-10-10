@@ -18,6 +18,7 @@ export type AuthActivity = {
 
 export type EvidenceMimeSlice = {
   mime: string;
+  mime_label: string;
   count: number;
   percent: number; // 0..100 (normalized)
 };
@@ -96,11 +97,19 @@ function normalize(raw: unknown): Kpis {
   const evidence: EvidenceMime = {
     total: Number.isFinite(evidenceRaw.total) ? Number(evidenceRaw.total) : 0,
     by_mime: Array.isArray(evidenceRaw.by_mime)
-      ? evidenceRaw.by_mime.map((row) => ({
-          mime: typeof row.mime === "string" && row.mime.length > 0 ? row.mime : "Unknown",
-          count: Number.isFinite(row.count) ? Number(row.count) : 0,
-          percent: toPct(row.percent ?? 0),
-        }))
+      ? evidenceRaw.by_mime.map((row) => {
+          const mime = typeof row.mime === "string" && row.mime.length > 0 ? row.mime : "Unknown";
+          const label =
+            typeof row.mime_label === "string" && row.mime_label.length > 0
+              ? row.mime_label
+              : mime;
+          return {
+            mime,
+            mime_label: label,
+            count: Number.isFinite(row.count) ? Number(row.count) : 0,
+            percent: toPct(row.percent ?? 0),
+          };
+        })
       : [],
   };
 

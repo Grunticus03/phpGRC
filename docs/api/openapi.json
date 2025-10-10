@@ -1207,7 +1207,16 @@
                         "in": "query",
                         "schema": {
                             "type": "string"
-                        }
+                        },
+                        "description": "Filter by exact MIME type (supports suffix `/*` for prefix matches)."
+                    },
+                    {
+                        "name": "mime_label",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "Filter by friendly MIME label (case-insensitive substring match)."
                     },
                     {
                         "name": "sha256",
@@ -3274,6 +3283,7 @@
                     "owner_id",
                     "filename",
                     "mime",
+                    "mime_label",
                     "size",
                     "sha256",
                     "version",
@@ -3291,6 +3301,9 @@
                         "type": "string"
                     },
                     "mime": {
+                        "type": "string"
+                    },
+                    "mime_label": {
                         "type": "string"
                     },
                     "size": {
