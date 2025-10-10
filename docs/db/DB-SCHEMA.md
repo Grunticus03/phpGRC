@@ -191,10 +191,10 @@ Snapshot generated from migrations against **phpgrc** as of 2025-10-08 (UTC).
 
 | Column | Type | Null | Default | Extra |
 |-------:|------|------|---------|-------|
-| policy | varchar(191) | ✗ | NULL | PRIMARY KEY |
-| label | varchar(255) | ✓ | NULL | — |
-| created_at | timestamp with time zone | ✗ | NULL | — |
-| updated_at | timestamp with time zone | ✗ | NULL | — |
+| policy | varchar(255) | ✓ | NULL | PRIMARY KEY |
+| label | varchar(255) | ✗ | NULL | — |
+| created_at | timestamp | ✗ | NULL | — |
+| updated_at | timestamp | ✗ | NULL | — |
 
 **Indexes & Constraints**
 - `PRIMARY KEY (policy)`
@@ -220,15 +220,16 @@ Snapshot generated from migrations against **phpgrc** as of 2025-10-08 (UTC).
 
 | Column | Type | Null | Default | Extra |
 |-------:|------|------|---------|-------|
-| policy | varchar(191) | ✗ | NULL | part of PRIMARY KEY |
-| role_id | varchar(191) | ✗ | NULL | part of PRIMARY KEY |
-| created_at | timestamp with time zone | ✗ | NULL | — |
-| updated_at | timestamp with time zone | ✗ | NULL | — |
+| policy | varchar(255) | ✓ | NULL | part of PRIMARY KEY |
+| role_id | varchar(255) | ✓ | NULL | part of PRIMARY KEY |
+| created_at | timestamp | ✗ | NULL | — |
+| updated_at | timestamp | ✗ | NULL | — |
 
 **Indexes & Constraints**
 - `PRIMARY KEY (policy, role_id)`
-- `FOREIGN KEY (policy)` REFERENCES `policy_roles`(`policy`) ON DELETE CASCADE
-- `FOREIGN KEY (role_id)` REFERENCES `roles`(`id`) ON DELETE CASCADE
+- `INDEX policy_role_assignments_role_id_foreign (role_id)`
+- `FOREIGN KEY policy_role_assignments_policy_foreign (policy)` REFERENCES `policy_roles`(`policy`) ON DELETE CASCADE
+- `FOREIGN KEY policy_role_assignments_role_id_foreign (role_id)` REFERENCES `roles`(`id`) ON DELETE CASCADE
 
 **Seed Data** (migration `2025_09_30_000400_create_policy_tables.php`)
 - core.settings.manage → role_admin
