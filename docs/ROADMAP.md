@@ -75,8 +75,8 @@
 - [x] **RBAC user search pagination** + DB default `per_page` knob; Admin Settings + UI adoption
 - [x] **SPA auth bootstrap**: WebUI redirects to `/auth/login` only when `require_auth=true` and session probe fails
 - [x] **Navbar boot fix**: navigation renders after bootstrap probe; no blank layout
-- [ ] Fine-grained RBAC policies (PolicyMap/Evaluator) and role management UI hardening
-- [ ] Predefined reports & dashboards (beyond KPIs v1)
+- [x] Fine-grained RBAC policies (PolicyMap/Evaluator) and role management UI hardening
+- [x] Predefined reports & dashboards (beyond KPIs v1)
 - [ ] Admin/User docs baseline
 
 ### Phase 5 — Additions (2025-09-23..2025-09-28)
@@ -92,10 +92,10 @@
 - [x] **DB-as-source-of-truth**: removed runtime `.env` dependence for app behavior (DB only, except DB connection).
 - [x] **Role management polish**: Admin API supports rename/delete with audits; RBAC user search accepts field filters (`name:`, `email:`, `id:`, `role:`).
 
-- [ ] **KPI cache TTL** stored in DB (`core.metrics.cache_ttl_seconds`) and enforced in service layer.  
+- [x] **KPI cache TTL** stored in DB (`core.metrics.cache_ttl_seconds`) and enforced in service layer.  
   - Child note: TTL key exists; enforcement to be implemented in MetricsService adapter.
-- [ ] **Optional** `/api/openapi.json` mirror for integrators (tracked in Backlog).
-- [ ] **Docs**: Redoc paged example for RBAC user search and auth header notes. (pending)
+- [x] **Optional** `/api/openapi.json` mirror for integrators (tracked in Backlog).
+- [x] **Docs**: Redoc paged example for RBAC user search and auth header notes.
 
 ---
 

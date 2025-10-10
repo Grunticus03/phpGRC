@@ -162,7 +162,7 @@
                     "OpenAPI"
                 ],
                 "summary": "OpenAPI JSON",
-                "description": "Serves the current OpenAPI spec as JSON (direct file or YAML→JSON conversion).",
+                "description": "Serves the current OpenAPI spec as JSON (direct file or YAML->JSON conversion).",
                 "responses": {
                     "200": {
                         "description": "JSON",
@@ -904,7 +904,19 @@
                     "RBAC"
                 ],
                 "summary": "Search users by name or email",
-                "description": "Returns users whose **name** or **email** contains the query string.\nAuth is enforced when `core.rbac.require_auth` is true. RBAC policy `core.users.view` and role `Admin` are required by default.\n",
+                "description": "Returns users whose **name** or **email** contains the query string.\nAuth is enforced when `core.rbac.require_auth` is true. RBAC policy `core.users.view` and role `Admin` are required by default.\nInclude an `Authorization: Bearer <token>` header when making authenticated requests.\n",
+                "x-codeSamples": [
+                    {
+                        "lang": "Bash",
+                        "label": "Paged search (curl)",
+                        "source": "curl -sS \\\n  -H \"Authorization: Bearer ${TOKEN}\" \\\n  --get 'https://example.test/api/rbac/users/search' \\\n  --data-urlencode 'q=alpha' \\\n  --data-urlencode 'page=2' \\\n  --data-urlencode 'per_page=100'"
+                    },
+                    {
+                        "lang": "HTTP",
+                        "label": "Raw request with Authorization header",
+                        "source": "GET /api/rbac/users/search?q=alpha&page=1&per_page=50 HTTP/1.1\nHost: example.test\nAuthorization: Bearer <token>\nAccept: application/json"
+                    }
+                ],
                 "parameters": [
                     {
                         "name": "q",
@@ -1170,7 +1182,7 @@
                         "$ref": "#/components/responses/Unauthenticated"
                     },
                     "403": {
-                        "$ref": "#/components/responses/Forbidden"
+                        "$ref": "#/components/responses/CapabilityDisabled"
                     },
                     "429": {
                         "$ref": "#/components/responses/RateLimited"
@@ -1207,16 +1219,7 @@
                         "in": "query",
                         "schema": {
                             "type": "string"
-                        },
-                        "description": "Filter by exact MIME type (supports suffix `/*` for prefix matches)."
-                    },
-                    {
-                        "name": "mime_label",
-                        "in": "query",
-                        "schema": {
-                            "type": "string"
-                        },
-                        "description": "Filter by friendly MIME label (case-insensitive substring match)."
+                        }
                     },
                     {
                         "name": "sha256",
@@ -1342,7 +1345,7 @@
                         "$ref": "#/components/responses/Unauthenticated"
                     },
                     "403": {
-                        "$ref": "#/components/responses/Forbidden"
+                        "$ref": "#/components/responses/CapabilityDisabled"
                     },
                     "422": {
                         "$ref": "#/components/responses/ValidationFailed"
@@ -2348,6 +2351,24 @@
                     }
                 }
             }
+        },
+        "/dashboard/kpis": {
+            "get": {
+                "responses": {
+                    "422": {
+                        "$ref": "#/components/responses/ValidationFailed"
+                    }
+                }
+            }
+        },
+        "/metrics/dashboard": {
+            "get": {
+                "responses": {
+                    "422": {
+                        "$ref": "#/components/responses/ValidationFailed"
+                    }
+                }
+            }
         }
     },
     "components": {
@@ -2501,11 +2522,11 @@
                 }
             },
             "ValidationFailed": {
-                "description": "Validation errors",
+                "description": "Request parameters failed validation.",
                 "content": {
                     "application/json": {
                         "schema": {
-                            "$ref": "#/components/schemas/ValidationFailed"
+                            "$ref": "#/components/schemas/ValidationError"
                         }
                     }
                 }
@@ -2549,6 +2570,16 @@
                     "application/json": {
                         "schema": {
                             "$ref": "#/components/schemas/RateLimited"
+                        }
+                    }
+                }
+            },
+            "CapabilityDisabled": {
+                "description": "Capability is disabled by configuration.",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "$ref": "#/components/schemas/CapabilityError"
                         }
                     }
                 }
@@ -3119,7 +3150,7 @@
                                         },
                                         {
                                             "type": "array",
-                                            "items": []
+                                            "items": {}
                                         }
                                     ]
                                 }
@@ -3163,7 +3194,7 @@
                                         },
                                         {
                                             "type": "array",
-                                            "items": []
+                                            "items": {}
                                         }
                                     ]
                                 }
@@ -3283,7 +3314,6 @@
                     "owner_id",
                     "filename",
                     "mime",
-                    "mime_label",
                     "size",
                     "sha256",
                     "version",
@@ -3301,9 +3331,6 @@
                         "type": "string"
                     },
                     "mime": {
-                        "type": "string"
-                    },
-                    "mime_label": {
                         "type": "string"
                     },
                     "size": {
@@ -4017,6 +4044,75 @@
                     "password_confirmation": {
                         "type": "string",
                         "minLength": 8
+                    }
+                }
+            },
+            "CapabilityError": {
+                "type": "object",
+                "required": [
+                    "ok",
+                    "code"
+                ],
+                "properties": {
+                    "ok": {
+                        "type": "boolean",
+                        "const": false
+                    },
+                    "code": {
+                        "type": "string",
+                        "enum": [
+                            "CAPABILITY_DISABLED"
+                        ]
+                    },
+                    "capability": {
+                        "type": "string"
+                    }
+                },
+                "additionalProperties": true,
+                "description": "Standard error envelope for disabled feature gates.",
+                "example": {
+                    "ok": false,
+                    "code": "CAPABILITY_DISABLED",
+                    "capability": "core.audit.export"
+                }
+            },
+            "ValidationError": {
+                "type": "object",
+                "required": [
+                    "ok",
+                    "code",
+                    "errors"
+                ],
+                "properties": {
+                    "ok": {
+                        "type": "boolean",
+                        "const": false
+                    },
+                    "code": {
+                        "type": "string",
+                        "enum": [
+                            "VALIDATION_FAILED"
+                        ]
+                    },
+                    "errors": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                },
+                "additionalProperties": true,
+                "description": "Validation error envelope with field errors.",
+                "example": {
+                    "ok": false,
+                    "code": "VALIDATION_FAILED",
+                    "errors": {
+                        "from": [
+                            "INVALID_DATETIME"
+                        ]
                     }
                 }
             }

@@ -10,22 +10,22 @@
     relaxing limits that conflict with framework conventions.
   </description>
 
-  <ref href="rulesets/cleancode.xml" />
-  <ref href="rulesets/codesize.xml">
+  <rule ref="rulesets/cleancode.xml" />
+  <rule ref="rulesets/codesize.xml">
     <exclude name="CyclomaticComplexity" />
     <exclude name="TooManyPublicMethods" />
-  </ref>
-  <ref href="rulesets/controversial.xml">
+  </rule>
+  <rule ref="rulesets/controversial.xml">
     <exclude name="CamelCaseVariableName" />
     <exclude name="Superglobals" />
-  </ref>
-  <ref href="rulesets/design.xml">
+  </rule>
+  <rule ref="rulesets/design.xml">
     <exclude name="CouplingBetweenObjects" />
-  </ref>
-  <ref href="rulesets/naming.xml">
+  </rule>
+  <rule ref="rulesets/naming.xml">
     <exclude name="ShortVariable" />
-  </ref>
-  <ref href="rulesets/unusedcode.xml" />
+  </rule>
+  <rule ref="rulesets/unusedcode.xml" />
 
   <exclude-pattern>tests/</exclude-pattern>
   <exclude-pattern>database/factories/</exclude-pattern>

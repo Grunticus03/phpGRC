@@ -104,7 +104,7 @@ paths:
       security: []
       tags: [OpenAPI]
       summary: OpenAPI JSON
-      description: Serves the current OpenAPI spec as JSON (direct file or YAML→JSON conversion).
+      description: Serves the current OpenAPI spec as JSON (direct file or YAML->JSON conversion).
       responses:
         '200':
           description: JSON
@@ -513,6 +513,24 @@ paths:
       description: |
         Returns users whose **name** or **email** contains the query string.
         Auth is enforced when `core.rbac.require_auth` is true. RBAC policy `core.users.view` and role `Admin` are required by default.
+        Include an `Authorization: Bearer <token>` header when making authenticated requests.
+      x-codeSamples:
+        - lang: Bash
+          label: Paged search (curl)
+          source: |-
+            curl -sS \
+              -H "Authorization: Bearer ${TOKEN}" \
+              --get 'https://example.test/api/rbac/users/search' \
+              --data-urlencode 'q=alpha' \
+              --data-urlencode 'page=2' \
+              --data-urlencode 'per_page=100'
+        - lang: HTTP
+          label: Raw request with Authorization header
+          source: |-
+            GET /api/rbac/users/search?q=alpha&page=1&per_page=50 HTTP/1.1
+            Host: example.test
+            Authorization: Bearer <token>
+            Accept: application/json
       parameters:
         - name: q
           in: query
