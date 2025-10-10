@@ -13,6 +13,7 @@ import { DEFAULT_TIME_FORMAT, normalizeTimeFormat, type TimeFormat } from "../..
 import { HttpError } from "../../lib/api";
 import { primeUsers } from "../../lib/usersCache";
 import EvidenceTable, { type HeaderConfig } from "./EvidenceTable";
+import useColumnToggle from "../../components/table/useColumnToggle";
 
 type FetchState = "idle" | "loading" | "error" | "ok";
 
@@ -275,7 +276,7 @@ export default function EvidenceList(): JSX.Element {
   const [sha, setSha] = useState("");
   const [order, setOrder] = useState<"asc" | "desc">("desc");
   const [limit, setLimit] = useState<number>(20);
-  const [activeFilter, setActiveFilter] = useState<FilterKey | null>(null);
+  const { activeKey: activeFilter, toggle: toggleFilter, reset: resetActiveFilter } = useColumnToggle<FilterKey>();
   const [createdFromDraft, setCreatedFromDraft] = useState("");
   const [createdToDraft, setCreatedToDraft] = useState("");
   const [filenameDraft, setFilenameDraft] = useState("");
@@ -428,7 +429,7 @@ export default function EvidenceList(): JSX.Element {
     setOwnerPage(1);
     setCursor(null);
     setPrevStack([]);
-    setActiveFilter(null);
+    resetActiveFilter();
     void load(true, { owner_id: user.id });
   }
 
@@ -441,7 +442,7 @@ export default function EvidenceList(): JSX.Element {
     if (apply) {
       setCursor(null);
       setPrevStack([]);
-      setActiveFilter(null);
+      resetActiveFilter();
       void load(true, { owner_id: undefined });
     }
   }
@@ -718,31 +719,28 @@ export default function EvidenceList(): JSX.Element {
     order !== "desc" ||
     limit !== 20;
 
-  const toggleFilter = useCallback(
+  const handleToggleFilter = useCallback(
     (key: FilterKey) => {
-      setActiveFilter((prev) => {
-        const next = prev === key ? null : key;
-        if (next === key) {
-          if (key === "created") {
-            setCreatedFromDraft(createdFrom);
-            setCreatedToDraft(createdTo);
-            setDateRangeError(null);
-          } else if (key === "filename") {
-            setFilenameDraft(filename);
-          } else if (key === "mime") {
-            setMimeDraft(mime);
-          } else if (key === "sha") {
-            setShaDraft(sha);
-          }
+      const willActivate = activeFilter !== key;
+      if (willActivate) {
+        if (key === "created") {
+          setCreatedFromDraft(createdFrom);
+          setCreatedToDraft(createdTo);
+          setDateRangeError(null);
+        } else if (key === "filename") {
+          setFilenameDraft(filename);
+        } else if (key === "mime") {
+          setMimeDraft(mime);
+        } else if (key === "sha") {
+          setShaDraft(sha);
         }
-        if (next === null && key === "owner") {
-          setOwnerResults([]);
-          setOwnerMeta(null);
-        }
-        return next;
-      });
+      } else if (key === "owner") {
+        setOwnerResults([]);
+        setOwnerMeta(null);
+      }
+      toggleFilter(key);
     },
-    [createdFrom, createdTo, filename, mime, sha]
+    [activeFilter, createdFrom, createdTo, filename, mime, sha, toggleFilter]
   );
 
   function applyFilenameFilter(value: string) {
@@ -752,7 +750,7 @@ export default function EvidenceList(): JSX.Element {
     setCursor(null);
     setPrevStack([]);
     void load(true, { filename: trimmed || undefined });
-    setActiveFilter(null);
+    resetActiveFilter();
   }
 
   function applyMimeFilter(value: string) {
@@ -763,7 +761,7 @@ export default function EvidenceList(): JSX.Element {
     setCursor(null);
     setPrevStack([]);
     void load(true, { mime_label: trimmed || undefined, mime: undefined });
-    setActiveFilter(null);
+    resetActiveFilter();
   }
 
   function applyShaFilter(value: string) {
@@ -776,7 +774,7 @@ export default function EvidenceList(): JSX.Element {
       sha256: cleaned.length >= 64 ? cleaned.slice(0, 64) : undefined,
       sha256_prefix: cleaned !== "" && cleaned.length < 64 ? cleaned : undefined,
     });
-    setActiveFilter(null);
+    resetActiveFilter();
   }
 
   function applyCreatedFilter(fromValue: string, toValue: string, closeAfter: boolean = true) {
@@ -798,7 +796,7 @@ export default function EvidenceList(): JSX.Element {
       created_to: trimmedTo ? `${trimmedTo}T23:59:59Z` : undefined,
     });
     if (closeAfter) {
-      setActiveFilter(null);
+      resetActiveFilter();
     }
   }
 
@@ -834,7 +832,7 @@ export default function EvidenceList(): JSX.Element {
   }
 
   function clearAllFilters() {
-    setActiveFilter(null);
+    resetActiveFilter();
     setDateRangeError(null);
     clearOwnerFilter(false);
     setFilename("");
@@ -906,7 +904,7 @@ export default function EvidenceList(): JSX.Element {
               void runOwnerSearch(1, { autoApply: true });
             } else if (e.key === "Escape") {
               e.preventDefault();
-              setActiveFilter(null);
+              resetActiveFilter();
             }
           }}
           placeholder="Name or email"
@@ -1016,7 +1014,7 @@ export default function EvidenceList(): JSX.Element {
               applyFilenameFilter(e.currentTarget.value);
             } else if (e.key === "Escape") {
               e.preventDefault();
-              setActiveFilter(null);
+              resetActiveFilter();
             }
           }}
           placeholder="e.g. report*.pdf"
@@ -1063,7 +1061,7 @@ export default function EvidenceList(): JSX.Element {
               applyMimeFilter(e.currentTarget.value);
             } else if (e.key === "Escape") {
               e.preventDefault();
-              setActiveFilter(null);
+              resetActiveFilter();
             }
           }}
           placeholder="e.g. image/*"
@@ -1111,7 +1109,7 @@ export default function EvidenceList(): JSX.Element {
               applyShaFilter(e.currentTarget.value);
             } else if (e.key === "Escape") {
               e.preventDefault();
-              setActiveFilter(null);
+              resetActiveFilter();
             }
           }}
           placeholder="e.g. 7f9c2b"
@@ -1179,7 +1177,7 @@ export default function EvidenceList(): JSX.Element {
     {
       key: "created",
       label: `Created ${order === "asc" ? "↑" : "↓"}`,
-      onToggle: () => toggleFilter("created"),
+      onToggle: () => handleToggleFilter("created"),
       isActive: activeFilter === "created",
       summaryContent: createdSummaryContent,
       filterContent: createdFilterContent,
@@ -1187,7 +1185,7 @@ export default function EvidenceList(): JSX.Element {
     {
       key: "owner",
       label: "Owner",
-      onToggle: () => toggleFilter("owner"),
+      onToggle: () => handleToggleFilter("owner"),
       isActive: activeFilter === "owner",
       summaryContent: ownerSummaryContent,
       filterContent: ownerFilterContent,
@@ -1195,7 +1193,7 @@ export default function EvidenceList(): JSX.Element {
     {
       key: "filename",
       label: "Filename",
-      onToggle: () => toggleFilter("filename"),
+      onToggle: () => handleToggleFilter("filename"),
       isActive: activeFilter === "filename",
       summaryContent: filenameSummaryContent,
       filterContent: filenameFilterContent,
@@ -1207,7 +1205,7 @@ export default function EvidenceList(): JSX.Element {
     {
       key: "mime",
       label: "MIME",
-      onToggle: () => toggleFilter("mime"),
+      onToggle: () => handleToggleFilter("mime"),
       isActive: activeFilter === "mime",
       summaryContent: mimeSummaryContent,
       filterContent: mimeFilterContent,
@@ -1215,7 +1213,7 @@ export default function EvidenceList(): JSX.Element {
     {
       key: "sha256",
       label: "SHA-256",
-      onToggle: () => toggleFilter("sha"),
+      onToggle: () => handleToggleFilter("sha"),
       isActive: activeFilter === "sha",
       summaryContent: shaSummaryContent,
       filterContent: shaFilterContent,
@@ -1252,7 +1250,7 @@ export default function EvidenceList(): JSX.Element {
             ref={fileInputRef}
             type="file"
             id="evidence-file"
-            className="d-none"
+            style={{ display: "none" }}
             multiple
             disabled={uploading}
             onChange={handleFileChange}
@@ -1266,7 +1264,6 @@ export default function EvidenceList(): JSX.Element {
           >
             {uploading ? "Uploading…" : "Upload Evidence"}
           </button>
-          <div className="form-text">Select one or more files to upload.</div>
         </div>
         {uploadError && (
           <div className="alert alert-danger mt-2" role="alert">

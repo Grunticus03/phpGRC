@@ -73,6 +73,7 @@ function messageFromError(err: unknown, fallback: string): string {
 
 export default function Users(): JSX.Element {
   const [q, setQ] = useState<string>("");
+  const [appliedQ, setAppliedQ] = useState<string>("");
   const [page, setPage] = useState<number>(1);
   const [perPage] = useState<number>(25);
   const [items, setItems] = useState<User[]>([]);
@@ -180,7 +181,12 @@ export default function Users(): JSX.Element {
   const load = useCallback(async () => {
     setListLoading(true);
     try {
-      const res = await apiGet<unknown>("/api/users", { q, page, per_page: perPage });
+      const params = {
+        q: appliedQ.trim() === "" ? undefined : appliedQ,
+        page,
+        per_page: perPage,
+      };
+      const res = await apiGet<unknown>("/api/users", params);
       if (isPagedUsers(res)) {
         setItems(res.data);
         setMeta(res.meta);
@@ -196,20 +202,31 @@ export default function Users(): JSX.Element {
     } finally {
       setListLoading(false);
     }
-  }, [page, perPage, q]);
+  }, [appliedQ, page, perPage]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
-  const handleSearchSubmit = useCallback((event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (page !== 1) {
-      setPage(1);
-    } else {
-      void load();
-    }
-  }, [page, load]);
+  const handleSearchSubmit = useCallback(
+    (event: FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+      const trimmed = q.trim();
+      if (trimmed === appliedQ) {
+        if (page !== 1) {
+          setPage(1);
+        } else {
+          void load();
+        }
+        return;
+      }
+      setAppliedQ(trimmed);
+      if (page !== 1) {
+        setPage(1);
+      }
+    },
+    [appliedQ, load, page, q]
+  );
 
   async function handleCreate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -445,8 +462,7 @@ export default function Users(): JSX.Element {
           <div className="card h-100">
             <div className="card-header">Edit user</div>
             <div className="card-body">
-              {!selectedUser && <p className="text-muted mb-0">Select a user to edit their details.</p>}
-              {selectedUser && (
+              {selectedUser ? (
                 <form onSubmit={handleEditSubmit} className="row g-3" noValidate>
                   <div className="col-12">
                     <div className="fw-semibold">User ID</div>
@@ -526,7 +542,7 @@ export default function Users(): JSX.Element {
                       ))}
                     </select>
                     <div id="edit_roles_help" className="form-text">
-                      {rolesLoading ? "Loading roles..." : rolesError ?? (roleOptions.length === 0 ? "No roles available." : "Select one or more roles. Use Ctrl/Cmd-click to toggle selections.")}
+                      {rolesLoading ? "Loading roles..." : rolesError ?? (roleOptions.length === 0 ? "No roles available." : "Use Ctrl/Cmd-click to toggle selections.")}
                     </div>
                   </div>
 
@@ -545,6 +561,8 @@ export default function Users(): JSX.Element {
                     </button>
                   </div>
                 </form>
+              ) : (
+                <p className="text-muted mb-0">No user selected.</p>
               )}
             </div>
           </div>
@@ -592,7 +610,7 @@ export default function Users(): JSX.Element {
                     ))}
                   </select>
                   <div id="create_roles_help" className="form-text">
-                    {rolesLoading ? "Loading roles..." : rolesError ?? (roleOptions.length === 0 ? "No roles available." : "Select one or more roles. Use Ctrl/Cmd-click to toggle selections.")}
+                    {rolesLoading ? "Loading roles..." : rolesError ?? (roleOptions.length === 0 ? "No roles available." : "Use Ctrl/Cmd-click to toggle selections.")}
                   </div>
                 </div>
                 <div className="col-12">

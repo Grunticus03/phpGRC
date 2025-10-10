@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { Evidence } from "../../lib/api/evidence";
 import { formatBytes, formatDate, type TimeFormat } from "../../lib/format";
 import { getCachedUser, loadUsers, type UserCacheValue } from "../../lib/usersCache";
+import FilterableHeaderRow, { type FilterableHeaderConfig } from "../../components/table/FilterableHeaderRow";
 
 type Props = {
   headers: HeaderConfig[];
@@ -14,15 +15,7 @@ type Props = {
   deletingId: string | null;
 };
 
-export type HeaderConfig = {
-  key: string;
-  label: string;
-  onToggle?: () => void;
-  isActive?: boolean;
-  filterContent?: ReactNode;
-  summaryContent?: ReactNode;
-  className?: string;
-};
+export type HeaderConfig = FilterableHeaderConfig;
 
 type OwnerMap = Map<number, UserCacheValue>;
 
@@ -137,25 +130,7 @@ export default function EvidenceTable({
     <div className="table-responsive">
       <table className="table" aria-label="Evidence results">
         <thead>
-          <tr>
-            {headers.map(({ key, label, onToggle, isActive, filterContent, summaryContent, className }) => (
-              <th key={key} scope="col" className={className}>
-                {onToggle ? (
-                  <button
-                    type="button"
-                    className={`btn btn-link p-0 fw-semibold text-start ${isActive ? "" : "link-underline-opacity-0"}`}
-                    onClick={onToggle}
-                  >
-                    {label}
-                  </button>
-                ) : (
-                  <span className="fw-semibold">{label}</span>
-                )}
-                {summaryContent}
-                {filterContent}
-              </th>
-            ))}
-          </tr>
+          <FilterableHeaderRow headers={headers} />
         </thead>
         <tbody>
           {items.map((item) => {
