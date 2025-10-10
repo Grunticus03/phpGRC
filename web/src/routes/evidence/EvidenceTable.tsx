@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import type { Evidence } from "../../lib/api/evidence";
 import { formatBytes, formatDate, type TimeFormat } from "../../lib/format";
+import { describeMime } from "../../lib/mimeLabels";
 import { getCachedUser, loadUsers, type UserCacheValue } from "../../lib/usersCache";
 
 type Props = {
@@ -162,6 +163,7 @@ export default function EvidenceTable({
               const ownerVal = owners.get(item.owner_id);
               const createdLabel = formatDate(item.created_at, timeFormat);
               const sizeLabel = formatBytes(item.size);
+              const mimeLabel = describeMime(item.mime);
               const shaPreview = item.sha256 ? `${item.sha256.slice(0, 12)}…` : "";
 
               return (
@@ -176,7 +178,7 @@ export default function EvidenceTable({
                   </td>
                   <td>{item.filename}</td>
                   <td title={Number.isFinite(item.size) ? `${item.size.toLocaleString()} bytes` : undefined}>{sizeLabel}</td>
-                  <td>{item.mime}</td>
+                  <td title={item.mime}>{mimeLabel}</td>
                   <td style={{ fontFamily: "monospace" }}>{shaPreview}</td>
                   <td style={{ fontFamily: "monospace" }}>{item.id}</td>
                   <td>{item.version}</td>

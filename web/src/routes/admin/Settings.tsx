@@ -10,7 +10,7 @@ type EffectiveConfig = {
     };
     rbac?: { require_auth?: boolean; user_search?: { default_per_page?: number } };
     audit?: { retention_days?: number };
-    evidence?: { blob_storage_path?: string };
+    evidence?: { blob_storage_path?: string; max_mb?: number };
     ui?: { time_format?: string };
   };
 };
@@ -23,6 +23,7 @@ type SettingsSnapshot = {
   retentionDays: number;
   timeFormat: TimeFormat;
   evidenceBlobPath: string;
+  evidenceMaxMb: number;
 };
 
 type SettingsPayload = {
@@ -37,7 +38,7 @@ type SettingsPayload = {
     rbac_denies?: { window_days: number };
   };
   ui?: { time_format: TimeFormat };
-  evidence?: { blob_storage_path: string };
+  evidence?: { blob_storage_path?: string; max_mb?: number };
 };
 
 type EvidencePurgeResponse = { ok?: boolean; deleted?: number; note?: string };
@@ -61,6 +62,7 @@ export default function Settings(): JSX.Element {
   const [retentionDays, setRetentionDays] = useState<number>(365);
   const [timeFormat, setTimeFormat] = useState<TimeFormat>(DEFAULT_TIME_FORMAT);
   const [evidenceBlobPath, setEvidenceBlobPath] = useState<string>("");
+  const [evidenceMaxMb, setEvidenceMaxMb] = useState<number>(25);
   const [blobPathFocused, setBlobPathFocused] = useState(false);
   const [purging, setPurging] = useState(false);
 
@@ -85,6 +87,7 @@ export default function Settings(): JSX.Element {
         const nextRetention = clamp(Number(audit.retention_days ?? 365), 1, 730);
         const nextTimeFormat = normalizeTimeFormat(core.ui?.time_format);
         const nextBlobPath = typeof evidence?.blob_storage_path === "string" ? evidence.blob_storage_path.trim() : "";
+        const nextMaxMb = clamp(Number(evidence?.max_mb ?? 25), 1, 4096);
 
         setCacheTtl(nextCacheTtl);
         setRbacDays(nextRbacDays);
@@ -93,6 +96,7 @@ export default function Settings(): JSX.Element {
         setRetentionDays(nextRetention);
         setTimeFormat(nextTimeFormat);
         setEvidenceBlobPath(nextBlobPath);
+        setEvidenceMaxMb(nextMaxMb);
 
         snapshotRef.current = {
           cacheTtl: nextCacheTtl,
@@ -102,6 +106,7 @@ export default function Settings(): JSX.Element {
           retentionDays: nextRetention,
           timeFormat: nextTimeFormat,
           evidenceBlobPath: nextBlobPath,
+          evidenceMaxMb: nextMaxMb,
         };
       } catch {
         setMsg("Failed to load settings.");
@@ -121,6 +126,7 @@ export default function Settings(): JSX.Element {
     retentionDays: clamp(Number(retentionDays) || 365, 1, 730),
     timeFormat,
     evidenceBlobPath: evidenceBlobPath.trim(),
+    evidenceMaxMb: clamp(Number(evidenceMaxMb) || 25, 1, 4096),
   });
 
   const buildPayload = (): SettingsPayload => {
@@ -140,7 +146,10 @@ export default function Settings(): JSX.Element {
         rbac_denies: { window_days: current.rbacDays },
       };
       payload.ui = { time_format: current.timeFormat };
-      payload.evidence = { blob_storage_path: current.evidenceBlobPath };
+      payload.evidence = {
+        blob_storage_path: current.evidenceBlobPath,
+        max_mb: current.evidenceMaxMb,
+      };
 
       return payload;
     }
@@ -175,8 +184,15 @@ export default function Settings(): JSX.Element {
       payload.ui = { time_format: current.timeFormat };
     }
 
+    const evidenceDiffs: NonNullable<SettingsPayload["evidence"]> = {};
     if (current.evidenceBlobPath !== baseline.evidenceBlobPath) {
-      payload.evidence = { blob_storage_path: current.evidenceBlobPath };
+      evidenceDiffs.blob_storage_path = current.evidenceBlobPath;
+    }
+    if (current.evidenceMaxMb !== baseline.evidenceMaxMb) {
+      evidenceDiffs.max_mb = current.evidenceMaxMb;
+    }
+    if (Object.keys(evidenceDiffs).length > 0) {
+      payload.evidence = evidenceDiffs;
     }
 
     return payload;
@@ -210,6 +226,7 @@ export default function Settings(): JSX.Element {
       snapshotRef.current = updated;
       setEvidenceBlobPath(updated.evidenceBlobPath);
       setRbacDays(updated.rbacDays);
+      setEvidenceMaxMb(updated.evidenceMaxMb);
     } catch {
       setMsg("Save failed.");
     } finally {
@@ -348,6 +365,24 @@ export default function Settings(): JSX.Element {
                   onBlur={() => setBlobPathFocused(false)}
                 />
                 <div className="form-text">Leave blank to keep storing evidence in the database.</div>
+              </div>
+              <div className="row g-2 align-items-end">
+                <div className="col-sm-4">
+                  <label htmlFor="evidenceMaxMb" className="form-label">Maximum file size (MB)</label>
+                  <input
+                    id="evidenceMaxMb"
+                    type="number"
+                    min={1}
+                    max={4096}
+                    className="form-control"
+                    value={evidenceMaxMb}
+                    onChange={(e) => {
+                      const next = Math.trunc(Number(e.target.value) || 1);
+                      setEvidenceMaxMb(clamp(next, 1, 4096));
+                    }}
+                  />
+                  <div className="form-text">Files larger than this limit will be rejected.</div>
+                </div>
               </div>
               <div className="d-flex flex-column flex-sm-row align-items-sm-center gap-2">
                 <button

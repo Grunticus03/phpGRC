@@ -18,7 +18,7 @@ type Payload = {
   audit?: { retention_days: number };
   metrics?: { cache_ttl_seconds?: number; rbac_denies?: { window_days: number } };
   ui?: { time_format: string };
-  evidence?: { blob_storage_path: string };
+  evidence?: { blob_storage_path?: string; max_mb?: number };
 };
 
 describe("Admin Settings page", () => {
@@ -123,6 +123,11 @@ describe("Admin Settings page", () => {
     expect(blobPath.placeholder).toBe("/opt/phpgrc/shared/blobs");
     expect(screen.getByText(blobHelperText)).toBeInTheDocument();
 
+    const maxMbInput = screen.getByLabelText("Maximum file size (MB)") as HTMLInputElement;
+    expect(maxMbInput.value).toBe("25");
+    fireEvent.change(maxMbInput, { target: { value: "100" } });
+    expect(maxMbInput.value).toBe("100");
+
     fireEvent.click(screen.getByRole("button", { name: /save/i }));
 
     await screen.findByText("Validated. Not persisted (stub).");
@@ -139,6 +144,7 @@ describe("Admin Settings page", () => {
     expect(payload.metrics?.rbac_denies).toBeUndefined();
     expect(payload.metrics?.cache_ttl_seconds).toBeUndefined();
     expect(payload.evidence?.blob_storage_path).toBe("/var/data/evidence");
+    expect(payload.evidence?.max_mb).toBe(100);
   });
 
   it("clamps authentication window above max on save", async () => {

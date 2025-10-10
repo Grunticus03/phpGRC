@@ -85,16 +85,27 @@ final class EvidenceApiTest extends TestCase
     }
 
     #[Test]
-    public function store_ignores_configured_max_mb_and_accepts_large_file(): void
+    public function store_rejects_when_file_exceeds_configured_limit(): void
     {
         Config::set('core.evidence.max_mb', 1);
-        $file = UploadedFile::fake()->create('big.pdf', 1024 + 1, 'application/pdf');
+        $file = UploadedFile::fake()->create('big.pdf', 2048, 'application/pdf');
+
+        $this->post('/evidence', ['file' => $file])
+            ->assertStatus(413)
+            ->assertJsonPath('code', 'UPLOAD_TOO_LARGE')
+            ->assertJsonPath('message', 'Upload greater than 1 MB');
+    }
+
+    #[Test]
+    public function store_accepts_file_within_configured_limit(): void
+    {
+        Config::set('core.evidence.max_mb', 2);
+        $file = UploadedFile::fake()->create('small.pdf', 2048, 'application/pdf');
 
         $this->post('/evidence', ['file' => $file])
             ->assertStatus(201)
             ->assertJsonPath('ok', true)
-            ->assertJsonPath('name', 'big.pdf')
-            ->assertJsonPath('mime', 'application/pdf');
+            ->assertJsonPath('name', 'small.pdf');
     }
 
     #[Test]

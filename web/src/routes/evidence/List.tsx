@@ -30,7 +30,7 @@ function chipStyle(): React.CSSProperties {
   };
 }
 
-type FilterKey = "created" | "owner" | "filename" | "mime";
+type FilterKey = "created" | "owner" | "filename" | "mime" | "sha";
 
 export default function EvidenceList(): JSX.Element {
   // Filters
@@ -40,6 +40,7 @@ export default function EvidenceList(): JSX.Element {
   const [createdTo, setCreatedTo] = useState("");
   const [filename, setFilename] = useState("");
   const [mime, setMime] = useState("");
+  const [sha, setSha] = useState("");
   const [order, setOrder] = useState<"asc" | "desc">("desc");
   const [limit, setLimit] = useState<number>(20);
   const [activeFilter, setActiveFilter] = useState<FilterKey | null>(null);
@@ -47,6 +48,7 @@ export default function EvidenceList(): JSX.Element {
   const [createdToDraft, setCreatedToDraft] = useState("");
   const [filenameDraft, setFilenameDraft] = useState("");
   const [mimeDraft, setMimeDraft] = useState("");
+  const [shaDraft, setShaDraft] = useState("");
   const [limitDraft, setLimitDraft] = useState("20");
   const [dateRangeError, setDateRangeError] = useState<string | null>(null);
 
@@ -80,6 +82,7 @@ export default function EvidenceList(): JSX.Element {
   const mimeInputRef = useRef<HTMLInputElement | null>(null);
   const createdFromInputRef = useRef<HTMLInputElement | null>(null);
   const createdToInputRef = useRef<HTMLInputElement | null>(null);
+  const shaInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (activeFilter === "owner") {
@@ -92,6 +95,9 @@ export default function EvidenceList(): JSX.Element {
       mimeInputRef.current?.select();
     } else if (activeFilter === "created") {
       createdFromInputRef.current?.focus();
+    } else if (activeFilter === "sha") {
+      shaInputRef.current?.focus();
+      shaInputRef.current?.select();
     }
   }, [activeFilter]);
 
@@ -115,11 +121,24 @@ export default function EvidenceList(): JSX.Element {
     setLimitDraft(String(limit));
   }, [limit]);
 
+  useEffect(() => {
+    setShaDraft(sha);
+  }, [sha]);
+
   const created_from = createdFrom ? `${createdFrom}T00:00:00Z` : undefined;
   const created_to = createdTo ? `${createdTo}T23:59:59Z` : undefined;
 
-  const params = useMemo(
-    () => ({
+  const params = useMemo(() => {
+    const shaClean = sha.trim().toLowerCase().replace(/[^a-f0-9]/g, "");
+    let shaExact: string | undefined;
+    let shaPrefix: string | undefined;
+    if (shaClean.length >= 64) {
+      shaExact = shaClean.slice(0, 64);
+    } else if (shaClean !== "") {
+      shaPrefix = shaClean;
+    }
+
+    return {
       owner_id: ownerSelected ? ownerSelected.id : undefined,
       filename: filename || undefined,
       mime: mime || undefined,
@@ -128,9 +147,10 @@ export default function EvidenceList(): JSX.Element {
       order,
       limit,
       cursor,
-    }),
-    [ownerSelected, filename, mime, created_from, created_to, order, limit, cursor]
-  );
+      sha256: shaExact || undefined,
+      sha256_prefix: shaPrefix || undefined,
+    };
+  }, [ownerSelected, filename, mime, created_from, created_to, order, limit, cursor, sha]);
 
   const isDateOrderValid = useMemo(() => {
     if (!createdFrom || !createdTo) return true;
@@ -425,6 +445,7 @@ export default function EvidenceList(): JSX.Element {
     ownerSelected !== null ||
     filename.trim() !== "" ||
     mime.trim() !== "" ||
+    sha.trim() !== "" ||
     createdFrom.trim() !== "" ||
     createdTo.trim() !== "" ||
     order !== "desc" ||
@@ -443,6 +464,8 @@ export default function EvidenceList(): JSX.Element {
             setFilenameDraft(filename);
           } else if (key === "mime") {
             setMimeDraft(mime);
+          } else if (key === "sha") {
+            setShaDraft(sha);
           }
         }
         if (next === null && key === "owner") {
@@ -452,7 +475,7 @@ export default function EvidenceList(): JSX.Element {
         return next;
       });
     },
-    [createdFrom, createdTo, filename, mime]
+    [createdFrom, createdTo, filename, mime, sha]
   );
 
   function applyFilenameFilter(value: string) {
@@ -472,6 +495,19 @@ export default function EvidenceList(): JSX.Element {
     setCursor(null);
     setPrevStack([]);
     void load(true, { mime: trimmed || undefined });
+    setActiveFilter(null);
+  }
+
+  function applyShaFilter(value: string) {
+    const cleaned = value.trim().toLowerCase().replace(/[^a-f0-9]/g, "");
+    setSha(cleaned);
+    setShaDraft(cleaned);
+    setCursor(null);
+    setPrevStack([]);
+    void load(true, {
+      sha256: cleaned.length >= 64 ? cleaned.slice(0, 64) : undefined,
+      sha256_prefix: cleaned !== "" && cleaned.length < 64 ? cleaned : undefined,
+    });
     setActiveFilter(null);
   }
 
@@ -537,6 +573,8 @@ export default function EvidenceList(): JSX.Element {
     setFilenameDraft("");
     setMime("");
     setMimeDraft("");
+    setSha("");
+    setShaDraft("");
     setCreatedFrom("");
     setCreatedTo("");
     setCreatedFromDraft("");
@@ -550,6 +588,8 @@ export default function EvidenceList(): JSX.Element {
       owner_id: undefined,
       filename: undefined,
       mime: undefined,
+      sha256: undefined,
+      sha256_prefix: undefined,
       created_from: undefined,
       created_to: undefined,
       order: "desc",
@@ -778,6 +818,54 @@ export default function EvidenceList(): JSX.Element {
       </div>
     ) : null;
 
+  const shaCleanDisplay = sha.trim().toLowerCase().replace(/[^a-f0-9]/g, "");
+  const shaSummaryContent = shaCleanDisplay ? (
+    <div className="small text-muted mt-1">{shaCleanDisplay.length > 12 ? `${shaCleanDisplay.slice(0, 12)}…` : shaCleanDisplay}</div>
+  ) : null;
+
+  const shaFilterContent =
+    activeFilter === "sha" ? (
+      <div className="mt-2">
+        <label htmlFor="filter-sha" className="visually-hidden">
+          Filter by SHA-256
+        </label>
+        <input
+          ref={shaInputRef}
+          id="filter-sha"
+          className="form-control form-control-sm"
+          value={shaDraft}
+          onChange={(e) => setShaDraft(e.currentTarget.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              applyShaFilter(e.currentTarget.value);
+            } else if (e.key === "Escape") {
+              e.preventDefault();
+              setActiveFilter(null);
+            }
+          }}
+          placeholder="e.g. 7f9c2b"
+          autoComplete="off"
+        />
+        <div className="form-text">Partial hashes match by prefix.</div>
+        <div className="d-flex gap-2 mt-2">
+          <button type="button" className="btn btn-primary btn-sm" onClick={() => applyShaFilter(shaDraft)}>
+            Apply
+          </button>
+          <button
+            type="button"
+            className="btn btn-outline-secondary btn-sm"
+            onClick={() => {
+              setShaDraft("");
+              applyShaFilter("");
+            }}
+          >
+            Clear
+          </button>
+        </div>
+      </div>
+    ) : null;
+
   const createdSummaryContent =
     createdFrom || createdTo ? (
       <div className="small text-muted mt-1">
@@ -906,6 +994,11 @@ export default function EvidenceList(): JSX.Element {
     {
       key: "sha256",
       label: "SHA-256",
+      onToggle: () => toggleFilter("sha"),
+      isActive: activeFilter === "sha",
+      summaryContent: shaSummaryContent,
+      filterContent: shaFilterContent,
+      className: "text-nowrap",
     },
     {
       key: "id",
@@ -946,9 +1039,6 @@ export default function EvidenceList(): JSX.Element {
               disabled={uploading}
               onChange={handleFileChange}
             />
-          </div>
-          <div className="col-12 col-md-6 col-lg-4">
-            <div className="form-text">Selecting a file uploads immediately.</div>
           </div>
         </div>
         {uploadError && (

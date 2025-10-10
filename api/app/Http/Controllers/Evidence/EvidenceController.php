@@ -85,6 +85,18 @@ final class EvidenceController extends Controller
         $sizeMaybe = $uploaded->getSize();
         $sizeBytes = is_int($sizeMaybe) ? $sizeMaybe : 0;
 
+        $limitMb = $this->configuredEvidenceLimitMb();
+        if ($limitMb !== null) {
+            $limitBytes = $limitMb * 1024 * 1024;
+            if ($limitBytes > 0 && $sizeBytes > $limitBytes) {
+                return response()->json([
+                    'ok' => false,
+                    'code' => 'UPLOAD_TOO_LARGE',
+                    'message' => $this->uploadTooLargeMessage($limitMb),
+                ], 413);
+            }
+        }
+
         /** @var array{id:string,version:int} $saved */
         $saved = DB::transaction(function () use ($ownerId, $originalName, $mime, $sizeBytes, $sha256, $bytes): array {
             /** @var int|string|false|null $maxRaw */
@@ -644,5 +656,24 @@ final class EvidenceController extends Controller
     private static function intFromDbMax(int|string|false|null $v): int
     {
         return is_int($v) ? $v : ((is_string($v) && ctype_digit($v)) ? (int) $v : 0);
+    }
+
+    private function configuredEvidenceLimitMb(): ?int
+    {
+        /** @var mixed $raw */
+        $raw = config('core.evidence.max_mb');
+        if (is_numeric($raw)) {
+            $value = (int) $raw;
+            if ($value > 0) {
+                return $value;
+            }
+        }
+
+        return null;
+    }
+
+    private function uploadTooLargeMessage(int $limitMb): string
+    {
+        return sprintf('Upload greater than %d MB', $limitMb);
     }
 }

@@ -196,7 +196,7 @@ describe("Evidence List", () => {
 
     await screen.findByText("Evidence");
 
-    await screen.findByRole("cell", { name: "image/png" });
+    await screen.findByRole("cell", { name: "PNG image" });
 
     const hits = calls.filter((u) => u.startsWith("/api/evidence?"));
     expect(hits.some((u) => u.includes("mime=image%2Fpng"))).toBe(true);

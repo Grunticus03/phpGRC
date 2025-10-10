@@ -159,7 +159,7 @@ jobs:
         run: |
           php -r 'require "vendor/autoload.php"; $app = require "bootstrap/app.php"; $app->make(\Illuminate\Contracts\Console\Kernel::class)->bootstrap();'
       - name: Psalm
-        run: vendor/bin/psalm --no-cache --long-progress
+        run: composer psalm -- --no-cache --long-progress
       - name: Clear generated app key
         if: always()
         run: |

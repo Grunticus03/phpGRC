@@ -77,7 +77,7 @@ final class UpdateSettingsRequest extends FormRequest
 
             'evidence' => ['sometimes', 'array'],
             'evidence.enabled' => ['sometimes', 'boolean'],
-            'evidence.max_mb' => ['sometimes', 'integer', 'min:1'],
+            'evidence.max_mb' => ['sometimes', 'integer', 'min:1', 'max:4096'],
             'evidence.allowed_mime' => ['sometimes', 'array', 'min:1'],
             'evidence.allowed_mime.*' => ['string', 'in:'.implode(',', $allowedMime)],
             'evidence.blob_storage_path' => ['sometimes', 'string', 'max:4096'],
@@ -113,6 +113,7 @@ final class UpdateSettingsRequest extends FormRequest
             'audit.retention_days.min' => 'Retention must be at least :min day.',
             'audit.retention_days.max' => 'Retention may not exceed :max days.',
             'evidence.max_mb.min' => 'Maximum size must be at least :min MB.',
+            'evidence.max_mb.max' => 'Maximum size must be at most :max MB.',
             'evidence.allowed_mime.*.in' => 'One or more MIME types are not allowed.',
             'evidence.blob_storage_path.max' => 'Blob storage path may not exceed :max characters.',
             'avatars.size_px.in' => 'Avatar size must be 128px.',

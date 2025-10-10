@@ -44,10 +44,13 @@ final class Handler extends ExceptionHandler
     public function render($request, Throwable $e): Response
     {
         if ($e instanceof PostTooLargeException) {
+            $limitMb = $this->configuredEvidenceLimitMb();
+            $label = $limitMb !== null ? sprintf('%d MB', $limitMb) : $this->maxUploadSizeLabel();
+
             return new JsonResponse([
                 'ok' => false,
                 'code' => 'UPLOAD_TOO_LARGE',
-                'message' => 'Upload greater than '.$this->maxUploadSizeLabel(),
+                'message' => 'Upload greater than '.$label,
             ], 413);
         }
 
@@ -84,7 +87,16 @@ final class Handler extends ExceptionHandler
 
     private function maxUploadSizeLabel(): string
     {
-        /** @var array<int, array{bytes:int}> $limits */
+        $bytes = $this->maxUploadSizeBytes();
+        if ($bytes === null) {
+            return 'the configured limit';
+        }
+
+        return $this->formatBytes($bytes);
+    }
+
+    private function maxUploadSizeBytes(): ?int
+    {
         $limits = [];
         foreach (['upload_max_filesize', 'post_max_size'] as $key) {
             /** @var string|false $raw */
@@ -100,17 +112,16 @@ final class Handler extends ExceptionHandler
             if ($bytes === null || $bytes <= 0) {
                 continue;
             }
-            $limits[] = ['bytes' => $bytes];
+            $limits[] = $bytes;
         }
 
         if ($limits === []) {
-            return 'the configured limit';
+            return null;
         }
 
-        usort($limits, static fn (array $a, array $b): int => $a['bytes'] <=> $b['bytes']);
-        $minBytes = $limits[0]['bytes'];
+        sort($limits);
 
-        return $this->formatBytes($minBytes);
+        return $limits[0];
     }
 
     private function parseIniSizeToBytes(string $value): ?int
@@ -165,5 +176,19 @@ final class Handler extends ExceptionHandler
         }
 
         return sprintf('%d bytes', $bytes);
+    }
+
+    private function configuredEvidenceLimitMb(): ?int
+    {
+        /** @var mixed $raw */
+        $raw = config('core.evidence.max_mb');
+        if (is_numeric($raw)) {
+            $value = (int) $raw;
+            if ($value > 0) {
+                return $value;
+            }
+        }
+
+        return null;
     }
 }
