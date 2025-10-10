@@ -228,8 +228,8 @@ Snapshot generated from migrations against **phpgrc** as of 2025-10-08 (UTC).
 **Indexes & Constraints**
 - `PRIMARY KEY (policy, role_id)`
 - `INDEX policy_role_assignments_role_id_foreign (role_id)`
-- `FOREIGN KEY policy_role_assignments_policy_foreign (policy)` REFERENCES `policy_roles`(`policy`) ON DELETE CASCADE
-- `FOREIGN KEY policy_role_assignments_role_id_foreign (role_id)` REFERENCES `roles`(`id`) ON DELETE CASCADE
+- `FOREIGN KEY policy_role_assignments_policy_foreign (policy) REFERENCES policy_roles(policy) ON UPDATE NO ACTION ON DELETE CASCADE`
+- `FOREIGN KEY policy_role_assignments_role_id_foreign (role_id) REFERENCES roles(id) ON UPDATE NO ACTION ON DELETE CASCADE`
 
 **Seed Data** (migration `2025_09_30_000400_create_policy_tables.php`)
 - core.settings.manage → role_admin

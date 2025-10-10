@@ -28,6 +28,7 @@ $tables = [];
 $cur = null;
 $inTable = false;
 $inIdx = false;
+$inSeed = false;
 
 foreach ($lines as $line) {
     // Start of a table section: ### `table`
@@ -61,6 +62,21 @@ foreach ($lines as $line) {
     // Transition to indexes section marker
     if (preg_match('/^\*\*Indexes\s*&\s*Constraints\*\*/i', $line)) {
         $inIdx = true;
+
+        continue;
+    }
+
+    // Seed data blocks should be ignored for normalization
+    if (preg_match('/^\*\*Seed Data\*\*/i', $line)) {
+        $inSeed = true;
+
+        continue;
+    }
+
+    if ($inSeed) {
+        if (trim($line) === '') {
+            $inSeed = false;
+        }
 
         continue;
     }
