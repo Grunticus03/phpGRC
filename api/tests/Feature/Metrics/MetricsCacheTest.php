@@ -6,6 +6,7 @@ namespace Tests\Feature\Metrics;
 
 use App\Http\Middleware\RbacMiddleware;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 final class MetricsCacheTest extends TestCase
@@ -21,7 +22,7 @@ final class MetricsCacheTest extends TestCase
 
     public function test_cache_disabled_when_ttl_zero(): void
     {
-        config(['core.metrics.cache_ttl_seconds' => 0]);
+        $this->setCacheTtl(0);
 
         $r1 = $this->getJson('/dashboard/kpis');
         $r1->assertOk();
@@ -36,7 +37,7 @@ final class MetricsCacheTest extends TestCase
 
     public function test_cache_hits_and_varies_by_params(): void
     {
-        config(['core.metrics.cache_ttl_seconds' => 60]);
+        $this->setCacheTtl(60);
 
         // First call with defaults -> miss
         $a = $this->getJson('/dashboard/kpis');
@@ -55,5 +56,17 @@ final class MetricsCacheTest extends TestCase
         $c->assertOk();
         $c->assertJsonPath('meta.cache.ttl', 60);
         $this->assertFalse((bool) $c->json('meta.cache.hit'));
+    }
+
+    private function setCacheTtl(int $seconds): void
+    {
+        $timestamp = now('UTC')->toDateTimeString();
+
+        DB::table('core_settings')->updateOrInsert(
+            ['key' => 'core.metrics.cache_ttl_seconds'],
+            ['value' => (string) $seconds, 'type' => 'int', 'updated_by' => null, 'created_at' => $timestamp, 'updated_at' => $timestamp]
+        );
+
+        config(['core.metrics.cache_ttl_seconds' => $seconds]);
     }
 }

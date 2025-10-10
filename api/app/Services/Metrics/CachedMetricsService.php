@@ -5,12 +5,13 @@ declare(strict_types=1);
 namespace App\Services\Metrics;
 
 use App\Services\Settings\SettingsService;
+use Illuminate\Contracts\Cache\Repository;
 use Illuminate\Support\Facades\Cache;
 
 /**
  * Metrics snapshot with lightweight caching that does NOT require a DB cache table.
  * - Reads adjustable settings from the database via SettingsService (core.metrics.*).
- * - Uses the in-memory "array" cache store to avoid DB during tests.
+ * - Uses the configured cache store (default/file) in production, array store in tests.
  */
 final class CachedMetricsService
 {
@@ -82,7 +83,11 @@ final class CachedMetricsService
 
         $key = sprintf('metrics.snapshot.v2:auth=%d', $authDays);
 
-        $store = Cache::store('array');
+        $store = $this->cacheStore();
+
+        if ($ttl <= 0) {
+            $store->forget($key);
+        }
 
         if ($ttl > 0 && $store->has($key)) {
             /** @var mixed $raw */
@@ -161,7 +166,7 @@ final class CachedMetricsService
         ];
 
         if ($ttl > 0) {
-            $store->put($key, $payload, $ttl);
+            $store->put($key, $payload, now()->addSeconds($ttl));
         }
 
         return ['data' => $payload, 'cache' => ['ttl' => $ttl, 'hit' => false]];
@@ -174,12 +179,6 @@ final class CachedMetricsService
      */
     private function loadDefaults(): array
     {
-        // TTL: read directly from config to respect runtime overrides in tests.
-        /** @var mixed $cfgTtl */
-        $cfgTtl = config('core.metrics.cache_ttl_seconds');
-        $ttl = $this->clampTtlAllowZero($cfgTtl); // 0 disables
-
-        // Other defaults from effective config (typed, contract-trimmed).
         /** @var array<string,mixed> $eff */
         $eff = $this->settings->effectiveConfig();
 
@@ -193,6 +192,12 @@ final class CachedMetricsService
         if (isset($metrics['rbac_denies']) && is_array($metrics['rbac_denies']) && isset($metrics['rbac_denies']['window_days'])) {
             $authDays = $this->clampAuthDays($metrics['rbac_denies']['window_days']);
         }
+
+        /** @var mixed $ttlCandidate */
+        $ttlCandidate = $metrics['cache_ttl_seconds'] ?? config('core.metrics.cache_ttl_seconds');
+        /** @var int|float|string|null $ttlSource */
+        $ttlSource = is_array($ttlCandidate) ? 0 : $ttlCandidate;
+        $ttl = $this->clampTtlAllowZero($ttlSource); // 0 disables
 
         return [
             'auth_days' => $authDays,
@@ -224,5 +229,39 @@ final class CachedMetricsService
         }
 
         return $v;
+    }
+
+    private function cacheStore(): Repository
+    {
+        if (app()->environment('testing')) {
+            return Cache::store('array');
+        }
+
+        /** @var mixed $preferredConfig */
+        $preferredConfig = config('core.metrics.cache_store');
+        $preferred = is_string($preferredConfig) ? trim($preferredConfig) : '';
+        if ($preferred !== '') {
+            try {
+                return Cache::store($preferred);
+            } catch (\Throwable) {
+                // fall through to defaults
+            }
+        }
+
+        /** @var mixed $defaultConfig */
+        $defaultConfig = config('cache.default', 'file');
+        $default = is_string($defaultConfig) ? trim($defaultConfig) : 'file';
+        if ($default !== '') {
+            try {
+                return Cache::store($default);
+            } catch (\Throwable) {
+            }
+        }
+
+        try {
+            return Cache::store('file');
+        } catch (\Throwable) {
+            return Cache::store('array');
+        }
     }
 }

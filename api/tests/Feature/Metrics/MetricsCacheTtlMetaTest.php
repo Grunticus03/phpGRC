@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Metrics;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 final class MetricsCacheTtlMetaTest extends TestCase
@@ -21,8 +22,13 @@ final class MetricsCacheTtlMetaTest extends TestCase
             'core.rbac.mode' => 'stub',
             'core.rbac.persistence' => false,
             'core.rbac.require_auth' => false,
-            'core.metrics.cache_ttl_seconds' => 60, // enable cache
+            'core.metrics.cache_ttl_seconds' => 0, // ensure config fallback differs from DB
         ]);
+
+        DB::table('core_settings')->updateOrInsert(
+            ['key' => 'core.metrics.cache_ttl_seconds'],
+            ['value' => '60', 'type' => 'int', 'updated_by' => null, 'created_at' => now('UTC')->toDateTimeString(), 'updated_at' => now('UTC')->toDateTimeString()]
+        );
     }
 
     public function test_meta_reports_ttl_and_cache_hit_on_second_call(): void
