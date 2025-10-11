@@ -64,7 +64,6 @@ export default function Settings(): JSX.Element {
   const [evidenceBlobPath, setEvidenceBlobPath] = useState<string>("");
   const [evidenceMaxMb, setEvidenceMaxMb] = useState<number>(25);
   const blobPlaceholderDefault = "/opt/phpgrc/shared/blobs";
-  const [blobPathFocused, setBlobPathFocused] = useState(false);
   const [purging, setPurging] = useState(false);
 
   const snapshotRef = useRef<SettingsSnapshot | null>(null);
@@ -87,7 +86,8 @@ export default function Settings(): JSX.Element {
         const nextPerPage = clamp(Number(rbac.user_search?.default_per_page ?? 50), 1, 500);
         const nextRetention = clamp(Number(audit.retention_days ?? 365), 1, 730);
         const nextTimeFormat = normalizeTimeFormat(core.ui?.time_format);
-        const nextBlobPath = typeof evidence?.blob_storage_path === "string" ? evidence.blob_storage_path.trim() : "";
+        const rawBlobPath = typeof evidence?.blob_storage_path === "string" ? evidence.blob_storage_path.trim() : "";
+        const nextBlobPath = rawBlobPath === blobPlaceholderDefault ? "" : rawBlobPath;
         const nextMaxMb = clamp(Number(evidence?.max_mb ?? 25), 1, 4096);
 
         setCacheTtl(nextCacheTtl);
@@ -357,13 +357,20 @@ export default function Settings(): JSX.Element {
                 <input
                   id="evidenceBlobPath"
                   type="text"
-                  className="form-control"
+                  className="form-control placeholder-hide-on-focus"
                   value={evidenceBlobPath}
                   onChange={(e) => setEvidenceBlobPath(e.target.value)}
-                  placeholder={blobPathFocused ? "" : blobPlaceholderDefault}
+                  placeholder={blobPlaceholderDefault}
                   autoComplete="off"
-                  onFocus={() => setBlobPathFocused(true)}
-                  onBlur={() => setBlobPathFocused(false)}
+                  onFocus={(event) => {
+                    event.currentTarget.dataset.placeholder = event.currentTarget.placeholder;
+                    event.currentTarget.placeholder = "";
+                  }}
+                  onBlur={(event) => {
+                    const original = event.currentTarget.dataset.placeholder || blobPlaceholderDefault;
+                    event.currentTarget.placeholder =
+                      event.currentTarget.value.trim() === "" ? original : blobPlaceholderDefault;
+                  }}
                 />
                 <div className="form-text">Leave blank to keep storing evidence in the database.</div>
               </div>

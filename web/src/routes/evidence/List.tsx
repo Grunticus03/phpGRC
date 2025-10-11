@@ -990,10 +990,6 @@ export default function EvidenceList(): JSX.Element {
       className: "text-nowrap",
     },
     {
-      key: "id",
-      label: "ID",
-    },
-    {
       key: "version",
       label: "Version",
     },

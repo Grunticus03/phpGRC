@@ -41,6 +41,38 @@ function buildAuthDataset(kpis: Kpis | null): ChartDataset {
   };
 }
 
+function useMediaQuery(query: string): boolean {
+  const [matches, setMatches] = useState(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
+      return false;
+    }
+    return window.matchMedia(query).matches;
+  });
+
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
+      return;
+    }
+    const mediaQuery = window.matchMedia(query);
+    const handler = (event: MediaQueryListEvent) => setMatches(event.matches);
+    setMatches(mediaQuery.matches);
+    if (typeof mediaQuery.addEventListener === "function") {
+      mediaQuery.addEventListener("change", handler);
+    } else if (typeof mediaQuery.addListener === "function") {
+      mediaQuery.addListener(handler);
+    }
+    return () => {
+      if (typeof mediaQuery.removeEventListener === "function") {
+        mediaQuery.removeEventListener("change", handler);
+      } else if (typeof mediaQuery.removeListener === "function") {
+        mediaQuery.removeListener(handler);
+      }
+    };
+  }, [query]);
+
+  return matches;
+}
+
 export default function Kpis(): JSX.Element {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -49,6 +81,7 @@ export default function Kpis(): JSX.Element {
   const [reportError, setReportError] = useState<string | null>(null);
 
   const navigate = useNavigate();
+  const twoColumnLayout = useMediaQuery("(min-width: 1200px)");
 
   useEffect(() => {
     let aborted = false;
@@ -190,13 +223,14 @@ export default function Kpis(): JSX.Element {
     };
   }, [pieSlices]);
 
+  const legendPosition = twoColumnLayout ? "left" : "top";
   const pieOptions: ChartOptions<"pie"> = useMemo(
     () => ({
       responsive: true,
       maintainAspectRatio: false,
       plugins: {
         legend: {
-          position: "left",
+          position: legendPosition,
           align: "start",
           labels: {
             usePointStyle: true,
@@ -214,7 +248,7 @@ export default function Kpis(): JSX.Element {
         navigate(`/admin/evidence?${params.toString()}`);
       },
     }),
-    [pieData, pieSlices, navigate]
+    [legendPosition, pieData, pieSlices, navigate]
   );
 
   const auditLink = useMemo(() => {
@@ -275,81 +309,85 @@ export default function Kpis(): JSX.Element {
             </div>
           </section>
 
-          <div className="row g-3 align-items-stretch">
-            <div className="col-12 col-lg-6 d-flex">
-              <section className="card h-100 flex-fill">
-                <div className="card-header">
-                  <Link to={evidenceLink} className="fw-semibold text-decoration-none">
-                    Evidence File Types
-                  </Link>
-                </div>
-                <div className="card-body" style={{ height: PIE_HEIGHT }}>
-                  {pieData ? (
-                    <Pie data={pieData} options={pieOptions} aria-label="Evidence file type distribution" />
-                  ) : (
-                    <p className="text-muted mb-0">No evidence uploads yet.</p>
-                  )}
-                </div>
-              </section>
-            </div>
+          <div
+            style={{
+              display: "grid",
+              gap: "1.5rem",
+              gridTemplateColumns: twoColumnLayout ? "repeat(2, minmax(0, 1fr))" : "repeat(1, minmax(0, 1fr))",
+            }}
+          >
+            <section className="card h-100" style={{ minWidth: 0 }}>
+              <div className="card-header">
+                <Link to={evidenceLink} className="fw-semibold text-decoration-none">
+                  Evidence File Types
+                </Link>
+              </div>
+              <div className="card-body" style={{ height: PIE_HEIGHT }}>
+                {pieData ? (
+                  <Pie data={pieData} options={pieOptions} aria-label="Evidence file type distribution" />
+                ) : (
+                  <p className="text-muted mb-0">No evidence uploads yet.</p>
+                )}
+              </div>
+            </section>
 
-            <div className="col-12 col-lg-6 d-flex">
-              <section className="card h-100 flex-fill">
-                <div className="card-header">
-                  <span className="fw-semibold">Admin Activity</span>
-                </div>
-                <div className="card-body d-flex flex-column p-0">
-                  {reportError && (
-                    <div className="alert alert-warning mb-0 rounded-0 py-2 px-3" role="alert">
-                      {reportError}
+            <section className="card h-100" style={{ minWidth: 0 }}>
+      <div className="card-header d-flex justify-content-between align-items-center">
+        <Link to={`${auditLink}&role=Admin`} className="fw-semibold text-decoration-none">
+          Admin Activity
+        </Link>
+      </div>
+              <div className="card-body d-flex flex-column p-0" style={{ height: PIE_HEIGHT }}>
+                {reportError && (
+                  <div className="alert alert-warning mb-0 rounded-0 py-2 px-3" role="alert">
+                    {reportError}
+                  </div>
+                )}
+                <div className="flex-grow-1 overflow-auto">
+                  {admins.length === 0 ? (
+                    <p className="text-muted px-3 py-3 mb-0">No admin users found.</p>
+                  ) : (
+                    <div className="table-responsive">
+                      <table className="table table-sm table-striped mb-0">
+                        <thead>
+                          <tr>
+                            <th scope="col">User</th>
+                            <th scope="col">Last Login</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {admins.map((admin) => {
+                            const lastLogin = admin.last_login_at
+                              ? formatTimestamp(admin.last_login_at, DEFAULT_TIME_FORMAT)
+                              : "—";
+                            return (
+                              <tr key={`${admin.id}-${admin.email}`}>
+                                <td>
+                                  <div className="fw-semibold">{admin.name || admin.email || `User ${admin.id}`}</div>
+                                  {admin.email && <div className="text-muted small">{admin.email}</div>}
+                                </td>
+                                <td>{lastLogin}</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
                     </div>
                   )}
-                  <div className="flex-grow-1">
-                    {admins.length === 0 ? (
-                      <p className="text-muted px-3 py-3 mb-0">No admin users found.</p>
-                    ) : (
-                      <div className="table-responsive">
-                        <table className="table table-sm table-striped mb-0">
-                          <thead>
-                            <tr>
-                              <th scope="col">User</th>
-                              <th scope="col">Last Login</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {admins.map((admin) => {
-                              const lastLogin = admin.last_login_at
-                                ? formatTimestamp(admin.last_login_at, DEFAULT_TIME_FORMAT)
-                                : "—";
-                              return (
-                                <tr key={`${admin.id}-${admin.email}`}>
-                                  <td>
-                                    <div className="fw-semibold">{admin.name || admin.email || `User ${admin.id}`}</div>
-                                    {admin.email && <div className="text-muted small">{admin.email}</div>}
-                                  </td>
-                                  <td>{lastLogin}</td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
-                  </div>
                 </div>
-                <div className="card-footer text-end bg-transparent border-top">
-                  <button
-                    type="button"
-                    className="btn btn-outline-secondary btn-sm"
-                    onClick={handleDownloadAdminReport}
-                    disabled={downloadingReport}
-                    aria-busy={downloadingReport}
-                  >
-                    {downloadingReport ? "Downloading…" : "Download CSV"}
-                  </button>
-                </div>
-              </section>
-            </div>
+              </div>
+              <div className="card-footer text-end bg-transparent border-top">
+                <button
+                  type="button"
+                  className="btn btn-outline-secondary btn-sm"
+                  onClick={handleDownloadAdminReport}
+                  disabled={downloadingReport}
+                  aria-busy={downloadingReport}
+                >
+                  {downloadingReport ? "Downloading…" : "Download CSV"}
+                </button>
+              </div>
+            </section>
           </div>
         </div>
       )}

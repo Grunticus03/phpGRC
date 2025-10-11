@@ -22,8 +22,13 @@ export default function Nav({ requireAuth, authed }: NavProps): JSX.Element {
     <header role="banner">
       <nav className="navbar" role="navigation" aria-label="Primary">
         <div className="container" style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-          <NavLink to="/" className="navbar-brand" aria-label="phpGRC home">
-            phpGRC
+          <NavLink to="/" className="navbar-brand d-flex align-items-center" aria-label="phpGRC home">
+            <img
+              src="/api/images/phpGRC-light-horizontal-trans.png"
+              alt="phpGRC"
+              style={{ height: "36px", width: "auto" }}
+              loading="lazy"
+            />
           </NavLink>
           <NavLink to="/dashboard" className={linkCls}>
             Dashboard

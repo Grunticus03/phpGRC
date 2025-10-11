@@ -143,18 +143,17 @@ export default function EvidenceTable({
               return (
                 <tr key={item.id}>
                   <td title={item.created_at}>{createdLabel}</td>
-                  <td title={ownerTitle(item.owner_id, ownerVal)}>
+                  <td className="text-break" style={{ maxWidth: "12rem" }} title={ownerTitle(item.owner_id, ownerVal)}>
                     {ownerVal === undefined ? (
                       <span className="text-muted">Loading...</span>
                     ) : (
                       ownerLabel(item.owner_id, ownerVal)
                     )}
                   </td>
-                  <td>{item.filename}</td>
+                  <td className="text-break" style={{ maxWidth: "18rem" }}>{item.filename}</td>
                   <td title={Number.isFinite(item.size) ? `${item.size.toLocaleString()} bytes` : undefined}>{sizeLabel}</td>
-                  <td title={item.mime}>{mimeLabel}</td>
+                  <td className="text-break" style={{ maxWidth: "14rem" }} title={item.mime}>{mimeLabel}</td>
                   <td style={{ fontFamily: "monospace" }}>{shaPreview}</td>
-                  <td style={{ fontFamily: "monospace" }}>{item.id}</td>
                   <td>{item.version}</td>
                   <td>
                     <button

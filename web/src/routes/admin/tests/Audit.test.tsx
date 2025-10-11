@@ -111,7 +111,6 @@ describe("Admin Audit page", () => {
       expect(hit).toContain(`limit=${limitInput.value}`);
     });
 
-    await screen.findByText("ULID001");
     await screen.findByText(/Role attached by 1/i);
     await screen.findByLabelText(/Role attached \(rbac\.user_role\.attached\)/i);
   });

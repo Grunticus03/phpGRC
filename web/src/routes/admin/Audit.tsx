@@ -870,14 +870,10 @@ export default function Audit(): JSX.Element {
       key: "message",
       label: "Message",
     },
-    {
-      key: "id",
-      label: "Event ID",
-    },
   ];
 
   return (
-    <section aria-busy={state === "loading"}>
+    <main className="container py-3" aria-busy={state === "loading"}>
       <h1>Audit</h1>
 
       {state === "loading" && <p>Loading.</p>}
@@ -965,7 +961,7 @@ export default function Audit(): JSX.Element {
           <tbody>
             {items.length === 0 && state === "ok" ? (
               <tr>
-                <td colSpan={7}>No results</td>
+                <td colSpan={6}>No results</td>
               </tr>
             ) : (
               items.map((it, i) => {
@@ -998,7 +994,6 @@ export default function Audit(): JSX.Element {
                       </span>
                     </td>
                     <td>{message}</td>
-                    <td style={{ fontFamily: "monospace" }}>{id}</td>
                   </tr>
                 );
               })
@@ -1019,6 +1014,6 @@ export default function Audit(): JSX.Element {
           Download CSV
         </a>
       </div>
-    </section>
+    </main>
   );
 }

@@ -113,6 +113,7 @@ describe("Admin Settings page", () => {
     const blobPath = screen.getByLabelText("Blob storage path") as HTMLInputElement;
     expect(blobPath.value).toBe("");
     expect(blobPath.placeholder).toBe("/opt/phpgrc/shared/blobs");
+    expect(blobPath.classList.contains("placeholder-hide-on-focus")).toBe(true);
     expect(screen.getByText(blobHelperText)).toBeInTheDocument();
     fireEvent.focus(blobPath);
     expect(screen.getByText(blobHelperText)).toBeInTheDocument();
