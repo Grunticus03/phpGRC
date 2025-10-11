@@ -131,7 +131,7 @@ Snapshot generated from migrations against **phpgrc** as of 2025-10-11 (UTC).
 | mime | varchar(96) | ✓ | NULL | — |
 | size_bytes | bigint unsigned | ✓ | NULL | — |
 | sha256 | varchar(64) | ✓ | NULL | — |
-| bytes | longblob | ✓ | NULL | — |
+| bytes | longblob | ✗ | NULL | — |
 | created_at | datetime | ✓ | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
 | updated_at | datetime | ✓ | CURRENT_TIMESTAMP | DEFAULT_GENERATED on update CURRENT_TIMESTAMP |
 
