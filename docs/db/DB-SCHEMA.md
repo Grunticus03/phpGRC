@@ -71,7 +71,7 @@ Snapshot generated from migrations against **phpgrc** as of 2025-10-09 (UTC).
 | mime | varchar(96) | ✓ | NULL | — |
 | size_bytes | bigint unsigned | ✓ | NULL | — |
 | sha256 | varchar(64) | ✓ | NULL | — |
-| bytes | longblob | ✓ | NULL | — |
+| bytes | longblob | ✗ | NULL | — |
 | uploaded_by | bigint unsigned | ✗ | NULL | — |
 | uploaded_by_name | varchar(120) | ✗ | NULL | — |
 | created_at | datetime | ✓ | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
@@ -79,9 +79,10 @@ Snapshot generated from migrations against **phpgrc** as of 2025-10-09 (UTC).
 
 **Indexes & Constraints**
 - `PRIMARY KEY (id)`
-- `INDEX brand_assets_kind_index (kind)`
 - `INDEX brand_assets_created_at_index (created_at)`
+- `INDEX brand_assets_kind_index (kind)`
 - `INDEX brand_assets_sha256_index (sha256)`
+- `INDEX brand_assets_uploaded_by_foreign (uploaded_by)`
 
 - `FOREIGN KEY brand_assets_uploaded_by_foreign (uploaded_by) REFERENCES users(id) ON UPDATE CASCADE ON DELETE SET NULL`
 
