@@ -1,6 +1,6 @@
 # phpGRC Database Schema
 
-Snapshot generated from migrations against **phpgrc** as of 2025-10-09 (UTC).
+Snapshot generated from migrations against **phpgrc** as of 2025-10-11 (UTC).
 
 - SQL dialect: MySQL 8.0+
 - All times UTC.
@@ -118,6 +118,59 @@ Snapshot generated from migrations against **phpgrc** as of 2025-10-09 (UTC).
 **Indexes & Constraints**
 - `PRIMARY KEY (key)`
 - `INDEX ui_settings_updated_at_index (updated_at)`
+
+---
+
+### `ui_theme_pack_files`
+
+| Column | Type | Null | Default | Extra |
+|-------:|------|------|---------|-------|
+| id | bigint unsigned | ✓ | NULL | auto_increment |
+| pack_slug | varchar(255) | ✓ | NULL | — |
+| path | varchar(255) | ✓ | NULL | — |
+| mime | varchar(96) | ✓ | NULL | — |
+| size_bytes | bigint unsigned | ✓ | NULL | — |
+| sha256 | varchar(64) | ✓ | NULL | — |
+| bytes | longblob | ✓ | NULL | — |
+| created_at | datetime | ✓ | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
+| updated_at | datetime | ✓ | CURRENT_TIMESTAMP | DEFAULT_GENERATED on update CURRENT_TIMESTAMP |
+
+**Indexes & Constraints**
+- `PRIMARY KEY (id)`
+- `UNIQUE INDEX ui_theme_pack_files_pack_slug_path_unique (pack_slug, path)`
+- `INDEX ui_theme_pack_files_pack_slug_index (pack_slug)`
+- `INDEX ui_theme_pack_files_created_at_index (created_at)`
+
+- `FOREIGN KEY ui_theme_pack_files_pack_slug_foreign (pack_slug) REFERENCES ui_theme_packs(slug) ON UPDATE CASCADE ON DELETE CASCADE`
+
+---
+
+### `ui_theme_packs`
+
+| Column | Type | Null | Default | Extra |
+|-------:|------|------|---------|-------|
+| slug | varchar(255) | ✓ | NULL | — |
+| name | varchar(160) | ✓ | NULL | — |
+| version | varchar(64) | ✗ | NULL | — |
+| author | varchar(160) | ✗ | NULL | — |
+| license_name | varchar(120) | ✗ | NULL | — |
+| license_file | varchar(160) | ✗ | NULL | — |
+| enabled | tinyint(1) | ✓ | 1 | — |
+| imported_by | bigint unsigned | ✗ | NULL | — |
+| imported_by_name | varchar(120) | ✗ | NULL | — |
+| assets | json | ✗ | NULL | — |
+| files | json | ✗ | NULL | — |
+| inactive | json | ✗ | NULL | — |
+| created_at | datetime | ✓ | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
+| updated_at | datetime | ✓ | CURRENT_TIMESTAMP | DEFAULT_GENERATED on update CURRENT_TIMESTAMP |
+
+**Indexes & Constraints**
+- `PRIMARY KEY (slug)`
+- `INDEX ui_theme_packs_enabled_index (enabled)`
+- `INDEX ui_theme_packs_created_at_index (created_at)`
+- `INDEX ui_theme_packs_imported_by_foreign (imported_by)`
+
+- `FOREIGN KEY ui_theme_packs_imported_by_foreign (imported_by) REFERENCES users(id) ON UPDATE CASCADE ON DELETE SET NULL`
 
 ---
 
