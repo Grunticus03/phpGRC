@@ -23,6 +23,10 @@ use App\Http\Controllers\Rbac\RolesController;
 use App\Http\Controllers\Rbac\UserRolesController;
 use App\Http\Controllers\Rbac\UserSearchController;
 use App\Http\Controllers\Reports\AdminActivityReportController;
+use App\Http\Controllers\Settings\BrandAssetsController;
+use App\Http\Controllers\Settings\UiSettingsController as UiSettingsApiController;
+use App\Http\Controllers\Settings\UiThemeManifestController;
+use App\Http\Controllers\User\UiPreferencesController;
 use App\Http\Middleware\Auth\BruteForceGuard;
 use App\Http\Middleware\Auth\RequireSanctumWhenRequired;
 use App\Http\Middleware\Auth\TokenCookieGuard;
@@ -166,6 +170,33 @@ Route::prefix('/admin')
 
         Route::post('/evidence/purge', EvidencePurgeController::class)
             ->defaults('policy', 'core.evidence.manage');
+    });
+
+Route::get('/settings/ui/themes', UiThemeManifestController::class)
+    ->middleware(['auth.cookie', 'auth:sanctum']);
+
+Route::get('/settings/ui', [UiSettingsApiController::class, 'show'])
+    ->middleware(['auth.cookie', 'auth:sanctum']);
+
+Route::prefix('/settings/ui')
+    ->middleware($rbacStack)
+    ->group(function (): void {
+        Route::put('/', [UiSettingsApiController::class, 'update'])
+            ->defaults('policy', 'core.settings.manage');
+
+        Route::get('/brand-assets', [BrandAssetsController::class, 'index'])
+            ->defaults('policy', 'core.settings.manage');
+        Route::post('/brand-assets', [BrandAssetsController::class, 'store'])
+            ->defaults('policy', 'core.settings.manage');
+        Route::delete('/brand-assets/{asset}', [BrandAssetsController::class, 'destroy'])
+            ->defaults('policy', 'core.settings.manage');
+    });
+
+Route::prefix('/me')
+    ->middleware(['auth.cookie', 'auth:sanctum'])
+    ->group(function (): void {
+        Route::get('/prefs/ui', [UiPreferencesController::class, 'show']);
+        Route::put('/prefs/ui', [UiPreferencesController::class, 'update']);
     });
 
 Route::prefix('/users')

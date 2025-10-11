@@ -25,8 +25,10 @@ final class SettingsAuditDiffsTest extends TestCase
 
     public function test_settings_apply_writes_audit_with_changes_and_api_exposes_changes(): void
     {
+        $etag = $this->currentSettingsEtag();
+
         // Apply two changes
-        $res = $this->postJson('/admin/settings', [
+        $res = $this->withHeaders(['If-Match' => $etag])->postJson('/admin/settings', [
             'apply' => true,
             'audit' => ['retention_days' => 180],
             'evidence' => ['max_mb' => 50],
@@ -64,5 +66,16 @@ final class SettingsAuditDiffsTest extends TestCase
 
         self::assertArrayHasKey('core.audit.retention_days', $collected);
         self::assertArrayHasKey('core.evidence.max_mb', $collected);
+    }
+
+    private function currentSettingsEtag(): string
+    {
+        $response = $this->json('GET', '/admin/settings');
+        $response->assertStatus(200);
+
+        $etag = $response->headers->get('ETag');
+        self::assertNotNull($etag, 'Expected ETag header from /admin/settings');
+
+        return (string) $etag;
     }
 }

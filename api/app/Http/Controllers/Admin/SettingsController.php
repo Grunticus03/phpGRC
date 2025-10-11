@@ -8,22 +8,35 @@ use App\Http\Requests\Admin\UpdateSettingsRequest;
 use App\Models\User;
 use App\Services\Settings\SettingsService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Arr;
+use Symfony\Component\HttpFoundation\Response;
 
 final class SettingsController extends Controller
 {
     public function __construct(private readonly SettingsService $settings) {}
 
-    public function index(): JsonResponse
+    public function index(Request $request): Response
     {
         /** @var array{core: array<string, mixed>} $effective */
         $effective = $this->settings->effectiveConfig();
+        $etag = $this->settings->etagFor($effective);
 
-        return new JsonResponse([
+        $headers = [
+            'ETag' => $etag,
+            'Cache-Control' => 'no-store, max-age=0',
+            'Pragma' => 'no-cache',
+        ];
+
+        if ($this->etagMatches($request->headers->get('If-None-Match'), $etag)) {
+            return response()->noContent(304)->withHeaders($headers);
+        }
+
+        return response()->json([
             'ok' => true,
             'config' => $effective, // includes core.metrics
-        ], 200);
+        ], 200)->withHeaders($headers);
     }
 
     public function update(UpdateSettingsRequest $request): JsonResponse
@@ -32,6 +45,15 @@ final class SettingsController extends Controller
         $raw = $request->all();
         /** @var array<string,mixed> $validated */
         $validated = $request->validated();
+
+        /** @var array{core: array<string, mixed>} $effectiveBefore */
+        $effectiveBefore = $this->settings->effectiveConfig();
+        $currentEtag = $this->settings->etagFor($effectiveBefore);
+        $baseHeaders = [
+            'ETag' => $currentEtag,
+            'Cache-Control' => 'no-store, max-age=0',
+            'Pragma' => 'no-cache',
+        ];
 
         // Accept both spec shape (top-level) and legacy shape (under core.*)
         /** @var array<string,mixed> $legacy */
@@ -62,12 +84,14 @@ final class SettingsController extends Controller
         }
 
         if (! $apply || ! $this->settings->persistenceAvailable()) {
-            return new JsonResponse([
+            return response()->json([
                 'ok' => true,
                 'applied' => false,
                 'note' => 'stub-only',
                 'accepted' => $accepted,
-            ], 200);
+                'config' => $effectiveBefore,
+                'etag' => $currentEtag,
+            ], 200)->withHeaders($baseHeaders);
         }
 
         $uid = auth()->id();
@@ -101,17 +125,58 @@ final class SettingsController extends Controller
             }
         }
 
+        $ifMatch = $request->headers->get('If-Match');
+        if (! $this->etagMatches($ifMatch, $currentEtag)) {
+            return response()->json([
+                'ok' => false,
+                'code' => 'PRECONDITION_FAILED',
+                'message' => 'If-Match header required or did not match the current ETag',
+                'current_etag' => $currentEtag,
+            ], 409)->withHeaders($baseHeaders);
+        }
+
         $result = $this->settings->apply(
             accepted: $accepted,
             actorId: $actorId,
             context: $context
         );
 
-        return new JsonResponse([
+        /** @var array{core: array<string, mixed>} $effectiveAfter */
+        $effectiveAfter = $this->settings->effectiveConfig();
+        $newEtag = $this->settings->etagFor($effectiveAfter);
+
+        return response()->json([
             'ok' => true,
             'applied' => true,
             'accepted' => $accepted,
             'changes' => $result['changes'],
-        ], 200);
+            'config' => $effectiveAfter,
+            'etag' => $newEtag,
+        ], 200)->withHeaders([
+            'ETag' => $newEtag,
+            'Cache-Control' => 'no-store, max-age=0',
+            'Pragma' => 'no-cache',
+        ]);
+    }
+
+    private function etagMatches(?string $header, string $etag): bool
+    {
+        if ($header === null || trim($header) === '') {
+            return false;
+        }
+
+        $candidates = array_filter(array_map('trim', explode(',', $header)));
+
+        foreach ($candidates as $candidate) {
+            if ($candidate === '*') {
+                return true;
+            }
+
+            if ($candidate === $etag) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

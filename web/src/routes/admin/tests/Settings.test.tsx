@@ -1,14 +1,17 @@
 /** @vitest-environment jsdom */
 import { describe, expect, it, beforeEach, afterEach, vi } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import React from "react";
 import Settings from "../Settings";
 
 function jsonResponse(body: unknown, init: ResponseInit = {}) {
+  const headers = new Headers(init.headers ?? {});
+  if (!headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
+  }
   return new Response(JSON.stringify(body), {
     status: init.status ?? 200,
-    headers: { "Content-Type": "application/json" },
-    ...init,
+    headers,
   });
 }
 
@@ -23,51 +26,59 @@ type Payload = {
 
 describe("Admin Settings page", () => {
   const originalFetch = globalThis.fetch as typeof fetch;
-  let putBody: unknown = null;
+  let postBody: unknown = null;
+  let lastIfMatch: string | null = null;
   const blobHelperText = "Leave blank to keep storing evidence in the database.";
 
   beforeEach(() => {
-    putBody = null;
+    postBody = null;
+    lastIfMatch = null;
     globalThis.fetch = vi.fn(async (...args: Parameters<typeof fetch>) => {
       const url = String(args[0]);
       const init = (args[1] ?? {}) as RequestInit;
+      const method = (init.method ?? "GET").toUpperCase();
 
-      // GET effective settings (DB-backed in app, but mocked here)
-      if (url === "/api/admin/settings" && (!init || init.method === undefined)) {
-        return jsonResponse({
-          ok: true,
-          config: {
-            core: {
-              rbac: {
-                enabled: true,
-                roles: ["Admin", "Auditor", "Risk Manager", "User"],
-                require_auth: false,
-                user_search: { default_per_page: 50 },
+      if (url === "/api/admin/settings" && method === "GET") {
+        return jsonResponse(
+          {
+            ok: true,
+            config: {
+              core: {
+                rbac: {
+                  enabled: true,
+                  roles: ["Admin", "Auditor", "Risk Manager", "User"],
+                  require_auth: false,
+                  user_search: { default_per_page: 50 },
+                },
+                audit: { enabled: true, retention_days: 365 },
+                evidence: {
+                  enabled: true,
+                  max_mb: 25,
+                  allowed_mime: ["application/pdf", "image/png", "image/jpeg", "text/plain"],
+                  blob_storage_path: "/opt/phpgrc/shared/blobs",
+                },
+                avatars: { enabled: true, size_px: 128, format: "webp" },
+                ui: { time_format: "LOCAL" },
               },
-              audit: { enabled: true, retention_days: 365 },
-              evidence: {
-                enabled: true,
-                max_mb: 25,
-                allowed_mime: ["application/pdf", "image/png", "image/jpeg", "text/plain"],
-                blob_storage_path: "/opt/phpgrc/shared/blobs",
-              },
-              avatars: { enabled: true, size_px: 128, format: "webp" },
-              ui: { time_format: "LOCAL" },
-              // metrics come from DB in-app; not asserted here
             },
           },
-        });
+          { headers: { ETag: 'W/"settings:test"' } }
+        );
       }
 
-      // PUT settings (create/update)
-      if (url === "/api/admin/settings" && init?.method === "PUT") {
+      if (url === "/api/admin/settings" && method === "POST") {
         try {
-          putBody = JSON.parse(String(init.body ?? "{}"));
+          postBody = JSON.parse(String(init.body ?? "{}"));
         } catch {
-          putBody = null;
+          postBody = null;
         }
-        // Return stub-only note to trigger expected message
-        return jsonResponse({ ok: true, note: "stub-only" }, { status: 200 });
+        const headers = new Headers(init.headers ?? {});
+        lastIfMatch = headers.get("If-Match");
+
+        return jsonResponse(
+          { ok: true, note: "stub-only" },
+          { status: 200, headers: { ETag: 'W/"settings:test-next"' } }
+        );
       }
 
       return jsonResponse({ ok: true });
@@ -129,15 +140,17 @@ describe("Admin Settings page", () => {
     fireEvent.change(maxMbInput, { target: { value: "100" } });
     expect(maxMbInput.value).toBe("100");
 
-    fireEvent.click(screen.getByRole("button", { name: /save/i }));
+    const adminForm = screen.getByRole("form", { name: "admin-settings" });
+    fireEvent.click(within(adminForm).getByRole("button", { name: /save/i }));
 
     await screen.findByText("Validated. Not persisted (stub).");
     expect(authWindow.value).toBe("7");
 
-    expect(putBody).toBeTruthy();
-    expect(putBody).toMatchObject({ apply: true });
+    expect(postBody).toBeTruthy();
+    expect(postBody).toMatchObject({ apply: true });
+    expect(lastIfMatch).toBe('W/"settings:test"');
 
-    const payload = putBody as Payload;
+    const payload = postBody as Payload;
     expect(payload.rbac?.require_auth).toBe(true);
     expect(payload.rbac?.user_search?.default_per_page).toBe(200);
     expect(payload.audit?.retention_days).toBe(180);
@@ -159,11 +172,12 @@ describe("Admin Settings page", () => {
     fireEvent.change(authWindow, { target: { value: "400" } });
     expect(authWindow.value).toBe("400");
 
-    fireEvent.click(screen.getByRole("button", { name: /save/i }));
+    const adminForm = screen.getByRole("form", { name: "admin-settings" });
+    fireEvent.click(within(adminForm).getByRole("button", { name: /save/i }));
     await screen.findByText("Validated. Not persisted (stub).");
 
-    expect(putBody).toBeTruthy();
-    const payload = putBody as Payload;
+    expect(postBody).toBeTruthy();
+    const payload = postBody as Payload;
     expect(payload.metrics?.rbac_denies?.window_days).toBe(365);
     expect(authWindow.value).toBe("365");
   });

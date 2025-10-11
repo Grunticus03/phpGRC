@@ -1,6 +1,6 @@
 # Phase 5 Task Checklist
 
-Status: Ready to tag  
+Status: Complete — ready to tag  
 Contract: OpenAPI 0.4.7 (no breaking changes)  
 Gates: PHPStan lvl 9, Psalm clean, PHPUnit, **Redocly lint**, **openapi-diff**
 

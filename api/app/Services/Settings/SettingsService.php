@@ -10,6 +10,7 @@ use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use JsonException;
 
 final class SettingsService
 {
@@ -46,6 +47,26 @@ final class SettingsService
     ];
 
     private const DEFAULT_TIME_FORMAT = 'LOCAL';
+
+    /**
+     * @param  array<string, mixed>  $effective
+     * @return non-empty-string
+     */
+    public function etagFor(array $effective): string
+    {
+        /** @var mixed $normalized */
+        $normalized = $this->normalizeForHash($effective);
+
+        try {
+            $encoded = json_encode($normalized, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        } catch (JsonException $e) {
+            throw new \RuntimeException('Unable to encode settings for ETag', previous: $e);
+        }
+
+        $fingerprint = hash('sha256', $encoded);
+
+        return sprintf('W/"settings:%s"', $fingerprint);
+    }
 
     /** @return array{core: array<string, mixed>} */
     public function effectiveConfig(): array
@@ -84,6 +105,43 @@ final class SettingsService
         $finalCore = $this->filterForContract($trimInput);
 
         return ['core' => $finalCore];
+    }
+
+    private function normalizeForHash(mixed $value): mixed
+    {
+        if (is_array($value)) {
+            if ($value === []) {
+                return [];
+            }
+
+            if (array_is_list($value)) {
+                /** @var list<mixed> $normalizedList */
+                $normalizedList = array_map(
+                    fn (mixed $item): mixed => $this->normalizeForHash($item),
+                    $value
+                );
+
+                return $normalizedList;
+            }
+
+            /** @var array<array-key, mixed> $assoc */
+            $assoc = $value;
+            ksort($assoc);
+
+            /** @var array<array-key, mixed> $mapped */
+            $mapped = array_map(
+                fn (mixed $item): mixed => $this->normalizeForHash($item),
+                $assoc
+            );
+
+            return $mapped;
+        }
+
+        if ($value instanceof \Stringable) {
+            return (string) $value;
+        }
+
+        return $value;
     }
 
     public function persistenceAvailable(): bool

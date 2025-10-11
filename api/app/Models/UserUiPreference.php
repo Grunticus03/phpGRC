@@ -1,0 +1,52 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+/**
+ * @property int $user_id
+ * @property string|null $theme
+ * @property string|null $mode
+ * @property string|null $overrides
+ * @property bool $sidebar_collapsed
+ * @property int $sidebar_width
+ * @property string|null $sidebar_order
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ */
+final class UserUiPreference extends Model
+{
+    protected $table = 'user_ui_prefs';
+
+    protected $primaryKey = 'user_id';
+
+    public $incrementing = false;
+
+    protected $keyType = 'int';
+
+    protected $fillable = [
+        'user_id',
+        'theme',
+        'mode',
+        'overrides',
+        'sidebar_collapsed',
+        'sidebar_width',
+        'sidebar_order',
+    ];
+
+    /**
+     * @phpstan-var array<string,string>
+     *
+     * @psalm-suppress NonInvariantDocblockPropertyType
+     */
+    protected $casts = [
+        'user_id' => 'integer',
+        'sidebar_collapsed' => 'boolean',
+        'sidebar_width' => 'integer',
+        'created_at' => 'datetime',
+        'updated_at' => 'datetime',
+    ];
+}

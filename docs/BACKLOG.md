@@ -235,7 +235,8 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 **Acceptance Criteria:**
 - One theme stylesheet loaded at runtime
 - `<html data-theme data-mode>` set before CSS to avoid FOUC
-- User choice persisted; admin override respected but still allows light/dark if available  
+- User choice persisted; admin override respected but still allows light/dark if available
+- Assets bundled locally; pinned to `bootswatch@5.3.3`; no CDN fetches  
 **Phase:** 5.5  
 **Step:** 1  
 **Dependencies:** CORE-003  
@@ -249,7 +250,7 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 - Tokens: color (picker & RGBA), shadow preset or validated custom, spacing preset, type scale preset, motion preset
 - AA contrast validation on save
 - Audits: `ui.theme.updated`, `ui.theme.overrides.updated`
-- RBAC: `role_admin` or `admin.theme` required  
+- RBAC: `role_admin` or `role_theme_manager` (capability `admin.theme`) required; `role_theme_auditor` read-only  
 **Phase:** 5.5  
 **Step:** 2  
 **Dependencies:** THEME-001  
@@ -262,7 +263,8 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 **Acceptance Criteria:**
 - `GET/PUT /me/prefs/ui` persists `theme`, `mode`, `overrides`, `sidebar` settings
 - Guardrails identical to admin
-- Admin “force global” disables theme select but not light/dark for supported themes  
+- Admin “force global” disables theme select but not light/dark for supported themes
+- Read-only via `ui.theme.view` (`role_theme_auditor`)  
 **Phase:** 5.5  
 **Step:** 3  
 **Dependencies:** THEME-001  
@@ -276,7 +278,8 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 - Upload types: svg/png/jpg/jpeg/webp; ≤ 5 MB; MIME sniff; SVG sanitized
 - Favicon generated if absent
 - Header/footer logo defaults applied per spec
-- Audit `ui.brand.updated`  
+- Audit `ui.brand.updated`
+- Assets stored in `ui_assets`; settings reference asset ULIDs  
 **Phase:** 5.5  
 **Step:** 4  
 **Dependencies:** CORE-003  
@@ -304,7 +307,8 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 - Accept ≤ 50 MB zip; safe unzip; file allowlist
 - JS/HTML stored but not executed in 5.5; scrubbed; manifest written
 - Endpoints: import/list/update/delete; rate-limit 5/10min/admin
-- Delete purges disk/DB and falls-back users to default; audited  
+- Delete purges disk/DB and falls-back users to default; audited
+- Store metadata in `ui_assets`; manifest registered in DB  
 **Phase:** 5.5  
 **Step:** 6  
 **Dependencies:** THEME-002  
@@ -317,7 +321,8 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 **Acceptance Criteria:**
 - `/settings/ui`, `/me/prefs/ui`, `/settings/ui/brand-assets`, `/settings/ui/themes*`
 - 422 invalid token; 413 oversize; 415 bad MIME
-- OpenAPI documented; tests for RBAC and audits  
+- OpenAPI documented; tests for RBAC and audits
+- `ui_settings` table backed; endpoints use `If-Match` weak ETags; audits single entry per save  
 **Phase:** 5.5  
 **Step:** 7  
 **Dependencies:** THEME-002, THEME-006  
@@ -329,9 +334,9 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 **Description:** Enforce a11y and visual baselines across themes.  
 **Acceptance Criteria:**
 - WCAG 2.2 AA contrast across key components
-- prefers-reduced-motion respected
-- Playwright snapshots for Slate/Flatly/Darkly
-- Human QA checklist executed and stored  
+- prefers-reduced-motion respected; monthly locale smoke (`ar`, `ja-JP`)
+- Playwright snapshots for Slate/Flatly (desktop+mobile), axe-core enforced
+- Human Theming Checklist executed by QA owner; approvals stored  
 **Phase:** 5.5  
 **Step:** 8  
 **Dependencies:** THEME-001  

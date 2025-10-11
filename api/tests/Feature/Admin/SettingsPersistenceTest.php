@@ -30,11 +30,15 @@ final class SettingsPersistenceTest extends TestCase
     public function test_update_sets_and_persists_overrides(): void
     {
         // 1) Disable => persist override (explicit apply)
-        $res1 = $this->json('POST', '/admin/settings', [
+        $etag = $this->currentSettingsEtag();
+
+        $res1 = $this->withHeaders(['If-Match' => $etag])->postJson('/admin/settings', [
             'apply' => true,
             'audit' => ['enabled' => false],
         ]);
         $res1->assertStatus(200)->assertJson(['ok' => true, 'applied' => true]);
+
+        $etag = (string) $res1->headers->get('ETag');
 
         $this->assertDatabaseHas('core_settings', [
             'key' => 'core.audit.enabled',
@@ -44,7 +48,7 @@ final class SettingsPersistenceTest extends TestCase
         ]);
 
         // 2) Revert to default (true) => still persist override in DB (write-only semantics)
-        $res2 = $this->json('POST', '/admin/settings', [
+        $res2 = $this->withHeaders(['If-Match' => $etag])->postJson('/admin/settings', [
             'apply' => true,
             'audit' => ['enabled' => true],
         ]);
@@ -67,7 +71,9 @@ final class SettingsPersistenceTest extends TestCase
         );
 
         // Update only audit section with explicit apply.
-        $this->json('POST', '/admin/settings', [
+        $etag = $this->currentSettingsEtag();
+
+        $this->withHeaders(['If-Match' => $etag])->postJson('/admin/settings', [
             'apply' => true,
             'audit' => ['retention_days' => 180],
         ])->assertStatus(200)->assertJson(['ok' => true, 'applied' => true]);
@@ -85,14 +91,17 @@ final class SettingsPersistenceTest extends TestCase
 
     public function test_update_skips_persisting_defaults(): void
     {
-        $this->json('POST', '/admin/settings', [
+        $etag = $this->currentSettingsEtag();
+
+        $response = $this->withHeaders(['If-Match' => $etag])->postJson('/admin/settings', [
             'apply' => true,
             'rbac' => ['require_auth' => false],
             'metrics' => [
                 'cache_ttl_seconds' => 0,
                 'rbac_denies' => ['window_days' => 7],
             ],
-        ])->assertStatus(200)
+        ]);
+        $response->assertStatus(200)
             ->assertJson(['ok' => true, 'applied' => true])
             ->assertJsonPath('changes', []);
 
@@ -105,5 +114,16 @@ final class SettingsPersistenceTest extends TestCase
         $this->assertDatabaseMissing('core_settings', [
             'key' => 'core.metrics.rbac_denies.window_days',
         ]);
+    }
+
+    private function currentSettingsEtag(): string
+    {
+        $response = $this->json('GET', '/admin/settings');
+        $response->assertStatus(200);
+
+        $etag = $response->headers->get('ETag');
+        self::assertNotNull($etag, 'Expected ETag header from /admin/settings');
+
+        return (string) $etag;
     }
 }

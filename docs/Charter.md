@@ -228,13 +228,13 @@
 
 
 
-### **Phase 5 — Swagger polish + dashboards**
+### **Phase 5 — Swagger polish + dashboards** _(Status: Complete — Sept 2025)_
 
 - Swagger/OpenAPI validated + Spectral lint.  
 
-- Predefined reports & dashboards.  
+- Predefined reports & dashboards (KPI suite shipped; extended reports deferred).  
 
-- Admin docs & User docs baseline.  
+- Admin docs & User docs baseline (deferred to Phase 6 release docs).  
 
 
 

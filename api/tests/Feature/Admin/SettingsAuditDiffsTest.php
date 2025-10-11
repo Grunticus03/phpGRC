@@ -46,14 +46,18 @@ final class SettingsAuditDiffsTest extends TestCase
         $admin = $this->makeAdmin();
         $this->actingAs($admin, 'sanctum');
 
+        $etag = $this->currentSettingsEtag();
+
         // Change retention from default to a custom value.
-        $this->postJson('/admin/settings', [
+        $resp1 = $this->withHeaders(['If-Match' => $etag])->postJson('/admin/settings', [
             'apply' => true,
             'audit' => ['retention_days' => 180],
         ])->assertStatus(200)->assertJson(['ok' => true, 'applied' => true]);
 
+        $etag = (string) $resp1->headers->get('ETag');
+
         // Revert to default to exercise unset path.
-        $this->postJson('/admin/settings', [
+        $this->withHeaders(['If-Match' => $etag])->postJson('/admin/settings', [
             'apply' => true,
             'audit' => ['retention_days' => 365],
         ])->assertStatus(200)->assertJson(['ok' => true, 'applied' => true]);
@@ -94,7 +98,9 @@ final class SettingsAuditDiffsTest extends TestCase
         $admin = $this->makeAdmin();
         $this->actingAs($admin, 'sanctum');
 
-        $this->postJson('/admin/settings', [
+        $etag = $this->currentSettingsEtag();
+
+        $this->withHeaders(['If-Match' => $etag])->postJson('/admin/settings', [
             'apply' => true,
             'audit' => ['retention_days' => 180],
         ])->assertStatus(200)->assertJson(['ok' => true, 'applied' => true]);
@@ -105,5 +111,16 @@ final class SettingsAuditDiffsTest extends TestCase
             ->get();
 
         self::assertCount(1, $events);
+    }
+
+    private function currentSettingsEtag(): string
+    {
+        $response = $this->json('GET', '/admin/settings');
+        $response->assertStatus(200);
+
+        $etag = $response->headers->get('ETag');
+        self::assertNotNull($etag, 'Expected ETag header from /admin/settings');
+
+        return (string) $etag;
     }
 }

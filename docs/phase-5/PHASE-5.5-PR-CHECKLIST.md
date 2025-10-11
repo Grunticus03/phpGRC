@@ -6,7 +6,7 @@
 - PHPStan/Psalm/PHPUnit green, Playwright snapshots recorded for Slate/Flatly/Darkly.
 
 ## RBAC + Audit
-- Only `role_admin` or `admin.theme` hits `/settings/ui` and theme import routes.
+- Only `role_admin` or `role_theme_manager` (capability `admin.theme`) hits `/settings/ui` and theme import routes; read-only endpoints allow `role_theme_auditor`.
 - Audits emitted: `ui.theme.updated`, `ui.theme.overrides.updated`, `ui.brand.updated`, `ui.nav.sidebar.saved`, `ui.theme.pack.imported|deleted|enabled|disabled`.
 - Sensitive bytes not stored in audit meta.
 
@@ -31,7 +31,7 @@
 
 ## Accessibility & Motion
 - Contrast AA verified on key surfaces.
-- `prefers-reduced-motion` honored; motion presets effective.
+- `prefers-reduced-motion` honored; motion presets effective; monthly locale smoke (`ar`, `ja-JP`) recorded.
 
 ## No-FOUC
 - Boot script sets `<html data-theme data-mode>` before CSS; SSR reload verified.

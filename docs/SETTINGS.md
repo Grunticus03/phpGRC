@@ -9,6 +9,8 @@ Canonical runtime settings. Stored in DB unless noted. Avatars and theme pack fi
 - Keys use dot.case.
 - All writes validate and return `422 VALIDATION_FAILED` on errors.
 - Additive changes only; breaking changes require a major version.
+- Writes use replace semantics with **weak ETag** (`If-Match` required) and return the new ETag on success.
+- Clients MUST send the latest `If-Match` header from `GET /admin/settings`; responses include the refreshed weak ETag via header and JSON `etag`, plus the post-write `config` snapshot.
 - **Audit:** successful UI settings changes emit domain/audit events; sensitive bytes are never logged (see “RBAC” and “Branding Uploads”).
 - **No .env for UI:** `.env` is bootstrap-only; UI settings live in DB.
 
@@ -16,13 +18,13 @@ Canonical runtime settings. Stored in DB unless noted. Avatars and theme pack fi
 
 ## Storage
 - Global settings: DB table `ui_settings` (key → JSON value).  
-  - **Status:** planned for Phase 5.5; schema and service layer to be added.
+  - **Status:** Phase 5.5 design locked; to be implemented with `ui_settings` table and typed JSON values.
 - Per-user prefs: DB table `user_ui_prefs`.  
-  - **Status:** planned for Phase 5.5.
+  - **Status:** Phase 5.5 design locked; persisted in `ui_settings` keyed by user id.
 - Branding assets: DB `brand_assets` (metadata) + disk file.  
-  - **Status:** planned for Phase 5.5.
+  - **Status:** Phase 5.5 design locked; files stored in `ui_assets` with ULID references.
 - Theme packs: DB `themes` (+ optional `theme_assets`) + files under `/public/themes/<slug>/`.  
-  - **Status:** planned for Phase 5.5.
+  - **Status:** Phase 5.5 design locked; packs stored in `ui_assets` and extracted under `/public/themes/<slug>/`.
 - Avatars: disk only; metadata on the user record.  
   - **Status:** unchanged; out of UI-5.5 scope except for display settings.
 
@@ -152,8 +154,8 @@ id, type, path, size, mime, sha256, uploaded_by, created_at
 ---
 
 # RBAC
-- Global UI changes and theme imports require `role_admin` or permission `admin.theme`.
-- Per-user preferences require authentication.
+- Global UI changes and theme imports require `role_admin` or capability `admin.theme` (granted to `role_theme_manager`).
+- Read-only endpoints allow `role_theme_auditor` via `ui.theme.view`. Per-user preferences require authentication.
 - **Audit (additive):**  
   - `ui.theme.updated`, `ui.theme.overrides.updated`, `ui.brand.updated`, `ui.nav.sidebar.saved`,  
     `ui.theme.pack.imported|deleted|enabled|disabled`  
@@ -173,6 +175,7 @@ id, type, path, size, mime, sha256, uploaded_by, created_at
 # Examples
 
 ## PUT `/settings/ui` (partial)
+- Headers: `If-Match: W/"settings:abc123"`
 ```json
 {
   "ui": {
@@ -193,6 +196,22 @@ id, type, path, size, mime, sha256, uploaded_by, created_at
     },
     "brand": {
       "title_text": "phpGRC — Dashboard"
+    }
+  }
+}
+```
+
+_Response (200) excerpt_
+```json
+{
+  "ok": true,
+  "applied": true,
+  "etag": "W/\"settings:def456\"",
+  "config": {
+    "ui": {
+      "theme": {
+        "default": "slate"
+      }
     }
   }
 }

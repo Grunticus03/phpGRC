@@ -1,5 +1,7 @@
-import { FormEvent, useEffect, useRef, useState } from "react";
-import { apiGet, apiPost, apiPut } from "../../lib/api";
+import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
+import { apiPost, baseHeaders } from "../../lib/api";
+import ThemeConfigurator from "./ThemeConfigurator";
+import BrandingCard from "./branding/BrandingCard";
 import { DEFAULT_TIME_FORMAT, normalizeTimeFormat, type TimeFormat } from "../../lib/formatters";
 
 type EffectiveConfig = {
@@ -54,6 +56,7 @@ export default function Settings(): JSX.Element {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const [readOnly, setReadOnly] = useState(false);
 
   const [cacheTtl, setCacheTtl] = useState<number>(0);
   const [rbacDays, setRbacDays] = useState<number>(7);
@@ -67,57 +70,90 @@ export default function Settings(): JSX.Element {
   const [purging, setPurging] = useState(false);
 
   const snapshotRef = useRef<SettingsSnapshot | null>(null);
-
-  useEffect(() => {
-    void (async () => {
-      setLoading(true);
-      setMsg(null);
-      try {
-        const json = await apiGet<{ ok: boolean; config?: EffectiveConfig }>("/api/admin/settings");
-        const core = json?.config?.core ?? {};
-        const metrics = core.metrics ?? {};
-        const rbac = core.rbac ?? {};
-        const audit = core.audit ?? {};
-        const evidence = core.evidence ?? {};
-
-        const nextCacheTtl = clamp(Number(metrics.cache_ttl_seconds ?? 0), 0, 2_592_000);
-        const nextRbacDays = clamp(Number(metrics.rbac_denies?.window_days ?? 7), 7, 365);
-        const nextRequireAuth = Boolean(rbac.require_auth ?? false);
-        const nextPerPage = clamp(Number(rbac.user_search?.default_per_page ?? 50), 1, 500);
-        const nextRetention = clamp(Number(audit.retention_days ?? 365), 1, 730);
-        const nextTimeFormat = normalizeTimeFormat(core.ui?.time_format);
-        const rawBlobPath = typeof evidence?.blob_storage_path === "string" ? evidence.blob_storage_path.trim() : "";
-        const nextBlobPath = rawBlobPath === blobPlaceholderDefault ? "" : rawBlobPath;
-        const nextMaxMb = clamp(Number(evidence?.max_mb ?? 25), 1, 4096);
-
-        setCacheTtl(nextCacheTtl);
-        setRbacDays(nextRbacDays);
-        setRbacRequireAuth(nextRequireAuth);
-        setRbacUserSearchPerPage(nextPerPage);
-        setRetentionDays(nextRetention);
-        setTimeFormat(nextTimeFormat);
-        setEvidenceBlobPath(nextBlobPath);
-        setEvidenceMaxMb(nextMaxMb);
-
-        snapshotRef.current = {
-          cacheTtl: nextCacheTtl,
-          rbacDays: nextRbacDays,
-          rbacRequireAuth: nextRequireAuth,
-          rbacUserSearchPerPage: nextPerPage,
-          retentionDays: nextRetention,
-          timeFormat: nextTimeFormat,
-          evidenceBlobPath: nextBlobPath,
-          evidenceMaxMb: nextMaxMb,
-        };
-      } catch {
-        setMsg("Failed to load settings.");
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, []);
+  const etagRef = useRef<string | null>(null);
 
   const clamp = (n: number, min: number, max: number) => Math.max(min, Math.min(max, Math.trunc(n)));
+
+  const applyConfig = useCallback(
+    (config?: EffectiveConfig | null) => {
+      const core = config?.core ?? {};
+      const metrics = core.metrics ?? {};
+      const rbac = core.rbac ?? {};
+      const audit = core.audit ?? {};
+      const evidence = core.evidence ?? {};
+
+      const nextCacheTtl = clamp(Number(metrics.cache_ttl_seconds ?? 0), 0, 2_592_000);
+      const nextRbacDays = clamp(Number(metrics.rbac_denies?.window_days ?? 7), 7, 365);
+      const nextRequireAuth = Boolean(rbac.require_auth ?? false);
+      const nextPerPage = clamp(Number(rbac.user_search?.default_per_page ?? 50), 1, 500);
+      const nextRetention = clamp(Number(audit.retention_days ?? 365), 1, 730);
+      const nextTimeFormat = normalizeTimeFormat(core.ui?.time_format);
+      const rawBlobPath = typeof evidence?.blob_storage_path === "string" ? evidence.blob_storage_path.trim() : "";
+      const nextBlobPath = rawBlobPath === blobPlaceholderDefault ? "" : rawBlobPath;
+      const nextMaxMb = clamp(Number(evidence?.max_mb ?? 25), 1, 4096);
+
+      setCacheTtl(nextCacheTtl);
+      setRbacDays(nextRbacDays);
+      setRbacRequireAuth(nextRequireAuth);
+      setRbacUserSearchPerPage(nextPerPage);
+      setRetentionDays(nextRetention);
+      setTimeFormat(nextTimeFormat);
+      setEvidenceBlobPath(nextBlobPath);
+      setEvidenceMaxMb(nextMaxMb);
+
+      snapshotRef.current = {
+        cacheTtl: nextCacheTtl,
+        rbacDays: nextRbacDays,
+        rbacRequireAuth: nextRequireAuth,
+        rbacUserSearchPerPage: nextPerPage,
+        retentionDays: nextRetention,
+        timeFormat: nextTimeFormat,
+        evidenceBlobPath: nextBlobPath,
+        evidenceMaxMb: nextMaxMb,
+      };
+    },
+    [blobPlaceholderDefault]
+  );
+
+  const loadSettings = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/admin/settings", {
+        method: "GET",
+        credentials: "same-origin",
+        headers: baseHeaders(),
+      });
+
+      if (res.status === 403) {
+        setReadOnly(true);
+        setMsg("You do not have permission to view settings.");
+        snapshotRef.current = null;
+        return;
+      }
+
+      if (!res.ok) {
+        throw new Error(`Failed to load settings (HTTP ${res.status})`);
+      }
+
+      const body = (await res.json()) as { config?: EffectiveConfig };
+      const etag = res.headers.get("ETag");
+      if (etag) {
+        etagRef.current = etag;
+      }
+
+      setReadOnly(false);
+      applyConfig(body?.config ?? null);
+    } catch {
+      setMsg("Failed to load settings.");
+    } finally {
+      setLoading(false);
+    }
+  }, [applyConfig]);
+
+  useEffect(() => {
+    setMsg(null);
+    void loadSettings();
+  }, [loadSettings]);
 
   const snapshotFromState = (): SettingsSnapshot => ({
     cacheTtl: clamp(Number(cacheTtl) || 0, 0, 2_592_000),
@@ -201,35 +237,91 @@ export default function Settings(): JSX.Element {
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
+    if (readOnly) {
+      setMsg("You do not have permission to modify settings.");
+      return;
+    }
     setSaving(true);
     setMsg(null);
     try {
       const body = buildPayload();
-      const hasChanges = Object.keys(body).some((key) => key !== "apply");
+      const hasChanges = payloadHasChanges(body);
       if (!hasChanges) {
         setMsg("No changes to save.");
+        setSaving(false);
         return;
       }
 
-      const res = await apiPut<unknown, SettingsPayload>("/api/admin/settings", body);
-
-      let apiMsg: string | null = null;
-      if (res && typeof res === "object") {
-        const obj = res as { message?: unknown; note?: unknown };
-        if (typeof obj.message === "string") {
-          apiMsg = obj.message;
-        } else if (obj.note === "stub-only") {
-          apiMsg = "Validated. Not persisted (stub).";
-        }
+      const etag = etagRef.current;
+      if (!etag) {
+        setMsg("Settings version missing. Reloading...");
+        await loadSettings();
+        return;
       }
-      setMsg(apiMsg ?? "Saved.");
-      const updated = snapshotFromState();
-      snapshotRef.current = updated;
-      setEvidenceBlobPath(updated.evidenceBlobPath);
-      setRbacDays(updated.rbacDays);
-      setEvidenceMaxMb(updated.evidenceMaxMb);
-    } catch {
-      setMsg("Save failed.");
+
+      const res = await fetch("/api/admin/settings", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: baseHeaders({
+          "Content-Type": "application/json",
+          "If-Match": etag,
+        }),
+        body: JSON.stringify(body),
+      });
+
+      const resBody = (await parseJson(res)) as {
+        ok?: boolean;
+        applied?: boolean;
+        message?: string;
+        note?: string;
+        config?: EffectiveConfig;
+        etag?: string;
+        current_etag?: string;
+      } | null;
+
+      if (res.status === 409) {
+        const nextEtag = resBody?.current_etag ?? res.headers.get("ETag");
+        if (nextEtag) {
+          etagRef.current = nextEtag;
+        }
+        setMsg("Settings changed in another session. Latest values have been reloaded.");
+        await loadSettings();
+        return;
+      }
+
+      if (!res.ok) {
+        throw new Error(`Save failed with status ${res.status}`);
+      }
+
+      const nextEtag = res.headers.get("ETag") ?? resBody?.etag ?? null;
+      if (nextEtag) {
+        etagRef.current = nextEtag;
+      }
+
+      if (resBody?.config) {
+        applyConfig(resBody.config);
+      } else {
+        const updated = snapshotFromState();
+        snapshotRef.current = updated;
+        setCacheTtl(updated.cacheTtl);
+        setRbacDays(updated.rbacDays);
+        setRbacRequireAuth(updated.rbacRequireAuth);
+        setRbacUserSearchPerPage(updated.rbacUserSearchPerPage);
+        setRetentionDays(updated.retentionDays);
+        setTimeFormat(updated.timeFormat);
+        setEvidenceBlobPath(updated.evidenceBlobPath);
+        setEvidenceMaxMb(updated.evidenceMaxMb);
+      }
+
+      const apiMsg =
+        typeof resBody?.message === "string"
+          ? resBody.message
+          : resBody?.note === "stub-only"
+            ? "Validated. Not persisted (stub)."
+            : "Saved.";
+      setMsg(apiMsg);
+    } catch (err) {
+      setMsg(err instanceof Error ? err.message : "Save failed.");
     } finally {
       setSaving(false);
     }
@@ -265,6 +357,9 @@ export default function Settings(): JSX.Element {
   return (
     <main id="main" className="container py-3">
       <h1 className="mb-3">Admin Settings</h1>
+
+      <ThemeConfigurator />
+      <BrandingCard />
 
       {loading ? <p>Loading</p> : (
         <form onSubmit={onSubmit} className="vstack gap-3" aria-label="admin-settings">
@@ -443,11 +538,30 @@ export default function Settings(): JSX.Element {
           </section>
 
           <div className="hstack gap-2">
-            <button type="submit" className="btn btn-primary" disabled={saving || purging}>Save</button>
+            <button type="submit" className="btn btn-primary" disabled={saving || purging || readOnly}>
+              {saving ? "Saving…" : "Save"}
+            </button>
             {msg && <span aria-live="polite" className="text-muted">{msg}</span>}
           </div>
         </form>
       )}
     </main>
   );
+}
+
+function payloadHasChanges(body: SettingsPayload): boolean {
+  return Object.entries(body).some(([key, value]) => {
+    if (key === "apply") return false;
+    if (value == null) return false;
+    if (typeof value !== "object") return true;
+    return Object.keys(value).length > 0;
+  });
+}
+
+async function parseJson(res: Response): Promise<unknown> {
+  try {
+    return await res.json();
+  } catch {
+    return null;
+  }
 }

@@ -1,6 +1,6 @@
 # phpGRC
 
-Governance, Risk, and Compliance app. Laravel 11 JSON API + React/Vite SPA. OpenAPI 0.4.6. Phase-5 active.
+Governance, Risk, and Compliance app. Laravel 11 JSON API + React/Vite SPA. OpenAPI 0.4.6. Phase-5 complete (Phase 5.5 planning in progress).
 
 ## Stack
 - PHP 8.3, Laravel 11, Sanctum

@@ -8,14 +8,16 @@ Canonical runtime settings. Stored in DB unless noted. Avatars and theme pack fi
 - Keys use dot.case.
 - All writes validate and return `422 VALIDATION_FAILED` on errors.
 - Additive changes only; breaking changes require a major version.
+- Writes require `If-Match` with the latest weak ETag and return the new ETag on success.
+- Responses echo the refreshed ETag in both the `ETag` header and JSON body (`etag`) alongside the post-write `config` snapshot.
 
 > File-upload rules below apply to **UI features** (branding and theme packs), not Evidence uploads in Phase 4.
 
 ## Storage
-- Global settings: DB table `ui_settings` (key → JSON value).
-- Per-user prefs: DB table `user_ui_prefs`.
-- Branding assets: DB `brand_assets` (metadata) + disk file.
-- Theme packs: DB `themes` (+ optional `theme_assets`) + files under `/public/themes/<slug>/`.
+- Global settings: DB table `ui_settings` (key → JSON value). **Status:** Phase 5.5 design locked.
+- Per-user prefs: DB table `user_ui_prefs`. **Status:** Phase 5.5 design locked.
+- Branding assets: DB `brand_assets` (metadata) + disk file. **Status:** Phase 5.5 design locked.
+- Theme packs: DB `themes` (+ optional `theme_assets`) + files under `/public/themes/<slug>/`. **Status:** Phase 5.5 design locked.
 - Avatars: disk only; metadata on the user record.
 
 ---
@@ -143,8 +145,8 @@ id, type, path, size, mime, sha256, uploaded_by, created_at
 ---
 
 # RBAC
-- Global UI changes and theme imports require `role_admin` or permission `admin.theme`.
-- Per-user preferences require authentication.
+- Global UI changes and theme imports require `role_admin` or capability `admin.theme` (granted to `role_theme_manager`).
+- Read-only endpoints allow `role_theme_auditor` via `ui.theme.view`. Per-user preferences require authentication.
 
 ---
 
@@ -160,6 +162,7 @@ id, type, path, size, mime, sha256, uploaded_by, created_at
 # Examples
 
 ## PUT `/settings/ui` (partial)
+- Headers: `If-Match: W/"settings:abc123"`
 ```json
 {
   "ui": {
@@ -180,6 +183,22 @@ id, type, path, size, mime, sha256, uploaded_by, created_at
     },
     "brand": {
       "title_text": "phpGRC — Dashboard"
+    }
+  }
+}
+```
+
+_Response (200) excerpt_
+```json
+{
+  "ok": true,
+  "applied": true,
+  "etag": "W/\"settings:def456\"",
+  "config": {
+    "ui": {
+      "theme": {
+        "default": "slate"
+      }
     }
   }
 }

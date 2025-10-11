@@ -62,7 +62,7 @@
 
 ---
 
-## Phase 5 — Swagger + dashboards + RBAC policies
+## Phase 5 — Swagger + dashboards + RBAC policies ✅ COMPLETE (2025-09-28)
 - [x] OpenAPI served at `/api/openapi.yaml` and Swagger/Redoc UI at `/api/docs`
 - [x] OpenAPI lint in CI (Redocly)
 - [x] Breaking-change gate (openapi-diff) in CI
@@ -77,7 +77,7 @@
 - [x] **Navbar boot fix**: navigation renders after bootstrap probe; no blank layout
 - [x] Fine-grained RBAC policies (PolicyMap/Evaluator) and role management UI hardening
 - [x] Predefined reports & dashboards (beyond KPIs v1)
-- [ ] Admin/User docs baseline
+- [ ] Admin/User docs baseline *(deferred to Phase 6 release docs backlog)*
 
 ### Phase 5 — Additions (2025-09-23..2025-09-28)
 - [x] **Runtime settings moved to DB** for all non-connection knobs; `core_settings` table + `SettingsServiceProvider` boot overlay.
@@ -100,8 +100,8 @@
 ---
 
 ## Phase 5.5 — Theming & Layout
-- [ ] Bootswatch theme set shipped; default **Slate**; light/dark toggle; respects system when no user choice.
-- [ ] No-FOUC boot: early `<html data-theme data-mode>` script using cookie; SSR-safe.
+- [ ] Bootswatch theme set shipped; default **Slate**; light/dark toggle; respects system when no user choice; assets bundled locally with pinned `bootswatch@5.3.3`.
+- [ ] No-FOUC boot: early `<html data-theme data-mode>` script using cookie/localStorage; SSR-safe and inline.
 - [ ] Design tokens & presets:
   - Color: full picker (wheel, hex, RGB, eyedropper). Persist RGBA.
   - Shadow: `none | default | light | heavy | custom(validated)`.
@@ -110,7 +110,7 @@
   - Motion: `full | limited | none`.
 - [ ] Admin Theme Configurator with live preview, AA contrast guardrails, strict validation (422 on unsafe).
 - [ ] Per-user theme and token overrides; admin “force global” still allows light/dark for supported themes.
-- [ ] RBAC: only `role_admin` or permission `admin.theme` can change global settings/import themes.
+- [ ] RBAC: introduce `role_theme_manager` (manage/import) and `role_theme_auditor` (read-only); only `admin.theme`/`role_admin` update settings/import themes.
 - [ ] Branding: primary/secondary/header/footer logos, favicon, title text; SVG sanitized; ≤ 5 MB each; defaults applied.
 - [ ] Global layout:
   - Top navbar lists core modules; brand logo top-left acts as Home; sizing rules enforced.
@@ -127,8 +127,8 @@
   - Safe unzip (no traversal/symlinks; depth ≤10; files ≤2000; ratio guard).
   - Delete always permitted; users fall back to default; purge disk; audit.
 - [ ] Tests: unit/feature for settings, prefs, RBAC, audits; Playwright snapshots for Slate/Flatly/Darkly; e2e for theme switch, override, sidebar flow.
-- [ ] A11y: WCAG 2.2 AA, focus-visible, reduced motion honored; import shows “A11y warnings” if contrast risky.
-- [ ] Notices: Bootstrap/Bootswatch licenses added to NOTICE.
+- [ ] A11y & QA: automated axe checks, Playwright snapshots (Slate/Flatly desktop+mobile), manual theming checklist executed each PR; reduced-motion honored.
+- [ ] Notices & licensing: Bootstrap/Bootswatch texts in NOTICE; uploaded packs append vendor LICENSE metadata.
 
 ---
 
@@ -156,6 +156,6 @@
 - ✅ Exports model and generation complete.
 - ✅ CI lint (Redocly) and breaking-change gate (openapi-diff).
 - ✅ Static analysis: PHPStan level 9 enforced in CI.
-- ✅ Phase 5 core complete-to-date: KPIs v1 shipped; deny-audit invariants enforced; brute-force guard in place; OpenAPI serve hardened; **generic API rate limiting and OpenAPI augmentation completed; Admin Users Management (beta) added; SPA auth bootstrap + navbar boot fixed.**
+- ✅ Phase 5 complete: KPIs v1 shipped; deny-audit invariants enforced; brute-force guard in place; OpenAPI serve hardened; **generic API rate limiting and OpenAPI augmentation completed; Admin Users Management (beta) added; SPA auth bootstrap + navbar boot fixed.**
 - ➕ RBAC user search pagination and DB-backed default `per_page` knob completed; docs snippet pending.
 - 🔜 Phase 5.5 planned: theming/layout scope accepted; see BACKLOG and SPEC.

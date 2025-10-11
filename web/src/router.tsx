@@ -13,6 +13,10 @@ import Audit from "./routes/admin/Audit";
 import EvidenceList from "./routes/evidence/List";
 import Users from "./routes/admin/Users";
 
+// Profile routes
+import Avatar from "./routes/profile/Avatar";
+import ThemePreferences from "./routes/profile/ThemePreferences";
+
 // Auth routes
 import Login from "./routes/auth/Login";
 
@@ -34,6 +38,11 @@ const router = createBrowserRouter(
         <Route path="user-roles" element={<UserRoles />} />
         <Route path="audit" element={<Audit />} />
         <Route path="evidence" element={<EvidenceList />} />
+      </Route>
+
+      <Route path="profile">
+        <Route path="avatar" element={<Avatar />} />
+        <Route path="theme" element={<ThemePreferences />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
