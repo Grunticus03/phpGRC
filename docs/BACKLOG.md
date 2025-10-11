@@ -240,7 +240,7 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 **Phase:** 5.5  
 **Step:** 1  
 **Dependencies:** CORE-003  
-**Status:** Planned
+**Status:** In Progress
 
 ---
 
@@ -312,7 +312,7 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 **Phase:** 5.5  
 **Step:** 6  
 **Dependencies:** THEME-002  
-**Status:** Planned
+**Status:** Done
 
 ---
 

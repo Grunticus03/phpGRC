@@ -2,6 +2,7 @@ import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { apiGet, authMe, hasAuthToken, onUnauthorized, rememberIntendedPath, markSessionExpired } from "../lib/api";
 import Nav from "../components/Nav";
+import { bootstrapTheme } from "../theme/themeManager";
 
 type Fingerprint = {
   summary?: { rbac?: { require_auth?: boolean } };
@@ -60,6 +61,10 @@ export default function AppLayout() {
     return () => off();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loc.pathname]);
+
+  useEffect(() => {
+    void bootstrapTheme({ fetchUserPrefs: authed });
+  }, [requireAuth, authed]);
 
   if (loading) return null;
 

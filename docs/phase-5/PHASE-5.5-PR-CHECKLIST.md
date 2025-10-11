@@ -21,10 +21,10 @@
 - [x] Favicon derive fallback works; disable footer logo option works.
 
 ## Theme Packs
-- [ ] Zip import guardrails enforced (size, types, depth, filecount, ratio).
-- [ ] JS/HTML scrubbed and not executed in 5.5. Manifest written.
-- [ ] Delete purges DB and files; users fall back to default.
-- [ ] Rate-limit: 5 imports per 10 minutes per admin.
+- [x] Zip import guardrails enforced (size, types, depth, filecount, ratio).
+- [x] JS/HTML scrubbed and not executed in 5.5. Manifest written.
+- [x] Delete purges DB and files; users fall back to default.
+- [x] Rate-limit: 5 imports per 10 minutes per admin.
 
 ## Layout & UX
 - [ ] Top navbar shows core modules; logo sizing rules satisfied.

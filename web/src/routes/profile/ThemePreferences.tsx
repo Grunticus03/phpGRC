@@ -8,6 +8,7 @@ import {
   type ThemeSettings,
   type ThemeUserPrefs,
 } from "../admin/themeData";
+import { updateThemeManifest, updateThemePrefs, updateThemeSettings } from "../../theme/themeManager";
 
 type UserPrefsResponse = {
   ok?: boolean;
@@ -135,6 +136,7 @@ export default function ThemePreferences(): JSX.Element {
     const nextForm = buildForm(prefs);
     snapshotRef.current = nextForm;
     setForm(nextForm);
+    updateThemePrefs(prefs);
   }, []);
 
   const loadAll = useCallback(async (options?: { preserveMessage?: boolean }) => {
@@ -166,6 +168,7 @@ export default function ThemePreferences(): JSX.Element {
         const manifestBody = await parseJson<ThemeManifest>(manifestRes);
         if (manifestBody && Array.isArray(manifestBody.themes)) {
           setManifest(manifestBody);
+          updateThemeManifest(manifestBody);
         }
       }
 
@@ -173,6 +176,7 @@ export default function ThemePreferences(): JSX.Element {
         const globalBody = await parseJson<{ config?: { ui?: ThemeSettings } }>(globalRes);
         if (globalBody?.config?.ui) {
           setGlobalSettings(globalBody.config.ui);
+          updateThemeSettings(globalBody.config.ui);
         }
       }
 
@@ -204,6 +208,8 @@ export default function ThemePreferences(): JSX.Element {
       setMessage("Failed to load preferences. Using defaults.");
       etagRef.current = null;
       applyPrefs(DEFAULT_USER_PREFS);
+      setGlobalSettings(DEFAULT_THEME_SETTINGS);
+      updateThemeSettings(DEFAULT_THEME_SETTINGS);
     } finally {
       setLoading(false);
     }
@@ -326,7 +332,7 @@ export default function ThemePreferences(): JSX.Element {
       if (body?.prefs) {
         applyPrefs(body.prefs);
       } else {
-        snapshotRef.current = form;
+        await loadAll({ preserveMessage: true });
       }
 
       const successMsg = typeof body?.message === "string" ? body.message : "Preferences saved.";

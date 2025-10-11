@@ -3,6 +3,7 @@ import { describe, expect, it, beforeEach, afterEach, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import React from "react";
 import ThemePreferences from "../ThemePreferences";
+import { DEFAULT_THEME_MANIFEST } from "../../admin/themeData";
 
 function jsonResponse(body: unknown, init: ResponseInit = {}) {
   const headers = new Headers(init.headers ?? {});
@@ -10,18 +11,13 @@ function jsonResponse(body: unknown, init: ResponseInit = {}) {
   return new Response(JSON.stringify(body), { status: init.status ?? 200, headers });
 }
 
-const MANIFEST_BODY = {
-  version: "5.3.3",
-  defaults: { light: "flatly", dark: "slate" },
-  themes: [
-    { slug: "slate", name: "Slate", source: "bootswatch", supports: { mode: ["dark"] } },
-    { slug: "flatly", name: "Flatly", source: "bootswatch", supports: { mode: ["light"] } },
-    { slug: "darkly", name: "Darkly", source: "bootswatch", supports: { mode: ["dark"] } },
-  ],
-  packs: [
+const MANIFEST_BODY = (() => {
+  const clone = JSON.parse(JSON.stringify(DEFAULT_THEME_MANIFEST));
+  clone.packs = [
     { slug: "pack:ocean", name: "Ocean Pack", source: "pack", supports: { mode: ["light", "dark"] } },
-  ],
-};
+  ];
+  return clone;
+})();
 
 const GLOBAL_SETTINGS_BODY = {
   ok: true,

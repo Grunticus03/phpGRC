@@ -6,6 +6,7 @@ import {
   type ThemeManifest,
   type ThemeSettings,
 } from "./themeData";
+import { updateThemeManifest, updateThemeSettings } from "../../theme/themeManager";
 
 type FormState = {
   theme: string;
@@ -96,6 +97,7 @@ export default function ThemeConfigurator(): JSX.Element {
     const nextForm = buildInitialForm(settings);
     snapshotRef.current = nextForm;
     setForm(nextForm);
+    updateThemeSettings(settings);
   }, []);
 
   const loadManifest = useCallback(async () => {
@@ -112,6 +114,7 @@ export default function ThemeConfigurator(): JSX.Element {
       const body = await parseJson<ThemeManifest>(res);
       if (body && Array.isArray(body.themes)) {
         setManifest(body);
+        updateThemeManifest(body);
       }
     } catch {
       setMessage("Theme manifest unavailable; using bundled defaults.");
@@ -138,6 +141,7 @@ export default function ThemeConfigurator(): JSX.Element {
         etagRef.current = null;
         snapshotRef.current = buildInitialForm(DEFAULT_THEME_SETTINGS);
         setForm(buildInitialForm(DEFAULT_THEME_SETTINGS));
+        updateThemeSettings(DEFAULT_THEME_SETTINGS);
         return;
       }
 
@@ -146,6 +150,7 @@ export default function ThemeConfigurator(): JSX.Element {
         etagRef.current = null;
         snapshotRef.current = buildInitialForm(DEFAULT_THEME_SETTINGS);
         setForm(buildInitialForm(DEFAULT_THEME_SETTINGS));
+        updateThemeSettings(DEFAULT_THEME_SETTINGS);
         return;
       }
 
@@ -158,6 +163,7 @@ export default function ThemeConfigurator(): JSX.Element {
       etagRef.current = null;
       snapshotRef.current = buildInitialForm(DEFAULT_THEME_SETTINGS);
       setForm(buildInitialForm(DEFAULT_THEME_SETTINGS));
+      updateThemeSettings(DEFAULT_THEME_SETTINGS);
     } finally {
       setLoading(false);
     }
@@ -266,6 +272,7 @@ export default function ThemeConfigurator(): JSX.Element {
         applySettings(body.config.ui);
       } else {
         snapshotRef.current = form;
+        await loadSettings({ preserveMessage: true });
       }
 
       const msg = typeof body?.message === "string" ? body.message : "Theme settings saved.";

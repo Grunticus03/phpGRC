@@ -3,6 +3,7 @@ import { describe, expect, it, beforeEach, afterEach, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import React from "react";
 import ThemeConfigurator from "../ThemeConfigurator";
+import { DEFAULT_THEME_MANIFEST } from "../themeData";
 
 function jsonResponse(body: unknown, init: ResponseInit = {}) {
   const headers = new Headers(init.headers ?? {});
@@ -28,18 +29,7 @@ describe("ThemeConfigurator", () => {
       const method = (init.method ?? "GET").toUpperCase();
 
       if (url === "/api/settings/ui/themes" && method === "GET") {
-        return jsonResponse(
-          {
-            version: "5.3.3",
-            defaults: { dark: "slate", light: "flatly" },
-            themes: [
-              { slug: "slate", name: "Slate", source: "bootswatch", supports: { mode: ["dark"] } },
-              { slug: "flatly", name: "Flatly", source: "bootswatch", supports: { mode: ["light"] } },
-            ],
-            packs: [],
-          },
-          { headers: { ETag: 'W/"manifest:abc"' } }
-        );
+        return jsonResponse(DEFAULT_MANIFEST_BODY, { headers: { ETag: 'W/"manifest:abc"' } });
       }
 
       if (url === "/api/settings/ui" && method === "GET") {
@@ -260,15 +250,7 @@ const DEFAULT_BRAND_STATE = {
   footer_logo_disabled: false,
 };
 
-const DEFAULT_MANIFEST_BODY = {
-  version: "5.3.3",
-  defaults: { dark: "slate", light: "flatly" },
-  themes: [
-    { slug: "slate", name: "Slate", source: "bootswatch", supports: { mode: ["dark"] } },
-    { slug: "flatly", name: "Flatly", source: "bootswatch", supports: { mode: ["light"] } },
-  ],
-  packs: [],
-};
+const DEFAULT_MANIFEST_BODY = JSON.parse(JSON.stringify(DEFAULT_THEME_MANIFEST));
 
 const DEFAULT_SETTINGS_BODY = {
   ok: true,

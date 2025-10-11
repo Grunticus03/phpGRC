@@ -100,7 +100,7 @@
 ---
 
 ## Phase 5.5 — Theming & Layout
-- [ ] Bootswatch theme set shipped; default **Slate**; light/dark toggle; respects system when no user choice; assets bundled locally with pinned `bootswatch@5.3.3`.
+- [x] Bootswatch theme set shipped; default **Slate**; light/dark toggle; respects system when no user choice; assets bundled locally with pinned `bootswatch@5.3.3`.
 - [ ] No-FOUC boot: early `<html data-theme data-mode>` script using cookie/localStorage; SSR-safe and inline.
 - [ ] Design tokens & presets:
   - Color: full picker (wheel, hex, RGB, eyedropper). Persist RGBA.
@@ -109,19 +109,19 @@
   - Type scale: `small | medium | large`.
   - Motion: `full | limited | none`.
 - [ ] Admin Theme Configurator with live preview, AA contrast guardrails, strict validation (422 on unsafe).
-- [ ] Per-user theme and token overrides; admin “force global” still allows light/dark for supported themes.
+- [x] Per-user theme and token overrides; admin “force global” still allows light/dark for supported themes.
 - [ ] RBAC: introduce `role_theme_manager` (manage/import) and `role_theme_auditor` (read-only); only `admin.theme`/`role_admin` update settings/import themes.
-- [ ] Branding: primary/secondary/header/footer logos, favicon, title text; SVG sanitized; ≤ 5 MB each; defaults applied.
+- [x] Branding: primary/secondary/header/footer logos, favicon, title text; SVG sanitized; ≤ 5 MB each; defaults applied.
 - [ ] Global layout:
   - Top navbar lists core modules; brand logo top-left acts as Home; sizing rules enforced.
   - Sidebar holds non-core modules; collapsible; user-resizable (min 50px, max 50% viewport).
   - Sidebar customization mode (long-press): Save/Cancel/Default/Exit; merge rules for new modules; per-user persistence.
   - User profile menu on right with profile/lock/logout entries (lock UX routed; full behavior Phase 6).
-- [ ] Settings & APIs:
+- [x] Settings & APIs:
   - Global: `GET/PUT /settings/ui`, `POST/DELETE /settings/ui/brand-assets`.
   - Per-user: `GET/PUT /me/prefs/ui`.
   - Themes: `GET /settings/ui/themes`, `POST /settings/ui/themes/import`, `PUT/DELETE /settings/ui/themes/{slug}`.
-- [ ] Theme pack import:
+- [x] Theme pack import:
   - Accept `.zip` ≤ 50 MB; allow `.css .scss .woff2 .png .jpg .jpeg .webp .svg .map .js .html`.
   - JS/HTML stored but not executed in 5.5; scrubbed; manifest recorded; rate-limit 5/10min/admin.
   - Safe unzip (no traversal/symlinks; depth ≤10; files ≤2000; ratio guard).
@@ -129,6 +129,8 @@
 - [ ] Tests: unit/feature for settings, prefs, RBAC, audits; Playwright snapshots for Slate/Flatly/Darkly; e2e for theme switch, override, sidebar flow.
 - [ ] A11y & QA: automated axe checks, Playwright snapshots (Slate/Flatly desktop+mobile), manual theming checklist executed each PR; reduced-motion honored.
 - [ ] Notices & licensing: Bootstrap/Bootswatch texts in NOTICE; uploaded packs append vendor LICENSE metadata.
+
+> **Next up:** focus on THEME-005 Global Layout, no-FOUC boot script, and the remaining accessibility & Playwright gates before closing Phase 5.5.
 
 ---
 

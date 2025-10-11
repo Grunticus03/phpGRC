@@ -1,12 +1,14 @@
+import { BOOTSWATCH_THEMES } from "../../theme/bootswatch";
+
 export const DEFAULT_THEME_MANIFEST = {
   version: "5.3.3",
   defaults: { dark: "slate", light: "flatly" },
-  themes: [
-    { slug: "slate", name: "Slate", source: "bootswatch", supports: { mode: ["dark"] } },
-    { slug: "flatly", name: "Flatly", source: "bootswatch", supports: { mode: ["light"] } },
-    { slug: "darkly", name: "Darkly", source: "bootswatch", supports: { mode: ["dark"] } },
-    { slug: "cosmo", name: "Cosmo", source: "bootswatch", supports: { mode: ["light"] } },
-  ],
+  themes: BOOTSWATCH_THEMES.map((theme) => ({
+    slug: theme.slug,
+    name: theme.name,
+    source: "bootswatch" as const,
+    supports: { mode: [theme.mode] as ("light" | "dark")[] },
+  })),
   packs: [],
 } as const;
 
