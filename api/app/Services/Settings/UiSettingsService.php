@@ -162,7 +162,7 @@ final class UiSettingsService
                     'key' => $key,
                     'old' => $before,
                     'new' => $value,
-                    'action' => 'delete',
+                    'action' => 'unset',
                 ];
 
                 continue;
@@ -183,7 +183,7 @@ final class UiSettingsService
                 'key' => $key,
                 'old' => $before,
                 'new' => $value,
-                'action' => 'upsert',
+                'action' => $before === null ? 'set' : 'update',
             ];
         }
 
@@ -367,6 +367,15 @@ final class UiSettingsService
             if (array_key_exists('footer_logo_disabled', $brandInput)) {
                 $brand['footer_logo_disabled'] = $this->toBool($brandInput['footer_logo_disabled']);
             }
+        }
+
+        $primaryLogo = $brand['primary_logo_asset_id'];
+        if ($brand['favicon_asset_id'] === null && $primaryLogo !== null) {
+            $brand['favicon_asset_id'] = $primaryLogo;
+        }
+
+        if ($brand['footer_logo_disabled'] === false && $brand['footer_logo_asset_id'] === null && $primaryLogo !== null) {
+            $brand['footer_logo_asset_id'] = $primaryLogo;
         }
 
         return [
