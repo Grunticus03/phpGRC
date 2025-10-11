@@ -24,6 +24,7 @@ use App\Http\Controllers\Rbac\UserRolesController;
 use App\Http\Controllers\Rbac\UserSearchController;
 use App\Http\Controllers\Reports\AdminActivityReportController;
 use App\Http\Controllers\Settings\BrandAssetsController;
+use App\Http\Controllers\Settings\ThemePacksController;
 use App\Http\Controllers\Settings\UiSettingsController as UiSettingsApiController;
 use App\Http\Controllers\Settings\UiThemeManifestController;
 use App\Http\Controllers\User\UiPreferencesController;
@@ -189,6 +190,15 @@ Route::prefix('/settings/ui')
         Route::post('/brand-assets', [BrandAssetsController::class, 'store'])
             ->defaults('policy', 'core.settings.manage');
         Route::delete('/brand-assets/{asset}', [BrandAssetsController::class, 'destroy'])
+            ->defaults('policy', 'core.settings.manage');
+
+        Route::post('/themes/import', [ThemePacksController::class, 'import'])
+            ->middleware(GenericRateLimit::class)
+            ->defaults('throttle', ['strategy' => 'user', 'window_seconds' => 600, 'max_requests' => 5])
+            ->defaults('policy', 'core.settings.manage');
+        Route::put('/themes/{slug}', [ThemePacksController::class, 'update'])
+            ->defaults('policy', 'core.settings.manage');
+        Route::delete('/themes/{slug}', [ThemePacksController::class, 'destroy'])
             ->defaults('policy', 'core.settings.manage');
     });
 

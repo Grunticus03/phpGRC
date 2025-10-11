@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Settings;
 
+use App\Events\SettingsUpdated;
 use App\Http\Requests\Settings\UiSettingsUpdateRequest;
 use App\Services\Settings\UiSettingsService;
 use Illuminate\Http\JsonResponse;
@@ -102,6 +103,8 @@ final class UiSettingsController extends Controller
         }
 
         $result = $this->settings->apply($payload, $actorId);
+
+        $this->emitSettingsEvent($actorId, $result['changes'], $request);
         /** @var array{
          *     theme: array{default: string, allow_user_override: bool, force_global: bool, overrides: array<string,string|null>},
          *     nav: array{sidebar: array{default_order: array<int,string>}},
@@ -129,6 +132,28 @@ final class UiSettingsController extends Controller
             'Cache-Control' => 'no-store, max-age=0',
             'Pragma' => 'no-cache',
         ]);
+    }
+
+    /**
+     * @param  list<array{key:string, old:mixed, new:mixed, action:string}>  $changes
+     */
+    private function emitSettingsEvent(?int $actorId, array $changes, Request $request): void
+    {
+        if ($changes === []) {
+            return;
+        }
+
+        event(new SettingsUpdated(
+            actorId: $actorId,
+            changes: $changes,
+            context: [
+                'ip' => $request->ip(),
+                'ua' => $request->userAgent(),
+                'route' => $request->path(),
+                'source' => 'ui.settings',
+            ],
+            occurredAt: now('UTC')
+        ));
     }
 
     private function etagMatches(?string $header, string $etag): bool

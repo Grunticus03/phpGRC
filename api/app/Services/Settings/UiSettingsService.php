@@ -27,6 +27,8 @@ final class UiSettingsService
         'ui.brand.footer_logo_disabled',
     ];
 
+    public function __construct(private readonly ThemePackService $themePacks) {}
+
     /**
      * @return array{
      *     theme: array{default: string, allow_user_override: bool, force_global: bool, overrides: array<string,string|null>},
@@ -618,33 +620,7 @@ final class UiSettingsService
 
     private function manifestHasTheme(string $slug): bool
     {
-        /** @var array<string,mixed> $manifest */
-        $manifest = (array) config('ui.manifest', []);
-        /** @var array<int,mixed> $themes */
-        $themes = (array) ($manifest['themes'] ?? []);
-        foreach ($themes as $theme) {
-            if (! is_array($theme)) {
-                continue;
-            }
-            $manifestSlug = isset($theme['slug']) && is_string($theme['slug']) ? trim($theme['slug']) : null;
-            if ($manifestSlug !== null && $manifestSlug === $slug) {
-                return true;
-            }
-        }
-
-        /** @var array<int,mixed> $packs */
-        $packs = (array) ($manifest['packs'] ?? []);
-        foreach ($packs as $pack) {
-            if (! is_array($pack)) {
-                continue;
-            }
-            $manifestSlug = isset($pack['slug']) && is_string($pack['slug']) ? trim($pack['slug']) : null;
-            if ($manifestSlug !== null && $manifestSlug === $slug) {
-                return true;
-            }
-        }
-
-        return false;
+        return $this->themePacks->hasTheme($slug);
     }
 
     /**

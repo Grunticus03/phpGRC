@@ -89,6 +89,8 @@ return new class extends Migration
             ['match_type' => 'exact', 'value' => 'video/x-msvideo', 'label' => 'AVI video'],
             ['match_type' => 'exact', 'value' => 'video/x-matroska', 'label' => 'Matroska video'],
             ['match_type' => 'exact', 'value' => 'video/x-ms-wmv', 'label' => 'WMV video'],
+            ['match_type' => 'exact', 'value' => 'rfc822 email message', 'label' => 'Email'],
+            ['match_type' => 'exact', 'value' => 'x Dosexec application file', 'label' => 'Executable'],
             ['match_type' => 'exact', 'value' => 'application/vnd.google-apps.document', 'label' => 'Google Docs document'],
             ['match_type' => 'exact', 'value' => 'application/vnd.google-apps.presentation', 'label' => 'Google Slides presentation'],
             ['match_type' => 'exact', 'value' => 'application/vnd.google-apps.spreadsheet', 'label' => 'Google Sheets spreadsheet'],

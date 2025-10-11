@@ -7,8 +7,8 @@
 - [ ] Playwright snapshots recorded for Slate/Flatly/Darkly.
 
 ## RBAC + Audit
-- [ ] Only `role_admin` or `role_theme_manager` (capability `admin.theme`) hits `/settings/ui` and theme import routes; read-only endpoints allow `role_theme_auditor`.
-- [ ] Audits emitted: `ui.theme.updated`, `ui.theme.overrides.updated`, `ui.brand.updated`, `ui.nav.sidebar.saved`, `ui.theme.pack.imported|deleted|enabled|disabled`.
+- [x] Only `role_admin` or `role_theme_manager` (capability `admin.theme`) hits `/settings/ui` and theme import routes; read-only endpoints allow `role_theme_auditor`.
+- [x] Audits emitted: `ui.theme.updated`, `ui.theme.overrides.updated`, `ui.brand.updated`, `ui.nav.sidebar.saved`, `ui.theme.pack.imported|deleted|enabled|disabled`.
 - [ ] Sensitive bytes not stored in audit meta.
 
 ## Settings & Prefs
@@ -18,7 +18,7 @@
 
 ## Branding
 - [x] Upload validations: svg/png/jpg/jpeg/webp; ≤ 5 MB; MIME sniff; SVG sanitized.
-- [ ] Favicon derive fallback works; disable footer logo option works.
+- [x] Favicon derive fallback works; disable footer logo option works.
 
 ## Theme Packs
 - [ ] Zip import guardrails enforced (size, types, depth, filecount, ratio).

@@ -430,6 +430,115 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorSimple'
+  /settings/ui/themes/import:
+    post:
+      operationId: settingsUiThemePackImport
+      tags: [Settings]
+      summary: Import theme pack
+      description: Imports a theme pack zip archive (≤ 50 MB). Requires `core.settings.manage`.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '201':
+          description: Theme pack imported
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ThemePackResponse'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '413':
+          description: Payload too large
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorSimple'
+        '415':
+          description: Unsupported media type
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorSimple'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+  /settings/ui/themes/{slug}:
+    put:
+      operationId: settingsUiThemePackUpdate
+      tags: [Settings]
+      summary: Update theme pack
+      description: Updates theme pack metadata or toggles availability. Requires `core.settings.manage`.
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+            example: pack:midnight
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ThemePackUpdateRequest'
+      responses:
+        '200':
+          description: Theme pack updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ThemePackUpdateResponse'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorSimple'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+    delete:
+      operationId: settingsUiThemePackDelete
+      tags: [Settings]
+      summary: Delete theme pack
+      description: Deletes a theme pack and purges stored assets. Requires `core.settings.manage`.
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+            example: pack:midnight
+      responses:
+        '200':
+          description: Theme pack deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ThemePackDeleteResponse'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorSimple'
   /me/prefs/ui:
     get:
       operationId: meUiPrefsGet
@@ -2523,6 +2632,160 @@ components:
             file:
               type: string
               example: LICENSE.txt
+
+    ThemePackFileEntry:
+      type: object
+      additionalProperties: false
+      required: [path, size, mime, sha256]
+      properties:
+        path:
+          type: string
+          example: css/dark.css
+        size:
+          type: integer
+          minimum: 0
+          example: 14237
+        mime:
+          type: string
+          example: text/css
+        sha256:
+          type: string
+          example: 5e884898da28047151d0e56f8dc62927
+
+    ThemePackResource:
+      type: object
+      additionalProperties: false
+      required: [slug, name, enabled, assets, inactive, files]
+      properties:
+        slug:
+          type: string
+          example: pack:midnight
+        name:
+          type: string
+          example: Midnight
+        enabled:
+          type: boolean
+          example: true
+        version:
+          type:
+            - string
+            - 'null'
+          example: 1.0.0
+        author:
+          type:
+            - string
+            - 'null'
+          example: Theme Co
+        license:
+          type:
+            - object
+            - 'null'
+          additionalProperties: false
+          required: [name, file]
+          properties:
+            name:
+              type: string
+              example: MIT
+            file:
+              type: string
+              example: LICENSE.html
+        assets:
+          type: object
+          additionalProperties:
+            type: string
+          description: Mapping of mode to CSS asset path.
+          example:
+            dark: css/dark.css
+        inactive:
+          type: object
+          additionalProperties: false
+          required: [html, js]
+          properties:
+            html:
+              type: array
+              items:
+                type: string
+            js:
+              type: array
+              items:
+                type: string
+          example:
+            html: [preview.html]
+            js: []
+        files:
+          type: array
+          items:
+            $ref: '#/components/schemas/ThemePackFileEntry'
+        created_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+
+    ThemePackResponse:
+      type: object
+      additionalProperties: false
+      required: [ok, pack]
+      properties:
+        ok:
+          type: boolean
+        pack:
+          $ref: '#/components/schemas/ThemePackResource'
+
+    ThemePackUpdateRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+          maxLength: 160
+        author:
+          type:
+            - string
+            - 'null'
+          maxLength: 160
+        version:
+          type:
+            - string
+            - 'null'
+          maxLength: 64
+        enabled:
+          type: boolean
+      description: Any combination of fields may be supplied.
+
+    ThemePackUpdateResponse:
+      type: object
+      additionalProperties: false
+      required: [ok, pack, affected_users, default_reset]
+      properties:
+        ok:
+          type: boolean
+        pack:
+          $ref: '#/components/schemas/ThemePackResource'
+        affected_users:
+          type: integer
+          minimum: 0
+          example: 3
+        default_reset:
+          type: boolean
+
+    ThemePackDeleteResponse:
+      type: object
+      additionalProperties: false
+      required: [ok, files_removed, affected_users, default_reset]
+      properties:
+        ok:
+          type: boolean
+        files_removed:
+          type: integer
+          minimum: 0
+          example: 12
+        affected_users:
+          type: integer
+          minimum: 0
+          example: 5
+        default_reset:
+          type: boolean
 
     ThemeManifest:
       type: object

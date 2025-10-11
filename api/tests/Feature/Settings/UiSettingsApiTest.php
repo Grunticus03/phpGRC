@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Settings;
 
+use App\Models\AuditEvent;
+use App\Models\Role;
 use App\Models\User;
 use App\Services\Settings\UiSettingsService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Config;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -231,5 +234,203 @@ final class UiSettingsApiTest extends TestCase
         self::assertIsArray($manifest);
         self::assertSame('5.3.3', $manifest['version'] ?? null);
         self::assertIsArray($manifest['themes'] ?? null);
+    }
+
+    public function test_put_ui_settings_denied_without_policy_logs_audit(): void
+    {
+        Config::set('core.rbac.enabled', true);
+        Config::set('core.rbac.mode', 'persist');
+        Config::set('core.rbac.require_auth', true);
+        Config::set('core.audit.enabled', true);
+
+        $user = User::factory()->create();
+        Sanctum::actingAs($user);
+
+        $initial = $this->getJson('/settings/ui');
+        $initial->assertOk();
+        $etag = $initial->headers->get('ETag');
+        self::assertNotNull($etag);
+
+        $payload = [
+            'ui' => [
+                'theme' => [
+                    'default' => 'cosmo',
+                ],
+            ],
+        ];
+
+        $response = $this->withHeaders(['If-Match' => $etag])
+            ->putJson('/settings/ui', $payload);
+
+        $response->assertForbidden();
+
+        /** @var AuditEvent|null $event */
+        $event = AuditEvent::query()
+            ->orderByDesc('occurred_at')
+            ->first();
+
+        self::assertNotNull($event);
+        self::assertSame('rbac.deny.policy', $event->getAttribute('action'));
+        /** @var array<string,mixed>|null $meta */
+        $meta = $event->getAttribute('meta');
+        self::assertIsArray($meta);
+        self::assertSame('core.settings.manage', $meta['policy'] ?? null);
+    }
+
+    public function test_put_ui_settings_records_ui_audit_events(): void
+    {
+        Config::set('core.rbac.enabled', true);
+        Config::set('core.rbac.mode', 'persist');
+        Config::set('core.rbac.require_auth', true);
+        Config::set('core.audit.enabled', true);
+
+        $admin = User::factory()->create();
+        $this->attachNamedRole($admin, 'Admin');
+        Sanctum::actingAs($admin);
+
+        $initial = $this->getJson('/settings/ui');
+        $initial->assertOk();
+        $etag = $initial->headers->get('ETag');
+        self::assertNotNull($etag);
+
+        $payload = [
+            'ui' => [
+                'theme' => [
+                    'default' => 'darkly',
+                    'allow_user_override' => false,
+                    'overrides' => [
+                        'shadow' => 'light',
+                        'color.primary' => '#ff0000',
+                    ],
+                ],
+                'nav' => [
+                    'sidebar' => [
+                        'default_order' => ['dashboard', 'metrics'],
+                    ],
+                ],
+                'brand' => [
+                    'title_text' => 'phpGRC — Nightly',
+                    'footer_logo_disabled' => true,
+                ],
+            ],
+        ];
+
+        $response = $this->withHeaders(['If-Match' => $etag])
+            ->putJson('/settings/ui', $payload);
+        $response->assertOk();
+
+        $actions = AuditEvent::query()
+            ->pluck('action')
+            ->all();
+
+        self::assertContains('ui.theme.updated', $actions);
+        self::assertContains('ui.theme.overrides.updated', $actions);
+        self::assertContains('ui.brand.updated', $actions);
+        self::assertContains('ui.nav.sidebar.saved', $actions);
+        self::assertNotContains('setting.modified', $actions);
+
+        /** @var AuditEvent|null $themeEvent */
+        $themeEvent = AuditEvent::query()
+            ->where('action', 'ui.theme.updated')
+            ->where('meta->setting_key', 'ui.theme.default')
+            ->first();
+
+        self::assertNotNull($themeEvent);
+        /** @var array<string,mixed>|null $themeMeta */
+        $themeMeta = $themeEvent->getAttribute('meta');
+        self::assertIsArray($themeMeta);
+        self::assertSame('ui.theme.default', $themeMeta['setting_key'] ?? null);
+        self::assertSame('slate', $themeMeta['old_value'] ?? null);
+        self::assertSame('darkly', $themeMeta['new_value'] ?? null);
+    }
+
+    private function attachNamedRole(User $user, string $name): void
+    {
+        $token = 'role_'.strtolower(preg_replace('/[^a-z0-9]+/i', '_', $name));
+
+        /** @var Role $role */
+        $role = Role::query()->firstOrCreate(
+            ['id' => $token],
+            ['name' => $name]
+        );
+
+        $user->roles()->syncWithoutDetaching([$role->getKey()]);
+    }
+
+    public function test_brand_assets_default_to_primary_logo_when_missing(): void
+    {
+        Config::set('core.rbac.enabled', true);
+        Config::set('core.rbac.mode', 'persist');
+        Config::set('core.rbac.require_auth', true);
+
+        $admin = User::factory()->create();
+        $this->attachNamedRole($admin, 'Admin');
+        Sanctum::actingAs($admin);
+
+        $initial = $this->getJson('/settings/ui');
+        $initial->assertOk();
+        $etag = $initial->headers->get('ETag');
+        self::assertNotNull($etag);
+
+        $payload = [
+            'ui' => [
+                'brand' => [
+                    'primary_logo_asset_id' => 'asset-primary-123',
+                    'footer_logo_disabled' => false,
+                ],
+            ],
+        ];
+
+        $this->withHeaders(['If-Match' => $etag])
+            ->putJson('/settings/ui', $payload)
+            ->assertOk();
+
+        $snapshot = $this->getJson('/settings/ui');
+        $snapshot->assertOk();
+
+        $brand = $snapshot->json('config.ui.brand');
+        self::assertIsArray($brand);
+        self::assertSame('asset-primary-123', $brand['primary_logo_asset_id'] ?? null);
+        self::assertSame('asset-primary-123', $brand['favicon_asset_id'] ?? null);
+        self::assertSame('asset-primary-123', $brand['footer_logo_asset_id'] ?? null);
+    }
+
+    public function test_footer_logo_stays_null_when_disabled(): void
+    {
+        Config::set('core.rbac.enabled', true);
+        Config::set('core.rbac.mode', 'persist');
+        Config::set('core.rbac.require_auth', true);
+
+        $admin = User::factory()->create();
+        $this->attachNamedRole($admin, 'Admin');
+        Sanctum::actingAs($admin);
+
+        $initial = $this->getJson('/settings/ui');
+        $initial->assertOk();
+        $etag = $initial->headers->get('ETag');
+        self::assertNotNull($etag);
+
+        $payload = [
+            'ui' => [
+                'brand' => [
+                    'primary_logo_asset_id' => 'asset-primary-456',
+                    'footer_logo_disabled' => true,
+                ],
+            ],
+        ];
+
+        $this->withHeaders(['If-Match' => $etag])
+            ->putJson('/settings/ui', $payload)
+            ->assertOk();
+
+        $snapshot = $this->getJson('/settings/ui');
+        $snapshot->assertOk();
+
+        $brand = $snapshot->json('config.ui.brand');
+        self::assertIsArray($brand);
+        self::assertSame('asset-primary-456', $brand['primary_logo_asset_id'] ?? null);
+        self::assertSame('asset-primary-456', $brand['favicon_asset_id'] ?? null);
+        self::assertNull($brand['footer_logo_asset_id'] ?? null);
+        self::assertTrue((bool) ($brand['footer_logo_disabled'] ?? false));
     }
 }

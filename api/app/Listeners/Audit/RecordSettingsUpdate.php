@@ -79,9 +79,11 @@ final class RecordSettingsUpdate implements ShouldQueue
                 $uaRaw = Arr::get($event->context, 'ua');
                 $ua = is_string($uaRaw) && $uaRaw !== '' ? $uaRaw : null;
 
+                $action = $this->resolveAuditAction($key, $changeType);
+
                 $this->audit->log([
                     'actor_id' => $event->actorId,
-                    'action' => 'setting.modified',
+                    'action' => $action,
                     'category' => AuditCategories::SETTINGS,
                     'entity_type' => 'core.setting',
                     'entity_id' => $entityId,
@@ -281,6 +283,42 @@ final class RecordSettingsUpdate implements ShouldQueue
         }
 
         return $trim !== '' ? $trim : 'setting';
+    }
+
+    /**
+     * @return non-empty-string
+     */
+    private function resolveAuditAction(string $key, string $changeType): string
+    {
+        $trim = trim($key);
+        if ($trim === '') {
+            return 'setting.modified';
+        }
+
+        if (str_starts_with($trim, 'ui.theme.overrides')) {
+            return 'ui.theme.overrides.updated';
+        }
+
+        if (str_starts_with($trim, 'ui.theme.')) {
+            return 'ui.theme.updated';
+        }
+
+        if (str_starts_with($trim, 'ui.nav.sidebar.')) {
+            return 'ui.nav.sidebar.saved';
+        }
+
+        if (str_starts_with($trim, 'ui.brand.')) {
+            return 'ui.brand.updated';
+        }
+
+        if (str_starts_with($trim, 'ui.theme.pack.')) {
+            return match ($changeType) {
+                'delete', 'unset' => 'ui.theme.pack.deleted',
+                default => 'ui.theme.pack.updated',
+            };
+        }
+
+        return 'setting.modified';
     }
 
     private function stringifyValue(mixed $value): string
