@@ -268,7 +268,7 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 **Phase:** 5.5  
 **Step:** 3  
 **Dependencies:** THEME-001  
-**Status:** Planned
+**Status:** Done
 
 ---
 
@@ -283,7 +283,7 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 **Phase:** 5.5  
 **Step:** 4  
 **Dependencies:** CORE-003  
-**Status:** Planned
+**Status:** Done
 
 ---
 
@@ -326,7 +326,7 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 **Phase:** 5.5  
 **Step:** 7  
 **Dependencies:** THEME-002, THEME-006  
-**Status:** Planned
+**Status:** Done
 
 ---
 
