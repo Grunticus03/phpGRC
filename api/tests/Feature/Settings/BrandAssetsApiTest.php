@@ -13,6 +13,21 @@ use Tests\TestCase;
 
 final class BrandAssetsApiTest extends TestCase
 {
+    /** @var list<string> */
+    private array $tempFiles = [];
+
+    protected function tearDown(): void
+    {
+        foreach ($this->tempFiles as $path) {
+            if (is_string($path) && $path !== '' && file_exists($path)) {
+                @unlink($path);
+            }
+        }
+
+        $this->tempFiles = [];
+        parent::tearDown();
+    }
+
     public function test_upload_and_delete_brand_asset(): void
     {
         $user = User::factory()->create();
@@ -69,5 +84,127 @@ final class BrandAssetsApiTest extends TestCase
         ]);
 
         self::assertSame(0, BrandAsset::query()->count());
+    }
+
+    public function test_upload_rejects_files_over_five_megabytes(): void
+    {
+        $user = User::factory()->create();
+        Sanctum::actingAs($user);
+
+        $file = $this->makeOversizedUploadedFile();
+
+        $response = $this->postJson('/settings/ui/brand-assets', [
+            'kind' => 'secondary_logo',
+            'file' => $file,
+        ]);
+
+        $response->assertStatus(413);
+        $response->assertJson([
+            'ok' => false,
+            'code' => 'PAYLOAD_TOO_LARGE',
+        ]);
+
+        self::assertSame(0, BrandAsset::query()->count());
+    }
+
+    public function test_upload_fails_when_bytes_cannot_be_read(): void
+    {
+        $user = User::factory()->create();
+        Sanctum::actingAs($user);
+
+        $file = $this->makeUnreadableUploadedFile();
+
+        $response = $this->postJson('/settings/ui/brand-assets', [
+            'kind' => 'header_logo',
+            'file' => $file,
+        ]);
+
+        $response->assertStatus(500);
+        $response->assertJson([
+            'ok' => false,
+            'code' => 'UPLOAD_FAILED',
+        ]);
+
+        self::assertSame(0, BrandAsset::query()->count());
+    }
+
+    public function test_delete_nonexistent_brand_asset_returns_not_found(): void
+    {
+        $user = User::factory()->create();
+        Sanctum::actingAs($user);
+
+        $response = $this->deleteJson('/settings/ui/brand-assets/nonexistent');
+
+        $response->assertStatus(404);
+        $response->assertJson([
+            'ok' => false,
+            'code' => 'NOT_FOUND',
+        ]);
+    }
+
+    private function makeOversizedUploadedFile(): UploadedFile
+    {
+        $seed = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8Xw8AAtMB9o9Re+8AAAAASUVORK5CYII=');
+        self::assertIsString($seed);
+        $multiplier = (int) ceil(((5 * 1024 * 1024) + 4096) / strlen($seed));
+        $bytes = str_repeat($seed, $multiplier);
+
+        $path = $this->storeTempUpload($bytes);
+
+        return new class($path) extends UploadedFile
+        {
+            public function __construct(string $path)
+            {
+                parent::__construct($path, 'huge.png', 'image/png', UPLOAD_ERR_OK, true);
+            }
+
+            public function getSize(): ?int
+            {
+                return 2048;
+            }
+        };
+    }
+
+    private function makeUnreadableUploadedFile(): UploadedFile
+    {
+        $seed = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8Xw8AAtMB9o9Re+8AAAAASUVORK5CYII=');
+        self::assertIsString($seed);
+        $bytes = str_repeat($seed, 4);
+        $path = $this->storeTempUpload($bytes);
+
+        return new class($path) extends UploadedFile
+        {
+            public function __construct(string $path)
+            {
+                parent::__construct($path, 'broken.png', 'image/png', UPLOAD_ERR_OK, true);
+            }
+
+            public function getSize(): ?int
+            {
+                return 1024;
+            }
+
+            public function get(): false|string
+            {
+                return false;
+            }
+        };
+    }
+
+    private function storeTempUpload(string $bytes): string
+    {
+        $path = tempnam(sys_get_temp_dir(), 'brand_asset_');
+        if ($path === false) {
+            self::fail('Unable to create temporary upload path.');
+        }
+
+        $written = file_put_contents($path, $bytes);
+        if ($written === false) {
+            self::fail('Unable to write temporary upload contents.');
+        }
+
+        $this->tempFiles[] = $path;
+
+        return $path;
     }
 }

@@ -6,6 +6,7 @@
 - PHPUnit: ✅ all suites
 - OpenAPI:
   - `openapi-diff docs/api/baseline/openapi-0.4.7.yaml docs/api/openapi.yaml` returns no breaking changes (unless approved)
+  - Local helper: `npm run openapi:verify` (Redocly lint + openapi-diff with HTML report in `build/`)
   - **Redocly lint**: ✅
   - **Spec augmentation (additive)**: inject standard `401/403/422` responses where appropriate; JSON/YAML parity verified via tests. ✅
   - **Additive 429**: `components.responses.RateLimited` added and referenced on throttled endpoints; headers documented (`Retry-After`, `X-RateLimit-Limit`, `X-RateLimit-Remaining`). ✅

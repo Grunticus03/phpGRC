@@ -1,0 +1,9 @@
+{"level":"silly","message":"Initializing OpenApiDiff class"}
+{"level":"debug","message":"Initialized OpenApiDiff class with options = { consoleLogLevel: 'warn', logFilepath: undefined, json: true }"}
+{"level":"silly","message":"compare is being called"}
+{"level":"silly","message":"processViaAutoRest is being called"}
+{"level":"debug","message":"swaggerPath = \"docs/api/baseline/openapi-0.4.7.yaml\""}
+{"level":"debug","message":"outputFileName = \"old\""}
+{"level":"silly","message":"autoRestFileArgs is being called"}
+{"level":"silly","message":"Found autoRest:/home/administrator/.npm/_npx/e8607a6f0f0d8b1b/node_modules/autorest/dist/app.js "}
+{"level":"debug","message":"Executing: \"node /home/administrator/.npm/_npx/e8607a6f0f0d8b1b/node_modules/autorest/dist/app.js --input-file=docs/api/baseline/openapi-0.4.7.yaml --v2 --output-artifact=swagger-document.json --output-artifact=swagger-document.map --output-file=old --output-folder=/tmp/oad-uuHrPk\""}

@@ -204,13 +204,6 @@ export default function BrandingCard(): JSX.Element {
         return;
       }
 
-      if (res.status === 404 || res.status === 501) {
-        setMessage("Branding save not yet available (stub). Values kept locally.");
-        baselineRef.current = { ...brandConfig };
-        etagRef.current = null;
-        return;
-      }
-
       if (!res.ok) {
         throw new Error(`Save failed (HTTP ${res.status}).`);
       }

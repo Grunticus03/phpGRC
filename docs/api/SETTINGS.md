@@ -11,13 +11,18 @@ Canonical runtime settings. Stored in DB unless noted. Avatars and theme pack fi
 - Writes require `If-Match` with the latest weak ETag and return the new ETag on success.
 - Responses echo the refreshed ETag in both the `ETag` header and JSON body (`etag`) alongside the post-write `config` snapshot.
 
+### Optimistic concurrency
+- Always perform a `GET` before `PUT` to capture the current `ETag`.
+- Send that `ETag` back in `If-Match`; the API returns `409 PRECONDITION_FAILED` with `current_etag` when your copy is stale.
+- Save endpoints echo the refreshed `ETag` so clients can continue editing without an extra read.
+
 > File-upload rules below apply to **UI features** (branding and theme packs), not Evidence uploads in Phase 4.
 
 ## Storage
-- Global settings: DB table `ui_settings` (key → JSON value). **Status:** Phase 5.5 design locked.
-- Per-user prefs: DB table `user_ui_prefs`. **Status:** Phase 5.5 design locked.
-- Branding assets: DB `brand_assets` (metadata) + disk file. **Status:** Phase 5.5 design locked.
-- Theme packs: DB `themes` (+ optional `theme_assets`) + files under `/public/themes/<slug>/`. **Status:** Phase 5.5 design locked.
+- Global settings: DB table `ui_settings` (key → JSON value). Populated via the `/settings/ui` endpoints.
+- Per-user prefs: DB table `user_ui_prefs`, mutated through `/me/prefs/ui`.
+- Branding assets: DB `brand_assets` (metadata + bytes). Managed by `/settings/ui/brand-assets`.
+- Theme packs: DB `themes` (+ optional `theme_assets`) + files under `/public/themes/<slug>/`.
 - Avatars: disk only; metadata on the user record.
 
 ---
@@ -38,6 +43,8 @@ Canonical runtime settings. Stored in DB unless noted. Avatars and theme pack fi
 - `ui.brand.favicon` : file-ref|null
 - `ui.brand.title_text` : string — **Default:** `phpGRC — <module>`
 
+Retrieve the snapshot with `GET /settings/ui` (captures an `ETag`) and persist changes with `PUT /settings/ui` + `If-Match`.
+
 ### File Ref shape (read-only)
 Stored in `brand_assets`.
 ```
@@ -49,6 +56,8 @@ id, type, path, size, mime, sha256, uploaded_by, created_at
 - `mode` : `"light" | "dark" | null` — explicit beats system; null = follow system
 - `overrides` : object<string,string> — same guardrails as global
 - `sidebar` : `{ collapsed: boolean, width: number, order: string[] }`
+
+Use `GET /me/prefs/ui` to fetch the current preferences and `PUT /me/prefs/ui` with `If-Match` to update them.
 
 ## Tokens & presets
 - **color.\*** : RGBA. Enforce WCAG 2.2 AA vs surfaces/text. Full color picker allowed (wheel, hex, RGB, eyedropper). Persist as RGBA.
@@ -70,6 +79,18 @@ id, type, path, size, mime, sha256, uploaded_by, created_at
 - Theme-pack import: zip ≤ 50 MB; see Theme Packs section.
 - Clamp `sidebar.width` to **min 50 px** and **max 50%** of viewport.
 - Enforce types for logos (see Branding) and sizes.
+
+---
+
+# Endpoint summary
+- `GET /settings/ui` — Returns merged UI settings and an `ETag` for concurrency.
+- `PUT /settings/ui` — Updates UI settings. Requires `core.settings.manage` and a matching `If-Match` header.
+- `GET /settings/ui/themes` — Lists Bootswatch themes and installed packs.
+- `GET /settings/ui/brand-assets` — Lists branding assets with metadata.
+- `POST /settings/ui/brand-assets` — Uploads a branding asset (`multipart/form-data`, max 5 MB).
+- `DELETE /settings/ui/brand-assets/{asset}` — Deletes an asset and clears references when applicable.
+- `GET /me/prefs/ui` — Returns the authenticated user’s preferences and `ETag`.
+- `PUT /me/prefs/ui` — Updates preferences with optimistic concurrency.
 
 ---
 
@@ -161,8 +182,50 @@ id, type, path, size, mime, sha256, uploaded_by, created_at
 
 # Examples
 
-## PUT `/settings/ui` (partial)
-- Headers: `If-Match: W/"settings:abc123"`
+## GET `/settings/ui`
+```http
+GET /api/settings/ui HTTP/1.1
+Cookie: phpgrc_token=...
+Accept: application/json
+```
+
+_Response_
+```json
+{
+  "ok": true,
+  "etag": "W/\"ui:1f3923a8\"",
+  "config": {
+    "ui": {
+      "theme": {
+        "default": "slate",
+        "allow_user_override": true,
+        "force_global": false,
+        "overrides": {
+          "color.primary": "#0d6efd",
+          "color.surface": "#1b1e21",
+          "color.text": "#f8f9fa",
+          "shadow": "default",
+          "spacing": "default",
+          "typeScale": "medium",
+          "motion": "full"
+        }
+      },
+      "nav": {
+        "sidebar": { "default_order": ["risks", "compliance", "audits"] }
+      },
+      "brand": {
+        "title_text": "phpGRC — Dashboard",
+        "primary_logo_asset_id": "ba_01HT0T6X8K32H2W5KGJ3YXM5NE",
+        "favicon_asset_id": null,
+        "footer_logo_disabled": false
+      }
+    }
+  }
+}
+```
+
+## PUT `/settings/ui`
+- Headers: `If-Match: W/"ui:1f3923a8"`
 ```json
 {
   "ui": {
@@ -179,7 +242,7 @@ id, type, path, size, mime, sha256, uploaded_by, created_at
       }
     },
     "nav": {
-      "sidebar": { "default_order": ["risks","compliance","audits","policies"] }
+      "sidebar": { "default_order": ["risks", "compliance", "audits", "policies"] }
     },
     "brand": {
       "title_text": "phpGRC — Dashboard"
@@ -188,29 +251,142 @@ id, type, path, size, mime, sha256, uploaded_by, created_at
 }
 ```
 
-_Response (200) excerpt_
+_Response_
 ```json
 {
   "ok": true,
-  "applied": true,
-  "etag": "W/\"settings:def456\"",
+  "etag": "W/\"ui:1f3923a9\"",
   "config": {
     "ui": {
       "theme": {
-        "default": "slate"
+        "default": "slate",
+        "allow_user_override": true,
+        "force_global": false,
+        "overrides": {
+          "color.primary": "rgba(52,152,219,1)",
+          "shadow": "light",
+          "spacing": "wide",
+          "typeScale": "medium",
+          "motion": "limited"
+        }
+      },
+      "nav": {
+        "sidebar": { "default_order": ["risks", "compliance", "audits", "policies"] }
+      },
+      "brand": {
+        "title_text": "phpGRC — Dashboard",
+        "primary_logo_asset_id": "ba_01HT0T6X8K32H2W5KGJ3YXM5NE",
+        "footer_logo_disabled": false
       }
+    }
+  },
+  "changes": [
+    { "key": "ui.theme.overrides", "action": "update" }
+  ]
+}
+```
+
+_Conflict (409)_
+```json
+{
+  "ok": false,
+  "code": "PRECONDITION_FAILED",
+  "message": "If-Match header required or did not match the current ETag",
+  "current_etag": "W/\"ui:1f3923af\""
+}
+```
+
+## GET `/settings/ui/brand-assets`
+```json
+{
+  "ok": true,
+  "assets": [
+    {
+      "id": "ba_01HT0T6X8K32H2W5KGJ3YXM5NE",
+      "kind": "primary_logo",
+      "name": "primary.png",
+      "mime": "image/png",
+      "size_bytes": 12456,
+      "sha256": "3d2c7f88f1a4b9092e5a4e2fcd5d7b53d809364f1286f5a5a9b8a1693a4b9d4f",
+      "uploaded_by": "user:1",
+      "created_at": "2025-10-09T17:33:41Z"
+    }
+  ]
+}
+```
+
+## POST `/settings/ui/brand-assets`
+- Multipart fields: `kind=primary_logo`, `file=@logo.png`
+```json
+{
+  "ok": true,
+  "asset": {
+    "id": "ba_01HT0T6X8K32H2W5KGJ3YXM5NE",
+    "kind": "primary_logo",
+    "name": "logo.png",
+    "mime": "image/png",
+    "size_bytes": 12456,
+    "sha256": "3d2c7f88f1a4b9092e5a4e2fcd5d7b53d809364f1286f5a5a9b8a1693a4b9d4f",
+    "uploaded_by": "user:1",
+    "created_at": "2025-10-09T17:33:41Z"
+  }
+}
+```
+
+## GET `/me/prefs/ui`
+```json
+{
+  "ok": true,
+  "etag": "W/\"prefs:2c9a0f98\"",
+  "prefs": {
+    "theme": "flatly",
+    "mode": "light",
+    "overrides": {
+      "color.primary": "#123456",
+      "motion": "limited"
+    },
+    "sidebar": {
+      "collapsed": false,
+      "width": 280,
+      "order": ["risks", "audits"]
     }
   }
 }
 ```
 
 ## PUT `/me/prefs/ui`
+- Headers: `If-Match: W/"prefs:2c9a0f98"`
 ```json
 {
   "theme": "flatly",
   "mode": "dark",
-  "overrides": { "spacing": "narrow" },
-  "sidebar": { "collapsed": false, "width": 280, "order": ["risks","audits","compliance"] }
+  "overrides": {
+    "color.primary": "#ff3366"
+  },
+  "sidebar": {
+    "collapsed": true,
+    "width": 260
+  }
+}
+```
+
+_Response_
+```json
+{
+  "ok": true,
+  "etag": "W/\"prefs:2c9a0f99\"",
+  "prefs": {
+    "theme": "flatly",
+    "mode": "dark",
+    "overrides": {
+      "color.primary": "#ff3366"
+    },
+    "sidebar": {
+      "collapsed": true,
+      "width": 260,
+      "order": ["risks", "audits"]
+    }
+  }
 }
 ```
 

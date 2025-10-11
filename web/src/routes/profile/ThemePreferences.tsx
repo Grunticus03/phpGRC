@@ -314,13 +314,6 @@ export default function ThemePreferences(): JSX.Element {
         return;
       }
 
-      if (res.status === 404 || res.status === 501) {
-        setMessage("Preference save not yet available (stub). Values kept locally.");
-        snapshotRef.current = form;
-        etagRef.current = null;
-        return;
-      }
-
       if (!res.ok) {
         throw new Error(`Save failed (HTTP ${res.status}).`);
       }
@@ -336,12 +329,7 @@ export default function ThemePreferences(): JSX.Element {
         snapshotRef.current = form;
       }
 
-      const successMsg =
-        typeof body?.message === "string"
-          ? body.message
-          : body?.note === "stub-only"
-            ? "Validated. Not persisted (stub)."
-            : "Preferences saved.";
+      const successMsg = typeof body?.message === "string" ? body.message : "Preferences saved.";
       setMessage(successMsg);
     } catch (err) {
       setMessage(err instanceof Error ? err.message : "Save failed.");

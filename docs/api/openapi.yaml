@@ -273,6 +273,219 @@ paths:
         '429':
           $ref: '#/components/responses/RateLimited'
 
+  /settings/ui:
+    get:
+      operationId: settingsUiGet
+      tags: [Settings]
+      summary: Get UI settings
+      description: |
+        Returns the current UI configuration (theme defaults, nav settings, branding) merged from defaults and DB overrides.
+      responses:
+        '200':
+          description: Current UI settings
+          headers:
+            ETag:
+              description: Weak ETag for optimistic concurrency.
+              schema:
+                type: string
+                example: W/"ui:6dd05b4f"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UiSettingsResponse'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+    put:
+      operationId: settingsUiUpdate
+      tags: [Settings]
+      summary: Update UI settings
+      description: |
+        Updates UI theming, navigation, and branding settings. Requires `core.settings.manage` policy and a matching `If-Match` header.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UiSettingsUpdateRequest'
+      responses:
+        '200':
+          description: Updated UI settings
+          headers:
+            ETag:
+              description: Weak ETag for optimistic concurrency.
+              schema:
+                type: string
+                example: W/"ui:6dd05b4f"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UiSettingsUpdateResponse'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          description: ETag mismatch (PRECONDITION_FAILED)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PreconditionFailed'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+
+  /settings/ui/themes:
+    get:
+      operationId: settingsUiManifest
+      tags: [Settings]
+      summary: Theme manifest
+      description: Returns the available Bootswatch themes and imported packs for clients to present theme options.
+      responses:
+        '200':
+          description: Manifest
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ThemeManifest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+
+  /settings/ui/brand-assets:
+    get:
+      operationId: settingsUiBrandAssetsList
+      tags: [Settings]
+      summary: List branding assets
+      description: Lists uploaded branding assets (logos, favicons) with metadata.
+      responses:
+        '200':
+          description: Branding assets
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BrandAssetListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      operationId: settingsUiBrandAssetsUpload
+      tags: [Settings]
+      summary: Upload branding asset
+      description: Uploads a branding asset (logo or favicon). Requires `core.settings.manage`.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/BrandAssetUploadRequest'
+      responses:
+        '201':
+          description: Asset uploaded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BrandAssetUploadResponse'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '415':
+          description: Unsupported media type
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorSimple'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+
+  /settings/ui/brand-assets/{asset}:
+    delete:
+      operationId: settingsUiBrandAssetsDelete
+      tags: [Settings]
+      summary: Delete branding asset
+      description: Deletes a branding asset by id. Requires `core.settings.manage`.
+      parameters:
+        - name: asset
+          in: path
+          required: true
+          schema:
+            type: string
+            maxLength: 255
+          description: Branding asset identifier (`ba_<ulid>`).
+      responses:
+        '200':
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Ok'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorSimple'
+  /me/prefs/ui:
+    get:
+      operationId: meUiPrefsGet
+      tags: [Settings]
+      summary: Get personal UI preferences
+      description: Returns the caller's saved UI preferences (theme override, mode, sidebar layout) with an ETag for concurrency.
+      responses:
+        '200':
+          description: Preferences
+          headers:
+            ETag:
+              description: Weak ETag for optimistic concurrency.
+              schema:
+                type: string
+                example: W/"prefs:2c9a0f98"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UiPreferencesResponse'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+    put:
+      operationId: meUiPrefsUpdate
+      tags: [Settings]
+      summary: Update personal UI preferences
+      description: Updates personal UI preferences for the authenticated user using optimistic concurrency.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UiPreferencesUpdateRequest'
+      responses:
+        '200':
+          description: Preferences updated
+          headers:
+            ETag:
+              description: Weak ETag for optimistic concurrency.
+              schema:
+                type: string
+                example: W/"prefs:2c9a0f98"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UiPreferencesResponse'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '409':
+          description: ETag mismatch (PRECONDITION_FAILED)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PreconditionFailed'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+
   /rbac/roles/{role}:
     parameters:
       - name: role
@@ -2237,6 +2450,408 @@ components:
         note:
           type: string
           description: Optional note when no rows were removed or persistence is unavailable.
+
+    PreconditionFailed:
+      type: object
+      additionalProperties: false
+      required: [ok, code, message, current_etag]
+      properties:
+        ok:
+          type: boolean
+          const: false
+        code:
+          type: string
+          const: PRECONDITION_FAILED
+        message:
+          type: string
+          example: If-Match header required or did not match the current ETag.
+        current_etag:
+          type: string
+          example: W/"ui:6dd05b4f"
+
+    ThemeCatalogEntry:
+      type: object
+      additionalProperties: false
+      required: [slug, name, source, supports]
+      properties:
+        slug:
+          type: string
+          example: slate
+        name:
+          type: string
+          example: Slate
+        source:
+          type: string
+          enum: [bootswatch, pack]
+        supports:
+          type: object
+          additionalProperties: false
+          required: [mode]
+          properties:
+            mode:
+              type: array
+              minItems: 1
+              items:
+                type: string
+                enum: [light, dark]
+
+    ThemePackEntry:
+      type: object
+      additionalProperties: false
+      required: [slug, name]
+      properties:
+        slug:
+          type: string
+          example: pack:midnight
+        name:
+          type: string
+          example: Midnight
+        author:
+          type:
+            - string
+            - 'null'
+        license:
+          type:
+            - object
+            - 'null'
+          additionalProperties: false
+          required: [name, file]
+          properties:
+            name:
+              type: string
+              example: MIT
+            file:
+              type: string
+              example: LICENSE.txt
+
+    ThemeManifest:
+      type: object
+      additionalProperties: false
+      required: [version, defaults, themes, packs]
+      properties:
+        version:
+          type: string
+          example: 5.3.3
+        defaults:
+          type: object
+          additionalProperties: false
+          required: [dark, light]
+          properties:
+            dark:
+              type: string
+              example: slate
+            light:
+              type: string
+              example: flatly
+        themes:
+          type: array
+          items:
+            $ref: '#/components/schemas/ThemeCatalogEntry'
+        packs:
+          type: array
+          items:
+            $ref: '#/components/schemas/ThemePackEntry'
+
+    UiThemeOverrides:
+      type: object
+      additionalProperties:
+        type: string
+      description: Design token overrides keyed by token name (e.g., `color.primary`, `shadow`).
+      example:
+        color.primary: "#0d6efd"
+        color.surface: "#1b1e21"
+        color.text: "#f8f9fa"
+        shadow: default
+        spacing: default
+        typeScale: medium
+        motion: full
+
+    UiThemeSettings:
+      type: object
+      additionalProperties: false
+      required: [default, allow_user_override, force_global, overrides]
+      properties:
+        default:
+          type: string
+          example: slate
+        allow_user_override:
+          type: boolean
+          example: true
+        force_global:
+          type: boolean
+          example: false
+        overrides:
+          $ref: '#/components/schemas/UiThemeOverrides'
+
+    UiNavSidebarSettings:
+      type: object
+      additionalProperties: false
+      required: [default_order]
+      properties:
+        default_order:
+          type: array
+          items:
+            type: string
+          example: [risks, compliance, audits]
+
+    UiBrandSettings:
+      type: object
+      additionalProperties: false
+      required:
+        - title_text
+        - favicon_asset_id
+        - primary_logo_asset_id
+        - secondary_logo_asset_id
+        - header_logo_asset_id
+        - footer_logo_asset_id
+        - footer_logo_disabled
+      properties:
+        title_text:
+          type: string
+          example: phpGRC — Dashboard
+        favicon_asset_id:
+          type:
+            - string
+            - 'null'
+        primary_logo_asset_id:
+          type:
+            - string
+            - 'null'
+        secondary_logo_asset_id:
+          type:
+            - string
+            - 'null'
+        header_logo_asset_id:
+          type:
+            - string
+            - 'null'
+        footer_logo_asset_id:
+          type:
+            - string
+            - 'null'
+        footer_logo_disabled:
+          type: boolean
+          example: false
+
+    UiSettings:
+      type: object
+      additionalProperties: false
+      required: [theme, nav, brand]
+      properties:
+        theme:
+          $ref: '#/components/schemas/UiThemeSettings'
+        nav:
+          type: object
+          additionalProperties: false
+          required: [sidebar]
+          properties:
+            sidebar:
+              $ref: '#/components/schemas/UiNavSidebarSettings'
+        brand:
+          $ref: '#/components/schemas/UiBrandSettings'
+
+    UiSettingsResponse:
+      type: object
+      additionalProperties: false
+      required: [ok, config, etag]
+      properties:
+        ok:
+          type: boolean
+          const: true
+        etag:
+          type: string
+          example: W/"ui:6dd05b4f"
+        config:
+          type: object
+          additionalProperties: false
+          required: [ui]
+          properties:
+            ui:
+              $ref: '#/components/schemas/UiSettings'
+
+    UiSettingsUpdateRequest:
+      type: object
+      additionalProperties: false
+      required: [ui]
+      properties:
+        ui:
+          $ref: '#/components/schemas/UiSettings'
+
+    UiSettingsUpdateResponse:
+      type: object
+      additionalProperties: false
+      required: [ok, etag, config, changes]
+      properties:
+        ok:
+          type: boolean
+          const: true
+        etag:
+          type: string
+          example: W/"ui:6dd05b4f"
+        config:
+          type: object
+          additionalProperties: false
+          required: [ui]
+          properties:
+            ui:
+              $ref: '#/components/schemas/UiSettings'
+        changes:
+          type: array
+          items:
+            $ref: '#/components/schemas/SettingsChange'
+
+    BrandAsset:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - kind
+        - name
+        - mime
+        - size_bytes
+        - sha256
+        - uploaded_by
+        - created_at
+      properties:
+        id:
+          type: string
+          example: ba_01HT0T6X8K32H2W5KGJ3YXM5NE
+        kind:
+          type: string
+          enum: [primary_logo, secondary_logo, header_logo, footer_logo, favicon]
+        name:
+          type: string
+          example: primary.png
+        mime:
+          type: string
+          example: image/png
+        size_bytes:
+          type: integer
+          format: int64
+          minimum: 0
+        sha256:
+          type: string
+        uploaded_by:
+          type:
+            - string
+            - 'null'
+        created_at:
+          type: string
+          format: date-time
+
+    BrandAssetListResponse:
+      type: object
+      additionalProperties: false
+      required: [ok, assets]
+      properties:
+        ok:
+          type: boolean
+          const: true
+        assets:
+          type: array
+          items:
+            $ref: '#/components/schemas/BrandAsset'
+
+    BrandAssetUploadRequest:
+      type: object
+      required: [kind, file]
+      properties:
+        kind:
+          type: string
+          enum: [primary_logo, secondary_logo, header_logo, footer_logo, favicon]
+        file:
+          type: string
+          format: binary
+
+    BrandAssetUploadResponse:
+      type: object
+      additionalProperties: false
+      required: [ok, asset]
+      properties:
+        ok:
+          type: boolean
+          const: true
+        asset:
+          $ref: '#/components/schemas/BrandAsset'
+
+    UiPreferencesSidebar:
+      type: object
+      additionalProperties: false
+      required: [collapsed, width, order]
+      properties:
+        collapsed:
+          type: boolean
+        width:
+          type: integer
+          minimum: 50
+          maximum: 480
+        order:
+          type: array
+          items:
+            type: string
+
+    UiPreferences:
+      type: object
+      additionalProperties: false
+      required: [theme, mode, overrides, sidebar]
+      properties:
+        theme:
+          type:
+            - string
+            - 'null'
+        mode:
+          type:
+            - string
+            - 'null'
+          enum: [light, dark, null]
+        overrides:
+          $ref: '#/components/schemas/UiThemeOverrides'
+        sidebar:
+          $ref: '#/components/schemas/UiPreferencesSidebar'
+
+    UiPreferencesResponse:
+      type: object
+      additionalProperties: false
+      required: [ok, prefs, etag]
+      properties:
+        ok:
+          type: boolean
+          const: true
+        etag:
+          type: string
+          example: W/"prefs:2c9a0f98"
+        prefs:
+          $ref: '#/components/schemas/UiPreferences'
+
+    UiPreferencesUpdateRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        theme:
+          type:
+            - string
+            - 'null'
+        mode:
+          type:
+            - string
+            - 'null'
+          enum: [light, dark, null]
+        overrides:
+          $ref: '#/components/schemas/UiThemeOverrides'
+        sidebar:
+          type: object
+          additionalProperties: false
+          properties:
+            collapsed:
+              type: boolean
+            width:
+              type: integer
+              minimum: 50
+              maximum: 480
+            order:
+              type: array
+              items:
+                type: string
 
     HealthFingerprintResponse:
       type: object

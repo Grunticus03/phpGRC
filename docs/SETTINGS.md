@@ -6,13 +6,13 @@ Canonical runtime settings. Stored in DB unless noted. Avatars and theme pack fi
 > **Phase sync note (additive):** As of Phase 5, **all non-connection Core settings** persist in DB (`core_settings`) and load at boot. This document remains focused on **UI** settings (Phase 5.5). UI settings must also persist in DB; do **not** place UI settings in `.env`.
 
 ## Conventions
-- Keys use dot.case.
+- Keys use dot.case; request and response payloads follow the OpenAPI schemas in `docs/api/openapi.json`.
+- `GET /settings/ui` returns `{ ok, config: { ui }, etag }` and always sets `Cache-Control: no-store, max-age=0` plus `Pragma: no-cache`. When `If-None-Match` matches (including `*`) the endpoint replies `304` with headers only.
+- `PUT /settings/ui` requires `If-Match` (current etag or `*`). Success responses echo the latest `etag`, return the normalized `config.ui`, and include a `changes[]` diff. Stale etags receive `409 PRECONDITION_FAILED` with `current_etag`.
 - All writes validate and return `422 VALIDATION_FAILED` on errors.
 - Additive changes only; breaking changes require a major version.
-- Writes use replace semantics with **weak ETag** (`If-Match` required) and return the new ETag on success.
-- Clients MUST send the latest `If-Match` header from `GET /admin/settings`; responses include the refreshed weak ETag via header and JSON `etag`, plus the post-write `config` snapshot.
-- **Audit:** successful UI settings changes emit domain/audit events; sensitive bytes are never logged (see “RBAC” and “Branding Uploads”).
-- **No .env for UI:** `.env` is bootstrap-only; UI settings live in DB.
+- Successful UI settings changes emit domain/audit events; sensitive bytes are never logged (see “RBAC” and “Branding Uploads”).
+- UI settings live in the DB—`.env` merely seeds boot defaults and must not house UI overrides.
 
 > File-upload rules below apply to **UI features** (branding and theme packs), not Evidence uploads in Phase 4.
 
@@ -38,19 +38,34 @@ Canonical runtime settings. Stored in DB unless noted. Avatars and theme pack fi
 - `ui.theme.force_global` : boolean — force global theme for everyone; **still allows user light/dark** if theme supports both. **Default:** `false`.
 - `ui.theme.overrides` : object<string,string> — token → value. Allowed tokens only; values validated.
 - `ui.nav.sidebar.default_order` : string[] — canonical module keys for default sidebar order.
-- `ui.brand.primary_logo` : file-ref|null
-- `ui.brand.secondary_logo` : file-ref|null
-- `ui.brand.header_logo` : file-ref|null
-- `ui.brand.footer_logo` : file-ref|null
-- `ui.brand.footer_logo_disabled` : boolean — hide footer logo in exports. **Default:** `false`.
-- `ui.brand.favicon` : file-ref|null
 - `ui.brand.title_text` : string — **Default:** `phpGRC — <module>`
+- `ui.brand.favicon_asset_id` : ulid|null — points to a record in `brand_assets`.
+- `ui.brand.primary_logo_asset_id` : ulid|null
+- `ui.brand.secondary_logo_asset_id` : ulid|null
+- `ui.brand.header_logo_asset_id` : ulid|null
+- `ui.brand.footer_logo_asset_id` : ulid|null
+- `ui.brand.footer_logo_disabled` : boolean — hide footer logo in exports. **Default:** `false`.
 
 ### File Ref shape (read-only)
 Stored in `brand_assets`.
+```json
+{
+  "id": "01HGBC4YCY2A8X80PDV1HV9ZQG",
+  "kind": "primary_logo",
+  "name": "logo.png",
+  "mime": "image/png",
+  "size_bytes": 128764,
+  "sha256": "aab84cd0b7d86e0c5c2a17d8934f5afbd9fbe9f7a53cadb5f6b4f985d02268f6",
+  "uploaded_by": "user:42",
+  "created_at": "2024-10-05T19:07:26.000000Z"
+}
 ```
-id, type, path, size, mime, sha256, uploaded_by, created_at
-```
+`uploaded_by` contains the actor's display name when available; otherwise it falls back to `user:<id>`.
+
+### Response envelopes & diffs
+- `GET /settings/ui` → `200` with `{ ok: true, config: { ui }, etag }` or `304` (empty body) when `If-None-Match` matches, including the wildcard `*`.
+- `PUT /settings/ui` → `200` with `{ ok: true, etag, config: { ui }, changes: [] }`. Each `changes[]` entry reports the dot-notated key, `old`/`new` snapshots, and the `action` (`upsert` when persisting, `delete` when reverting to defaults).
+- `409 PRECONDITION_FAILED` → `{ ok: false, code: "PRECONDITION_FAILED", message, current_etag }` plus the latest `ETag` header so clients can retry with the correct version.
 
 ## Per-user prefs (`/me/prefs/ui`)
 - `theme` : string|null — Bootswatch slug
@@ -134,6 +149,16 @@ id, type, path, size, mime, sha256, uploaded_by, created_at
 
 # Branding Uploads
 
+## API
+- `GET /settings/ui/brand-assets` → lists uploads ordered newest-first (`{ ok: true, assets: BrandAsset[] }`).
+- `POST /settings/ui/brand-assets` → multipart upload with `file` and optional `kind` (`primary_logo`, `secondary_logo`, `header_logo`, `footer_logo`, `favicon`). Returns `201` with `{ ok: true, asset }` on success.
+- `DELETE /settings/ui/brand-assets/{asset}` → removes the asset and clears any `ui.brand.*_asset_id` references that point to it. Returns `{ ok: true }`; missing assets yield `{ ok: false, code: "NOT_FOUND" }`.
+- Error envelopes:
+  - `400 UPLOAD_FAILED` when the request omits the file.
+  - `500 UPLOAD_FAILED` when the uploaded bytes cannot be read.
+  - `413 PAYLOAD_TOO_LARGE` when the decoded bytes exceed 5 MB.
+  - `415 UNSUPPORTED_MEDIA_TYPE` when MIME sniffing rejects the upload.
+
 ## Types and caps
 - Allowed: `svg png jpg jpeg webp`
 - Max size per file: **5 MB**
@@ -141,8 +166,8 @@ id, type, path, size, mime, sha256, uploaded_by, created_at
 - SVGs sanitized; remote refs stripped.
 
 ## Defaults
-- If `ui.brand.favicon` is absent, derive from Primary logo.
-- Footer logo uses Primary when Footer not set unless `ui.brand.footer_logo_disabled = true`.
+- If `ui.brand.favicon_asset_id` is absent, derive from Primary logo when possible.
+- Footer logo uses the primary logo when `ui.brand.footer_logo_asset_id` is null unless `ui.brand.footer_logo_disabled = true`.
 
 ---
 
@@ -175,14 +200,14 @@ id, type, path, size, mime, sha256, uploaded_by, created_at
 # Examples
 
 ## PUT `/settings/ui` (partial)
-- Headers: `If-Match: W/"settings:abc123"`
+- Headers: `If-Match: W/"ui:abc123"`
 ```json
 {
   "ui": {
     "theme": {
-      "default": "slate",
-      "allow_user_override": true,
-      "force_global": false,
+      "default": "cosmo",
+      "allow_user_override": false,
+      "force_global": true,
       "overrides": {
         "color.primary": "rgba(52,152,219,1)",
         "shadow": "light",
@@ -195,7 +220,9 @@ id, type, path, size, mime, sha256, uploaded_by, created_at
       "sidebar": { "default_order": ["risks","compliance","audits","policies"] }
     },
     "brand": {
-      "title_text": "phpGRC — Dashboard"
+      "title_text": "phpGRC — Dashboard",
+      "footer_logo_asset_id": "01HGBC4YCY2A8X80PDV1HV9ZQG",
+      "footer_logo_disabled": false
     }
   }
 }
@@ -205,15 +232,38 @@ _Response (200) excerpt_
 ```json
 {
   "ok": true,
-  "applied": true,
-  "etag": "W/\"settings:def456\"",
+  "etag": "W/\"ui:def456\"",
   "config": {
     "ui": {
       "theme": {
-        "default": "slate"
+        "default": "cosmo",
+        "allow_user_override": false,
+        "force_global": true
+      },
+      "nav": {
+        "sidebar": { "default_order": ["risks","compliance","audits","policies"] }
+      },
+      "brand": {
+        "title_text": "phpGRC — Dashboard",
+        "footer_logo_asset_id": "01HGBC4YCY2A8X80PDV1HV9ZQG",
+        "footer_logo_disabled": false
       }
     }
-  }
+  },
+  "changes": [
+    {
+      "key": "ui.theme.default",
+      "old": "slate",
+      "new": "cosmo",
+      "action": "upsert"
+    },
+    {
+      "key": "ui.brand.footer_logo_asset_id",
+      "old": null,
+      "new": "01HGBC4YCY2A8X80PDV1HV9ZQG",
+      "action": "upsert"
+    }
+  ]
 }
 ```
 

@@ -4,7 +4,8 @@
     "scan:vuln:root": "npm audit --offline",
     "scan:vuln:web": "npm --prefix web audit --offline",
     "redocly:lint": "redocly lint docs/api/openapi.yaml",
-    "redocly:scorecard": "redocly stats docs/api/openapi.yaml --format=json"
+    "redocly:scorecard": "redocly stats docs/api/openapi.yaml --format=json",
+    "openapi:verify": "bash scripts/openapi-verify.sh"
   },
   "dependencies": {
     "react": "^18.3.1",

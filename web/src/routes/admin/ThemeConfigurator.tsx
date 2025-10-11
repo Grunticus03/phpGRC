@@ -253,13 +253,6 @@ export default function ThemeConfigurator(): JSX.Element {
         return;
       }
 
-      if (res.status === 404 || res.status === 501) {
-        setMessage("Theme save not yet available (stub). Values kept locally.");
-        snapshotRef.current = form;
-        etagRef.current = null;
-        return;
-      }
-
       if (!res.ok) {
         throw new Error(`Save failed (HTTP ${res.status}).`);
       }
@@ -275,12 +268,7 @@ export default function ThemeConfigurator(): JSX.Element {
         snapshotRef.current = form;
       }
 
-      const msg =
-        typeof body?.message === "string"
-          ? body.message
-          : body?.note === "stub-only"
-            ? "Validated. Not persisted (stub)."
-            : "Theme settings saved.";
+      const msg = typeof body?.message === "string" ? body.message : "Theme settings saved.";
       setMessage(msg);
     } catch (err) {
       setMessage(err instanceof Error ? err.message : "Save failed.");

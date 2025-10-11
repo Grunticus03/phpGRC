@@ -58,6 +58,49 @@ final class OpenApiEvidenceContractTest extends TestCase
         $res->assertOk();
 
         $raw = (string) $res->getContent();
-        $this->assertStringNotContainsString('size_bytes', $raw, 'OpenAPI spec leaked size_bytes');
+        /** @var array<string,mixed> $spec */
+        $spec = json_decode($raw, true, 512, JSON_THROW_ON_ERROR);
+        $this->assertIsArray($spec, 'OpenAPI spec must decode to array');
+
+        $occurrences = $this->findSizeBytesOccurrences($spec);
+        foreach ($occurrences as $path) {
+            $this->assertStringContainsString(
+                'BrandAsset',
+                $path,
+                sprintf('Unexpected size_bytes occurrence at %s', $path)
+            );
+        }
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function findSizeBytesOccurrences(mixed $data, string $prefix = ''): array
+    {
+        if (! is_array($data)) {
+            return [];
+        }
+
+        $matches = [];
+
+        foreach ($data as $key => $value) {
+            $path = $prefix === '' ? (string) $key : $prefix.'.'.$key;
+
+            if ($key === 'size_bytes') {
+                $matches[] = $path.' (key)';
+            }
+
+            if (is_array($value)) {
+                $matches = array_merge($matches, $this->findSizeBytesOccurrences($value, $path));
+
+                continue;
+            }
+
+            if (is_string($value) && $value === 'size_bytes') {
+                $matches[] = $path.' (value)';
+            }
+        }
+
+        return $matches;
     }
 }
