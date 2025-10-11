@@ -4,6 +4,12 @@ import AppLayout from "./layouts/AppLayout";
 // Dashboard
 import Dashboard from "./routes/dashboard";
 
+// Core modules
+import RisksIndex from "./routes/risks";
+import ComplianceIndex from "./routes/compliance";
+import AuditsIndex from "./routes/audits";
+import PoliciesIndex from "./routes/policies";
+
 // Admin routes
 import AdminIndex from "./routes/admin/index";
 import Settings from "./routes/admin/Settings";
@@ -12,6 +18,7 @@ import UserRoles from "./routes/admin/UserRoles";
 import Audit from "./routes/admin/Audit";
 import EvidenceList from "./routes/evidence/List";
 import Users from "./routes/admin/Users";
+import ExportsIndex from "./routes/exports";
 
 // Profile routes
 import Avatar from "./routes/profile/Avatar";
@@ -30,6 +37,12 @@ const router = createBrowserRouter(
       </Route>
 
       <Route path="dashboard" element={<Dashboard />} />
+      <Route path="risks" element={<RisksIndex />} />
+      <Route path="compliance" element={<ComplianceIndex />} />
+      <Route path="audits" element={<AuditsIndex />} />
+      <Route path="policies" element={<PoliciesIndex />} />
+      <Route path="evidence" element={<EvidenceList />} />
+      <Route path="exports" element={<ExportsIndex />} />
       <Route path="admin">
         <Route index element={<AdminIndex />} />
         <Route path="settings" element={<Settings />} />

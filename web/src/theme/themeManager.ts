@@ -39,6 +39,34 @@ let prefsCache: ThemeUserPrefs = clone(DEFAULT_USER_PREFS);
 let currentSelection: ThemeSelection | null = null;
 let loadPromise: Promise<void> | null = null;
 
+type ThemePrefsListener = (prefs: ThemeUserPrefs) => void;
+type ThemeSettingsListener = (settings: ThemeSettings) => void;
+
+const prefsListeners = new Set<ThemePrefsListener>();
+const settingsListeners = new Set<ThemeSettingsListener>();
+
+const notifyPrefsListeners = (): void => {
+  const snapshot = clone(prefsCache);
+  prefsListeners.forEach((listener) => {
+    try {
+      listener(snapshot);
+    } catch {
+      // ignore listener errors
+    }
+  });
+};
+
+const notifySettingsListeners = (): void => {
+  const snapshot = clone(settingsCache);
+  settingsListeners.forEach((listener) => {
+    try {
+      listener(snapshot);
+    } catch {
+      // ignore listener errors
+    }
+  });
+};
+
 const prefersDark = (): boolean => {
   if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
     return false;
@@ -224,6 +252,7 @@ export const bootstrapTheme = async (options?: { fetchUserPrefs?: boolean }): Pr
     const settingsResponse = await fetchJson<{ config?: { ui?: ThemeSettings } }>("/api/settings/ui");
     if (settingsResponse?.config?.ui) {
       settingsCache = settingsResponse.config.ui;
+      notifySettingsListeners();
     }
 
     const shouldFetchPrefs =
@@ -233,6 +262,7 @@ export const bootstrapTheme = async (options?: { fetchUserPrefs?: boolean }): Pr
       const prefsResponse = await fetchJson<{ prefs?: ThemeUserPrefs }>("/api/me/prefs/ui");
       if (prefsResponse?.prefs) {
         prefsCache = prefsResponse.prefs;
+        notifyPrefsListeners();
       }
     }
 
@@ -256,11 +286,13 @@ export const updateThemeManifest = (manifest: ThemeManifest): void => {
 export const updateThemeSettings = (settings: ThemeSettings): void => {
   settingsCache = clone(settings);
   refreshTheme();
+  notifySettingsListeners();
 };
 
 export const updateThemePrefs = (prefs: ThemeUserPrefs): void => {
   prefsCache = clone(prefs);
   refreshTheme();
+  notifyPrefsListeners();
 };
 
 export const getCurrentTheme = (): ThemeSelection => {
@@ -274,6 +306,34 @@ export const getCurrentTheme = (): ThemeSelection => {
   currentSelection = { slug: initialSlug, mode: initialMode, source: entry?.source ?? "bootswatch" };
   applySelection(currentSelection);
   return currentSelection;
+};
+
+export const getCachedThemeSettings = (): ThemeSettings => clone(settingsCache);
+
+export const getCachedThemePrefs = (): ThemeUserPrefs => clone(prefsCache);
+
+export const onThemePrefsChange = (listener: ThemePrefsListener): (() => void) => {
+  prefsListeners.add(listener);
+  try {
+    listener(clone(prefsCache));
+  } catch {
+    // ignore listener errors
+  }
+  return () => {
+    prefsListeners.delete(listener);
+  };
+};
+
+export const onThemeSettingsChange = (listener: ThemeSettingsListener): (() => void) => {
+  settingsListeners.add(listener);
+  try {
+    listener(clone(settingsCache));
+  } catch {
+    // ignore listener errors
+  }
+  return () => {
+    settingsListeners.delete(listener);
+  };
 };
 
 // Apply default theme immediately when running in a browser to reduce FOUC.
