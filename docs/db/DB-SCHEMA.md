@@ -1,6 +1,6 @@
 # phpGRC Database Schema
 
-Snapshot generated from migrations against **phpgrc** as of 2025-10-08 (UTC).
+Snapshot generated from migrations against **phpgrc** as of 2025-10-09 (UTC).
 
 - SQL dialect: MySQL 8.0+
 - All times UTC.
@@ -61,6 +61,32 @@ Snapshot generated from migrations against **phpgrc** as of 2025-10-08 (UTC).
 
 ---
 
+### `brand_assets`
+
+| Column | Type | Null | Default | Extra |
+|-------:|------|------|---------|-------|
+| id | varchar(255) | ✓ | NULL | — |
+| kind | varchar(32) | ✓ | NULL | — |
+| name | varchar(160) | ✓ | NULL | — |
+| mime | varchar(96) | ✓ | NULL | — |
+| size_bytes | bigint unsigned | ✓ | NULL | — |
+| sha256 | varchar(64) | ✓ | NULL | — |
+| bytes | longblob | ✓ | NULL | — |
+| uploaded_by | bigint unsigned | ✗ | NULL | — |
+| uploaded_by_name | varchar(120) | ✗ | NULL | — |
+| created_at | datetime | ✓ | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
+| updated_at | datetime | ✓ | CURRENT_TIMESTAMP | DEFAULT_GENERATED on update CURRENT_TIMESTAMP |
+
+**Indexes & Constraints**
+- `PRIMARY KEY (id)`
+- `INDEX brand_assets_kind_index (kind)`
+- `INDEX brand_assets_created_at_index (created_at)`
+- `INDEX brand_assets_sha256_index (sha256)`
+
+- `FOREIGN KEY brand_assets_uploaded_by_foreign (uploaded_by) REFERENCES users(id) ON UPDATE CASCADE ON DELETE SET NULL`
+
+---
+
 ### `core_settings`
 
 | Column | Type | Null | Default | Extra |
@@ -74,6 +100,23 @@ Snapshot generated from migrations against **phpgrc** as of 2025-10-08 (UTC).
 
 **Indexes & Constraints**
 - `PRIMARY KEY (key)`
+
+---
+
+### `ui_settings`
+
+| Column | Type | Null | Default | Extra |
+|-------:|------|------|---------|-------|
+| key | varchar(255) | ✓ | NULL | — |
+| value | text | ✓ | NULL | — |
+| type | varchar(16) | ✓ | NULL | — |
+| updated_by | bigint unsigned | ✗ | NULL | — |
+| created_at | datetime | ✓ | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
+| updated_at | datetime | ✓ | CURRENT_TIMESTAMP | DEFAULT_GENERATED on update CURRENT_TIMESTAMP |
+
+**Indexes & Constraints**
+- `PRIMARY KEY (key)`
+- `INDEX ui_settings_updated_at_index (updated_at)`
 
 ---
 
@@ -263,6 +306,27 @@ Snapshot generated from migrations against **phpgrc** as of 2025-10-08 (UTC).
 **Indexes & Constraints**
 - `PRIMARY KEY (id)`
 - `UNIQUE INDEX users_email_unique (email)`
+
+---
+
+### `user_ui_prefs`
+
+| Column | Type | Null | Default | Extra |
+|-------:|------|------|---------|-------|
+| user_id | bigint unsigned | ✓ | NULL | — |
+| theme | varchar(64) | ✗ | NULL | — |
+| mode | varchar(16) | ✗ | NULL | — |
+| overrides | text | ✗ | NULL | — |
+| sidebar_collapsed | tinyint(1) | ✓ | 0 | — |
+| sidebar_width | int unsigned | ✓ | 280 | — |
+| sidebar_order | text | ✗ | NULL | — |
+| created_at | datetime | ✓ | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
+| updated_at | datetime | ✓ | CURRENT_TIMESTAMP | DEFAULT_GENERATED on update CURRENT_TIMESTAMP |
+
+**Indexes & Constraints**
+- `PRIMARY KEY (user_id)`
+
+- `FOREIGN KEY user_ui_prefs_user_id_foreign (user_id) REFERENCES users(id) ON UPDATE CASCADE ON DELETE CASCADE`
 
 ---
 
