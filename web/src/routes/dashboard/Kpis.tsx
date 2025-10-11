@@ -275,8 +275,8 @@ export default function Kpis(): JSX.Element {
             </div>
           </section>
 
-          <div className="row row-cols-1 row-cols-md-2 g-3 align-items-stretch">
-            <div className="col d-flex">
+          <div className="row g-3 align-items-stretch">
+            <div className="col-12 col-lg-6 d-flex">
               <section className="card h-100 flex-fill">
                 <div className="card-header">
                   <Link to={evidenceLink} className="fw-semibold text-decoration-none">
@@ -293,7 +293,7 @@ export default function Kpis(): JSX.Element {
               </section>
             </div>
 
-            <div className="col d-flex">
+            <div className="col-12 col-lg-6 d-flex">
               <section className="card h-100 flex-fill">
                 <div className="card-header">
                   <span className="fw-semibold">Admin Activity</span>

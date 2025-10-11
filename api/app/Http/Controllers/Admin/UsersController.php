@@ -12,6 +12,7 @@ use App\Models\User;
 use App\Services\Audit\AuditLogger;
 use App\Support\Audit\AuditCategories;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -23,6 +24,39 @@ final class UsersController extends Controller
     public function index(Request $request): JsonResponse
     {
         $perPage = $request->integer('per_page') ?: 25;
+        $perPage = max(1, min($perPage, 500));
+
+        $rawQuery = $request->query('q');
+        $query = is_string($rawQuery) ? trim($rawQuery) : '';
+        $hasQuery = $query !== '';
+        /** @var Builder<User> $usersQuery */
+        $usersQuery = User::query()->with('roles:id,name');
+
+        if ($hasQuery) {
+            $like = str_replace('*', '%', $query);
+            if (! str_contains($like, '%')) {
+                $like = '%'.$like.'%';
+            }
+
+            $usersQuery->where(static function (Builder $inner) use ($query, $like): void {
+                $inner->where('name', 'like', $like)
+                    ->orWhere('email', 'like', $like)
+                    ->orWhereHas('roles', static function (Builder $roleQuery) use ($like): void {
+                        $roleQuery->where('name', 'like', $like);
+                    });
+
+                if (str_contains($query, ' ')) {
+                    $parts = preg_split('/\s+/', $query) ?: [];
+                    foreach ($parts as $part) {
+                        $part = trim($part);
+                        if ($part === '') {
+                            continue;
+                        }
+                        $inner->orWhere('name', 'like', '%'.$part.'%');
+                    }
+                }
+            });
+        }
 
         /** @psalm-suppress TooManyTemplateParams */
         /**
@@ -30,8 +64,7 @@ final class UsersController extends Controller
          *
          * @phpstan-var LengthAwarePaginator<int, User> $users
          */
-        $users = User::query()
-            ->with('roles:id,name')
+        $users = $usersQuery
             ->orderBy('id')
             ->paginate($perPage);
 

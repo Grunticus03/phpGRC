@@ -44,7 +44,24 @@ final class EvidenceController extends Controller
             $errors = $v->errors()->all();
             $message = 'Upload validation failed';
             if ($errors !== []) {
-                $message .= ': '.implode('; ', array_map(static fn (string $error): string => trim($error), $errors));
+                $message .= ': '.implode(
+                    '; ',
+                    array_map(
+                        static function ($error): string {
+                            if (is_string($error)) {
+                                return trim($error);
+                            }
+                            if ($error instanceof \Stringable) {
+                                return trim((string) $error);
+                            }
+
+                            $json = json_encode($error);
+
+                            return trim(is_string($json) ? $json : '');
+                        },
+                        $errors
+                    )
+                );
             }
 
             return response()->json([

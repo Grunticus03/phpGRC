@@ -317,15 +317,23 @@ final class PolicyMap
         $db = null;
         if (self::hasTable('policy_role_assignments')) {
             try {
-                /** @var list<array{policy:string,role_id:string}> $rows */
-                $rows = DB::table('policy_role_assignments')
+                /** @var \Illuminate\Support\Collection<int, object> $rowsRaw */
+                $rowsRaw = DB::table('policy_role_assignments')
                     ->select(['policy', 'role_id'])
                     ->orderBy('policy')
                     ->orderBy('role_id')
-                    ->get()
-                    ->map(static fn ($row): array => ['policy' => (string) $row->policy, 'role_id' => (string) $row->role_id])
-                    ->all();
-                $db = $rows;
+                    ->get();
+
+                $dbRows = [];
+                foreach ($rowsRaw as $row) {
+                    $policyRaw = $row->policy ?? null;
+                    $roleIdRaw = $row->role_id ?? null;
+                    if (! is_string($policyRaw) || $policyRaw === '' || ! is_string($roleIdRaw) || $roleIdRaw === '') {
+                        continue;
+                    }
+                    $dbRows[] = ['policy' => $policyRaw, 'role_id' => $roleIdRaw];
+                }
+                $db = $dbRows;
             } catch (\Throwable) {
                 $db = null;
             }
@@ -352,61 +360,66 @@ final class PolicyMap
         $map = [];
 
         try {
-            /** @var list<array{policy:string}> $policies */
-            $policies = DB::table('policy_roles')
+            /** @var \Illuminate\Support\Collection<int, object> $policiesRaw */
+            $policiesRaw = DB::table('policy_roles')
                 ->select(['policy'])
                 ->orderBy('policy')
-                ->get()
-                ->map(static fn ($row): array => ['policy' => (string) $row->policy])
-                ->all();
+                ->get();
         } catch (\Throwable) {
             return null;
         }
 
-        foreach ($policies as $policyRow) {
-            $map[$policyRow['policy']] = [];
+        foreach ($policiesRaw as $policyRow) {
+            $policyRaw = $policyRow->policy ?? null;
+            if (! is_string($policyRaw) || $policyRaw === '') {
+                continue;
+            }
+            $policyValue = $policyRaw;
+            $map[$policyValue] = [];
         }
 
         try {
-            /** @var list<array{policy:string,role_id:string}> $rows */
-            $rows = DB::table('policy_role_assignments')
+            /** @var \Illuminate\Support\Collection<int, object> $rowsRaw */
+            $rowsRaw = DB::table('policy_role_assignments')
                 ->select(['policy', 'role_id'])
-                ->get()
-                ->map(static fn ($row): array => [
-                    'policy' => (string) $row->policy,
-                    'role_id' => (string) $row->role_id,
-                ])
-                ->all();
+                ->get();
         } catch (\Throwable) {
             return null;
         }
 
-        if ($rows === []) {
-            return null;
-        }
+        $hasAssignments = false;
 
-        foreach ($rows as $row) {
-            $policy = $row['policy'];
-            if ($policy === '') {
+        foreach ($rowsRaw as $row) {
+            /** @var mixed $policyRaw */
+            $policyRaw = $row->policy ?? null;
+            $roleIdRaw = $row->role_id ?? null;
+            if (! is_string($policyRaw) || $policyRaw === '' || ! is_string($roleIdRaw) || $roleIdRaw === '') {
                 continue;
             }
-            $token = self::normalizeToken($row['role_id']);
+            $policyValue = $policyRaw;
+            $roleIdValue = $roleIdRaw;
+            $token = self::normalizeToken($roleIdValue);
             if ($token === '') {
                 continue;
             }
-            if (! isset($map[$policy])) {
-                $map[$policy] = [];
+            if (! array_key_exists($policyValue, $map)) {
+                $map[$policyValue] = [];
             }
-            $map[$policy][] = $token;
+            if (! in_array($token, $map[$policyValue], true)) {
+                $map[$policyValue][] = $token;
+                $hasAssignments = true;
+            }
         }
 
-        /** @var array<string, list<string>> $dedup */
-        $dedup = [];
-        foreach ($map as $policy => $roles) {
-            $dedup[$policy] = array_values(array_unique($roles));
+        if (! $hasAssignments) {
+            return null;
         }
 
-        return $dedup;
+        foreach ($map as $policy => $tokens) {
+            $map[$policy] = array_values(array_unique($tokens));
+        }
+
+        return $map;
     }
 
     /**

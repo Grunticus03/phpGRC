@@ -64,7 +64,7 @@ export default function Settings(): JSX.Element {
   const [evidenceBlobPath, setEvidenceBlobPath] = useState<string>("");
   const [evidenceMaxMb, setEvidenceMaxMb] = useState<number>(25);
   const blobPlaceholderDefault = "/opt/phpgrc/shared/blobs";
-  const [blobPlaceholder, setBlobPlaceholder] = useState<string>(blobPlaceholderDefault);
+  const [blobPathFocused, setBlobPathFocused] = useState(false);
   const [purging, setPurging] = useState(false);
 
   const snapshotRef = useRef<SettingsSnapshot | null>(null);
@@ -97,7 +97,6 @@ export default function Settings(): JSX.Element {
         setRetentionDays(nextRetention);
         setTimeFormat(nextTimeFormat);
         setEvidenceBlobPath(nextBlobPath);
-        setBlobPlaceholder(blobPlaceholderDefault);
         setEvidenceMaxMb(nextMaxMb);
 
         snapshotRef.current = {
@@ -227,7 +226,6 @@ export default function Settings(): JSX.Element {
       const updated = snapshotFromState();
       snapshotRef.current = updated;
       setEvidenceBlobPath(updated.evidenceBlobPath);
-      setBlobPlaceholder(blobPlaceholderDefault);
       setRbacDays(updated.rbacDays);
       setEvidenceMaxMb(updated.evidenceMaxMb);
     } catch {
@@ -362,10 +360,10 @@ export default function Settings(): JSX.Element {
                   className="form-control"
                   value={evidenceBlobPath}
                   onChange={(e) => setEvidenceBlobPath(e.target.value)}
-                  placeholder={blobPlaceholder}
+                  placeholder={blobPathFocused ? "" : blobPlaceholderDefault}
                   autoComplete="off"
-                  onFocus={() => setBlobPlaceholder("")}
-                  onBlur={() => setBlobPlaceholder(blobPlaceholderDefault)}
+                  onFocus={() => setBlobPathFocused(true)}
+                  onBlur={() => setBlobPathFocused(false)}
                 />
                 <div className="form-text">Leave blank to keep storing evidence in the database.</div>
               </div>

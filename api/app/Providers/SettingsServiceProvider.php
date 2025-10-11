@@ -37,18 +37,10 @@ final class SettingsServiceProvider extends ServiceProvider
         }
 
         try {
-            /** @var array<int, array{key:string,value:string,type:string}> $rows */
-            $rows = DB::table('core_settings')
+            /** @var \Illuminate\Support\Collection<int, object> $rowsRaw */
+            $rowsRaw = DB::table('core_settings')
                 ->select(['key', 'value', 'type'])
-                ->get()
-                ->map(static function ($r): array {
-                    return [
-                        'key' => (string) ($r->key ?? ''),
-                        'value' => (string) ($r->value ?? ''),
-                        'type' => (string) ($r->type ?? 'json'),
-                    ];
-                })
-                ->all();
+                ->get();
         } catch (\Throwable $e) {
             // Still enforce deprecated toggle off
             $config->set('core.metrics.throttle.enabled', false);
@@ -56,10 +48,24 @@ final class SettingsServiceProvider extends ServiceProvider
             return;
         }
 
-        foreach ($rows as $row) {
-            $key = $row['key'];
-            $type = strtolower($row['type']);
-            $value = $row['value'];
+        foreach ($rowsRaw as $rowRaw) {
+            /** @var mixed $keyCandidate */
+            $keyCandidate = $rowRaw->key ?? null;
+            if (! is_string($keyCandidate) || $keyCandidate === '') {
+                continue;
+            }
+            $key = $keyCandidate;
+
+            /** @var mixed $valueCandidate */
+            $valueCandidate = $rowRaw->value ?? '';
+            if (! is_string($valueCandidate)) {
+                continue;
+            }
+            $value = $valueCandidate;
+
+            /** @var mixed $typeCandidate */
+            $typeCandidate = $rowRaw->type ?? 'json';
+            $type = is_string($typeCandidate) && $typeCandidate !== '' ? strtolower($typeCandidate) : 'json';
 
             // ENV-first precedence: do NOT allow DB to overwrite global API throttle knobs.
             // These map from CORE_API_THROTTLE_* in config and must win.

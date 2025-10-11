@@ -8,6 +8,7 @@ import { apiGet, type QueryInit } from "../../lib/api";
 import { formatTimestamp, DEFAULT_TIME_FORMAT, normalizeTimeFormat, type TimeFormat } from "../../lib/formatters";
 import FilterableHeaderRow, { type FilterableHeaderConfig } from "../../components/table/FilterableHeaderRow";
 import useColumnToggle from "../../components/table/useColumnToggle";
+import DateRangePicker from "../../components/pickers/DateRangePicker";
 
 type AuditItem = {
   id?: string;
@@ -504,6 +505,38 @@ export default function Audit(): JSX.Element {
     });
   };
 
+  const handleDateRangeChange = (startValue: string, endValue: string) => {
+    setDateFrom(startValue);
+    setDateTo(endValue);
+    if (startValue && endValue && startValue > endValue) {
+      showDateOrderError();
+    } else {
+      clearDateFieldErrors();
+    }
+  };
+
+  const handleDateRangeComplete = (startValue: string, endValue: string) => {
+    if (startValue && endValue && startValue > endValue) {
+      showDateOrderError();
+      return;
+    }
+    clearDateFieldErrors();
+    void load(true, {
+      occurred_from: startValue ? `${startValue}T00:00:00Z` : undefined,
+      occurred_to: endValue ? `${endValue}T23:59:59Z` : undefined,
+    });
+  };
+
+  const handleDateRangeClear = () => {
+    setDateFrom("");
+    setDateTo("");
+    clearDateFieldErrors();
+    void load(true, {
+      occurred_from: undefined,
+      occurred_to: undefined,
+    });
+  };
+
   const timestampSummaryContent = dateFrom || dateTo ? (
     <div className="small text-muted mt-1">
       {dateFrom ? dateFrom : "Any"} → {dateTo ? dateTo : "Any"}
@@ -512,11 +545,16 @@ export default function Audit(): JSX.Element {
 
   const timestampFilterContent =
     activeFilter === "timestamp" ? (
-      <div className="mt-2">
-        <div className="d-flex flex-wrap gap-2">
-          <label htmlFor="audit-date-from" className="form-label visually-hidden">
-            From
-          </label>
+      <div className="mt-2 d-flex flex-column gap-2">
+        <DateRangePicker
+          start={dateFrom}
+          end={dateTo}
+          onChange={handleDateRangeChange}
+          onComplete={handleDateRangeComplete}
+          onClear={handleDateRangeClear}
+        />
+        <div className="visually-hidden">
+          <label htmlFor="audit-date-from" className="form-label">From</label>
           <input
             id="audit-date-from"
             type="date"
@@ -524,35 +562,18 @@ export default function Audit(): JSX.Element {
             value={dateFrom}
             onChange={(e) => {
               const nextValue = e.target.value;
-              setDateFrom(nextValue);
-              if (nextValue && dateTo && nextValue > dateTo) {
-                showDateOrderError();
-                return;
-              }
-              clearDateFieldErrors();
-              void load(true, {
-                occurred_from: nextValue ? `${nextValue}T00:00:00Z` : undefined,
-                occurred_to: dateTo ? `${dateTo}T23:59:59Z` : undefined,
-              });
+              handleDateRangeChange(nextValue, dateTo);
+              handleDateRangeComplete(nextValue, dateTo);
             }}
             onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                if (isDateOrderValid) {
-                  void load(true);
-                } else {
-                  showDateOrderError();
-                }
-              } else if (e.key === "Escape") {
+              if (e.key === "Escape") {
                 e.preventDefault();
                 resetActiveFilter();
               }
             }}
             aria-invalid={!isDateOrderValid || !!fieldErrors.occurred_from?.length}
           />
-          <label htmlFor="audit-date-to" className="form-label visually-hidden">
-            To
-          </label>
+          <label htmlFor="audit-date-to" className="form-label">To</label>
           <input
             id="audit-date-to"
             type="date"
@@ -560,26 +581,11 @@ export default function Audit(): JSX.Element {
             value={dateTo}
             onChange={(e) => {
               const nextValue = e.target.value;
-              setDateTo(nextValue);
-              if (dateFrom && nextValue && dateFrom > nextValue) {
-                showDateOrderError();
-                return;
-              }
-              clearDateFieldErrors();
-              void load(true, {
-                occurred_from: dateFrom ? `${dateFrom}T00:00:00Z` : undefined,
-                occurred_to: nextValue ? `${nextValue}T23:59:59Z` : undefined,
-              });
+              handleDateRangeChange(dateFrom, nextValue);
+              handleDateRangeComplete(dateFrom, nextValue);
             }}
             onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                if (isDateOrderValid) {
-                  void load(true);
-                } else {
-                  showDateOrderError();
-                }
-              } else if (e.key === "Escape") {
+              if (e.key === "Escape") {
                 e.preventDefault();
                 resetActiveFilter();
               }
@@ -603,27 +609,9 @@ export default function Audit(): JSX.Element {
           <ul role="alert" className="text-danger small mb-0 ps-3 mt-2">
             {fieldErrors.occurred_to.map((m, i) => (
               <li key={i}>{m}</li>
-            ))}
-          </ul>
-        ) : null}
-        <div className="d-flex flex-wrap gap-2 mt-2">
-          <button
-            type="button"
-            className="btn btn-outline-secondary btn-sm"
-            onClick={() => {
-              setDateFrom("");
-              setDateTo("");
-              clearDateFieldErrors();
-              void load(true, {
-                occurred_from: undefined,
-                occurred_to: undefined,
-              });
-            }}
-            disabled={!dateFrom && !dateTo}
-          >
-            Clear dates
-          </button>
-        </div>
+          ))}
+        </ul>
+      ) : null}
       </div>
     ) : null;
 

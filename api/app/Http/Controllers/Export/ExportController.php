@@ -37,11 +37,23 @@ final class ExportController extends Controller
             ], 422);
         }
 
+        /** @var array{params?: array<array-key, mixed>} $validated */
         $validated = $request->validate([
             'params' => ['sometimes', 'array'],
         ]);
+        /** @var array<array-key, mixed> $paramsRaw */
+        $paramsRaw = $validated['params'] ?? [];
         /** @var array<string,mixed> $params */
-        $params = (array) ($validated['params'] ?? []);
+        $params = [];
+        foreach ($paramsRaw as $key => $value) {
+            if (! is_string($key)) {
+                continue;
+            }
+            if ($value !== null && ! is_scalar($value) && ! is_array($value)) {
+                continue;
+            }
+            $params[$key] = $value;
+        }
 
         if ($this->persistenceOn()) {
             $export = $this->service->enqueue($type, $params);
@@ -74,11 +86,23 @@ final class ExportController extends Controller
             ], 422);
         }
 
+        /** @var array{params?: array<array-key, mixed>} $validated */
         $validated = $request->validate([
             'params' => ['sometimes', 'array'],
         ]);
+        /** @var array<array-key, mixed> $paramsRaw */
+        $paramsRaw = $validated['params'] ?? [];
         /** @var array<string,mixed> $params */
-        $params = (array) ($validated['params'] ?? []);
+        $params = [];
+        foreach ($paramsRaw as $key => $value) {
+            if (! is_string($key)) {
+                continue;
+            }
+            if ($value !== null && ! is_scalar($value) && ! is_array($value)) {
+                continue;
+            }
+            $params[$key] = $value;
+        }
 
         if ($this->persistenceOn()) {
             $export = $this->service->enqueue($type, $params);
