@@ -1,30 +1,122 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
+
+type AdminTreeNode = {
+  id: string;
+  label: string;
+  to?: string;
+  href?: string;
+  children?: AdminTreeNode[];
+  defaultExpanded?: boolean;
+};
+
+const TOGGLE_SLOT_WIDTH = "2.25rem";
+
+const ADMIN_TREE: AdminTreeNode[] = [
+  {
+    id: "settings",
+    label: "Settings",
+    defaultExpanded: true,
+    children: [
+      {
+        id: "settings-theme",
+        label: "Theme",
+        defaultExpanded: true,
+        children: [
+          { id: "settings-theme-config", label: "Theme Settings", to: "/admin/settings/theming" },
+          { id: "settings-theme-designer", label: "Theme Designer", to: "/admin/settings/theme-designer" },
+        ],
+      },
+      { id: "settings-branding", label: "Branding", to: "/admin/settings/branding" },
+      { id: "settings-core", label: "Core Settings", to: "/admin/settings/core" },
+    ],
+  },
+  { id: "roles", label: "Roles", to: "/admin/roles" },
+  { id: "users", label: "Users", to: "/admin/users" },
+  { id: "user-roles", label: "User Roles", to: "/admin/user-roles" },
+  { id: "audit", label: "Audit Logs", to: "/admin/audit" },
+  { id: "api-docs", label: "API Documentation", href: "/api/docs" },
+];
 
 export default function AdminIndex(): JSX.Element {
   return (
-    <section>
-      <h1>Admin</h1>
-      <ul>
-        <li>
-          <span>Settings</span>
-          <ul>
-            <li>
-              <span>Theme</span>
-              <ul>
-                <li><Link to="/admin/settings/theming">Theme Settings</Link></li>
-                <li><Link to="/admin/settings/theme-designer">Theme Designer</Link></li>
-              </ul>
-            </li>
-            <li><Link to="/admin/settings/branding">Branding</Link></li>
-            <li><Link to="/admin/settings/core">Core Settings</Link></li>
-          </ul>
-        </li>
-        <li><Link to="/admin/roles">Roles</Link></li>
-        <li><Link to="/admin/users">Users</Link></li>
-        <li><Link to="/admin/user-roles">User Roles</Link></li>
-        <li><Link to="/admin/audit">Audit Logs</Link></li>
-        <li><a href="/api/docs">API Documentation</a></li>
-      </ul>
+    <section className="container py-3">
+      <h1 className="mb-4">Admin</h1>
+      <nav aria-label="Admin navigation">
+        <ul className="list-unstyled admin-tree m-0" role="tree">
+          {ADMIN_TREE.map((node) => (
+            <TreeItem key={node.id} node={node} level={1} />
+          ))}
+        </ul>
+      </nav>
     </section>
+  );
+}
+
+type TreeItemProps = {
+  node: AdminTreeNode;
+  level: number;
+};
+
+function TreeItem({ node, level }: TreeItemProps): JSX.Element {
+  const hasChildren = Array.isArray(node.children) && node.children.length > 0;
+  const [expanded, setExpanded] = useState(node.defaultExpanded ?? level === 1);
+
+  const toggleSlot = hasChildren ? (
+    <button
+      type="button"
+      className="btn btn-sm btn-outline-secondary px-2"
+      style={{ width: TOGGLE_SLOT_WIDTH }}
+      onClick={() => setExpanded((prev) => !prev)}
+      aria-label={`${expanded ? "Collapse" : "Expand"} ${node.label}`}
+      aria-expanded={expanded}
+    >
+      {expanded ? "−" : "+"}
+    </button>
+  ) : (
+    <span
+      className="d-inline-flex align-items-center justify-content-center text-muted"
+      style={{ width: TOGGLE_SLOT_WIDTH }}
+      role="presentation"
+      aria-hidden="true"
+    >
+      •
+    </span>
+  );
+
+  const content = node.to ? (
+    <Link className="link-body-emphasis" to={node.to}>
+      {node.label}
+    </Link>
+  ) : node.href ? (
+    <a className="link-body-emphasis" href={node.href}>
+      {node.label}
+    </a>
+  ) : (
+    <span className="text-body">{node.label}</span>
+  );
+
+  return (
+    <li
+      className="admin-tree-item mb-2"
+      role="treeitem"
+      aria-level={level}
+      aria-expanded={hasChildren ? expanded : undefined}
+    >
+      <div className="d-flex align-items-center gap-2">
+        {toggleSlot}
+        {content}
+      </div>
+      {hasChildren && expanded ? (
+        <ul
+          role="group"
+          className="list-unstyled ms-4 ps-3 border-start border-light-subtle"
+        >
+          {(node.children ?? []).map((child) => (
+            <TreeItem key={child.id} node={child} level={level + 1} />
+          ))}
+        </ul>
+      ) : null}
+    </li>
   );
 }

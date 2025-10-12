@@ -1,4 +1,4 @@
-import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
+import { FormEvent, ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { apiPost, baseHeaders } from "../../lib/api";
 import { DEFAULT_TIME_FORMAT, normalizeTimeFormat, type TimeFormat } from "../../lib/formatters";
 
@@ -66,6 +66,8 @@ export default function CoreSettings(): JSX.Element {
   const [evidenceMaxMb, setEvidenceMaxMb] = useState<number>(25);
   const blobPlaceholderDefault = "/opt/phpgrc/shared/blobs";
   const [purging, setPurging] = useState(false);
+  const timeFormatExample =
+    TIME_FORMAT_OPTIONS.find((opt) => opt.value === timeFormat)?.example ?? null;
 
   const snapshotRef = useRef<SettingsSnapshot | null>(null);
   const etagRef = useRef<string | null>(null);
@@ -376,11 +378,11 @@ export default function CoreSettings(): JSX.Element {
                 </label>
               </div>
 
-              <div className="row g-2 align-items-end">
-                <div className="col-sm-4">
-                  <label htmlFor="rbacUserSearchPerPage" className="form-label">User search default per-page</label>
+              <SettingField fieldId="rbacUserSearchPerPage" label="User search default per-page">
+                {({ id, describedBy }) => (
                   <input
-                    id="rbacUserSearchPerPage"
+                    id={id}
+                    aria-describedby={describedBy}
                     type="number"
                     min={1}
                     max={500}
@@ -390,8 +392,8 @@ export default function CoreSettings(): JSX.Element {
                       setRbacUserSearchPerPage(clamp(Number(e.target.value) || 50, 1, 500))
                     }
                   />
-                </div>
-              </div>
+                )}
+              </SettingField>
             </div>
           </section>
 
@@ -399,17 +401,23 @@ export default function CoreSettings(): JSX.Element {
             <div className="card-header">
               <strong>Audit</strong>
             </div>
-            <div className="card-body">
-              <label htmlFor="retentionDays" className="form-label">Retention days</label>
-              <input
-                id="retentionDays"
-                type="number"
-                min={1}
-                max={730}
-                className="form-control"
-                value={retentionDays}
-                onChange={(e) => setRetentionDays(Math.max(1, Math.min(730, Number(e.target.value) || 1)))}
-              />
+            <div className="card-body vstack gap-3">
+              <SettingField fieldId="retentionDays" label="Retention days">
+                {({ id, describedBy }) => (
+                  <input
+                    id={id}
+                    aria-describedby={describedBy}
+                    type="number"
+                    min={1}
+                    max={730}
+                    className="form-control"
+                    value={retentionDays}
+                    onChange={(e) =>
+                      setRetentionDays(Math.max(1, Math.min(730, Number(e.target.value) || 1)))
+                    }
+                  />
+                )}
+              </SettingField>
             </div>
           </section>
 
@@ -417,23 +425,28 @@ export default function CoreSettings(): JSX.Element {
             <div className="card-header">
               <strong>Interface</strong>
             </div>
-            <div className="card-body">
-              <label htmlFor="timeFormat" className="form-label">Timestamp display</label>
-              <select
-                id="timeFormat"
-                className="form-select"
-                value={timeFormat}
-                onChange={(e) => setTimeFormat(normalizeTimeFormat(e.target.value))}
+            <div className="card-body vstack gap-3">
+              <SettingField
+                fieldId="timeFormat"
+                label="Timestamp display"
+                help={timeFormatExample ?? undefined}
               >
-                {TIME_FORMAT_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
-              <div className="form-text">
-                {TIME_FORMAT_OPTIONS.find((opt) => opt.value === timeFormat)?.example}
-              </div>
+                {({ id, describedBy }) => (
+                  <select
+                    id={id}
+                    aria-describedby={describedBy}
+                    className="form-select"
+                    value={timeFormat}
+                    onChange={(e) => setTimeFormat(normalizeTimeFormat(e.target.value))}
+                  >
+                    {TIME_FORMAT_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </SettingField>
             </div>
           </section>
 
@@ -442,33 +455,42 @@ export default function CoreSettings(): JSX.Element {
               <strong>Evidence</strong>
             </div>
             <div className="card-body vstack gap-3">
-              <div>
-                <label htmlFor="evidenceBlobPath" className="form-label">Blob storage path</label>
-                <input
-                  id="evidenceBlobPath"
-                  type="text"
-                  className="form-control placeholder-hide-on-focus"
-                  value={evidenceBlobPath}
-                  onChange={(e) => setEvidenceBlobPath(e.target.value)}
-                  placeholder={blobPlaceholderDefault}
-                  autoComplete="off"
-                  onFocus={(event) => {
-                    event.currentTarget.dataset.placeholder = event.currentTarget.placeholder;
-                    event.currentTarget.placeholder = "";
-                  }}
-                  onBlur={(event) => {
-                    const original = event.currentTarget.dataset.placeholder || blobPlaceholderDefault;
-                    event.currentTarget.placeholder =
-                      event.currentTarget.value.trim() === "" ? original : blobPlaceholderDefault;
-                  }}
-                />
-                <div className="form-text">Leave blank to keep storing evidence in the database.</div>
-              </div>
-              <div className="row g-2 align-items-end">
-                <div className="col-sm-4">
-                  <label htmlFor="evidenceMaxMb" className="form-label">Maximum file size (MB)</label>
+              <SettingField
+                fieldId="evidenceBlobPath"
+                label="Blob storage path"
+                help="Leave blank to keep storing evidence in the database."
+              >
+                {({ id, describedBy }) => (
                   <input
-                    id="evidenceMaxMb"
+                    id={id}
+                    aria-describedby={describedBy}
+                    type="text"
+                    className="form-control placeholder-hide-on-focus"
+                    value={evidenceBlobPath}
+                    onChange={(e) => setEvidenceBlobPath(e.target.value)}
+                    placeholder={blobPlaceholderDefault}
+                    autoComplete="off"
+                    onFocus={(event) => {
+                      event.currentTarget.dataset.placeholder = event.currentTarget.placeholder;
+                      event.currentTarget.placeholder = "";
+                    }}
+                    onBlur={(event) => {
+                      const original = event.currentTarget.dataset.placeholder || blobPlaceholderDefault;
+                      event.currentTarget.placeholder =
+                        event.currentTarget.value.trim() === "" ? original : blobPlaceholderDefault;
+                    }}
+                  />
+                )}
+              </SettingField>
+              <SettingField
+                fieldId="evidenceMaxMb"
+                label="Maximum file size (MB)"
+                help="Files larger than this limit will be rejected."
+              >
+                {({ id, describedBy }) => (
+                  <input
+                    id={id}
+                    aria-describedby={describedBy}
                     type="number"
                     min={1}
                     max={4096}
@@ -479,9 +501,8 @@ export default function CoreSettings(): JSX.Element {
                       setEvidenceMaxMb(clamp(next, 1, 4096));
                     }}
                   />
-                  <div className="form-text">Files larger than this limit will be rejected.</div>
-                </div>
-              </div>
+                )}
+              </SettingField>
               <div className="d-flex flex-column flex-sm-row align-items-sm-center gap-2">
                 <button
                   type="button"
@@ -501,24 +522,36 @@ export default function CoreSettings(): JSX.Element {
               <strong>Metrics</strong>
             </div>
             <div className="card-body vstack gap-3">
-              <div className="row g-2 align-items-end">
-                <div className="col-sm-4">
-                  <label htmlFor="cacheTtl" className="form-label">Cache TTL (seconds)</label>
+              <SettingField
+                fieldId="cacheTtl"
+                label="Cache TTL (seconds)"
+                help="0 disables caching. Max 30 days (2,592,000 seconds)."
+              >
+                {({ id, describedBy }) => (
                   <input
-                    id="cacheTtl"
+                    id={id}
+                    aria-describedby={describedBy}
                     type="number"
                     min={0}
                     max={2_592_000}
                     className="form-control"
                     value={cacheTtl}
-                    onChange={(e) => setCacheTtl(Math.max(0, Math.min(2_592_000, Number(e.target.value) || 0)))}
+                    onChange={(e) =>
+                      setCacheTtl(Math.max(0, Math.min(2_592_000, Number(e.target.value) || 0)))
+                    }
                   />
-                </div>
+                )}
+              </SettingField>
 
-                <div className="col-sm-4">
-                  <label htmlFor="rbacDays" className="form-label">Authentication window (days)</label>
+              <SettingField
+                fieldId="rbacDays"
+                label="Authentication window (days)"
+                help="Controls RBAC deny cache. Range: 7–365."
+              >
+                {({ id, describedBy }) => (
                   <input
-                    id="rbacDays"
+                    id={id}
+                    aria-describedby={describedBy}
                     type="number"
                     className="form-control"
                     value={rbacDays}
@@ -527,8 +560,8 @@ export default function CoreSettings(): JSX.Element {
                       setRbacDays(Number.isFinite(next) ? next : 0);
                     }}
                   />
-                </div>
-              </div>
+                )}
+              </SettingField>
             </div>
           </section>
 
@@ -541,6 +574,43 @@ export default function CoreSettings(): JSX.Element {
         </form>
       )}
     </section>
+  );
+}
+
+type SettingFieldProps = {
+  fieldId: string;
+  label: string;
+  description?: ReactNode;
+  help?: ReactNode;
+  children: (attributes: { id: string; describedBy?: string }) => ReactNode;
+};
+
+function SettingField({ fieldId, label, description, help, children }: SettingFieldProps): JSX.Element {
+  const descriptionId = description ? `${fieldId}-description` : undefined;
+  const helpId = help ? `${fieldId}-help` : undefined;
+  const describedBy = [descriptionId, helpId].filter(Boolean).join(" ") || undefined;
+
+  return (
+    <div className="row align-items-start g-3 py-2" data-setting-row>
+      <div className="col-lg-5">
+        <label htmlFor={fieldId} className="form-label fw-semibold mb-0">
+          {label}
+        </label>
+        {description ? (
+          <div id={descriptionId} className="form-text">
+            {description}
+          </div>
+        ) : null}
+      </div>
+      <div className="col-lg-4">
+        {children({ id: fieldId, describedBy })}
+        {help ? (
+          <div id={helpId} className="form-text">
+            {help}
+          </div>
+        ) : null}
+      </div>
+    </div>
   );
 }
 

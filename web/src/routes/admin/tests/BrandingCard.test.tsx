@@ -103,6 +103,8 @@ describe("BrandingCard", () => {
     render(<BrandingCard />);
 
     await waitFor(() => expect(screen.queryByText("Loading branding settings…")).toBeNull());
+    expect(screen.getByLabelText("branding-placement-preview")).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Restore default" }).length).toBeGreaterThan(0);
 
     fireEvent.change(screen.getByLabelText("Title text"), { target: { value: "New Title" } });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
@@ -117,13 +119,12 @@ describe("BrandingCard", () => {
     render(<BrandingCard />);
     await waitFor(() => expect(screen.queryByText("Loading branding settings…")).toBeNull());
 
-    const fileInput = screen.getAllByDisplayValue("")[0] as HTMLInputElement | undefined;
-    expect(fileInput).toBeDefined();
+    const fileInput = screen.getByLabelText("Upload Primary logo") as HTMLInputElement;
 
     const file = new File(["svg"], "logo.svg", { type: "image/svg+xml" });
 
     // trigger upload
-    fireEvent.change(fileInput!, { target: { files: [file] } });
+    fireEvent.change(fileInput, { target: { files: [file] } });
 
     await screen.findByText("Upload successful.");
     expect(uploadBody).not.toBeNull();

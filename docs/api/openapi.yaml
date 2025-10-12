@@ -50,7 +50,7 @@ paths:
       description: |
         Simple liveness probe; returns `{ ok: true }` when the API process is reachable.
       responses:
-        '200':
+        "200":
           description: OK
           content:
             application/json:
@@ -61,7 +61,7 @@ paths:
                   ok:
                     type: boolean
                     const: true
-        '404':
+        "404":
           description: Not Found
 
   /health/fingerprint:
@@ -72,13 +72,13 @@ paths:
       summary: Deployment fingerprint and enabled-feature summary
       description: Returns a hash of key config and a brief feature summary to help debug deployments (no secrets).
       responses:
-        '200':
+        "200":
           description: Summary and fingerprint
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HealthFingerprintResponse'
-        '404':
+                $ref: "#/components/schemas/HealthFingerprintResponse"
+        "404":
           description: Not Found
 
   /openapi.yaml:
@@ -89,13 +89,13 @@ paths:
       summary: OpenAPI YAML
       description: Serves the current OpenAPI spec as YAML from `docs/api/openapi.yaml`.
       responses:
-        '200':
+        "200":
           description: YAML
           content:
             application/yaml:
               schema:
                 type: string
-        '404':
+        "404":
           description: Not Found
 
   /openapi.json:
@@ -106,14 +106,14 @@ paths:
       summary: OpenAPI JSON
       description: Serves the current OpenAPI spec as JSON (direct file or YAML->JSON conversion).
       responses:
-        '200':
+        "200":
           description: JSON
           content:
             application/json:
               schema:
                 type: object
                 additionalProperties: true
-        '404':
+        "404":
           description: Not Found
 
   /admin/settings:
@@ -123,18 +123,18 @@ paths:
       summary: Get settings snapshot
       description: Returns the effective configuration with any DB-backed overrides applied.
       responses:
-        '200':
+        "200":
           description: OK
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SettingsGetResponse'
-        '401':
-          $ref: '#/components/responses/Unauthenticated'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '429':
-          $ref: '#/components/responses/RateLimited'
+                $ref: "#/components/schemas/SettingsGetResponse"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
     post: &SettingsUpdateOp
       operationId: settingsUpdate
       tags: [Settings]
@@ -146,23 +146,23 @@ paths:
           application/json:
             schema:
               oneOf:
-                - $ref: '#/components/schemas/SettingsUpdateSpecShape'
-                - $ref: '#/components/schemas/SettingsUpdateLegacyShape'
+                - $ref: "#/components/schemas/SettingsUpdateSpecShape"
+                - $ref: "#/components/schemas/SettingsUpdateLegacyShape"
       responses:
-        '200':
+        "200":
           description: Applied
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SettingsPostResponse'
-        '401':
-          $ref: '#/components/responses/Unauthenticated'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '422':
-          $ref: '#/components/responses/ValidationFailed'
-        '429':
-          $ref: '#/components/responses/RateLimited'
+                $ref: "#/components/schemas/SettingsPostResponse"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "429":
+          $ref: "#/components/responses/RateLimited"
     put:
       <<: *SettingsUpdateOp
       operationId: settingsReplace
@@ -181,22 +181,22 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/EvidencePurgeRequest'
+              $ref: "#/components/schemas/EvidencePurgeRequest"
       responses:
-        '200':
+        "200":
           description: Purge result
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/EvidencePurgeResponse'
-        '401':
-          $ref: '#/components/responses/Unauthenticated'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '422':
-          $ref: '#/components/responses/ValidationFailed'
-        '429':
-          $ref: '#/components/responses/RateLimited'
+                $ref: "#/components/schemas/EvidencePurgeResponse"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "429":
+          $ref: "#/components/responses/RateLimited"
 
   /rbac/roles:
     get:
@@ -205,18 +205,18 @@ paths:
       summary: List role catalog
       description: Returns role names from DB when persistence is enabled, otherwise from config.
       responses:
-        '200':
+        "200":
           description: OK (persist uses DB if present, else config)
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RoleListResponse'
-        '401':
-          $ref: '#/components/responses/Unauthenticated'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '429':
-          $ref: '#/components/responses/RateLimited'
+                $ref: "#/components/schemas/RoleListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
     post:
       operationId: rbacRolesCreate
       tags: [RBAC]
@@ -227,30 +227,30 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/RoleCreateRequest'
+              $ref: "#/components/schemas/RoleCreateRequest"
       responses:
-        '201':
+        "201":
           description: Created (persist path)
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RoleCreateResponse'
-        '202':
+                $ref: "#/components/schemas/RoleCreateResponse"
+        "202":
           description: Accepted (stub-only path)
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RoleCreateAccepted'
-        '401':
-          $ref: '#/components/responses/Unauthenticated'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '422':
+                $ref: "#/components/schemas/RoleCreateAccepted"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
           description: Validation errors
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ValidationFailed'
+                $ref: "#/components/schemas/ValidationFailed"
               examples:
                 invalidName:
                   summary: Invalid role name
@@ -270,8 +270,8 @@ paths:
                     errors:
                       name:
                         - Role already exists after normalization.
-        '429':
-          $ref: '#/components/responses/RateLimited'
+        "429":
+          $ref: "#/components/responses/RateLimited"
 
   /settings/ui:
     get:
@@ -281,7 +281,7 @@ paths:
       description: |
         Returns the current UI configuration (theme defaults, nav settings, branding) merged from defaults and DB overrides.
       responses:
-        '200':
+        "200":
           description: Current UI settings
           headers:
             ETag:
@@ -292,11 +292,11 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UiSettingsResponse'
-        '401':
-          $ref: '#/components/responses/Unauthenticated'
-        '429':
-          $ref: '#/components/responses/RateLimited'
+                $ref: "#/components/schemas/UiSettingsResponse"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "429":
+          $ref: "#/components/responses/RateLimited"
     put:
       operationId: settingsUiUpdate
       tags: [Settings]
@@ -308,9 +308,9 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UiSettingsUpdateRequest'
+              $ref: "#/components/schemas/UiSettingsUpdateRequest"
       responses:
-        '200':
+        "200":
           description: Updated UI settings
           headers:
             ETag:
@@ -321,19 +321,19 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UiSettingsUpdateResponse'
-        '401':
-          $ref: '#/components/responses/Unauthenticated'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '409':
+                $ref: "#/components/schemas/UiSettingsUpdateResponse"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
           description: ETag mismatch (PRECONDITION_FAILED)
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PreconditionFailed'
-        '422':
-          $ref: '#/components/responses/ValidationFailed'
+                $ref: "#/components/schemas/PreconditionFailed"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
 
   /settings/ui/themes:
     get:
@@ -342,14 +342,14 @@ paths:
       summary: Theme manifest
       description: Returns the available Bootswatch themes and imported packs for clients to present theme options.
       responses:
-        '200':
+        "200":
           description: Manifest
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ThemeManifest'
-        '401':
-          $ref: '#/components/responses/Unauthenticated'
+                $ref: "#/components/schemas/ThemeManifest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
 
   /settings/ui/brand-assets:
     get:
@@ -358,16 +358,16 @@ paths:
       summary: List branding assets
       description: Lists uploaded branding assets (logos, favicons) with metadata.
       responses:
-        '200':
+        "200":
           description: Branding assets
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/BrandAssetListResponse'
-        '401':
-          $ref: '#/components/responses/Unauthenticated'
-        '403':
-          $ref: '#/components/responses/Forbidden'
+                $ref: "#/components/schemas/BrandAssetListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
     post:
       operationId: settingsUiBrandAssetsUpload
       tags: [Settings]
@@ -378,26 +378,26 @@ paths:
         content:
           multipart/form-data:
             schema:
-              $ref: '#/components/schemas/BrandAssetUploadRequest'
+              $ref: "#/components/schemas/BrandAssetUploadRequest"
       responses:
-        '201':
+        "201":
           description: Asset uploaded
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/BrandAssetUploadResponse'
-        '401':
-          $ref: '#/components/responses/Unauthenticated'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '415':
+                $ref: "#/components/schemas/BrandAssetUploadResponse"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "415":
           description: Unsupported media type
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorSimple'
-        '422':
-          $ref: '#/components/responses/ValidationFailed'
+                $ref: "#/components/schemas/ErrorSimple"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
 
   /settings/ui/brand-assets/{asset}:
     delete:
@@ -414,22 +414,22 @@ paths:
             maxLength: 255
           description: Branding asset identifier (`ba_<ulid>`).
       responses:
-        '200':
+        "200":
           description: Deleted
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Ok'
-        '401':
-          $ref: '#/components/responses/Unauthenticated'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
+                $ref: "#/components/schemas/Ok"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
           description: Not found
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorSimple'
+                $ref: "#/components/schemas/ErrorSimple"
   /settings/ui/themes/import:
     post:
       operationId: settingsUiThemePackImport
@@ -448,30 +448,30 @@ paths:
                   type: string
                   format: binary
       responses:
-        '201':
+        "201":
           description: Theme pack imported
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ThemePackResponse'
-        '401':
-          $ref: '#/components/responses/Unauthenticated'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '413':
+                $ref: "#/components/schemas/ThemePackResponse"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "413":
           description: Payload too large
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorSimple'
-        '415':
+                $ref: "#/components/schemas/ErrorSimple"
+        "415":
           description: Unsupported media type
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorSimple'
-        '422':
-          $ref: '#/components/responses/ValidationFailed'
+                $ref: "#/components/schemas/ErrorSimple"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
   /settings/ui/themes/{slug}:
     put:
       operationId: settingsUiThemePackUpdate
@@ -490,26 +490,26 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ThemePackUpdateRequest'
+              $ref: "#/components/schemas/ThemePackUpdateRequest"
       responses:
-        '200':
+        "200":
           description: Theme pack updated
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ThemePackUpdateResponse'
-        '401':
-          $ref: '#/components/responses/Unauthenticated'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
+                $ref: "#/components/schemas/ThemePackUpdateResponse"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
           description: Not found
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorSimple'
-        '422':
-          $ref: '#/components/responses/ValidationFailed'
+                $ref: "#/components/schemas/ErrorSimple"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
     delete:
       operationId: settingsUiThemePackDelete
       tags: [Settings]
@@ -523,22 +523,22 @@ paths:
             type: string
             example: pack:midnight
       responses:
-        '200':
+        "200":
           description: Theme pack deleted
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ThemePackDeleteResponse'
-        '401':
-          $ref: '#/components/responses/Unauthenticated'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
+                $ref: "#/components/schemas/ThemePackDeleteResponse"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
           description: Not found
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorSimple'
+                $ref: "#/components/schemas/ErrorSimple"
   /settings/ui/designer/themes:
     get:
       operationId: settingsUiDesignerThemeList
@@ -546,16 +546,16 @@ paths:
       summary: List Theme Designer themes
       description: Lists Theme Designer themes stored on the server along with the active storage configuration. Requires `core.settings.manage`.
       responses:
-        '200':
+        "200":
           description: Stored themes
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/DesignerThemeListResponse'
-        '401':
-          $ref: '#/components/responses/Unauthenticated'
-        '403':
-          $ref: '#/components/responses/Forbidden'
+                $ref: "#/components/schemas/DesignerThemeListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
     post:
       operationId: settingsUiDesignerThemeSave
       tags: [Settings]
@@ -566,32 +566,32 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/DesignerThemeRequest'
+              $ref: "#/components/schemas/DesignerThemeRequest"
       responses:
-        '201':
+        "201":
           description: Theme created
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/DesignerThemeResponse'
-        '200':
+                $ref: "#/components/schemas/DesignerThemeResponse"
+        "200":
           description: Theme updated
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/DesignerThemeResponse'
-        '401':
-          $ref: '#/components/responses/Unauthenticated'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '409':
+                $ref: "#/components/schemas/DesignerThemeResponse"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
           description: Conflict or storage disabled
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorSimple'
-        '422':
-          $ref: '#/components/responses/ValidationFailed'
+                $ref: "#/components/schemas/ErrorSimple"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
   /settings/ui/designer/themes/{slug}:
     delete:
       operationId: settingsUiDesignerThemeDelete
@@ -605,25 +605,25 @@ paths:
           schema:
             type: string
             maxLength: 64
-            pattern: '^[a-z0-9-]+$'
+            pattern: "^[a-z0-9-]+$"
           description: Theme slug to delete.
       responses:
-        '200':
+        "200":
           description: Deleted
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Ok'
-        '401':
-          $ref: '#/components/responses/Unauthenticated'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
+                $ref: "#/components/schemas/Ok"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
           description: Theme not found
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorSimple'
+                $ref: "#/components/schemas/ErrorSimple"
   /me/prefs/ui:
     get:
       operationId: meUiPrefsGet
@@ -631,7 +631,7 @@ paths:
       summary: Get personal UI preferences
       description: Returns the caller's saved UI preferences (theme override, mode, sidebar layout) with an ETag for concurrency.
       responses:
-        '200':
+        "200":
           description: Preferences
           headers:
             ETag:
@@ -642,9 +642,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UiPreferencesResponse'
-        '401':
-          $ref: '#/components/responses/Unauthenticated'
+                $ref: "#/components/schemas/UiPreferencesResponse"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
     put:
       operationId: meUiPrefsUpdate
       tags: [Settings]
@@ -655,9 +655,9 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UiPreferencesUpdateRequest'
+              $ref: "#/components/schemas/UiPreferencesUpdateRequest"
       responses:
-        '200':
+        "200":
           description: Preferences updated
           headers:
             ETag:
@@ -668,17 +668,17 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UiPreferencesResponse'
-        '401':
-          $ref: '#/components/responses/Unauthenticated'
-        '409':
+                $ref: "#/components/schemas/UiPreferencesResponse"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "409":
           description: ETag mismatch (PRECONDITION_FAILED)
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PreconditionFailed'
-        '422':
-          $ref: '#/components/responses/ValidationFailed'
+                $ref: "#/components/schemas/PreconditionFailed"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
 
   /rbac/roles/{role}:
     parameters:
@@ -700,68 +700,68 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/RoleCreateRequest'
+              $ref: "#/components/schemas/RoleCreateRequest"
       responses:
-        '200':
+        "200":
           description: Updated
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RoleCreateResponse'
-        '202':
+                $ref: "#/components/schemas/RoleCreateResponse"
+        "202":
           description: Accepted (stub-only)
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RoleCreateAccepted'
-        '401':
-          $ref: '#/components/responses/Unauthenticated'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
+                $ref: "#/components/schemas/RoleCreateAccepted"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
           description: Role not found
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RoleNotFoundError'
-        '422':
+                $ref: "#/components/schemas/RoleNotFoundError"
+        "422":
           description: Validation error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ValidationFailed'
-        '429':
-          $ref: '#/components/responses/RateLimited'
+                $ref: "#/components/schemas/ValidationFailed"
+        "429":
+          $ref: "#/components/responses/RateLimited"
     delete:
       operationId: rbacRolesDelete
       tags: [RBAC]
       summary: Delete role
       description: Removes a role and detaches it from any users.
       responses:
-        '200':
+        "200":
           description: Deleted
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RoleDeleteResponse'
-        '202':
+                $ref: "#/components/schemas/RoleDeleteResponse"
+        "202":
           description: Accepted (stub-only)
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RoleDeleteStubAccepted'
-        '401':
-          $ref: '#/components/responses/Unauthenticated'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
+                $ref: "#/components/schemas/RoleDeleteStubAccepted"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
           description: Role not found
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RoleNotFoundError'
-        '429':
-          $ref: '#/components/responses/RateLimited'
+                $ref: "#/components/schemas/RoleNotFoundError"
+        "429":
+          $ref: "#/components/responses/RateLimited"
 
   /rbac/users/{user}/roles:
     parameters:
@@ -778,20 +778,20 @@ paths:
       summary: Get roles for a user
       description: Returns the user's roles as names/ids; source depends on persistence mode.
       responses:
-        '200':
+        "200":
           description: OK
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UserRolesResponse'
-        '401':
-          $ref: '#/components/responses/Unauthenticated'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/RbacDisabled'
-        '429':
-          $ref: '#/components/responses/RateLimited'
+                $ref: "#/components/schemas/UserRolesResponse"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/RbacDisabled"
+        "429":
+          $ref: "#/components/responses/RateLimited"
     put:
       operationId: userRolesReplace
       tags: [RBAC]
@@ -802,28 +802,28 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/RoleReplaceRequest'
+              $ref: "#/components/schemas/RoleReplaceRequest"
       responses:
-        '200':
+        "200":
           description: Replaced
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UserRolesResponse'
-        '401':
-          $ref: '#/components/responses/Unauthenticated'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/RbacDisabled'
-        '422':
+                $ref: "#/components/schemas/UserRolesResponse"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/RbacDisabled"
+        "422":
           description: Validation failed or unknown roles
           content:
             application/json:
               schema:
                 oneOf:
-                  - $ref: '#/components/schemas/ValidationFailed'
-                  - $ref: '#/components/schemas/RoleNotFoundError'
+                  - $ref: "#/components/schemas/ValidationFailed"
+                  - $ref: "#/components/schemas/RoleNotFoundError"
               examples:
                 duplicateAfterNormalization:
                   summary: Duplicate roles after normalization
@@ -834,8 +834,8 @@ paths:
                     errors:
                       roles:
                         - Duplicate roles after normalization.
-        '429':
-          $ref: '#/components/responses/RateLimited'
+        "429":
+          $ref: "#/components/responses/RateLimited"
 
   /rbac/users/{user}/roles/{role}:
     parameters:
@@ -861,56 +861,56 @@ paths:
       summary: Attach a role to a user by name or id
       description: Idempotently attaches the role to the user.
       responses:
-        '200':
+        "200":
           description: Attached (idempotent)
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UserRolesResponse'
-        '401':
-          $ref: '#/components/responses/Unauthenticated'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/RbacDisabled'
-        '422':
+                $ref: "#/components/schemas/UserRolesResponse"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/RbacDisabled"
+        "422":
           description: Unknown role or invalid input
           content:
             application/json:
               schema:
                 oneOf:
-                  - $ref: '#/components/schemas/RoleNotFoundError'
-                  - $ref: '#/components/schemas/ValidationFailed'
-        '429':
-          $ref: '#/components/responses/RateLimited'
+                  - $ref: "#/components/schemas/RoleNotFoundError"
+                  - $ref: "#/components/schemas/ValidationFailed"
+        "429":
+          $ref: "#/components/responses/RateLimited"
     delete:
       operationId: userRoleDetach
       tags: [RBAC]
       summary: Detach a role from a user by name or id
       description: Idempotently detaches the role from a user.
       responses:
-        '200':
+        "200":
           description: Detached (idempotent)
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UserRolesResponse'
-        '401':
-          $ref: '#/components/responses/Unauthenticated'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/RbacDisabled'
-        '422':
+                $ref: "#/components/schemas/UserRolesResponse"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/RbacDisabled"
+        "422":
           description: Unknown role or invalid input
           content:
             application/json:
               schema:
                 oneOf:
-                  - $ref: '#/components/schemas/RoleNotFoundError'
-                  - $ref: '#/components/schemas/ValidationFailed'
-        '429':
-          $ref: '#/components/responses/RateLimited'
+                  - $ref: "#/components/schemas/RoleNotFoundError"
+                  - $ref: "#/components/schemas/ValidationFailed"
+        "429":
+          $ref: "#/components/responses/RateLimited"
 
   /rbac/users/search:
     get:
@@ -962,20 +962,20 @@ paths:
             maximum: 500
             default: 50
       responses:
-        '200':
+        "200":
           description: OK
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UserSearchResponse'
-        '401':
-          $ref: '#/components/responses/Unauthenticated'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '422':
-          $ref: '#/components/responses/ValidationFailed'
-        '429':
-          $ref: '#/components/responses/RateLimited'
+                $ref: "#/components/schemas/UserSearchResponse"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "429":
+          $ref: "#/components/responses/RateLimited"
 
   /audit:
     get:
@@ -986,32 +986,32 @@ paths:
         Returns persisted events when persistence is enabled. Returns an empty stub payload when persistence is disabled and no business filters are applied.
         **Note:** Settings-change events may include `meta.changes` with an array of change items detailing which keys changed.
       parameters:
-        - $ref: '#/components/parameters/AuditCategory'
-        - $ref: '#/components/parameters/AuditAction'
-        - $ref: '#/components/parameters/OccurredFrom'
-        - $ref: '#/components/parameters/OccurredTo'
-        - $ref: '#/components/parameters/ActorId'
-        - $ref: '#/components/parameters/EntityType'
-        - $ref: '#/components/parameters/EntityId'
-        - $ref: '#/components/parameters/AuditIp'
-        - $ref: '#/components/parameters/Order'
-        - $ref: '#/components/parameters/Limit'
-        - $ref: '#/components/parameters/Cursor'
+        - $ref: "#/components/parameters/AuditCategory"
+        - $ref: "#/components/parameters/AuditAction"
+        - $ref: "#/components/parameters/OccurredFrom"
+        - $ref: "#/components/parameters/OccurredTo"
+        - $ref: "#/components/parameters/ActorId"
+        - $ref: "#/components/parameters/EntityType"
+        - $ref: "#/components/parameters/EntityId"
+        - $ref: "#/components/parameters/AuditIp"
+        - $ref: "#/components/parameters/Order"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
       responses:
-        '200':
+        "200":
           description: OK (persist or stub path)
           content:
             application/json:
               schema:
                 oneOf:
-                  - $ref: '#/components/schemas/AuditListResponse'
-                  - $ref: '#/components/schemas/AuditListStubResponse'
-        '401':
-          $ref: '#/components/responses/Unauthenticated'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '429':
-          $ref: '#/components/responses/RateLimited'
+                  - $ref: "#/components/schemas/AuditListResponse"
+                  - $ref: "#/components/schemas/AuditListStubResponse"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
 
   /audit/categories:
     get:
@@ -1020,7 +1020,7 @@ paths:
       summary: List audit categories
       description: Returns the fixed set of audit categories the system uses.
       responses:
-        '200':
+        "200":
           description: OK
           content:
             application/json:
@@ -1035,13 +1035,23 @@ paths:
                     type: array
                     items:
                       type: string
-                      enum: [SYSTEM, RBAC, AUTH, SETTINGS, EXPORTS, EVIDENCE, AVATARS, AUDIT]
-        '401':
-          $ref: '#/components/responses/Unauthenticated'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '429':
-          $ref: '#/components/responses/RateLimited'
+                      enum:
+                        [
+                          SYSTEM,
+                          RBAC,
+                          AUTH,
+                          SETTINGS,
+                          EXPORTS,
+                          EVIDENCE,
+                          AVATARS,
+                          AUDIT,
+                        ]
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
 
   /audit/export.csv:
     get:
@@ -1051,17 +1061,17 @@ paths:
       description: |
         Streams a CSV of audit events for the requested filters. See headers and sample format below.
       parameters:
-        - $ref: '#/components/parameters/AuditCategory'
-        - $ref: '#/components/parameters/AuditAction'
-        - $ref: '#/components/parameters/OccurredFrom'
-        - $ref: '#/components/parameters/OccurredTo'
-        - $ref: '#/components/parameters/ActorId'
-        - $ref: '#/components/parameters/EntityType'
-        - $ref: '#/components/parameters/EntityId'
-        - $ref: '#/components/parameters/AuditIp'
-        - $ref: '#/components/parameters/Order'
+        - $ref: "#/components/parameters/AuditCategory"
+        - $ref: "#/components/parameters/AuditAction"
+        - $ref: "#/components/parameters/OccurredFrom"
+        - $ref: "#/components/parameters/OccurredTo"
+        - $ref: "#/components/parameters/ActorId"
+        - $ref: "#/components/parameters/EntityType"
+        - $ref: "#/components/parameters/EntityId"
+        - $ref: "#/components/parameters/AuditIp"
+        - $ref: "#/components/parameters/Order"
       responses:
-        '200':
+        "200":
           description: CSV file
           headers:
             Content-Disposition:
@@ -1084,12 +1094,12 @@ paths:
               schema:
                 type: string
                 format: binary
-        '401':
-          $ref: '#/components/responses/Unauthenticated'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '429':
-          $ref: '#/components/responses/RateLimited'
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
 
   /evidence:
     get:
@@ -1115,14 +1125,14 @@ paths:
           in: query
           schema:
             type: string
-            pattern: '^[A-Fa-f0-9]{64}$'
+            pattern: "^[A-Fa-f0-9]{64}$"
         - name: sha256_prefix
           in: query
           schema:
             type: string
             minLength: 6
             maxLength: 64
-            pattern: '^[A-Fa-f0-9]+$'
+            pattern: "^[A-Fa-f0-9]+$"
         - name: version_from
           in: query
           schema:
@@ -1143,22 +1153,22 @@ paths:
           schema:
             type: string
             format: date-time
-        - $ref: '#/components/parameters/Order'
-        - $ref: '#/components/parameters/Limit'
-        - $ref: '#/components/parameters/Cursor'
+        - $ref: "#/components/parameters/Order"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
       responses:
-        '200':
+        "200":
           description: OK
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/EvidenceListResponse'
-        '401':
-          $ref: '#/components/responses/Unauthenticated'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '429':
-          $ref: '#/components/responses/RateLimited'
+                $ref: "#/components/schemas/EvidenceListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
     post:
       operationId: evidenceUpload
       tags: [Evidence]
@@ -1169,28 +1179,28 @@ paths:
         content:
           multipart/form-data:
             schema:
-              $ref: '#/components/schemas/EvidenceUploadRequest'
+              $ref: "#/components/schemas/EvidenceUploadRequest"
       responses:
-        '201':
+        "201":
           description: Created
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/EvidenceCreateResponse'
-        '400':
-            description: EVIDENCE_NOT_ENABLED
-            content:
-              application/json:
-                schema:
-                  $ref: '#/components/schemas/ErrorSimple'
-        '401':
-          $ref: '#/components/responses/Unauthenticated'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '422':
-          $ref: '#/components/responses/ValidationFailed'
-        '429':
-          $ref: '#/components/responses/RateLimited'
+                $ref: "#/components/schemas/EvidenceCreateResponse"
+        "400":
+          description: EVIDENCE_NOT_ENABLED
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorSimple"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "429":
+          $ref: "#/components/responses/RateLimited"
 
   /evidence/{id}:
     parameters:
@@ -1211,42 +1221,42 @@ paths:
           required: false
           schema:
             type: string
-            pattern: '^[A-Fa-f0-9]{64}$'
+            pattern: "^[A-Fa-f0-9]{64}$"
       responses:
-        '200':
+        "200":
           description: File
           content:
-            '*/*':
+            "*/*":
               schema:
                 type: string
                 format: binary
-        '304':
+        "304":
           description: Not Modified
-        '401':
-          $ref: '#/components/responses/Unauthenticated'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
           description: Not Found
-        '412':
+        "412":
           description: EVIDENCE_HASH_MISMATCH
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorSimple'
-        '429':
-          $ref: '#/components/responses/RateLimited'
+                $ref: "#/components/schemas/ErrorSimple"
+        "429":
+          $ref: "#/components/responses/RateLimited"
     head:
       operationId: evidenceHead
       tags: [Evidence]
       summary: HEAD same as GET without body
       description: Returns headers for caching/conditional requests; body omitted.
       responses:
-        '200':
+        "200":
           description: Headers only
-        '304':
+        "304":
           description: Not Modified
-        '404':
+        "404":
           description: Not Found
     delete:
       operationId: evidenceDelete
@@ -1254,7 +1264,7 @@ paths:
       summary: Delete evidence
       description: Deletes the evidence row and removes stored bytes. Audits the deletion event.
       responses:
-        '200':
+        "200":
           description: Deleted
           content:
             application/json:
@@ -1269,14 +1279,14 @@ paths:
                     type: string
                   deleted:
                     type: boolean
-        '401':
-          $ref: '#/components/responses/Unauthenticated'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
           description: Not Found
-        '429':
-          $ref: '#/components/responses/RateLimited'
+        "429":
+          $ref: "#/components/responses/RateLimited"
 
   /exports:
     post:
@@ -1289,22 +1299,22 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ExportCreateLegacyRequest'
+              $ref: "#/components/schemas/ExportCreateLegacyRequest"
       responses:
-        '200':
+        "200":
           description: Created/Queued
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ExportCreateResponse'
-        '401':
-          $ref: '#/components/responses/Unauthenticated'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '422':
-          $ref: '#/components/responses/ValidationFailed'
-        '429':
-          $ref: '#/components/responses/RateLimited'
+                $ref: "#/components/schemas/ExportCreateResponse"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "429":
+          $ref: "#/components/responses/RateLimited"
 
   /exports/{type}:
     post:
@@ -1324,22 +1334,22 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ExportCreateTypeRequest'
+              $ref: "#/components/schemas/ExportCreateTypeRequest"
       responses:
-        '200':
+        "200":
           description: Created/Queued
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ExportCreateResponse'
-        '401':
-          $ref: '#/components/responses/Unauthenticated'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '422':
-          $ref: '#/components/responses/ValidationFailed'
-        '429':
-          $ref: '#/components/responses/RateLimited'
+                $ref: "#/components/schemas/ExportCreateResponse"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "429":
+          $ref: "#/components/responses/RateLimited"
 
   /exports/{jobId}/status:
     get:
@@ -1354,18 +1364,18 @@ paths:
           schema:
             type: string
       responses:
-        '200':
+        "200":
           description: OK
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ExportStatusResponse'
-        '401':
-          $ref: '#/components/responses/Unauthenticated'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '429':
-          $ref: '#/components/responses/RateLimited'
+                $ref: "#/components/schemas/ExportStatusResponse"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
 
   /exports/{jobId}/download:
     get:
@@ -1380,25 +1390,25 @@ paths:
           schema:
             type: string
       responses:
-        '200':
+        "200":
           description: File
           content:
-            '*/*':
+            "*/*":
               schema:
                 type: string
                 format: binary
-        '401':
-          $ref: '#/components/responses/Unauthenticated'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
           description: EXPORT_NOT_FOUND or artifact missing
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorSimple'
-        '429':
-          $ref: '#/components/responses/RateLimited'
+                $ref: "#/components/schemas/ErrorSimple"
+        "429":
+          $ref: "#/components/responses/RateLimited"
 
   /avatar:
     post:
@@ -1419,7 +1429,7 @@ paths:
                   type: string
                   format: binary
       responses:
-        '202':
+        "202":
           description: Accepted (stub-only)
           content:
             application/json:
@@ -1433,20 +1443,20 @@ paths:
                   note:
                     type: string
                     const: stub-only
-        '400':
+        "400":
           description: AVATAR_NOT_ENABLED
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorSimple'
-        '422':
+                $ref: "#/components/schemas/ErrorSimple"
+        "422":
           description: AVATAR_VALIDATION_FAILED
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorSimple'
-        '429':
-          $ref: '#/components/responses/RateLimited'
+                $ref: "#/components/schemas/ErrorSimple"
+        "429":
+          $ref: "#/components/responses/RateLimited"
 
   /avatar/{user}:
     parameters:
@@ -1470,25 +1480,25 @@ paths:
             enum: [32, 64, 128]
             default: 128
       responses:
-        '200':
+        "200":
           description: WEBP image
           content:
             image/webp:
               schema:
                 type: string
                 format: binary
-        '400':
+        "400":
           description: AVATAR_NOT_ENABLED
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorSimple'
-        '404':
+                $ref: "#/components/schemas/ErrorSimple"
+        "404":
           description: AVATAR_NOT_FOUND
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorSimple'
+                $ref: "#/components/schemas/ErrorSimple"
     head:
       operationId: avatarHead
       security: []
@@ -1496,9 +1506,9 @@ paths:
       summary: HEAD avatar
       description: Returns avatar headers only (no body).
       responses:
-        '200':
+        "200":
           description: Headers only
-        '404':
+        "404":
           description: Not Found
 
   /setup/status:
@@ -1509,13 +1519,13 @@ paths:
       summary: Setup wizard status
       description: Returns current setup checklist completion and next actionable step.
       responses:
-        '200':
+        "200":
           description: Status
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SetupStatusResponse'
-        '400':
+                $ref: "#/components/schemas/SetupStatusResponse"
+        "400":
           description: SETUP_STEP_DISABLED
 
   /setup/db/test:
@@ -1530,20 +1540,20 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/SetupDbTestRequest'
+              $ref: "#/components/schemas/SetupDbTestRequest"
       responses:
-        '200':
+        "200":
           description: OK
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Ok'
-        '422':
+                $ref: "#/components/schemas/Ok"
+        "422":
           description: DB_CONFIG_INVALID
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorSimple'
+                $ref: "#/components/schemas/ErrorSimple"
 
   /setup/db/write:
     post:
@@ -1557,9 +1567,9 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/SetupDbWriteRequest'
+              $ref: "#/components/schemas/SetupDbWriteRequest"
       responses:
-        '200':
+        "200":
           description: Wrote config
           content:
             application/json:
@@ -1572,12 +1582,12 @@ paths:
                     const: true
                   path:
                     type: string
-        '400':
+        "400":
           description: SETUP_STEP_DISABLED
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorSimple'
+                $ref: "#/components/schemas/ErrorSimple"
 
   /setup/app-key:
     post:
@@ -1587,13 +1597,13 @@ paths:
       summary: Generate app key (stub if commands disabled)
       description: Generates an application key or returns a stub response when command execution is disabled.
       responses:
-        '200':
+        "200":
           description: Generated
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Ok'
-        '202':
+                $ref: "#/components/schemas/Ok"
+        "202":
           description: Stub-only
           content:
             application/json:
@@ -1607,12 +1617,12 @@ paths:
                   note:
                     type: string
                     const: stub-only
-        '409':
+        "409":
           description: APP_KEY_EXISTS
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorSimple'
+                $ref: "#/components/schemas/ErrorSimple"
 
   /setup/schema/init:
     post:
@@ -1622,13 +1632,13 @@ paths:
       summary: Run migrations (stub if commands disabled)
       description: Runs database migrations or returns a stub response when command execution is disabled.
       responses:
-        '200':
+        "200":
           description: OK
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Ok'
-        '202':
+                $ref: "#/components/schemas/Ok"
+        "202":
           description: Stub-only
           content:
             application/json:
@@ -1642,14 +1652,14 @@ paths:
                   note:
                     type: string
                     const: stub-only
-        '400':
+        "400":
           description: SETUP_STEP_DISABLED
-        '500':
+        "500":
           description: SCHEMA_INIT_FAILED
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorSimple'
+                $ref: "#/components/schemas/ErrorSimple"
 
   /setup/admin:
     post:
@@ -1663,20 +1673,20 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/SetupAdminRequest'
+              $ref: "#/components/schemas/SetupAdminRequest"
       responses:
-        '200':
+        "200":
           description: OK
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Ok'
-        '409':
+                $ref: "#/components/schemas/Ok"
+        "409":
           description: ADMIN_EXISTS
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorSimple'
+                $ref: "#/components/schemas/ErrorSimple"
 
   /setup/admin/totp/verify:
     post:
@@ -1698,18 +1708,18 @@ paths:
                   minLength: 6
                   maxLength: 8
       responses:
-        '200':
+        "200":
           description: OK
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Ok'
-        '400':
+                $ref: "#/components/schemas/Ok"
+        "400":
           description: TOTP_CODE_INVALID
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorSimple'
+                $ref: "#/components/schemas/ErrorSimple"
 
   /setup/smtp:
     post:
@@ -1726,18 +1736,18 @@ paths:
               type: object
               additionalProperties: true
       responses:
-        '200':
+        "200":
           description: OK
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Ok'
-        '422':
+                $ref: "#/components/schemas/Ok"
+        "422":
           description: SMTP validation failed
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorSimple'
+                $ref: "#/components/schemas/ErrorSimple"
 
   /setup/idp:
     post:
@@ -1754,18 +1764,18 @@ paths:
               type: object
               additionalProperties: true
       responses:
-        '200':
+        "200":
           description: OK
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Ok'
-        '400':
+                $ref: "#/components/schemas/Ok"
+        "400":
           description: IDP_UNSUPPORTED
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorSimple'
+                $ref: "#/components/schemas/ErrorSimple"
 
   /setup/branding:
     post:
@@ -1782,18 +1792,18 @@ paths:
               type: object
               additionalProperties: true
       responses:
-        '200':
+        "200":
           description: OK
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Ok'
-        '422':
+                $ref: "#/components/schemas/Ok"
+        "422":
           description: BRANDING_INVALID
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorSimple'
+                $ref: "#/components/schemas/ErrorSimple"
 
   /setup/finish:
     post:
@@ -1803,13 +1813,13 @@ paths:
       summary: Complete setup wizard
       description: Marks setup as complete and enables the standard app routes.
       responses:
-        '200':
+        "200":
           description: OK
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Ok'
-        '400':
+                $ref: "#/components/schemas/Ok"
+        "400":
           description: SETUP_STEP_DISABLED
 
 components:
@@ -1840,14 +1850,14 @@ components:
       schema:
         type: string
         format: date-time
-      example: '2025-02-01T00:00:00Z'
+      example: "2025-02-01T00:00:00Z"
     OccurredTo:
       name: occurred_to
       in: query
       schema:
         type: string
         format: date-time
-      example: '2025-02-02T00:00:00Z'
+      example: "2025-02-02T00:00:00Z"
     ActorId:
       name: actor_id
       in: query
@@ -1868,7 +1878,7 @@ components:
       schema:
         type: string
         maxLength: 191
-      example: '10'
+      example: "10"
     AuditIp:
       name: ip
       in: query
@@ -1898,7 +1908,7 @@ components:
       schema:
         oneOf:
           - type: string
-          - type: 'null'
+          - type: "null"
       example: null
 
   responses:
@@ -1907,25 +1917,25 @@ components:
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/Unauthenticated'
+            $ref: "#/components/schemas/Unauthenticated"
     Forbidden:
       description: Forbidden
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/ForbiddenError'
+            $ref: "#/components/schemas/ForbiddenError"
     ValidationFailed:
       description: Validation errors
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/ValidationFailed'
+            $ref: "#/components/schemas/ValidationFailed"
     RbacDisabled:
       description: RBAC disabled
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/RbacDisabledError'
+            $ref: "#/components/schemas/RbacDisabledError"
     RateLimited:
       description: Rate limited
       headers:
@@ -1947,7 +1957,7 @@ components:
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/RateLimited'
+            $ref: "#/components/schemas/RateLimited"
 
   schemas:
     Ok:
@@ -1970,15 +1980,15 @@ components:
         message:
           oneOf:
             - type: string
-            - type: 'null'
+            - type: "null"
         note:
           oneOf:
             - type: string
-            - type: 'null'
+            - type: "null"
 
     Unauthenticated:
       allOf:
-        - $ref: '#/components/schemas/ErrorSimple'
+        - $ref: "#/components/schemas/ErrorSimple"
         - type: object
           properties:
             code:
@@ -1987,7 +1997,7 @@ components:
 
     ForbiddenError:
       allOf:
-        - $ref: '#/components/schemas/ErrorSimple'
+        - $ref: "#/components/schemas/ErrorSimple"
         - type: object
           properties:
             code:
@@ -2096,7 +2106,7 @@ components:
           properties:
             id:
               type: string
-              pattern: '^role_[a-z0-9_]+(_[0-9]+)?$'
+              pattern: "^role_[a-z0-9_]+(_[0-9]+)?$"
             name:
               type: string
               minLength: 2
@@ -2113,7 +2123,7 @@ components:
           type: string
           const: stub-only
         accepted:
-          $ref: '#/components/schemas/RoleCreateRequest'
+          $ref: "#/components/schemas/RoleCreateRequest"
 
     RoleDeleteResponse:
       type: object
@@ -2157,7 +2167,7 @@ components:
         data:
           type: array
           items:
-            $ref: '#/components/schemas/User'
+            $ref: "#/components/schemas/User"
         meta:
           type: object
           required: [page, per_page, total, total_pages]
@@ -2184,7 +2194,7 @@ components:
           type: boolean
           const: true
         user:
-          $ref: '#/components/schemas/User'
+          $ref: "#/components/schemas/User"
         roles:
           type: array
           items:
@@ -2217,12 +2227,13 @@ components:
         actor_id:
           oneOf:
             - type: integer
-            - type: 'null'
+            - type: "null"
         action:
           type: string
         category:
           type: string
-          enum: [SYSTEM, RBAC, AUTH, SETTINGS, EXPORTS, EVIDENCE, AVATARS, AUDIT]
+          enum:
+            [SYSTEM, RBAC, AUTH, SETTINGS, EXPORTS, EVIDENCE, AVATARS, AUDIT]
         entity_type:
           type: string
         entity_id:
@@ -2230,11 +2241,11 @@ components:
         ip:
           oneOf:
             - type: string
-            - type: 'null'
+            - type: "null"
         ua:
           oneOf:
             - type: string
-            - type: 'null'
+            - type: "null"
         meta:
           oneOf:
             - type: object
@@ -2243,8 +2254,8 @@ components:
                 changes:
                   type: array
                   items:
-                    $ref: '#/components/schemas/SettingsChange'
-            - type: 'null'
+                    $ref: "#/components/schemas/SettingsChange"
+            - type: "null"
       description: >
         Audit record. `meta` MAY include `changes: SettingsChange[]` for `SETTINGS` events such as `setting.modified`.
 
@@ -2259,7 +2270,7 @@ components:
           description: Dot-notated key (e.g., `core.audit.enabled`).
         old:
           oneOf:
-            - type: 'null'
+            - type: "null"
             - type: boolean
             - type: number
             - type: string
@@ -2277,7 +2288,7 @@ components:
                     items: {}
         new:
           oneOf:
-            - type: 'null'
+            - type: "null"
             - type: boolean
             - type: number
             - type: string
@@ -2295,7 +2306,7 @@ components:
                     items: {}
         action:
           type: string
-          enum: [ set, update, unset ]
+          enum: [set, update, unset]
         meta:
           oneOf:
             - type: object
@@ -2304,8 +2315,8 @@ components:
                 changes:
                   type: array
                   items:
-                    $ref: '#/components/schemas/SettingsChange'
-            - type: 'null'
+                    $ref: "#/components/schemas/SettingsChange"
+            - type: "null"
 
     AuditListResponse:
       type: object
@@ -2318,7 +2329,8 @@ components:
           type: array
           items:
             type: string
-            enum: [SYSTEM, RBAC, AUTH, SETTINGS, EXPORTS, EVIDENCE, AVATARS, AUDIT]
+            enum:
+              [SYSTEM, RBAC, AUTH, SETTINGS, EXPORTS, EVIDENCE, AVATARS, AUDIT]
         _retention_days:
           type: integer
           minimum: 30
@@ -2329,15 +2341,15 @@ components:
         items:
           type: array
           items:
-            $ref: '#/components/schemas/AuditEvent'
+            $ref: "#/components/schemas/AuditEvent"
         nextCursor:
           oneOf:
             - type: string
-            - type: 'null'
+            - type: "null"
 
     AuditListStubResponse:
       allOf:
-        - $ref: '#/components/schemas/AuditListResponse'
+        - $ref: "#/components/schemas/AuditListResponse"
         - type: object
           required: [note]
           properties:
@@ -2347,7 +2359,8 @@ components:
 
     Evidence:
       type: object
-      required: [id, owner_id, filename, mime, size, sha256, version, created_at]
+      required:
+        [id, owner_id, filename, mime, size, sha256, version, created_at]
       properties:
         id:
           type: string
@@ -2363,7 +2376,7 @@ components:
           minimum: 0
         sha256:
           type: string
-          pattern: '^[A-Fa-f0-9]{64}$'
+          pattern: "^[A-Fa-f0-9]{64}$"
         version:
           type: integer
           minimum: 1
@@ -2384,11 +2397,11 @@ components:
         data:
           type: array
           items:
-            $ref: '#/components/schemas/Evidence'
+            $ref: "#/components/schemas/Evidence"
         next_cursor:
           oneOf:
             - type: string
-            - type: 'null'
+            - type: "null"
 
     EvidenceUploadRequest:
       type: object
@@ -2412,7 +2425,7 @@ components:
           minimum: 1
         sha256:
           type: string
-          pattern: '^[A-Fa-f0-9]{64}$'
+          pattern: "^[A-Fa-f0-9]{64}$"
         mime:
           type: string
         size:
@@ -2454,7 +2467,7 @@ components:
         note:
           oneOf:
             - type: string
-            - type: 'null'
+            - type: "null"
 
     ExportStatusResponse:
       type: object
@@ -2604,7 +2617,7 @@ components:
       type: object
       properties:
         core:
-          $ref: '#/components/schemas/SettingsUpdateSpecShape'
+          $ref: "#/components/schemas/SettingsUpdateSpecShape"
 
     SettingsPostResponse:
       type: object
@@ -2620,7 +2633,7 @@ components:
         changes:
           type: array
           items:
-            $ref: '#/components/schemas/SettingsChange'
+            $ref: "#/components/schemas/SettingsChange"
         note:
           type: string
 
@@ -2719,11 +2732,11 @@ components:
         author:
           type:
             - string
-            - 'null'
+            - "null"
         license:
           type:
             - object
-            - 'null'
+            - "null"
           additionalProperties: false
           required: [name, file]
           properties:
@@ -2736,7 +2749,7 @@ components:
         variables:
           type:
             - object
-            - 'null'
+            - "null"
           additionalProperties:
             type: string
           description: CSS variable overrides supplied by Theme Designer when the source is `custom`.
@@ -2777,17 +2790,17 @@ components:
         version:
           type:
             - string
-            - 'null'
+            - "null"
           example: 1.0.0
         author:
           type:
             - string
-            - 'null'
+            - "null"
           example: Theme Co
         license:
           type:
             - object
-            - 'null'
+            - "null"
           additionalProperties: false
           required: [name, file]
           properties:
@@ -2823,11 +2836,11 @@ components:
         files:
           type: array
           items:
-            $ref: '#/components/schemas/ThemePackFileEntry'
+            $ref: "#/components/schemas/ThemePackFileEntry"
         created_at:
           type:
             - string
-            - 'null'
+            - "null"
           format: date-time
 
     ThemePackResponse:
@@ -2838,7 +2851,7 @@ components:
         ok:
           type: boolean
         pack:
-          $ref: '#/components/schemas/ThemePackResource'
+          $ref: "#/components/schemas/ThemePackResource"
 
     ThemePackUpdateRequest:
       type: object
@@ -2850,12 +2863,12 @@ components:
         author:
           type:
             - string
-            - 'null'
+            - "null"
           maxLength: 160
         version:
           type:
             - string
-            - 'null'
+            - "null"
           maxLength: 64
         enabled:
           type: boolean
@@ -2869,7 +2882,7 @@ components:
         ok:
           type: boolean
         pack:
-          $ref: '#/components/schemas/ThemePackResource'
+          $ref: "#/components/schemas/ThemePackResource"
         affected_users:
           type: integer
           minimum: 0
@@ -2917,11 +2930,11 @@ components:
         themes:
           type: array
           items:
-            $ref: '#/components/schemas/ThemeCatalogEntry'
+            $ref: "#/components/schemas/ThemeCatalogEntry"
         packs:
           type: array
           items:
-            $ref: '#/components/schemas/ThemePackEntry'
+            $ref: "#/components/schemas/ThemePackEntry"
 
     DesignerThemeStorage:
       type: object
@@ -2950,7 +2963,7 @@ components:
         slug:
           type: string
           maxLength: 64
-          pattern: '^[a-z0-9-]+$'
+          pattern: "^[a-z0-9-]+$"
           example: my-custom-theme
           description: Optional slug override; defaults to a slugified name.
         variables:
@@ -2960,8 +2973,8 @@ components:
             type: string
           description: CSS variables emitted by Theme Designer.
           example:
-            --td-buttons-light-primary-background: '#1967d2'
-            --td-buttons-light-primary-text: '#ffffff'
+            --td-buttons-light-primary-background: "#1967d2"
+            --td-buttons-light-primary-text: "#ffffff"
 
     DesignerThemeResponse:
       type: object
@@ -2972,7 +2985,7 @@ components:
           type: boolean
           const: true
         pack:
-          $ref: '#/components/schemas/ThemePackEntry'
+          $ref: "#/components/schemas/ThemePackEntry"
 
     DesignerThemeListResponse:
       type: object
@@ -2983,11 +2996,11 @@ components:
           type: boolean
           const: true
         storage:
-          $ref: '#/components/schemas/DesignerThemeStorage'
+          $ref: "#/components/schemas/DesignerThemeStorage"
         themes:
           type: array
           items:
-            $ref: '#/components/schemas/ThemePackEntry'
+            $ref: "#/components/schemas/ThemePackEntry"
 
     UiThemeOverrides:
       type: object
@@ -3019,7 +3032,8 @@ components:
     UiThemeSettings:
       type: object
       additionalProperties: false
-      required: [default, allow_user_override, force_global, overrides, designer]
+      required:
+        [default, allow_user_override, force_global, overrides, designer]
       properties:
         default:
           type: string
@@ -3031,9 +3045,9 @@ components:
           type: boolean
           example: false
         overrides:
-          $ref: '#/components/schemas/UiThemeOverrides'
+          $ref: "#/components/schemas/UiThemeOverrides"
         designer:
-          $ref: '#/components/schemas/UiThemeDesignerSettings'
+          $ref: "#/components/schemas/UiThemeDesignerSettings"
 
     UiNavSidebarSettings:
       type: object
@@ -3060,27 +3074,27 @@ components:
       properties:
         title_text:
           type: string
-          example: phpGRC — Dashboard
+          example: phpGRC
         favicon_asset_id:
           type:
             - string
-            - 'null'
+            - "null"
         primary_logo_asset_id:
           type:
             - string
-            - 'null'
+            - "null"
         secondary_logo_asset_id:
           type:
             - string
-            - 'null'
+            - "null"
         header_logo_asset_id:
           type:
             - string
-            - 'null'
+            - "null"
         footer_logo_asset_id:
           type:
             - string
-            - 'null'
+            - "null"
         footer_logo_disabled:
           type: boolean
           example: false
@@ -3091,16 +3105,16 @@ components:
       required: [theme, nav, brand]
       properties:
         theme:
-          $ref: '#/components/schemas/UiThemeSettings'
+          $ref: "#/components/schemas/UiThemeSettings"
         nav:
           type: object
           additionalProperties: false
           required: [sidebar]
           properties:
             sidebar:
-              $ref: '#/components/schemas/UiNavSidebarSettings'
+              $ref: "#/components/schemas/UiNavSidebarSettings"
         brand:
-          $ref: '#/components/schemas/UiBrandSettings'
+          $ref: "#/components/schemas/UiBrandSettings"
 
     UiSettingsResponse:
       type: object
@@ -3119,7 +3133,7 @@ components:
           required: [ui]
           properties:
             ui:
-              $ref: '#/components/schemas/UiSettings'
+              $ref: "#/components/schemas/UiSettings"
 
     UiSettingsUpdateRequest:
       type: object
@@ -3127,7 +3141,7 @@ components:
       required: [ui]
       properties:
         ui:
-          $ref: '#/components/schemas/UiSettings'
+          $ref: "#/components/schemas/UiSettings"
 
     UiSettingsUpdateResponse:
       type: object
@@ -3146,11 +3160,11 @@ components:
           required: [ui]
           properties:
             ui:
-              $ref: '#/components/schemas/UiSettings'
+              $ref: "#/components/schemas/UiSettings"
         changes:
           type: array
           items:
-            $ref: '#/components/schemas/SettingsChange'
+            $ref: "#/components/schemas/SettingsChange"
 
     BrandAsset:
       type: object
@@ -3170,7 +3184,8 @@ components:
           example: ba_01HT0T6X8K32H2W5KGJ3YXM5NE
         kind:
           type: string
-          enum: [primary_logo, secondary_logo, header_logo, footer_logo, favicon]
+          enum:
+            [primary_logo, secondary_logo, header_logo, footer_logo, favicon]
         name:
           type: string
           example: primary.png
@@ -3186,7 +3201,7 @@ components:
         uploaded_by:
           type:
             - string
-            - 'null'
+            - "null"
         created_at:
           type: string
           format: date-time
@@ -3202,7 +3217,7 @@ components:
         assets:
           type: array
           items:
-            $ref: '#/components/schemas/BrandAsset'
+            $ref: "#/components/schemas/BrandAsset"
 
     BrandAssetUploadRequest:
       type: object
@@ -3210,7 +3225,8 @@ components:
       properties:
         kind:
           type: string
-          enum: [primary_logo, secondary_logo, header_logo, footer_logo, favicon]
+          enum:
+            [primary_logo, secondary_logo, header_logo, footer_logo, favicon]
         file:
           type: string
           format: binary
@@ -3224,7 +3240,7 @@ components:
           type: boolean
           const: true
         asset:
-          $ref: '#/components/schemas/BrandAsset'
+          $ref: "#/components/schemas/BrandAsset"
 
     UiPreferencesSidebar:
       type: object
@@ -3250,16 +3266,16 @@ components:
         theme:
           type:
             - string
-            - 'null'
+            - "null"
         mode:
           type:
             - string
-            - 'null'
+            - "null"
           enum: [light, dark, null]
         overrides:
-          $ref: '#/components/schemas/UiThemeOverrides'
+          $ref: "#/components/schemas/UiThemeOverrides"
         sidebar:
-          $ref: '#/components/schemas/UiPreferencesSidebar'
+          $ref: "#/components/schemas/UiPreferencesSidebar"
 
     UiPreferencesResponse:
       type: object
@@ -3273,7 +3289,7 @@ components:
           type: string
           example: W/"prefs:2c9a0f98"
         prefs:
-          $ref: '#/components/schemas/UiPreferences'
+          $ref: "#/components/schemas/UiPreferences"
 
     UiPreferencesUpdateRequest:
       type: object
@@ -3282,14 +3298,14 @@ components:
         theme:
           type:
             - string
-            - 'null'
+            - "null"
         mode:
           type:
             - string
-            - 'null'
+            - "null"
           enum: [light, dark, null]
         overrides:
-          $ref: '#/components/schemas/UiThemeOverrides'
+          $ref: "#/components/schemas/UiThemeOverrides"
         sidebar:
           type: object
           additionalProperties: false
@@ -3322,11 +3338,11 @@ components:
             path:
               oneOf:
                 - type: string
-                - type: 'null'
+                - type: "null"
             mtime:
               oneOf:
                 - type: string
-                - type: 'null'
+                - type: "null"
         summary:
           type: object
           properties:
@@ -3387,8 +3403,9 @@ components:
         nextStep:
           oneOf:
             - type: string
-              enum: [db_config, app_key, schema_init, admin_seed, admin_mfa_verify]
-            - type: 'null'
+              enum:
+                [db_config, app_key, schema_init, admin_seed, admin_mfa_verify]
+            - type: "null"
         checks:
           type: object
           properties:
@@ -3429,7 +3446,7 @@ components:
 
     SetupDbWriteRequest:
       allOf:
-        - $ref: '#/components/schemas/SetupDbTestRequest'
+        - $ref: "#/components/schemas/SetupDbTestRequest"
 
     SetupAdminRequest:
       type: object

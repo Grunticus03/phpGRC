@@ -267,21 +267,27 @@ export default function AppLayout(): JSX.Element | null {
     }, 120);
   }, []);
 
-  const updateSidebarState = useCallback((updater: (prev: SidebarPrefs) => SidebarPrefs) => {
-    setSidebarPrefs((prev) => {
-      const next = updater(prev);
-      if (
-        prev.collapsed === next.collapsed &&
-        prev.width === next.width &&
-        arraysEqual(prev.order, next.order)
-      ) {
-        sidebarPrefsRef.current = prev;
-        return prev;
-      }
-      sidebarPrefsRef.current = next;
-      return next;
-    });
-  }, []);
+  const updateSidebarState = useCallback(
+    (updater: (prev: SidebarPrefs) => SidebarPrefs, options?: { silent?: boolean }) => {
+      setSidebarPrefs((prev) => {
+        const next = updater(prev);
+        if (
+          prev.collapsed === next.collapsed &&
+          prev.width === next.width &&
+          arraysEqual(prev.order, next.order)
+        ) {
+          sidebarPrefsRef.current = prev;
+          return prev;
+        }
+        sidebarPrefsRef.current = next;
+        if (!options?.silent) {
+          setSidebarNotice({ text: "Sidebar preferences saved.", tone: "info", ephemeral: true });
+        }
+        return next;
+      });
+    },
+    []
+  );
 
   useEffect(() => {
     const off = onThemePrefsChange((prefs) => {
@@ -354,7 +360,7 @@ export default function AppLayout(): JSX.Element | null {
 
   const loadUserPrefs = useCallback(async () => {
     if (!authed) {
-      updateSidebarState(() => normalizeSidebarPrefs(DEFAULT_USER_PREFS.sidebar));
+      updateSidebarState(() => normalizeSidebarPrefs(DEFAULT_USER_PREFS.sidebar), { silent: true });
       sidebarEtagRef.current = null;
       setSidebarReadOnly(true);
       return;
@@ -374,7 +380,7 @@ export default function AppLayout(): JSX.Element | null {
         setSidebarReadOnly(true);
         sidebarEtagRef.current = res.headers.get("ETag");
         setSidebarNotice({ text: "You do not have permission to customize the sidebar.", tone: "error" });
-        updateSidebarState(() => normalizeSidebarPrefs(DEFAULT_USER_PREFS.sidebar));
+        updateSidebarState(() => normalizeSidebarPrefs(DEFAULT_USER_PREFS.sidebar), { silent: true });
         return;
       }
 
@@ -384,7 +390,7 @@ export default function AppLayout(): JSX.Element | null {
 
       if (!res.ok || !body?.prefs) {
         setSidebarReadOnly(false);
-        updateSidebarState(() => normalizeSidebarPrefs(DEFAULT_USER_PREFS.sidebar));
+        updateSidebarState(() => normalizeSidebarPrefs(DEFAULT_USER_PREFS.sidebar), { silent: true });
         return;
       }
 
@@ -396,7 +402,7 @@ export default function AppLayout(): JSX.Element | null {
       setSidebarReadOnly(true);
       sidebarEtagRef.current = null;
       setSidebarNotice({ text: "Failed to load sidebar preferences. Using defaults.", tone: "error" });
-      updateSidebarState(() => normalizeSidebarPrefs(DEFAULT_USER_PREFS.sidebar));
+      updateSidebarState(() => normalizeSidebarPrefs(DEFAULT_USER_PREFS.sidebar), { silent: true });
     } finally {
       setPrefsLoading(false);
     }
@@ -458,7 +464,7 @@ export default function AppLayout(): JSX.Element | null {
 
         if (body?.prefs) {
           const normalized = normalizeSidebarPrefs(body.prefs.sidebar);
-          updateSidebarState(() => normalized);
+      updateSidebarState(() => normalized, { silent: true });
           updateThemePrefs(body.prefs);
         } else {
           updateSidebarState(() => merged);
@@ -636,7 +642,7 @@ export default function AppLayout(): JSX.Element | null {
 
   const toggleSidebar = useCallback(() => {
     const nextCollapsed = !sidebarPrefsRef.current.collapsed;
-    updateSidebarState((prev) => ({ ...prev, collapsed: nextCollapsed }));
+    updateSidebarState((prev) => ({ ...prev, collapsed: nextCollapsed }), { silent: true });
     if (!sidebarReadOnly) {
       void persistSidebarPrefs({ collapsed: nextCollapsed });
     }
@@ -659,7 +665,7 @@ export default function AppLayout(): JSX.Element | null {
     updateSidebarState((prev) => {
       if (prev.width === nextWidth) return prev;
       return { ...prev, width: nextWidth };
-    });
+    }, { silent: true });
   };
 
   const commitResizedWidth = useCallback(
@@ -681,7 +687,7 @@ export default function AppLayout(): JSX.Element | null {
   const onResizePointerCancel = () => {
     if (!resizingRef.current) return;
     resizingRef.current = false;
-    updateSidebarState((prev) => ({ ...prev, width: resizeStartWidthRef.current }));
+    updateSidebarState((prev) => ({ ...prev, width: resizeStartWidthRef.current }), { silent: true });
   };
 
   const startCustomize = useCallback(() => {

@@ -1,10 +1,13 @@
 # FILE: docs/SETTINGS.md
+
 # phpGRC Settings Guide
+
 Scope: **UI settings only**. Core Phase-4 Evidence uploads ignore MIME and size validation by policy.
 
 Canonical runtime settings. Stored in DB unless noted. Avatars and theme pack files are on disk.
 
 ## Conventions
+
 - Keys use dot.case.
 - All writes validate and return `422 VALIDATION_FAILED` on errors.
 - Additive changes only; breaking changes require a major version.
@@ -12,6 +15,7 @@ Canonical runtime settings. Stored in DB unless noted. Avatars and theme pack fi
 - Responses echo the refreshed ETag in both the `ETag` header and JSON body (`etag`) alongside the post-write `config` snapshot.
 
 ### Optimistic concurrency
+
 - Always perform a `GET` before `PUT` to capture the current `ETag`.
 - Send that `ETag` back in `If-Match`; the API returns `409 PRECONDITION_FAILED` with `current_etag` when your copy is stale.
 - Save endpoints echo the refreshed `ETag` so clients can continue editing without an extra read.
@@ -19,6 +23,7 @@ Canonical runtime settings. Stored in DB unless noted. Avatars and theme pack fi
 > File-upload rules below apply to **UI features** (branding and theme packs), not Evidence uploads in Phase 4.
 
 ## Storage
+
 - Global settings: DB table `ui_settings` (key → JSON value). Populated via the `/settings/ui` endpoints.
 - Per-user prefs: DB table `user_ui_prefs`, mutated through `/me/prefs/ui`.
 - Branding assets: DB `brand_assets` (metadata + bytes). Managed by `/settings/ui/brand-assets`.
@@ -30,6 +35,7 @@ Canonical runtime settings. Stored in DB unless noted. Avatars and theme pack fi
 # UI Settings (Phase 5.5)
 
 ## Global keys (`/settings/ui`)
+
 - `ui.theme.default` : string — Bootswatch slug. **Default:** `slate`.
 - `ui.theme.allow_user_override` : boolean — allow user theme choice. **Default:** `true`.
 - `ui.theme.force_global` : boolean — force global theme for everyone; **still allows user light/dark** if theme supports both. **Default:** `false`.
@@ -46,12 +52,15 @@ Canonical runtime settings. Stored in DB unless noted. Avatars and theme pack fi
 Retrieve the snapshot with `GET /settings/ui` (captures an `ETag`) and persist changes with `PUT /settings/ui` + `If-Match`.
 
 ### File Ref shape (read-only)
+
 Stored in `brand_assets`.
+
 ```
 id, type, path, size, mime, sha256, uploaded_by, created_at
 ```
 
 ## Per-user prefs (`/me/prefs/ui`)
+
 - `theme` : string|null — Bootswatch slug
 - `mode` : `"light" | "dark" | null` — explicit beats system; null = follow system
 - `overrides` : object<string,string> — same guardrails as global
@@ -60,6 +69,7 @@ id, type, path, size, mime, sha256, uploaded_by, created_at
 Use `GET /me/prefs/ui` to fetch the current preferences and `PUT /me/prefs/ui` with `If-Match` to update them.
 
 ## Tokens & presets
+
 - **color.\*** : RGBA. Enforce WCAG 2.2 AA vs surfaces/text. Full color picker allowed (wheel, hex, RGB, eyedropper). Persist as RGBA.
 - **shadow** : one of `none | default | light | heavy | custom`
   - `none` → `none`
@@ -75,6 +85,7 @@ Use `GET /me/prefs/ui` to fetch the current preferences and `PUT /me/prefs/ui` w
   - `full` standard durations (150–300 ms)
 
 ### Validation rules for UI assets
+
 - Branding uploads: MIME sniff + extension; `415` on mismatch. Max 5 MB per file.
 - Theme-pack import: zip ≤ 50 MB; see Theme Packs section.
 - Clamp `sidebar.width` to **min 50 px** and **max 50%** of viewport.
@@ -83,6 +94,7 @@ Use `GET /me/prefs/ui` to fetch the current preferences and `PUT /me/prefs/ui` w
 ---
 
 # Endpoint summary
+
 - `GET /settings/ui` — Returns merged UI settings and an `ETag` for concurrency.
 - `PUT /settings/ui` — Updates UI settings. Requires `core.settings.manage` and a matching `If-Match` header.
 - `GET /settings/ui/themes` — Lists Bootswatch themes and installed packs.
@@ -98,29 +110,34 @@ Use `GET /me/prefs/ui` to fetch the current preferences and `PUT /me/prefs/ui` w
 # Theme Packs (Phase 5.5)
 
 ## Endpoints
+
 - `POST /settings/ui/themes/import` — zip upload (RBAC: `admin.theme`)
 - `GET /settings/ui/themes` — list
 - `PUT /settings/ui/themes/{slug}` — enable/disable, metadata
 - `DELETE /settings/ui/themes/{slug}` — purge theme + files
 
 ## Limits & types
+
 - Max zip size: **50 MB**.
 - Allowed entries inside zip: `.css .scss .woff2 .png .jpg .jpeg .webp .svg .map .js .html`.
 - Safe unzip: block path traversal/symlinks; depth ≤ **10**; files ≤ **2000**; compression ratio guard.
 - License file required; record license name/path in manifest and update NOTICE.
 
 ## JS/HTML policy (5.5)
+
 - JS/HTML are **stored but not executed**.
 - Scrubbed and recorded as **inactive** in manifest.
 - CSS is loaded; third-party JS from theme packs is not.
 
 ## Security scrub (import)
+
 - CSS: reject `@import` and `url()` to external origins; reject `javascript:` URLs; cap `data:` URLs ≤ 512 KB.
 - HTML: strip `<script>`, `<iframe>`, `<object>`, all `on*=` handlers, external form actions, meta refresh.
 - JS: reject `eval`, `new Function`, ServiceWorker APIs, and network calls to external origins.
 - SVG: sanitize; strip scripts and remote refs.
 
 ## Manifest (stored with theme)
+
 ```json
 {
   "slug": "mytheme",
@@ -130,18 +147,22 @@ Use `GET /me/prefs/ui` to fetch the current preferences and `PUT /me/prefs/ui` w
   "author": "vendor",
   "license": { "name": "MIT", "file": "LICENSE" },
   "assets": { "light": "light.css", "dark": "dark.css" },
-  "files": [{ "path": "assets/logo.svg", "size": 12345, "type": "image/svg+xml" }],
+  "files": [
+    { "path": "assets/logo.svg", "size": 12345, "type": "image/svg+xml" }
+  ],
   "inactive": { "html": ["index.html"], "js": ["theme.js"] }
 }
 ```
 
 ## Delete behavior
+
 - Delete always permitted, even if in use.
 - Affected users fall back to `ui.theme.default`; if that theme was deleted, reset default to `slate`.
 - Purge DB rows and disk files in a transaction + cleanup job on failure.
 - Audit includes counts of users affected and files deleted.
 
 ## Rate limiting
+
 - Import attempts limited to **5 per 10 minutes** per admin account.
 
 ---
@@ -149,30 +170,35 @@ Use `GET /me/prefs/ui` to fetch the current preferences and `PUT /me/prefs/ui` w
 # Branding Uploads
 
 ## Types and caps
+
 - Allowed: `svg png jpg jpeg webp`
 - Max size per file: **5 MB**
 - MIME sniff required; reject mismatches.
 - SVGs sanitized; remote refs stripped.
 
 ## Defaults
+
 - If `ui.brand.favicon` is absent, derive from Primary logo.
 - Footer logo uses Primary when Footer not set unless `ui.brand.footer_logo_disabled = true`.
 
 ---
 
 # Feature Flags
-- `THEME_CONFIG_ENABLED` (env → config)  
+
+- `THEME_CONFIG_ENABLED` (env → config)
   - Default: **on** in development, **off** in production until QA sign-off.
 
 ---
 
 # RBAC
+
 - Global UI changes and theme imports require `role_admin` or capability `admin.theme` (granted to `role_theme_manager`).
 - Read-only endpoints allow `role_theme_auditor` via `ui.theme.view`. Per-user preferences require authentication.
 
 ---
 
 # Errors (selected)
+
 - `VALIDATION_FAILED` — 422
 - `THEME_IMPORT_INVALID` — 422
 - `PAYLOAD_TOO_LARGE` — 413
@@ -184,6 +210,7 @@ Use `GET /me/prefs/ui` to fetch the current preferences and `PUT /me/prefs/ui` w
 # Examples
 
 ## GET `/settings/ui`
+
 ```http
 GET /api/settings/ui HTTP/1.1
 Cookie: phpgrc_token=...
@@ -191,6 +218,7 @@ Accept: application/json
 ```
 
 _Response_
+
 ```json
 {
   "ok": true,
@@ -215,7 +243,7 @@ _Response_
         "sidebar": { "default_order": ["risks", "compliance", "audits"] }
       },
       "brand": {
-        "title_text": "phpGRC — Dashboard",
+        "title_text": "phpGRC",
         "primary_logo_asset_id": "ba_01HT0T6X8K32H2W5KGJ3YXM5NE",
         "favicon_asset_id": null,
         "footer_logo_disabled": false
@@ -226,7 +254,9 @@ _Response_
 ```
 
 ## PUT `/settings/ui`
+
 - Headers: `If-Match: W/"ui:1f3923a8"`
+
 ```json
 {
   "ui": {
@@ -243,16 +273,19 @@ _Response_
       }
     },
     "nav": {
-      "sidebar": { "default_order": ["risks", "compliance", "audits", "policies"] }
+      "sidebar": {
+        "default_order": ["risks", "compliance", "audits", "policies"]
+      }
     },
     "brand": {
-      "title_text": "phpGRC — Dashboard"
+      "title_text": "phpGRC"
     }
   }
 }
 ```
 
 _Response_
+
 ```json
 {
   "ok": true,
@@ -272,22 +305,23 @@ _Response_
         }
       },
       "nav": {
-        "sidebar": { "default_order": ["risks", "compliance", "audits", "policies"] }
+        "sidebar": {
+          "default_order": ["risks", "compliance", "audits", "policies"]
+        }
       },
       "brand": {
-        "title_text": "phpGRC — Dashboard",
+        "title_text": "phpGRC",
         "primary_logo_asset_id": "ba_01HT0T6X8K32H2W5KGJ3YXM5NE",
         "footer_logo_disabled": false
       }
     }
   },
-  "changes": [
-    { "key": "ui.theme.overrides", "action": "update" }
-  ]
+  "changes": [{ "key": "ui.theme.overrides", "action": "update" }]
 }
 ```
 
 _Conflict (409)_
+
 ```json
 {
   "ok": false,
@@ -298,6 +332,7 @@ _Conflict (409)_
 ```
 
 ## GET `/settings/ui/brand-assets`
+
 ```json
 {
   "ok": true,
@@ -317,11 +352,14 @@ _Conflict (409)_
 ```
 
 ## GET `/settings/ui/brand-assets/{asset}/download`
+
 - Response: binary stream with the original branding asset bytes (e.g., `image/png`).
 - Headers: `Content-Type`, `Content-Length`, `Cache-Control: public, max-age=3600, immutable`, and weak `ETag` based on the asset SHA-256 hash.
 
 ## POST `/settings/ui/brand-assets`
+
 - Multipart fields: `kind=primary_logo`, `file=@logo.png`
+
 ```json
 {
   "ok": true,
@@ -339,6 +377,7 @@ _Conflict (409)_
 ```
 
 ## GET `/me/prefs/ui`
+
 ```json
 {
   "ok": true,
@@ -360,7 +399,9 @@ _Conflict (409)_
 ```
 
 ## PUT `/me/prefs/ui`
+
 - Headers: `If-Match: W/"prefs:2c9a0f98"`
+
 ```json
 {
   "theme": "flatly",
@@ -376,6 +417,7 @@ _Conflict (409)_
 ```
 
 _Response_
+
 ```json
 {
   "ok": true,
@@ -396,9 +438,10 @@ _Response_
 ```
 
 ## POST `/settings/ui/themes/import` (multipart)
+
 ```
 Content-Type: multipart/form-data; boundary=...
---... 
+--...
 Content-Disposition: form-data; name="file"; filename="mytheme.zip"
 Content-Type: application/zip
 
@@ -407,12 +450,15 @@ Content-Type: application/zip
 ```
 
 ## Error example (422 VALIDATION_FAILED)
+
 ```json
 {
   "ok": false,
   "code": "VALIDATION_FAILED",
   "errors": {
-    "ui.theme.overrides.color.primary": ["Insufficient contrast against surface color"]
+    "ui.theme.overrides.color.primary": [
+      "Insufficient contrast against surface color"
+    ]
   }
 }
 ```

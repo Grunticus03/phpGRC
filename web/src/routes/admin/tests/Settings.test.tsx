@@ -94,9 +94,8 @@ describe("Core Settings page", () => {
     render(<CoreSettings />);
 
     await waitFor(() => expect(screen.queryByText("Loading")).toBeNull());
-    expect(screen.queryByText("Default page size for Admin → User Roles search. Range 1–500.")).toBeNull();
-    expect(screen.queryByText("0=Disable - Max=30d")).toBeNull();
-    expect(screen.queryByText("Controls the dashboard authentication chart. Range 7–365.")).toBeNull();
+    expect(screen.getByText("0 disables caching. Max 30 days (2,592,000 seconds).")).toBeInTheDocument();
+    expect(screen.getByText("Controls RBAC deny cache. Range: 7–365.")).toBeInTheDocument();
 
     const requireAuth = screen.getByLabelText("Enforce Authentication") as HTMLInputElement;
     expect(requireAuth.checked).toBe(false);
@@ -143,12 +142,13 @@ describe("Core Settings page", () => {
     const adminForm = screen.getByRole("form", { name: "core-settings" });
     fireEvent.click(within(adminForm).getByRole("button", { name: /save/i }));
 
-    await screen.findByText("Validated. Not persisted (stub).");
+    await waitFor(() => {
+      expect(lastIfMatch).toBe('W/"settings:test"');
+    });
     expect(authWindow.value).toBe("7");
 
     expect(postBody).toBeTruthy();
     expect(postBody).toMatchObject({ apply: true });
-    expect(lastIfMatch).toBe('W/"settings:test"');
 
     const payload = postBody as Payload;
     expect(payload.rbac?.require_auth).toBe(true);
@@ -174,7 +174,9 @@ describe("Core Settings page", () => {
 
     const adminForm = screen.getByRole("form", { name: "core-settings" });
     fireEvent.click(within(adminForm).getByRole("button", { name: /save/i }));
-    await screen.findByText("Validated. Not persisted (stub).");
+    await waitFor(() => {
+      expect(lastIfMatch).toBe('W/"settings:test"');
+    });
 
     expect(postBody).toBeTruthy();
     const payload = postBody as Payload;

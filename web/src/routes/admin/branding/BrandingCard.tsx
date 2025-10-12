@@ -93,6 +93,28 @@ export default function BrandingCard(): JSX.Element {
   const baselineRef = useRef<BrandingConfig | null>(null);
   const settingsRef = useRef<ThemeSettings>(DEFAULT_THEME_SETTINGS);
 
+  const fetchAssets = useCallback(async (): Promise<BrandAsset[]> => {
+    try {
+      const res = await fetch("/api/settings/ui/brand-assets", {
+        method: "GET",
+        credentials: "same-origin",
+        headers: baseHeaders(),
+      });
+      if (!res.ok) {
+        return [];
+      }
+      const assetsBody = await parseJson<AssetListResponse>(res);
+      return Array.isArray(assetsBody?.assets)
+        ? assetsBody.assets.map((asset) => ({
+            ...asset,
+            url: assetDownloadUrl(asset.id),
+          }))
+        : [];
+    } catch {
+      return [];
+    }
+  }, []);
+
   const loadBranding = useCallback(
     async (options?: { preserveMessage?: boolean }) => {
       setLoading(true);
@@ -101,17 +123,13 @@ export default function BrandingCard(): JSX.Element {
       }
 
       try {
-        const [settingsRes, assetsRes] = await Promise.all([
+        const [settingsRes, assetList] = await Promise.all([
           fetch("/api/settings/ui", {
             method: "GET",
             credentials: "same-origin",
             headers: baseHeaders(),
           }),
-          fetch("/api/settings/ui/brand-assets", {
-            method: "GET",
-            credentials: "same-origin",
-            headers: baseHeaders(),
-          }),
+          fetchAssets(),
         ]);
 
         if (settingsRes.status === 403) {
@@ -153,18 +171,7 @@ export default function BrandingCard(): JSX.Element {
           baselineRef.current = defaults;
         }
 
-        if (assetsRes.ok) {
-          const assetsBody = await parseJson<AssetListResponse>(assetsRes);
-          const mapped = Array.isArray(assetsBody?.assets)
-            ? assetsBody.assets.map((asset) => ({
-                ...asset,
-                url: assetDownloadUrl(asset.id),
-              }))
-            : [];
-          setAssets(mapped);
-        } else {
-          setAssets([]);
-        }
+        setAssets(assetList);
       } catch {
         setMessage("Failed to load branding settings. Using defaults.");
         etagRef.current = null;
@@ -179,7 +186,7 @@ export default function BrandingCard(): JSX.Element {
         setLoading(false);
       }
     },
-    []
+    [fetchAssets]
   );
 
   useEffect(() => {
@@ -345,6 +352,7 @@ export default function BrandingCard(): JSX.Element {
       }
 
       setUploadMessage("Upload successful.");
+      void fetchAssets().then((list) => setAssets(list));
     } catch {
       setUploadMessage("Upload failed.");
     }
@@ -450,6 +458,8 @@ export default function BrandingCard(): JSX.Element {
                 {uploadMessage}
               </div>
             )}
+
+            <BrandingPreview config={brandConfig} assets={assets} />
 
             <fieldset className="vstack gap-3" disabled={disabled}>
               <div>
@@ -587,8 +597,6 @@ function BrandAssetSection({
     void onUpload(kind, file);
   };
 
-  const sameKindAssets = assets.filter((item) => item.kind === kind);
-
   return (
     <div className="card border-secondary-subtle">
       <div className="card-body d-flex flex-column flex-lg-row gap-3">
@@ -636,18 +644,19 @@ function BrandAssetSection({
             type="file"
             accept={ALLOWED_TYPES.join(",")}
             className="d-none"
+            aria-label={`Upload ${label}`}
             onChange={handleFileChange}
           />
           <select
             className="form-select form-select-sm"
             value={asset?.id ?? ""}
             onChange={(event) => onSelect(event.target.value || null)}
-            disabled={disabled || sameKindAssets.length === 0}
+            disabled={disabled || assets.length === 0}
           >
             <option value="">Select existing…</option>
-            {sameKindAssets.map((item) => (
+            {assets.map((item) => (
               <option key={item.id} value={item.id}>
-                {item.name}
+                {`${assetLabel[item.kind]} • ${item.name}`}
               </option>
             ))}
           </select>
@@ -657,7 +666,7 @@ function BrandAssetSection({
             onClick={onClear}
             disabled={disabled || !asset}
           >
-            Clear selection
+            Restore default
           </button>
           <button
             type="button"
@@ -668,6 +677,118 @@ function BrandAssetSection({
             Delete asset
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+type BrandingPreviewProps = {
+  config: BrandingConfig;
+  assets: BrandAsset[];
+};
+
+function BrandingPreview({ config, assets }: BrandingPreviewProps): JSX.Element {
+  const findAsset = (id: string | null): BrandAsset | null => {
+    if (!id) return null;
+    return assets.find((item) => item.id === id) ?? null;
+  };
+
+  const primary = findAsset(config.primary_logo_asset_id);
+  const secondary = findAsset(config.secondary_logo_asset_id);
+  const header = findAsset(config.header_logo_asset_id);
+  const footer = findAsset(config.footer_logo_asset_id);
+  const favicon = findAsset(config.favicon_asset_id);
+
+  return (
+    <div className="border rounded bg-body-tertiary p-3" aria-label="branding-placement-preview">
+      <div className="small text-uppercase text-muted fw-semibold mb-3">Placement preview</div>
+      <div className="d-flex flex-column gap-3">
+        <div>
+          <div className="text-uppercase text-muted small mb-1">Header</div>
+          <LogoPreview
+            asset={header}
+            fallback={primary}
+            label="Header logo"
+            fallbackLabel="Uses primary logo when unset."
+          />
+        </div>
+        <div className="d-flex flex-wrap gap-3">
+          <LogoPreview asset={primary} label="Primary logo" />
+          <LogoPreview
+            asset={secondary}
+            fallback={primary}
+            label="Secondary logo"
+            fallbackLabel="Falls back to primary logo."
+          />
+          <LogoPreview
+            asset={favicon}
+            fallback={primary}
+            label="Favicon"
+            fallbackLabel="Falls back to primary logo."
+          />
+        </div>
+        <div>
+          <div className="text-uppercase text-muted small mb-1">Footer</div>
+          <LogoPreview
+            asset={config.footer_logo_disabled ? null : footer}
+            fallback={config.footer_logo_disabled ? null : primary}
+            label={config.footer_logo_disabled ? "Footer logo (disabled)" : "Footer logo"}
+            fallbackLabel="Falls back to primary logo."
+            disabled={config.footer_logo_disabled}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+type LogoPreviewProps = {
+  asset: BrandAsset | null;
+  fallback?: BrandAsset | null;
+  label: string;
+  fallbackLabel?: string;
+  disabled?: boolean;
+};
+
+function LogoPreview({ asset, fallback, label, fallbackLabel, disabled }: LogoPreviewProps): JSX.Element {
+  const source = asset ?? fallback ?? null;
+  const usingFallback = !asset && !!fallback;
+
+  let note: string;
+  if (disabled) {
+    note = "Disabled — falls back to primary logo.";
+  } else if (asset && asset.name) {
+    note = asset.name;
+  } else if (usingFallback && fallback) {
+    note = fallbackLabel ?? "Using fallback logo.";
+  } else {
+    note = "No logo configured.";
+  }
+
+  return (
+    <div className="d-inline-flex flex-column align-items-center gap-2 text-center">
+      <div
+        className={`border rounded bg-body d-flex align-items-center justify-content-center ${
+          disabled ? "bg-light" : ""
+        }`}
+        style={{ width: 132, height: 68 }}
+      >
+        {disabled ? (
+          <span className="text-muted small px-2">Disabled</span>
+        ) : source?.url ? (
+          <img
+            src={source.url}
+            alt={`${label} preview`}
+            className="img-fluid"
+            style={{ maxHeight: 60, maxWidth: 124 }}
+          />
+        ) : (
+          <span className="text-muted small px-2">No image</span>
+        )}
+      </div>
+      <span className="badge text-bg-light border">{label}</span>
+      <div className="text-muted small" style={{ maxWidth: 160 }}>
+        {note}
       </div>
     </div>
   );

@@ -93,7 +93,7 @@ type BrandingConfig = {
 {
   "ui": {
     "brand": {
-      "title_text": "phpGRC — Dashboard",
+      "title_text": "phpGRC",
       "favicon_asset_id": "as_...",
       "primary_logo_asset_id": "as_...",
       "secondary_logo_asset_id": "as_...",
