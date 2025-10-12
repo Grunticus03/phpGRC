@@ -319,12 +319,12 @@ final class DesignerThemeStorageService
     {
         $result = [];
         foreach ($variables as $key => $value) {
-            if (! is_string($value)) {
+            if (! is_scalar($value) && $value !== null) {
                 continue;
             }
 
             $variable = trim($key);
-            $token = trim($value);
+            $token = trim((string) $value);
             if ($token === '') {
                 continue;
             }

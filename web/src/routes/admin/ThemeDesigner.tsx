@@ -545,14 +545,14 @@ export default function ThemeDesigner(): JSX.Element {
 
   const computeCustomVariables = useCallback((): Record<string, string> => {
     const collected: Record<string, string> = {};
+
     UNIQUE_TARGETS.forEach((target) => {
-      const stored = values[target.key];
-      const resolved =
-        typeof stored === "string" ? stored : (typeof target.defaultValue === "string" ? target.defaultValue : "");
-      const asString =
-        typeof resolved === "string" ? resolved : resolved == null ? "" : String(resolved);
-      collected[target.variable] = asString;
+      const override = values[target.key];
+      const candidate = typeof override === "string" ? override : target.defaultValue;
+      const normalized = candidate == null ? "" : `${candidate}`;
+      collected[target.variable] = normalized;
     });
+
     return collected;
   }, [values]);
 

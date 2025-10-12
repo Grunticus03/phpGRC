@@ -568,27 +568,8 @@ export default function BrandingCard(): JSX.Element {
       if (!res.ok) {
         throw new Error(`Delete failed (${res.status})`);
       }
-      setAssets((prev) => prev.filter((asset) => asset.id !== assetId));
-      let cleared = false;
-      const nextConfig: BrandingConfig = { ...brandConfig };
-      ([
-        "favicon",
-        "primary_logo",
-        "secondary_logo",
-        "header_logo",
-        "footer_logo",
-      ] as const).forEach((kind) => {
-        const key = `${kind}_asset_id` as keyof BrandingConfig;
-        if (nextConfig[key] === assetId) {
-          (nextConfig as Record<string, unknown>)[key] = null;
-          cleared = true;
-        }
-      });
-      if (cleared) {
-        setBrandConfig(nextConfig);
-        previewBrand(nextConfig);
-        setMessage("Asset deleted and references cleared. Save to apply.");
-      }
+      setMessage("Asset deleted.");
+      await loadBranding({ preserveMessage: true, profileId: selectedProfile.id });
     } catch (err) {
       setUploadMessage(err instanceof Error ? err.message : "Delete failed.");
     }
@@ -776,7 +757,6 @@ export default function BrandingCard(): JSX.Element {
                 onUpload={handleUpload}
                 onSelect={(assetId) => updateField("primary_logo_asset_id", assetId)}
                 onClear={() => updateField("primary_logo_asset_id", null)}
-                onDelete={handleDeleteAsset}
                 disabled={disabled}
               />
 
@@ -790,7 +770,6 @@ export default function BrandingCard(): JSX.Element {
                 onUpload={handleUpload}
                 onSelect={(assetId) => updateField("secondary_logo_asset_id", assetId)}
                 onClear={() => updateField("secondary_logo_asset_id", null)}
-                onDelete={handleDeleteAsset}
                 disabled={disabled}
               />
 
@@ -804,7 +783,6 @@ export default function BrandingCard(): JSX.Element {
                 onUpload={handleUpload}
                 onSelect={(assetId) => updateField("header_logo_asset_id", assetId)}
                 onClear={() => updateField("header_logo_asset_id", null)}
-                onDelete={handleDeleteAsset}
                 disabled={disabled}
               />
 
@@ -818,7 +796,6 @@ export default function BrandingCard(): JSX.Element {
                 onUpload={handleUpload}
                 onSelect={(assetId) => updateField("footer_logo_asset_id", assetId)}
                 onClear={() => updateField("footer_logo_asset_id", null)}
-                onDelete={handleDeleteAsset}
                 disabled={disabled}
               />
 
@@ -845,7 +822,6 @@ export default function BrandingCard(): JSX.Element {
                 onUpload={handleUpload}
                 onSelect={(assetId) => updateField("favicon_asset_id", assetId)}
                 onClear={() => updateField("favicon_asset_id", null)}
-                onDelete={handleDeleteAsset}
                 disabled={disabled}
               />
             </fieldset>
@@ -868,7 +844,6 @@ type BrandAssetSectionProps = {
   onUpload: (kind: BrandAsset["kind"], file: File) => void | Promise<void>;
   onSelect: (assetId: string | null) => void;
   onClear: () => void;
-  onDelete: (assetId: string) => void;
   disabled: boolean;
 };
 
@@ -882,7 +857,6 @@ function BrandAssetSection({
   onUpload,
   onSelect,
   onClear,
-  onDelete,
   disabled,
 }: BrandAssetSectionProps): JSX.Element {
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -972,14 +946,6 @@ function BrandAssetSection({
             disabled={disabled || (!asset && !hasCustomValue)}
           >
             Restore default
-          </button>
-          <button
-            type="button"
-            className="btn btn-outline-danger btn-sm"
-            onClick={() => asset && onDelete(asset.id)}
-            disabled={disabled || !asset}
-          >
-            Delete asset
           </button>
         </div>
       </div>

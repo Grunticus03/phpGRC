@@ -25,4 +25,28 @@ final class DesignerThemeStoreRequest extends FormRequest
             'variables.*' => ['string', 'max:160'],
         ];
     }
+
+    #[\Override]
+    protected function prepareForValidation(): void
+    {
+        /** @var mixed $variables */
+        $variables = $this->input('variables');
+        if (! is_array($variables)) {
+            return;
+        }
+
+        /** @var array<string,mixed> $normalized */
+        $normalized = [];
+        foreach ($variables as $key => $value) {
+            if (! is_scalar($value) && $value !== null) {
+                continue;
+            }
+
+            $normalized[(string) $key] = (string) $value;
+        }
+
+        $this->merge([
+            'variables' => $normalized,
+        ]);
+    }
 }
