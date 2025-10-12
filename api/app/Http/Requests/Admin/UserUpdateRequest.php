@@ -35,7 +35,7 @@ final class UserUpdateRequest extends FormRequest
 
         return [
             'name' => ['sometimes', 'string', 'min:2', 'max:255'],
-            'email' => ['sometimes', 'string', 'email:rfc,dns', 'max:255', $uniqueEmail],
+            'email' => ['sometimes', 'string', 'email:rfc', 'max:255', $uniqueEmail],
             'password' => ['sometimes', 'string', 'min:8'],
             'roles' => ['sometimes', 'array'],
             'roles.*' => ['string', 'min:2', 'max:64'],

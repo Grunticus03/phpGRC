@@ -46,6 +46,12 @@ const byAction: Record<string, ActionInfo> = {
   // SETTINGS
   "settings.updated":          { label: "Settings updated", category: "SETTINGS", variant: "neutral" },
   "setting.modified":          { label: "Setting modified", category: "SETTINGS", variant: "neutral" },
+  "ui.theme.updated":          { label: "UI theme updated", category: "SETTINGS", variant: "neutral" },
+  "ui.theme.overrides.updated":{ label: "UI theme overrides updated", category: "SETTINGS", variant: "neutral" },
+  "ui.nav.sidebar.saved":      { label: "UI sidebar saved", category: "SETTINGS", variant: "neutral" },
+  "ui.brand.updated":          { label: "UI branding updated", category: "SETTINGS", variant: "neutral" },
+  "ui.theme.pack.updated":     { label: "UI theme pack updated", category: "SETTINGS", variant: "neutral" },
+  "ui.theme.pack.deleted":     { label: "UI theme pack deleted", category: "SETTINGS", variant: "warning" },
 
   // AUDIT maintenance
   "audit.retention.purged":    { label: "Audit purged", category: "AUDIT", variant: "warning" },

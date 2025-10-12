@@ -141,10 +141,6 @@ describe("ThemeConfigurator", () => {
     fireEvent.change(themeSelect, { target: { value: "flatly" } });
     expect(themeSelect.value).toBe("flatly");
 
-    const allowToggle = screen.getByLabelText("Allow user theme override") as HTMLInputElement;
-    fireEvent.click(allowToggle);
-    expect(allowToggle.checked).toBe(false);
-
     const forceToggle = screen.getByLabelText(
       "Force global theme (light/dark still follows capability rules)"
     ) as HTMLInputElement;
@@ -218,7 +214,8 @@ describe("ThemeConfigurator", () => {
 
     await waitFor(() => expect(screen.queryByText("Loading theme settings…")).toBeNull());
 
-    fireEvent.click(screen.getByLabelText("Allow user theme override"));
+    const themeSelect = screen.getByLabelText("Default theme") as HTMLSelectElement;
+    fireEvent.change(themeSelect, { target: { value: "flatly" } });
 
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 

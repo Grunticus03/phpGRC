@@ -53,10 +53,11 @@ function buildInitialForm(settings: ThemeSettings): FormState {
     storage: "filesystem",
     filesystem_path: "/opt/phpgrc/shared/themes",
   };
+  const forceGlobal = Boolean(mutable.theme.force_global);
   return {
     theme: String(mutable.theme.default),
-    allowOverride: Boolean(mutable.theme.allow_user_override),
-    forceGlobal: Boolean(mutable.theme.force_global),
+    forceGlobal,
+    allowOverride: !forceGlobal,
     overrides: { ...mutable.theme.overrides } as Record<string, string>,
     designer: {
       storage: designer.storage === "browser" ? "browser" : "filesystem",
@@ -71,7 +72,6 @@ function buildInitialForm(settings: ThemeSettings): FormState {
 function hasChanges(form: FormState, baseline: FormState | null): boolean {
   if (!baseline) return true;
   if (form.theme !== baseline.theme) return true;
-  if (form.allowOverride !== baseline.allowOverride) return true;
   if (form.forceGlobal !== baseline.forceGlobal) return true;
   if (form.designer.storage !== baseline.designer.storage) return true;
   if (form.designer.filesystemPath !== baseline.designer.filesystemPath) return true;
@@ -151,7 +151,7 @@ export default function ThemeConfigurator(): JSX.Element {
       theme: {
         ...base.theme,
         default: next.theme as ThemeSettings["theme"]["default"],
-        allow_user_override: next.allowOverride as ThemeSettings["theme"]["allow_user_override"],
+        allow_user_override: (!next.forceGlobal) as ThemeSettings["theme"]["allow_user_override"],
         force_global: next.forceGlobal as ThemeSettings["theme"]["force_global"],
         overrides: toStoredOverrides(next.overrides),
         designer: {
@@ -244,17 +244,13 @@ export default function ThemeConfigurator(): JSX.Element {
     });
   };
 
-  const onToggleAllow = (value: boolean) => {
-    setForm((prev) => {
-      const next = { ...prev, allowOverride: value };
-      previewTheme(next);
-      return next;
-    });
-  };
-
   const onToggleForce = (value: boolean) => {
     setForm((prev) => {
-      const next = { ...prev, forceGlobal: value };
+      const next = {
+        ...prev,
+        forceGlobal: value,
+        allowOverride: !value,
+      };
       previewTheme(next);
       return next;
     });
@@ -320,7 +316,7 @@ export default function ThemeConfigurator(): JSX.Element {
         ui: {
           theme: {
             default: form.theme,
-            allow_user_override: form.allowOverride,
+            allow_user_override: !form.forceGlobal,
             force_global: form.forceGlobal,
             overrides: form.overrides,
             designer: {
@@ -442,21 +438,8 @@ export default function ThemeConfigurator(): JSX.Element {
                   ))}
                 </select>
                 <div className="form-text">
-                  Users can select from available themes when overrides are allowed.
+                  Users can select from available themes when the global theme is not forced.
                 </div>
-              </div>
-
-              <div className="form-check">
-                <input
-                  id="allowOverride"
-                  type="checkbox"
-                  className="form-check-input"
-                  checked={form.allowOverride}
-                  onChange={(event) => onToggleAllow(event.target.checked)}
-                />
-                <label htmlFor="allowOverride" className="form-check-label">
-                  Allow user theme override
-                </label>
               </div>
 
               <div className="form-check">

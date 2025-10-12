@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import "./AdminTree.css";
 
 type AdminTreeNode = {
   id: string;
@@ -9,8 +10,6 @@ type AdminTreeNode = {
   children?: AdminTreeNode[];
   defaultExpanded?: boolean;
 };
-
-const TOGGLE_SLOT_WIDTH = "2.25rem";
 
 const ADMIN_TREE: AdminTreeNode[] = [
   {
@@ -44,8 +43,8 @@ export default function AdminIndex(): JSX.Element {
       <h1 className="mb-4">Admin</h1>
       <nav aria-label="Admin navigation">
         <ul className="list-unstyled admin-tree m-0" role="tree">
-          {ADMIN_TREE.map((node) => (
-            <TreeItem key={node.id} node={node} level={1} />
+          {ADMIN_TREE.map((node, index) => (
+            <TreeItem key={node.id} node={node} level={1} isLast={index === ADMIN_TREE.length - 1} />
           ))}
         </ul>
       </nav>
@@ -56,17 +55,18 @@ export default function AdminIndex(): JSX.Element {
 type TreeItemProps = {
   node: AdminTreeNode;
   level: number;
+  isLast: boolean;
 };
 
-function TreeItem({ node, level }: TreeItemProps): JSX.Element {
+function TreeItem({ node, level, isLast }: TreeItemProps): JSX.Element {
   const hasChildren = Array.isArray(node.children) && node.children.length > 0;
   const [expanded, setExpanded] = useState(node.defaultExpanded ?? level === 1);
+  const spacerGlyph = level === 1 ? " " : "│";
 
   const toggleSlot = hasChildren ? (
     <button
       type="button"
-      className="btn btn-sm btn-outline-secondary px-2"
-      style={{ width: TOGGLE_SLOT_WIDTH }}
+      className="btn btn-sm btn-outline-secondary px-2 admin-tree-toggle"
       onClick={() => setExpanded((prev) => !prev)}
       aria-label={`${expanded ? "Collapse" : "Expand"} ${node.label}`}
       aria-expanded={expanded}
@@ -75,21 +75,20 @@ function TreeItem({ node, level }: TreeItemProps): JSX.Element {
     </button>
   ) : (
     <span
-      className="d-inline-flex align-items-center justify-content-center text-muted"
-      style={{ width: TOGGLE_SLOT_WIDTH }}
+      className="d-inline-flex align-items-center justify-content-center text-muted admin-tree-spacer"
       role="presentation"
       aria-hidden="true"
     >
-      •
+      {spacerGlyph}
     </span>
   );
 
   const content = node.to ? (
-    <Link className="link-body-emphasis" to={node.to}>
+    <Link className="link-body-emphasis admin-tree-link" to={node.to}>
       {node.label}
     </Link>
   ) : node.href ? (
-    <a className="link-body-emphasis" href={node.href}>
+    <a className="link-body-emphasis admin-tree-link" href={node.href}>
       {node.label}
     </a>
   ) : (
@@ -98,22 +97,26 @@ function TreeItem({ node, level }: TreeItemProps): JSX.Element {
 
   return (
     <li
-      className="admin-tree-item mb-2"
+      className="admin-tree-item"
       role="treeitem"
       aria-level={level}
       aria-expanded={hasChildren ? expanded : undefined}
+      data-level={level}
+      data-last={isLast}
     >
       <div className="d-flex align-items-center gap-2">
         {toggleSlot}
         {content}
       </div>
       {hasChildren && expanded ? (
-        <ul
-          role="group"
-          className="list-unstyled ms-4 ps-3 border-start border-light-subtle"
-        >
-          {(node.children ?? []).map((child) => (
-            <TreeItem key={child.id} node={child} level={level + 1} />
+        <ul role="group" className="list-unstyled admin-tree-branch">
+          {(node.children ?? []).map((child, index) => (
+            <TreeItem
+              key={child.id}
+              node={child}
+              level={level + 1}
+              isLast={index === (node.children?.length ?? 0) - 1}
+            />
           ))}
         </ul>
       ) : null}

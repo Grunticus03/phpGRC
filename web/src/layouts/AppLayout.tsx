@@ -1,5 +1,13 @@
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type FocusEvent as ReactFocusEvent,
+} from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import {
   authLogout,
@@ -100,6 +108,7 @@ const ADMIN_NAV_ITEMS: readonly AdminNavItem[] = [
 type SidebarPrefs = {
   collapsed: boolean;
   width: number;
+  pinned: boolean;
   order: string[];
 };
 
@@ -158,6 +167,7 @@ const resolveLogoSrc = (brand: BrandSnapshot, failed?: Set<string>): string => {
 const normalizeSidebarPrefs = (prefs?: ThemeUserPrefs["sidebar"] | SidebarPrefs): SidebarPrefs => {
   const source = prefs ?? DEFAULT_USER_PREFS.sidebar;
   const collapsed = Boolean(source.collapsed);
+  const pinned = source.pinned === false ? false : true;
   const widthRaw = typeof source.width === "number" ? source.width : DEFAULT_USER_PREFS.sidebar.width;
   const width = clampSidebarWidth(widthRaw);
   const order = Array.isArray(source.order)
@@ -165,7 +175,7 @@ const normalizeSidebarPrefs = (prefs?: ThemeUserPrefs["sidebar"] | SidebarPrefs)
         .map((value) => (typeof value === "string" ? value.trim() : ""))
         .filter((value) => value !== "")
     : [];
-  return { collapsed, width, order };
+  return { collapsed, width, pinned, order };
 };
 
 export default function AppLayout(): JSX.Element | null {
@@ -199,6 +209,7 @@ export default function AppLayout(): JSX.Element | null {
   const [sidebarToastFading, setSidebarToastFading] = useState(false);
   const sidebarFadeTimer = useRef<number | null>(null);
   const sidebarHideTimer = useRef<number | null>(null);
+  const sidebarRef = useRef<HTMLElement | null>(null);
 
   const [customizing, setCustomizing] = useState<boolean>(false);
   const customizingRef = useRef(false);
@@ -274,6 +285,7 @@ export default function AppLayout(): JSX.Element | null {
         if (
           prev.collapsed === next.collapsed &&
           prev.width === next.width &&
+          prev.pinned === next.pinned &&
           arraysEqual(prev.order, next.order)
         ) {
           sidebarPrefsRef.current = prev;
@@ -409,7 +421,7 @@ export default function AppLayout(): JSX.Element | null {
   }, [authed, updateSidebarState]);
 
   const persistSidebarPrefs = useCallback(
-    async (patch: Partial<SidebarPrefs>): Promise<boolean> => {
+    async (patch: Partial<SidebarPrefs>, options?: { silentNotice?: boolean }): Promise<boolean> => {
       if (!authed || sidebarReadOnly) return false;
 
       if (!sidebarEtagRef.current) {
@@ -423,7 +435,9 @@ export default function AppLayout(): JSX.Element | null {
       });
 
       setSidebarSaving(true);
-      setSidebarNotice(null);
+      if (!options?.silentNotice) {
+        setSidebarNotice(null);
+      }
 
       try {
         const res = await fetch("/api/me/prefs/ui", {
@@ -464,13 +478,15 @@ export default function AppLayout(): JSX.Element | null {
 
         if (body?.prefs) {
           const normalized = normalizeSidebarPrefs(body.prefs.sidebar);
-      updateSidebarState(() => normalized, { silent: true });
+          updateSidebarState(() => normalized, { silent: options?.silentNotice });
           updateThemePrefs(body.prefs);
         } else {
-          updateSidebarState(() => merged);
+          updateSidebarState(() => merged, { silent: options?.silentNotice });
         }
 
-        setSidebarNotice({ text: "Sidebar preferences saved.", tone: "info", ephemeral: true });
+        if (!options?.silentNotice) {
+          setSidebarNotice({ text: "Sidebar preferences saved.", tone: "info", ephemeral: true });
+        }
         return true;
       } catch (err) {
         const message = err instanceof Error ? err.message : "Failed to save sidebar preferences.";
@@ -640,13 +656,59 @@ export default function AppLayout(): JSX.Element | null {
     document.title = `${brandTitle} — ${moduleLabel}`;
   }, [brand.title, loc.pathname]);
 
+  const setSidebarCollapsed = useCallback(
+    (collapsed: boolean, options?: { persist?: boolean; silent?: boolean }) => {
+      updateSidebarState(
+        (prev) => (prev.collapsed === collapsed ? prev : { ...prev, collapsed }),
+        { silent: options?.silent }
+      );
+      const shouldPersist =
+        options?.persist !== undefined ? options.persist : sidebarPrefsRef.current.pinned;
+      if (!sidebarReadOnly && shouldPersist) {
+        void persistSidebarPrefs(
+          { collapsed },
+          options?.silent ? { silentNotice: true } : undefined
+        );
+      }
+    },
+    [persistSidebarPrefs, sidebarReadOnly, updateSidebarState]
+  );
+
   const toggleSidebar = useCallback(() => {
     const nextCollapsed = !sidebarPrefsRef.current.collapsed;
-    updateSidebarState((prev) => ({ ...prev, collapsed: nextCollapsed }), { silent: true });
-    if (!sidebarReadOnly) {
-      void persistSidebarPrefs({ collapsed: nextCollapsed });
+    setSidebarCollapsed(nextCollapsed, { silent: true });
+  }, [setSidebarCollapsed]);
+
+  const closeFloatingSidebar = useCallback(() => {
+    if (customizingRef.current) return;
+    if (!sidebarPrefsRef.current.pinned && !sidebarPrefsRef.current.collapsed) {
+      setSidebarCollapsed(true, { persist: false, silent: true });
     }
-  }, [sidebarReadOnly, persistSidebarPrefs, updateSidebarState]);
+  }, [setSidebarCollapsed]);
+
+  const handleSidebarBlur = useCallback(
+    (event: ReactFocusEvent<HTMLElement>) => {
+      if (customizingRef.current) return;
+      if (sidebarPrefsRef.current.pinned) return;
+      const related = event.relatedTarget as Node | null;
+      if (related && sidebarRef.current && sidebarRef.current.contains(related)) {
+        return;
+      }
+      setSidebarCollapsed(true, { persist: false, silent: true });
+    },
+    [setSidebarCollapsed]
+  );
+
+  const toggleSidebarPin = useCallback(() => {
+    const nextPinned = !sidebarPrefsRef.current.pinned;
+    updateSidebarState((prev) => ({ ...prev, pinned: nextPinned }), { silent: true });
+    if (!sidebarReadOnly) {
+      void persistSidebarPrefs({ pinned: nextPinned }, { silentNotice: true });
+    }
+    if (!nextPinned && sidebarPrefsRef.current.collapsed) {
+      setSidebarCollapsed(true, { persist: false, silent: true });
+    }
+  }, [persistSidebarPrefs, setSidebarCollapsed, sidebarReadOnly, updateSidebarState]);
 
   const onResizePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (sidebarReadOnly) return;
@@ -857,6 +919,142 @@ export default function AppLayout(): JSX.Element | null {
   const logoSrc = resolveLogoSrc(brand, failedBrandAssetsRef.current);
 
   const customizingDirty = !arraysEqual(editingOrder, baselineOrderRef.current);
+
+  const sidebarPinned = sidebarPrefs.pinned;
+  const sidebarCollapsed = sidebarPrefs.collapsed;
+
+  const accountDropdownStyle: CSSProperties = {
+    right: 0,
+    left: "auto",
+    inset: "calc(100% + 0.35rem) 0 auto auto",
+    display: menuOpen ? "block" : "none",
+  };
+
+  const sidebarContent = (
+    <div className="d-flex flex-column h-100">
+      {customizing && (
+        <div className="px-3 py-2 border-bottom d-flex flex-wrap gap-2">
+          <button
+            type="button"
+            className="btn btn-primary btn-sm"
+            onClick={() => void handleSaveCustomize()}
+            disabled={!customizingDirty || sidebarSaving}
+          >
+            {sidebarSaving ? "Saving…" : "Save"}
+          </button>
+          <button
+            type="button"
+            className="btn btn-outline-secondary btn-sm"
+            onClick={handleCancelCustomize}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            className="btn btn-outline-secondary btn-sm"
+            onClick={handleDefaultOrder}
+          >
+            Default
+          </button>
+          <button
+            type="button"
+            className="btn btn-outline-secondary btn-sm"
+            onClick={() => exitCustomize()}
+          >
+            Exit
+          </button>
+        </div>
+      )}
+
+      {sidebarNotice && (
+        <div
+          className={`shadow alert ${sidebarNotice.tone === "error" ? "alert-danger" : "alert-info"}`}
+          role="status"
+          style={{
+            position: "absolute",
+            top: "0.75rem",
+            right: "0.75rem",
+            minWidth: "14rem",
+            pointerEvents: "none",
+            transition: "opacity 200ms ease-in-out",
+            opacity: sidebarToastFading ? 0 : 0.95,
+          }}
+        >
+          {sidebarNotice.text}
+        </div>
+      )}
+
+      <div className="flex-grow-1 overflow-auto">
+        {customizing ? (
+          <ul className="list-group list-group-flush">
+            {sidebarItems.map((module, index) => (
+              <li
+                key={module.id}
+                className="list-group-item d-flex align-items-center justify-content-between gap-3"
+                draggable
+                onDragStart={() => handleSidebarDragStart(module.id)}
+                onDragEnter={() => handleSidebarDragEnter(module.id)}
+                onDragOver={(event) => event.preventDefault()}
+                onDragEnd={handleSidebarDragEnd}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  handleSidebarDragEnd();
+                }}
+              >
+                <span>{module.label}</span>
+                <span aria-hidden="true" style={{ cursor: "grab", fontSize: "1.1rem" }}>
+                  ⋮⋮
+                </span>
+                <div className="visually-hidden">
+                  <button
+                    type="button"
+                    onClick={() => moveSidebarModule(module.id, -1)}
+                    disabled={index === 0}
+                  >
+                    Move {module.label} up
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => moveSidebarModule(module.id, 1)}
+                    disabled={index === sidebarItems.length - 1}
+                  >
+                    Move {module.label} down
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <nav className="nav flex-column gap-1 px-2 py-3" aria-label="Sidebar modules">
+            {sidebarItems.map((module) => (
+              <NavLink
+                key={module.id}
+                to={module.path}
+                className={({ isActive }) =>
+                  `nav-link text-truncate${isActive ? " active fw-semibold" : ""}`
+                }
+                onClick={closeFloatingSidebar}
+              >
+                {module.label}
+              </NavLink>
+            ))}
+          </nav>
+        )}
+      </div>
+
+      <div className="mt-auto px-3 pb-3 pt-2 text-end">
+        <button
+          type="button"
+          className="btn btn-outline-secondary btn-sm"
+          onClick={toggleSidebarPin}
+          aria-pressed={sidebarPrefs.pinned}
+          title={sidebarPrefs.pinned ? "Unpin sidebar" : "Pin sidebar"}
+        >
+          {sidebarPrefs.pinned ? "Unpin sidebar" : "Pin sidebar"}
+        </button>
+      </div>
+    </div>
+  );
 
   return (
     <div className="app-shell d-flex flex-column min-vh-100">
@@ -1092,7 +1290,10 @@ export default function AppLayout(): JSX.Element | null {
                 >
                   Account
                 </button>
-                <div className={`dropdown-menu dropdown-menu-end${menuOpen ? " show" : ""}`}>
+                <div
+                  className={`dropdown-menu dropdown-menu-end${menuOpen ? " show" : ""}`}
+                  style={accountDropdownStyle}
+                >
                   <button type="button" className="dropdown-item" onClick={handleProfile}>
                     Profile
                   </button>
@@ -1111,168 +1312,95 @@ export default function AppLayout(): JSX.Element | null {
       </header>
 
       <div className="app-body d-flex flex-grow-1 position-relative">
-        {!sidebarPrefs.collapsed && (
-          <>
-            <aside
-              className="border-end bg-body"
-              aria-label="Secondary navigation"
-              style={{
-                width: `${sidebarWidth}px`,
-                minWidth: `${MIN_SIDEBAR_WIDTH}px`,
-                position: "relative",
-              }}
-              tabIndex={sidebarReadOnly ? -1 : 0}
-              onPointerDown={onCustomizePressStart}
-              onPointerUp={onCustomizePressEnd}
-              onPointerLeave={onCustomizePressEnd}
-              onPointerCancel={onCustomizePressEnd}
-              onKeyDown={(event) => {
-                if (!sidebarReadOnly && !customizing && (event.key === "Enter" || event.key === " ")) {
-                  event.preventDefault();
-                  startCustomize();
-                }
-                if (customizing && event.key === "Escape") {
-                  event.preventDefault();
-                  exitCustomize(true);
-                }
-              }}
-            >
-              <div className="d-flex flex-column h-100">
-                {customizing && (
-                  <div className="px-3 py-2 border-bottom d-flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      className="btn btn-primary btn-sm"
-                      onClick={() => void handleSaveCustomize()}
-                      disabled={!customizingDirty || sidebarSaving}
-                    >
-                      {sidebarSaving ? "Saving…" : "Save"}
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-outline-secondary btn-sm"
-                      onClick={handleCancelCustomize}
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-outline-secondary btn-sm"
-                      onClick={handleDefaultOrder}
-                    >
-                      Default
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-outline-secondary btn-sm"
-                      onClick={() => exitCustomize()}
-                    >
-                      Exit
-                    </button>
-                  </div>
-                )}
-
-                {sidebarNotice && (
-                  <div
-                    className={`shadow alert ${sidebarNotice.tone === "error" ? "alert-danger" : "alert-info"}`}
-                    role="status"
-                    style={{
-                      position: "absolute",
-                      top: "0.75rem",
-                      right: "0.75rem",
-                      minWidth: "14rem",
-                      pointerEvents: "none",
-                      transition: "opacity 200ms ease-in-out",
-                      opacity: sidebarToastFading ? 0 : 0.95,
-                    }}
-                  >
-                    {sidebarNotice.text}
-                  </div>
-                )}
-
-                <div className="flex-grow-1 overflow-auto">
-                  {customizing ? (
-                    <ul className="list-group list-group-flush">
-                      {sidebarItems.map((module, index) => (
-                        <li
-                          key={module.id}
-                          className="list-group-item d-flex align-items-center justify-content-between gap-3"
-                          draggable
-                          onDragStart={() => handleSidebarDragStart(module.id)}
-                          onDragEnter={() => handleSidebarDragEnter(module.id)}
-                          onDragOver={(event) => event.preventDefault()}
-                          onDragEnd={handleSidebarDragEnd}
-                          onDrop={(event) => {
-                            event.preventDefault();
-                            handleSidebarDragEnd();
-                          }}
-                          >
-                          <span>{module.label}</span>
-                          <span aria-hidden="true" style={{ cursor: "grab", fontSize: "1.1rem" }}>
-                            ⋮⋮
-                          </span>
-                          <div className="visually-hidden">
-                            <button
-                              type="button"
-                              onClick={() => moveSidebarModule(module.id, -1)}
-                              disabled={index === 0}
-                            >
-                              Move {module.label} up
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => moveSidebarModule(module.id, 1)}
-                              disabled={index === sidebarItems.length - 1}
-                            >
-                              Move {module.label} down
-                            </button>
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : null}
-                  {customizing ? (
-                    <div
-                      aria-hidden="true"
-                      style={{ height: "2px" }}
-                      onDragEnter={() => handleSidebarDragEnter("__end__")}
-                      onDragOver={(event) => event.preventDefault()}
-                      onDrop={(event) => {
-                        event.preventDefault();
-                        handleSidebarDragEnd();
-                      }}
-                    />
-                  ) : (
-                    <nav className="nav flex-column gap-1 px-2 py-3" aria-label="Sidebar modules">
-                      {sidebarItems.map((module) => (
-                        <NavLink
-                          key={module.id}
-                          to={module.path}
-                          className={({ isActive }) =>
-                            `nav-link text-truncate${isActive ? " active fw-semibold" : ""}`
-                          }
-                        >
-                          {module.label}
-                        </NavLink>
-                      ))}
-                    </nav>
-                  )}
-                </div>
-              </div>
-            </aside>
-            <div
-              role="separator"
-              aria-orientation="vertical"
-              className="bg-body border-end"
-              style={{ width: "4px", cursor: sidebarReadOnly ? "not-allowed" : "col-resize" }}
-              onPointerDown={onResizePointerDown}
-              onPointerMove={onResizePointerMove}
-              onPointerUp={onResizePointerUp}
-              onPointerCancel={onResizePointerCancel}
-            />
-          </>
+        {sidebarPinned ? (
+          !sidebarCollapsed && (
+            <>
+              <aside
+                ref={sidebarRef}
+                className="border-end bg-body"
+                aria-label="Secondary navigation"
+                style={{
+                  width: `${sidebarWidth}px`,
+                  minWidth: `${MIN_SIDEBAR_WIDTH}px`,
+                  position: "relative",
+                }}
+                tabIndex={sidebarCollapsed || sidebarReadOnly ? -1 : 0}
+                onPointerDown={onCustomizePressStart}
+                onPointerUp={onCustomizePressEnd}
+                onPointerLeave={onCustomizePressEnd}
+                onPointerCancel={onCustomizePressEnd}
+                onKeyDown={(event) => {
+                  if (!sidebarReadOnly && !customizing && (event.key === "Enter" || event.key === " ")) {
+                    event.preventDefault();
+                    startCustomize();
+                  }
+                  if (customizing && event.key === "Escape") {
+                    event.preventDefault();
+                    exitCustomize(true);
+                  }
+                }}
+              >
+                {sidebarContent}
+              </aside>
+              <div
+                role="separator"
+                aria-orientation="vertical"
+                className="bg-body"
+                style={{ width: "4px", cursor: sidebarReadOnly ? "not-allowed" : "col-resize" }}
+                onPointerDown={onResizePointerDown}
+                onPointerMove={onResizePointerMove}
+                onPointerUp={onResizePointerUp}
+                onPointerCancel={onResizePointerCancel}
+              />
+            </>
+          )
+        ) : (
+          <aside
+            ref={sidebarRef}
+            className="border-end bg-body shadow"
+            aria-label="Secondary navigation"
+            style={{
+              position: "absolute",
+              top: 0,
+              bottom: 0,
+              left: 0,
+              width: `${sidebarWidth}px`,
+              minWidth: `${MIN_SIDEBAR_WIDTH}px`,
+              transform: sidebarCollapsed ? "translateX(-105%)" : "translateX(0)",
+              transition: "transform 220ms ease, opacity 220ms ease",
+              opacity: sidebarCollapsed ? 0 : 1,
+              pointerEvents: sidebarCollapsed ? "none" : "auto",
+              zIndex: 1040,
+              backgroundColor: "var(--bs-body-bg)",
+            }}
+            tabIndex={sidebarCollapsed ? -1 : 0}
+            aria-hidden={sidebarCollapsed}
+            onPointerDown={onCustomizePressStart}
+            onPointerUp={onCustomizePressEnd}
+            onPointerLeave={onCustomizePressEnd}
+            onPointerCancel={onCustomizePressEnd}
+            onKeyDown={(event) => {
+              if (!sidebarReadOnly && !customizing && (event.key === "Enter" || event.key === " ")) {
+                event.preventDefault();
+                startCustomize();
+              }
+              if (customizing && event.key === "Escape") {
+                event.preventDefault();
+                exitCustomize(true);
+              }
+            }}
+            onBlurCapture={handleSidebarBlur}
+          >
+            {sidebarContent}
+          </aside>
         )}
-        <main id="main" role="main" className="flex-grow-1 overflow-auto">
+        <main
+          id="main"
+          role="main"
+          className="flex-grow-1 overflow-auto"
+          onClickCapture={closeFloatingSidebar}
+          onFocusCapture={closeFloatingSidebar}
+        >
           <Outlet />
         </main>
       </div>

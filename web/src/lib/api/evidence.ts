@@ -206,10 +206,19 @@ export type EvidenceUploadResponse = {
   name: string;
 };
 
-export async function uploadEvidence(file: File, signal?: AbortSignal): Promise<EvidenceUploadResponse> {
-  const form = new FormData();
-  form.append("file", file);
-  const json = await apiPostFormData<unknown>("/api/evidence", form, signal);
+export type EvidenceUploadProgress = {
+  file: File;
+  loaded: number;
+  total: number;
+  percent: number;
+};
+
+export type EvidenceUploadOptions = {
+  signal?: AbortSignal;
+  onProgress?: (info: EvidenceUploadProgress) => void;
+};
+
+function normalizeEvidenceUploadResponse(json: unknown): EvidenceUploadResponse {
   if (!isObject(json) || json.ok !== true) {
     throw new Error("Invalid response from upload endpoint");
   }
@@ -237,6 +246,131 @@ export async function uploadEvidence(file: File, signal?: AbortSignal): Promise<
     mime: mimeValue,
     name: nameValue,
   };
+}
+
+function uploadEvidenceViaFetch(file: File, signal?: AbortSignal): Promise<EvidenceUploadResponse> {
+  const form = new FormData();
+  form.append("file", file);
+  return apiPostFormData<unknown>("/api/evidence", form, signal).then(normalizeEvidenceUploadResponse);
+}
+
+function createAbortError(): Error {
+  if (typeof DOMException === "function") {
+    try {
+      return new DOMException("Aborted", "AbortError");
+    } catch {
+      // ignore and fallback below
+    }
+  }
+  const error = new Error("Aborted");
+  error.name = "AbortError";
+  return error;
+}
+
+function uploadEvidenceViaXhr(file: File, options: EvidenceUploadOptions): Promise<EvidenceUploadResponse> {
+  const { signal, onProgress } = options;
+
+  if (typeof XMLHttpRequest === "undefined") {
+    return uploadEvidenceViaFetch(file, signal);
+  }
+
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", `${API_BASE}/api/evidence`);
+
+    const headers = baseHeaders();
+    Object.entries(headers).forEach(([key, value]) => {
+      if (typeof value === "string" && key.toLowerCase() !== "content-type") {
+        xhr.setRequestHeader(key, value);
+      }
+    });
+
+    const cleanup = () => {
+      if (signal && abortListener) {
+        signal.removeEventListener("abort", abortListener);
+      }
+    };
+
+    const abortListener = signal
+      ? () => {
+          xhr.abort();
+          cleanup();
+          reject(createAbortError());
+        }
+      : null;
+
+    if (signal) {
+      if (signal.aborted) {
+        abortListener?.();
+        return;
+      }
+      signal.addEventListener("abort", abortListener!, { once: true });
+    }
+
+    if (onProgress) {
+      const total = file.size || 0;
+      onProgress({ file, loaded: 0, total, percent: 0 });
+      xhr.upload.onprogress = (event) => {
+        if (!onProgress) return;
+        const progressTotal = event.total || file.size || 0;
+        const loaded = event.loaded;
+        const percent = progressTotal > 0 ? Math.min(100, Math.round((loaded / progressTotal) * 100)) : 0;
+        onProgress({ file, loaded, total: progressTotal, percent });
+      };
+    }
+
+    xhr.onload = () => {
+      cleanup();
+      const status = xhr.status;
+      const responseText = xhr.responseText;
+      let parsed: unknown = null;
+      try {
+        parsed = responseText ? JSON.parse(responseText) : {};
+      } catch {
+        parsed = responseText || null;
+      }
+
+      if (status >= 200 && status < 300) {
+        try {
+          if (onProgress) {
+            const total = file.size || 0;
+            onProgress({ file, loaded: total, total, percent: 100 });
+          }
+          resolve(normalizeEvidenceUploadResponse(parsed));
+        } catch (err) {
+          reject(err);
+        }
+      } else {
+        reject(new HttpError(status || 0, parsed));
+      }
+    };
+
+    xhr.onerror = () => {
+      cleanup();
+      reject(new HttpError(xhr.status || 0, null));
+    };
+
+    xhr.onabort = () => {
+      cleanup();
+      reject(createAbortError());
+    };
+
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      xhr.send(form);
+    } catch (err) {
+      cleanup();
+      reject(err);
+    }
+  });
+}
+
+export async function uploadEvidence(file: File, options: EvidenceUploadOptions = {}): Promise<EvidenceUploadResponse> {
+  if (options.onProgress) {
+    return uploadEvidenceViaXhr(file, options);
+  }
+  return uploadEvidenceViaFetch(file, options.signal);
 }
 
 export type EvidenceDeleteResponse = {

@@ -45,7 +45,19 @@ describe("Admin UserRoles page", () => {
           return jsonResponse(200, { ok: true, roles: ["Admin", "Risk Manager", "User"] });
         }
 
-        // Lookup user
+        // Search users
+        if (method === "GET" && /\/api\/rbac\/users\/search\b/.test(url)) {
+          const parsed = new URL(url, "http://localhost");
+          const query = parsed.searchParams.get("q");
+          expect(query).toBe("*");
+          return jsonResponse(200, {
+            ok: true,
+            data: [{ id: 123, name: "Jane Admin", email: "jane@example.com" }],
+            meta: { page: 1, per_page: Number(parsed.searchParams.get("per_page") ?? "50"), total: 1, total_pages: 1 },
+          });
+        }
+
+        // Load selected user
         if (method === "GET" && /\/api\/rbac\/users\/123\/roles\b/.test(url)) {
           return jsonResponse(200, {
             ok: true,
@@ -72,8 +84,10 @@ describe("Admin UserRoles page", () => {
 
     expect(await screen.findByRole("heading", { name: /user roles/i })).toBeInTheDocument();
 
-    await user.type(screen.getByLabelText(/user id/i), "123");
-    await user.click(screen.getByRole("button", { name: /load/i }));
+    await user.click(screen.getByRole("button", { name: /search/i }));
+
+    await screen.findByRole("table");
+    await user.click(screen.getByRole("button", { name: /jane admin/i }));
 
     await screen.findByRole("heading", { level: 2, name: /^User$/ });
 
@@ -104,6 +118,17 @@ describe("Admin UserRoles page", () => {
           return jsonResponse(200, { ok: true, roles: ["admin", "auditor", "user"] });
         }
 
+        if (method === "GET" && /\/api\/rbac\/users\/search\b/.test(url)) {
+          const parsed = new URL(url, "http://localhost");
+          const query = parsed.searchParams.get("q");
+          expect(query).toBe("*");
+          return jsonResponse(200, {
+            ok: true,
+            data: [{ id: 123, name: "Jane Admin", email: "jane@example.com" }],
+            meta: { page: 1, per_page: Number(parsed.searchParams.get("per_page") ?? "50"), total: 1, total_pages: 1 },
+          });
+        }
+
         if (method === "GET" && /\/api\/rbac\/users\/123\/roles\b/.test(url)) {
           return jsonResponse(200, {
             ok: true,
@@ -127,8 +152,8 @@ describe("Admin UserRoles page", () => {
 
     renderPage();
 
-    await user.type(screen.getByLabelText(/user id/i), "123");
-    await user.click(screen.getByRole("button", { name: /load/i }));
+    await user.click(screen.getByRole("button", { name: /search/i }));
+    await user.click(await screen.findByRole("button", { name: /jane admin/i }));
 
     await waitFor(() => {
       const list = screen.getByRole("list");
@@ -162,7 +187,9 @@ describe("Admin UserRoles page", () => {
 
         // user search page 1
         if (method === "GET" && /\/api\/rbac\/users\/search\b/.test(urlStr) && (url.searchParams.get("page") ?? "1") === "1") {
+          expect(url.searchParams.get("q")).toBe("jane");
           return jsonResponse(200, {
+            ok: true,
             data: [{ id: 123, name: "Jane Admin", email: "jane@example.com" }],
             meta: { page: 1, per_page: Number(url.searchParams.get("per_page") ?? "50"), total: 1, total_pages: 1 },
           });
@@ -194,8 +221,7 @@ describe("Admin UserRoles page", () => {
       expect(screen.getByText("jane@example.com")).toBeInTheDocument();
     });
 
-    const row = screen.getByText("jane@example.com").closest("tr") as HTMLElement;
-    await user.click(within(row).getByRole("button", { name: /select/i }));
+    await user.click(screen.getByRole("button", { name: /jane admin/i }));
 
     // user card appears
     await screen.findByRole("heading", { level: 2, name: /^User$/ });

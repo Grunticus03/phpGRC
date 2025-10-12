@@ -549,9 +549,9 @@ export default function ThemeDesigner(): JSX.Element {
       const stored = values[target.key];
       const resolved =
         typeof stored === "string" ? stored : (typeof target.defaultValue === "string" ? target.defaultValue : "");
-      if (resolved !== undefined) {
-        collected[target.variable] = resolved;
-      }
+      const asString =
+        typeof resolved === "string" ? resolved : resolved == null ? "" : String(resolved);
+      collected[target.variable] = asString;
     });
     return collected;
   }, [values]);
@@ -713,15 +713,16 @@ export default function ThemeDesigner(): JSX.Element {
           return target.contextId === scope;
         })
         .forEach((target) => {
-          if (
-            nextValue === undefined ||
-            nextValue === null ||
-            nextValue === target.defaultValue ||
-            (typeof nextValue === "string" && nextValue.trim() === "")
-          ) {
+          const defaultValue = target.defaultValue;
+          const normalizedNext =
+            typeof nextValue === "string" ? nextValue : nextValue == null ? "" : String(nextValue);
+          const normalizedDefault =
+            typeof defaultValue === "string" ? defaultValue : defaultValue == null ? "" : String(defaultValue);
+
+          if (normalizedNext === "" || normalizedNext === normalizedDefault) {
             delete updated[target.key];
           } else {
-            updated[target.key] = nextValue;
+            updated[target.key] = normalizedNext;
           }
         });
       return updated;

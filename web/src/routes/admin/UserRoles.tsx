@@ -20,8 +20,6 @@ export default function UserRoles(): JSX.Element {
   const [roleOptions, setRoleOptions] = useState<RoleOption[]>([]);
   const [loadingRoles, setLoadingRoles] = useState<boolean>(false);
 
-  // Direct lookup by ID
-  const [userIdInput, setUserIdInput] = useState<string>("");
   const [loadingUser, setLoadingUser] = useState<boolean>(false);
   const [user, setUser] = useState<User | null>(null);
   const [userRoleIds, setUserRoleIds] = useState<string[]>([]);
@@ -66,36 +64,6 @@ export default function UserRoles(): JSX.Element {
     })();
     return () => ctl.abort();
   }, []);
-
-  async function loadUser() {
-    setMsg(null);
-    setUser(null);
-    setUserRoleIds([]);
-    const idNum = Number(userIdInput);
-    if (!Number.isInteger(idNum) || idNum <= 0) {
-      setMsg("Enter a valid User ID.");
-      return;
-    }
-    setLoadingUser(true);
-    try {
-      const res: UserRolesResponse = await getUserRoles(idNum);
-      if (res.ok) {
-        const ok = res as UserRolesResponseOk;
-        setUser(ok.user);
-        const roleIds = roleIdsFromNames(ok.roles ?? []);
-        setUserRoleIds(roleIds);
-        setAttachChoice("");
-        setMsg(null);
-        queueMicrotask(() => attachBtnRef.current?.focus());
-      } else {
-        setMsg(`Error: ${res.code}${res.message ? " - " + res.message : ""}`);
-      }
-    } catch {
-      setMsg("Network error.");
-    } finally {
-      setLoadingUser(false);
-    }
-  }
 
   const attachable = useMemo(
     () => roleOptions.filter((r) => !userRoleIds.includes(r.id)),
@@ -153,11 +121,17 @@ export default function UserRoles(): JSX.Element {
   }
 
   async function runSearch(targetPage?: number) {
+    setUser(null);
+    setUserRoleIds([]);
+    setAttachChoice("");
+    setLoadingUser(false);
     setSearching(true);
     setMsg(null);
     try {
       const p = typeof targetPage === "number" ? targetPage : page;
-      const res = await searchUsers(q, p, perPage);
+      const query = q.trim();
+      const effectiveQuery = query === "" ? "*" : query;
+      const res = await searchUsers(effectiveQuery, p, perPage);
       if (res.ok) {
         const ok = res as UserSearchOk;
         setResults(ok.data);
@@ -178,7 +152,7 @@ export default function UserRoles(): JSX.Element {
   }
 
   function selectUser(u: UserSummary) {
-    setUserIdInput(String(u.id));
+    if (loadingUser) return;
     // clear search results to avoid duplicate name text in DOM
     setResults([]);
     setMeta(null);
@@ -261,26 +235,32 @@ export default function UserRoles(): JSX.Element {
                     <th style={{ width: "6rem" }}>ID</th>
                     <th>Name</th>
                     <th>Email</th>
-                    <th style={{ width: "8rem" }}>Action</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {results.map((u) => (
-                    <tr key={u.id}>
-                      <td>{u.id}</td>
-                      <td>{u.name}</td>
-                      <td>{u.email}</td>
-                      <td>
-                        <button
-                          type="button"
-                          className="btn btn-outline-primary btn-sm"
-                          onClick={() => selectUser(u)}
-                        >
-                          Select
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                  {results.map((u) => {
+                    const selected = user?.id === u.id;
+                    return (
+                      <tr
+                        key={u.id}
+                        role="button"
+                        tabIndex={0}
+                        className={selected ? "table-active" : ""}
+                        style={{ cursor: "pointer" }}
+                        onClick={() => selectUser(u)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            selectUser(u);
+                          }
+                        }}
+                      >
+                        <td>{u.id}</td>
+                        <td>{u.name}</td>
+                        <td>{u.email}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -309,37 +289,6 @@ export default function UserRoles(): JSX.Element {
               </button>
             </nav>
           )}
-        </div>
-      </section>
-
-      <hr className="my-4" />
-
-      <section aria-labelledby="lookup">
-        <h2 id="lookup" className="h5">Lookup by ID</h2>
-        <div className="row g-2 align-items-end">
-          <div className="col-auto">
-            <label htmlFor="user_id" className="form-label">User ID</label>
-            <input
-              id="user_id"
-              type="number"
-              inputMode="numeric"
-              className="form-control"
-              value={userIdInput}
-              onChange={(e) => setUserIdInput(e.currentTarget.value)}
-              aria-describedby="user_id_help"
-            />
-            <div id="user_id_help" className="form-text">Enter a numeric user id.</div>
-          </div>
-          <div className="col-auto">
-            <button
-              type="button"
-              className="btn btn-primary"
-              disabled={loadingUser}
-              onClick={loadUser}
-            >
-              {loadingUser ? "Loading…" : "Load"}
-            </button>
-          </div>
         </div>
       </section>
 

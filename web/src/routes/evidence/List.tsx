@@ -9,7 +9,7 @@ import {
   type EvidenceListOk,
 } from "../../lib/api/evidence";
 import { searchUsers, type UserSummary, type UserSearchOk, type UserSearchMeta } from "../../lib/api/rbac";
-import { DEFAULT_TIME_FORMAT, normalizeTimeFormat, type TimeFormat } from "../../lib/format";
+import { DEFAULT_TIME_FORMAT, formatBytes, normalizeTimeFormat, type TimeFormat } from "../../lib/format";
 import { HttpError } from "../../lib/api";
 import { primeUsers } from "../../lib/usersCache";
 import EvidenceTable, { type HeaderConfig } from "./EvidenceTable";
@@ -74,6 +74,7 @@ export default function EvidenceList(): JSX.Element {
   const [uploading, setUploading] = useState<boolean>(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploadSuccess, setUploadSuccess] = useState<string | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<{ loaded: number; total: number; filename: string } | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [deleteSuccess, setDeleteSuccess] = useState<string | null>(null);
@@ -332,15 +333,57 @@ export default function EvidenceList(): JSX.Element {
     }
 
     const files = Array.from(fileList);
+    const sizeForProgress = (file: File): number => {
+      const size = file.size;
+      return Number.isFinite(size) && size > 0 ? size : 1;
+    };
+    const nameForDisplay = (file: File, index: number): string => {
+      const trimmed = file.name?.trim();
+      if (trimmed) return trimmed;
+      return `File ${index + 1}`;
+    };
+
+    const fileUnits = files.map(sizeForProgress);
+    const aggregateTotal = fileUnits.reduce((sum, value) => sum + value, 0) || files.length;
+    let uploadedBytes = 0;
+
     setUploading(true);
     setUploadError(null);
     setUploadSuccess(null);
+    if (files.length > 0) {
+      setUploadProgress({
+        loaded: 0,
+        total: aggregateTotal,
+        filename: nameForDisplay(files[0], 0),
+      });
+    }
+
     const uploadedNames: string[] = [];
     try {
-      for (const file of files) {
-        const res = await uploadEvidence(file);
-        const name = res.name?.trim() !== "" ? res.name.trim() : res.id;
-        uploadedNames.push(name);
+      for (const [index, file] of files.entries()) {
+        const progressSize = fileUnits[index] ?? sizeForProgress(file);
+        const displayName = nameForDisplay(file, index);
+        const res = await uploadEvidence(file, {
+          onProgress: ({ loaded, total }) => {
+            const perFileTotal = total && total > 0 ? total : progressSize;
+            const effectiveLoaded = Math.min(perFileTotal, loaded);
+            setUploadProgress({
+              loaded: Math.min(aggregateTotal, uploadedBytes + effectiveLoaded),
+              total: aggregateTotal,
+              filename: displayName,
+            });
+          },
+        });
+        uploadedBytes += progressSize;
+        setUploadProgress({
+          loaded: Math.min(aggregateTotal, uploadedBytes),
+          total: aggregateTotal,
+          filename: displayName,
+        });
+
+        const resolvedName =
+          typeof res.name === "string" && res.name.trim() !== "" ? res.name.trim() : res.id;
+        uploadedNames.push(resolvedName);
       }
       if (uploadedNames.length === 1) {
         setUploadSuccess(`${uploadedNames[0]} uploaded successfully.`);
@@ -388,6 +431,7 @@ export default function EvidenceList(): JSX.Element {
       await load(true);
     } finally {
       setUploading(false);
+      setUploadProgress(null);
     }
   }
 
@@ -1005,6 +1049,13 @@ export default function EvidenceList(): JSX.Element {
     },
   ];
 
+  const uploadPercent =
+    uploadProgress == null
+      ? null
+      : uploadProgress.total > 0
+        ? Math.min(100, Math.round((uploadProgress.loaded / uploadProgress.total) * 100))
+        : 0;
+
   return (
     <main className="container py-3">
       <h1 className="mb-3">Evidence</h1>
@@ -1031,6 +1082,25 @@ export default function EvidenceList(): JSX.Element {
             {uploading ? "Uploading…" : "Upload Evidence"}
           </button>
         </div>
+        {uploadProgress && uploadPercent !== null && (
+          <div className="mt-2" role="status" aria-live="polite">
+            <div className="progress" style={{ height: "1.25rem" }}>
+              <div
+                className="progress-bar"
+                role="progressbar"
+                aria-valuenow={uploadPercent}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                style={{ width: `${uploadPercent}%` }}
+              >
+                {uploadPercent}%
+              </div>
+            </div>
+            <div className="small text-muted mt-1">
+              Uploading {uploadProgress.filename} • {formatBytes(uploadProgress.loaded)} / {formatBytes(uploadProgress.total)}
+            </div>
+          </div>
+        )}
         {uploadError && (
           <div className="alert alert-danger mt-2" role="alert">
             {uploadError}

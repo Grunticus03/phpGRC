@@ -86,6 +86,7 @@ export const DEFAULT_USER_PREFS = {
   sidebar: {
     collapsed: false,
     width: 280,
+    pinned: true,
     order: [] as string[],
   },
 } as const;

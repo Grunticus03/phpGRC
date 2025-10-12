@@ -270,6 +270,9 @@ final class AuditMessageFormatter
 
         $actor = self::resolveActor($meta);
 
+        $changeType = self::readString($meta, ['change_type', 'action']);
+        $actionVerb = self::formatSettingChangeVerb($changeType);
+
         $old = self::readString($meta, ['old_value']);
         if ($old === '') {
             $old = self::stringifyValue($meta['old'] ?? null);
@@ -282,7 +285,19 @@ final class AuditMessageFormatter
         $old = $old === '' ? 'n/a' : $old;
         $new = $new === '' ? 'n/a' : $new;
 
-        return sprintf('%s update by %s. Old: %s - New: %s', $label, $actor, $old, $new);
+        return sprintf('%s %s %s; Old: %s - New: %s', $actor, $actionVerb, $label, $old, $new);
+    }
+
+    private static function formatSettingChangeVerb(string $changeType): string
+    {
+        $normalized = strtolower(trim($changeType));
+
+        return match ($normalized) {
+            'set', 'create', 'created' => 'set',
+            'update', 'updated', 'modify', 'modified' => 'updated',
+            'unset', 'delete', 'deleted', 'remove', 'removed', 'clear', 'cleared' => 'cleared',
+            default => ($normalized !== '' ? $normalized : 'updated'),
+        };
     }
 
     /**

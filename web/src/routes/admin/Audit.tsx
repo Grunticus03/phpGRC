@@ -82,7 +82,7 @@ function buildQuery(params: QueryInit) {
   return qs.toString();
 }
 
-type AuditFilterKey = "timestamp" | "user" | "category" | "action";
+type AuditFilterKey = "timestamp" | "user" | "category" | "action" | "ip" | "message";
 
 function isAbortError(err: unknown): boolean {
   if (err instanceof DOMException) return err.name === "AbortError";
@@ -179,6 +179,31 @@ const friendlySettingLabel = (raw: unknown): string => {
   return "setting";
 };
 
+const settingChangeVerb = (changeType: unknown): string => {
+  const normalized = typeof changeType === "string" ? changeType.trim().toLowerCase() : "";
+  switch (normalized) {
+    case "set":
+    case "create":
+    case "created":
+      return "set";
+    case "unset":
+    case "delete":
+    case "deleted":
+    case "remove":
+    case "removed":
+    case "clear":
+    case "cleared":
+      return "cleared";
+    case "update":
+    case "updated":
+    case "modify":
+    case "modified":
+      return "updated";
+    default:
+      return normalized || "updated";
+  }
+};
+
 function buildAuditMessage(item: AuditItem, info: ActionInfo, actorLabel: string): string {
   const actor = actorLabel || "System";
   const meta = isRecord(item.meta) ? item.meta : {};
@@ -205,9 +230,10 @@ function buildAuditMessage(item: AuditItem, info: ActionInfo, actorLabel: string
     const labelCandidates = [meta.setting_label, meta.setting_key, meta.key, item.entity_id];
     const rawLabel = labelCandidates.find((v) => typeof v === 'string' && v.trim() !== '');
     const settingLabel = friendlySettingLabel(rawLabel);
+    const verb = settingChangeVerb(meta.change_type ?? meta.action);
     const oldText = formatValue(meta.old_value ?? meta.old);
     const newText = formatValue(meta.new_value ?? meta.new);
-    return `${settingLabel} updated by ${actor}. Old: ${oldText} → New: ${newText}`;
+    return `${actor} ${verb} ${settingLabel}; Old: ${oldText} - New: ${newText}`;
   }
 
   if (action === 'settings.update') {
@@ -267,6 +293,8 @@ export default function Audit(): JSX.Element {
   const location = useLocation();
   const [category, setCategory] = useState("");
   const [action, setAction] = useState("");
+  const [ip, setIp] = useState("");
+  const [messageQuery, setMessageQuery] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [limit, setLimit] = useState(10);
@@ -282,7 +310,7 @@ export default function Audit(): JSX.Element {
   const [actorMeta, setActorMeta] = useState<{ page: number; total_pages: number } | null>(null);
   const [selectedActor, setSelectedActor] = useState<UserSummary | null>(null);
 
-  const [items, setItems] = useState<AuditItem[]>([]);
+  const [rawItems, setRawItems] = useState<AuditItem[]>([]);
   const [state, setState] = useState<FetchState>("idle");
   const [error, setError] = useState<string>("");
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
@@ -292,17 +320,30 @@ export default function Audit(): JSX.Element {
   const occurred_from = dateFrom ? `${dateFrom}T00:00:00Z` : undefined;
   const occurred_to = dateTo ? `${dateTo}T23:59:59Z` : undefined;
 
+  const filteredItems = useMemo(() => {
+    const needle = messageQuery.trim().toLowerCase();
+    if (needle === "") return rawItems;
+    return rawItems.filter((item) => {
+      const actor = resolveActorLabel(item);
+      const cat = String(item.category ?? "");
+      const info = actionInfo(String(item.action ?? ""), cat);
+      const message = buildAuditMessage(item, info, actor).toLowerCase();
+      return message.includes(needle);
+    });
+  }, [rawItems, messageQuery]);
+
   const query = useMemo(
     () =>
       buildQuery({
         category: category || undefined,
         action: action || undefined,
+        ip: ip || undefined,
         occurred_from,
         occurred_to,
         limit,
         actor_id: selectedActor ? selectedActor.id : undefined,
       }),
-    [category, action, occurred_from, occurred_to, limit, selectedActor]
+    [category, action, ip, occurred_from, occurred_to, limit, selectedActor]
   );
 
   const isDateOrderValid = useMemo(() => {
@@ -322,6 +363,7 @@ export default function Audit(): JSX.Element {
       const params: QueryInit = {
         category: category || undefined,
         action: action || undefined,
+        ip: ip || undefined,
         occurred_from,
         occurred_to,
         limit: limitRef.current,
@@ -346,7 +388,7 @@ export default function Audit(): JSX.Element {
       }
 
       setTimeFormat((prev) => nextTimeFormat ?? prev);
-      setItems(list);
+      setRawItems(list);
       setState("ok");
     } catch (err: unknown) {
       if (isAbortError(err)) return;
@@ -382,6 +424,7 @@ export default function Audit(): JSX.Element {
     const search = new URLSearchParams(location.search);
     const nextCategory = search.get("category") ?? "";
     const nextAction = search.get("action") ?? "";
+    const nextIp = search.get("ip") ?? "";
     const nextFrom = search.get("occurred_from") ?? "";
     const nextTo = search.get("occurred_to") ?? "";
 
@@ -391,6 +434,7 @@ export default function Audit(): JSX.Element {
     const changed =
       nextCategory !== category ||
       nextAction !== action ||
+      nextIp !== ip ||
       normalizedFrom !== dateFrom ||
       normalizedTo !== dateTo;
 
@@ -398,11 +442,13 @@ export default function Audit(): JSX.Element {
 
     setCategory(nextCategory);
     setAction(nextAction);
+    setIp(nextIp);
     setDateFrom(normalizedFrom);
     setDateTo(normalizedTo);
     void load(true, {
       category: nextCategory || undefined,
       action: nextAction || undefined,
+      ip: nextIp || undefined,
       occurred_from: nextFrom || undefined,
       occurred_to: nextTo || undefined,
     });
@@ -516,6 +562,8 @@ export default function Audit(): JSX.Element {
   const resetFilters = (): void => {
     setCategory("");
     setAction("");
+    setIp("");
+    setMessageQuery("");
     setDateFrom("");
     setDateTo("");
     limitRef.current = 10;
@@ -530,6 +578,7 @@ export default function Audit(): JSX.Element {
     void load(true, {
       category: undefined,
       action: undefined,
+      ip: undefined,
       occurred_from: undefined,
       occurred_to: undefined,
       actor_id: undefined,
@@ -819,6 +868,49 @@ export default function Audit(): JSX.Element {
       </div>
     ) : null;
 
+  const ipSummaryContent = ip ? <div className="small text-muted mt-1">{ip}</div> : null;
+
+  const ipFilterContent =
+    activeFilter === "ip" ? (
+      <div className="mt-2">
+        <label htmlFor="audit-ip" className="form-label visually-hidden">
+          IP address
+        </label>
+        <input
+          id="audit-ip"
+          className="form-control form-control-sm"
+          value={ip}
+          onChange={(e) => setIp(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              if (!isDateOrderValid) {
+                showDateOrderError();
+                return;
+              }
+              const trimmed = ip.trim();
+              setIp(trimmed);
+              void load(true, { ip: trimmed || undefined });
+              resetActiveFilter();
+            } else if (e.key === "Escape") {
+              e.preventDefault();
+              resetActiveFilter();
+            }
+          }}
+          placeholder="e.g. 192.168.0.10"
+          aria-invalid={!!fieldErrors.ip?.length}
+        />
+        <div className="form-text">Exact match on audit IP address.</div>
+        {fieldErrors.ip?.length ? (
+          <ul role="alert" className="text-danger small mb-0 ps-3 mt-2">
+            {fieldErrors.ip.map((m, i) => (
+              <li key={i}>{m}</li>
+            ))}
+          </ul>
+        ) : null}
+      </div>
+    ) : null;
+
   const actionSummaryContent = action ? (
     <div className="small text-muted mt-1">{action}</div>
   ) : null;
@@ -861,6 +953,38 @@ export default function Audit(): JSX.Element {
       </div>
     ) : null;
 
+  const messageSummaryContent = messageQuery ? (
+    <div className="small text-muted mt-1">{messageQuery}</div>
+  ) : null;
+
+  const messageFilterContent =
+    activeFilter === "message" ? (
+      <div className="mt-2">
+        <label htmlFor="audit-message" className="form-label visually-hidden">
+          Message search
+        </label>
+        <input
+          id="audit-message"
+          className="form-control form-control-sm"
+          value={messageQuery}
+          onChange={(e) => setMessageQuery(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") {
+              e.preventDefault();
+              resetActiveFilter();
+            } else if (e.key === "Enter") {
+              e.preventDefault();
+              const trimmed = e.currentTarget.value.trim();
+              setMessageQuery(trimmed);
+              resetActiveFilter();
+            }
+          }}
+          placeholder="Search messages…"
+        />
+        <div className="form-text">Filters locally by message text.</div>
+      </div>
+    ) : null;
+
   const headers: FilterableHeaderConfig[] = [
     {
       key: "timestamp",
@@ -881,6 +1005,10 @@ export default function Audit(): JSX.Element {
     {
       key: "ip",
       label: "IP",
+      onToggle: () => handleToggleFilter("ip"),
+      isActive: activeFilter === "ip",
+      summaryContent: ipSummaryContent,
+      filterContent: ipFilterContent,
     },
     {
       key: "category",
@@ -901,6 +1029,10 @@ export default function Audit(): JSX.Element {
     {
       key: "message",
       label: "Message",
+      onToggle: () => handleToggleFilter("message"),
+      isActive: activeFilter === "message",
+      summaryContent: messageSummaryContent,
+      filterContent: messageFilterContent,
     },
   ];
 
@@ -991,12 +1123,12 @@ export default function Audit(): JSX.Element {
             <FilterableHeaderRow headers={headers} />
           </thead>
           <tbody>
-            {items.length === 0 && state === "ok" ? (
+            {filteredItems.length === 0 && state === "ok" ? (
               <tr>
                 <td colSpan={6}>No results</td>
               </tr>
             ) : (
-              items.map((it, i) => {
+              filteredItems.map((it, i) => {
                 const id = (it.id as string) || (it.ulid as string) || String(i);
                 const tsRaw =
                   (typeof it.occurred_at === "string" && it.occurred_at) ||

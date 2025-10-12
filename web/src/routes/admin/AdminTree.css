@@ -1,0 +1,63 @@
+.admin-tree {
+  font-family: var(--bs-font-monospace, ui-monospace, "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace);
+  font-size: 0.95rem;
+}
+
+.admin-tree-item {
+  position: relative;
+  padding-left: 1.6rem;
+  margin-bottom: 0.35rem;
+}
+
+.admin-tree-item[data-level="1"] {
+  padding-left: 0;
+}
+
+.admin-tree-item::before {
+  content: "├──";
+  position: absolute;
+  left: 0;
+  top: 0.65rem;
+  color: var(--bs-secondary-color, #6c757d);
+  font-size: 0.85rem;
+}
+
+.admin-tree-item[data-level="1"]::before {
+  content: "";
+}
+
+.admin-tree-item[data-last="true"]::before {
+  content: "└──";
+}
+
+.admin-tree-branch {
+  margin: 0.15rem 0 0.35rem 0.45rem;
+  padding: 0 0 0 1.2rem;
+  border-left: 1px solid var(--bs-border-color, #dee2e6);
+}
+
+.admin-tree-item[data-last="true"] > .admin-tree-branch {
+  border-left-color: transparent;
+}
+
+.admin-tree-toggle {
+  width: 2.15rem;
+  font-family: inherit;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.admin-tree-spacer {
+  width: 2.15rem;
+  text-align: center;
+  color: var(--bs-secondary-color, #adb5bd);
+}
+
+.admin-tree-link {
+  text-decoration: none;
+}
+
+.admin-tree-link:hover,
+.admin-tree-link:focus {
+  text-decoration: underline;
+}
