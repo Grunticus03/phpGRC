@@ -17,14 +17,10 @@ const modules: ModuleMeta[] = [
   { id: "policies", label: "Policies", path: "/policies", placement: "sidebar" },
 ];
 
-const labelSort = (a: ModuleMeta, b: ModuleMeta): number =>
-  a.label.localeCompare(b.label, undefined, { sensitivity: "base" });
-
 export const MODULES: readonly ModuleMeta[] = modules;
 
 export const NAVBAR_MODULES: readonly ModuleMeta[] = modules
-  .filter((module) => module.placement === "navbar")
-  .sort(labelSort);
+  .filter((module) => module.placement === "navbar");
 
 export const SIDEBAR_MODULES: readonly ModuleMeta[] = modules.filter(
   (module) => module.placement === "sidebar"

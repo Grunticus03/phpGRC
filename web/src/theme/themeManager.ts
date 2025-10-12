@@ -92,28 +92,32 @@ const MOTION_PRESETS: Record<string, { duration: string; behavior: "auto" | "smo
   full: { duration: "0.2s", behavior: "smooth" },
 };
 
-const effectiveOverrides = (): ThemeSettings["theme"]["overrides"] => {
-  const base: Record<string, string | null> = {
-    ...DEFAULT_THEME_SETTINGS.theme.overrides,
-  };
+const baseDefaultOverrides = DEFAULT_THEME_SETTINGS.theme.overrides;
 
-  const themeOverrides = settingsCache.theme.overrides ?? {};
-  Object.entries(themeOverrides).forEach(([key, value]) => {
-    if (typeof value === "string" && value.trim() !== "") {
-      base[key] = value;
-    }
+const applyCustomOverrides = (
+  source: Record<string, string | null | undefined>,
+  target: Record<string, string>
+): void => {
+  Object.entries(source).forEach(([key, value]) => {
+    if (typeof value !== "string") return;
+    const trimmed = value.trim();
+    if (trimmed === "") return;
+    const defaultValue = baseDefaultOverrides[key as keyof typeof baseDefaultOverrides] ?? null;
+    if (trimmed === defaultValue) return;
+    target[key] = trimmed;
   });
+};
+
+const effectiveOverrides = (): ThemeSettings["theme"]["overrides"] => {
+  const merged: Record<string, string> = {};
+
+  applyCustomOverrides(settingsCache.theme.overrides ?? {}, merged);
 
   if (settingsCache.theme.allow_user_override && !settingsCache.theme.force_global) {
-    const userOverrides = prefsCache.overrides ?? {};
-    Object.entries(userOverrides).forEach(([key, value]) => {
-      if (typeof value === "string" && value.trim() !== "") {
-        base[key] = value;
-      }
-    });
+    applyCustomOverrides(prefsCache.overrides ?? {}, merged);
   }
 
-  return base as ThemeSettings["theme"]["overrides"];
+  return merged as ThemeSettings["theme"]["overrides"];
 };
 
 const applyDesignTokens = (): void => {
@@ -437,6 +441,41 @@ export const onThemeSettingsChange = (listener: ThemeSettingsListener): (() => v
   return () => {
     settingsListeners.delete(listener);
   };
+};
+
+export const toggleThemeMode = (): ThemeMode => {
+  const selection = resolveThemeSelection();
+  const entry = findManifestEntry(manifestCache, selection.slug);
+  const availableModes = supportsModes(entry);
+  if (availableModes.length < 2) {
+    applySelection(selection);
+    applyDesignTokens();
+    return selection.mode;
+  }
+
+  let nextMode: ThemeMode = selection.mode === "dark" ? "light" : "dark";
+  if (!availableModes.includes(nextMode)) {
+    const fallback = availableModes.find((mode) => mode !== selection.mode);
+    if (fallback) {
+      nextMode = fallback;
+    }
+  }
+
+  if (!settingsCache.theme.allow_user_override || settingsCache.theme.force_global) {
+    currentSelection = { ...selection, mode: nextMode };
+    applySelection(currentSelection);
+    applyDesignTokens();
+    notifySettingsListeners();
+    return nextMode;
+  }
+
+  prefsCache = {
+    ...prefsCache,
+    mode: nextMode,
+  };
+  notifyPrefsListeners();
+  refreshTheme();
+  return nextMode;
 };
 
 // Apply default theme immediately when running in a browser to reduce FOUC.

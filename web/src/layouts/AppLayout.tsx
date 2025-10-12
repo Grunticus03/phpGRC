@@ -15,10 +15,12 @@ import {
   bootstrapTheme,
   getCachedThemePrefs,
   getCachedThemeSettings,
+  getCurrentTheme,
   onThemePrefsChange,
   onThemeSettingsChange,
   updateThemePrefs,
   updateThemeSettings,
+  toggleThemeMode,
 } from "../theme/themeManager";
 import {
   NAVBAR_MODULES,
@@ -188,10 +190,32 @@ export default function AppLayout(): JSX.Element | null {
   const resizeStartXRef = useRef(0);
   const resizeStartWidthRef = useRef(0);
 
+  const initialThemeMode = getCurrentTheme().mode;
+  const [themeMode, setThemeMode] = useState<"light" | "dark">(initialThemeMode);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const adminMenuRef = useRef<HTMLDivElement | null>(null);
   const [adminMenuOpen, setAdminMenuOpen] = useState(false);
+  const adminMenuCloseTimer = useRef<number | null>(null);
+  const dragSidebarIdRef = useRef<string | null>(null);
+
+  const openAdminMenu = useCallback(() => {
+    if (adminMenuCloseTimer.current !== null) {
+      window.clearTimeout(adminMenuCloseTimer.current);
+      adminMenuCloseTimer.current = null;
+    }
+    setAdminMenuOpen(true);
+  }, []);
+
+  const scheduleAdminMenuClose = useCallback(() => {
+    if (adminMenuCloseTimer.current !== null) {
+      window.clearTimeout(adminMenuCloseTimer.current);
+    }
+    adminMenuCloseTimer.current = window.setTimeout(() => {
+      setAdminMenuOpen(false);
+      adminMenuCloseTimer.current = null;
+    }, 120);
+  }, []);
 
   const updateSidebarState = useCallback((updater: (prev: SidebarPrefs) => SidebarPrefs) => {
     setSidebarPrefs((prev) => {
@@ -213,16 +237,29 @@ export default function AppLayout(): JSX.Element | null {
     const off = onThemePrefsChange((prefs) => {
       if (customizingRef.current) return;
       updateSidebarState(() => normalizeSidebarPrefs(prefs.sidebar));
+      if (typeof document !== "undefined") {
+        setThemeMode(document.documentElement.getAttribute("data-mode") === "dark" ? "dark" : "light");
+      }
     });
     const offSettings = onThemeSettingsChange((settings) => {
       setBrand(computeBrandSnapshot(settings));
       setSidebarDefaultOrder(extractSidebarDefaultOrder(settings));
+      if (typeof document !== "undefined") {
+        setThemeMode(document.documentElement.getAttribute("data-mode") === "dark" ? "dark" : "light");
+      }
     });
     return () => {
       off();
       offSettings();
     };
   }, [updateSidebarState]);
+
+  useEffect(() => () => {
+    if (adminMenuCloseTimer.current !== null) {
+      window.clearTimeout(adminMenuCloseTimer.current);
+      adminMenuCloseTimer.current = null;
+    }
+  }, []);
 
   const loadUiSettings = useCallback(async () => {
     if (!authed) {
@@ -666,6 +703,32 @@ export default function AppLayout(): JSX.Element | null {
     });
   };
 
+  const handleSidebarDragStart = (moduleId: string) => {
+    dragSidebarIdRef.current = moduleId;
+  };
+
+  const handleSidebarDragEnter = (targetId: string) => {
+    const draggedId = dragSidebarIdRef.current;
+    if (!draggedId || draggedId === targetId) return;
+    setEditingOrder((prev) => {
+      const draggedIndex = prev.indexOf(draggedId);
+      if (draggedIndex === -1) return prev;
+      const next = [...prev];
+      next.splice(draggedIndex, 1);
+      const insertionIndex = targetId === "__end__" ? next.length : next.indexOf(targetId);
+      if (insertionIndex < 0) {
+        next.push(draggedId);
+      } else {
+        next.splice(insertionIndex, 0, draggedId);
+      }
+      return next;
+    });
+  };
+
+  const handleSidebarDragEnd = () => {
+    dragSidebarIdRef.current = null;
+  };
+
   const handleLogout = useCallback(async () => {
     setMenuOpen(false);
     await authLogout();
@@ -685,6 +748,10 @@ export default function AppLayout(): JSX.Element | null {
     setMenuOpen(false);
     navigate("/profile/theme");
   }, [navigate]);
+  const handleThemeToggle = useCallback(() => {
+    const next = toggleThemeMode();
+    setThemeMode(next);
+  }, []);
 
   const effectiveSidebarOrder = useMemo(
     () => mergeSidebarOrder(SIDEBAR_MODULES, sidebarDefaultOrder, sidebarPrefs.order),
@@ -777,15 +844,15 @@ export default function AppLayout(): JSX.Element | null {
                     key={module.id}
                     className="position-relative d-inline-flex"
                     ref={adminMenuRef}
-                    onMouseEnter={() => setAdminMenuOpen(true)}
-                    onMouseLeave={() => setAdminMenuOpen(false)}
-                    onFocusCapture={() => setAdminMenuOpen(true)}
+                    onMouseEnter={openAdminMenu}
+                    onMouseLeave={scheduleAdminMenuClose}
+                    onFocusCapture={openAdminMenu}
                     onBlur={(event) => {
                       if (
                         adminMenuRef.current &&
                         !adminMenuRef.current.contains(event.relatedTarget as Node)
                       ) {
-                        setAdminMenuOpen(false);
+                        scheduleAdminMenuClose();
                       }
                     }}
                   >
@@ -810,8 +877,9 @@ export default function AppLayout(): JSX.Element | null {
                         visibility: adminMenuOpen ? "visible" : "hidden",
                         transition: "opacity 180ms ease, transform 180ms ease, visibility 0s linear 90ms",
                         zIndex: 1050,
-                        pointerEvents: adminMenuOpen ? "auto" : "none",
                       }}
+                      onMouseEnter={openAdminMenu}
+                      onMouseLeave={scheduleAdminMenuClose}
                     >
                       {ADMIN_NAV_ITEMS.map((item) => (
                         <NavLink
@@ -850,12 +918,22 @@ export default function AppLayout(): JSX.Element | null {
                 Login
               </NavLink>
             ) : (
-              <div className="dropdown" ref={menuRef}>
+              <>
                 <button
                   type="button"
-                  className="btn btn-outline-secondary btn-sm dropdown-toggle"
-                  aria-expanded={menuOpen}
-                  onClick={() => setMenuOpen((prev) => !prev)}
+                  className="btn btn-outline-secondary btn-sm"
+                  aria-label={`Switch to ${themeMode === "dark" ? "light" : "dark"} mode`}
+                  title={`Switch to ${themeMode === "dark" ? "light" : "dark"} mode`}
+                  onClick={handleThemeToggle}
+                >
+                  {themeMode === "dark" ? "🌙" : "☀️"}
+                </button>
+                <div className="dropdown" ref={menuRef}>
+                  <button
+                    type="button"
+                    className="btn btn-outline-secondary btn-sm dropdown-toggle"
+                    aria-expanded={menuOpen}
+                    onClick={() => setMenuOpen((prev) => !prev)}
                 >
                   Account
                 </button>
@@ -868,9 +946,10 @@ export default function AppLayout(): JSX.Element | null {
                   </button>
                   <button type="button" className="dropdown-item text-danger" onClick={handleLogout}>
                     Logout
-                  </button>
+                    </button>
+                  </div>
                 </div>
-              </div>
+              </>
             )}
           </div>
         </div>
@@ -909,7 +988,9 @@ export default function AppLayout(): JSX.Element | null {
                   <small className="text-muted d-block">
                     {sidebarReadOnly
                       ? "Sidebar customization is disabled for your account."
-                      : "Press and hold anywhere on the sidebar to customize module order."}
+                      : customizing
+                        ? "Drag modules to reorder them. Press Escape to exit customization."
+                        : "Press and hold anywhere on the sidebar to customize module order."}
                   </small>
                 </div>
 
@@ -971,32 +1052,53 @@ export default function AppLayout(): JSX.Element | null {
                       {sidebarItems.map((module, index) => (
                         <li
                           key={module.id}
-                          className="list-group-item d-flex align-items-center justify-content-between gap-2"
-                        >
+                          className="list-group-item d-flex align-items-center justify-content-between gap-3"
+                          draggable
+                          onDragStart={() => handleSidebarDragStart(module.id)}
+                          onDragEnter={() => handleSidebarDragEnter(module.id)}
+                          onDragOver={(event) => event.preventDefault()}
+                          onDragEnd={handleSidebarDragEnd}
+                          onDrop={(event) => {
+                            event.preventDefault();
+                            handleSidebarDragEnd();
+                          }}
+                          >
                           <span>{module.label}</span>
-                          <div className="btn-group btn-group-sm" role="group" aria-label={`${module.label} position`}>
+                          <span aria-hidden="true" style={{ cursor: "grab", fontSize: "1.1rem" }}>
+                            ⋮⋮
+                          </span>
+                          <div className="visually-hidden">
                             <button
                               type="button"
-                              className="btn btn-outline-secondary"
                               onClick={() => moveSidebarModule(module.id, -1)}
                               disabled={index === 0}
-                              aria-label={`Move ${module.label} up`}
                             >
-                              ↑
+                              Move {module.label} up
                             </button>
                             <button
                               type="button"
-                              className="btn btn-outline-secondary"
                               onClick={() => moveSidebarModule(module.id, 1)}
                               disabled={index === sidebarItems.length - 1}
-                              aria-label={`Move ${module.label} down`}
                             >
-                              ↓
+                              Move {module.label} down
                             </button>
                           </div>
                         </li>
                       ))}
                     </ul>
+                  ) : null}
+                  {customizing ? (
+                    <div
+                      className="px-3 py-2 text-muted small"
+                      onDragEnter={() => handleSidebarDragEnter("__end__")}
+                      onDragOver={(event) => event.preventDefault()}
+                      onDrop={(event) => {
+                        event.preventDefault();
+                        handleSidebarDragEnd();
+                      }}
+                    >
+                      Drag here to move a module to the end
+                    </div>
                   ) : (
                     <nav className="nav flex-column gap-1 px-2 py-3" aria-label="Sidebar modules">
                       {sidebarItems.map((module) => (
