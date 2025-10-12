@@ -6,6 +6,8 @@ namespace App\Http\Controllers\Settings;
 
 use App\Events\SettingsUpdated;
 use App\Http\Requests\Settings\UiSettingsUpdateRequest;
+use App\Services\Settings\Exceptions\BrandProfileLockedException;
+use App\Services\Settings\Exceptions\BrandProfileNotFoundException;
 use App\Services\Settings\UiSettingsService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -114,7 +116,21 @@ final class UiSettingsController extends Controller
             }
         }
 
-        $result = $this->settings->apply($payload, $actorId);
+        try {
+            $result = $this->settings->apply($payload, $actorId);
+        } catch (BrandProfileNotFoundException $exception) {
+            return response()->json([
+                'ok' => false,
+                'code' => 'PROFILE_NOT_FOUND',
+                'message' => $exception->getMessage(),
+            ], 404)->withHeaders($baseHeaders);
+        } catch (BrandProfileLockedException $exception) {
+            return response()->json([
+                'ok' => false,
+                'code' => 'PROFILE_LOCKED',
+                'message' => $exception->getMessage(),
+            ], 409)->withHeaders($baseHeaders);
+        }
 
         $this->emitSettingsEvent($actorId, $result['changes'], $request);
         /** @var array{

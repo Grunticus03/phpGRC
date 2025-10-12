@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Settings;
 
 use App\Models\BrandAsset;
+use App\Models\BrandProfile;
 use App\Models\User;
 use App\Services\Settings\UiSettingsService;
 use Illuminate\Http\UploadedFile;
@@ -33,10 +34,13 @@ final class BrandAssetsApiTest extends TestCase
         $user = User::factory()->create();
         Sanctum::actingAs($user);
 
+        $profile = $this->createEditableProfile(true);
+
         $file = UploadedFile::fake()->image('logo.png', 128, 128);
 
         $upload = $this->postJson('/settings/ui/brand-assets', [
             'kind' => 'primary_logo',
+            'profile_id' => $profile->getAttribute('id'),
             'file' => $file,
         ]);
 
@@ -46,12 +50,17 @@ final class BrandAssetsApiTest extends TestCase
         $assetId = $data['asset']['id'] ?? null;
         self::assertIsString($assetId);
 
-        $this->assertDatabaseHas('brand_assets', ['id' => $assetId, 'kind' => 'primary_logo']);
+        $this->assertDatabaseHas('brand_assets', [
+            'id' => $assetId,
+            'kind' => 'primary_logo',
+            'profile_id' => $profile->getAttribute('id'),
+        ]);
 
         /** @var UiSettingsService $settings */
         $settings = app(UiSettingsService::class);
         $settings->apply([
             'brand' => [
+                'profile_id' => $profile->getAttribute('id'),
                 'primary_logo_asset_id' => $assetId,
             ],
         ], $user->id);
@@ -70,10 +79,13 @@ final class BrandAssetsApiTest extends TestCase
         $user = User::factory()->create();
         Sanctum::actingAs($user);
 
+        $profile = $this->createEditableProfile();
+
         $file = UploadedFile::fake()->create('logo.png', 10, 'image/png');
 
         $response = $this->postJson('/settings/ui/brand-assets', [
             'kind' => 'favicon',
+            'profile_id' => $profile->getAttribute('id'),
             'file' => $file,
         ]);
 
@@ -91,10 +103,13 @@ final class BrandAssetsApiTest extends TestCase
         $user = User::factory()->create();
         Sanctum::actingAs($user);
 
+        $profile = $this->createEditableProfile();
+
         $file = $this->makeOversizedUploadedFile();
 
         $response = $this->postJson('/settings/ui/brand-assets', [
             'kind' => 'secondary_logo',
+            'profile_id' => $profile->getAttribute('id'),
             'file' => $file,
         ]);
 
@@ -112,10 +127,13 @@ final class BrandAssetsApiTest extends TestCase
         $user = User::factory()->create();
         Sanctum::actingAs($user);
 
+        $profile = $this->createEditableProfile();
+
         $file = $this->makeUnreadableUploadedFile();
 
         $response = $this->postJson('/settings/ui/brand-assets', [
             'kind' => 'header_logo',
+            'profile_id' => $profile->getAttribute('id'),
             'file' => $file,
         ]);
 
@@ -144,7 +162,12 @@ final class BrandAssetsApiTest extends TestCase
 
     public function test_download_brand_asset_returns_bytes(): void
     {
+        /** @var UiSettingsService $settings */
+        $settings = app(UiSettingsService::class);
+        $activeProfile = $settings->activeBrandProfile();
+
         $asset = BrandAsset::query()->create([
+            'profile_id' => $activeProfile->getAttribute('id'),
             'kind' => 'primary_logo',
             'name' => 'logo.png',
             'mime' => 'image/png',
@@ -232,5 +255,19 @@ final class BrandAssetsApiTest extends TestCase
         $this->tempFiles[] = $path;
 
         return $path;
+    }
+
+    private function createEditableProfile(bool $activate = false): BrandProfile
+    {
+        /** @var UiSettingsService $settings */
+        $settings = app(UiSettingsService::class);
+        $profile = $settings->createBrandProfile('Test Profile '.uniqid('', true));
+
+        if ($activate) {
+            $settings->activateBrandProfile($profile);
+            $profile = $profile->refresh();
+        }
+
+        return $profile;
     }
 }

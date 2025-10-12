@@ -14,6 +14,7 @@ use Illuminate\Support\Str;
  * @property string $mime
  * @property int $size_bytes
  * @property string $sha256
+ * @property string $profile_id
  * @property string $bytes
  * @property int|null $uploaded_by
  * @property string|null $uploaded_by_name
@@ -30,6 +31,7 @@ final class BrandAsset extends Model
 
     protected $fillable = [
         'id',
+        'profile_id',
         'kind',
         'name',
         'mime',
@@ -51,6 +53,11 @@ final class BrandAsset extends Model
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];
+
+    public function profile(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(BrandProfile::class, 'profile_id');
+    }
 
     #[\Override]
     protected static function booted(): void

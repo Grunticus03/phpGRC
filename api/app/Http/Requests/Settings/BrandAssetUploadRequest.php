@@ -20,6 +20,7 @@ final class BrandAssetUploadRequest extends FormRequest
     {
         return [
             'kind' => ['required', 'string', 'in:primary_logo,secondary_logo,header_logo,footer_logo,favicon'],
+            'profile_id' => ['required', 'string', 'max:64', 'exists:brand_profiles,id'],
             'file' => [
                 'required',
                 'file',

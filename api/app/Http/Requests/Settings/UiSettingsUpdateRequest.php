@@ -36,6 +36,8 @@ final class UiSettingsUpdateRequest extends FormRequest
             'ui.nav.sidebar.default_order.*' => ['string', 'max:64'],
 
             'ui.brand' => ['sometimes', 'array'],
+            'ui.brand.profile_id' => ['sometimes', 'string', 'max:64', 'exists:brand_profiles,id'],
+            'ui.brand.name' => ['sometimes', 'string', 'max:120'],
             'ui.brand.title_text' => ['sometimes', 'string', 'max:120'],
             'ui.brand.favicon_asset_id' => ['sometimes', 'nullable', 'string', 'max:64'],
             'ui.brand.primary_logo_asset_id' => ['sometimes', 'nullable', 'string', 'max:64'],

@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Settings;
 
 use App\Http\Requests\Settings\BrandAssetUploadRequest;
 use App\Models\BrandAsset;
+use App\Models\BrandProfile;
 use App\Services\Settings\UiSettingsService;
 use Carbon\CarbonInterface;
 use Illuminate\Http\JsonResponse;
@@ -20,10 +21,27 @@ final class BrandAssetsController extends Controller
 {
     public function __construct(private readonly UiSettingsService $settings) {}
 
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse
     {
+        /** @var mixed $profileInput */
+        $profileInput = $request->query('profile_id');
+        $profileId = is_string($profileInput) ? trim($profileInput) : null;
+
+        $profile = $profileId !== null && $profileId !== ''
+            ? $this->settings->brandProfileById($profileId)
+            : $this->settings->activeBrandProfile();
+
+        if (! $profile instanceof BrandProfile) {
+            return response()->json([
+                'ok' => false,
+                'code' => 'PROFILE_NOT_FOUND',
+                'message' => 'Branding profile not found.',
+            ], 404);
+        }
+
         /** @var array<int, BrandAsset> $assets */
         $assets = BrandAsset::query()
+            ->where('profile_id', $profile->getAttribute('id'))
             ->orderByDesc('created_at')
             ->get();
 
@@ -127,13 +145,42 @@ final class BrandAssetsController extends Controller
             }
         }
 
+        /** @var mixed $profileInput */
+        $profileInput = $request->input('profile_id');
+        $profileId = is_string($profileInput) ? trim($profileInput) : null;
+        if ($profileId === null || $profileId === '') {
+            return response()->json([
+                'ok' => false,
+                'code' => 'PROFILE_REQUIRED',
+                'message' => 'Branding profile is required.',
+            ], 422);
+        }
+
+        $profile = $this->settings->brandProfileById($profileId);
+        if (! $profile instanceof BrandProfile) {
+            return response()->json([
+                'ok' => false,
+                'code' => 'PROFILE_NOT_FOUND',
+                'message' => 'Branding profile not found.',
+            ], 404);
+        }
+
+        if ($profile->getAttribute('is_default')) {
+            return response()->json([
+                'ok' => false,
+                'code' => 'PROFILE_LOCKED',
+                'message' => 'Default branding profile cannot be modified.',
+            ], 409);
+        }
+
         /** @var mixed $kindInput */
         $kindInput = $request->input('kind', 'primary_logo');
         $kind = is_string($kindInput) ? $kindInput : 'primary_logo';
 
         /** @var BrandAsset $asset */
-        $asset = DB::transaction(function () use ($bytes, $size, $mime, $name, $sha256, $actorId, $actorName, $kind): BrandAsset {
+        $asset = DB::transaction(function () use ($bytes, $size, $mime, $name, $sha256, $actorId, $actorName, $kind, $profile): BrandAsset {
             $record = new BrandAsset([
+                'profile_id' => $profile->getAttribute('id'),
                 'kind' => $kind,
                 'name' => $name,
                 'mime' => $mime,
@@ -261,6 +308,7 @@ final class BrandAssetsController extends Controller
 
         return [
             'id' => $id,
+            'profile_id' => $asset->getAttribute('profile_id'),
             'kind' => $kind,
             'name' => $name,
             'mime' => $mime,

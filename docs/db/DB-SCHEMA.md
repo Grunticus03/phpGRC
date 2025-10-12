@@ -66,6 +66,7 @@ Snapshot generated from migrations against **phpgrc** as of 2025-10-11 (UTC).
 | Column | Type | Null | Default | Extra |
 |-------:|------|------|---------|-------|
 | id | varchar(255) | ✓ | NULL | — |
+| profile_id | varchar(255) | ✓ | 'bp_default' | — |
 | kind | varchar(32) | ✓ | NULL | — |
 | name | varchar(160) | ✓ | NULL | — |
 | mime | varchar(96) | ✓ | NULL | — |
@@ -81,10 +82,35 @@ Snapshot generated from migrations against **phpgrc** as of 2025-10-11 (UTC).
 - `PRIMARY KEY (id)`
 - `INDEX brand_assets_created_at_index (created_at)`
 - `INDEX brand_assets_kind_index (kind)`
+- `INDEX brand_assets_profile_id_index (profile_id)`
 - `INDEX brand_assets_sha256_index (sha256)`
 - `INDEX brand_assets_uploaded_by_foreign (uploaded_by)`
 
 - `FOREIGN KEY brand_assets_uploaded_by_foreign (uploaded_by) REFERENCES users(id) ON UPDATE CASCADE ON DELETE SET NULL`
+
+---
+
+### `brand_profiles`
+
+| Column | Type | Null | Default | Extra |
+|-------:|------|------|---------|-------|
+| id | varchar(255) | ✗ | NULL | — |
+| name | varchar(120) | ✗ | NULL | — |
+| is_default | tinyint(1) | ✓ | 0 | — |
+| is_active | tinyint(1) | ✓ | 0 | — |
+| is_locked | tinyint(1) | ✓ | 0 | — |
+| title_text | varchar(120) | ✗ | NULL | — |
+| favicon_asset_id | varchar(64) | ✓ | NULL | — |
+| primary_logo_asset_id | varchar(64) | ✓ | NULL | — |
+| secondary_logo_asset_id | varchar(64) | ✓ | NULL | — |
+| header_logo_asset_id | varchar(64) | ✓ | NULL | — |
+| footer_logo_asset_id | varchar(64) | ✓ | NULL | — |
+| footer_logo_disabled | tinyint(1) | ✓ | 0 | — |
+| created_at | datetime | ✓ | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
+| updated_at | datetime | ✓ | CURRENT_TIMESTAMP | DEFAULT_GENERATED on update CURRENT_TIMESTAMP |
+
+**Indexes & Constraints**
+- `PRIMARY KEY (id)`
 
 ---
 

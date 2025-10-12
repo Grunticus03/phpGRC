@@ -4,7 +4,11 @@ declare(strict_types=1);
 
 namespace App\Services\Settings;
 
+use App\Models\BrandProfile;
 use App\Models\UiSetting;
+use App\Services\Settings\Exceptions\BrandProfileLockedException;
+use App\Services\Settings\Exceptions\BrandProfileNotFoundException;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -20,14 +24,9 @@ final class UiSettingsService
         'ui.theme.designer.storage',
         'ui.theme.designer.filesystem_path',
         'ui.nav.sidebar.default_order',
-        'ui.brand.title_text',
-        'ui.brand.favicon_asset_id',
-        'ui.brand.primary_logo_asset_id',
-        'ui.brand.secondary_logo_asset_id',
-        'ui.brand.header_logo_asset_id',
-        'ui.brand.footer_logo_asset_id',
-        'ui.brand.footer_logo_disabled',
     ];
+
+    private const DEFAULT_PROFILE_ID = 'bp_default';
 
     public function __construct(private readonly ThemePackService $themePacks) {}
 
@@ -54,13 +53,13 @@ final class UiSettingsService
      */
     public function currentConfig(): array
     {
-        /** @var array<string,mixed> $config */
-        $config = $this->sanitizeConfig([]);
-
         /** @var Collection<int, UiSetting> $rows */
         $rows = UiSetting::query()
             ->orderBy('key')
             ->get(['key', 'value', 'type']);
+
+        /** @var array<string,mixed> $config */
+        $config = [];
 
         foreach ($rows as $row) {
             /** @var string $key */
@@ -71,6 +70,11 @@ final class UiSettingsService
 
             $path = substr($key, 3);
             if ($path === '') {
+                continue;
+            }
+
+            if (str_starts_with($path, 'brand.')) {
+                // Brand settings are sourced from profiles after migration.
                 continue;
             }
 
@@ -90,8 +94,287 @@ final class UiSettingsService
             Arr::set($config, $path, $decodedValue);
         }
 
+        $profile = $this->activeBrandProfile();
+        $config['brand'] = $this->brandProfileAsConfig($profile);
+
         /** @var array<string,mixed> $config */
         return $this->sanitizeConfig($config);
+    }
+
+    /**
+     * @return EloquentCollection<int, BrandProfile>
+     */
+    public function brandProfiles(): EloquentCollection
+    {
+        $this->ensureDefaultProfile();
+
+        /** @var EloquentCollection<int, BrandProfile> $profiles */
+        $profiles = BrandProfile::query()
+            ->orderByDesc('is_active')
+            ->orderByDesc('is_default')
+            ->orderBy('name')
+            ->get();
+
+        return $profiles;
+    }
+
+    public function activeBrandProfile(): BrandProfile
+    {
+        $this->ensureDefaultProfile();
+
+        /** @var BrandProfile|null $profile */
+        $profile = BrandProfile::query()
+            ->where('is_active', true)
+            ->first();
+
+        if ($profile instanceof BrandProfile) {
+            return $profile;
+        }
+
+        $default = $this->ensureDefaultProfile();
+        $this->activateBrandProfile($default);
+
+        return $default->refresh();
+    }
+
+    public function brandProfileById(string $profileId): ?BrandProfile
+    {
+        return BrandProfile::query()->find($profileId);
+    }
+
+    public function createBrandProfile(string $name, array $input = [], ?BrandProfile $source = null): BrandProfile
+    {
+        $this->ensureDefaultProfile();
+
+        $base = $source instanceof BrandProfile ? $this->brandProfileAsConfig($source) : $this->brandProfileAsConfig($this->ensureDefaultProfile());
+        $merged = array_merge($base, $input);
+        $sanitized = $this->sanitizeBrandProfileData($merged);
+
+        /** @var BrandProfile $profile */
+        $profile = DB::transaction(function () use ($name, $sanitized): BrandProfile {
+            $profile = new BrandProfile([
+                'name' => $this->sanitizeProfileName($name),
+                'is_default' => false,
+                'is_active' => false,
+                'is_locked' => false,
+                'title_text' => $sanitized['title_text'],
+                'favicon_asset_id' => $sanitized['favicon_asset_id'],
+                'primary_logo_asset_id' => $sanitized['primary_logo_asset_id'],
+                'secondary_logo_asset_id' => $sanitized['secondary_logo_asset_id'],
+                'header_logo_asset_id' => $sanitized['header_logo_asset_id'],
+                'footer_logo_asset_id' => $sanitized['footer_logo_asset_id'],
+                'footer_logo_disabled' => $sanitized['footer_logo_disabled'],
+            ]);
+
+            $profile->save();
+
+            return $profile;
+        });
+
+        return $profile;
+    }
+
+    public function updateBrandProfile(BrandProfile $profile, array $input): BrandProfile
+    {
+        if ($profile->getAttribute('is_locked') || $profile->getAttribute('is_default')) {
+            throw new BrandProfileLockedException('Default branding profile cannot be modified.');
+        }
+
+        $baseline = $this->brandProfileAsConfig($profile);
+        $merged = array_merge($baseline, $input);
+        $sanitized = $this->sanitizeBrandProfileData($merged);
+        $newName = array_key_exists('name', $input) ? $this->sanitizeProfileName((string) $input['name']) : null;
+
+        DB::transaction(function () use ($profile, $sanitized, $newName): void {
+            $profile->fill([
+                'title_text' => $sanitized['title_text'],
+                'favicon_asset_id' => $sanitized['favicon_asset_id'],
+                'primary_logo_asset_id' => $sanitized['primary_logo_asset_id'],
+                'secondary_logo_asset_id' => $sanitized['secondary_logo_asset_id'],
+                'header_logo_asset_id' => $sanitized['header_logo_asset_id'],
+                'footer_logo_asset_id' => $sanitized['footer_logo_asset_id'],
+                'footer_logo_disabled' => $sanitized['footer_logo_disabled'],
+            ]);
+
+            if ($newName !== null) {
+                $profile->setAttribute('name', $newName);
+            }
+
+            $profile->save();
+        });
+
+        return $profile->refresh();
+    }
+
+    public function renameBrandProfile(BrandProfile $profile, string $name): BrandProfile
+    {
+        if ($profile->getAttribute('is_default')) {
+            throw new BrandProfileLockedException('Default branding profile cannot be renamed.');
+        }
+
+        $profile->setAttribute('name', $this->sanitizeProfileName($name));
+        $profile->save();
+
+        return $profile->refresh();
+    }
+
+    public function activateBrandProfile(BrandProfile $profile): void
+    {
+        if ($profile->getAttribute('is_active')) {
+            return;
+        }
+
+        DB::transaction(function () use ($profile): void {
+            BrandProfile::query()->update(['is_active' => false]);
+            $profile->setAttribute('is_active', true);
+            $profile->save();
+        });
+    }
+
+    private function ensureDefaultProfile(): BrandProfile
+    {
+        /** @var BrandProfile|null $existing */
+        $existing = BrandProfile::query()
+            ->where('id', self::DEFAULT_PROFILE_ID)
+            ->first();
+
+        if ($existing instanceof BrandProfile) {
+            return $existing;
+        }
+
+        /** @var array<string,mixed> $defaults */
+        $defaults = (array) config('ui.defaults.brand', []);
+
+        $profile = new BrandProfile([
+            'id' => self::DEFAULT_PROFILE_ID,
+            'name' => 'Default',
+            'is_default' => true,
+            'is_active' => false,
+            'is_locked' => true,
+            'title_text' => $this->sanitizeTitle($defaults['title_text'] ?? null),
+            'favicon_asset_id' => $this->sanitizeAssetId($defaults['favicon_asset_id'] ?? null),
+            'primary_logo_asset_id' => $this->sanitizeAssetId($defaults['primary_logo_asset_id'] ?? null),
+            'secondary_logo_asset_id' => $this->sanitizeAssetId($defaults['secondary_logo_asset_id'] ?? null),
+            'header_logo_asset_id' => $this->sanitizeAssetId($defaults['header_logo_asset_id'] ?? null),
+            'footer_logo_asset_id' => $this->sanitizeAssetId($defaults['footer_logo_asset_id'] ?? null),
+            'footer_logo_disabled' => $this->toBool($defaults['footer_logo_disabled'] ?? false),
+        ]);
+
+        $profile->save();
+
+        return $profile->refresh();
+    }
+
+    /**
+     * @return array{
+     *     title_text:string,
+     *     favicon_asset_id:string|null,
+     *     primary_logo_asset_id:string|null,
+     *     secondary_logo_asset_id:string|null,
+     *     header_logo_asset_id:string|null,
+     *     footer_logo_asset_id:string|null,
+     *     footer_logo_disabled:bool
+     * }
+     */
+    public function brandProfileAsConfig(BrandProfile $profile): array
+    {
+        return [
+            'title_text' => $profile->getAttribute('title_text'),
+            'favicon_asset_id' => $profile->getAttribute('favicon_asset_id'),
+            'primary_logo_asset_id' => $profile->getAttribute('primary_logo_asset_id'),
+            'secondary_logo_asset_id' => $profile->getAttribute('secondary_logo_asset_id'),
+            'header_logo_asset_id' => $profile->getAttribute('header_logo_asset_id'),
+            'footer_logo_asset_id' => $profile->getAttribute('footer_logo_asset_id'),
+            'footer_logo_disabled' => (bool) $profile->getAttribute('footer_logo_disabled'),
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $input
+     * @return array{
+     *     title_text:string,
+     *     favicon_asset_id:string|null,
+     *     primary_logo_asset_id:string|null,
+     *     secondary_logo_asset_id:string|null,
+     *     header_logo_asset_id:string|null,
+     *     footer_logo_asset_id:string|null,
+     *     footer_logo_disabled:bool
+     * }
+     */
+    public function sanitizeBrandProfileData(array $input): array
+    {
+        /** @var array<string,mixed> $sanitized */
+        $sanitized = $this->sanitizeConfig(['brand' => $input]);
+
+        /** @var array{
+         *     title_text:string,
+         *     favicon_asset_id:string|null,
+         *     primary_logo_asset_id:string|null,
+         *     secondary_logo_asset_id:string|null,
+         *     header_logo_asset_id:string|null,
+         *     footer_logo_asset_id:string|null,
+         *     footer_logo_disabled:bool
+         * } $brand
+         */
+        $brand = $sanitized['brand'];
+
+        return $brand;
+    }
+
+    private function sanitizeProfileName(?string $name): string
+    {
+        $trimmed = trim((string) $name);
+        if ($trimmed === '') {
+            $trimmed = 'Untitled Profile';
+        }
+
+        if (mb_strlen($trimmed) > 120) {
+            $trimmed = mb_substr($trimmed, 0, 120);
+        }
+
+        return $trimmed;
+    }
+
+    /**
+     * @param  array<string,mixed>  $before
+     * @param  array<string,mixed>  $after
+     * @return list<array{key:string, old:mixed, new:mixed, action:string}>
+     */
+    private function diffBrandChanges(array $before, array $after, string $prefix): array
+    {
+        $defaults = $this->sanitizeBrandProfileData([]);
+        $fields = [
+            'title_text',
+            'favicon_asset_id',
+            'primary_logo_asset_id',
+            'secondary_logo_asset_id',
+            'header_logo_asset_id',
+            'footer_logo_asset_id',
+            'footer_logo_disabled',
+        ];
+
+        $changes = [];
+
+        foreach ($fields as $field) {
+            $old = $before[$field] ?? null;
+            $new = $after[$field] ?? null;
+
+            if ($this->valuesEqual($old, $new)) {
+                continue;
+            }
+
+            $default = $defaults[$field] ?? null;
+            $action = $this->valuesEqual($new, $default) ? 'unset' : ($old === null ? 'set' : 'update');
+
+            $changes[] = [
+                'key' => sprintf('%s.%s', $prefix, $field),
+                'old' => $old,
+                'new' => $new,
+                'action' => $action,
+            ];
+        }
+
+        return $changes;
     }
 
     /**
@@ -137,10 +420,45 @@ final class UiSettingsService
             $combined['nav']['sidebar'] = array_merge($current['nav']['sidebar'], $navInput);
         }
 
+        $combined['brand'] = $current['brand'];
+        $brandChanges = [];
+
         /** @var array<string,mixed>|null $brandInput */
         $brandInput = isset($input['brand']) && is_array($input['brand']) ? $input['brand'] : null;
         if ($brandInput !== null) {
-            $combined['brand'] = array_merge($current['brand'], $brandInput);
+            $profileId = null;
+            if (array_key_exists('profile_id', $brandInput) && is_string($brandInput['profile_id'])) {
+                $profileId = trim($brandInput['profile_id']);
+                unset($brandInput['profile_id']);
+            }
+
+            /** @var BrandProfile|null $profile */
+            $profile = $profileId !== null && $profileId !== ''
+                ? $this->brandProfileById($profileId)
+                : $this->activeBrandProfile();
+
+            if (! $profile instanceof BrandProfile) {
+                throw new BrandProfileNotFoundException('Brand profile not found.');
+            }
+
+            $beforeProfileConfig = $this->brandProfileAsConfig($profile);
+
+            $updatedProfile = $this->updateBrandProfile($profile, $brandInput);
+
+            if ($updatedProfile->getAttribute('is_active')) {
+                $combined['brand'] = $this->brandProfileAsConfig($updatedProfile);
+                $brandChanges = $this->diffBrandChanges(
+                    $beforeProfileConfig,
+                    $combined['brand'],
+                    'ui.brand'
+                );
+            } else {
+                $brandChanges = $this->diffBrandChanges(
+                    $beforeProfileConfig,
+                    $this->brandProfileAsConfig($updatedProfile),
+                    sprintf('ui.brand_profiles.%s', $updatedProfile->getAttribute('id'))
+                );
+            }
         }
 
         $sanitized = $this->sanitizeConfig($combined);
@@ -219,7 +537,7 @@ final class UiSettingsService
 
         return [
             'config' => $this->currentConfig(),
-            'changes' => $changes,
+            'changes' => array_merge($changes, $brandChanges),
         ];
     }
 
@@ -258,30 +576,33 @@ final class UiSettingsService
 
     public function clearBrandAssetReference(string $assetId): void
     {
-        $brandKeys = [
-            'ui.brand.favicon_asset_id',
-            'ui.brand.primary_logo_asset_id',
-            'ui.brand.secondary_logo_asset_id',
-            'ui.brand.header_logo_asset_id',
-            'ui.brand.footer_logo_asset_id',
-        ];
-
-        UiSetting::query()
-            ->whereIn('key', $brandKeys)
+        BrandProfile::query()
+            ->where(function ($query) use ($assetId): void {
+                $query->where('favicon_asset_id', $assetId)
+                    ->orWhere('primary_logo_asset_id', $assetId)
+                    ->orWhere('secondary_logo_asset_id', $assetId)
+                    ->orWhere('header_logo_asset_id', $assetId)
+                    ->orWhere('footer_logo_asset_id', $assetId);
+            })
             ->get()
-            ->each(function (UiSetting $row) use ($assetId): void {
-                $valueRaw = $row->getAttribute('value');
-                $typeRaw = $row->getAttribute('type');
-                if (! is_string($valueRaw) || ! is_string($typeRaw)) {
-                    return;
+            ->each(function (BrandProfile $profile) use ($assetId): void {
+                $updated = false;
+
+                foreach ([
+                    'favicon_asset_id',
+                    'primary_logo_asset_id',
+                    'secondary_logo_asset_id',
+                    'header_logo_asset_id',
+                    'footer_logo_asset_id',
+                ] as $column) {
+                    if ($profile->getAttribute($column) === $assetId) {
+                        $profile->setAttribute($column, null);
+                        $updated = true;
+                    }
                 }
 
-                /** @var mixed $decodedValue */
-                $decodedValue = $this->decodeValue($valueRaw, $typeRaw);
-                if ($decodedValue === $assetId) {
-                    $row->setAttribute('value', 'null');
-                    $row->setAttribute('type', 'json');
-                    $row->save();
+                if ($updated) {
+                    $profile->save();
                 }
             });
     }

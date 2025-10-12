@@ -24,6 +24,7 @@ use App\Http\Controllers\Rbac\UserRolesController;
 use App\Http\Controllers\Rbac\UserSearchController;
 use App\Http\Controllers\Reports\AdminActivityReportController;
 use App\Http\Controllers\Settings\BrandAssetsController;
+use App\Http\Controllers\Settings\BrandProfilesController;
 use App\Http\Controllers\Settings\DesignerThemesController;
 use App\Http\Controllers\Settings\ThemePacksController;
 use App\Http\Controllers\Settings\UiSettingsController as UiSettingsApiController;
@@ -184,6 +185,15 @@ Route::prefix('/settings/ui')
     ->middleware($rbacStack)
     ->group(function (): void {
         Route::put('/', [UiSettingsApiController::class, 'update'])
+            ->defaults('policy', 'core.settings.manage');
+
+        Route::get('/brand-profiles', [BrandProfilesController::class, 'index'])
+            ->defaults('policy', 'core.settings.manage');
+        Route::post('/brand-profiles', [BrandProfilesController::class, 'store'])
+            ->defaults('policy', 'core.settings.manage');
+        Route::put('/brand-profiles/{profile}', [BrandProfilesController::class, 'update'])
+            ->defaults('policy', 'core.settings.manage');
+        Route::post('/brand-profiles/{profile}/activate', [BrandProfilesController::class, 'activate'])
             ->defaults('policy', 'core.settings.manage');
 
         Route::get('/brand-assets', [BrandAssetsController::class, 'index'])

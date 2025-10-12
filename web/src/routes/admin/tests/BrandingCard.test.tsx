@@ -30,11 +30,46 @@ const SETTINGS_BODY = {
   },
 };
 
+const PROFILES_BODY = {
+  ok: true,
+  profiles: [
+    {
+      id: "bp_default",
+      name: "Default",
+      is_default: true,
+      is_active: false,
+      is_locked: true,
+      brand: {
+        title_text: "phpGRC",
+        favicon_asset_id: null,
+        primary_logo_asset_id: null,
+        secondary_logo_asset_id: null,
+        header_logo_asset_id: null,
+        footer_logo_asset_id: null,
+        footer_logo_disabled: false,
+      },
+      created_at: null,
+      updated_at: null,
+    },
+    {
+      id: "bp_custom",
+      name: "Custom",
+      is_default: false,
+      is_active: true,
+      is_locked: false,
+      brand: SETTINGS_BODY.config.ui.brand,
+      created_at: null,
+      updated_at: null,
+    },
+  ],
+};
+
 const ASSETS_BODY = {
   ok: true,
   assets: [
     {
       id: "as_primary",
+      profile_id: "bp_custom",
       kind: "primary_logo" as const,
       name: "primary.png",
       mime: "image/png",
@@ -68,7 +103,11 @@ describe("BrandingCard", () => {
         return jsonResponse(SETTINGS_BODY, { headers: { ETag: 'W/"branding:1"' } });
       }
 
-      if (url === "/api/settings/ui/brand-assets" && method === "GET") {
+      if (url === "/api/settings/ui/brand-profiles" && method === "GET") {
+        return jsonResponse(PROFILES_BODY);
+      }
+
+      if (url.startsWith("/api/settings/ui/brand-assets") && method === "GET") {
         return jsonResponse(ASSETS_BODY);
       }
 
@@ -103,16 +142,16 @@ describe("BrandingCard", () => {
     render(<BrandingCard />);
 
     await waitFor(() => expect(screen.queryByText("Loading branding settings…")).toBeNull());
-    expect(screen.getByLabelText("branding-placement-preview")).toBeInTheDocument();
+    expect(screen.getByLabelText("Branding profile")).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: "Restore default" }).length).toBeGreaterThan(0);
 
     fireEvent.change(screen.getByLabelText("Title text"), { target: { value: "New Title" } });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
-    await screen.findByText("Branding saved.");
+    await screen.findByText('Branding saved for "Custom".');
 
     expect(lastIfMatch).toBe('W/"branding:1"');
-    expect(saveBody).toMatchObject({ ui: { brand: { title_text: "New Title" } } });
+    expect(saveBody).toMatchObject({ ui: { brand: { title_text: "New Title", profile_id: "bp_custom" } } });
   });
 
   it("handles upload validations", async () => {
@@ -128,6 +167,7 @@ describe("BrandingCard", () => {
 
     await screen.findByText("Upload successful.");
     expect(uploadBody).not.toBeNull();
+    expect(uploadBody?.get("profile_id")).toBe("bp_custom");
   });
 
   it("handles 409 conflicts", async () => {
@@ -140,7 +180,10 @@ describe("BrandingCard", () => {
       if (url === "/api/settings/ui" && method === "GET") {
         return jsonResponse(SETTINGS_BODY, { headers: { ETag: 'W/"branding:1"' } });
       }
-      if (url === "/api/settings/ui/brand-assets" && method === "GET") {
+      if (url === "/api/settings/ui/brand-profiles" && method === "GET") {
+        return jsonResponse(PROFILES_BODY);
+      }
+      if (url.startsWith("/api/settings/ui/brand-assets") && method === "GET") {
         return jsonResponse(ASSETS_BODY);
       }
       if (url === "/api/settings/ui" && method === "PUT") {
@@ -174,7 +217,10 @@ describe("BrandingCard", () => {
       if (url === "/api/settings/ui" && method === "GET") {
         return jsonResponse({}, { status: 403 });
       }
-      if (url === "/api/settings/ui/brand-assets" && method === "GET") {
+      if (url === "/api/settings/ui/brand-profiles" && method === "GET") {
+        return jsonResponse({ ok: true, profiles: [] });
+      }
+      if (url.startsWith("/api/settings/ui/brand-assets") && method === "GET") {
         return jsonResponse({ ok: true, assets: [] });
       }
       return jsonResponse({ ok: true });

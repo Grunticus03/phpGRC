@@ -1,0 +1,33 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Http\Requests\Settings;
+
+use Illuminate\Foundation\Http\FormRequest;
+
+final class BrandProfileUpdateRequest extends FormRequest
+{
+    public function authorize(): bool
+    {
+        return true;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function rules(): array
+    {
+        return [
+            'name' => ['sometimes', 'string', 'max:120'],
+            'brand' => ['sometimes', 'array'],
+            'brand.title_text' => ['sometimes', 'string', 'max:120'],
+            'brand.favicon_asset_id' => ['sometimes', 'nullable', 'string', 'max:64'],
+            'brand.primary_logo_asset_id' => ['sometimes', 'nullable', 'string', 'max:64'],
+            'brand.secondary_logo_asset_id' => ['sometimes', 'nullable', 'string', 'max:64'],
+            'brand.header_logo_asset_id' => ['sometimes', 'nullable', 'string', 'max:64'],
+            'brand.footer_logo_asset_id' => ['sometimes', 'nullable', 'string', 'max:64'],
+            'brand.footer_logo_disabled' => ['sometimes', 'boolean'],
+        ];
+    }
+}
