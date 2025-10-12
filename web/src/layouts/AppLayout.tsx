@@ -832,7 +832,7 @@ export default function AppLayout(): JSX.Element | null {
             >
               <img
                 src={logoSrc}
-                alt={brand.title}
+                alt="phpGRC logo"
                 height={40}
                 style={{ width: "auto", maxHeight: "40px" }}
                 data-fallback-applied="false"
@@ -849,7 +849,6 @@ export default function AppLayout(): JSX.Element | null {
                 }}
               />
             </span>
-            <span className="fw-semibold d-none d-sm-inline">{brand.title}</span>
           </NavLink>
           <nav className="nav nav-pills gap-1 ms-3 flex-wrap align-items-center" aria-label="Primary navigation">
             {coreNavItems.map((module) => {
