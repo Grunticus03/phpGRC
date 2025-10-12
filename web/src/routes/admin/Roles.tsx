@@ -153,7 +153,7 @@ export default function Roles(): JSX.Element {
     );
 
   return (
-    <main id="main" className="container py-3" role="main" aria-busy={submitting}>
+    <section className="container py-3" aria-busy={submitting}>
       <h1 className="mb-3">Roles Management</h1>
 
       <div aria-live="polite" role="status">
@@ -236,6 +236,6 @@ export default function Roles(): JSX.Element {
           {submitting ? "Submitting…" : "Submit"}
         </button>
       </form>
-    </main>
+    </section>
   );
 }

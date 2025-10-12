@@ -92,29 +92,46 @@ const MOTION_PRESETS: Record<string, { duration: string; behavior: "auto" | "smo
   full: { duration: "0.2s", behavior: "smooth" },
 };
 
-const baseDefaultOverrides = DEFAULT_THEME_SETTINGS.theme.overrides;
+const baseThemeOverrides = DEFAULT_THEME_SETTINGS.theme.overrides;
+const baseUserOverrides = DEFAULT_USER_PREFS.overrides;
 
-const applyCustomOverrides = (
-  source: Record<string, string | null | undefined>,
-  target: Record<string, string>
-): void => {
-  Object.entries(source).forEach(([key, value]) => {
-    if (typeof value !== "string") return;
-    const trimmed = value.trim();
-    if (trimmed === "") return;
-    const defaultValue = baseDefaultOverrides[key as keyof typeof baseDefaultOverrides] ?? null;
-    if (trimmed === defaultValue) return;
-    target[key] = trimmed;
-  });
+const shouldApplyOverride = (
+  value: string | null | undefined,
+  baseline: string | null | undefined
+): string | null => {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (trimmed === "") return null;
+  if (baseline !== undefined && baseline !== null && trimmed === baseline) {
+    return null;
+  }
+  return trimmed;
 };
 
 const effectiveOverrides = (): ThemeSettings["theme"]["overrides"] => {
   const merged: Record<string, string> = {};
 
-  applyCustomOverrides(settingsCache.theme.overrides ?? {}, merged);
+  const themeOverrides = settingsCache.theme.overrides ?? {};
+  Object.entries(themeOverrides).forEach(([key, value]) => {
+    const applied = shouldApplyOverride(value, baseThemeOverrides[key as keyof typeof baseThemeOverrides] ?? null);
+    if (applied !== null) {
+      merged[key] = applied;
+    }
+  });
 
   if (settingsCache.theme.allow_user_override && !settingsCache.theme.force_global) {
-    applyCustomOverrides(prefsCache.overrides ?? {}, merged);
+    const userOverrides = prefsCache.overrides ?? {};
+    Object.entries(userOverrides).forEach(([key, value]) => {
+      const applied = shouldApplyOverride(
+        value,
+        baseUserOverrides[key as keyof typeof baseUserOverrides] ??
+          baseThemeOverrides[key as keyof typeof baseThemeOverrides] ??
+          null
+      );
+      if (applied !== null) {
+        merged[key] = applied;
+      }
+    });
   }
 
   return merged as ThemeSettings["theme"]["overrides"];

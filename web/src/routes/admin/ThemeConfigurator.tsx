@@ -44,7 +44,9 @@ const MOTION_PRESETS = ["none", "limited", "full"] as const;
 type Mutable<T> = T extends object ? { -readonly [K in keyof T]: Mutable<T[K]> } : T;
 
 const toStoredOverrides = (source: Record<string, string>): ThemeSettings["theme"]["overrides"] => {
-  const base = { ...(DEFAULT_THEME_SETTINGS.theme.overrides as Mutable<typeof DEFAULT_THEME_SETTINGS.theme.overrides>) };
+  const base = { ...DEFAULT_THEME_SETTINGS.theme.overrides } as Mutable<
+    typeof DEFAULT_THEME_SETTINGS.theme.overrides
+  >;
   Object.entries(source).forEach(([key, value]) => {
     (base as Record<string, string>)[key] = value;
   });

@@ -355,7 +355,7 @@ export default function Settings(): JSX.Element {
   }
 
   return (
-    <main id="main" className="container py-3">
+    <section className="container py-3">
       <h1 className="mb-3">Admin Settings</h1>
 
       <ThemeConfigurator />
@@ -545,7 +545,7 @@ export default function Settings(): JSX.Element {
           </div>
         </form>
       )}
-    </main>
+    </section>
   );
 }
 
