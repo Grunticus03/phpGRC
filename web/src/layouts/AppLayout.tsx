@@ -121,12 +121,17 @@ const computeBrandSnapshot = (settings: ThemeSettings | null | undefined): Brand
   return { title, headerLogoId: headerLogo, primaryLogoId: primaryLogo };
 };
 
-const resolveLogoSrc = (brand: BrandSnapshot): string => {
-  if (brand.headerLogoId) {
-    return `${brandAssetUrl(brand.headerLogoId)}?v=${encodeURIComponent(brand.headerLogoId)}`;
+const brandSnapshotsEqual = (a: BrandSnapshot, b: BrandSnapshot): boolean =>
+  a.title === b.title && a.headerLogoId === b.headerLogoId && a.primaryLogoId === b.primaryLogoId;
+
+const resolveLogoSrc = (brand: BrandSnapshot, failed?: Set<string>): string => {
+  const headerId = brand.headerLogoId;
+  if (headerId && !failed?.has(headerId)) {
+    return `${brandAssetUrl(headerId)}?v=${encodeURIComponent(headerId)}`;
   }
-  if (brand.primaryLogoId) {
-    return `${brandAssetUrl(brand.primaryLogoId)}?v=${encodeURIComponent(brand.primaryLogoId)}`;
+  const primaryId = brand.primaryLogoId;
+  if (primaryId && !failed?.has(primaryId)) {
+    return `${brandAssetUrl(primaryId)}?v=${encodeURIComponent(primaryId)}`;
   }
   return DEFAULT_LOGO_SRC;
 };
@@ -198,6 +203,7 @@ export default function AppLayout(): JSX.Element | null {
   const [adminMenuOpen, setAdminMenuOpen] = useState(false);
   const adminMenuCloseTimer = useRef<number | null>(null);
   const dragSidebarIdRef = useRef<string | null>(null);
+  const failedBrandAssetsRef = useRef<Set<string>>(new Set());
 
   const openAdminMenu = useCallback(() => {
     if (adminMenuCloseTimer.current !== null) {
@@ -242,7 +248,8 @@ export default function AppLayout(): JSX.Element | null {
       }
     });
     const offSettings = onThemeSettingsChange((settings) => {
-      setBrand(computeBrandSnapshot(settings));
+      const snapshot = computeBrandSnapshot(settings);
+      setBrand((prev) => (brandSnapshotsEqual(prev, snapshot) ? prev : snapshot));
       setSidebarDefaultOrder(extractSidebarDefaultOrder(settings));
       if (typeof document !== "undefined") {
         setThemeMode(document.documentElement.getAttribute("data-mode") === "dark" ? "dark" : "light");
@@ -263,7 +270,8 @@ export default function AppLayout(): JSX.Element | null {
 
   const loadUiSettings = useCallback(async () => {
     if (!authed) {
-      setBrand(computeBrandSnapshot(DEFAULT_THEME_SETTINGS));
+      const snapshot = computeBrandSnapshot(DEFAULT_THEME_SETTINGS);
+      setBrand((prev) => (brandSnapshotsEqual(prev, snapshot) ? prev : snapshot));
       setSidebarDefaultOrder(extractSidebarDefaultOrder(DEFAULT_THEME_SETTINGS));
       return;
     }
@@ -278,12 +286,14 @@ export default function AppLayout(): JSX.Element | null {
       const body = await parseJson<UiSettingsResponse>(res);
       const settings = body?.config?.ui ?? null;
       if (settings) {
-        setBrand(computeBrandSnapshot(settings));
+        const snapshot = computeBrandSnapshot(settings);
+        setBrand((prev) => (brandSnapshotsEqual(prev, snapshot) ? prev : snapshot));
         setSidebarDefaultOrder(extractSidebarDefaultOrder(settings));
         updateThemeSettings(settings);
       }
     } catch {
-      setBrand(computeBrandSnapshot(DEFAULT_THEME_SETTINGS));
+      const snapshot = computeBrandSnapshot(DEFAULT_THEME_SETTINGS);
+      setBrand((prev) => (brandSnapshotsEqual(prev, snapshot) ? prev : snapshot));
       setSidebarDefaultOrder(extractSidebarDefaultOrder(DEFAULT_THEME_SETTINGS));
     }
   }, [authed]);
@@ -784,7 +794,7 @@ export default function AppLayout(): JSX.Element | null {
 
   const coreNavItems = NAVBAR_MODULES;
   const sidebarWidth = Math.max(sidebarPrefs.width, MIN_SIDEBAR_WIDTH);
-  const logoSrc = resolveLogoSrc(brand);
+  const logoSrc = resolveLogoSrc(brand, failedBrandAssetsRef.current);
 
   const customizingDirty = !arraysEqual(editingOrder, baselineOrderRef.current);
 
@@ -829,7 +839,13 @@ export default function AppLayout(): JSX.Element | null {
                 onError={(event) => {
                   if (event.currentTarget.dataset.fallbackApplied === "true") return;
                   event.currentTarget.dataset.fallbackApplied = "true";
+                  if (brand.headerLogoId) {
+                    failedBrandAssetsRef.current.add(brand.headerLogoId);
+                  } else if (brand.primaryLogoId) {
+                    failedBrandAssetsRef.current.add(brand.primaryLogoId);
+                  }
                   event.currentTarget.src = DEFAULT_LOGO_SRC;
+                  setBrand((prev) => ({ ...prev }));
                 }}
               />
             </span>
@@ -983,17 +999,6 @@ export default function AppLayout(): JSX.Element | null {
               }}
             >
               <div className="d-flex flex-column h-100">
-                <div className="px-3 py-3 border-bottom">
-                  <h2 className="h6 mb-1">Modules</h2>
-                  <small className="text-muted d-block">
-                    {sidebarReadOnly
-                      ? "Sidebar customization is disabled for your account."
-                      : customizing
-                        ? "Drag modules to reorder them. Press Escape to exit customization."
-                        : "Press and hold anywhere on the sidebar to customize module order."}
-                  </small>
-                </div>
-
                 {customizing && (
                   <div className="px-3 py-2 border-bottom d-flex flex-wrap gap-2">
                     <button
@@ -1089,16 +1094,15 @@ export default function AppLayout(): JSX.Element | null {
                   ) : null}
                   {customizing ? (
                     <div
-                      className="px-3 py-2 text-muted small"
+                      aria-hidden="true"
+                      style={{ height: "2px" }}
                       onDragEnter={() => handleSidebarDragEnter("__end__")}
                       onDragOver={(event) => event.preventDefault()}
                       onDrop={(event) => {
                         event.preventDefault();
                         handleSidebarDragEnd();
                       }}
-                    >
-                      Drag here to move a module to the end
-                    </div>
+                    />
                   ) : (
                     <nav className="nav flex-column gap-1 px-2 py-3" aria-label="Sidebar modules">
                       {sidebarItems.map((module) => (

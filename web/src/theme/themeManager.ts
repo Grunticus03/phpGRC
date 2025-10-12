@@ -127,50 +127,81 @@ const applyDesignTokens = (): void => {
   if (!doc) return;
 
   const overrides = effectiveOverrides();
+  const setOrClear = (prop: string, value?: string) => {
+    if (typeof value === "string" && value.trim() !== "") {
+      doc.style.setProperty(prop, value);
+    } else {
+      doc.style.removeProperty(prop);
+    }
+  };
 
-  const primary = overrides["color.primary"] ?? DEFAULT_THEME_SETTINGS.theme.overrides["color.primary"];
-  if (primary) {
-    doc.style.setProperty("--ui-color-primary", primary);
-    doc.style.setProperty("--bs-primary", primary);
-    doc.style.setProperty("--bs-link-color", primary);
-    doc.style.setProperty("--bs-link-hover-color", primary);
-  }
+  const primary = overrides["color.primary"];
+  setOrClear("--ui-color-primary", primary);
+  setOrClear("--bs-primary", primary);
+  setOrClear("--bs-link-color", primary);
+  setOrClear("--bs-link-hover-color", primary);
 
-  const surface = overrides["color.surface"] ?? DEFAULT_THEME_SETTINGS.theme.overrides["color.surface"];
-  if (surface) {
-    doc.style.setProperty("--ui-color-surface", surface);
-    doc.style.setProperty("--bs-body-bg", surface);
+  const surface = overrides["color.surface"];
+  setOrClear("--ui-color-surface", surface);
+  setOrClear("--bs-body-bg", surface);
+  if (surface && surface.trim() !== "") {
     body.style.backgroundColor = surface;
+  } else {
+    body.style.removeProperty("background-color");
   }
 
-  const text = overrides["color.text"] ?? DEFAULT_THEME_SETTINGS.theme.overrides["color.text"];
-  if (text) {
-    doc.style.setProperty("--ui-color-text", text);
-    doc.style.setProperty("--bs-body-color", text);
+  const text = overrides["color.text"];
+  setOrClear("--ui-color-text", text);
+  setOrClear("--bs-body-color", text);
+  if (text && text.trim() !== "") {
     body.style.color = text;
+  } else {
+    body.style.removeProperty("color");
   }
 
-  const shadowKey = overrides.shadow ?? DEFAULT_THEME_SETTINGS.theme.overrides.shadow;
-  const shadowValue = typeof shadowKey === "string" ? SHADOW_PRESETS[shadowKey] ?? shadowKey : SHADOW_PRESETS.default;
-  doc.style.setProperty("--ui-shadow-surface", shadowValue);
-  doc.style.setProperty("--bs-box-shadow", shadowValue);
+  const shadowKey = overrides.shadow;
+  if (shadowKey && shadowKey.trim() !== "") {
+    const shadowValue = SHADOW_PRESETS[shadowKey] ?? shadowKey;
+    setOrClear("--ui-shadow-surface", shadowValue);
+    setOrClear("--bs-box-shadow", shadowValue);
+  } else {
+    setOrClear("--ui-shadow-surface");
+    setOrClear("--bs-box-shadow");
+  }
 
-  const spacingKey = overrides.spacing ?? DEFAULT_THEME_SETTINGS.theme.overrides.spacing;
-  const spacingValue = typeof spacingKey === "string" ? SPACING_SCALES[spacingKey] ?? SPACING_SCALES.default : SPACING_SCALES.default;
-  doc.style.setProperty("--ui-space-base", spacingValue);
-  doc.style.setProperty("--bs-spacer", spacingValue);
+  const spacingKey = overrides.spacing;
+  if (spacingKey && spacingKey.trim() !== "") {
+    const spacingValue = SPACING_SCALES[spacingKey] ?? spacingKey;
+    setOrClear("--ui-space-base", spacingValue);
+    setOrClear("--bs-spacer", spacingValue);
+  } else {
+    setOrClear("--ui-space-base");
+    setOrClear("--bs-spacer");
+  }
 
-  const typeKey = overrides.typeScale ?? DEFAULT_THEME_SETTINGS.theme.overrides.typeScale;
-  const typeValue = typeof typeKey === "string" ? TYPE_SCALES[typeKey] ?? TYPE_SCALES.medium : TYPE_SCALES.medium;
-  doc.style.setProperty("--ui-type-scale", typeKey ?? "medium");
-  doc.style.setProperty("--bs-body-font-size", typeValue);
+  const typeKey = overrides.typeScale;
+  if (typeKey && typeKey.trim() !== "") {
+    const typeValue = TYPE_SCALES[typeKey] ?? typeKey;
+    setOrClear("--ui-type-scale", typeKey);
+    setOrClear("--bs-body-font-size", typeValue);
+  } else {
+    setOrClear("--ui-type-scale");
+    setOrClear("--bs-body-font-size");
+  }
 
-  const motionKey = overrides.motion ?? DEFAULT_THEME_SETTINGS.theme.overrides.motion;
-  const motion = typeof motionKey === "string" ? MOTION_PRESETS[motionKey] ?? MOTION_PRESETS.full : MOTION_PRESETS.full;
-  doc.style.setProperty("--ui-motion-pref", motionKey ?? "full");
-  doc.style.setProperty("--bs-transition-duration", motion.duration);
-  doc.style.setProperty("--bs-transition", `all ${motion.duration} ease-in-out`);
-  doc.style.setProperty("scroll-behavior", motion.behavior);
+  const motionKey = overrides.motion;
+  if (motionKey && motionKey.trim() !== "") {
+    const motion = MOTION_PRESETS[motionKey] ?? MOTION_PRESETS.full;
+    setOrClear("--ui-motion-pref", motionKey);
+    setOrClear("--bs-transition-duration", motion.duration);
+    setOrClear("--bs-transition", `all ${motion.duration} ease-in-out`);
+    doc.style.setProperty("scroll-behavior", motion.behavior);
+  } else {
+    setOrClear("--ui-motion-pref");
+    setOrClear("--bs-transition-duration");
+    setOrClear("--bs-transition");
+    doc.style.removeProperty("scroll-behavior");
+  }
 };
 
 const prefersDark = (): boolean => {
@@ -332,6 +363,9 @@ const fetchJson = async <T>(url: string): Promise<T | null> => {
       credentials: "same-origin",
       headers: baseHeaders(),
     });
+    if (res.status === 401) {
+      return null;
+    }
     if (!res.ok) return null;
     const body = (await res.json()) as T;
     return body;

@@ -41,12 +41,23 @@ const SPACING_PRESETS = ["narrow", "default", "wide"] as const;
 const TYPE_SCALE_PRESETS = ["small", "medium", "large"] as const;
 const MOTION_PRESETS = ["none", "limited", "full"] as const;
 
+type Mutable<T> = T extends object ? { -readonly [K in keyof T]: Mutable<T[K]> } : T;
+
+const toStoredOverrides = (source: Record<string, string>): ThemeSettings["theme"]["overrides"] => {
+  const base = { ...(DEFAULT_THEME_SETTINGS.theme.overrides as Mutable<typeof DEFAULT_THEME_SETTINGS.theme.overrides>) };
+  Object.entries(source).forEach(([key, value]) => {
+    (base as Record<string, string>)[key] = value;
+  });
+  return base as ThemeSettings["theme"]["overrides"];
+};
+
 function buildInitialForm(settings: ThemeSettings): FormState {
+  const mutable = settings as Mutable<ThemeSettings>;
   return {
-    theme: settings.theme.default,
-    allowOverride: settings.theme.allow_user_override,
-    forceGlobal: settings.theme.force_global,
-    overrides: { ...settings.theme.overrides },
+    theme: String(mutable.theme.default),
+    allowOverride: Boolean(mutable.theme.allow_user_override),
+    forceGlobal: Boolean(mutable.theme.force_global),
+    overrides: { ...mutable.theme.overrides } as Record<string, string>,
   };
 }
 
@@ -83,6 +94,13 @@ export default function ThemeConfigurator(): JSX.Element {
 
   const etagRef = useRef<string | null>(null);
   const snapshotRef = useRef<FormState | null>(buildInitialForm(DEFAULT_THEME_SETTINGS));
+  const settingsRef = useRef<ThemeSettings>({
+    ...DEFAULT_THEME_SETTINGS,
+    theme: {
+      ...DEFAULT_THEME_SETTINGS.theme,
+      overrides: { ...DEFAULT_THEME_SETTINGS.theme.overrides },
+    },
+  } as ThemeSettings);
 
   const themeOptions = useMemo(() => {
     const base = [...manifest.themes, ...manifest.packs];
@@ -94,10 +112,32 @@ export default function ThemeConfigurator(): JSX.Element {
   }, [manifest]);
 
   const applySettings = useCallback((settings: ThemeSettings) => {
+    settingsRef.current = {
+      ...settings,
+      theme: {
+        ...settings.theme,
+        overrides: { ...settings.theme.overrides },
+      },
+    } as ThemeSettings;
     const nextForm = buildInitialForm(settings);
     snapshotRef.current = nextForm;
     setForm(nextForm);
     updateThemeSettings(settings);
+  }, []);
+
+  const previewTheme = useCallback((next: FormState) => {
+    const base = settingsRef.current;
+    const preview: ThemeSettings = {
+      ...base,
+      theme: {
+        ...base.theme,
+        default: next.theme as ThemeSettings["theme"]["default"],
+        allow_user_override: next.allowOverride as ThemeSettings["theme"]["allow_user_override"],
+        force_global: next.forceGlobal as ThemeSettings["theme"]["force_global"],
+        overrides: toStoredOverrides(next.overrides),
+      },
+    };
+    updateThemeSettings(preview);
   }, []);
 
   const loadManifest = useCallback(async () => {
@@ -174,34 +214,55 @@ export default function ThemeConfigurator(): JSX.Element {
   }, [loadSettings]);
 
   const onChangeTheme = (value: string) => {
-    setForm((prev) => ({ ...prev, theme: value }));
+    setForm((prev) => {
+      const next = { ...prev, theme: value };
+      previewTheme(next);
+      return next;
+    });
   };
 
   const onToggleAllow = (value: boolean) => {
-    setForm((prev) => ({ ...prev, allowOverride: value }));
+    setForm((prev) => {
+      const next = { ...prev, allowOverride: value };
+      previewTheme(next);
+      return next;
+    });
   };
 
   const onToggleForce = (value: boolean) => {
-    setForm((prev) => ({ ...prev, forceGlobal: value }));
+    setForm((prev) => {
+      const next = { ...prev, forceGlobal: value };
+      previewTheme(next);
+      return next;
+    });
   };
 
   const onColorChange = (key: string, value: string) => {
-    setForm((prev) => ({
-      ...prev,
-      overrides: { ...prev.overrides, [key]: value },
-    }));
+    setForm((prev) => {
+      const next = {
+        ...prev,
+        overrides: { ...prev.overrides, [key]: value },
+      };
+      previewTheme(next);
+      return next;
+    });
   };
 
   const onPresetChange = (key: string, value: string) => {
-    setForm((prev) => ({
-      ...prev,
-      overrides: { ...prev.overrides, [key]: value },
-    }));
+    setForm((prev) => {
+      const next = {
+        ...prev,
+        overrides: { ...prev.overrides, [key]: value },
+      };
+      previewTheme(next);
+      return next;
+    });
   };
 
   const resetToBaseline = () => {
     const snapshot = snapshotRef.current ?? buildInitialForm(DEFAULT_THEME_SETTINGS);
     setForm(snapshot);
+    previewTheme(snapshot);
     setMessage("Reverted to last saved values.");
   };
 

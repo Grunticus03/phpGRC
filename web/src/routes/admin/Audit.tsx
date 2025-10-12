@@ -147,6 +147,38 @@ function resolveActorLabel(item: AuditItem): string {
   return "System";
 }
 
+const FRIENDLY_SETTING_KEYS: Record<string, string> = {
+  "ui.brand.title_text": "title text",
+  "ui.brand.favicon_asset_id": "favicon",
+  "ui.brand.primary_logo_asset_id": "primary logo",
+  "ui.brand.secondary_logo_asset_id": "secondary logo",
+  "ui.brand.header_logo_asset_id": "header logo",
+  "ui.brand.footer_logo_asset_id": "footer logo",
+  "ui.brand.footer_logo_disabled": "footer logo disabled",
+  "ui.theme.default": "default theme",
+  "ui.theme.allow_user_override": "user overrides allowed",
+  "ui.theme.force_global": "force global theme",
+  "ui.theme.overrides.color.primary": "primary color",
+  "ui.theme.overrides.color.surface": "surface color",
+  "ui.theme.overrides.color.text": "text color",
+  "ui.theme.overrides.shadow": "shadow preset",
+  "ui.theme.overrides.spacing": "spacing preset",
+  "ui.theme.overrides.typeScale": "type scale",
+  "ui.theme.overrides.motion": "motion preset",
+  "ui.nav.sidebar.default_order": "sidebar order",
+};
+
+const friendlySettingLabel = (raw: unknown): string => {
+  if (typeof raw === "string" && raw.trim() !== "") {
+    const trimmed = raw.trim();
+    const friendly = FRIENDLY_SETTING_KEYS[trimmed];
+    if (friendly) return friendly;
+    const token = trimmed.startsWith("ui.") ? trimmed.slice(trimmed.indexOf(".") + 1) : trimmed;
+    return token.replace(/[_.]/g, " ");
+  }
+  return "setting";
+};
+
 function buildAuditMessage(item: AuditItem, info: ActionInfo, actorLabel: string): string {
   const actor = actorLabel || "System";
   const meta = isRecord(item.meta) ? item.meta : {};
@@ -171,11 +203,11 @@ function buildAuditMessage(item: AuditItem, info: ActionInfo, actorLabel: string
   const action = item.action ?? '';
   if (action === 'setting.modified') {
     const labelCandidates = [meta.setting_label, meta.setting_key, meta.key, item.entity_id];
-    const label = labelCandidates.find((v) => typeof v === 'string' && v.trim() !== '') as string | undefined;
-    const settingLabel = label ?? 'Setting';
+    const rawLabel = labelCandidates.find((v) => typeof v === 'string' && v.trim() !== '');
+    const settingLabel = friendlySettingLabel(rawLabel);
     const oldText = formatValue(meta.old_value ?? meta.old);
     const newText = formatValue(meta.new_value ?? meta.new);
-    return `${settingLabel} update by ${actor}. Old: ${oldText} - New: ${newText}`;
+    return `${settingLabel} updated by ${actor}. Old: ${oldText} → New: ${newText}`;
   }
 
   if (action === 'settings.update') {
