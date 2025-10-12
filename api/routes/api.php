@@ -73,7 +73,7 @@ Route::get('/health/fingerprint', function (SettingsService $settings) {
     $summary = [
         'rbac' => [
             'enabled' => (bool) ($eff['core']['rbac']['enabled'] ?? false),
-            'require_auth' => (bool) config('core.rbac.require_auth', false),
+            'require_auth' => \App\Support\ConfigBoolean::value('core.rbac.require_auth', false),
             'roles_count' => count((array) ($eff['core']['rbac']['roles'] ?? [])),
         ],
         'audit' => [

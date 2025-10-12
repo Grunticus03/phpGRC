@@ -7,6 +7,7 @@ namespace App\Http\Middleware;
 use App\Models\User;
 use App\Services\Audit\AuditLogger;
 use App\Services\Rbac\RbacEvaluator;
+use App\Support\ConfigBoolean;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -72,7 +73,7 @@ final class RbacMiddleware
         /** @var list<string> $requiredRoles */
         $requiredRoles = $this->extractRequiredRoles($defaults);
         $policy = $this->extractPolicy($defaults);
-        $requireAuth = (bool) config('core.rbac.require_auth', false);
+        $requireAuth = ConfigBoolean::value('core.rbac.require_auth', false);
 
         Auth::shouldUse('sanctum');
         /** @var User|null $user */

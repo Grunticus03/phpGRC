@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Middleware\Auth;
 
+use App\Support\ConfigBoolean;
 use Closure;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Http\Request;
@@ -21,7 +22,7 @@ final class RequireSanctumWhenRequired
      */
     public function handle(Request $request, Closure $next): Response
     {
-        if (! (bool) config('core.rbac.require_auth', false)) {
+        if (! ConfigBoolean::value('core.rbac.require_auth', false)) {
             return $next($request);
         }
 

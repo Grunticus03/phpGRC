@@ -54,6 +54,24 @@ final class UiSettingsApiTest extends TestCase
         $response->assertUnauthorized();
     }
 
+    public function test_get_ui_settings_honors_string_false_flag(): void
+    {
+        Config::set('core.rbac.require_auth', 'false');
+
+        $response = $this->getJson('/settings/ui');
+
+        $response->assertOk();
+    }
+
+    public function test_get_ui_settings_honors_string_true_flag(): void
+    {
+        Config::set('core.rbac.require_auth', 'true');
+
+        $response = $this->getJson('/settings/ui');
+
+        $response->assertUnauthorized();
+    }
+
     public function test_put_ui_settings_requires_if_match(): void
     {
         $user = User::factory()->create();

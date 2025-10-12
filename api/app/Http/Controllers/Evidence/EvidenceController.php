@@ -573,7 +573,7 @@ final class EvidenceController extends Controller
 
     private function authorizeViewWhenRequired(): void
     {
-        if ((bool) config('core.rbac.require_auth', false)) {
+        if (\App\Support\ConfigBoolean::value('core.rbac.require_auth', false)) {
             Gate::authorize('core.evidence.view');
 
             return;
@@ -587,7 +587,7 @@ final class EvidenceController extends Controller
 
     private function authorizeManageWhenRequired(): void
     {
-        if ((bool) config('core.rbac.require_auth', false)) {
+        if (\App\Support\ConfigBoolean::value('core.rbac.require_auth', false)) {
             Gate::authorize('core.evidence.manage');
 
             return;
