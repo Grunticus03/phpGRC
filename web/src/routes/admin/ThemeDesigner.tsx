@@ -547,8 +547,10 @@ export default function ThemeDesigner(): JSX.Element {
     const collected: Record<string, string> = {};
     UNIQUE_TARGETS.forEach((target) => {
       const stored = values[target.key];
-      if (typeof stored === "string" && stored !== target.defaultValue && stored.trim() !== "") {
-        collected[target.variable] = stored;
+      const resolved =
+        typeof stored === "string" ? stored : (typeof target.defaultValue === "string" ? target.defaultValue : "");
+      if (resolved !== undefined) {
+        collected[target.variable] = resolved;
       }
     });
     return collected;

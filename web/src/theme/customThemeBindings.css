@@ -1,0 +1,321 @@
+:root {
+  --td-navbar-light-primary-background-current: var(
+    --td-navbars-light-primary-background,
+    var(--bs-body-bg)
+  );
+  --td-navbar-light-primary-text-current: var(--td-navbars-light-primary-text, var(--bs-body-color));
+  --td-navbar-dark-primary-background-current: var(
+    --td-navbars-dark-primary-background,
+    var(--bs-body-bg)
+  );
+  --td-navbar-dark-primary-text-current: var(--td-navbars-dark-primary-text, var(--bs-body-color));
+
+  --td-button-primary-background-current: var(
+    --td-buttons-light-primary-background,
+    var(--bs-primary)
+  );
+  --td-button-primary-text-current: var(--td-buttons-light-primary-text, var(--bs-btn-color));
+  --td-button-secondary-background-current: var(
+    --td-buttons-light-secondary-background,
+    var(--bs-secondary)
+  );
+  --td-button-secondary-text-current: var(--td-buttons-light-secondary-text, var(--bs-btn-color));
+  --td-button-success-background-current: var(
+    --td-buttons-light-success-background,
+    var(--bs-success)
+  );
+  --td-button-success-text-current: var(--td-buttons-light-success-text, var(--bs-btn-color));
+  --td-button-info-background-current: var(--td-buttons-light-info-background, var(--bs-info));
+  --td-button-info-text-current: var(--td-buttons-light-info-text, var(--bs-btn-color));
+  --td-button-warning-background-current: var(
+    --td-buttons-light-warning-background,
+    var(--bs-warning)
+  );
+  --td-button-warning-text-current: var(--td-buttons-light-warning-text, var(--bs-body-color));
+  --td-button-danger-background-current: var(
+    --td-buttons-light-danger-background,
+    var(--bs-danger)
+  );
+  --td-button-danger-text-current: var(--td-buttons-light-danger-text, var(--bs-btn-color));
+
+  --td-alert-primary-background-current: var(
+    --td-alerts-light-primary-background,
+    var(--bs-primary-bg-subtle)
+  );
+  --td-alert-primary-text-current: var(--td-alerts-light-primary-text, var(--bs-primary-text-emphasis));
+  --td-alert-secondary-background-current: var(
+    --td-alerts-light-secondary-background,
+    var(--bs-secondary-bg-subtle)
+  );
+  --td-alert-secondary-text-current: var(
+    --td-alerts-light-secondary-text,
+    var(--bs-secondary-text-emphasis)
+  );
+  --td-alert-success-background-current: var(
+    --td-alerts-light-success-background,
+    var(--bs-success-bg-subtle)
+  );
+  --td-alert-success-text-current: var(--td-alerts-light-success-text, var(--bs-success-text-emphasis));
+  --td-alert-info-background-current: var(
+    --td-alerts-light-info-background,
+    var(--bs-info-bg-subtle)
+  );
+  --td-alert-info-text-current: var(--td-alerts-light-info-text, var(--bs-info-text-emphasis));
+  --td-alert-warning-background-current: var(
+    --td-alerts-light-warning-background,
+    var(--bs-warning-bg-subtle)
+  );
+  --td-alert-warning-text-current: var(--td-alerts-light-warning-text, var(--bs-warning-text-emphasis));
+  --td-alert-danger-background-current: var(
+    --td-alerts-light-danger-background,
+    var(--bs-danger-bg-subtle)
+  );
+  --td-alert-danger-text-current: var(--td-alerts-light-danger-text, var(--bs-danger-text-emphasis));
+
+  --td-pill-primary-background-current: var(
+    --td-pills-light-primary-background,
+    var(--bs-primary)
+  );
+  --td-pill-primary-text-current: var(--td-pills-light-primary-text, var(--bs-nav-pills-link-active-color));
+  --td-pill-secondary-background-current: var(
+    --td-pills-light-secondary-background,
+    var(--bs-secondary)
+  );
+  --td-pill-secondary-text-current: var(
+    --td-pills-light-secondary-text,
+    var(--bs-nav-pills-link-active-color)
+  );
+  --td-pill-success-background-current: var(
+    --td-pills-light-success-background,
+    var(--bs-success)
+  );
+  --td-pill-success-text-current: var(
+    --td-pills-light-success-text,
+    var(--bs-nav-pills-link-active-color)
+  );
+  --td-pill-info-background-current: var(--td-pills-light-info-background, var(--bs-info));
+  --td-pill-info-text-current: var(
+    --td-pills-light-info-text,
+    var(--bs-nav-pills-link-active-color)
+  );
+  --td-pill-warning-background-current: var(
+    --td-pills-light-warning-background,
+    var(--bs-warning)
+  );
+  --td-pill-warning-text-current: var(
+    --td-pills-light-warning-text,
+    var(--bs-nav-pills-link-active-color)
+  );
+  --td-pill-danger-background-current: var(
+    --td-pills-light-danger-background,
+    var(--bs-danger)
+  );
+  --td-pill-danger-text-current: var(
+    --td-pills-light-danger-text,
+    var(--bs-nav-pills-link-active-color)
+  );
+}
+
+html[data-mode="dark"] {
+  --td-navbar-light-primary-background-current: var(
+    --td-navbars-dark-primary-background,
+    var(--bs-body-bg)
+  );
+  --td-navbar-light-primary-text-current: var(--td-navbars-dark-primary-text, var(--bs-body-color));
+  --td-navbar-dark-primary-background-current: var(
+    --td-navbars-dark-primary-background,
+    var(--bs-body-bg)
+  );
+  --td-navbar-dark-primary-text-current: var(--td-navbars-dark-primary-text, var(--bs-body-color));
+
+  --td-button-primary-background-current: var(
+    --td-buttons-dark-primary-background,
+    var(--bs-primary)
+  );
+  --td-button-primary-text-current: var(--td-buttons-dark-primary-text, var(--bs-btn-color));
+  --td-button-secondary-background-current: var(
+    --td-buttons-dark-secondary-background,
+    var(--bs-secondary)
+  );
+  --td-button-secondary-text-current: var(--td-buttons-dark-secondary-text, var(--bs-btn-color));
+  --td-button-success-background-current: var(
+    --td-buttons-dark-success-background,
+    var(--bs-success)
+  );
+  --td-button-success-text-current: var(--td-buttons-dark-success-text, var(--bs-btn-color));
+  --td-button-info-background-current: var(--td-buttons-dark-info-background, var(--bs-info));
+  --td-button-info-text-current: var(--td-buttons-dark-info-text, var(--bs-btn-color));
+  --td-button-warning-background-current: var(
+    --td-buttons-dark-warning-background,
+    var(--bs-warning)
+  );
+  --td-button-warning-text-current: var(--td-buttons-dark-warning-text, var(--bs-body-color));
+  --td-button-danger-background-current: var(
+    --td-buttons-dark-danger-background,
+    var(--bs-danger)
+  );
+  --td-button-danger-text-current: var(--td-buttons-dark-danger-text, var(--bs-btn-color));
+
+  --td-alert-primary-background-current: var(
+    --td-alerts-dark-primary-background,
+    var(--bs-primary-bg-subtle)
+  );
+  --td-alert-primary-text-current: var(--td-alerts-dark-primary-text, var(--bs-primary-text-emphasis));
+  --td-alert-secondary-background-current: var(
+    --td-alerts-dark-secondary-background,
+    var(--bs-secondary-bg-subtle)
+  );
+  --td-alert-secondary-text-current: var(
+    --td-alerts-dark-secondary-text,
+    var(--bs-secondary-text-emphasis)
+  );
+  --td-alert-success-background-current: var(
+    --td-alerts-dark-success-background,
+    var(--bs-success-bg-subtle)
+  );
+  --td-alert-success-text-current: var(--td-alerts-dark-success-text, var(--bs-success-text-emphasis));
+  --td-alert-info-background-current: var(
+    --td-alerts-dark-info-background,
+    var(--bs-info-bg-subtle)
+  );
+  --td-alert-info-text-current: var(--td-alerts-dark-info-text, var(--bs-info-text-emphasis));
+  --td-alert-warning-background-current: var(
+    --td-alerts-dark-warning-background,
+    var(--bs-warning-bg-subtle)
+  );
+  --td-alert-warning-text-current: var(--td-alerts-dark-warning-text, var(--bs-warning-text-emphasis));
+  --td-alert-danger-background-current: var(
+    --td-alerts-dark-danger-background,
+    var(--bs-danger-bg-subtle)
+  );
+  --td-alert-danger-text-current: var(--td-alerts-dark-danger-text, var(--bs-danger-text-emphasis));
+
+  --td-pill-primary-background-current: var(
+    --td-pills-dark-primary-background,
+    var(--bs-primary)
+  );
+  --td-pill-primary-text-current: var(--td-pills-dark-primary-text, var(--bs-nav-pills-link-active-color));
+  --td-pill-secondary-background-current: var(
+    --td-pills-dark-secondary-background,
+    var(--bs-secondary)
+  );
+  --td-pill-secondary-text-current: var(
+    --td-pills-dark-secondary-text,
+    var(--bs-nav-pills-link-active-color)
+  );
+  --td-pill-success-background-current: var(
+    --td-pills-dark-success-background,
+    var(--bs-success)
+  );
+  --td-pill-success-text-current: var(--td-pills-dark-success-text, var(--bs-nav-pills-link-active-color));
+  --td-pill-info-background-current: var(--td-pills-dark-info-background, var(--bs-info));
+  --td-pill-info-text-current: var(--td-pills-dark-info-text, var(--bs-nav-pills-link-active-color));
+  --td-pill-warning-background-current: var(
+    --td-pills-dark-warning-background,
+    var(--bs-warning)
+  );
+  --td-pill-warning-text-current: var(
+    --td-pills-dark-warning-text,
+    var(--bs-nav-pills-link-active-color)
+  );
+  --td-pill-danger-background-current: var(
+    --td-pills-dark-danger-background,
+    var(--bs-danger)
+  );
+  --td-pill-danger-text-current: var(
+    --td-pills-dark-danger-text,
+    var(--bs-nav-pills-link-active-color)
+  );
+}
+
+.app-shell header {
+  background-color: var(--td-navbar-light-primary-background-current);
+  color: var(--td-navbar-light-primary-text-current);
+}
+
+.app-shell header .nav-link,
+.app-shell header .navbar-brand {
+  color: var(--td-navbar-light-primary-text-current) !important;
+}
+
+html[data-mode="dark"] .app-shell header {
+  background-color: var(--td-navbar-dark-primary-background-current);
+  color: var(--td-navbar-dark-primary-text-current);
+}
+
+html[data-mode="dark"] .app-shell header .nav-link,
+html[data-mode="dark"] .app-shell header .navbar-brand {
+  color: var(--td-navbar-dark-primary-text-current) !important;
+}
+
+.btn-primary {
+  background-color: var(--td-button-primary-background-current) !important;
+  border-color: var(--td-button-primary-background-current) !important;
+  color: var(--td-button-primary-text-current) !important;
+}
+
+.btn-secondary {
+  background-color: var(--td-button-secondary-background-current) !important;
+  border-color: var(--td-button-secondary-background-current) !important;
+  color: var(--td-button-secondary-text-current) !important;
+}
+
+.btn-success {
+  background-color: var(--td-button-success-background-current) !important;
+  border-color: var(--td-button-success-background-current) !important;
+  color: var(--td-button-success-text-current) !important;
+}
+
+.btn-info {
+  background-color: var(--td-button-info-background-current) !important;
+  border-color: var(--td-button-info-background-current) !important;
+  color: var(--td-button-info-text-current) !important;
+}
+
+.btn-warning {
+  background-color: var(--td-button-warning-background-current) !important;
+  border-color: var(--td-button-warning-background-current) !important;
+  color: var(--td-button-warning-text-current) !important;
+}
+
+.btn-danger {
+  background-color: var(--td-button-danger-background-current) !important;
+  border-color: var(--td-button-danger-background-current) !important;
+  color: var(--td-button-danger-text-current) !important;
+}
+
+.alert-primary {
+  background-color: var(--td-alert-primary-background-current) !important;
+  color: var(--td-alert-primary-text-current) !important;
+}
+
+.alert-secondary {
+  background-color: var(--td-alert-secondary-background-current) !important;
+  color: var(--td-alert-secondary-text-current) !important;
+}
+
+.alert-success {
+  background-color: var(--td-alert-success-background-current) !important;
+  color: var(--td-alert-success-text-current) !important;
+}
+
+.alert-info {
+  background-color: var(--td-alert-info-background-current) !important;
+  color: var(--td-alert-info-text-current) !important;
+}
+
+.alert-warning {
+  background-color: var(--td-alert-warning-background-current) !important;
+  color: var(--td-alert-warning-text-current) !important;
+}
+
+.alert-danger {
+  background-color: var(--td-alert-danger-background-current) !important;
+  color: var(--td-alert-danger-text-current) !important;
+}
+
+.nav-pills .nav-link.active,
+.nav-pills .show > .nav-link {
+  background-color: var(--td-pill-primary-background-current) !important;
+  color: var(--td-pill-primary-text-current) !important;
+}
