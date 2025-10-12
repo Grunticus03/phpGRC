@@ -1,4 +1,4 @@
-export type ModulePlacement = "core" | "sidebar";
+export type ModulePlacement = "navbar" | "sidebar";
 
 export type ModuleMeta = {
   id: string;
@@ -8,14 +8,13 @@ export type ModuleMeta = {
 };
 
 const modules: ModuleMeta[] = [
-  { id: "dashboard", label: "Dashboard", path: "/dashboard", placement: "sidebar" },
-  { id: "risks", label: "Risks", path: "/risks", placement: "core" },
-  { id: "compliance", label: "Compliance", path: "/compliance", placement: "core" },
-  { id: "audits", label: "Audits", path: "/audits", placement: "core" },
-  { id: "policies", label: "Policies", path: "/policies", placement: "core" },
-  { id: "evidence", label: "Evidence", path: "/evidence", placement: "sidebar" },
-  { id: "exports", label: "Exports", path: "/exports", placement: "sidebar" },
-  { id: "admin", label: "Admin", path: "/admin", placement: "sidebar" },
+  { id: "dashboard", label: "Dashboard", path: "/dashboard", placement: "navbar" },
+  { id: "evidence", label: "Evidence", path: "/evidence", placement: "navbar" },
+  { id: "exports", label: "Exports", path: "/exports", placement: "navbar" },
+  { id: "admin", label: "Admin", path: "/admin", placement: "navbar" },
+  { id: "risks", label: "Risks", path: "/risks", placement: "sidebar" },
+  { id: "compliance", label: "Compliance", path: "/compliance", placement: "sidebar" },
+  { id: "policies", label: "Policies", path: "/policies", placement: "sidebar" },
 ];
 
 const labelSort = (a: ModuleMeta, b: ModuleMeta): number =>
@@ -23,8 +22,8 @@ const labelSort = (a: ModuleMeta, b: ModuleMeta): number =>
 
 export const MODULES: readonly ModuleMeta[] = modules;
 
-export const CORE_MODULES: readonly ModuleMeta[] = modules
-  .filter((module) => module.placement === "core")
+export const NAVBAR_MODULES: readonly ModuleMeta[] = modules
+  .filter((module) => module.placement === "navbar")
   .sort(labelSort);
 
 export const SIDEBAR_MODULES: readonly ModuleMeta[] = modules.filter(
@@ -34,4 +33,3 @@ export const SIDEBAR_MODULES: readonly ModuleMeta[] = modules.filter(
 export const MODULE_LOOKUP: ReadonlyMap<string, ModuleMeta> = new Map(
   modules.map((module) => [module.id, module])
 );
-

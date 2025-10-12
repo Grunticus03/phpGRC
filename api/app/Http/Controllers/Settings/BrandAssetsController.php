@@ -10,6 +10,7 @@ use App\Services\Settings\UiSettingsService;
 use Carbon\CarbonInterface;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\DB;
@@ -152,6 +153,50 @@ final class BrandAssetsController extends Controller
             'ok' => true,
             'asset' => $this->transform($asset),
         ], 201);
+    }
+
+    public function download(string $assetId): Response
+    {
+        /** @var BrandAsset|null $asset */
+        $asset = BrandAsset::query()->find($assetId);
+        if ($asset === null) {
+            return response()->noContent(404);
+        }
+
+        /** @var mixed $rawBytes */
+        $rawBytes = $asset->getAttribute('bytes');
+        if (! is_string($rawBytes) || $rawBytes === '') {
+            return response()->noContent(404);
+        }
+
+        /** @var mixed $mimeAttr */
+        $mimeAttr = $asset->getAttribute('mime');
+        $mime = is_string($mimeAttr) && $mimeAttr !== '' ? $mimeAttr : 'application/octet-stream';
+
+        /** @var mixed $sizeAttr */
+        $sizeAttr = $asset->getAttribute('size_bytes');
+        $size = is_numeric($sizeAttr) ? (int) $sizeAttr : strlen($rawBytes);
+
+        /** @var mixed $nameAttr */
+        $nameAttr = $asset->getAttribute('name');
+        $name = is_string($nameAttr) && $nameAttr !== '' ? $nameAttr : 'asset';
+
+        /** @var mixed $shaAttr */
+        $shaAttr = $asset->getAttribute('sha256');
+        $etag = is_string($shaAttr) && $shaAttr !== '' ? sprintf('W/"brand:%s"', $shaAttr) : null;
+
+        $headers = [
+            'Content-Type' => $mime,
+            'Content-Length' => (string) $size,
+            'Cache-Control' => 'public, max-age=3600, immutable',
+            'Content-Disposition' => 'inline; filename="'.addslashes($name).'"',
+        ];
+
+        if ($etag !== null) {
+            $headers['ETag'] = $etag;
+        }
+
+        return response($rawBytes, 200, $headers);
     }
 
     public function destroy(Request $request, string $assetId): JsonResponse

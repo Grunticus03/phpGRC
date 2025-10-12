@@ -9,7 +9,7 @@ export default function AdminIndex(): JSX.Element {
         <li><Link to="/admin/roles">Roles</Link></li>
         <li><Link to="/admin/users">Users</Link></li>
         <li><Link to="/admin/user-roles">User Roles</Link></li>
-        <li><Link to="/admin/audit">Audit</Link></li>
+        <li><Link to="/admin/audit">Audit Logs</Link></li>
         <li><a href="/api/docs">API Documentation</a></li>
       </ul>
     </section>

@@ -89,6 +89,7 @@ Use `GET /me/prefs/ui` to fetch the current preferences and `PUT /me/prefs/ui` w
 - `GET /settings/ui/brand-assets` — Lists branding assets with metadata.
 - `POST /settings/ui/brand-assets` — Uploads a branding asset (`multipart/form-data`, max 5 MB).
 - `DELETE /settings/ui/brand-assets/{asset}` — Deletes an asset and clears references when applicable.
+- `GET /settings/ui/brand-assets/{asset}/download` — Streams the original asset bytes for use in the UI (cacheable, no auth required).
 - `GET /me/prefs/ui` — Returns the authenticated user’s preferences and `ETag`.
 - `PUT /me/prefs/ui` — Updates preferences with optimistic concurrency.
 
@@ -314,6 +315,10 @@ _Conflict (409)_
   ]
 }
 ```
+
+## GET `/settings/ui/brand-assets/{asset}/download`
+- Response: binary stream with the original branding asset bytes (e.g., `image/png`).
+- Headers: `Content-Type`, `Content-Length`, `Cache-Control: public, max-age=3600, immutable`, and weak `ETag` based on the asset SHA-256 hash.
 
 ## POST `/settings/ui/brand-assets`
 - Multipart fields: `kind=primary_logo`, `file=@logo.png`

@@ -36,6 +36,23 @@ type PrefForm = {
   };
 };
 
+const formToPrefs = (form: PrefForm): ThemeUserPrefs => {
+  const overrides = { ...DEFAULT_USER_PREFS.overrides, ...form.overrides };
+
+  const prefs = {
+    theme: form.theme,
+    mode: form.mode,
+    overrides,
+    sidebar: {
+      collapsed: form.sidebar.collapsed,
+      width: form.sidebar.width,
+      order: [...form.sidebar.order],
+    },
+  } as unknown as ThemeUserPrefs;
+
+  return prefs;
+};
+
 const COLOR_OVERRIDES = ["color.primary", "color.surface", "color.text"] as const;
 const SHADOW_PRESETS = ["none", "default", "light", "heavy", "custom"] as const;
 const SPACING_PRESETS = ["narrow", "default", "wide"] as const;
@@ -139,6 +156,10 @@ export default function ThemePreferences(): JSX.Element {
     updateThemePrefs(prefs);
   }, []);
 
+  const previewForm = useCallback((formSnapshot: PrefForm) => {
+    updateThemePrefs(formToPrefs(formSnapshot));
+  }, []);
+
   const loadAll = useCallback(async (options?: { preserveMessage?: boolean }) => {
     setLoading(true);
     if (!options?.preserveMessage) {
@@ -220,19 +241,35 @@ export default function ThemePreferences(): JSX.Element {
   }, [loadAll]);
 
   const onSelectTheme = (value: string) => {
-    setForm((prev) => ({ ...prev, theme: value }));
+    setForm((prev) => {
+      const next = { ...prev, theme: value };
+      previewForm(next);
+      return next;
+    });
   };
 
   const onSelectMode = (value: "light" | "dark" | null) => {
-    setForm((prev) => ({ ...prev, mode: value }));
+    setForm((prev) => {
+      const next = { ...prev, mode: value };
+      previewForm(next);
+      return next;
+    });
   };
 
   const onOverrideChange = (key: string, value: string) => {
-    setForm((prev) => ({ ...prev, overrides: { ...prev.overrides, [key]: value } }));
+    setForm((prev) => {
+      const next = { ...prev, overrides: { ...prev.overrides, [key]: value } };
+      previewForm(next);
+      return next;
+    });
   };
 
   const onOverridePresetChange = (key: string, value: string) => {
-    setForm((prev) => ({ ...prev, overrides: { ...prev.overrides, [key]: value } }));
+    setForm((prev) => {
+      const next = { ...prev, overrides: { ...prev.overrides, [key]: value } };
+      previewForm(next);
+      return next;
+    });
   };
 
   const onSidebarCollapsed = (value: boolean) => {
@@ -246,7 +283,19 @@ export default function ThemePreferences(): JSX.Element {
 
   const resetToSaved = () => {
     if (snapshotRef.current) {
-      setForm(snapshotRef.current);
+      const saved = snapshotRef.current;
+      const next: PrefForm = {
+        theme: saved.theme,
+        mode: saved.mode,
+        overrides: { ...saved.overrides },
+        sidebar: {
+          collapsed: saved.sidebar.collapsed,
+          width: saved.sidebar.width,
+          order: [...saved.sidebar.order],
+        },
+      };
+      setForm(next);
+      previewForm(next);
       setMessage("Reverted to last saved preferences.");
     }
   };
@@ -264,84 +313,112 @@ export default function ThemePreferences(): JSX.Element {
       },
     };
     setForm(next);
+    previewForm(next);
     setMessage("Preferences reset to global defaults.");
   };
 
-  const handleSave = async () => {
-    if (readOnly) {
-      setMessage("Read-only mode: preferences cannot be changed.");
-      return;
-    }
-
-    const baseline = snapshotRef.current;
-    const payload = buildPayload(form, baseline);
-    if (Object.keys(payload).length === 0) {
-      setMessage("No changes to save.");
-      return;
-    }
-
-    const etag = etagRef.current;
-    if (!etag) {
-      await loadAll();
-      setMessage("Preferences version refreshed. Please retry.");
-      return;
-    }
-
-    setSaving(true);
-    setMessage(null);
-
-    try {
-      if (forceGlobal || !allowOverride) {
-        payload.theme = null;
-      }
-      if (!allowOverride) {
-        payload.overrides = {};
+  const persistForm = useCallback(
+    async (formSnapshot: PrefForm, options?: { silent?: boolean }) => {
+      if (readOnly) {
+        if (!options?.silent) {
+          setMessage("Read-only mode: preferences cannot be changed.");
+        }
+        return false;
       }
 
-      const res = await fetch("/api/me/prefs/ui", {
-        method: "PUT",
-        credentials: "same-origin",
-        headers: baseHeaders({
-          "Content-Type": "application/json",
-          "If-Match": etag,
-        }),
-        body: JSON.stringify(payload),
-      });
+      const baseline = snapshotRef.current;
+      const payload = buildPayload(formSnapshot, baseline);
+      if (Object.keys(payload).length === 0) {
+        if (!options?.silent) {
+          setMessage("No changes to save.");
+        }
+        return true;
+      }
 
-      const body = await parseJson<SaveResponse>(res);
+      const etag = etagRef.current;
+      if (!etag) {
+        await loadAll({ preserveMessage: options?.silent });
+        if (!options?.silent) {
+          setMessage("Preferences version refreshed. Please retry.");
+        }
+        return false;
+      }
 
-      if (res.status === 409) {
-        const nextEtag = body?.current_etag ?? res.headers.get("ETag");
+      setSaving(true);
+      if (!options?.silent) {
+        setMessage(null);
+      }
+
+      try {
+        const bodyPayload: Record<string, unknown> = { ...payload };
+        if (forceGlobal || !allowOverride) {
+          bodyPayload.theme = null;
+        }
+        if (!allowOverride) {
+          bodyPayload.overrides = {};
+        }
+
+        const res = await fetch("/api/me/prefs/ui", {
+          method: "PUT",
+          credentials: "same-origin",
+          headers: baseHeaders({
+            "Content-Type": "application/json",
+            "If-Match": etag,
+          }),
+          body: JSON.stringify(bodyPayload),
+        });
+
+        const body = await parseJson<SaveResponse>(res);
+
+        if (res.status === 409) {
+          const nextEtag = body?.current_etag ?? res.headers.get("ETag");
+          if (nextEtag) {
+            etagRef.current = nextEtag;
+          }
+          if (!options?.silent) {
+            setMessage("Preferences changed elsewhere. Reloaded latest values.");
+          }
+          await loadAll({ preserveMessage: options?.silent ?? true });
+          return false;
+        }
+
+        if (!res.ok) {
+          throw new Error(`Save failed (HTTP ${res.status}).`);
+        }
+
+        const nextEtag = res.headers.get("ETag") ?? body?.etag ?? null;
         if (nextEtag) {
           etagRef.current = nextEtag;
         }
-        setMessage("Preferences changed elsewhere. Reloaded latest values.");
-        await loadAll({ preserveMessage: true });
-        return;
-      }
 
-      if (!res.ok) {
-        throw new Error(`Save failed (HTTP ${res.status}).`);
-      }
+        if (body?.prefs) {
+          applyPrefs(body.prefs);
+        } else {
+          snapshotRef.current = formSnapshot;
+          setForm(formSnapshot);
+          previewForm(formSnapshot);
+        }
 
-      const nextEtag = res.headers.get("ETag") ?? body?.etag ?? null;
-      if (nextEtag) {
-        etagRef.current = nextEtag;
-      }
+        if (!options?.silent) {
+          const successMsg = typeof body?.message === "string" ? body.message : "Preferences saved.";
+          setMessage(successMsg);
+        }
 
-      if (body?.prefs) {
-        applyPrefs(body.prefs);
-      } else {
-        await loadAll({ preserveMessage: true });
+        return true;
+      } catch (err) {
+        if (!options?.silent) {
+          setMessage(err instanceof Error ? err.message : "Save failed.");
+        }
+        return false;
+      } finally {
+        setSaving(false);
       }
+    },
+    [readOnly, allowOverride, forceGlobal, loadAll, applyPrefs, previewForm]
+  );
 
-      const successMsg = typeof body?.message === "string" ? body.message : "Preferences saved.";
-      setMessage(successMsg);
-    } catch (err) {
-      setMessage(err instanceof Error ? err.message : "Save failed.");
-    } finally {
-      setSaving(false);
-    }
+  const handleSave = async () => {
+    await persistForm(form);
   };
 
   const disableThemeSelect = !allowOverride || forceGlobal || readOnly || saving || loading;

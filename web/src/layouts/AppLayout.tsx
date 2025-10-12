@@ -21,7 +21,7 @@ import {
   updateThemeSettings,
 } from "../theme/themeManager";
 import {
-  CORE_MODULES,
+  NAVBAR_MODULES,
   MODULE_LOOKUP,
   SIDEBAR_MODULES,
   type ModuleMeta,
@@ -48,6 +48,12 @@ type BrandSnapshot = {
   primaryLogoId: string | null;
 };
 
+type SidebarNotice = {
+  text: string;
+  tone: "info" | "error";
+  ephemeral?: boolean;
+};
+
 type UiSettingsResponse = { config?: { ui?: ThemeSettings } };
 type UserPrefsResponse = {
   prefs?: ThemeUserPrefs;
@@ -58,6 +64,17 @@ type UserPrefsResponse = {
 
 const DEFAULT_LOGO_SRC = "/api/images/phpGRC-light-horizontal-trans.png";
 const LONG_PRESS_DURATION_MS = 600;
+
+const brandAssetUrl = (assetId: string): string =>
+  `/api/settings/ui/brand-assets/${encodeURIComponent(assetId)}/download`;
+
+const ADMIN_NAV_ITEMS = [
+  { id: "admin.settings", label: "Settings", to: "/admin/settings" },
+  { id: "admin.roles", label: "Roles", to: "/admin/roles" },
+  { id: "admin.user-roles", label: "User Roles", to: "/admin/user-roles" },
+  { id: "admin.users", label: "Users", to: "/admin/users" },
+  { id: "admin.audit", label: "Audit Logs", to: "/admin/audit" },
+] as const;
 
 type SidebarPrefs = {
   collapsed: boolean;
@@ -104,10 +121,10 @@ const computeBrandSnapshot = (settings: ThemeSettings | null | undefined): Brand
 
 const resolveLogoSrc = (brand: BrandSnapshot): string => {
   if (brand.headerLogoId) {
-    return `/api/settings/ui/brand-assets/${encodeURIComponent(brand.headerLogoId)}/download`;
+    return `${brandAssetUrl(brand.headerLogoId)}?v=${encodeURIComponent(brand.headerLogoId)}`;
   }
   if (brand.primaryLogoId) {
-    return `/api/settings/ui/brand-assets/${encodeURIComponent(brand.primaryLogoId)}/download`;
+    return `${brandAssetUrl(brand.primaryLogoId)}?v=${encodeURIComponent(brand.primaryLogoId)}`;
   }
   return DEFAULT_LOGO_SRC;
 };
@@ -149,10 +166,13 @@ export default function AppLayout(): JSX.Element | null {
 
   const sidebarEtagRef = useRef<string | null>(null);
 
-  const [sidebarMessage, setSidebarMessage] = useState<string | null>(null);
+  const [sidebarNotice, setSidebarNotice] = useState<SidebarNotice | null>(null);
   const [sidebarSaving, setSidebarSaving] = useState<boolean>(false);
   const [sidebarReadOnly, setSidebarReadOnly] = useState<boolean>(false);
   const [prefsLoading, setPrefsLoading] = useState<boolean>(false);
+  const [sidebarToastFading, setSidebarToastFading] = useState(false);
+  const sidebarFadeTimer = useRef<number | null>(null);
+  const sidebarHideTimer = useRef<number | null>(null);
 
   const [customizing, setCustomizing] = useState<boolean>(false);
   const customizingRef = useRef(false);
@@ -170,6 +190,8 @@ export default function AppLayout(): JSX.Element | null {
 
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
+  const adminMenuRef = useRef<HTMLDivElement | null>(null);
+  const [adminMenuOpen, setAdminMenuOpen] = useState(false);
 
   const updateSidebarState = useCallback((updater: (prev: SidebarPrefs) => SidebarPrefs) => {
     setSidebarPrefs((prev) => {
@@ -238,7 +260,7 @@ export default function AppLayout(): JSX.Element | null {
     }
 
     setPrefsLoading(true);
-    setSidebarMessage(null);
+    setSidebarNotice(null);
 
     try {
       const res = await fetch("/api/me/prefs/ui", {
@@ -250,7 +272,7 @@ export default function AppLayout(): JSX.Element | null {
       if (res.status === 403) {
         setSidebarReadOnly(true);
         sidebarEtagRef.current = res.headers.get("ETag");
-        setSidebarMessage("You do not have permission to customize the sidebar.");
+        setSidebarNotice({ text: "You do not have permission to customize the sidebar.", tone: "error" });
         updateSidebarState(() => normalizeSidebarPrefs(DEFAULT_USER_PREFS.sidebar));
         return;
       }
@@ -272,7 +294,7 @@ export default function AppLayout(): JSX.Element | null {
     } catch {
       setSidebarReadOnly(true);
       sidebarEtagRef.current = null;
-      setSidebarMessage("Failed to load sidebar preferences. Using defaults.");
+      setSidebarNotice({ text: "Failed to load sidebar preferences. Using defaults.", tone: "error" });
       updateSidebarState(() => normalizeSidebarPrefs(DEFAULT_USER_PREFS.sidebar));
     } finally {
       setPrefsLoading(false);
@@ -294,7 +316,7 @@ export default function AppLayout(): JSX.Element | null {
       });
 
       setSidebarSaving(true);
-      setSidebarMessage(null);
+      setSidebarNotice(null);
 
       try {
         const res = await fetch("/api/me/prefs/ui", {
@@ -312,14 +334,17 @@ export default function AppLayout(): JSX.Element | null {
         if (res.status === 409) {
           const nextEtag = body?.current_etag ?? res.headers.get("ETag") ?? null;
           sidebarEtagRef.current = nextEtag;
-          setSidebarMessage("Sidebar preferences changed elsewhere. Reloaded latest values.");
+          setSidebarNotice({
+            text: "Sidebar preferences changed elsewhere. Reloaded latest values.",
+            tone: "info",
+          });
           await loadUserPrefs();
           return false;
         }
 
         if (res.status === 403) {
           setSidebarReadOnly(true);
-          setSidebarMessage("You do not have permission to customize the sidebar.");
+          setSidebarNotice({ text: "You do not have permission to customize the sidebar.", tone: "error" });
           return false;
         }
 
@@ -338,11 +363,11 @@ export default function AppLayout(): JSX.Element | null {
           updateSidebarState(() => merged);
         }
 
-        setSidebarMessage("Sidebar preferences saved.");
+        setSidebarNotice({ text: "Sidebar preferences saved.", tone: "info", ephemeral: true });
         return true;
       } catch (err) {
         const message = err instanceof Error ? err.message : "Failed to save sidebar preferences.";
-        setSidebarMessage(message);
+        setSidebarNotice({ text: message, tone: "error" });
         return false;
       } finally {
         setSidebarSaving(false);
@@ -432,6 +457,81 @@ export default function AppLayout(): JSX.Element | null {
       document.removeEventListener("keydown", handleKeyDown);
     };
   }, [menuOpen]);
+
+  useEffect(() => {
+    if (!adminMenuOpen) return;
+    const close = (event: PointerEvent) => {
+      if (adminMenuRef.current && !adminMenuRef.current.contains(event.target as Node)) {
+        setAdminMenuOpen(false);
+      }
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setAdminMenuOpen(false);
+      }
+    };
+    document.addEventListener("pointerdown", close);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", close);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [adminMenuOpen]);
+
+  useEffect(() => {
+    if (sidebarFadeTimer.current !== null) {
+      window.clearTimeout(sidebarFadeTimer.current);
+      sidebarFadeTimer.current = null;
+    }
+    if (sidebarHideTimer.current !== null) {
+      window.clearTimeout(sidebarHideTimer.current);
+      sidebarHideTimer.current = null;
+    }
+
+    if (sidebarNotice?.ephemeral) {
+      setSidebarToastFading(false);
+      sidebarFadeTimer.current = window.setTimeout(() => {
+        setSidebarToastFading(true);
+      }, 2400);
+
+      sidebarHideTimer.current = window.setTimeout(() => {
+        let removed = false;
+        setSidebarNotice((current) => {
+          if (current === sidebarNotice) {
+            removed = true;
+            return null;
+          }
+          return current;
+        });
+        if (removed) {
+          setSidebarToastFading(false);
+        }
+      }, 3200);
+    } else if (!sidebarNotice) {
+      setSidebarToastFading(false);
+    }
+
+    return () => {
+      if (sidebarFadeTimer.current !== null) {
+        window.clearTimeout(sidebarFadeTimer.current);
+        sidebarFadeTimer.current = null;
+      }
+      if (sidebarHideTimer.current !== null) {
+        window.clearTimeout(sidebarHideTimer.current);
+        sidebarHideTimer.current = null;
+      }
+    };
+  }, [sidebarNotice]);
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const segments = loc.pathname.split("/").filter(Boolean);
+    const key = segments[0] ?? "dashboard";
+    const module = MODULE_LOOKUP.get(key) ?? MODULE_LOOKUP.get("dashboard");
+    const moduleLabel = module?.label ?? "Dashboard";
+    const brandTitle = brand.title || DEFAULT_THEME_SETTINGS.brand.title_text;
+    document.title = `${brandTitle} — ${moduleLabel}`;
+  }, [brand.title, loc.pathname]);
 
   const toggleSidebar = useCallback(() => {
     const nextCollapsed = !sidebarPrefsRef.current.collapsed;
@@ -615,7 +715,7 @@ export default function AppLayout(): JSX.Element | null {
     .map((id) => MODULE_LOOKUP.get(id))
     .filter((module): module is ModuleMeta => Boolean(module));
 
-  const coreNavItems = CORE_MODULES;
+  const coreNavItems = NAVBAR_MODULES;
   const sidebarWidth = Math.max(sidebarPrefs.width, MIN_SIDEBAR_WIDTH);
   const logoSrc = resolveLogoSrc(brand);
 
@@ -627,13 +727,26 @@ export default function AppLayout(): JSX.Element | null {
         <div className="container-fluid d-flex align-items-center gap-3 py-2">
           <button
             type="button"
-            className="btn btn-outline-secondary btn-sm"
+            className="p-0 border-0 bg-transparent"
             aria-label={sidebarPrefs.collapsed ? "Show sidebar" : "Hide sidebar"}
-            aria-pressed={!sidebarPrefs.collapsed}
+            aria-expanded={!sidebarPrefs.collapsed}
             onClick={toggleSidebar}
             disabled={prefsLoading}
+            style={{
+              width: "2.5rem",
+              height: "2.5rem",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              opacity: prefsLoading ? 0.4 : 1,
+            }}
           >
-            {sidebarPrefs.collapsed ? "Show menu" : "Hide menu"}
+            <span aria-hidden="true" style={{ fontSize: "1.5rem", lineHeight: 1 }}>
+              ☰
+            </span>
+            <span className="visually-hidden">
+              {sidebarPrefs.collapsed ? "Show navigation menu" : "Hide navigation menu"}
+            </span>
           </button>
           <NavLink to="/" className="navbar-brand d-flex align-items-center gap-2 text-decoration-none">
             <span
@@ -645,22 +758,91 @@ export default function AppLayout(): JSX.Element | null {
                 alt={brand.title}
                 height={40}
                 style={{ width: "auto", maxHeight: "40px" }}
+                data-fallback-applied="false"
+                onError={(event) => {
+                  if (event.currentTarget.dataset.fallbackApplied === "true") return;
+                  event.currentTarget.dataset.fallbackApplied = "true";
+                  event.currentTarget.src = DEFAULT_LOGO_SRC;
+                }}
               />
             </span>
             <span className="fw-semibold d-none d-sm-inline">{brand.title}</span>
           </NavLink>
-          <nav className="nav nav-pills gap-1 ms-3 flex-wrap" aria-label="Primary navigation">
-            {coreNavItems.map((module) => (
-              <NavLink
-                key={module.id}
-                to={module.path}
-                className={({ isActive }) =>
-                  `nav-link py-1 px-2${isActive ? " active fw-semibold" : ""}`
-                }
-              >
-                {module.label}
-              </NavLink>
-            ))}
+          <nav className="nav nav-pills gap-1 ms-3 flex-wrap align-items-center" aria-label="Primary navigation">
+            {coreNavItems.map((module) => {
+              if (module.id === "admin") {
+                const adminActive = loc.pathname.startsWith("/admin");
+                return (
+                  <div
+                    key={module.id}
+                    className="position-relative d-inline-flex"
+                    ref={adminMenuRef}
+                    onMouseEnter={() => setAdminMenuOpen(true)}
+                    onMouseLeave={() => setAdminMenuOpen(false)}
+                    onFocusCapture={() => setAdminMenuOpen(true)}
+                    onBlur={(event) => {
+                      if (
+                        adminMenuRef.current &&
+                        !adminMenuRef.current.contains(event.relatedTarget as Node)
+                      ) {
+                        setAdminMenuOpen(false);
+                      }
+                    }}
+                  >
+                    <NavLink
+                      to={module.path}
+                      className={`nav-link py-1 px-2${adminActive ? " active fw-semibold" : ""}`}
+                    >
+                      {module.label}
+                    </NavLink>
+                    <div
+                      role="menu"
+                      aria-hidden={adminMenuOpen ? "false" : "true"}
+                      className="shadow-sm border bg-body rounded-2"
+                      style={{
+                        position: "absolute",
+                        top: "calc(100% + 0.35rem)",
+                        left: 0,
+                        minWidth: "13rem",
+                        padding: "0.5rem 0",
+                        transform: adminMenuOpen ? "translateY(0)" : "translateY(-6px)",
+                        opacity: adminMenuOpen ? 1 : 0,
+                        visibility: adminMenuOpen ? "visible" : "hidden",
+                        transition: "opacity 180ms ease, transform 180ms ease, visibility 0s linear 90ms",
+                        zIndex: 1050,
+                        pointerEvents: adminMenuOpen ? "auto" : "none",
+                      }}
+                    >
+                      {ADMIN_NAV_ITEMS.map((item) => (
+                        <NavLink
+                          key={item.id}
+                          to={item.to}
+                          className={({ isActive }) =>
+                            `dropdown-item${isActive ? " active fw-semibold" : ""}`
+                          }
+                          role="menuitem"
+                          onClick={() => setAdminMenuOpen(false)}
+                        >
+                          {item.label}
+                        </NavLink>
+                      ))}
+                    </div>
+                  </div>
+                );
+              }
+
+              return (
+                <NavLink
+                  key={module.id}
+                  to={module.path}
+                  className={({ isActive }) =>
+                    `nav-link py-1 px-2${isActive ? " active fw-semibold" : ""}`
+                  }
+                >
+                  {module.label}
+                </NavLink>
+              );
+            })}
           </nav>
           <div className="ms-auto d-flex align-items-center gap-2">
             {requireAuth && !authed ? (
@@ -700,31 +882,35 @@ export default function AppLayout(): JSX.Element | null {
             <aside
               className="border-end bg-body"
               aria-label="Secondary navigation"
-              style={{ width: `${sidebarWidth}px`, minWidth: `${MIN_SIDEBAR_WIDTH}px` }}
+              style={{
+                width: `${sidebarWidth}px`,
+                minWidth: `${MIN_SIDEBAR_WIDTH}px`,
+                position: "relative",
+              }}
+              tabIndex={sidebarReadOnly ? -1 : 0}
+              onPointerDown={onCustomizePressStart}
+              onPointerUp={onCustomizePressEnd}
+              onPointerLeave={onCustomizePressEnd}
+              onPointerCancel={onCustomizePressEnd}
+              onKeyDown={(event) => {
+                if (!sidebarReadOnly && !customizing && (event.key === "Enter" || event.key === " ")) {
+                  event.preventDefault();
+                  startCustomize();
+                }
+                if (customizing && event.key === "Escape") {
+                  event.preventDefault();
+                  exitCustomize(true);
+                }
+              }}
             >
               <div className="d-flex flex-column h-100">
                 <div className="px-3 py-3 border-bottom">
-                  <div className="d-flex align-items-center justify-content-between gap-2">
-                    <h2 className="h6 mb-0">Modules</h2>
-                    <button
-                      type="button"
-                      className="btn btn-outline-secondary btn-sm"
-                      onPointerDown={onCustomizePressStart}
-                      onPointerUp={onCustomizePressEnd}
-                      onPointerLeave={onCustomizePressEnd}
-                      onPointerCancel={onCustomizePressEnd}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter" || event.key === " ") {
-                          event.preventDefault();
-                          startCustomize();
-                        }
-                      }}
-                      disabled={sidebarReadOnly || prefsLoading}
-                    >
-                      Customize
-                    </button>
-                  </div>
-                  <small className="text-muted d-block mt-1">Hold to customize sidebar</small>
+                  <h2 className="h6 mb-1">Modules</h2>
+                  <small className="text-muted d-block">
+                    {sidebarReadOnly
+                      ? "Sidebar customization is disabled for your account."
+                      : "Press and hold anywhere on the sidebar to customize module order."}
+                  </small>
                 </div>
 
                 {customizing && (
@@ -761,9 +947,21 @@ export default function AppLayout(): JSX.Element | null {
                   </div>
                 )}
 
-                {sidebarMessage && (
-                  <div className="px-3 py-2">
-                    <div className="alert alert-info mb-2 text-wrap">{sidebarMessage}</div>
+                {sidebarNotice && (
+                  <div
+                    className={`shadow alert ${sidebarNotice.tone === "error" ? "alert-danger" : "alert-info"}`}
+                    role="status"
+                    style={{
+                      position: "absolute",
+                      top: "0.75rem",
+                      right: "0.75rem",
+                      minWidth: "14rem",
+                      pointerEvents: "none",
+                      transition: "opacity 200ms ease-in-out",
+                      opacity: sidebarToastFading ? 0 : 0.95,
+                    }}
+                  >
+                    {sidebarNotice.text}
                   </div>
                 )}
 

@@ -142,6 +142,32 @@ final class BrandAssetsApiTest extends TestCase
         ]);
     }
 
+    public function test_download_brand_asset_returns_bytes(): void
+    {
+        $asset = BrandAsset::query()->create([
+            'kind' => 'primary_logo',
+            'name' => 'logo.png',
+            'mime' => 'image/png',
+            'size_bytes' => 12,
+            'sha256' => hash('sha256', 'sample-bytes'),
+            'bytes' => 'sample-bytes',
+        ]);
+
+        $response = $this->get('/settings/ui/brand-assets/'.$asset->getAttribute('id').'/download');
+
+        $response->assertOk();
+        $response->assertHeader('Content-Type', 'image/png');
+
+        $cacheControl = $response->headers->get('Cache-Control');
+        self::assertIsString($cacheControl);
+        $directives = array_map('trim', explode(',', $cacheControl));
+        self::assertContains('public', $directives);
+        self::assertContains('max-age=3600', $directives);
+        self::assertContains('immutable', $directives);
+
+        self::assertSame('sample-bytes', $response->getContent());
+    }
+
     private function makeOversizedUploadedFile(): UploadedFile
     {
         $seed = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8Xw8AAtMB9o9Re+8AAAAASUVORK5CYII=');

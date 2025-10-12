@@ -202,6 +202,8 @@ Route::prefix('/settings/ui')
             ->defaults('policy', 'core.settings.manage');
     });
 
+Route::get('/settings/ui/brand-assets/{asset}/download', [BrandAssetsController::class, 'download']);
+
 Route::prefix('/me')
     ->middleware(['auth.cookie', 'auth:sanctum'])
     ->group(function (): void {

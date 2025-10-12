@@ -41,7 +41,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   EXPORTS: "Exports",
   EVIDENCE: "Evidence",
   AVATARS: "Avatars",
-  AUDIT: "Audit Trail",
+  AUDIT: "Audit Logs",
   SETUP: "Setup",
   METRICS: "Metrics",
   OTHER: "Other",
@@ -874,7 +874,7 @@ export default function Audit(): JSX.Element {
 
   return (
     <main className="container py-3" aria-busy={state === "loading"}>
-      <h1>Audit</h1>
+      <h1>Audit Logs</h1>
 
       {state === "loading" && <p>Loading.</p>}
       {state === "error" && <p role="alert">Error: {error}</p>}

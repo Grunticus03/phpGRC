@@ -67,6 +67,108 @@ const notifySettingsListeners = (): void => {
   });
 };
 
+const SHADOW_PRESETS: Record<string, string> = {
+  none: "none",
+  light: "0 .125rem .25rem rgba(0,0,0,.125)",
+  default: "0 .5rem 1rem rgba(0,0,0,.15)",
+  heavy: "0 1.25rem 3rem rgba(0,0,0,.35)",
+};
+
+const SPACING_SCALES: Record<string, string> = {
+  narrow: "0.75rem",
+  default: "1rem",
+  wide: "1.5rem",
+};
+
+const TYPE_SCALES: Record<string, string> = {
+  small: "0.95rem",
+  medium: "1rem",
+  large: "1.08rem",
+};
+
+const MOTION_PRESETS: Record<string, { duration: string; behavior: "auto" | "smooth" }> = {
+  none: { duration: "0s", behavior: "auto" },
+  limited: { duration: "0.12s", behavior: "smooth" },
+  full: { duration: "0.2s", behavior: "smooth" },
+};
+
+const effectiveOverrides = (): ThemeSettings["theme"]["overrides"] => {
+  const base: Record<string, string | null> = {
+    ...DEFAULT_THEME_SETTINGS.theme.overrides,
+  };
+
+  const themeOverrides = settingsCache.theme.overrides ?? {};
+  Object.entries(themeOverrides).forEach(([key, value]) => {
+    if (typeof value === "string" && value.trim() !== "") {
+      base[key] = value;
+    }
+  });
+
+  if (settingsCache.theme.allow_user_override && !settingsCache.theme.force_global) {
+    const userOverrides = prefsCache.overrides ?? {};
+    Object.entries(userOverrides).forEach(([key, value]) => {
+      if (typeof value === "string" && value.trim() !== "") {
+        base[key] = value;
+      }
+    });
+  }
+
+  return base as ThemeSettings["theme"]["overrides"];
+};
+
+const applyDesignTokens = (): void => {
+  if (typeof document === "undefined") return;
+  const doc = document.documentElement;
+  const body = document.body ?? document.documentElement;
+  if (!doc) return;
+
+  const overrides = effectiveOverrides();
+
+  const primary = overrides["color.primary"] ?? DEFAULT_THEME_SETTINGS.theme.overrides["color.primary"];
+  if (primary) {
+    doc.style.setProperty("--ui-color-primary", primary);
+    doc.style.setProperty("--bs-primary", primary);
+    doc.style.setProperty("--bs-link-color", primary);
+    doc.style.setProperty("--bs-link-hover-color", primary);
+  }
+
+  const surface = overrides["color.surface"] ?? DEFAULT_THEME_SETTINGS.theme.overrides["color.surface"];
+  if (surface) {
+    doc.style.setProperty("--ui-color-surface", surface);
+    doc.style.setProperty("--bs-body-bg", surface);
+    body.style.backgroundColor = surface;
+  }
+
+  const text = overrides["color.text"] ?? DEFAULT_THEME_SETTINGS.theme.overrides["color.text"];
+  if (text) {
+    doc.style.setProperty("--ui-color-text", text);
+    doc.style.setProperty("--bs-body-color", text);
+    body.style.color = text;
+  }
+
+  const shadowKey = overrides.shadow ?? DEFAULT_THEME_SETTINGS.theme.overrides.shadow;
+  const shadowValue = typeof shadowKey === "string" ? SHADOW_PRESETS[shadowKey] ?? shadowKey : SHADOW_PRESETS.default;
+  doc.style.setProperty("--ui-shadow-surface", shadowValue);
+  doc.style.setProperty("--bs-box-shadow", shadowValue);
+
+  const spacingKey = overrides.spacing ?? DEFAULT_THEME_SETTINGS.theme.overrides.spacing;
+  const spacingValue = typeof spacingKey === "string" ? SPACING_SCALES[spacingKey] ?? SPACING_SCALES.default : SPACING_SCALES.default;
+  doc.style.setProperty("--ui-space-base", spacingValue);
+  doc.style.setProperty("--bs-spacer", spacingValue);
+
+  const typeKey = overrides.typeScale ?? DEFAULT_THEME_SETTINGS.theme.overrides.typeScale;
+  const typeValue = typeof typeKey === "string" ? TYPE_SCALES[typeKey] ?? TYPE_SCALES.medium : TYPE_SCALES.medium;
+  doc.style.setProperty("--ui-type-scale", typeKey ?? "medium");
+  doc.style.setProperty("--bs-body-font-size", typeValue);
+
+  const motionKey = overrides.motion ?? DEFAULT_THEME_SETTINGS.theme.overrides.motion;
+  const motion = typeof motionKey === "string" ? MOTION_PRESETS[motionKey] ?? MOTION_PRESETS.full : MOTION_PRESETS.full;
+  doc.style.setProperty("--ui-motion-pref", motionKey ?? "full");
+  doc.style.setProperty("--bs-transition-duration", motion.duration);
+  doc.style.setProperty("--bs-transition", `all ${motion.duration} ease-in-out`);
+  doc.style.setProperty("scroll-behavior", motion.behavior);
+};
+
 const prefersDark = (): boolean => {
   if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
     return false;
@@ -209,14 +311,14 @@ const applySelection = (selection: ThemeSelection): void => {
 const refreshTheme = (): void => {
   const selection = resolveThemeSelection();
   if (
-    currentSelection &&
-    currentSelection.slug === selection.slug &&
-    currentSelection.mode === selection.mode &&
-    currentSelection.source === selection.source
+    !currentSelection ||
+    currentSelection.slug !== selection.slug ||
+    currentSelection.mode !== selection.mode ||
+    currentSelection.source !== selection.source
   ) {
-    return;
+    applySelection(selection);
   }
-  applySelection(selection);
+  applyDesignTokens();
 };
 
 const fetchJson = async <T>(url: string): Promise<T | null> => {
@@ -305,6 +407,7 @@ export const getCurrentTheme = (): ThemeSelection => {
   const initialMode = supportsModes(entry)[0] ?? bootFallbackMode(initialSlug);
   currentSelection = { slug: initialSlug, mode: initialMode, source: entry?.source ?? "bootswatch" };
   applySelection(currentSelection);
+  applyDesignTokens();
   return currentSelection;
 };
 

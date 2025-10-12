@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { baseHeaders } from "../../../lib/api";
+import { updateThemeSettings } from "../../../theme/themeManager";
 import { DEFAULT_THEME_SETTINGS, type ThemeSettings } from "../themeData";
 
 type Mutable<T> = T extends object ? { -readonly [K in keyof T]: Mutable<T[K]> } : T;
@@ -8,7 +9,7 @@ type BrandingConfig = Mutable<ThemeSettings["brand"]>;
 
 type BrandingResponse = {
   ok?: boolean;
-  config?: { ui?: { brand?: BrandingConfig } };
+  config?: { ui?: ThemeSettings };
   etag?: string;
 };
 
@@ -47,6 +48,26 @@ const assetLabel: Record<BrandAsset["kind"], string> = {
   favicon: "Favicon",
 };
 
+const assetDownloadUrl = (assetId: string): string =>
+  `/api/settings/ui/brand-assets/${encodeURIComponent(assetId)}/download`;
+
+const normalizeSettings = (incoming?: ThemeSettings | null): ThemeSettings => ({
+  ...DEFAULT_THEME_SETTINGS,
+  ...(incoming ?? {}),
+  theme: {
+    ...DEFAULT_THEME_SETTINGS.theme,
+    ...((incoming?.theme ?? DEFAULT_THEME_SETTINGS.theme) as ThemeSettings["theme"]),
+  },
+  nav: {
+    ...DEFAULT_THEME_SETTINGS.nav,
+    ...((incoming?.nav ?? DEFAULT_THEME_SETTINGS.nav) as ThemeSettings["nav"]),
+  },
+  brand: {
+    ...DEFAULT_THEME_SETTINGS.brand,
+    ...((incoming?.brand ?? DEFAULT_THEME_SETTINGS.brand) as ThemeSettings["brand"]),
+  },
+});
+
 const createDefaultBrandConfig = (): BrandingConfig => ({
   ...DEFAULT_THEME_SETTINGS.brand,
 });
@@ -70,6 +91,7 @@ export default function BrandingCard(): JSX.Element {
 
   const etagRef = useRef<string | null>(null);
   const baselineRef = useRef<BrandingConfig | null>(null);
+  const settingsRef = useRef<ThemeSettings>(DEFAULT_THEME_SETTINGS);
 
   const loadBranding = useCallback(
     async (options?: { preserveMessage?: boolean }) => {
@@ -105,28 +127,53 @@ export default function BrandingCard(): JSX.Element {
         if (settingsRes.ok) {
           etagRef.current = settingsRes.headers.get("ETag");
           const body = await parseJson<BrandingResponse>(settingsRes);
-          const config: BrandingConfig = body?.config?.ui?.brand
-            ? { ...(body.config.ui.brand as BrandingConfig) }
-            : createDefaultBrandConfig();
-          setBrandConfig(config);
-          baselineRef.current = { ...config };
+          const uiSettings = body?.config?.ui ?? null;
+          if (uiSettings) {
+            const normalized = normalizeSettings(uiSettings);
+            settingsRef.current = normalized;
+            updateThemeSettings(normalized);
+            const config: BrandingConfig = { ...normalized.brand };
+            setBrandConfig(config);
+            baselineRef.current = { ...config };
+          } else {
+            const defaults = createDefaultBrandConfig();
+            const normalized = normalizeSettings(null);
+            settingsRef.current = normalized;
+            updateThemeSettings(normalized);
+            setBrandConfig(defaults);
+            baselineRef.current = defaults;
+          }
         } else {
           setMessage("Failed to load branding settings. Using defaults.");
-          setBrandConfig(createDefaultBrandConfig());
-          baselineRef.current = createDefaultBrandConfig();
+          const defaults = createDefaultBrandConfig();
+          const normalized = normalizeSettings(null);
+          settingsRef.current = normalized;
+          updateThemeSettings(normalized);
+          setBrandConfig(defaults);
+          baselineRef.current = defaults;
         }
 
         if (assetsRes.ok) {
           const assetsBody = await parseJson<AssetListResponse>(assetsRes);
-          setAssets(assetsBody?.assets ?? []);
+          const mapped = Array.isArray(assetsBody?.assets)
+            ? assetsBody.assets.map((asset) => ({
+                ...asset,
+                url: assetDownloadUrl(asset.id),
+              }))
+            : [];
+          setAssets(mapped);
         } else {
           setAssets([]);
         }
       } catch {
         setMessage("Failed to load branding settings. Using defaults.");
         etagRef.current = null;
-        setBrandConfig(createDefaultBrandConfig());
-        baselineRef.current = createDefaultBrandConfig();
+        const defaults = createDefaultBrandConfig();
+        const normalized = normalizeSettings(null);
+        settingsRef.current = normalized;
+        updateThemeSettings(normalized);
+        setBrandConfig(defaults);
+        baselineRef.current = defaults;
         setAssets([]);
       } finally {
         setLoading(false);
@@ -139,8 +186,21 @@ export default function BrandingCard(): JSX.Element {
     void loadBranding();
   }, [loadBranding]);
 
+  const previewBrand = (config: BrandingConfig) => {
+    const base = settingsRef.current;
+    const draft: ThemeSettings = {
+      ...base,
+      brand: { ...config },
+    };
+    updateThemeSettings(draft);
+  };
+
   const updateField = (key: keyof BrandingConfig, value: unknown) => {
-    setBrandConfig((prev) => ({ ...prev, [key]: value }));
+    setBrandConfig((prev) => {
+      const next = { ...prev, [key]: value } as BrandingConfig;
+      previewBrand(next);
+      return next;
+    });
   };
 
   const hasChanges = (): boolean => {
@@ -211,8 +271,11 @@ export default function BrandingCard(): JSX.Element {
       const nextEtag = res.headers.get("ETag") ?? body?.etag ?? null;
       if (nextEtag) etagRef.current = nextEtag;
 
-      if (body?.config?.ui?.brand) {
-        const updated: BrandingConfig = { ...(body.config.ui.brand as BrandingConfig) };
+      if (body?.config?.ui) {
+        const normalized = normalizeSettings(body.config.ui);
+        settingsRef.current = normalized;
+        updateThemeSettings(normalized);
+        const updated: BrandingConfig = { ...normalized.brand };
         setBrandConfig(updated);
         baselineRef.current = { ...updated };
       } else {
@@ -220,6 +283,7 @@ export default function BrandingCard(): JSX.Element {
       }
 
       setMessage("Branding saved.");
+      await loadBranding({ preserveMessage: true });
     } catch (err) {
       setMessage(err instanceof Error ? err.message : "Save failed.");
     } finally {
@@ -256,7 +320,10 @@ export default function BrandingCard(): JSX.Element {
         return;
       }
 
-      const mutableAsset = body.asset as BrandAsset;
+      const mutableAsset: BrandAsset = {
+        ...body.asset,
+        url: assetDownloadUrl(body.asset.id),
+      };
       setAssets((prev) => [mutableAsset, ...prev.filter((asset) => asset.id !== mutableAsset.id)]);
 
       switch (kind) {
@@ -312,6 +379,7 @@ export default function BrandingCard(): JSX.Element {
       });
       if (cleared) {
         setBrandConfig(nextConfig);
+        previewBrand(nextConfig);
         setMessage("Asset deleted and references cleared. Save to apply.");
       }
     } catch (err) {
@@ -336,21 +404,26 @@ export default function BrandingCard(): JSX.Element {
             className="btn btn-outline-secondary btn-sm"
             onClick={() => void loadBranding()}
             disabled={loading || saving}
+            title="Fetch the latest branding settings from the server"
           >
-            Reload
+            Fetch latest
           </button>
           <button
             type="button"
             className="btn btn-outline-secondary btn-sm"
             onClick={() => {
-              if (baselineRef.current) {
-                setBrandConfig({ ...baselineRef.current });
+              const saved = baselineRef.current;
+              if (saved) {
+                const next = { ...saved };
+                setBrandConfig(next);
+                previewBrand(next);
                 setMessage("Reverted to last saved branding.");
               }
             }}
             disabled={disabled}
+            title="Undo unsaved changes"
           >
-            Reset
+            Undo changes
           </button>
           <button
             type="button"
