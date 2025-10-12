@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Str;
 
 /**
@@ -54,8 +55,14 @@ final class BrandAsset extends Model
         'updated_at' => 'datetime',
     ];
 
-    public function profile(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    /**
+     * @return BelongsTo
+     * @phpstan-return BelongsTo<BrandProfile, self>
+     * @psalm-return BelongsTo<BrandProfile>
+     */
+    public function profile(): BelongsTo
     {
+        /** @phpstan-ignore-next-line */
         return $this->belongsTo(BrandProfile::class, 'profile_id');
     }
 

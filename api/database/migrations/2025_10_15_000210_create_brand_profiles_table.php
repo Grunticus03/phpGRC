@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration
 {
     private const DEFAULT_PROFILE_ID = 'bp_default';
+
     private const MIGRATED_PROFILE_ID = 'bp_migrated';
 
     public function up(): void

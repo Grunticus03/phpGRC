@@ -8,6 +8,7 @@ use App\Models\BrandProfile;
 use App\Models\UiSetting;
 use App\Services\Settings\Exceptions\BrandProfileLockedException;
 use App\Services\Settings\Exceptions\BrandProfileNotFoundException;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
@@ -142,11 +143,15 @@ final class UiSettingsService
         return BrandProfile::query()->find($profileId);
     }
 
+    /**
+     * @param  array<string,mixed>  $input
+     */
     public function createBrandProfile(string $name, array $input = [], ?BrandProfile $source = null): BrandProfile
     {
         $this->ensureDefaultProfile();
 
         $base = $source instanceof BrandProfile ? $this->brandProfileAsConfig($source) : $this->brandProfileAsConfig($this->ensureDefaultProfile());
+        /** @var array<string,mixed> $merged */
         $merged = array_merge($base, $input);
         $sanitized = $this->sanitizeBrandProfileData($merged);
 
@@ -174,6 +179,9 @@ final class UiSettingsService
         return $profile;
     }
 
+    /**
+     * @param  array<string,mixed>  $input
+     */
     public function updateBrandProfile(BrandProfile $profile, array $input): BrandProfile
     {
         if ($profile->getAttribute('is_locked') || $profile->getAttribute('is_default')) {
@@ -181,9 +189,14 @@ final class UiSettingsService
         }
 
         $baseline = $this->brandProfileAsConfig($profile);
+        /** @var array<string,mixed> $merged */
         $merged = array_merge($baseline, $input);
         $sanitized = $this->sanitizeBrandProfileData($merged);
-        $newName = array_key_exists('name', $input) ? $this->sanitizeProfileName((string) $input['name']) : null;
+
+        $newName = null;
+        if (array_key_exists('name', $input) && is_string($input['name'])) {
+            $newName = $this->sanitizeProfileName($input['name']);
+        }
 
         DB::transaction(function () use ($profile, $sanitized, $newName): void {
             $profile->fill([
@@ -279,13 +292,13 @@ final class UiSettingsService
     public function brandProfileAsConfig(BrandProfile $profile): array
     {
         return [
-            'title_text' => $profile->getAttribute('title_text'),
-            'favicon_asset_id' => $profile->getAttribute('favicon_asset_id'),
-            'primary_logo_asset_id' => $profile->getAttribute('primary_logo_asset_id'),
-            'secondary_logo_asset_id' => $profile->getAttribute('secondary_logo_asset_id'),
-            'header_logo_asset_id' => $profile->getAttribute('header_logo_asset_id'),
-            'footer_logo_asset_id' => $profile->getAttribute('footer_logo_asset_id'),
-            'footer_logo_disabled' => (bool) $profile->getAttribute('footer_logo_disabled'),
+            'title_text' => $this->sanitizeTitle($profile->getAttribute('title_text')),
+            'favicon_asset_id' => $this->sanitizeAssetId($profile->getAttribute('favicon_asset_id')),
+            'primary_logo_asset_id' => $this->sanitizeAssetId($profile->getAttribute('primary_logo_asset_id')),
+            'secondary_logo_asset_id' => $this->sanitizeAssetId($profile->getAttribute('secondary_logo_asset_id')),
+            'header_logo_asset_id' => $this->sanitizeAssetId($profile->getAttribute('header_logo_asset_id')),
+            'footer_logo_asset_id' => $this->sanitizeAssetId($profile->getAttribute('footer_logo_asset_id')),
+            'footer_logo_disabled' => $this->toBool($profile->getAttribute('footer_logo_disabled')),
         ];
     }
 
@@ -336,8 +349,24 @@ final class UiSettingsService
     }
 
     /**
-     * @param  array<string,mixed>  $before
-     * @param  array<string,mixed>  $after
+     * @param array{
+     *     title_text:string,
+     *     favicon_asset_id:string|null,
+     *     primary_logo_asset_id:string|null,
+     *     secondary_logo_asset_id:string|null,
+     *     header_logo_asset_id:string|null,
+     *     footer_logo_asset_id:string|null,
+     *     footer_logo_disabled:bool
+     * } $before
+     * @param array{
+     *     title_text:string,
+     *     favicon_asset_id:string|null,
+     *     primary_logo_asset_id:string|null,
+     *     secondary_logo_asset_id:string|null,
+     *     header_logo_asset_id:string|null,
+     *     footer_logo_asset_id:string|null,
+     *     footer_logo_disabled:bool
+     * } $after
      * @return list<array{key:string, old:mixed, new:mixed, action:string}>
      */
     private function diffBrandChanges(array $before, array $after, string $prefix): array
@@ -453,10 +482,14 @@ final class UiSettingsService
                     'ui.brand'
                 );
             } else {
+                $profileIdAttr = $updatedProfile->getAttribute('id');
+                if (! is_string($profileIdAttr)) {
+                    throw new \UnexpectedValueException('Brand profile id must be a string.');
+                }
                 $brandChanges = $this->diffBrandChanges(
                     $beforeProfileConfig,
                     $this->brandProfileAsConfig($updatedProfile),
-                    sprintf('ui.brand_profiles.%s', $updatedProfile->getAttribute('id'))
+                    sprintf('ui.brand_profiles.%s', $profileIdAttr)
                 );
             }
         }
@@ -577,7 +610,7 @@ final class UiSettingsService
     public function clearBrandAssetReference(string $assetId): void
     {
         BrandProfile::query()
-            ->where(function ($query) use ($assetId): void {
+            ->where(function (Builder $query) use ($assetId): void {
                 $query->where('favicon_asset_id', $assetId)
                     ->orWhere('primary_logo_asset_id', $assetId)
                     ->orWhere('secondary_logo_asset_id', $assetId)

@@ -94,20 +94,20 @@ Snapshot generated from migrations against **phpgrc** as of 2025-10-11 (UTC).
 
 | Column | Type | Null | Default | Extra |
 |-------:|------|------|---------|-------|
-| id | varchar(255) | ✗ | NULL | — |
-| name | varchar(120) | ✗ | NULL | — |
+| id | varchar(255) | ✓ | NULL | — |
+| name | varchar(120) | ✓ | NULL | — |
 | is_default | tinyint(1) | ✓ | 0 | — |
 | is_active | tinyint(1) | ✓ | 0 | — |
 | is_locked | tinyint(1) | ✓ | 0 | — |
-| title_text | varchar(120) | ✗ | NULL | — |
-| favicon_asset_id | varchar(64) | ✓ | NULL | — |
-| primary_logo_asset_id | varchar(64) | ✓ | NULL | — |
-| secondary_logo_asset_id | varchar(64) | ✓ | NULL | — |
-| header_logo_asset_id | varchar(64) | ✓ | NULL | — |
-| footer_logo_asset_id | varchar(64) | ✓ | NULL | — |
+| title_text | varchar(120) | ✓ | NULL | — |
+| favicon_asset_id | varchar(64) | ✗ | NULL | — |
+| primary_logo_asset_id | varchar(64) | ✗ | NULL | — |
+| secondary_logo_asset_id | varchar(64) | ✗ | NULL | — |
+| header_logo_asset_id | varchar(64) | ✗ | NULL | — |
+| footer_logo_asset_id | varchar(64) | ✗ | NULL | — |
 | footer_logo_disabled | tinyint(1) | ✓ | 0 | — |
-| created_at | datetime | ✓ | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
-| updated_at | datetime | ✓ | CURRENT_TIMESTAMP | DEFAULT_GENERATED on update CURRENT_TIMESTAMP |
+| created_at | timestamp | ✗ | NULL | — |
+| updated_at | timestamp | ✗ | NULL | — |
 
 **Indexes & Constraints**
 - `PRIMARY KEY (id)`

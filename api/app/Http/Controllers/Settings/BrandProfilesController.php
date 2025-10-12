@@ -22,7 +22,10 @@ final class BrandProfilesController extends Controller
     public function index(Request $request): JsonResponse
     {
         $profiles = $this->settings->brandProfiles();
-        $data = $profiles->map(fn (BrandProfile $profile): array => $this->serializeProfile($profile));
+        $data = $profiles
+            ->toBase()
+            ->map(fn (BrandProfile $profile): array => $this->serializeProfile($profile))
+            ->all();
 
         return response()->json([
             'ok' => true,
@@ -79,9 +82,9 @@ final class BrandProfilesController extends Controller
         }
 
         /** @var array<string,mixed> $payload */
-        $payload = is_array($request->input('brand')) ? (array) $request->input('brand') : [];
+        $payload = is_array($request->input('brand')) ? $request->input('brand') : [];
         if ($request->filled('name')) {
-            $payload['name'] = (string) $request->input('name');
+            $payload['name'] = $request->string('name')->trim()->toString();
         }
 
         try {
