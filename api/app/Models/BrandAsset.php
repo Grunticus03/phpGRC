@@ -56,8 +56,8 @@ final class BrandAsset extends Model
     ];
 
     /**
-     * @return BelongsTo
      * @phpstan-return BelongsTo<BrandProfile, self>
+     *
      * @psalm-return BelongsTo<BrandProfile>
      */
     public function profile(): BelongsTo

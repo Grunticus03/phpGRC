@@ -43,7 +43,8 @@ final class BrandAssetsController extends Controller
         $assets = BrandAsset::query()
             ->where('profile_id', $profile->getAttribute('id'))
             ->orderByDesc('created_at')
-            ->get();
+            ->get()
+            ->all();
 
         $data = array_map(
             fn (BrandAsset $asset): array => $this->transform($asset),

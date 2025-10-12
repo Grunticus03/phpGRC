@@ -258,7 +258,11 @@ export default function BrandingCard(): JSX.Element {
     [fetchAssets, fetchProfiles]
   );
 
+  const initializedRef = useRef(false);
+
   useEffect(() => {
+    if (initializedRef.current) return;
+    initializedRef.current = true;
     void loadBranding();
   }, [loadBranding]);
 
