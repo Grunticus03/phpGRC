@@ -539,6 +539,91 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorSimple'
+  /settings/ui/designer/themes:
+    get:
+      operationId: settingsUiDesignerThemeList
+      tags: [Settings]
+      summary: List Theme Designer themes
+      description: Lists Theme Designer themes stored on the server along with the active storage configuration. Requires `core.settings.manage`.
+      responses:
+        '200':
+          description: Stored themes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DesignerThemeListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      operationId: settingsUiDesignerThemeSave
+      tags: [Settings]
+      summary: Save Theme Designer theme
+      description: Creates or replaces a Theme Designer theme on the configured storage backend. Requires `core.settings.manage`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DesignerThemeRequest'
+      responses:
+        '201':
+          description: Theme created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DesignerThemeResponse'
+        '200':
+          description: Theme updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DesignerThemeResponse'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          description: Conflict or storage disabled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorSimple'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+  /settings/ui/designer/themes/{slug}:
+    delete:
+      operationId: settingsUiDesignerThemeDelete
+      tags: [Settings]
+      summary: Delete Theme Designer theme
+      description: Deletes a Theme Designer theme from server storage. Requires `core.settings.manage`.
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+            maxLength: 64
+            pattern: '^[a-z0-9-]+$'
+          description: Theme slug to delete.
+      responses:
+        '200':
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Ok'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Theme not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorSimple'
   /me/prefs/ui:
     get:
       operationId: meUiPrefsGet
@@ -2607,7 +2692,7 @@ components:
     ThemePackEntry:
       type: object
       additionalProperties: false
-      required: [slug, name]
+      required: [slug, name, source, supports]
       properties:
         slug:
           type: string
@@ -2615,6 +2700,22 @@ components:
         name:
           type: string
           example: Midnight
+        source:
+          type: string
+          description: Origin of the theme entry (`bootswatch`, `pack`, or `custom`).
+          example: custom
+        supports:
+          type: object
+          additionalProperties: false
+          required: [mode]
+          properties:
+            mode:
+              type: array
+              minItems: 1
+              items:
+                type: string
+                enum: [light, dark]
+              example: [light, dark]
         author:
           type:
             - string
@@ -2632,6 +2733,13 @@ components:
             file:
               type: string
               example: LICENSE.txt
+        variables:
+          type:
+            - object
+            - 'null'
+          additionalProperties:
+            type: string
+          description: CSS variable overrides supplied by Theme Designer when the source is `custom`.
 
     ThemePackFileEntry:
       type: object
@@ -2815,6 +2923,72 @@ components:
           items:
             $ref: '#/components/schemas/ThemePackEntry'
 
+    DesignerThemeStorage:
+      type: object
+      additionalProperties: false
+      required: [storage, filesystem_path]
+      properties:
+        storage:
+          type: string
+          enum: [browser, filesystem]
+          description: Storage backend for Theme Designer.
+          example: filesystem
+        filesystem_path:
+          type: string
+          description: Absolute path where custom themes are persisted when `storage` is `filesystem`.
+          example: /opt/phpgrc/shared/themes
+
+    DesignerThemeRequest:
+      type: object
+      additionalProperties: false
+      required: [name, variables]
+      properties:
+        name:
+          type: string
+          maxLength: 160
+          example: My Custom Theme
+        slug:
+          type: string
+          maxLength: 64
+          pattern: '^[a-z0-9-]+$'
+          example: my-custom-theme
+          description: Optional slug override; defaults to a slugified name.
+        variables:
+          type: object
+          minProperties: 1
+          additionalProperties:
+            type: string
+          description: CSS variables emitted by Theme Designer.
+          example:
+            --td-buttons-light-primary-background: '#1967d2'
+            --td-buttons-light-primary-text: '#ffffff'
+
+    DesignerThemeResponse:
+      type: object
+      additionalProperties: false
+      required: [ok, pack]
+      properties:
+        ok:
+          type: boolean
+          const: true
+        pack:
+          $ref: '#/components/schemas/ThemePackEntry'
+
+    DesignerThemeListResponse:
+      type: object
+      additionalProperties: false
+      required: [ok, storage, themes]
+      properties:
+        ok:
+          type: boolean
+          const: true
+        storage:
+          $ref: '#/components/schemas/DesignerThemeStorage'
+        themes:
+          type: array
+          items:
+            $ref: '#/components/schemas/ThemePackEntry'
+
     UiThemeOverrides:
       type: object
       additionalProperties:
@@ -2829,10 +3003,23 @@ components:
         typeScale: medium
         motion: full
 
+    UiThemeDesignerSettings:
+      type: object
+      additionalProperties: false
+      required: [storage, filesystem_path]
+      properties:
+        storage:
+          type: string
+          enum: [browser, filesystem]
+          example: filesystem
+        filesystem_path:
+          type: string
+          example: /opt/phpgrc/shared/themes
+
     UiThemeSettings:
       type: object
       additionalProperties: false
-      required: [default, allow_user_override, force_global, overrides]
+      required: [default, allow_user_override, force_global, overrides, designer]
       properties:
         default:
           type: string
@@ -2845,6 +3032,8 @@ components:
           example: false
         overrides:
           $ref: '#/components/schemas/UiThemeOverrides'
+        designer:
+          $ref: '#/components/schemas/UiThemeDesignerSettings'
 
     UiNavSidebarSettings:
       type: object

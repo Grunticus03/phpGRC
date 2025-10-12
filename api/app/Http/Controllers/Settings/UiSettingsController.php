@@ -19,7 +19,13 @@ final class UiSettingsController extends Controller
     public function show(Request $request): Response
     {
         /** @var array{
-         *     theme: array{default: string, allow_user_override: bool, force_global: bool, overrides: array<string,string|null>},
+         *     theme: array{
+         *         default: string,
+         *         allow_user_override: bool,
+         *         force_global: bool,
+         *         overrides: array<string,string|null>,
+         *         designer: array{storage:string, filesystem_path:string}
+         *     },
          *     nav: array{sidebar: array{default_order: array<int,string>}},
          *     brand: array{
          *         title_text: string,
@@ -55,7 +61,13 @@ final class UiSettingsController extends Controller
     public function update(UiSettingsUpdateRequest $request): JsonResponse
     {
         /** @var array{
-         *     theme: array{default: string, allow_user_override: bool, force_global: bool, overrides: array<string,string|null>},
+         *     theme: array{
+         *         default: string,
+         *         allow_user_override: bool,
+         *         force_global: bool,
+         *         overrides: array<string,string|null>,
+         *         designer: array{storage:string, filesystem_path:string}
+         *     },
          *     nav: array{sidebar: array{default_order: array<int,string>}},
          *     brand: array{
          *         title_text: string,
@@ -106,7 +118,13 @@ final class UiSettingsController extends Controller
 
         $this->emitSettingsEvent($actorId, $result['changes'], $request);
         /** @var array{
-         *     theme: array{default: string, allow_user_override: bool, force_global: bool, overrides: array<string,string|null>},
+         *     theme: array{
+         *         default: string,
+         *         allow_user_override: bool,
+         *         force_global: bool,
+         *         overrides: array<string,string|null>,
+         *         designer: array{storage:string, filesystem_path:string}
+         *     },
          *     nav: array{sidebar: array{default_order: array<int,string>}},
          *     brand: array{
          *         title_text: string,

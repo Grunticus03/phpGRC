@@ -41,6 +41,10 @@ return [
 
     'defaults' => [
         'theme' => [
+            'designer' => [
+                'storage' => 'filesystem',
+                'filesystem_path' => '/opt/phpgrc/shared/themes',
+            ],
             'default' => 'slate',
             'allow_user_override' => true,
             'force_global' => false,

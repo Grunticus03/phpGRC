@@ -1,7 +1,13 @@
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
 import "./ThemeDesigner.css";
-import { getCachedThemeManifest, updateThemeManifest } from "../../theme/themeManager";
-import { type ThemeManifest } from "./themeData";
+import { baseHeaders } from "../../lib/api";
+import {
+  getCachedThemeManifest,
+  getCachedThemeSettings,
+  onThemeSettingsChange,
+  updateThemeManifest,
+} from "../../theme/themeManager";
+import { type CustomThemePack, type ThemeManifest } from "./themeData";
 
 type SettingTarget = {
   key: string;
@@ -525,8 +531,17 @@ export default function ThemeDesigner(): JSX.Element {
   const [activeContext, setActiveContext] = useState<string | null>(null);
   const [activeVariant, setActiveVariant] = useState<string | null>(null);
   const [values, setValues] = useState<Record<string, string>>({});
+  const [designerConfig, setDesignerConfig] = useState(() => getCachedThemeSettings().theme.designer);
   const [customThemeName, setCustomThemeName] = useState<string>("");
   const [saveStatus, setSaveStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    const unsubscribe = onThemeSettingsChange((next) => {
+      setDesignerConfig(next.theme.designer);
+    });
+    return unsubscribe;
+  }, []);
 
   const computeCustomVariables = useCallback((): Record<string, string> => {
     const collected: Record<string, string> = {};
@@ -544,6 +559,10 @@ export default function ThemeDesigner(): JSX.Element {
     if (name === "") {
       setSaveStatus({ type: "error", message: "Enter a theme name." });
       return;
+    }
+
+    if (saveStatus) {
+      setSaveStatus(null);
     }
 
     const slug = name
@@ -569,23 +588,77 @@ export default function ThemeDesigner(): JSX.Element {
       return;
     }
 
-    const nextManifest: ThemeManifest = {
-      ...manifest,
-      packs: [
-        ...manifest.packs.filter((pack) => pack.slug !== slug),
-        {
-          slug,
-          name,
-          source: "custom",
-          supports: { mode: ["light", "dark"] },
-          variables,
-        },
-      ],
+    const applyPackToManifest = (pack: CustomThemePack): void => {
+      const manifest = getCachedThemeManifest();
+      const packs = manifest.packs.filter((entry) => entry.slug !== pack.slug);
+      const nextManifest: ThemeManifest = {
+        ...manifest,
+        packs: [...packs, pack],
+      };
+      updateThemeManifest(nextManifest);
+      setSaveStatus({ type: "success", message: `Saved “${name}”.` });
     };
 
-    updateThemeManifest(nextManifest);
-    setSaveStatus({ type: "success", message: `Saved “${name}”.` });
-  }, [computeCustomVariables, customThemeName]);
+    if (designerConfig.storage === "filesystem") {
+      setIsSaving(true);
+      setSaveStatus(null);
+      void (async () => {
+        try {
+          const res = await fetch("/api/settings/ui/designer/themes", {
+            method: "POST",
+            credentials: "same-origin",
+            headers: baseHeaders({ "Content-Type": "application/json" }),
+            body: JSON.stringify({ name, slug, variables }),
+          });
+
+          let body: unknown = null;
+          try {
+            body = await res.json();
+          } catch {
+            body = null;
+          }
+
+          if (!res.ok) {
+            const message =
+              typeof (body as { message?: string } | null)?.message === "string"
+                ? (body as { message: string }).message
+                : `Save failed (HTTP ${res.status}).`;
+            setSaveStatus({ type: "error", message });
+            return;
+          }
+
+          const pack = (body as { pack?: CustomThemePack } | null)?.pack;
+          if (pack) {
+            applyPackToManifest(pack);
+          } else {
+            applyPackToManifest({
+              slug,
+              name,
+              source: "custom",
+              supports: { mode: ["light", "dark"] },
+              variables,
+            });
+          }
+        } catch (error) {
+          setSaveStatus({
+            type: "error",
+            message: error instanceof Error ? error.message : "Save failed.",
+          });
+        } finally {
+          setIsSaving(false);
+        }
+      })();
+      return;
+    }
+
+    applyPackToManifest({
+      slug,
+      name,
+      source: "custom",
+      supports: { mode: ["light", "dark"] },
+      variables,
+    });
+  }, [computeCustomVariables, customThemeName, designerConfig.storage, saveStatus]);
 
   useEffect(() => {
     setActiveContext(null);
@@ -863,8 +936,9 @@ export default function ThemeDesigner(): JSX.Element {
               type="button"
               className="btn btn-primary btn-sm theme-designer-save-button"
               onClick={handleSaveTheme}
+              disabled={isSaving}
             >
-              Save Theme
+              {isSaving ? "Saving..." : "Save Theme"}
             </button>
           </div>
         </div>

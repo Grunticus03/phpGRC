@@ -14,6 +14,10 @@ type FormState = {
   allowOverride: boolean;
   forceGlobal: boolean;
   overrides: Record<string, string>;
+  designer: {
+    storage: "browser" | "filesystem";
+    filesystemPath: string;
+  };
 };
 
 type ThemeSettingsResponse = {
@@ -45,11 +49,22 @@ const toStoredOverrides = (source: Record<string, string>): ThemeSettings["theme
 
 function buildInitialForm(settings: ThemeSettings): FormState {
   const mutable = settings as Mutable<ThemeSettings>;
+  const designer = mutable.theme.designer ?? {
+    storage: "filesystem",
+    filesystem_path: "/opt/phpgrc/shared/themes",
+  };
   return {
     theme: String(mutable.theme.default),
     allowOverride: Boolean(mutable.theme.allow_user_override),
     forceGlobal: Boolean(mutable.theme.force_global),
     overrides: { ...mutable.theme.overrides } as Record<string, string>,
+    designer: {
+      storage: designer.storage === "browser" ? "browser" : "filesystem",
+      filesystemPath:
+        typeof designer.filesystem_path === "string" && designer.filesystem_path.trim() !== ""
+          ? designer.filesystem_path
+          : "/opt/phpgrc/shared/themes",
+    },
   };
 }
 
@@ -58,6 +73,8 @@ function hasChanges(form: FormState, baseline: FormState | null): boolean {
   if (form.theme !== baseline.theme) return true;
   if (form.allowOverride !== baseline.allowOverride) return true;
   if (form.forceGlobal !== baseline.forceGlobal) return true;
+  if (form.designer.storage !== baseline.designer.storage) return true;
+  if (form.designer.filesystemPath !== baseline.designer.filesystemPath) return true;
   const keys = new Set([...Object.keys(form.overrides), ...Object.keys(baseline.overrides)]);
   for (const key of keys) {
     if ((form.overrides[key] ?? "") !== (baseline.overrides[key] ?? "")) {
@@ -116,6 +133,9 @@ export default function ThemeConfigurator(): JSX.Element {
       theme: {
         ...settings.theme,
         overrides: { ...settings.theme.overrides },
+        designer: {
+          ...settings.theme.designer,
+        },
       },
     } as ThemeSettings;
     const nextForm = buildInitialForm(settings);
@@ -134,6 +154,10 @@ export default function ThemeConfigurator(): JSX.Element {
         allow_user_override: next.allowOverride as ThemeSettings["theme"]["allow_user_override"],
         force_global: next.forceGlobal as ThemeSettings["theme"]["force_global"],
         overrides: toStoredOverrides(next.overrides),
+        designer: {
+          storage: next.designer.storage,
+          filesystem_path: next.designer.filesystemPath,
+        },
       },
     };
     updateThemeSettings(preview);
@@ -236,6 +260,34 @@ export default function ThemeConfigurator(): JSX.Element {
     });
   };
 
+  const onDesignerStorageChange = (value: "browser" | "filesystem") => {
+    setForm((prev) => {
+      const next = {
+        ...prev,
+        designer: {
+          storage: value,
+          filesystemPath: prev.designer.filesystemPath,
+        },
+      };
+      previewTheme(next);
+      return next;
+    });
+  };
+
+  const onDesignerPathChange = (value: string) => {
+    setForm((prev) => {
+      const next = {
+        ...prev,
+        designer: {
+          ...prev.designer,
+          filesystemPath: value,
+        },
+      };
+      previewTheme(next);
+      return next;
+    });
+  };
+
   const resetToBaseline = () => {
     const snapshot = snapshotRef.current ?? buildInitialForm(DEFAULT_THEME_SETTINGS);
     setForm(snapshot);
@@ -271,6 +323,10 @@ export default function ThemeConfigurator(): JSX.Element {
             allow_user_override: form.allowOverride,
             force_global: form.forceGlobal,
             overrides: form.overrides,
+            designer: {
+              storage: form.designer.storage,
+              filesystem_path: form.designer.filesystemPath,
+            },
           },
         },
       };
@@ -414,6 +470,46 @@ export default function ThemeConfigurator(): JSX.Element {
                 <label htmlFor="forceGlobal" className="form-check-label">
                   Force global theme (light/dark still follows capability rules)
                 </label>
+              </div>
+
+              <div className="row g-3">
+                <div className="col-md-4">
+                  <label htmlFor="designerStorage" className="form-label fw-semibold">
+                    Custom theme storage
+                  </label>
+                  <select
+                    id="designerStorage"
+                    className="form-select"
+                    value={form.designer.storage}
+                    onChange={(event) => onDesignerStorageChange(event.target.value as "browser" | "filesystem")}
+                  >
+                    <option value="filesystem">Server (shared)</option>
+                    <option value="browser">Browser (per device)</option>
+                  </select>
+                </div>
+                <div className="col-md-8">
+                  {form.designer.storage === "filesystem" ? (
+                    <div className="vstack gap-1">
+                      <label htmlFor="designerPath" className="form-label fw-semibold mb-0">
+                        Filesystem path
+                      </label>
+                      <input
+                        id="designerPath"
+                        type="text"
+                        className="form-control"
+                        value={form.designer.filesystemPath}
+                        onChange={(event) => onDesignerPathChange(event.target.value)}
+                      />
+                      <div className="form-text">
+                        Themes are written to this directory on the application server.
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="alert alert-warning mb-0" role="note">
+                      Themes save to the current browser only and are not shared across users.
+                    </div>
+                  )}
+                </div>
               </div>
             </fieldset>
           </>

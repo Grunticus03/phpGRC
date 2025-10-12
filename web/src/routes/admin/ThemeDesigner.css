@@ -7,7 +7,7 @@
 .theme-designer-menu {
   position: sticky;
   top: 0;
-  z-index: 1060;
+  z-index: 940;
   background: var(--bs-body-bg);
 }
 
@@ -69,16 +69,17 @@
 .theme-designer-dropdown-panel {
   display: grid;
   gap: 0.75rem;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: max-content max-content minmax(16rem, 1fr);
   max-width: 54rem;
 }
 
 .theme-designer-dropdown-column {
-  min-width: 8rem;
+  width: max-content;
 }
 
 .theme-designer-dropdown-column.settings {
-  min-width: 14rem;
+  min-width: 16rem;
+  width: auto;
 }
 
 .theme-designer-dropdown-heading {

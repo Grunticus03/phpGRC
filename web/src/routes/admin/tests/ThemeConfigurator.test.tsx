@@ -52,6 +52,10 @@ describe("ThemeConfigurator", () => {
                     typeScale: "medium",
                     motion: "full",
                   },
+                  designer: {
+                    storage: "filesystem",
+                    filesystem_path: "/opt/phpgrc/shared/themes",
+                  },
                 },
                 nav: { sidebar: { default_order: [] } },
                 brand: {
@@ -96,6 +100,10 @@ describe("ThemeConfigurator", () => {
                     spacing: "wide",
                     typeScale: "large",
                     motion: "limited",
+                  },
+                  designer: {
+                    storage: "filesystem",
+                    filesystem_path: "/opt/phpgrc/shared/themes",
                   },
                 },
                 nav: { sidebar: { default_order: [] } },
@@ -154,6 +162,10 @@ describe("ThemeConfigurator", () => {
           "theme": {
             "allow_user_override": false,
             "default": "flatly",
+            "designer": {
+              "filesystem_path": "/opt/phpgrc/shared/themes",
+              "storage": "filesystem",
+            },
             "force_global": true,
             "overrides": {
               "color.primary": "#0d6efd",
@@ -275,6 +287,10 @@ const DEFAULT_SETTINGS_BODY = {
           spacing: "default",
           typeScale: "medium",
           motion: "full",
+        },
+        designer: {
+          storage: "filesystem",
+          filesystem_path: "/opt/phpgrc/shared/themes",
         },
       },
       nav: { sidebar: { default_order: [] } },

@@ -57,6 +57,8 @@ final class ThemePackService
         'html' => 'text/html',
     ];
 
+    public function __construct(private readonly DesignerThemeStorageService $designerThemes) {}
+
     /**
      * @return array{
      *     version:string,
@@ -68,7 +70,8 @@ final class ThemePackService
     public function manifest(): array
     {
         $base = $this->baseManifest();
-        $base['packs'] = $this->loadThemePacks();
+        $customPacks = $this->designerThemes->manifestEntries();
+        $base['packs'] = array_merge($customPacks, $this->loadThemePacks());
 
         return $base;
     }
@@ -92,6 +95,12 @@ final class ThemePackService
             /** @var array<string,mixed> $pack */
             $pack = $packItem;
             if (isset($pack['slug']) && is_string($pack['slug']) && $pack['slug'] === $needle) {
+                return true;
+            }
+        }
+
+        foreach ($this->designerThemes->manifestEntries() as $pack) {
+            if ($pack['slug'] === $needle) {
                 return true;
             }
         }

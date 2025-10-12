@@ -26,6 +26,9 @@ final class UiSettingsUpdateRequest extends FormRequest
             'ui.theme.force_global' => ['sometimes', 'boolean'],
             'ui.theme.overrides' => ['sometimes', 'array'],
             'ui.theme.overrides.*' => ['nullable', 'string', 'max:120'],
+            'ui.theme.designer' => ['sometimes', 'array'],
+            'ui.theme.designer.storage' => ['sometimes', 'string', 'in:browser,filesystem'],
+            'ui.theme.designer.filesystem_path' => ['sometimes', 'string', 'max:255'],
 
             'ui.nav' => ['sometimes', 'array'],
             'ui.nav.sidebar' => ['sometimes', 'array'],

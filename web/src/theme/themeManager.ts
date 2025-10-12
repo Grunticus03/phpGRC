@@ -11,6 +11,7 @@ import {
 import { BOOTSWATCH_THEME_HREFS, BOOTSWATCH_THEMES } from "./bootswatch";
 
 type ThemeMode = "light" | "dark";
+type DesignerStorageMode = "browser" | "filesystem";
 
 type ManifestEntry = ThemeManifest["themes"][number] | ThemeManifest["packs"][number];
 
@@ -21,6 +22,101 @@ type ThemeSelection = {
 };
 
 const THEME_LINK_ID = "phpgrc-theme-css";
+const CUSTOM_THEME_STORAGE_KEY = "phpgrc.customThemePacks";
+
+const hasLocalStorage = (): boolean => {
+  if (typeof window === "undefined") return false;
+  try {
+    return typeof window.localStorage !== "undefined" && window.localStorage !== null;
+  } catch {
+    return false;
+  }
+};
+
+const isValidMode = (value: unknown): value is ThemeMode => value === "light" || value === "dark";
+
+const sanitizeVariables = (input: unknown): Record<string, string> => {
+  const result: Record<string, string> = {};
+  if (input && typeof input === "object") {
+    Object.entries(input as Record<string, unknown>).forEach(([key, value]) => {
+      if (typeof key === "string" && typeof value === "string") {
+        result[key] = value;
+      }
+    });
+  }
+  return result;
+};
+
+const normalizeCustomPack = (input: Partial<CustomThemePack>): CustomThemePack | null => {
+  const slug = typeof input.slug === "string" ? input.slug.trim() : "";
+  const name = typeof input.name === "string" ? input.name.trim() : "";
+  if (slug === "" || name === "") return null;
+  const modeRaw = Array.isArray(input.supports?.mode) ? input.supports.mode : [];
+  const modes = modeRaw.filter(isValidMode);
+  const uniqueModes = Array.from(new Set(modes));
+  const supports = { mode: (uniqueModes.length > 0 ? uniqueModes : ["light", "dark"]) as ThemeMode[] };
+  const variables = sanitizeVariables(input.variables);
+  const pack: CustomThemePack = {
+    slug,
+    name,
+    source: "custom",
+    supports,
+    ...(Object.keys(variables).length > 0 ? { variables } : {}),
+  };
+  return pack;
+};
+
+const dedupeCustomPacks = (packs: Iterable<Partial<CustomThemePack>>): CustomThemePack[] => {
+  const map = new Map<string, CustomThemePack>();
+  for (const item of packs) {
+    const normalized = normalizeCustomPack(item);
+    if (normalized) {
+      map.set(normalized.slug, normalized);
+    }
+  }
+  return Array.from(map.values());
+};
+
+const mergeCustomPacks = (
+  manifest: ThemeManifest,
+  localCustom: Iterable<Partial<CustomThemePack>>
+): ThemeManifest => {
+  const map = new Map<string, CustomThemePack>();
+  manifest.packs.forEach((pack) => {
+    const normalized = normalizeCustomPack(pack);
+    if (normalized) {
+      map.set(normalized.slug, normalized);
+    }
+  });
+  if (designerStorageMode === "browser") {
+    for (const pack of localCustom) {
+      const normalized = normalizeCustomPack(pack);
+      if (normalized) {
+        map.set(normalized.slug, normalized);
+      }
+    }
+  }
+  return {
+    ...manifest,
+    packs: Array.from(map.values()),
+  };
+};
+
+const resolveDesignerStorage = (settings: ThemeSettings): DesignerStorageMode =>
+  settings?.theme?.designer?.storage === "browser" ? "browser" : "filesystem";
+
+const loadCustomThemePacks = (): CustomThemePack[] => {
+  if (!hasLocalStorage()) return [];
+  try {
+    const raw = window.localStorage.getItem(CUSTOM_THEME_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return [];
+    return dedupeCustomPacks(parsed);
+  } catch {
+    return [];
+  }
+};
 
 const clone = <T>(value: T): T => {
   if (typeof structuredClone === "function") {
@@ -33,8 +129,21 @@ const clone = <T>(value: T): T => {
   return JSON.parse(JSON.stringify(value)) as T;
 };
 
-let manifestCache: ThemeManifest = clone(DEFAULT_THEME_MANIFEST);
 let settingsCache: ThemeSettings = clone(DEFAULT_THEME_SETTINGS);
+let designerStorageMode: DesignerStorageMode = resolveDesignerStorage(settingsCache);
+let customPackCache: CustomThemePack[] = designerStorageMode === "browser" ? loadCustomThemePacks() : [];
+
+const persistCustomThemePacks = (): void => {
+  if (designerStorageMode !== "browser") return;
+  if (!hasLocalStorage()) return;
+  try {
+    window.localStorage.setItem(CUSTOM_THEME_STORAGE_KEY, JSON.stringify(customPackCache));
+  } catch {
+    // ignore storage errors (quota/security)
+  }
+};
+
+let manifestCache: ThemeManifest = clone(mergeCustomPacks(DEFAULT_THEME_MANIFEST, customPackCache));
 let prefsCache: ThemeUserPrefs = clone(DEFAULT_USER_PREFS);
 let activeThemeVariables: Record<string, string> = {};
 let appliedCustomVariableKeys: string[] = [];
@@ -437,14 +546,18 @@ export const bootstrapTheme = async (options?: { fetchUserPrefs?: boolean }): Pr
   loadPromise = (async () => {
     const manifest = await fetchJson<ThemeManifest>("/api/settings/ui/themes");
     if (manifest && Array.isArray(manifest.themes)) {
-      manifestCache = manifest;
+      manifestCache = clone(mergeCustomPacks(manifest, customPackCache));
       notifyManifestListeners();
     }
 
     const settingsResponse = await fetchJson<{ config?: { ui?: ThemeSettings } }>("/api/settings/ui");
     if (settingsResponse?.config?.ui) {
       settingsCache = settingsResponse.config.ui;
+      designerStorageMode = resolveDesignerStorage(settingsCache);
+      customPackCache = designerStorageMode === "browser" ? loadCustomThemePacks() : [];
+      manifestCache = clone(mergeCustomPacks(manifestCache, customPackCache));
       notifySettingsListeners();
+      notifyManifestListeners();
     }
 
     const shouldFetchPrefs =
@@ -471,15 +584,26 @@ export const bootstrapTheme = async (options?: { fetchUserPrefs?: boolean }): Pr
 };
 
 export const updateThemeManifest = (manifest: ThemeManifest): void => {
-  manifestCache = clone(manifest);
+  if (designerStorageMode === "browser") {
+    const incomingCustomPacks = manifest.packs.filter((pack) => pack.source === "custom");
+    if (incomingCustomPacks.length > 0) {
+      customPackCache = dedupeCustomPacks([...customPackCache, ...incomingCustomPacks]);
+      persistCustomThemePacks();
+    }
+  }
+  manifestCache = clone(mergeCustomPacks(manifest, customPackCache));
   refreshTheme();
   notifyManifestListeners();
 };
 
 export const updateThemeSettings = (settings: ThemeSettings): void => {
   settingsCache = clone(settings);
+  designerStorageMode = resolveDesignerStorage(settingsCache);
+  customPackCache = designerStorageMode === "browser" ? loadCustomThemePacks() : [];
+  manifestCache = clone(mergeCustomPacks(manifestCache, customPackCache));
   refreshTheme();
   notifySettingsListeners();
+  notifyManifestListeners();
 };
 
 export const updateThemePrefs = (prefs: ThemeUserPrefs): void => {

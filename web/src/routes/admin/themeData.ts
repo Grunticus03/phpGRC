@@ -38,6 +38,10 @@ export const DEFAULT_THEME_MANIFEST: ThemeManifest = {
 
 export const DEFAULT_THEME_SETTINGS = {
   theme: {
+    designer: {
+      storage: "filesystem" as "filesystem" | "browser",
+      filesystem_path: "/opt/phpgrc/shared/themes" as string,
+    },
     default: DEFAULT_THEME_MANIFEST.defaults.dark,
     allow_user_override: true,
     force_global: false,

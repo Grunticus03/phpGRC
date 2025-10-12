@@ -24,6 +24,7 @@ use App\Http\Controllers\Rbac\UserRolesController;
 use App\Http\Controllers\Rbac\UserSearchController;
 use App\Http\Controllers\Reports\AdminActivityReportController;
 use App\Http\Controllers\Settings\BrandAssetsController;
+use App\Http\Controllers\Settings\DesignerThemesController;
 use App\Http\Controllers\Settings\ThemePacksController;
 use App\Http\Controllers\Settings\UiSettingsController as UiSettingsApiController;
 use App\Http\Controllers\Settings\UiThemeManifestController;
@@ -199,6 +200,12 @@ Route::prefix('/settings/ui')
         Route::put('/themes/{slug}', [ThemePacksController::class, 'update'])
             ->defaults('policy', 'core.settings.manage');
         Route::delete('/themes/{slug}', [ThemePacksController::class, 'destroy'])
+            ->defaults('policy', 'core.settings.manage');
+        Route::get('/designer/themes', [DesignerThemesController::class, 'index'])
+            ->defaults('policy', 'core.settings.manage');
+        Route::post('/designer/themes', [DesignerThemesController::class, 'store'])
+            ->defaults('policy', 'core.settings.manage');
+        Route::delete('/designer/themes/{slug}', [DesignerThemesController::class, 'destroy'])
             ->defaults('policy', 'core.settings.manage');
     });
 
