@@ -983,9 +983,6 @@ export default function AppLayout(): JSX.Element | null {
                                 onMouseEnter={() => openAdminSubmenu(item.id)}
                               >
                                 <span>{item.label}</span>
-                                <span aria-hidden="true" className="ms-2 text-muted">
-                                  &gt;
-                                </span>
                               </NavLink>
                               <div
                                 role="menu"
@@ -993,8 +990,8 @@ export default function AppLayout(): JSX.Element | null {
                                 className="shadow-sm border bg-body rounded-2"
                                 style={{
                                   position: "absolute",
-                                  top: 0,
-                                  left: "calc(100% - 0.25rem)",
+                                  top: "-9px",
+                                  left: "calc(100%)",
                                   minWidth: "12rem",
                                   padding: "0.5rem 0",
                                   transform: submenuOpen ? "translateX(0)" : "translateX(-8px)",

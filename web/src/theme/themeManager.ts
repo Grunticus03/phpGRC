@@ -492,6 +492,7 @@ const applySelection = (selection: ThemeSelection): void => {
   const html = document.documentElement;
   html.setAttribute("data-theme", selection.slug);
   html.setAttribute("data-mode", selection.mode);
+  html.setAttribute("data-bs-theme", selection.mode);
   html.setAttribute("data-theme-source", selection.source);
 
   currentSelection = selection;
