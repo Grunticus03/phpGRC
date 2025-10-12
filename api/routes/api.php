@@ -174,10 +174,10 @@ Route::prefix('/admin')
     });
 
 Route::get('/settings/ui/themes', UiThemeManifestController::class)
-    ->middleware(['auth.cookie', 'auth:sanctum']);
+    ->middleware(['auth.cookie', 'auth.require_sanctum']);
 
 Route::get('/settings/ui', [UiSettingsApiController::class, 'show'])
-    ->middleware(['auth.cookie', 'auth:sanctum']);
+    ->middleware(['auth.cookie', 'auth.require_sanctum']);
 
 Route::prefix('/settings/ui')
     ->middleware($rbacStack)

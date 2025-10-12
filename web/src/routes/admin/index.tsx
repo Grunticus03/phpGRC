@@ -5,7 +5,14 @@ export default function AdminIndex(): JSX.Element {
     <section>
       <h1>Admin</h1>
       <ul>
-        <li><Link to="/admin/settings">Settings</Link></li>
+        <li>
+          <span>Settings</span>
+          <ul>
+            <li><Link to="/admin/settings/theming">Theming</Link></li>
+            <li><Link to="/admin/settings/branding">Branding</Link></li>
+            <li><Link to="/admin/settings/core">Core Settings</Link></li>
+          </ul>
+        </li>
         <li><Link to="/admin/roles">Roles</Link></li>
         <li><Link to="/admin/users">Users</Link></li>
         <li><Link to="/admin/user-roles">User Roles</Link></li>

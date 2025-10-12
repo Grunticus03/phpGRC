@@ -2,7 +2,7 @@
 import { describe, expect, it, beforeEach, afterEach, vi } from "vitest";
 import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import React from "react";
-import Settings from "../Settings";
+import CoreSettings from "../Settings";
 
 function jsonResponse(body: unknown, init: ResponseInit = {}) {
   const headers = new Headers(init.headers ?? {});
@@ -24,7 +24,7 @@ type Payload = {
   evidence?: { blob_storage_path?: string; max_mb?: number };
 };
 
-describe("Admin Settings page", () => {
+describe("Core Settings page", () => {
   const originalFetch = globalThis.fetch as typeof fetch;
   let postBody: unknown = null;
   let lastIfMatch: string | null = null;
@@ -91,7 +91,7 @@ describe("Admin Settings page", () => {
   });
 
   it("loads, submits, shows stub message, and sends contract-shaped body", async () => {
-    render(<Settings />);
+    render(<CoreSettings />);
 
     await waitFor(() => expect(screen.queryByText("Loading")).toBeNull());
     expect(screen.queryByText("Default page size for Admin → User Roles search. Range 1–500.")).toBeNull();
@@ -140,7 +140,7 @@ describe("Admin Settings page", () => {
     fireEvent.change(maxMbInput, { target: { value: "100" } });
     expect(maxMbInput.value).toBe("100");
 
-    const adminForm = screen.getByRole("form", { name: "admin-settings" });
+    const adminForm = screen.getByRole("form", { name: "core-settings" });
     fireEvent.click(within(adminForm).getByRole("button", { name: /save/i }));
 
     await screen.findByText("Validated. Not persisted (stub).");
@@ -162,7 +162,7 @@ describe("Admin Settings page", () => {
   });
 
   it("clamps authentication window above max on save", async () => {
-    render(<Settings />);
+    render(<CoreSettings />);
 
     await waitFor(() => expect(screen.queryByText("Loading")).toBeNull());
 
@@ -172,7 +172,7 @@ describe("Admin Settings page", () => {
     fireEvent.change(authWindow, { target: { value: "400" } });
     expect(authWindow.value).toBe("400");
 
-    const adminForm = screen.getByRole("form", { name: "admin-settings" });
+    const adminForm = screen.getByRole("form", { name: "core-settings" });
     fireEvent.click(within(adminForm).getByRole("button", { name: /save/i }));
     await screen.findByText("Validated. Not persisted (stub).");
 

@@ -56,6 +56,16 @@ type SidebarNotice = {
   ephemeral?: boolean;
 };
 
+type AdminNavLeaf = {
+  id: string;
+  label: string;
+  to: string;
+};
+
+type AdminNavItem = AdminNavLeaf & {
+  children?: readonly AdminNavLeaf[];
+};
+
 type UiSettingsResponse = { config?: { ui?: ThemeSettings } };
 type UserPrefsResponse = {
   prefs?: ThemeUserPrefs;
@@ -70,13 +80,22 @@ const LONG_PRESS_DURATION_MS = 600;
 const brandAssetUrl = (assetId: string): string =>
   `/api/settings/ui/brand-assets/${encodeURIComponent(assetId)}/download`;
 
-const ADMIN_NAV_ITEMS = [
-  { id: "admin.settings", label: "Settings", to: "/admin/settings" },
+const ADMIN_NAV_ITEMS: readonly AdminNavItem[] = [
+  {
+    id: "admin.settings",
+    label: "Settings",
+    to: "/admin/settings/core",
+    children: [
+      { id: "admin.settings.theming", label: "Theming", to: "/admin/settings/theming" },
+      { id: "admin.settings.branding", label: "Branding", to: "/admin/settings/branding" },
+      { id: "admin.settings.core", label: "Core Settings", to: "/admin/settings/core" },
+    ],
+  },
   { id: "admin.roles", label: "Roles", to: "/admin/roles" },
   { id: "admin.user-roles", label: "User Roles", to: "/admin/user-roles" },
   { id: "admin.users", label: "Users", to: "/admin/users" },
   { id: "admin.audit", label: "Audit Logs", to: "/admin/audit" },
-] as const;
+];
 
 type SidebarPrefs = {
   collapsed: boolean;
@@ -202,6 +221,8 @@ export default function AppLayout(): JSX.Element | null {
   const adminMenuRef = useRef<HTMLDivElement | null>(null);
   const [adminMenuOpen, setAdminMenuOpen] = useState(false);
   const adminMenuCloseTimer = useRef<number | null>(null);
+  const [activeAdminSubmenu, setActiveAdminSubmenu] = useState<string | null>(null);
+  const adminSubmenuCloseTimer = useRef<number | null>(null);
   const dragSidebarIdRef = useRef<string | null>(null);
   const failedBrandAssetsRef = useRef<Set<string>>(new Set());
 
@@ -209,6 +230,10 @@ export default function AppLayout(): JSX.Element | null {
     if (adminMenuCloseTimer.current !== null) {
       window.clearTimeout(adminMenuCloseTimer.current);
       adminMenuCloseTimer.current = null;
+    }
+    if (adminSubmenuCloseTimer.current !== null) {
+      window.clearTimeout(adminSubmenuCloseTimer.current);
+      adminSubmenuCloseTimer.current = null;
     }
     setAdminMenuOpen(true);
   }, []);
@@ -219,7 +244,26 @@ export default function AppLayout(): JSX.Element | null {
     }
     adminMenuCloseTimer.current = window.setTimeout(() => {
       setAdminMenuOpen(false);
+      setActiveAdminSubmenu(null);
       adminMenuCloseTimer.current = null;
+    }, 120);
+  }, []);
+
+  const openAdminSubmenu = useCallback((id: string) => {
+    if (adminSubmenuCloseTimer.current !== null) {
+      window.clearTimeout(adminSubmenuCloseTimer.current);
+      adminSubmenuCloseTimer.current = null;
+    }
+    setActiveAdminSubmenu(id);
+  }, []);
+
+  const scheduleAdminSubmenuClose = useCallback(() => {
+    if (adminSubmenuCloseTimer.current !== null) {
+      window.clearTimeout(adminSubmenuCloseTimer.current);
+    }
+    adminSubmenuCloseTimer.current = window.setTimeout(() => {
+      setActiveAdminSubmenu(null);
+      adminSubmenuCloseTimer.current = null;
     }, 120);
   }, []);
 
@@ -266,7 +310,17 @@ export default function AppLayout(): JSX.Element | null {
       window.clearTimeout(adminMenuCloseTimer.current);
       adminMenuCloseTimer.current = null;
     }
+    if (adminSubmenuCloseTimer.current !== null) {
+      window.clearTimeout(adminSubmenuCloseTimer.current);
+      adminSubmenuCloseTimer.current = null;
+    }
   }, []);
+
+  useEffect(() => {
+    if (!adminMenuOpen) {
+      setActiveAdminSubmenu(null);
+    }
+  }, [adminMenuOpen]);
 
   const loadUiSettings = useCallback(async () => {
     if (!authed) {
@@ -896,19 +950,102 @@ export default function AppLayout(): JSX.Element | null {
                       onMouseEnter={openAdminMenu}
                       onMouseLeave={scheduleAdminMenuClose}
                     >
-                      {ADMIN_NAV_ITEMS.map((item) => (
-                        <NavLink
-                          key={item.id}
-                          to={item.to}
-                          className={({ isActive }) =>
-                            `dropdown-item${isActive ? " active fw-semibold" : ""}`
-                          }
-                          role="menuitem"
-                          onClick={() => setAdminMenuOpen(false)}
-                        >
-                          {item.label}
-                        </NavLink>
-                      ))}
+                      {ADMIN_NAV_ITEMS.map((item) => {
+                        const submenuActive =
+                          item.children?.some((child) => loc.pathname.startsWith(child.to)) ?? false;
+                        if (item.children && item.children.length > 0) {
+                          const submenuOpen = adminMenuOpen && activeAdminSubmenu === item.id;
+                          return (
+                            <div
+                              key={item.id}
+                              className="position-relative"
+                              onMouseEnter={() => openAdminSubmenu(item.id)}
+                              onMouseLeave={scheduleAdminSubmenuClose}
+                              onFocusCapture={() => openAdminSubmenu(item.id)}
+                              onBlur={(event) => {
+                                if (!event.currentTarget.contains(event.relatedTarget as Node)) {
+                                  scheduleAdminSubmenuClose();
+                                }
+                              }}
+                            >
+                              <NavLink
+                                to={item.to}
+                                className={({ isActive }) =>
+                                  `dropdown-item d-flex align-items-center justify-content-between${
+                                    isActive || submenuActive ? " active fw-semibold" : ""
+                                  }`
+                                }
+                                role="menuitem"
+                                onClick={() => {
+                                  setAdminMenuOpen(false);
+                                  setActiveAdminSubmenu(null);
+                                }}
+                                onMouseEnter={() => openAdminSubmenu(item.id)}
+                              >
+                                <span>{item.label}</span>
+                                <span aria-hidden="true" className="ms-2 text-muted">
+                                  &gt;
+                                </span>
+                              </NavLink>
+                              <div
+                                role="menu"
+                                aria-hidden={submenuOpen ? "false" : "true"}
+                                className="shadow-sm border bg-body rounded-2"
+                                style={{
+                                  position: "absolute",
+                                  top: 0,
+                                  left: "calc(100% - 0.25rem)",
+                                  minWidth: "12rem",
+                                  padding: "0.5rem 0",
+                                  transform: submenuOpen ? "translateX(0)" : "translateX(-8px)",
+                                  opacity: submenuOpen ? 1 : 0,
+                                  visibility: submenuOpen ? "visible" : "hidden",
+                                  transition: "opacity 160ms ease, transform 160ms ease, visibility 0s linear 80ms",
+                                  zIndex: 1051,
+                                }}
+                                onMouseEnter={() => openAdminSubmenu(item.id)}
+                                onMouseLeave={scheduleAdminSubmenuClose}
+                              >
+                                {item.children.map((child) => (
+                                  <NavLink
+                                    key={child.id}
+                                    to={child.to}
+                                    className={({ isActive }) =>
+                                      `dropdown-item${isActive ? " active fw-semibold" : ""}`
+                                    }
+                                    role="menuitem"
+                                    onClick={() => {
+                                      setAdminMenuOpen(false);
+                                      setActiveAdminSubmenu(null);
+                                    }}
+                                  >
+                                    {child.label}
+                                  </NavLink>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        }
+
+                        return (
+                          <NavLink
+                            key={item.id}
+                            to={item.to}
+                            className={({ isActive }) =>
+                              `dropdown-item${isActive ? " active fw-semibold" : ""}`
+                            }
+                            role="menuitem"
+                            onClick={() => {
+                              setAdminMenuOpen(false);
+                              setActiveAdminSubmenu(null);
+                            }}
+                            onMouseEnter={() => setActiveAdminSubmenu(null)}
+                            onFocus={() => setActiveAdminSubmenu(null)}
+                          >
+                            {item.label}
+                          </NavLink>
+                        );
+                      })}
                     </div>
                   </div>
                 );

@@ -297,7 +297,8 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 **Phase:** 5.5  
 **Step:** 5  
 **Dependencies:** THEME-001  
-**Status:** Planned
+**Status:** In Progress  
+**Notes:** Navbar/sidebar layout and customization shipped (long-press, drag-reorder, resize, theme toggle). QA follow-ups (Playwright snapshots, accessibility review) remain before final sign-off.
 
 ---
 

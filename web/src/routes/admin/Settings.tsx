@@ -1,7 +1,5 @@
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { apiPost, baseHeaders } from "../../lib/api";
-import ThemeConfigurator from "./ThemeConfigurator";
-import BrandingCard from "./branding/BrandingCard";
 import { DEFAULT_TIME_FORMAT, normalizeTimeFormat, type TimeFormat } from "../../lib/formatters";
 
 type EffectiveConfig = {
@@ -52,7 +50,7 @@ const TIME_FORMAT_OPTIONS: Array<{ value: TimeFormat; label: string; example: st
 ];
 
 
-export default function Settings(): JSX.Element {
+export default function CoreSettings(): JSX.Element {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
@@ -356,13 +354,10 @@ export default function Settings(): JSX.Element {
 
   return (
     <section className="container py-3">
-      <h1 className="mb-3">Admin Settings</h1>
-
-      <ThemeConfigurator />
-      <BrandingCard />
+      <h1 className="mb-3">Core Settings</h1>
 
       {loading ? <p>Loading</p> : (
-        <form onSubmit={onSubmit} className="vstack gap-3" aria-label="admin-settings">
+        <form onSubmit={onSubmit} className="vstack gap-3" aria-label="core-settings">
           <section className="card">
             <div className="card-header">
               <strong>Authentication</strong>

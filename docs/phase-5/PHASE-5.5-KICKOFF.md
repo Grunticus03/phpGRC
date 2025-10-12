@@ -135,9 +135,8 @@ Create one issue per step titled `[5.5.x] Owner — Name` with labels `phase:5.5
 
 ## Next Actions
 
-1. Create issues `[5.5.1]` through `[5.5.12]` with labels and blockers.  
-2. Author migrations + seed scripts stubs for `ui_settings` and `ui_assets`.  
-3. Update docs (`ROADMAP`, `SETTINGS`, `STYLEGUIDE`, `CAPABILITIES`, `NOTICE`) to reference new roles, persistence, and theming plan.  
-4. Draft OpenAPI diffs for `/settings/ui`, `/me/prefs/ui`, `/settings/ui/brand-assets`, `/settings/ui/themes*`, `/admin/themes`.  
-5. Align QA tooling scripts (Playwright + axe) with new snapshot cadence.
-
+1. QA global layout: capture Playwright snapshots (Slate/Flatly/Darkly), validate drag-and-drop sidebar UX, and document manual checklist outcomes.  
+2. Implement no-FOUC boot script prototype and integrate with theme manager cache warmup.  
+3. Add automated regression coverage for theme toggle + preview (Admin ▸ Theming, per-user prefs).  
+4. Finalize RBAC hand-off (`role_theme_manager`, `role_theme_auditor`) and update CAPABILITIES/NOTICE docs.  
+5. Prepare accessibility review (axe scans, reduced-motion behavior) ahead of Phase 5.5 close-out.

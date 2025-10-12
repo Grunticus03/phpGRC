@@ -36,6 +36,24 @@ final class UiSettingsApiTest extends TestCase
         self::assertSame($etag, $body['etag']);
     }
 
+    public function test_get_ui_settings_allows_anonymous_when_auth_disabled(): void
+    {
+        Config::set('core.rbac.require_auth', false);
+
+        $response = $this->getJson('/settings/ui');
+
+        $response->assertOk();
+    }
+
+    public function test_get_ui_settings_requires_auth_when_flag_enabled(): void
+    {
+        Config::set('core.rbac.require_auth', true);
+
+        $response = $this->getJson('/settings/ui');
+
+        $response->assertUnauthorized();
+    }
+
     public function test_put_ui_settings_requires_if_match(): void
     {
         $user = User::factory()->create();
@@ -223,8 +241,30 @@ final class UiSettingsApiTest extends TestCase
         self::assertStringContainsString('max-age=0', $cacheControl);
     }
 
-    public function test_get_theme_manifest_requires_authentication(): void
+    public function test_get_theme_manifest_allows_anonymous_when_auth_disabled(): void
     {
+        Config::set('core.rbac.require_auth', false);
+
+        $resp = $this->getJson('/settings/ui/themes');
+        $resp->assertOk();
+        $manifest = $resp->json();
+        self::assertIsArray($manifest);
+        self::assertSame('5.3.3', $manifest['version'] ?? null);
+        self::assertIsArray($manifest['themes'] ?? null);
+    }
+
+    public function test_get_theme_manifest_requires_auth_when_flag_enabled(): void
+    {
+        Config::set('core.rbac.require_auth', true);
+
+        $resp = $this->getJson('/settings/ui/themes');
+        $resp->assertUnauthorized();
+    }
+
+    public function test_get_theme_manifest_returns_manifest_for_authenticated_user(): void
+    {
+        Config::set('core.rbac.require_auth', true);
+
         $user = User::factory()->create();
         Sanctum::actingAs($user);
 

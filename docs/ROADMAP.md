@@ -108,11 +108,11 @@
   - Spacing: `narrow | default | wide`.
   - Type scale: `small | medium | large`.
   - Motion: `full | limited | none`.
-- [ ] Admin Theme Configurator with live preview, AA contrast guardrails, strict validation (422 on unsafe).
+- [x] Admin Theme Configurator with live preview, AA contrast guardrails, strict validation (422 on unsafe).
 - [x] Per-user theme and token overrides; admin “force global” still allows light/dark for supported themes.
 - [ ] RBAC: introduce `role_theme_manager` (manage/import) and `role_theme_auditor` (read-only); only `admin.theme`/`role_admin` update settings/import themes.
 - [x] Branding: primary/secondary/header/footer logos, favicon, title text; SVG sanitized; ≤ 5 MB each; defaults applied.
-- [ ] Global layout:
+- [x] Global layout:
   - Top navbar lists core modules; brand logo top-left acts as Home; sizing rules enforced.
   - Sidebar holds non-core modules; collapsible; user-resizable (min 50px, max 50% viewport).
   - Sidebar customization mode (long-press): Save/Cancel/Default/Exit; merge rules for new modules; per-user persistence.
