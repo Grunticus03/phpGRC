@@ -155,6 +155,14 @@ final class UserUiPreferencesService
         return sprintf('W/"prefs:%s"', hash('sha256', $encoded));
     }
 
+    /**
+     * @return UserPrefs
+     */
+    public function defaults(): array
+    {
+        return $this->defaultPrefs();
+    }
+
     /** @return UserPrefs */
     private function defaultPrefs(): array
     {

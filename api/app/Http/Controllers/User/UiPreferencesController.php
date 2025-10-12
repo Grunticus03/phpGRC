@@ -6,6 +6,8 @@ namespace App\Http\Controllers\User;
 
 use App\Http\Requests\User\UserUiPreferencesUpdateRequest;
 use App\Services\Settings\UserUiPreferencesService;
+use App\Support\ConfigBoolean;
+use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
@@ -17,24 +19,14 @@ final class UiPreferencesController extends Controller
 
     public function show(Request $request): Response
     {
-        $user = $request->user();
-        if ($user === null) {
-            return response()->json([
-                'ok' => false,
-                'code' => 'UNAUTHENTICATED',
-            ], 401);
-        }
+        $userId = $this->resolveUserId($request->user());
+        if ($userId === null) {
+            if (! ConfigBoolean::value('core.rbac.require_auth', false)) {
+                return $this->defaultsResponse();
+            }
 
-        /** @var mixed $id */
-        $id = $user->getAuthIdentifier();
-        if (! is_int($id) && ! (is_string($id) && ctype_digit($id))) {
-            return response()->json([
-                'ok' => false,
-                'code' => 'UNAUTHENTICATED',
-            ], 401);
+            return $this->unauthorizedResponse();
         }
-
-        $userId = is_int($id) ? $id : (int) $id;
 
         $prefs = $this->prefs->get($userId);
         $etag = $this->prefs->etagFor($prefs);
@@ -58,24 +50,10 @@ final class UiPreferencesController extends Controller
 
     public function update(UserUiPreferencesUpdateRequest $request): JsonResponse
     {
-        $user = $request->user();
-        if ($user === null) {
-            return response()->json([
-                'ok' => false,
-                'code' => 'UNAUTHENTICATED',
-            ], 401);
+        $userId = $this->resolveUserId($request->user());
+        if ($userId === null) {
+            return $this->unauthorizedResponse();
         }
-
-        /** @var mixed $id */
-        $id = $user->getAuthIdentifier();
-        if (! is_int($id) && ! (is_string($id) && ctype_digit($id))) {
-            return response()->json([
-                'ok' => false,
-                'code' => 'UNAUTHENTICATED',
-            ], 401);
-        }
-
-        $userId = is_int($id) ? $id : (int) $id;
 
         $current = $this->prefs->get($userId);
         $currentEtag = $this->prefs->etagFor($current);
@@ -129,5 +107,49 @@ final class UiPreferencesController extends Controller
         }
 
         return false;
+    }
+
+    private function defaultsResponse(): Response
+    {
+        $prefs = $this->prefs->defaults();
+        $etag = $this->prefs->etagFor($prefs);
+
+        return response()->json([
+            'ok' => true,
+            'prefs' => $prefs,
+            'etag' => $etag,
+        ], 200)->withHeaders([
+            'ETag' => $etag,
+            'Cache-Control' => 'no-store, max-age=0',
+            'Pragma' => 'no-cache',
+        ]);
+    }
+
+    private function unauthorizedResponse(): JsonResponse
+    {
+        return response()->json([
+            'ok' => false,
+            'code' => 'UNAUTHENTICATED',
+        ], 401);
+    }
+
+    private function resolveUserId(?Authenticatable $user): ?int
+    {
+        if ($user === null) {
+            return null;
+        }
+
+        /** @var mixed $id */
+        $id = $user->getAuthIdentifier();
+
+        if (is_int($id)) {
+            return $id;
+        }
+
+        if (is_string($id) && ctype_digit($id)) {
+            return (int) $id;
+        }
+
+        return null;
     }
 }

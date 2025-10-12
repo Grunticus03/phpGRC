@@ -205,7 +205,7 @@ Route::prefix('/settings/ui')
 Route::get('/settings/ui/brand-assets/{asset}/download', [BrandAssetsController::class, 'download']);
 
 Route::prefix('/me')
-    ->middleware(['auth.cookie', 'auth:sanctum'])
+    ->middleware(['auth.cookie', 'auth.require_sanctum'])
     ->group(function (): void {
         Route::get('/prefs/ui', [UiPreferencesController::class, 'show']);
         Route::put('/prefs/ui', [UiPreferencesController::class, 'update']);

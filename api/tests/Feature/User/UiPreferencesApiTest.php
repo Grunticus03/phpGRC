@@ -91,4 +91,26 @@ final class UiPreferencesApiTest extends TestCase
         self::assertSame(320, $prefs['sidebar']['width']);
         self::assertSame(['risks', 'audits'], $prefs['sidebar']['order']);
     }
+
+    public function test_get_preferences_returns_defaults_when_auth_disabled(): void
+    {
+        config()->set('core.rbac.require_auth', false);
+
+        $response = $this->getJson('/me/prefs/ui');
+
+        $response->assertOk();
+        $response->assertJson([
+            'ok' => true,
+        ]);
+        $response->assertHeader('ETag');
+    }
+
+    public function test_get_preferences_requires_auth_when_flag_enabled(): void
+    {
+        config()->set('core.rbac.require_auth', true);
+
+        $response = $this->getJson('/me/prefs/ui');
+
+        $response->assertUnauthorized();
+    }
 }
