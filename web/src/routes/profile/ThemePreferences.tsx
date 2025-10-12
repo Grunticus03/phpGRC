@@ -1,14 +1,19 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { baseHeaders } from "../../lib/api";
 import {
-  DEFAULT_THEME_MANIFEST,
   DEFAULT_THEME_SETTINGS,
   DEFAULT_USER_PREFS,
   type ThemeManifest,
   type ThemeSettings,
   type ThemeUserPrefs,
 } from "../admin/themeData";
-import { updateThemeManifest, updateThemePrefs, updateThemeSettings } from "../../theme/themeManager";
+import {
+  getCachedThemeManifest,
+  onThemeManifestChange,
+  updateThemeManifest,
+  updateThemePrefs,
+  updateThemeSettings,
+} from "../../theme/themeManager";
 
 type UserPrefsResponse = {
   ok?: boolean;
@@ -120,7 +125,7 @@ async function parseJson<T>(res: Response): Promise<T | null> {
 }
 
 export default function ThemePreferences(): JSX.Element {
-  const [manifest, setManifest] = useState<ThemeManifest>(DEFAULT_THEME_MANIFEST);
+  const [manifest, setManifest] = useState<ThemeManifest>(() => getCachedThemeManifest());
   const [globalSettings, setGlobalSettings] = useState<ThemeSettings>(DEFAULT_THEME_SETTINGS);
 
   const [form, setForm] = useState<PrefForm>(buildForm(DEFAULT_USER_PREFS));
@@ -148,6 +153,13 @@ export default function ThemePreferences(): JSX.Element {
 
   const allowOverride = globalSettings.theme.allow_user_override;
   const forceGlobal = globalSettings.theme.force_global;
+
+  useEffect(() => {
+    const unsubscribe = onThemeManifestChange((next) => {
+      setManifest(next);
+    });
+    return unsubscribe;
+  }, []);
 
   const applyPrefs = useCallback((prefs: ThemeUserPrefs) => {
     const nextForm = buildForm(prefs);
@@ -494,7 +506,7 @@ export default function ThemePreferences(): JSX.Element {
                   >
                     {manifestOptions.map((opt) => (
                       <option key={opt.slug} value={opt.slug}>
-                        {opt.name} ({opt.source === "bootswatch" ? "Bootswatch" : "Pack"})
+                        {opt.name} ({opt.source === "custom" ? "Custom" : "Bootswatch"})
                       </option>
                     ))}
                   </select>

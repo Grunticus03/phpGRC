@@ -8,8 +8,13 @@ export default function AdminIndex(): JSX.Element {
         <li>
           <span>Settings</span>
           <ul>
-            <li><Link to="/admin/settings/theming">Theming</Link></li>
-            <li><Link to="/admin/settings/theme-designer">Theme Designer</Link></li>
+            <li>
+              <span>Theme</span>
+              <ul>
+                <li><Link to="/admin/settings/theming">Theme Settings</Link></li>
+                <li><Link to="/admin/settings/theme-designer">Theme Designer</Link></li>
+              </ul>
+            </li>
             <li><Link to="/admin/settings/branding">Branding</Link></li>
             <li><Link to="/admin/settings/core">Core Settings</Link></li>
           </ul>

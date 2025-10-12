@@ -1,16 +1,40 @@
 import { BOOTSWATCH_THEMES } from "../../theme/bootswatch";
 
-export const DEFAULT_THEME_MANIFEST = {
+export type ThemeMode = "light" | "dark";
+
+export type ThemeManifestTheme = {
+  slug: string;
+  name: string;
+  source: "bootswatch";
+  supports: { mode: ThemeMode[] };
+};
+
+export type CustomThemePack = {
+  slug: string;
+  name: string;
+  source: "custom";
+  supports: { mode: ThemeMode[] };
+  variables?: Record<string, string>;
+};
+
+export type ThemeManifest = {
+  version: string;
+  defaults: { dark: string; light: string };
+  themes: ThemeManifestTheme[];
+  packs: CustomThemePack[];
+};
+
+export const DEFAULT_THEME_MANIFEST: ThemeManifest = {
   version: "5.3.3",
   defaults: { dark: "slate", light: "flatly" },
   themes: BOOTSWATCH_THEMES.map((theme) => ({
     slug: theme.slug,
     name: theme.name,
-    source: "bootswatch" as const,
-    supports: { mode: [theme.mode] as ("light" | "dark")[] },
+    source: "bootswatch",
+    supports: { mode: [theme.mode] as ThemeMode[] },
   })),
   packs: [],
-} as const;
+};
 
 export const DEFAULT_THEME_SETTINGS = {
   theme: {
@@ -62,6 +86,5 @@ export const DEFAULT_USER_PREFS = {
   },
 } as const;
 
-export type ThemeManifest = typeof DEFAULT_THEME_MANIFEST;
 export type ThemeSettings = typeof DEFAULT_THEME_SETTINGS;
 export type ThemeUserPrefs = typeof DEFAULT_USER_PREFS;

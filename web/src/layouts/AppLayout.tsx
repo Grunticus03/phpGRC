@@ -86,8 +86,7 @@ const ADMIN_NAV_ITEMS: readonly AdminNavItem[] = [
     label: "Settings",
     to: "/admin/settings/core",
     children: [
-      { id: "admin.settings.theming", label: "Theming", to: "/admin/settings/theming" },
-      { id: "admin.settings.theme-designer", label: "Theme Designer", to: "/admin/settings/theme-designer" },
+      { id: "admin.settings.theming", label: "Theme", to: "/admin/settings/theming" },
       { id: "admin.settings.branding", label: "Branding", to: "/admin/settings/branding" },
       { id: "admin.settings.core", label: "Core Settings", to: "/admin/settings/core" },
     ],

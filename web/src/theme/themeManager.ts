@@ -6,6 +6,7 @@ import {
   type ThemeManifest,
   type ThemeSettings,
   type ThemeUserPrefs,
+  type CustomThemePack,
 } from "../routes/admin/themeData";
 import { BOOTSWATCH_THEME_HREFS, BOOTSWATCH_THEMES } from "./bootswatch";
 
@@ -35,15 +36,30 @@ const clone = <T>(value: T): T => {
 let manifestCache: ThemeManifest = clone(DEFAULT_THEME_MANIFEST);
 let settingsCache: ThemeSettings = clone(DEFAULT_THEME_SETTINGS);
 let prefsCache: ThemeUserPrefs = clone(DEFAULT_USER_PREFS);
+let activeThemeVariables: Record<string, string> = {};
+let appliedCustomVariableKeys: string[] = [];
 
 let currentSelection: ThemeSelection | null = null;
 let loadPromise: Promise<void> | null = null;
 
 type ThemePrefsListener = (prefs: ThemeUserPrefs) => void;
 type ThemeSettingsListener = (settings: ThemeSettings) => void;
+type ThemeManifestListener = (manifest: ThemeManifest) => void;
 
+const manifestListeners = new Set<ThemeManifestListener>();
 const prefsListeners = new Set<ThemePrefsListener>();
 const settingsListeners = new Set<ThemeSettingsListener>();
+
+const notifyManifestListeners = (): void => {
+  const snapshot = clone(manifestCache);
+  manifestListeners.forEach((listener) => {
+    try {
+      listener(snapshot);
+    } catch {
+      // ignore listener errors
+    }
+  });
+};
 
 const notifyPrefsListeners = (): void => {
   const snapshot = clone(prefsCache);
@@ -219,6 +235,18 @@ const applyDesignTokens = (): void => {
     setOrClear("--bs-transition");
     doc.style.removeProperty("scroll-behavior");
   }
+
+  appliedCustomVariableKeys.forEach((variable) => {
+    doc.style.removeProperty(variable);
+  });
+  appliedCustomVariableKeys = [];
+
+  Object.entries(activeThemeVariables).forEach(([variable, value]) => {
+    if (typeof value === "string" && value.trim() !== "") {
+      doc.style.setProperty(variable, value);
+      appliedCustomVariableKeys.push(variable);
+    }
+  });
 };
 
 const prefersDark = (): boolean => {
@@ -370,6 +398,12 @@ const refreshTheme = (): void => {
   ) {
     applySelection(selection);
   }
+  const entry = findManifestEntry(manifestCache, selection.slug) as CustomThemePack | undefined;
+  if (entry && entry.source === "custom" && entry.variables) {
+    activeThemeVariables = { ...entry.variables };
+  } else {
+    activeThemeVariables = {};
+  }
   applyDesignTokens();
 };
 
@@ -404,6 +438,7 @@ export const bootstrapTheme = async (options?: { fetchUserPrefs?: boolean }): Pr
     const manifest = await fetchJson<ThemeManifest>("/api/settings/ui/themes");
     if (manifest && Array.isArray(manifest.themes)) {
       manifestCache = manifest;
+      notifyManifestListeners();
     }
 
     const settingsResponse = await fetchJson<{ config?: { ui?: ThemeSettings } }>("/api/settings/ui");
@@ -438,6 +473,7 @@ export const bootstrapTheme = async (options?: { fetchUserPrefs?: boolean }): Pr
 export const updateThemeManifest = (manifest: ThemeManifest): void => {
   manifestCache = clone(manifest);
   refreshTheme();
+  notifyManifestListeners();
 };
 
 export const updateThemeSettings = (settings: ThemeSettings): void => {
@@ -470,6 +506,8 @@ export const getCachedThemeSettings = (): ThemeSettings => clone(settingsCache);
 
 export const getCachedThemePrefs = (): ThemeUserPrefs => clone(prefsCache);
 
+export const getCachedThemeManifest = (): ThemeManifest => clone(manifestCache);
+
 export const onThemePrefsChange = (listener: ThemePrefsListener): (() => void) => {
   prefsListeners.add(listener);
   try {
@@ -491,6 +529,18 @@ export const onThemeSettingsChange = (listener: ThemeSettingsListener): (() => v
   }
   return () => {
     settingsListeners.delete(listener);
+  };
+};
+
+export const onThemeManifestChange = (listener: ThemeManifestListener): (() => void) => {
+  manifestListeners.add(listener);
+  try {
+    listener(clone(manifestCache));
+  } catch {
+    // ignore listener errors
+  }
+  return () => {
+    manifestListeners.delete(listener);
   };
 };
 

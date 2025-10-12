@@ -1,5 +1,7 @@
-import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
 import "./ThemeDesigner.css";
+import { getCachedThemeManifest, updateThemeManifest } from "../../theme/themeManager";
+import { type ThemeManifest } from "./themeData";
 
 type SettingTarget = {
   key: string;
@@ -11,13 +13,22 @@ type SettingTarget = {
   defaultValue: string;
 };
 
+type SettingControl = "color" | "select" | "toggle";
+
+type SettingOption = {
+  value: string;
+  label: string;
+};
+
 type SettingConfig = {
   id: string;
   label: string;
-  type: "color";
+  control: SettingControl;
   propertyId: string;
   targets: SettingTarget[];
   scope?: string | null;
+  options?: SettingOption[];
+  toggleValues?: { on: string; off: string };
 };
 
 type ThemeVariant = {
@@ -38,6 +49,40 @@ type ThemeFeature = {
   description?: string;
   contexts: ThemeContext[];
 };
+
+const FONT_OPTIONS: SettingOption[] = [
+  {
+    value: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+    label: "System UI",
+  },
+  { value: '"Inter", system-ui, sans-serif', label: "Inter" },
+  { value: '"Roboto", system-ui, sans-serif', label: "Roboto" },
+  { value: '"Open Sans", system-ui, sans-serif', label: "Open Sans" },
+  { value: '"Lato", system-ui, sans-serif', label: "Lato" },
+  { value: '"Merriweather", "Georgia", serif', label: "Merriweather" },
+  { value: '"Playfair Display", "Georgia", serif', label: "Playfair Display" },
+  { value: '"Source Sans Pro", system-ui, sans-serif', label: "Source Sans Pro" },
+  { value: '"Fira Code", "SFMono-Regular", Menlo, monospace', label: "Fira Code" },
+];
+
+const FONT_WEIGHT_OPTIONS: SettingOption[] = [
+  { value: "", label: "Inherit" },
+  { value: "300", label: "Light" },
+  { value: "400", label: "Normal" },
+  { value: "500", label: "Medium" },
+  { value: "600", label: "Semibold" },
+  { value: "700", label: "Bold" },
+];
+
+const FONT_SIZE_OPTIONS: SettingOption[] = [
+  { value: "", label: "Inherit" },
+  { value: "0.875rem", label: "Small" },
+  { value: "1rem", label: "Default" },
+  { value: "1.125rem", label: "Large" },
+  { value: "1.25rem", label: "Extra Large" },
+];
+
+const TYPOGRAPHY_DEFAULT_FONT = FONT_OPTIONS[0]?.value ?? 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
 
 type ContextFilter = {
   id: string;
@@ -131,11 +176,127 @@ function createColorSetting(
   return {
     id: key,
     label,
-    type: "color",
+    control: "color",
     propertyId,
     targets: [target],
     scope: contextId,
   };
+}
+
+const toKebab = (value: string): string =>
+  value.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
+
+function createSelectSetting(
+  featureId: string,
+  contextId: string,
+  variantId: string,
+  propertyId: string,
+  label: string,
+  options: SettingOption[],
+  defaultValue: string,
+  scope: string | null = contextId,
+  variableOverride?: string
+): SettingConfig {
+  const key = `${featureId}.${contextId}.${variantId}.${propertyId}`;
+  const variable = variableOverride ?? `--td-${featureId}-${contextId}-${variantId}-${toKebab(propertyId)}`;
+  const target: SettingTarget = registerTarget({
+    key,
+    featureId,
+    contextId,
+    variantId,
+    propertyId,
+    variable,
+    defaultValue,
+  });
+
+  return {
+    id: key,
+    label,
+    control: "select",
+    propertyId,
+    targets: [target],
+    options,
+    scope,
+  };
+}
+
+function createToggleSetting(
+  featureId: string,
+  contextId: string,
+  variantId: string,
+  propertyId: string,
+  label: string,
+  toggleValues: { on: string; off: string },
+  scope: string | null = contextId,
+  variableOverride?: string
+): SettingConfig {
+  const key = `${featureId}.${contextId}.${variantId}.${propertyId}`;
+  const variable = variableOverride ?? `--td-${featureId}-${contextId}-${variantId}-${toKebab(propertyId)}`;
+  const target: SettingTarget = registerTarget({
+    key,
+    featureId,
+    contextId,
+    variantId,
+    propertyId,
+    variable,
+    defaultValue: toggleValues.off,
+  });
+
+  return {
+    id: key,
+    label,
+    control: "toggle",
+    propertyId,
+    targets: [target],
+    toggleValues,
+    scope,
+  };
+}
+
+function createTextSettings(featureId: string, contextId: string, variantId: string): SettingConfig[] {
+  const settings: SettingConfig[] = [];
+
+  settings.push(
+    createSelectSetting(
+      featureId,
+      contextId,
+      variantId,
+      "fontWeight",
+      "Weight",
+      FONT_WEIGHT_OPTIONS,
+      "",
+      contextId
+    )
+  );
+
+  settings.push(
+    createToggleSetting(featureId, contextId, variantId, "textDecoration", "Underline", {
+      on: "underline",
+      off: "none",
+    })
+  );
+
+  settings.push(
+    createToggleSetting(featureId, contextId, variantId, "fontStyle", "Italics", {
+      on: "italic",
+      off: "normal",
+    })
+  );
+
+  settings.push(
+    createSelectSetting(
+      featureId,
+      contextId,
+      variantId,
+      "fontSize",
+      "Font size",
+      FONT_SIZE_OPTIONS,
+      "",
+      contextId
+    )
+  );
+
+  return settings;
 }
 
 function createVariant(
@@ -143,9 +304,11 @@ function createVariant(
   contextId: string,
   variant: VariantDefinition
 ): ThemeVariant {
-  const settings = PROPERTY_DEFINITIONS.map((property) =>
+  const colorSettings = PROPERTY_DEFINITIONS.map((property) =>
     createColorSetting(featureId, contextId, variant.id, property.id, property.label)
   );
+
+  const settings = [...colorSettings, ...createTextSettings(featureId, contextId, variant.id)];
 
   return {
     id: variant.id,
@@ -206,6 +369,82 @@ const BASE_FEATURES: ThemeFeature[] = [
   ]),
 ];
 
+function buildTypographyFeature(): ThemeFeature {
+  const globalVariantSettings: SettingConfig[] = [
+    createSelectSetting(
+      "typography",
+      "global",
+      "base",
+      "fontFamily",
+      "Font family",
+      FONT_OPTIONS,
+      TYPOGRAPHY_DEFAULT_FONT,
+      null,
+      "--td-typography-font-family"
+    ),
+    createSelectSetting(
+      "typography",
+      "global",
+      "base",
+      "fontWeight",
+      "Base weight",
+      FONT_WEIGHT_OPTIONS,
+      "400",
+      null,
+      "--td-typography-font-weight"
+    ),
+    createToggleSetting(
+      "typography",
+      "global",
+      "base",
+      "fontStyle",
+      "Italics",
+      { on: "italic", off: "normal" },
+      null,
+      "--td-typography-font-style"
+    ),
+    createToggleSetting(
+      "typography",
+      "global",
+      "base",
+      "textDecoration",
+      "Underline",
+      { on: "underline", off: "none" },
+      null,
+      "--td-typography-text-decoration"
+    ),
+    createSelectSetting(
+      "typography",
+      "global",
+      "base",
+      "fontSize",
+      "Font size",
+      FONT_SIZE_OPTIONS,
+      "",
+      null,
+      "--td-typography-font-size"
+    ),
+  ];
+
+  return {
+    id: "typography",
+    label: "Typography",
+    description: "Global font and text styling applied across components.",
+    contexts: [
+      {
+        id: "global",
+        label: "Global",
+        variants: [
+          {
+            id: "base",
+            label: "Base",
+            settings: globalVariantSettings,
+          },
+        ],
+      },
+    ],
+  };
+}
 function buildAggregateFeature(targets: SettingTarget[]): ThemeFeature {
   const contextFilters: ContextFilter[] = [
     { id: "all", label: "All", predicate: () => true },
@@ -230,7 +469,7 @@ function buildAggregateFeature(targets: SettingTarget[]): ThemeFeature {
           return {
             id: `aggregate.${context.id}.${variant.id}.${property.id}`,
             label: property.label,
-            type: "color" as const,
+            control: "color",
             propertyId: property.id,
             targets: propertyTargets,
             scope: context.id,
@@ -268,8 +507,10 @@ function buildAggregateFeature(targets: SettingTarget[]): ThemeFeature {
   };
 }
 
-const AGGREGATE_FEATURE = buildAggregateFeature(TARGET_REGISTRY);
-const DESIGNER_FEATURES: ThemeFeature[] = [AGGREGATE_FEATURE, ...BASE_FEATURES];
+const TYPOGRAPHY_FEATURE = buildTypographyFeature();
+const aggregateTargets = TARGET_REGISTRY.filter((target) => target.featureId !== "typography");
+const AGGREGATE_FEATURE = buildAggregateFeature(aggregateTargets);
+const DESIGNER_FEATURES: ThemeFeature[] = [AGGREGATE_FEATURE, TYPOGRAPHY_FEATURE, ...BASE_FEATURES];
 const FEATURE_LOOKUP = new Map(DESIGNER_FEATURES.map((feature) => [feature.id, feature]));
 
 const UNIQUE_TARGETS: SettingTarget[] = Array.from(
@@ -281,40 +522,79 @@ const UNIQUE_TARGETS: SettingTarget[] = Array.from(
 
 export default function ThemeDesigner(): JSX.Element {
   const [openFeature, setOpenFeature] = useState<string | null>("all");
-  const [activeContext, setActiveContext] = useState<string | null>("all");
+  const [activeContext, setActiveContext] = useState<string | null>(null);
   const [activeVariant, setActiveVariant] = useState<string | null>(null);
   const [values, setValues] = useState<Record<string, string>>({});
+  const [customThemeName, setCustomThemeName] = useState<string>("");
+  const [saveStatus, setSaveStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
+
+  const computeCustomVariables = useCallback((): Record<string, string> => {
+    const collected: Record<string, string> = {};
+    UNIQUE_TARGETS.forEach((target) => {
+      const stored = values[target.key];
+      if (typeof stored === "string" && stored !== target.defaultValue && stored.trim() !== "") {
+        collected[target.variable] = stored;
+      }
+    });
+    return collected;
+  }, [values]);
+
+  const handleSaveTheme = useCallback(() => {
+    const name = customThemeName.trim();
+    if (name === "") {
+      setSaveStatus({ type: "error", message: "Enter a theme name." });
+      return;
+    }
+
+    const slug = name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+
+    if (!slug) {
+      setSaveStatus({ type: "error", message: "Theme name must include alphanumeric characters." });
+      return;
+    }
+
+    const manifest = getCachedThemeManifest();
+    const existing = [...manifest.themes, ...manifest.packs].find((item) => item.slug === slug);
+    if (existing && existing.source !== "custom") {
+      setSaveStatus({ type: "error", message: "Theme name conflicts with a built-in theme." });
+      return;
+    }
+
+    const variables = computeCustomVariables();
+    if (Object.keys(variables).length === 0) {
+      setSaveStatus({ type: "error", message: "Adjust at least one setting before saving." });
+      return;
+    }
+
+    const nextManifest: ThemeManifest = {
+      ...manifest,
+      packs: [
+        ...manifest.packs.filter((pack) => pack.slug !== slug),
+        {
+          slug,
+          name,
+          source: "custom",
+          supports: { mode: ["light", "dark"] },
+          variables,
+        },
+      ],
+    };
+
+    updateThemeManifest(nextManifest);
+    setSaveStatus({ type: "success", message: `Saved “${name}”.` });
+  }, [computeCustomVariables, customThemeName]);
 
   useEffect(() => {
-    if (!openFeature) {
-      setActiveVariant(null);
-      return;
-    }
-    const feature = FEATURE_LOOKUP.get(openFeature);
-    const firstContext = feature?.contexts[0];
-    if (!firstContext) {
-      setActiveContext(null);
-      setActiveVariant(null);
-      return;
-    }
-    setActiveContext((current) => current ?? firstContext.id);
+    setActiveContext(null);
+    setActiveVariant(null);
   }, [openFeature]);
 
   useEffect(() => {
-    if (!openFeature || !activeContext) {
-      setActiveVariant(null);
-      return;
-    }
-    const feature = FEATURE_LOOKUP.get(openFeature);
-    const context = feature?.contexts.find((ctx) => ctx.id === activeContext);
-    const targetVariant = context?.variants[0];
-    setActiveVariant((current) => {
-      if (current && context?.variants.some((variant) => variant.id === current)) {
-        return current;
-      }
-      return targetVariant?.id ?? null;
-    });
-  }, [openFeature, activeContext]);
+    setActiveVariant(null);
+  }, [activeContext]);
 
   const variableStyles = useMemo<CSSProperties>(() => {
     const styles: CSSProperties = {};
@@ -326,37 +606,75 @@ export default function ThemeDesigner(): JSX.Element {
   }, [values]);
 
   const activeFeature = openFeature ? FEATURE_LOOKUP.get(openFeature) ?? null : null;
-  const activeContextObj =
-    activeFeature?.contexts.find((context) => context.id === activeContext) ?? null;
+  const contextForVariants =
+    activeContext && activeFeature
+      ? activeFeature.contexts.find((context) => context.id === activeContext) ?? null
+      : null;
   const activeVariantObj =
-    activeContextObj?.variants.find((variant) => variant.id === activeVariant) ??
-    activeContextObj?.variants[0] ??
-    null;
+    activeVariant && contextForVariants
+      ? contextForVariants.variants.find((variant) => variant.id === activeVariant) ?? null
+      : null;
 
   const handleFeatureToggle = (featureId: string) => {
     setOpenFeature((current) => (current === featureId ? null : featureId));
   };
 
-  const handleSettingChange = (setting: SettingConfig, nextValue: string) => {
+  const handleSettingChange = (setting: SettingConfig, rawValue: string) => {
     setValues((prev) => {
       const updated = { ...prev };
       const scope = setting.scope ?? null;
+      const nextValue =
+        setting.control === "toggle" && setting.toggleValues
+          ? rawValue === "on"
+            ? setting.toggleValues.on
+            : setting.toggleValues.off
+          : setting.control === "color"
+            ? rawValue.toLowerCase()
+            : rawValue;
+
       setting.targets
         .filter((target) => {
           if (scope === null || scope === "all") return true;
           return target.contextId === scope;
         })
         .forEach((target) => {
-        updated[target.key] = nextValue;
-      });
+          if (
+            nextValue === undefined ||
+            nextValue === null ||
+            nextValue === target.defaultValue ||
+            (typeof nextValue === "string" && nextValue.trim() === "")
+          ) {
+            delete updated[target.key];
+          } else {
+            updated[target.key] = nextValue;
+          }
+        });
       return updated;
     });
   };
 
-  const getValueForSetting = (setting: SettingConfig): string => {
+  const resolveSettingValue = (setting: SettingConfig): string => {
     const primaryTarget = setting.targets[0];
-    if (!primaryTarget) return "#ffffff";
-    return values[primaryTarget.key] ?? primaryTarget.defaultValue;
+    if (!primaryTarget) return "";
+    const storedValue = values[primaryTarget.key];
+    if (typeof storedValue === "string") {
+      return storedValue;
+    }
+    return primaryTarget.defaultValue;
+  };
+
+  const describeSettingValue = (setting: SettingConfig, value: string): string => {
+    if (setting.control === "color") {
+      return value.toUpperCase();
+    }
+    if (setting.control === "toggle" && setting.toggleValues) {
+      return value === setting.toggleValues.on ? "On" : "Off";
+    }
+    if (setting.control === "select" && setting.options) {
+      const match = setting.options.find((option) => option.value === value);
+      return match?.label ?? (value === "" ? "Inherit" : value);
+    }
+    return value;
   };
 
   const onMenuMouseLeave = () => {
@@ -373,34 +691,31 @@ export default function ThemeDesigner(): JSX.Element {
         aria-label="Theme designer controls"
         onMouseLeave={onMenuMouseLeave}
       >
-        <ul className="theme-designer-menu-list">
-          {DESIGNER_FEATURES.map((feature) => (
-            <li
-              key={feature.id}
-              className={`theme-designer-menu-item${
-                openFeature === feature.id ? " theme-designer-menu-item--open" : ""
+        <div className="theme-designer-menu-inner">
+          <ul className="theme-designer-menu-list">
+            {DESIGNER_FEATURES.map((feature) => (
+              <li
+                key={feature.id}
+                className={`theme-designer-menu-item${
+                  openFeature === feature.id ? " theme-designer-menu-item--open" : ""
               }`}
               onMouseEnter={() => {
-                setOpenFeature(feature.id);
-                const firstContext = feature.contexts[0];
-                setActiveContext(firstContext?.id ?? null);
-                setActiveVariant(firstContext?.variants[0]?.id ?? null);
-              }}
-            >
-              <button
-                type="button"
-                className="theme-designer-menu-button"
-                onClick={() => handleFeatureToggle(feature.id)}
-                onFocus={() => {
-                  setOpenFeature(feature.id);
-                  const firstContext = feature.contexts[0];
-                  setActiveContext(firstContext?.id ?? null);
-                  setActiveVariant(firstContext?.variants[0]?.id ?? null);
-                }}
-                aria-haspopup="true"
-                aria-expanded={openFeature === feature.id}
-              >
-                {feature.label}
+            if (openFeature !== feature.id) {
+              setOpenFeature(feature.id);
+            }
+          }}
+        >
+          <button
+            type="button"
+            className="theme-designer-menu-button"
+            onClick={() => handleFeatureToggle(feature.id)}
+            onFocus={() => {
+              setOpenFeature(feature.id);
+            }}
+            aria-haspopup="true"
+            aria-expanded={openFeature === feature.id}
+          >
+            {feature.label}
               </button>
 
               {openFeature === feature.id && (
@@ -418,11 +733,9 @@ export default function ThemeDesigner(): JSX.Element {
                               }`}
                               onMouseEnter={() => {
                                 setActiveContext(context.id);
-                                setActiveVariant(context.variants[0]?.id ?? null);
                               }}
                               onFocus={() => {
                                 setActiveContext(context.id);
-                                setActiveVariant(context.variants[0]?.id ?? null);
                               }}
                             >
                               {context.label}
@@ -432,11 +745,11 @@ export default function ThemeDesigner(): JSX.Element {
                       </ul>
                     </div>
 
-                    {activeContextObj && (
+                    {contextForVariants && (
                       <div className="theme-designer-dropdown-column">
                         <span className="theme-designer-dropdown-heading">Variants</span>
                         <ul className="theme-designer-dropdown-list">
-                          {activeContextObj.variants.map((variant) => (
+                          {contextForVariants.variants.map((variant) => (
                             <li key={variant.id}>
                               <button
                                 type="button"
@@ -454,24 +767,78 @@ export default function ThemeDesigner(): JSX.Element {
                       </div>
                     )}
 
-                    {activeVariantObj && (
+                    {activeVariantObj && activeVariant && (
                       <div className="theme-designer-dropdown-column settings">
                         <span className="theme-designer-dropdown-heading">Settings</span>
                         <div className="theme-designer-settings">
-                          {activeVariantObj.settings.map((setting) => (
-                            <label key={setting.id} className="theme-designer-setting">
-                              <span className="theme-designer-setting-label">{setting.label}</span>
-                              <input
-                                type="color"
-                                className="form-control form-control-color theme-designer-setting-input"
-                                value={getValueForSetting(setting)}
-                                onChange={(event) => handleSettingChange(setting, event.target.value)}
-                              />
-                              <span className="theme-designer-setting-value">
-                                {getValueForSetting(setting).toUpperCase()}
-                              </span>
-                            </label>
-                          ))}
+                          {activeVariantObj.settings.map((setting) => {
+                            const currentValue = resolveSettingValue(setting);
+
+                            if (setting.control === "color") {
+                              const colorValue = currentValue || "#000000";
+                              return (
+                                <label key={setting.id} className="theme-designer-setting">
+                                  <span className="theme-designer-setting-label">{setting.label}</span>
+                                  <input
+                                    type="color"
+                                    className="form-control form-control-color theme-designer-setting-input"
+                                    value={colorValue}
+                                    onChange={(event) => handleSettingChange(setting, event.target.value)}
+                                  />
+                                  <span className="theme-designer-setting-value">
+                                    {describeSettingValue(setting, colorValue)}
+                                  </span>
+                                </label>
+                              );
+                            }
+
+                            if (setting.control === "select") {
+                              return (
+                                <label key={setting.id} className="theme-designer-setting">
+                                  <span className="theme-designer-setting-label">{setting.label}</span>
+                                  <select
+                                    className="form-select form-select-sm theme-designer-setting-select"
+                                    value={currentValue}
+                                    onChange={(event) => handleSettingChange(setting, event.target.value)}
+                                  >
+                                    {setting.options?.map((option) => (
+                                      <option key={option.value} value={option.value}>
+                                        {option.label}
+                                      </option>
+                                    ))}
+                                  </select>
+                                  <span className="theme-designer-setting-value">
+                                    {describeSettingValue(setting, currentValue)}
+                                  </span>
+                                </label>
+                              );
+                            }
+
+                            if (setting.control === "toggle" && setting.toggleValues) {
+                              const checked = currentValue === setting.toggleValues.on;
+                              return (
+                                <div key={setting.id} className="theme-designer-setting">
+                                  <span className="theme-designer-setting-label">{setting.label}</span>
+                                  <div className="form-check form-switch theme-designer-toggle">
+                                    <input
+                                      type="checkbox"
+                                      className="form-check-input"
+                                      role="switch"
+                                      checked={checked}
+                                      onChange={(event) =>
+                                        handleSettingChange(setting, event.target.checked ? "on" : "off")
+                                      }
+                                    />
+                                  </div>
+                                  <span className="theme-designer-setting-value">
+                                    {describeSettingValue(setting, currentValue)}
+                                  </span>
+                                </div>
+                              );
+                            }
+
+                            return null;
+                          })}
                         </div>
                       </div>
                     )}
@@ -480,7 +847,35 @@ export default function ThemeDesigner(): JSX.Element {
               )}
             </li>
           ))}
-        </ul>
+          </ul>
+          <div className="theme-designer-menu-tools">
+            <input
+              type="text"
+              className="form-control form-control-sm theme-designer-name-input"
+              placeholder="Custom theme name"
+              value={customThemeName}
+              onChange={(event) => {
+                setCustomThemeName(event.target.value);
+                if (saveStatus) setSaveStatus(null);
+              }}
+            />
+            <button
+              type="button"
+              className="btn btn-primary btn-sm theme-designer-save-button"
+              onClick={handleSaveTheme}
+            >
+              Save Theme
+            </button>
+          </div>
+        </div>
+        {saveStatus && (
+          <div
+            className={`theme-designer-feedback theme-designer-feedback--${saveStatus.type}`}
+            role="status"
+          >
+            {saveStatus.message}
+          </div>
+        )}
       </div>
 
       <section className="theme-designer-preview container py-4" style={variableStyles}>

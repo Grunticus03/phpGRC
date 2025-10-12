@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { baseHeaders } from "../../lib/api";
+import { DEFAULT_THEME_SETTINGS, type ThemeManifest, type ThemeSettings } from "./themeData";
 import {
-  DEFAULT_THEME_MANIFEST,
-  DEFAULT_THEME_SETTINGS,
-  type ThemeManifest,
-  type ThemeSettings,
-} from "./themeData";
-import { updateThemeManifest, updateThemeSettings } from "../../theme/themeManager";
+  getCachedThemeManifest,
+  onThemeManifestChange,
+  updateThemeManifest,
+  updateThemeSettings,
+} from "../../theme/themeManager";
 import { Link } from "react-router-dom";
 
 type FormState = {
@@ -81,7 +81,7 @@ export default function ThemeConfigurator(): JSX.Element {
   const [message, setMessage] = useState<string | null>(null);
   const [readOnly, setReadOnly] = useState(false);
 
-  const [manifest, setManifest] = useState<ThemeManifest>(DEFAULT_THEME_MANIFEST);
+  const [manifest, setManifest] = useState<ThemeManifest>(() => getCachedThemeManifest());
   const [form, setForm] = useState<FormState>(buildInitialForm(DEFAULT_THEME_SETTINGS));
 
   const etagRef = useRef<string | null>(null);
@@ -98,10 +98,17 @@ export default function ThemeConfigurator(): JSX.Element {
     const base = [...manifest.themes, ...manifest.packs];
     return base.map((theme) => ({
       slug: theme.slug,
-      name: theme.name,
+      name: theme.source === "custom" ? `${theme.name} (Custom)` : theme.name,
       source: theme.source,
     }));
   }, [manifest]);
+
+  useEffect(() => {
+    const unsubscribe = onThemeManifestChange((next) => {
+      setManifest(next);
+    });
+    return unsubscribe;
+  }, []);
 
   const applySettings = useCallback((settings: ThemeSettings) => {
     settingsRef.current = {
@@ -320,7 +327,7 @@ export default function ThemeConfigurator(): JSX.Element {
   return (
     <section className="card mb-4" aria-label="theme-configurator">
       <div className="card-header d-flex justify-content-between align-items-center">
-        <strong>Theming</strong>
+        <strong>Theme</strong>
         <div className="d-flex gap-2 flex-wrap justify-content-end">
           <Link to="/admin/settings/theme-designer" className="btn btn-outline-primary btn-sm">
             Theme Designer
