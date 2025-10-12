@@ -7,6 +7,7 @@ import {
   type ThemeSettings,
 } from "./themeData";
 import { updateThemeManifest, updateThemeSettings } from "../../theme/themeManager";
+import { Link } from "react-router-dom";
 
 type FormState = {
   theme: string;
@@ -29,17 +30,6 @@ type SaveResponse = {
   etag?: string;
   current_etag?: string;
 };
-
-const COLOR_OVERRIDES: Array<{ key: string; label: string }> = [
-  { key: "color.primary", label: "Primary color" },
-  { key: "color.surface", label: "Surface color" },
-  { key: "color.text", label: "Text color" },
-];
-
-const SHADOW_PRESETS = ["none", "default", "light", "heavy", "custom"] as const;
-const SPACING_PRESETS = ["narrow", "default", "wide"] as const;
-const TYPE_SCALE_PRESETS = ["small", "medium", "large"] as const;
-const MOTION_PRESETS = ["none", "limited", "full"] as const;
 
 type Mutable<T> = T extends object ? { -readonly [K in keyof T]: Mutable<T[K]> } : T;
 
@@ -239,28 +229,6 @@ export default function ThemeConfigurator(): JSX.Element {
     });
   };
 
-  const onColorChange = (key: string, value: string) => {
-    setForm((prev) => {
-      const next = {
-        ...prev,
-        overrides: { ...prev.overrides, [key]: value },
-      };
-      previewTheme(next);
-      return next;
-    });
-  };
-
-  const onPresetChange = (key: string, value: string) => {
-    setForm((prev) => {
-      const next = {
-        ...prev,
-        overrides: { ...prev.overrides, [key]: value },
-      };
-      previewTheme(next);
-      return next;
-    });
-  };
-
   const resetToBaseline = () => {
     const snapshot = snapshotRef.current ?? buildInitialForm(DEFAULT_THEME_SETTINGS);
     setForm(snapshot);
@@ -353,7 +321,10 @@ export default function ThemeConfigurator(): JSX.Element {
     <section className="card mb-4" aria-label="theme-configurator">
       <div className="card-header d-flex justify-content-between align-items-center">
         <strong>Theming</strong>
-        <div className="d-flex gap-2">
+        <div className="d-flex gap-2 flex-wrap justify-content-end">
+          <Link to="/admin/settings/theme-designer" className="btn btn-outline-primary btn-sm">
+            Theme Designer
+          </Link>
           <button
             type="button"
             className="btn btn-outline-secondary btn-sm"
@@ -436,101 +407,6 @@ export default function ThemeConfigurator(): JSX.Element {
                 <label htmlFor="forceGlobal" className="form-check-label">
                   Force global theme (light/dark still follows capability rules)
                 </label>
-              </div>
-
-              <div>
-                <h2 className="h5 mb-3">Design tokens</h2>
-                <div className="row g-3">
-                  {COLOR_OVERRIDES.map(({ key, label }) => (
-                    <div key={key} className="col-sm-4">
-                      <label htmlFor={key} className="form-label">
-                        {label}
-                      </label>
-                      <input
-                        id={key}
-                        className="form-control form-control-color"
-                        type="color"
-                        value={form.overrides[key] ?? "#000000"}
-                        onChange={(event) => onColorChange(key, event.target.value)}
-                        title={label}
-                      />
-                    </div>
-                  ))}
-                </div>
-
-                <div className="row g-3 mt-1">
-                  <div className="col-sm-3">
-                    <label htmlFor="shadowPreset" className="form-label">
-                      Shadow preset
-                    </label>
-                    <select
-                      id="shadowPreset"
-                      className="form-select"
-                      value={form.overrides.shadow ?? "default"}
-                      onChange={(event) => onPresetChange("shadow", event.target.value)}
-                    >
-                      {SHADOW_PRESETS.map((preset) => (
-                        <option key={preset} value={preset}>
-                          {preset}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="col-sm-3">
-                    <label htmlFor="spacingPreset" className="form-label">
-                      Spacing scale
-                    </label>
-                    <select
-                      id="spacingPreset"
-                      className="form-select"
-                      value={form.overrides.spacing ?? "default"}
-                      onChange={(event) => onPresetChange("spacing", event.target.value)}
-                    >
-                      {SPACING_PRESETS.map((preset) => (
-                        <option key={preset} value={preset}>
-                          {preset}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="col-sm-3">
-                    <label htmlFor="typeScalePreset" className="form-label">
-                      Type scale
-                    </label>
-                    <select
-                      id="typeScalePreset"
-                      className="form-select"
-                      value={form.overrides.typeScale ?? "medium"}
-                      onChange={(event) => onPresetChange("typeScale", event.target.value)}
-                    >
-                      {TYPE_SCALE_PRESETS.map((preset) => (
-                        <option key={preset} value={preset}>
-                          {preset}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="col-sm-3">
-                    <label htmlFor="motionPreset" className="form-label">
-                      Motion
-                    </label>
-                    <select
-                      id="motionPreset"
-                      className="form-select"
-                      value={form.overrides.motion ?? "full"}
-                      onChange={(event) => onPresetChange("motion", event.target.value)}
-                    >
-                      {MOTION_PRESETS.map((preset) => (
-                        <option key={preset} value={preset}>
-                          {preset}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
               </div>
             </fieldset>
           </>

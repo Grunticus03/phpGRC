@@ -15,6 +15,7 @@ import AdminIndex from "./routes/admin/index";
 import CoreSettings from "./routes/admin/Settings";
 import BrandingSettings from "./routes/admin/BrandingSettings";
 import ThemingSettings from "./routes/admin/ThemingSettings";
+import ThemeDesigner from "./routes/admin/ThemeDesigner";
 import Roles from "./routes/admin/Roles";
 import UserRoles from "./routes/admin/UserRoles";
 import Audit from "./routes/admin/Audit";
@@ -52,6 +53,7 @@ const router = createBrowserRouter(
           <Route path="core" element={<CoreSettings />} />
           <Route path="branding" element={<BrandingSettings />} />
           <Route path="theming" element={<ThemingSettings />} />
+          <Route path="theme-designer" element={<ThemeDesigner />} />
         </Route>
         <Route path="roles" element={<Roles />} />
         <Route path="users" element={<Users />} />

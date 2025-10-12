@@ -2,6 +2,7 @@
 import { describe, expect, it, beforeEach, afterEach, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import React from "react";
+import { MemoryRouter } from "react-router-dom";
 import ThemeConfigurator from "../ThemeConfigurator";
 import { DEFAULT_THEME_MANIFEST } from "../themeData";
 
@@ -116,9 +117,16 @@ describe("ThemeConfigurator", () => {
   });
 
   it("loads manifest, saves with If-Match, and updates state", async () => {
-    render(<ThemeConfigurator />);
+    render(
+      <MemoryRouter>
+        <ThemeConfigurator />
+      </MemoryRouter>
+    );
 
     await waitFor(() => expect(screen.queryByText("Loading theme settings…")).toBeNull());
+
+    const designerLink = screen.getByRole("link", { name: "Theme Designer" });
+    expect(designerLink).toHaveAttribute("href", "/admin/settings/theme-designer");
 
     const themeSelect = screen.getByLabelText("Default theme") as HTMLSelectElement;
     expect(themeSelect.value).toBe("slate");
@@ -135,15 +143,6 @@ describe("ThemeConfigurator", () => {
     fireEvent.click(forceToggle);
     expect(forceToggle.checked).toBe(true);
 
-    const primaryColor = screen.getByLabelText("Primary color") as HTMLInputElement;
-    fireEvent.change(primaryColor, { target: { value: "#ff0000" } });
-    expect(primaryColor.value.toLowerCase()).toBe("#ff0000");
-
-    fireEvent.change(screen.getByLabelText("Shadow preset"), { target: { value: "light" } });
-    fireEvent.change(screen.getByLabelText("Spacing scale"), { target: { value: "wide" } });
-    fireEvent.change(screen.getByLabelText("Type scale"), { target: { value: "large" } });
-    fireEvent.change(screen.getByLabelText("Motion"), { target: { value: "limited" } });
-
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     await screen.findByText("Theme settings saved.");
@@ -157,13 +156,13 @@ describe("ThemeConfigurator", () => {
             "default": "flatly",
             "force_global": true,
             "overrides": {
-              "color.primary": "#ff0000",
+              "color.primary": "#0d6efd",
               "color.surface": "#1b1e21",
               "color.text": "#f8f9fa",
-              "motion": "limited",
-              "shadow": "light",
-              "spacing": "wide",
-              "typeScale": "large",
+              "motion": "full",
+              "shadow": "default",
+              "spacing": "default",
+              "typeScale": "medium",
             },
           },
         },
@@ -199,7 +198,11 @@ describe("ThemeConfigurator", () => {
 
     globalThis.fetch = fetchMock as unknown as typeof fetch;
 
-    render(<ThemeConfigurator />);
+    render(
+      <MemoryRouter>
+        <ThemeConfigurator />
+      </MemoryRouter>
+    );
 
     await waitFor(() => expect(screen.queryByText("Loading theme settings…")).toBeNull());
 
@@ -231,7 +234,11 @@ describe("ThemeConfigurator", () => {
     });
     globalThis.fetch = fetchMock as unknown as typeof fetch;
 
-    render(<ThemeConfigurator />);
+    render(
+      <MemoryRouter>
+        <ThemeConfigurator />
+      </MemoryRouter>
+    );
 
     await screen.findByText("You do not have permission to adjust theme settings.");
 
