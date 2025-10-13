@@ -40,6 +40,7 @@ final class UiSettingsService
      * @return array{
      *     theme: array{
      *         default: string,
+     *         mode: string,
      *         allow_user_override: bool,
      *         force_global: bool,
      *         overrides: array<string,string|null>,
@@ -430,6 +431,7 @@ final class UiSettingsService
      *     config: array{
      *         theme: array{
      *             default: string,
+     *             mode: string,
      *             allow_user_override: bool,
      *             force_global: bool,
      *             overrides: array<string,string|null>,
@@ -692,7 +694,7 @@ final class UiSettingsService
     /**
      * @param  array<string,mixed>  $config
      * @return array{
-     *     theme: array{default: string, allow_user_override: bool, force_global: bool, overrides: array<string,string|null>, designer: array{storage: string, filesystem_path: string}},
+     *     theme: array{default: string, mode: string, allow_user_override: bool, force_global: bool, overrides: array<string,string|null>, designer: array{storage: string, filesystem_path: string}},
      *     nav: array{sidebar: array{default_order: array<int,string>}},
      *     brand: array{
      *         title_text: string,
@@ -770,7 +772,7 @@ final class UiSettingsService
             }
         }
 
-        $theme['mode'] = $this->sanitizeThemeMode($theme['mode'] ?? null, $theme['default']);
+        $theme['mode'] = $this->sanitizeThemeMode($theme['mode'], $theme['default']);
 
         /** @var array<string,mixed> $navDefaults */
         $navDefaults = (array) ($defaults['nav'] ?? []);
@@ -1167,17 +1169,18 @@ final class UiSettingsService
     private function manifestTheme(string $slug): ?array
     {
         $manifest = $this->themePacks->manifest();
-
-        $themes = is_array($manifest['themes'] ?? null) ? $manifest['themes'] : [];
+        /** @var list<array<string,mixed>> $themes */
+        $themes = $manifest['themes'];
         foreach ($themes as $theme) {
-            if (is_array($theme) && ($theme['slug'] ?? null) === $slug) {
+            if (($theme['slug'] ?? null) === $slug) {
                 return $theme;
             }
         }
 
-        $packs = is_array($manifest['packs'] ?? null) ? $manifest['packs'] : [];
+        /** @var list<array<string,mixed>> $packs */
+        $packs = $manifest['packs'];
         foreach ($packs as $pack) {
-            if (is_array($pack) && ($pack['slug'] ?? null) === $slug) {
+            if (($pack['slug'] ?? null) === $slug) {
                 return $pack;
             }
         }
@@ -1192,7 +1195,11 @@ final class UiSettingsService
         }
 
         $entry = $this->manifestTheme($slug);
-        if (! is_array($entry)) {
+        if ($entry === null) {
+            return false;
+        }
+
+        if (! isset($entry['supports']) || ! is_array($entry['supports'])) {
             return false;
         }
 
@@ -1201,8 +1208,11 @@ final class UiSettingsService
             return false;
         }
 
-        foreach ($supports as $value) {
-            if (is_string($value) && strtolower($value) === $mode) {
+        foreach ($supports as $supportedMode) {
+            if (! is_string($supportedMode)) {
+                continue;
+            }
+            if (strtolower($supportedMode) === $mode) {
                 return true;
             }
         }
@@ -1230,9 +1240,9 @@ final class UiSettingsService
         }
 
         $entry = $this->manifestTheme($themeSlug);
-        if (is_array($entry)) {
-            $defaultMode = $entry['default_mode'] ?? null;
-            if (is_string($defaultMode) && in_array($defaultMode, ['light', 'dark'], true) && $this->themeSupportsMode($themeSlug, $defaultMode)) {
+        if ($entry !== null && isset($entry['default_mode']) && is_string($entry['default_mode'])) {
+            $defaultMode = strtolower($entry['default_mode']);
+            if (($defaultMode === 'light' || $defaultMode === 'dark') && $this->themeSupportsMode($themeSlug, $defaultMode)) {
                 return $defaultMode;
             }
         }

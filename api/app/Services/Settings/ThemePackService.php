@@ -1264,30 +1264,33 @@ final class ThemePackService
     private function defaultThemeModeForSlug(string $slug): string
     {
         $manifest = $this->manifest();
-        $entries = [];
-        if (is_array($manifest['themes'] ?? null)) {
-            $entries = array_merge($entries, $manifest['themes']);
-        }
-        if (is_array($manifest['packs'] ?? null)) {
-            $entries = array_merge($entries, $manifest['packs']);
-        }
+        /** @var list<array<string,mixed>> $themes */
+        $themes = $manifest['themes'];
+        /** @var list<array<string,mixed>> $packs */
+        $packs = $manifest['packs'];
+        $entries = array_merge($themes, $packs);
 
         foreach ($entries as $entry) {
-            if (! is_array($entry)) {
-                continue;
-            }
+            /** @var array<string,mixed> $entry */
             if (($entry['slug'] ?? null) !== $slug) {
                 continue;
             }
-            $default = $entry['default_mode'] ?? null;
-            if (is_string($default) && in_array($default, ['light', 'dark'], true)) {
-                return $default;
-            }
-            $supports = $entry['supports']['mode'] ?? [];
-            if (is_array($supports)) {
-                if (in_array('dark', $supports, true) && ! in_array('light', $supports, true)) {
-                    return 'dark';
+            if (isset($entry['default_mode']) && is_string($entry['default_mode'])) {
+                $default = strtolower($entry['default_mode']);
+                if ($default === 'light' || $default === 'dark') {
+                    return $default;
                 }
+            }
+            $supports = $entry['supports'] ?? [];
+            if (! is_array($supports)) {
+                break;
+            }
+            $modes = $supports['mode'] ?? [];
+            if (! is_array($modes)) {
+                break;
+            }
+            if (in_array('dark', $modes, true) && ! in_array('light', $modes, true)) {
+                return 'dark';
             }
             break;
         }
