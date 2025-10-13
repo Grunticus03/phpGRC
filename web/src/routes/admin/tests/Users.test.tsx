@@ -6,7 +6,7 @@ import { vi } from "vitest";
 import Users from "../Users";
 import { ToastProvider } from "../../../components/toast/ToastProvider";
 
-const ROUTER_FUTURE_FLAGS = { v7_relativeSplatPath: true } as const;
+const ROUTER_FUTURE_FLAGS = { v7_startTransition: true, v7_relativeSplatPath: true } as const;
 
 const originalFetch = globalThis.fetch as typeof fetch;
 
@@ -110,8 +110,8 @@ describe("Admin Users page", () => {
 
     await screen.findByText("Alice Admin");
 
-    const editButton = within(screen.getByRole("row", { name: /alice admin/i })).getByRole("button", { name: /edit/i });
-    await user.click(editButton);
+    const aliceRow = screen.getByRole("row", { name: /edit user alice@example\.test/i });
+    await user.click(aliceRow);
 
     const editCard = screen.getByText(/edit user/i).closest(".card") as HTMLElement | null;
     expect(editCard).not.toBeNull();
@@ -244,14 +244,13 @@ describe("Admin Users page", () => {
       expect(select.value).toBe("");
     });
 
-    const deleteButton = within(screen.getByRole("row", { name: /bob user/i })).getByRole("button", { name: /delete/i });
+    const deleteButton = within(
+      screen.getByRole("row", { name: /edit user bob@example\.test/i })
+    ).getByRole("button", { name: /delete/i });
     await user.click(deleteButton);
 
-    const confirmTitle = await screen.findByText(/delete bob@example.test\?/i);
-    const confirmAlert = confirmTitle.closest('[role="alert"]') as HTMLElement | null;
-    expect(confirmAlert).not.toBeNull();
-
-    await user.click(within(confirmAlert!).getByRole("button", { name: /^delete$/i }));
+    const deleteDialog = await screen.findByRole("dialog", { name: /delete bob@example\.test\?/i });
+    await user.click(within(deleteDialog).getByRole("button", { name: /^delete$/i }));
 
     await screen.findByText(/user deleted\./i);
     await screen.findByText(/no users/i);

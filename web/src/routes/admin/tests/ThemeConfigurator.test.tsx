@@ -19,7 +19,7 @@ type FetchCall = {
   init: RequestInit;
 };
 
-const ROUTER_FUTURE_FLAGS = { v7_relativeSplatPath: true } as const;
+const ROUTER_FUTURE_FLAGS = { v7_startTransition: true, v7_relativeSplatPath: true } as const;
 const SUCCESS_TOAST = "Theme settings saved.";
 const CONFLICT_TOAST = "Settings changed elsewhere. Reloaded latest values.";
 const FORBIDDEN_TOAST = "You do not have permission to adjust theme settings.";

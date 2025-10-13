@@ -680,35 +680,102 @@ export const toggleThemeMode = (): ThemeMode => {
   const selection = resolveThemeSelection();
   const entry = findManifestEntry(manifestCache, selection.slug);
   const availableModes = supportsModes(entry);
-  if (availableModes.length < 2) {
-    applySelection(selection);
-    applyDesignTokens();
-    return selection.mode;
-  }
+  const desiredMode: ThemeMode = selection.mode === "dark" ? "light" : "dark";
 
-  let nextMode: ThemeMode = selection.mode === "dark" ? "light" : "dark";
-  if (!availableModes.includes(nextMode)) {
-    const fallback = availableModes.find((mode) => mode !== selection.mode);
-    if (fallback) {
-      nextMode = fallback;
+  const findFallbackSlug = (mode: ThemeMode): string | null => {
+    const candidates = new Set<string>();
+    const defaults = mode === "dark" ? manifestCache.defaults?.dark : manifestCache.defaults?.light;
+    const defaultSlug = sanitizeSlug(defaults);
+    if (defaultSlug) {
+      candidates.add(defaultSlug);
+    }
+    const preferredSlug = sanitizeSlug(prefsCache.theme);
+    if (preferredSlug) {
+      candidates.add(preferredSlug);
+    }
+    const defaultDark = sanitizeSlug(manifestCache.defaults?.dark);
+    if (defaultDark) candidates.add(defaultDark);
+    const defaultLight = sanitizeSlug(manifestCache.defaults?.light);
+    if (defaultLight) candidates.add(defaultLight);
+    themeEntries(manifestCache)
+      .filter((item) => supportsModes(item).includes(mode))
+      .forEach((item) => candidates.add(item.slug));
+
+    for (const slug of candidates) {
+      const trimmed = typeof slug === "string" ? slug.trim() : "";
+      if (trimmed === "") continue;
+      const match = findManifestEntry(manifestCache, trimmed);
+      if (match && supportsModes(match).includes(mode)) {
+        return trimmed;
+      }
+    }
+    return null;
+  };
+
+  let targetSlug = selection.slug;
+  let targetMode = desiredMode;
+
+  if (!availableModes.includes(desiredMode)) {
+    const fallbackSlug = findFallbackSlug(desiredMode);
+    if (fallbackSlug) {
+      targetSlug = fallbackSlug;
+      const fallbackEntry = findManifestEntry(manifestCache, fallbackSlug);
+      const fallbackModes = supportsModes(fallbackEntry);
+      if (!fallbackModes.includes(desiredMode) && fallbackModes.length > 0) {
+        targetMode = fallbackModes[0];
+      }
+    } else {
+      targetMode = selection.mode;
     }
   }
 
-  if (!settingsCache.theme.allow_user_override || settingsCache.theme.force_global) {
-    currentSelection = { ...selection, mode: nextMode };
-    applySelection(currentSelection);
-    applyDesignTokens();
-    notifySettingsListeners();
-    return nextMode;
+  if (targetSlug === selection.slug && targetMode === selection.mode) {
+    return selection.mode;
   }
 
-  prefsCache = {
-    ...prefsCache,
-    mode: nextMode,
+  const nextEntry = findManifestEntry(manifestCache, targetSlug);
+  const nextSource = nextEntry?.source ?? selection.source;
+  const resolvedModes = supportsModes(nextEntry);
+  if (!resolvedModes.includes(targetMode) && resolvedModes.length > 0) {
+    targetMode = resolvedModes[0];
+  }
+
+  const nextSelection: ThemeSelection = {
+    slug: targetSlug,
+    mode: targetMode,
+    source: nextSource,
   };
-  notifyPrefsListeners();
-  refreshTheme();
-  return nextMode;
+
+  const allowOverride = settingsCache.theme.allow_user_override && !settingsCache.theme.force_global;
+
+  if (allowOverride) {
+    const nextPrefs: ThemeUserPrefs = {
+      ...prefsCache,
+      theme: nextSelection.slug,
+      mode: nextSelection.mode,
+      overrides: { ...prefsCache.overrides },
+      sidebar: {
+        ...prefsCache.sidebar,
+        order: [...prefsCache.sidebar.order],
+      },
+    };
+    updateThemePrefs(nextPrefs);
+    return nextSelection.mode;
+  }
+
+  const nextSettings: ThemeSettings = {
+    ...settingsCache,
+    theme: {
+      ...settingsCache.theme,
+      default: nextSelection.slug,
+      overrides: { ...settingsCache.theme.overrides },
+      designer: {
+        ...settingsCache.theme.designer,
+      },
+    },
+  };
+  updateThemeSettings(nextSettings);
+  return nextSelection.mode;
 };
 
 // Apply default theme immediately when running in a browser to reduce FOUC.

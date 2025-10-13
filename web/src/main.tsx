@@ -6,6 +6,6 @@ import "./theme/customThemeBindings.css";
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
-    <RouterProvider router={router} />
+    <RouterProvider router={router} future={{ v7_startTransition: true }} />
   </React.StrictMode>
 );

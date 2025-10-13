@@ -1,4 +1,4 @@
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { apiDelete, apiGet, apiPost, apiPut, HttpError } from "../../lib/api";
 import { listRoles } from "../../lib/api/rbac";
 import { roleIdsFromNames, roleLabelFromId, roleOptionsFromList, type RoleOption } from "../../lib/roles";
@@ -125,6 +125,8 @@ export default function Users(): JSX.Element {
 
   const [deleteCandidate, setDeleteCandidate] = useState<User | null>(null);
   const [deleteBusy, setDeleteBusy] = useState<boolean>(false);
+  const deleteModalRef = useRef<HTMLDivElement | null>(null);
+  const deleteConfirmButtonRef = useRef<HTMLButtonElement | null>(null);
 
   const canPrev = meta.page > 1;
   const canNext = meta.page < meta.total_pages;
@@ -435,10 +437,22 @@ export default function Users(): JSX.Element {
     }
   }
 
-  const cancelDelete = () => {
+  const cancelDelete = useCallback(() => {
     if (deleteBusy) return;
     setDeleteCandidate(null);
-  };
+  }, [deleteBusy]);
+
+  useEffect(() => {
+    if (!deleteCandidate) return;
+    const focusTimer = window.setTimeout(() => {
+      if (deleteConfirmButtonRef.current) {
+        deleteConfirmButtonRef.current.focus();
+      } else if (deleteModalRef.current) {
+        deleteModalRef.current.focus();
+      }
+    }, 0);
+    return () => window.clearTimeout(focusTimer);
+  }, [deleteCandidate]);
 
   return (
     <main className="container py-4">
@@ -480,25 +494,39 @@ export default function Users(): JSX.Element {
               <th scope="col">Name</th>
               <th scope="col">Email</th>
               <th scope="col">Roles</th>
-              <th scope="col" style={{ width: "9rem" }} className="text-end">Actions</th>
+              <th scope="col" style={{ width: "7rem" }} className="text-end">Actions</th>
             </tr>
           </thead>
           <tbody>
             {items.map((user) => (
-              <tr key={user.id} className={selectedUser?.id === user.id ? "table-active" : undefined}>
+              <tr
+                key={user.id}
+                className={selectedUser?.id === user.id ? "table-active" : undefined}
+                onClick={() => openEdit(user)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    openEdit(user);
+                  }
+                }}
+                tabIndex={0}
+                aria-label={`Edit user ${user.email}`}
+                style={{ cursor: "pointer" }}
+              >
                 <td>{user.id}</td>
                 <td>{user.name}</td>
                 <td>{user.email}</td>
                 <td>{user.roles.length > 0 ? user.roles.join(", ") : <span className="text-muted">None</span>}</td>
                 <td className="text-end">
                   <div className="btn-group btn-group-sm" role="group" aria-label={`Actions for ${user.email}`}>
-                    <button type="button" className="btn btn-outline-primary" onClick={() => openEdit(user)} disabled={editBusy && selectedUser?.id === user.id}>
-                      Edit
-                    </button>
                     <button
                       type="button"
                       className="btn btn-outline-danger"
-                      onClick={() => beginDelete(user)}
+                      onClick={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        beginDelete(user);
+                      }}
                       disabled={deleteBusy && deleteCandidate?.id === user.id}
                     >
                       Delete
@@ -527,20 +555,70 @@ export default function Users(): JSX.Element {
       </nav>
 
       {deleteCandidate && (
-        <div className="alert alert-warning d-flex align-items-center justify-content-between mt-4" role="alert">
-          <div>
-            <strong>Delete {deleteCandidate.email}?</strong>
-            <div className="small">This action cannot be undone.</div>
+        <>
+          <div
+            className="modal-backdrop fade show"
+            onClick={() => {
+              if (!deleteBusy) {
+                cancelDelete();
+              }
+            }}
+          />
+          <div
+            ref={deleteModalRef}
+            className="modal fade show d-block"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-user-title"
+            aria-describedby="delete-user-body"
+            tabIndex={-1}
+            onKeyDown={(event) => {
+              if (event.key === "Escape") {
+                event.preventDefault();
+                cancelDelete();
+              }
+            }}
+          >
+            <div className="modal-dialog modal-dialog-centered">
+              <div className="modal-content shadow">
+                <div className="modal-header">
+                  <h2 className="modal-title fs-5" id="delete-user-title">
+                    Delete {deleteCandidate.email}?
+                  </h2>
+                  <button
+                    type="button"
+                    className="btn-close"
+                    aria-label="Close"
+                    onClick={cancelDelete}
+                    disabled={deleteBusy}
+                  />
+                </div>
+                <div className="modal-body" id="delete-user-body">
+                  This action cannot be undone.
+                </div>
+                <div className="modal-footer">
+                  <button
+                    type="button"
+                    className="btn btn-outline-secondary"
+                    onClick={cancelDelete}
+                    disabled={deleteBusy}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-danger"
+                    onClick={confirmDelete}
+                    disabled={deleteBusy}
+                    ref={deleteConfirmButtonRef}
+                  >
+                    {deleteBusy ? "Deleting..." : "Delete"}
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
-          <div className="d-flex gap-2">
-            <button type="button" className="btn btn-danger" onClick={confirmDelete} disabled={deleteBusy}>
-              {deleteBusy ? "Deleting..." : "Delete"}
-            </button>
-            <button type="button" className="btn btn-outline-secondary" onClick={cancelDelete} disabled={deleteBusy}>
-              Cancel
-            </button>
-          </div>
-        </div>
+        </>
       )}
 
       <section className="row g-4 mt-4">

@@ -75,7 +75,7 @@ export const DEFAULT_THEME_SETTINGS = {
 } as const;
 
 export const DEFAULT_USER_PREFS = {
-  theme: null,
+  theme: null as string | null,
   mode: null as "light" | "dark" | null,
   overrides: {
     "color.primary": "#0d6efd",

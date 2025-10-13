@@ -7,7 +7,7 @@ import { MemoryRouter } from "react-router-dom";
 import EvidenceList from "../List";
 import { ToastProvider } from "../../../components/toast/ToastProvider";
 
-const ROUTER_FUTURE_FLAGS = { v7_relativeSplatPath: true } as const;
+const ROUTER_FUTURE_FLAGS = { v7_startTransition: true, v7_relativeSplatPath: true } as const;
 
 function jsonResponse(body: unknown, init: ResponseInit = {}) {
   return new Response(JSON.stringify(body), {

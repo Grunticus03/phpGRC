@@ -7,6 +7,7 @@ import {
   useState,
   type CSSProperties,
   type FocusEvent as ReactFocusEvent,
+  type MouseEvent as ReactMouseEvent,
 } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import {
@@ -687,6 +688,19 @@ export default function AppLayout(): JSX.Element | null {
     }
   }, [setSidebarCollapsed]);
 
+  const handleSidebarToggleLeave = useCallback(
+    (event: ReactMouseEvent<HTMLButtonElement>) => {
+      if (customizingRef.current) return;
+      if (sidebarPrefsRef.current.pinned) return;
+      const nextTarget = event.relatedTarget as Node | null;
+      if (nextTarget && sidebarRef.current && sidebarRef.current.contains(nextTarget)) {
+        return;
+      }
+      setSidebarCollapsed(true, { persist: false, silent: true });
+    },
+    [setSidebarCollapsed]
+  );
+
   const closeFloatingSidebar = useCallback(() => {
     if (customizingRef.current) return;
     if (!sidebarPrefsRef.current.pinned && !sidebarPrefsRef.current.collapsed) {
@@ -1072,6 +1086,8 @@ export default function AppLayout(): JSX.Element | null {
             aria-expanded={!sidebarPrefs.collapsed}
             onClick={toggleSidebar}
             onMouseEnter={handleSidebarToggleHover}
+            onMouseLeave={handleSidebarToggleLeave}
+            onFocus={handleSidebarToggleHover}
             disabled={prefsLoading}
             style={{
               width: "2.5rem",

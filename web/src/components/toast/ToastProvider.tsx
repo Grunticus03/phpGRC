@@ -75,7 +75,7 @@ export function ToastProvider({ children }: { children: ReactNode }): JSX.Elemen
   const pushToastInternal = useCallback(
     ({ message, tone = "info", durationMs, id: providedId }: ToastOptions): string => {
       const id = providedId ?? createToastId();
-      const dismissible = tone === "warning" || tone === "danger";
+      const dismissible = true;
       const autoDuration =
         durationMs ??
         (tone === "success" || tone === "info"
