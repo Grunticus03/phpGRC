@@ -38,6 +38,7 @@ Canonical runtime settings. Stored in DB unless noted. Avatars and theme pack fi
 ## Global keys (`/settings/ui`)
 
 - `ui.theme.default` : string — Bootswatch slug. **Default:** `slate`.
+- `ui.theme.mode` : `"light" | "dark"` — default render mode applied to `ui.theme.default`. **Default:** `dark`.
 - `ui.theme.allow_user_override` : boolean — allow user theme choice. **Default:** `true`.
 - `ui.theme.force_global` : boolean — force global theme for everyone; **still allows user light/dark** if theme supports both. **Default:** `false`.
 - `ui.theme.overrides` : object<string,string> — token → value. Allowed tokens only; values validated.
@@ -49,6 +50,24 @@ Canonical runtime settings. Stored in DB unless noted. Avatars and theme pack fi
 - `ui.brand.header_logo_asset_id` : ulid|null
 - `ui.brand.footer_logo_asset_id` : ulid|null
 - `ui.brand.footer_logo_disabled` : boolean — hide footer logo in exports. **Default:** `false`.
+
+## Bootswatch Variant Mapping
+
+When a Bootswatch theme supports both modes, the UI toggle swaps between the presets below. Themes not listed remain single-mode and automatically disable the toggle.
+
+| Theme (slug) | Light preset | Dark preset |
+| --- | --- | --- |
+| cerulean | cerulean | slate |
+| cosmo | cosmo | cyborg |
+| flatly | flatly | darkly |
+| journal | journal | quartz |
+| litera | litera | vapor |
+| lumen | lumen | solar |
+| united | united | superhero |
+
+Dark-first themes (`slate`, `cyborg`, `darkly`, `quartz`, `vapor`, `solar`, `superhero`) use the reciprocal light preset shown above when users switch to light mode.
+
+All remaining Bootswatch slugs (`lux`, `materia`, `minty`, `morph`, `pulse`, `sandstone`, `simplex`, `sketchy`, `spacelab`, `yeti`, `zephyr`) currently ship as light-only variants.
 
 ### File Ref shape (read-only)
 

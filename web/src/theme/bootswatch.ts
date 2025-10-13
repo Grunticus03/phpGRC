@@ -72,3 +72,61 @@ export const BOOTSWATCH_THEME_HREFS: Readonly<Record<string, string>> = BOOTSWAT
 export function getBootswatchTheme(slug: string): BootswatchThemeMeta | undefined {
   return BOOTSWATCH_THEMES.find((theme) => theme.slug === slug);
 }
+
+type BootswatchVariantMap = Partial<Record<BootswatchMode, BootswatchThemeMeta>>;
+
+const PAIRINGS: Array<{ slug: string; light?: string; dark?: string }> = [
+  { slug: "flatly", light: "flatly", dark: "darkly" },
+  { slug: "darkly", light: "flatly", dark: "darkly" },
+  { slug: "cerulean", light: "cerulean", dark: "slate" },
+  { slug: "slate", light: "cerulean", dark: "slate" },
+  { slug: "cosmo", light: "cosmo", dark: "cyborg" },
+  { slug: "cyborg", light: "cosmo", dark: "cyborg" },
+  { slug: "journal", light: "journal", dark: "quartz" },
+  { slug: "quartz", light: "journal", dark: "quartz" },
+  { slug: "litera", light: "litera", dark: "vapor" },
+  { slug: "vapor", light: "litera", dark: "vapor" },
+  { slug: "lumen", light: "lumen", dark: "solar" },
+  { slug: "solar", light: "lumen", dark: "solar" },
+  { slug: "united", light: "united", dark: "superhero" },
+  { slug: "superhero", light: "united", dark: "superhero" },
+];
+
+const buildDefaultVariants = (): Record<string, BootswatchVariantMap> => {
+  const variants: Record<string, BootswatchVariantMap> = {};
+  const metaBySlug = BOOTSWATCH_THEMES.reduce<Map<string, BootswatchThemeMeta>>(
+    (acc, theme) => acc.set(theme.slug, theme),
+    new Map()
+  );
+
+  BOOTSWATCH_THEMES.forEach((theme) => {
+    variants[theme.slug] = { [theme.mode]: theme };
+  });
+
+  PAIRINGS.forEach(({ slug, light, dark }) => {
+    const target = variants[slug] ?? {};
+    if (light) {
+      const meta = metaBySlug.get(light);
+      if (meta) {
+        target.light = meta;
+      }
+    }
+    if (dark) {
+      const meta = metaBySlug.get(dark);
+      if (meta) {
+        target.dark = meta;
+      }
+    }
+    variants[slug] = target;
+  });
+
+  return variants;
+};
+
+export const BOOTSWATCH_THEME_VARIANTS: Readonly<Record<string, BootswatchVariantMap>> =
+  buildDefaultVariants();
+
+export function getBootswatchVariant(slug: string, mode: BootswatchMode): BootswatchThemeMeta | undefined {
+  const variants = BOOTSWATCH_THEME_VARIANTS[slug];
+  return variants?.[mode];
+}

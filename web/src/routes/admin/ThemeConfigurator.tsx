@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { baseHeaders } from "../../lib/api";
-import { DEFAULT_THEME_SETTINGS, type ThemeManifest, type ThemeSettings } from "./themeData";
+import {
+  DEFAULT_THEME_SETTINGS,
+  type ThemeManifest,
+  type ThemeSettings,
+  type ThemeMode,
+} from "./themeData";
 import {
   getCachedThemeManifest,
   onThemeManifestChange,
@@ -12,6 +17,7 @@ import { useToast } from "../../components/toast/ToastProvider";
 
 type FormState = {
   theme: string;
+  mode: "light" | "dark";
   allowOverride: boolean;
   forceGlobal: boolean;
   overrides: Record<string, string>;
@@ -38,6 +44,15 @@ type SaveResponse = {
 
 type Mutable<T> = T extends object ? { -readonly [K in keyof T]: Mutable<T[K]> } : T;
 
+type ThemeOption = {
+  slug: string;
+  label: string;
+  source: string;
+  modes: ThemeMode[];
+  defaultMode: ThemeMode;
+  variants?: ThemeManifest["themes"][number]["variants"];
+};
+
 const toStoredOverrides = (source: Record<string, string>): ThemeSettings["theme"]["overrides"] => {
   const base = { ...DEFAULT_THEME_SETTINGS.theme.overrides } as Mutable<
     typeof DEFAULT_THEME_SETTINGS.theme.overrides
@@ -55,8 +70,10 @@ function buildInitialForm(settings: ThemeSettings): FormState {
     filesystem_path: "/opt/phpgrc/shared/themes",
   };
   const forceGlobal = Boolean(mutable.theme.force_global);
+  const mode = mutable.theme.mode === "light" ? "light" : "dark";
   return {
     theme: String(mutable.theme.default),
+    mode,
     forceGlobal,
     allowOverride: !forceGlobal,
     overrides: { ...mutable.theme.overrides } as Record<string, string>,
@@ -73,6 +90,7 @@ function buildInitialForm(settings: ThemeSettings): FormState {
 function hasChanges(form: FormState, baseline: FormState | null): boolean {
   if (!baseline) return true;
   if (form.theme !== baseline.theme) return true;
+  if (form.mode !== baseline.mode) return true;
   if (form.forceGlobal !== baseline.forceGlobal) return true;
   if (form.designer.storage !== baseline.designer.storage) return true;
   if (form.designer.filesystemPath !== baseline.designer.filesystemPath) return true;
@@ -113,14 +131,56 @@ export default function ThemeConfigurator(): JSX.Element {
     },
   } as ThemeSettings);
 
-  const themeOptions = useMemo(() => {
-    const base = [...manifest.themes, ...manifest.packs];
-    return base.map((theme) => ({
-      slug: theme.slug,
-      name: theme.source === "custom" ? `${theme.name} (Custom)` : theme.name,
-      source: theme.source,
-    }));
+  const themeOptions: ThemeOption[] = useMemo(() => {
+    const entries = [...manifest.themes, ...manifest.packs];
+    const normalizeMode = (value: unknown): ThemeMode | null =>
+      value === "light" || value === "dark" ? value : null;
+
+    return entries.map((entry) => {
+      const supportedModes = Array.isArray(entry.supports?.mode) ? entry.supports.mode : [];
+      const modes = supportedModes
+        .map((mode) => normalizeMode(mode))
+        .filter((mode): mode is ThemeMode => mode !== null);
+      const modeSet = modes.length > 0 ? modes : (["light"] as ThemeMode[]);
+
+      const defaultModeRaw = normalizeMode((entry as { default_mode?: ThemeMode }).default_mode);
+      const defaultMode = defaultModeRaw ?? (modeSet.includes("light") ? "light" : "dark");
+
+      const variants = (entry as { variants?: ThemeManifest["themes"][number]["variants"] })?.variants;
+      const darkVariantName = variants?.dark?.name;
+      const lightVariantName = variants?.light?.name;
+      const labelParts = [entry.name];
+      if (darkVariantName && darkVariantName !== entry.name) {
+        labelParts.push(darkVariantName);
+      } else if (lightVariantName && lightVariantName !== entry.name) {
+        labelParts.push(lightVariantName);
+      }
+      const label = labelParts.length > 1 ? labelParts.join(" / ") : entry.name;
+
+      const sourceLabel =
+        entry.source === "bootswatch" ? "Bootswatch" : entry.source === "custom" ? "Custom" : "Pack";
+
+      return {
+        slug: entry.slug,
+        label,
+        source: sourceLabel,
+        modes: modeSet,
+        defaultMode,
+        variants,
+      };
+    });
   }, [manifest]);
+
+  const currentThemeOption = useMemo(
+    () => themeOptions.find((option) => option.slug === form.theme),
+    [form.theme, themeOptions]
+  );
+
+  const availableModes: ThemeMode[] = currentThemeOption?.modes ?? (["light"] as ThemeMode[]);
+  const variantLabels = {
+    light: currentThemeOption?.variants?.light?.name ?? "Light",
+    dark: currentThemeOption?.variants?.dark?.name ?? "Dark",
+  };
 
   useEffect(() => {
     const unsubscribe = onThemeManifestChange((next) => {
@@ -153,6 +213,7 @@ export default function ThemeConfigurator(): JSX.Element {
       theme: {
         ...base.theme,
         default: next.theme as ThemeSettings["theme"]["default"],
+        mode: next.mode as ThemeSettings["theme"]["mode"],
         allow_user_override: (!next.forceGlobal) as ThemeSettings["theme"]["allow_user_override"],
         force_global: next.forceGlobal as ThemeSettings["theme"]["force_global"],
         overrides: toStoredOverrides(next.overrides),
@@ -249,8 +310,25 @@ export default function ThemeConfigurator(): JSX.Element {
   }, []);
 
   const onChangeTheme = (value: string) => {
+    const option = themeOptions.find((item) => item.slug === value);
     setForm((prev) => {
-      const next = { ...prev, theme: value };
+      const availableModes = option?.modes ?? (["light"] as ThemeMode[]);
+      const nextMode = availableModes.includes(prev.mode)
+        ? prev.mode
+        : option?.defaultMode ?? availableModes[0];
+      const next = { ...prev, theme: value, mode: nextMode };
+      previewTheme(next);
+      return next;
+    });
+  };
+
+  const onSelectMode = (mode: ThemeMode) => {
+    const option = themeOptions.find((item) => item.slug === form.theme);
+    const allowed = option?.modes ?? (["light"] as ThemeMode[]);
+    if (!allowed.includes(mode)) return;
+    setForm((prev) => {
+      if (prev.mode === mode) return prev;
+      const next = { ...prev, mode };
       previewTheme(next);
       return next;
     });
@@ -327,6 +405,7 @@ export default function ThemeConfigurator(): JSX.Element {
         ui: {
           theme: {
             default: form.theme,
+            mode: form.mode,
             allow_user_override: !form.forceGlobal,
             force_global: form.forceGlobal,
             overrides: form.overrides,
@@ -439,13 +518,52 @@ export default function ThemeConfigurator(): JSX.Element {
                 >
                   {themeOptions.map((opt) => (
                     <option key={opt.slug} value={opt.slug}>
-                      {opt.name} ({opt.source === "bootswatch" ? "Bootswatch" : "Pack"})
+                      {opt.label} ({opt.source})
                     </option>
                   ))}
                 </select>
                 <div className="form-text">
                   Users can select from available themes when the global theme is not forced.
                 </div>
+              </div>
+
+              <div>
+                <span className="form-label fw-semibold d-block">Default mode</span>
+                <div className="d-flex gap-4">
+                  <div className="form-check form-check-inline">
+                    <input
+                      id="themeModeLight"
+                      type="radio"
+                      name="themeMode"
+                      className="form-check-input"
+                      value="light"
+                      checked={form.mode === "light"}
+                      disabled={!availableModes.includes("light")}
+                      onChange={() => onSelectMode("light")}
+                    />
+                    <label htmlFor="themeModeLight" className="form-check-label">
+                      {variantLabels.light}
+                    </label>
+                  </div>
+                  <div className="form-check form-check-inline">
+                    <input
+                      id="themeModeDark"
+                      type="radio"
+                      name="themeMode"
+                      className="form-check-input"
+                      value="dark"
+                      checked={form.mode === "dark"}
+                      disabled={!availableModes.includes("dark")}
+                      onChange={() => onSelectMode("dark")}
+                    />
+                    <label htmlFor="themeModeDark" className="form-check-label">
+                      {variantLabels.dark}
+                    </label>
+                  </div>
+                </div>
+                {!availableModes.includes("dark") ? (
+                  <div className="form-text">Dark mode is not available for this theme.</div>
+                ) : null}
               </div>
 
               <div className="form-check">

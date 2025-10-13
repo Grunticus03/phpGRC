@@ -545,13 +545,17 @@ final class ThemePackService
             /** @var string|null $licenseFile */
             $licenseFile = $pack->getAttribute('license_file');
 
+            $modes = $this->modesForAssets(is_array($assets) ? $assets : []);
+            $defaultMode = in_array('light', $modes, true) ? 'light' : 'dark';
+
             $entry = [
                 'slug' => trim($slug),
                 'name' => trim($name),
                 'source' => 'pack',
                 'supports' => [
-                    'mode' => $this->modesForAssets(is_array($assets) ? $assets : []),
+                    'mode' => $modes,
                 ],
+                'default_mode' => $defaultMode,
                 'author' => is_string($author) && trim($author) !== '' ? trim($author) : null,
                 'license' => null,
             ];
@@ -1200,6 +1204,25 @@ final class ThemePackService
                 $stored->setAttribute('created_at', $now);
             }
             $stored->save();
+
+            $modeKey = 'ui.theme.mode';
+            /** @var UiSetting|null $modeSetting */
+            $modeSetting = UiSetting::query()->find($modeKey);
+            if ($modeSetting === null) {
+                $modeSetting = new UiSetting([
+                    'key' => $modeKey,
+                ]);
+            }
+
+            $fallbackMode = $this->defaultThemeModeForSlug($fallback);
+            $modeSetting->setAttribute('value', $fallbackMode);
+            $modeSetting->setAttribute('type', 'string');
+            $modeSetting->setAttribute('updated_by', $actorId);
+            $modeSetting->setAttribute('updated_at', $now);
+            if (! $modeSetting->exists) {
+                $modeSetting->setAttribute('created_at', $now);
+            }
+            $modeSetting->save();
         }
 
         return [
@@ -1236,6 +1259,40 @@ final class ThemePackService
         }
 
         return $modes === [] ? ['light', 'dark'] : $modes;
+    }
+
+    private function defaultThemeModeForSlug(string $slug): string
+    {
+        $manifest = $this->manifest();
+        $entries = [];
+        if (is_array($manifest['themes'] ?? null)) {
+            $entries = array_merge($entries, $manifest['themes']);
+        }
+        if (is_array($manifest['packs'] ?? null)) {
+            $entries = array_merge($entries, $manifest['packs']);
+        }
+
+        foreach ($entries as $entry) {
+            if (! is_array($entry)) {
+                continue;
+            }
+            if (($entry['slug'] ?? null) !== $slug) {
+                continue;
+            }
+            $default = $entry['default_mode'] ?? null;
+            if (is_string($default) && in_array($default, ['light', 'dark'], true)) {
+                return $default;
+            }
+            $supports = $entry['supports']['mode'] ?? [];
+            if (is_array($supports)) {
+                if (in_array('dark', $supports, true) && ! in_array('light', $supports, true)) {
+                    return 'dark';
+                }
+            }
+            break;
+        }
+
+        return 'light';
     }
 
     private function defaultThemeSlug(): string

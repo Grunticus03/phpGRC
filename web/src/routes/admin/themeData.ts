@@ -1,12 +1,19 @@
-import { BOOTSWATCH_THEMES } from "../../theme/bootswatch";
+import { BOOTSWATCH_THEMES, BOOTSWATCH_THEME_VARIANTS } from "../../theme/bootswatch";
 
 export type ThemeMode = "light" | "dark";
+
+export type ThemeVariant = {
+  slug: string;
+  name: string;
+};
 
 export type ThemeManifestTheme = {
   slug: string;
   name: string;
   source: "bootswatch";
+  default_mode: ThemeMode;
   supports: { mode: ThemeMode[] };
+  variants?: Partial<Record<ThemeMode, ThemeVariant>>;
 };
 
 export type CustomThemePack = {
@@ -14,6 +21,8 @@ export type CustomThemePack = {
   name: string;
   source: "custom";
   supports: { mode: ThemeMode[] };
+  default_mode?: ThemeMode;
+  variants?: Partial<Record<ThemeMode, ThemeVariant>>;
   variables?: Record<string, string>;
 };
 
@@ -27,12 +36,28 @@ export type ThemeManifest = {
 export const DEFAULT_THEME_MANIFEST: ThemeManifest = {
   version: "5.3.3",
   defaults: { dark: "slate", light: "flatly" },
-  themes: BOOTSWATCH_THEMES.map((theme) => ({
-    slug: theme.slug,
-    name: theme.name,
-    source: "bootswatch",
-    supports: { mode: [theme.mode] as ThemeMode[] },
-  })),
+  themes: BOOTSWATCH_THEMES.map((theme) => {
+    const variantsMeta = BOOTSWATCH_THEME_VARIANTS[theme.slug] ?? {};
+    const variants: Partial<Record<ThemeMode, ThemeVariant>> = {};
+    const modeSet = new Set<ThemeMode>([theme.mode]);
+
+    (Object.entries(variantsMeta) as Array<[ThemeMode, typeof variantsMeta[keyof typeof variantsMeta]]>).forEach(
+      ([mode, meta]) => {
+        if (!meta) return;
+        modeSet.add(mode);
+        variants[mode] = { slug: meta.slug, name: meta.name };
+      }
+    );
+
+    return {
+      slug: theme.slug,
+      name: theme.name,
+      source: "bootswatch",
+      default_mode: theme.mode as ThemeMode,
+      supports: { mode: Array.from(modeSet) as ThemeMode[] },
+      ...(Object.keys(variants).length > 0 ? { variants } : {}),
+    };
+  }),
   packs: [],
 };
 
@@ -43,6 +68,7 @@ export const DEFAULT_THEME_SETTINGS = {
       filesystem_path: "/opt/phpgrc/shared/themes" as string,
     },
     default: DEFAULT_THEME_MANIFEST.defaults.dark,
+    mode: "dark" as ThemeMode,
     allow_user_override: true,
     force_global: false,
     overrides: {

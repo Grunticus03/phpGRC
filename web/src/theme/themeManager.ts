@@ -7,18 +7,22 @@ import {
   type ThemeSettings,
   type ThemeUserPrefs,
   type CustomThemePack,
+  type ThemeVariant,
 } from "../routes/admin/themeData";
-import { BOOTSWATCH_THEME_HREFS, BOOTSWATCH_THEMES } from "./bootswatch";
+import { BOOTSWATCH_THEME_HREFS, BOOTSWATCH_THEMES, getBootswatchVariant, getBootswatchTheme } from "./bootswatch";
 
 type ThemeMode = "light" | "dark";
 type DesignerStorageMode = "browser" | "filesystem";
 
 type ManifestEntry = ThemeManifest["themes"][number] | ThemeManifest["packs"][number];
 
+type ThemeVariantSelection = ThemeVariant & { mode: ThemeMode };
+
 type ThemeSelection = {
   slug: string;
   mode: ThemeMode;
   source: string;
+  variant: ThemeVariantSelection | null;
 };
 
 const THEME_LINK_ID = "phpgrc-theme-css";
@@ -55,12 +59,37 @@ const normalizeCustomPack = (input: Partial<CustomThemePack>): CustomThemePack |
   const modes = modeRaw.filter(isValidMode);
   const uniqueModes = Array.from(new Set(modes));
   const supports = { mode: (uniqueModes.length > 0 ? uniqueModes : ["light", "dark"]) as ThemeMode[] };
+  const fallbackMode = supports.mode.includes("light") ? "light" : "dark";
+  const defaultMode = isValidMode(input.default_mode) ? input.default_mode : fallbackMode;
   const variables = sanitizeVariables(input.variables);
+  const variantsInput = input.variants;
+  const variants: Partial<Record<ThemeMode, ThemeVariant>> = {};
+  if (variantsInput && typeof variantsInput === "object") {
+    (["light", "dark"] as const).forEach((mode) => {
+      const candidate = (variantsInput as Partial<Record<ThemeMode, unknown>>)[mode];
+      if (candidate && typeof candidate === "object") {
+        const slugCandidate = (candidate as { slug?: unknown }).slug;
+        const nameCandidate = (candidate as { name?: unknown }).name;
+        const slug = typeof slugCandidate === "string" ? slugCandidate.trim() : "";
+        const name = typeof nameCandidate === "string" ? nameCandidate.trim() : "";
+        if (slug !== "" && name !== "") {
+          variants[mode] = { slug, name };
+        }
+      }
+    });
+  }
+  Object.keys(variants).forEach((mode) => {
+    if (isValidMode(mode) && !supports.mode.includes(mode)) {
+      supports.mode.push(mode);
+    }
+  });
   const pack: CustomThemePack = {
     slug,
     name,
     source: "custom",
     supports,
+    default_mode: defaultMode,
+    ...(Object.keys(variants).length > 0 ? { variants } : {}),
     ...(Object.keys(variables).length > 0 ? { variables } : {}),
   };
   return pack;
@@ -190,6 +219,58 @@ const notifySettingsListeners = (): void => {
       // ignore listener errors
     }
   });
+};
+
+const defaultModeForEntry = (entry: ManifestEntry | undefined): ThemeMode => {
+  if (!entry) return "light";
+  if ("default_mode" in entry) {
+    const candidate = (entry as { default_mode?: ThemeMode }).default_mode;
+    if (candidate === "light" || candidate === "dark") {
+      return candidate;
+    }
+  }
+  if ("default_mode" in (entry as CustomThemePack)) {
+    const candidate = (entry as CustomThemePack).default_mode;
+    if (candidate === "light" || candidate === "dark") {
+      return candidate;
+    }
+  }
+  if (entry.source === "bootswatch") {
+    const meta = getBootswatchTheme(entry.slug);
+    if (meta) {
+      return meta.mode;
+    }
+  }
+  return "light";
+};
+
+const variantForEntry = (entry: ManifestEntry | undefined, mode: ThemeMode): ThemeVariantSelection | null => {
+  if (!entry) return null;
+  const variants = (entry as { variants?: Partial<Record<ThemeMode, ThemeVariant>> }).variants;
+  const variant = variants?.[mode];
+  if (variant) {
+    return { ...variant, mode };
+  }
+
+  if (entry.source === "bootswatch") {
+    const fallback = getBootswatchVariant(entry.slug, mode);
+    if (fallback) {
+      return { slug: fallback.slug, name: fallback.name, mode };
+    }
+    const meta = getBootswatchTheme(entry.slug);
+    if (meta && meta.mode === mode) {
+      return { slug: meta.slug, name: meta.name, mode };
+    }
+  }
+
+  if (entry.source === "custom") {
+    const supportedModes = Array.isArray(entry.supports?.mode) ? entry.supports.mode : [];
+    if (supportedModes.includes(mode)) {
+      return { slug: entry.slug, name: entry.name, mode };
+    }
+  }
+
+  return null;
 };
 
 const SHADOW_PRESETS: Record<string, string> = {
@@ -404,12 +485,17 @@ const sanitizeSlug = (slug: string | null | undefined): string | null => {
 
 const supportsModes = (entry: ManifestEntry | undefined): ThemeMode[] => {
   if (!entry?.supports?.mode) return [];
-  return entry.supports.mode.filter((mode): mode is ThemeMode => mode === "light" || mode === "dark");
-};
-
-const bootFallbackMode = (slug: string): ThemeMode => {
-  const meta = BOOTSWATCH_THEMES.find((item) => item.slug === slug);
-  return meta?.mode ?? "light";
+  const seen = new Set<ThemeMode>();
+  const modes: ThemeMode[] = [];
+  entry.supports.mode.forEach((value) => {
+    if (!isValidMode(value)) return;
+    if (seen.has(value)) return;
+    if (variantForEntry(entry, value)) {
+      seen.add(value);
+      modes.push(value);
+    }
+  });
+  return modes;
 };
 
 const resolveThemeSelection = (): ThemeSelection => {
@@ -443,38 +529,83 @@ const resolveThemeSelection = (): ThemeSelection => {
     slug = sanitizeSlug(manifest.defaults?.dark) ?? slug;
   }
 
-  const entry = findManifestEntry(manifest, slug);
-  const availableModes = supportsModes(entry);
+  let entry = findManifestEntry(manifest, slug);
+  let availableModes = supportsModes(entry);
+  let mode: ThemeMode = defaultModeForEntry(entry);
 
-  let requestedMode: ThemeMode | null = null;
-  if (canOverride && prefs.mode) {
-    if (prefs.mode === "light" || prefs.mode === "dark") {
-      requestedMode = prefs.mode;
+  const getGlobalMode = (): ThemeMode | null => {
+    const candidate = (settings.theme as { mode?: ThemeMode }).mode;
+    return isValidMode(candidate) ? candidate : null;
+  };
+
+  const userModePref = canOverride ? (isValidMode(prefs.mode) ? prefs.mode : null) : null;
+  const globalModePref = getGlobalMode();
+
+  const desiredModes: ThemeMode[] = [];
+  const pushMode = (candidate: ThemeMode | null | undefined) => {
+    if (!candidate) return;
+    if (!desiredModes.includes(candidate)) {
+      desiredModes.push(candidate);
     }
-  } else if (!canOverride && settings.theme.force_global) {
-    requestedMode = settings.theme.default === slug ? bootFallbackMode(slug) : null;
+  };
+
+  pushMode(userModePref);
+  if (!canOverride || settings.theme.force_global) {
+    pushMode(globalModePref);
+    pushMode(defaultModeForEntry(entry));
+  } else {
+    pushMode(globalModePref);
+    pushMode(defaultModeForEntry(entry));
   }
 
-  let mode: ThemeMode;
-  if (requestedMode && availableModes.includes(requestedMode)) {
-    mode = requestedMode;
-  } else if (availableModes.length === 0) {
-    mode = requestedMode ?? bootFallbackMode(slug);
-  } else if (availableModes.length === 1) {
-    mode = availableModes[0];
-  } else {
-    const systemPrefersDark = prefersDark();
-    const preferredBySystem = systemPrefersDark ? "dark" : "light";
-    if (availableModes.includes(preferredBySystem)) {
-      mode = preferredBySystem;
-    } else {
-      mode = availableModes[0];
+  const systemPreferred = prefersDark() ? "dark" : "light";
+  if (availableModes.includes(systemPreferred)) {
+    pushMode(systemPreferred);
+  }
+
+  const resolveFromList = (candidates: ThemeMode[]): ThemeVariantSelection | null => {
+    for (const candidate of candidates) {
+      const resolved = variantForEntry(entry, candidate);
+      if (resolved) {
+        mode = resolved.mode;
+        return resolved;
+      }
     }
+    return null;
+  };
+
+  let variant = resolveFromList(desiredModes);
+  if (!variant) {
+    variant = resolveFromList(availableModes);
+  }
+  if (!variant) {
+    variant = variantForEntry(entry, defaultModeForEntry(entry));
+    if (variant) {
+      mode = variant.mode;
+    }
+  }
+
+  if (!variant) {
+    const fallbackSlug =
+      sanitizeSlug(manifest.defaults?.dark ?? null) ??
+      sanitizeSlug(manifest.defaults?.light ?? null) ??
+      BOOTSWATCH_THEMES[0]?.slug ??
+      "slate";
+    slug = fallbackSlug;
+    entry = findManifestEntry(manifest, slug);
+    availableModes = supportsModes(entry);
+    mode = defaultModeForEntry(entry);
+    variant =
+      resolveFromList([mode, prefersDark() ? "dark" : "light"]) ??
+      variantForEntry(entry, mode) ??
+      (entry
+        ? { slug: entry.slug, name: entry.name, mode }
+        : { slug: fallbackSlug, name: fallbackSlug, mode });
   }
 
   const source = entry?.source ?? "bootswatch";
 
-  return { slug, mode, source };
+  return { slug, mode, source, variant };
 };
 
 const findStylesheetHref = (slug: string): string | null => {
@@ -488,11 +619,16 @@ const applySelection = (selection: ThemeSelection): void => {
   if (typeof document === "undefined") return;
 
   const link = ensureThemeLink();
-  const href = findStylesheetHref(selection.slug);
+  const variantSlug = selection.variant?.slug ?? selection.slug;
+  const href = variantSlug ? findStylesheetHref(variantSlug) : null;
 
-  if (link && href) {
-    if (link.href !== href) {
-      link.href = href;
+  if (link) {
+    if (href) {
+      if (link.href !== href) {
+        link.href = href;
+      }
+    } else if (link.hasAttribute("href")) {
+      link.removeAttribute("href");
     }
   }
 
@@ -500,6 +636,7 @@ const applySelection = (selection: ThemeSelection): void => {
   html.setAttribute("data-theme", selection.slug);
   html.setAttribute("data-mode", selection.mode);
   html.setAttribute("data-bs-theme", selection.mode);
+  html.setAttribute("data-theme-variant", variantSlug);
   html.setAttribute("data-theme-source", selection.source);
 
   currentSelection = selection;
@@ -511,7 +648,8 @@ const refreshTheme = (): void => {
     !currentSelection ||
     currentSelection.slug !== selection.slug ||
     currentSelection.mode !== selection.mode ||
-    currentSelection.source !== selection.source
+    currentSelection.source !== selection.source ||
+    currentSelection.variant?.slug !== selection.variant?.slug
   ) {
     applySelection(selection);
   }
@@ -622,16 +760,11 @@ export const updateThemePrefs = (prefs: ThemeUserPrefs): void => {
 
 export const getCurrentTheme = (): ThemeSelection => {
   if (currentSelection) return currentSelection;
-  const initialSlug =
-    sanitizeSlug(DEFAULT_THEME_MANIFEST.defaults.dark) ??
-    sanitizeSlug(DEFAULT_THEME_MANIFEST.defaults.light) ??
-    "slate";
-  const entry = findManifestEntry(DEFAULT_THEME_MANIFEST, initialSlug);
-  const initialMode = supportsModes(entry)[0] ?? bootFallbackMode(initialSlug);
-  currentSelection = { slug: initialSlug, mode: initialMode, source: entry?.source ?? "bootswatch" };
-  applySelection(currentSelection);
+  const selection = resolveThemeSelection();
+  currentSelection = selection;
+  applySelection(selection);
   applyDesignTokens();
-  return currentSelection;
+  return selection;
 };
 
 export const getCachedThemeSettings = (): ThemeSettings => clone(settingsCache);
@@ -679,80 +812,19 @@ export const onThemeManifestChange = (listener: ThemeManifestListener): (() => v
 export const toggleThemeMode = (): ThemeMode => {
   const selection = resolveThemeSelection();
   const entry = findManifestEntry(manifestCache, selection.slug);
-  const availableModes = supportsModes(entry);
   const desiredMode: ThemeMode = selection.mode === "dark" ? "light" : "dark";
 
-  const findFallbackSlug = (mode: ThemeMode): string | null => {
-    const candidates = new Set<string>();
-    const defaults = mode === "dark" ? manifestCache.defaults?.dark : manifestCache.defaults?.light;
-    const defaultSlug = sanitizeSlug(defaults);
-    if (defaultSlug) {
-      candidates.add(defaultSlug);
-    }
-    const preferredSlug = sanitizeSlug(prefsCache.theme);
-    if (preferredSlug) {
-      candidates.add(preferredSlug);
-    }
-    const defaultDark = sanitizeSlug(manifestCache.defaults?.dark);
-    if (defaultDark) candidates.add(defaultDark);
-    const defaultLight = sanitizeSlug(manifestCache.defaults?.light);
-    if (defaultLight) candidates.add(defaultLight);
-    themeEntries(manifestCache)
-      .filter((item) => supportsModes(item).includes(mode))
-      .forEach((item) => candidates.add(item.slug));
-
-    for (const slug of candidates) {
-      const trimmed = typeof slug === "string" ? slug.trim() : "";
-      if (trimmed === "") continue;
-      const match = findManifestEntry(manifestCache, trimmed);
-      if (match && supportsModes(match).includes(mode)) {
-        return trimmed;
-      }
-    }
-    return null;
-  };
-
-  let targetSlug = selection.slug;
-  let targetMode = desiredMode;
-
-  if (!availableModes.includes(desiredMode)) {
-    const fallbackSlug = findFallbackSlug(desiredMode);
-    if (fallbackSlug) {
-      targetSlug = fallbackSlug;
-      const fallbackEntry = findManifestEntry(manifestCache, fallbackSlug);
-      const fallbackModes = supportsModes(fallbackEntry);
-      if (!fallbackModes.includes(desiredMode) && fallbackModes.length > 0) {
-        targetMode = fallbackModes[0];
-      }
-    } else {
-      targetMode = selection.mode;
-    }
-  }
-
-  if (targetSlug === selection.slug && targetMode === selection.mode) {
+  if (!variantForEntry(entry, desiredMode)) {
     return selection.mode;
   }
-
-  const nextEntry = findManifestEntry(manifestCache, targetSlug);
-  const nextSource = nextEntry?.source ?? selection.source;
-  const resolvedModes = supportsModes(nextEntry);
-  if (!resolvedModes.includes(targetMode) && resolvedModes.length > 0) {
-    targetMode = resolvedModes[0];
-  }
-
-  const nextSelection: ThemeSelection = {
-    slug: targetSlug,
-    mode: targetMode,
-    source: nextSource,
-  };
 
   const allowOverride = settingsCache.theme.allow_user_override && !settingsCache.theme.force_global;
 
   if (allowOverride) {
     const nextPrefs: ThemeUserPrefs = {
       ...prefsCache,
-      theme: nextSelection.slug,
-      mode: nextSelection.mode,
+      theme: prefsCache.theme ?? selection.slug,
+      mode: desiredMode,
       overrides: { ...prefsCache.overrides },
       sidebar: {
         ...prefsCache.sidebar,
@@ -760,14 +832,15 @@ export const toggleThemeMode = (): ThemeMode => {
       },
     };
     updateThemePrefs(nextPrefs);
-    return nextSelection.mode;
+    return desiredMode;
   }
 
   const nextSettings: ThemeSettings = {
     ...settingsCache,
     theme: {
       ...settingsCache.theme,
-      default: nextSelection.slug,
+      default: selection.slug,
+      mode: desiredMode,
       overrides: { ...settingsCache.theme.overrides },
       designer: {
         ...settingsCache.theme.designer,
@@ -775,7 +848,7 @@ export const toggleThemeMode = (): ThemeMode => {
     },
   };
   updateThemeSettings(nextSettings);
-  return nextSelection.mode;
+  return desiredMode;
 };
 
 // Apply default theme immediately when running in a browser to reduce FOUC.

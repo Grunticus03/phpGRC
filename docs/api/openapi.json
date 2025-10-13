@@ -4330,6 +4330,15 @@
               "pack"
             ]
           },
+          "default_mode": {
+            "type": "string",
+            "description": "Mode applied when the theme is first loaded.",
+            "enum": [
+              "light",
+              "dark"
+            ],
+            "example": "dark"
+          },
           "supports": {
             "type": "object",
             "additionalProperties": false,
@@ -4349,10 +4358,13 @@
                 }
               }
             }
+          },
+          "variants": {
+            "$ref": "#/components/schemas/ThemeVariantMap"
           }
         }
       },
-      "ThemePackEntry": {
+      "ThemeVariantPointer": {
         "type": "object",
         "additionalProperties": false,
         "required": [
@@ -4362,11 +4374,84 @@
         "properties": {
           "slug": {
             "type": "string",
+            "example": "flatly"
+          },
+          "name": {
+            "type": "string",
+            "example": "Flatly"
+          }
+        }
+      },
+      "ThemeVariantMap": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "light": {
+            "$ref": "#/components/schemas/ThemeVariantPointer"
+          },
+          "dark": {
+            "$ref": "#/components/schemas/ThemeVariantPointer"
+          }
+        }
+      },
+      "ThemePackEntry": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "slug",
+          "name",
+          "source",
+          "supports"
+        ],
+        "properties": {
+          "slug": {
+            "type": "string",
             "example": "pack:midnight"
           },
           "name": {
             "type": "string",
             "example": "Midnight"
+          },
+          "source": {
+            "type": "string",
+            "description": "Origin of the theme entry (`bootswatch`, `pack`, or `custom`).",
+            "example": "custom"
+          },
+          "default_mode": {
+            "type": "string",
+            "enum": [
+              "light",
+              "dark"
+            ],
+            "description": "Preferred mode when the pack is selected.",
+            "example": "light"
+          },
+          "supports": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "mode"
+            ],
+            "properties": {
+              "mode": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "light",
+                    "dark"
+                  ]
+                },
+                "example": [
+                  "light",
+                  "dark"
+                ]
+              }
+            }
+          },
+          "variants": {
+            "$ref": "#/components/schemas/ThemeVariantMap"
           },
           "author": {
             "type": [
@@ -4703,14 +4788,24 @@
         "additionalProperties": false,
         "required": [
           "default",
+          "mode",
           "allow_user_override",
           "force_global",
-          "overrides"
+          "overrides",
+          "designer"
         ],
         "properties": {
           "default": {
             "type": "string",
             "example": "slate"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "light",
+              "dark"
+            ],
+            "example": "dark"
           },
           "allow_user_override": {
             "type": "boolean",
@@ -4722,6 +4817,9 @@
           },
           "overrides": {
             "$ref": "#/components/schemas/UiThemeOverrides"
+          },
+          "designer": {
+            "$ref": "#/components/schemas/UiThemeDesignerSettings"
           }
         }
       },

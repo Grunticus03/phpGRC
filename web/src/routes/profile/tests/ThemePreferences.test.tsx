@@ -26,6 +26,7 @@ const GLOBAL_SETTINGS_BODY = {
     ui: {
       theme: {
         default: "slate",
+        mode: "dark",
         allow_user_override: true,
         force_global: false,
         overrides: {
@@ -153,6 +154,28 @@ describe("ThemePreferences", () => {
       theme: "flatly",
       overrides: expect.objectContaining({ "color.primary": "#123456" }),
       sidebar: expect.objectContaining({ collapsed: true, width: 200 }),
+    });
+  });
+
+  it("allows setting mode to follow system", async () => {
+    render(
+      <ToastProvider>
+        <ThemePreferences />
+      </ToastProvider>
+    );
+
+    await waitFor(() => expect(screen.queryByText("Loading preferences…")).toBeNull());
+
+    const systemRadio = screen.getByLabelText("Follow system") as HTMLInputElement;
+    expect(systemRadio.disabled).toBe(false);
+    fireEvent.click(systemRadio);
+
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    await screen.findByText("Preferences saved.");
+
+    expect(recordedBody).toMatchObject({
+      mode: null,
     });
   });
 

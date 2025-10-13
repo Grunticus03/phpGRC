@@ -145,8 +145,71 @@ describe("ThemeConfigurator", () => {
       ui: {
         theme: {
           default: "flatly",
+          mode: "dark",
           force_global: true,
           allow_user_override: false,
+        },
+      },
+    });
+  });
+
+  it("allows selecting a default mode", async () => {
+    installFetch(async (_input, init) => {
+      const method = (init?.method ?? "GET").toUpperCase();
+      const url = typeof _input === "string" ? _input : _input.toString();
+
+      if (url === "/api/settings/ui/themes" && method === "GET") {
+        return jsonResponse(DEFAULT_MANIFEST_BODY, { headers: { ETag: 'W/"manifest:2"' } });
+      }
+
+      if (url === "/api/settings/ui" && method === "GET") {
+        return jsonResponse(DEFAULT_SETTINGS_BODY, { headers: { ETag: 'W/"settings:etag-light"' } });
+      }
+
+      if (url === "/api/settings/ui" && method === "PUT") {
+        return jsonResponse(
+          {
+            ok: true,
+            config: {
+              ui: {
+                ...DEFAULT_SETTINGS_BODY.config.ui,
+                theme: {
+                  ...DEFAULT_SETTINGS_BODY.config.ui.theme,
+                  default: "flatly",
+                  mode: "light",
+                },
+              },
+            },
+          },
+          { headers: { ETag: 'W/"settings:etag-light-2"' } }
+        );
+      }
+
+      return jsonResponse({ ok: true });
+    });
+
+    renderConfigurator();
+
+    await waitForLoadingToExit();
+
+    const themeSelect = await screen.findByLabelText("Default theme");
+    fireEvent.change(themeSelect, { target: { value: "flatly" } });
+
+    const lightOption = screen.getByLabelText("Flatly") as HTMLInputElement;
+    expect(lightOption.disabled).toBe(false);
+    fireEvent.click(lightOption);
+
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    await screen.findByText(SUCCESS_TOAST, {}, { timeout: 4000 });
+
+    const putCall = calls.find((call) => call.method === "PUT" && call.url === "/api/settings/ui");
+    const payload = putCall?.init.body ? JSON.parse(String(putCall.init.body)) : null;
+    expect(payload).toMatchObject({
+      ui: {
+        theme: {
+          default: "flatly",
+          mode: "light",
         },
       },
     });

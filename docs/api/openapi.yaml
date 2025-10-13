@@ -2815,6 +2815,11 @@ components:
         source:
           type: string
           enum: [bootswatch, pack]
+        default_mode:
+          type: string
+          description: Mode applied when the theme is first loaded.
+          enum: [light, dark]
+          example: dark
         supports:
           type: object
           additionalProperties: false
@@ -2826,6 +2831,29 @@ components:
               items:
                 type: string
                 enum: [light, dark]
+        variants:
+          $ref: "#/components/schemas/ThemeVariantMap"
+
+    ThemeVariantPointer:
+      type: object
+      additionalProperties: false
+      required: [slug, name]
+      properties:
+        slug:
+          type: string
+          example: flatly
+        name:
+          type: string
+          example: Flatly
+
+    ThemeVariantMap:
+      type: object
+      additionalProperties: false
+      properties:
+        light:
+          $ref: "#/components/schemas/ThemeVariantPointer"
+        dark:
+          $ref: "#/components/schemas/ThemeVariantPointer"
 
     ThemePackEntry:
       type: object
@@ -2842,6 +2870,11 @@ components:
           type: string
           description: Origin of the theme entry (`bootswatch`, `pack`, or `custom`).
           example: custom
+        default_mode:
+          type: string
+          enum: [light, dark]
+          description: Preferred mode when the pack is selected.
+          example: light
         supports:
           type: object
           additionalProperties: false
@@ -2854,6 +2887,8 @@ components:
                 type: string
                 enum: [light, dark]
               example: [light, dark]
+        variants:
+          $ref: "#/components/schemas/ThemeVariantMap"
         author:
           type:
             - string
@@ -3158,11 +3193,15 @@ components:
       type: object
       additionalProperties: false
       required:
-        [default, allow_user_override, force_global, overrides, designer]
+        [default, mode, allow_user_override, force_global, overrides, designer]
       properties:
         default:
           type: string
           example: slate
+        mode:
+          type: string
+          enum: [light, dark]
+          example: dark
         allow_user_override:
           type: boolean
           example: true

@@ -19,6 +19,7 @@ final class UiSettingsService
     /** @var list<string> */
     private const STORAGE_KEYS = [
         'ui.theme.default',
+        'ui.theme.mode',
         'ui.theme.allow_user_override',
         'ui.theme.force_global',
         'ui.theme.overrides',
@@ -722,8 +723,12 @@ final class UiSettingsService
         $designerDefaultsRaw = is_array($themeDefaults['designer'] ?? null) ? $themeDefaults['designer'] : [];
         $designer = $this->sanitizeDesignerConfig($designerDefaultsRaw, []);
 
+        $defaultSlug = $this->sanitizeThemeSlug($themeDefaults['default'] ?? null, $fallbackTheme);
+        $defaultMode = $this->sanitizeThemeMode($themeDefaults['mode'] ?? null, $defaultSlug);
+
         $theme = [
-            'default' => $this->sanitizeThemeSlug($themeDefaults['default'] ?? null, $fallbackTheme),
+            'default' => $defaultSlug,
+            'mode' => $defaultMode,
             'allow_user_override' => $this->toBool($themeDefaults['allow_user_override'] ?? true),
             'force_global' => $this->toBool($themeDefaults['force_global'] ?? false),
             'overrides' => $this->sanitizeOverrides($themeOverridesBase),
@@ -735,6 +740,10 @@ final class UiSettingsService
 
             if (array_key_exists('default', $themeInput)) {
                 $theme['default'] = $this->sanitizeThemeSlug($themeInput['default'], $theme['default']);
+            }
+
+            if (array_key_exists('mode', $themeInput)) {
+                $theme['mode'] = $this->sanitizeThemeMode($themeInput['mode'], $theme['default']);
             }
 
             if (array_key_exists('allow_user_override', $themeInput)) {
@@ -760,6 +769,8 @@ final class UiSettingsService
                 );
             }
         }
+
+        $theme['mode'] = $this->sanitizeThemeMode($theme['mode'] ?? null, $theme['default']);
 
         /** @var array<string,mixed> $navDefaults */
         $navDefaults = (array) ($defaults['nav'] ?? []);
@@ -1150,6 +1161,55 @@ final class UiSettingsService
         return $fallback;
     }
 
+    /**
+     * @return array<string,mixed>|null
+     */
+    private function manifestTheme(string $slug): ?array
+    {
+        $manifest = $this->themePacks->manifest();
+
+        $themes = is_array($manifest['themes'] ?? null) ? $manifest['themes'] : [];
+        foreach ($themes as $theme) {
+            if (is_array($theme) && ($theme['slug'] ?? null) === $slug) {
+                return $theme;
+            }
+        }
+
+        $packs = is_array($manifest['packs'] ?? null) ? $manifest['packs'] : [];
+        foreach ($packs as $pack) {
+            if (is_array($pack) && ($pack['slug'] ?? null) === $slug) {
+                return $pack;
+            }
+        }
+
+        return null;
+    }
+
+    private function themeSupportsMode(string $slug, ?string $mode): bool
+    {
+        if (! in_array($mode, ['light', 'dark'], true)) {
+            return false;
+        }
+
+        $entry = $this->manifestTheme($slug);
+        if (! is_array($entry)) {
+            return false;
+        }
+
+        $supports = $entry['supports']['mode'] ?? [];
+        if (! is_array($supports)) {
+            return false;
+        }
+
+        foreach ($supports as $value) {
+            if (is_string($value) && strtolower($value) === $mode) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private function sanitizeThemeSlug(mixed $value, string $fallback): string
     {
         if (is_string($value)) {
@@ -1160,6 +1220,28 @@ final class UiSettingsService
         }
 
         return $fallback;
+    }
+
+    private function sanitizeThemeMode(mixed $value, string $themeSlug): string
+    {
+        $mode = is_string($value) ? strtolower(trim($value)) : null;
+        if (in_array($mode, ['light', 'dark'], true) && $this->themeSupportsMode($themeSlug, $mode)) {
+            return $mode;
+        }
+
+        $entry = $this->manifestTheme($themeSlug);
+        if (is_array($entry)) {
+            $defaultMode = $entry['default_mode'] ?? null;
+            if (is_string($defaultMode) && in_array($defaultMode, ['light', 'dark'], true) && $this->themeSupportsMode($themeSlug, $defaultMode)) {
+                return $defaultMode;
+            }
+        }
+
+        if ($this->themeSupportsMode($themeSlug, 'dark')) {
+            return 'dark';
+        }
+
+        return 'light';
     }
 
     private function toBool(mixed $value): bool
@@ -1220,6 +1302,7 @@ final class UiSettingsService
 
         return [
             'ui.theme.default' => $theme['default'] ?? null,
+            'ui.theme.mode' => $theme['mode'] ?? null,
             'ui.theme.allow_user_override' => $theme['allow_user_override'] ?? null,
             'ui.theme.force_global' => $theme['force_global'] ?? null,
             'ui.theme.overrides' => $theme['overrides'] ?? [],

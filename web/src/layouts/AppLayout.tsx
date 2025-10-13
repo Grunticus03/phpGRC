@@ -233,6 +233,7 @@ export default function AppLayout(): JSX.Element | null {
 
   const initialThemeMode = getCurrentTheme().mode;
   const [themeMode, setThemeMode] = useState<"light" | "dark">(initialThemeMode);
+  const currentTheme = getCurrentTheme();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const adminMenuRef = useRef<HTMLLIElement | null>(null);
@@ -921,16 +922,11 @@ export default function AppLayout(): JSX.Element | null {
   );
 
   const canToggleTheme = useMemo(() => {
-    const modes = new Set<string>();
-    [...manifest.themes, ...manifest.packs].forEach((entry) => {
-      entry.supports?.mode?.forEach((mode) => {
-        if (mode === "light" || mode === "dark") {
-          modes.add(mode);
-        }
-      });
-    });
-    return modes.has("light") && modes.has("dark");
-  }, [manifest]);
+    const entry = [...manifest.themes, ...manifest.packs].find((item) => item.slug === currentTheme.slug);
+    if (!entry?.supports?.mode) return false;
+    const supported = entry.supports.mode.filter((mode): mode is "light" | "dark" => mode === "light" || mode === "dark");
+    return supported.length > 1;
+  }, [manifest, currentTheme.slug]);
 
   if (loading) return null;
 
@@ -959,8 +955,9 @@ export default function AppLayout(): JSX.Element | null {
   const sidebarCollapsed = sidebarPrefs.collapsed;
   const hidePinButton =
     loc.pathname.startsWith("/admin/settings/branding") || loc.pathname.startsWith("/admin/settings/core");
-  const navbarToneClass = themeMode === "dark" ? "navbar-dark bg-dark" : "navbar-dark bg-primary";
-  const headerButtonVariant = "btn-outline-light";
+  const navbarToneClass =
+    themeMode === "dark" ? "navbar-dark bg-body-tertiary" : "navbar-light bg-body-tertiary";
+  const headerButtonVariant = themeMode === "dark" ? "btn-outline-light" : "btn-outline-secondary";
   const dropdownMenuTone = "dropdown-menu dropdown-menu-dark";
 
   const accountDropdownStyle: CSSProperties = {

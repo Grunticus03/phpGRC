@@ -22,6 +22,7 @@ final class UiSettingsUpdateRequest extends FormRequest
             'ui' => ['required', 'array'],
             'ui.theme' => ['sometimes', 'array'],
             'ui.theme.default' => ['sometimes', 'string', 'max:64'],
+            'ui.theme.mode' => ['sometimes', 'string', 'in:light,dark'],
             'ui.theme.allow_user_override' => ['sometimes', 'boolean'],
             'ui.theme.force_global' => ['sometimes', 'boolean'],
             'ui.theme.overrides' => ['sometimes', 'array'],
