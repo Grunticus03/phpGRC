@@ -163,7 +163,8 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto auto;
   align-items: center;
-  gap: 0.5rem;
+  column-gap: 1rem;
+  row-gap: 0.35rem;
   font-size: 0.9rem;
 }
 
@@ -186,6 +187,7 @@
   align-items: center;
   gap: 0.5rem;
   flex-wrap: wrap;
+  justify-self: end;
 }
 
 .theme-designer-color-text {

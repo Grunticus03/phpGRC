@@ -47,7 +47,7 @@ function json(body: unknown, init: ResponseInit = {}) {
   });
 }
 
-describe("Dashboard KPIs", () => {
+describe("Dashboard", () => {
   beforeEach(() => {
     mockNavigate.mockReset();
     Object.defineProperty(globalThis.URL, "createObjectURL", {

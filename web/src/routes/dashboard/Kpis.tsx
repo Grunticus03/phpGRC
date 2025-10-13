@@ -282,7 +282,7 @@ export default function Kpis(): JSX.Element {
 
   return (
     <div className="container py-3">
-      <h1 className="mb-3">Dashboard KPIs</h1>
+      <h1 className="mb-3">Dashboard</h1>
 
       {loading && <p>Loading…</p>}
       {!loading && error && <div className="alert alert-warning" role="alert">{error}</div>}

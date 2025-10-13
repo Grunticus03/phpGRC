@@ -88,7 +88,7 @@ export default function Login(): JSX.Element {
           onError={handleLogoError}
         />
       </div>
-      <div className="card shadow-sm border-0 w-100" style={{ maxWidth: "420px" }}>
+      <div className="card bg-body shadow-sm border-0 w-100" style={{ maxWidth: "420px" }}>
         <div className="card-body p-4">
           <h1 className="h4 text-center mb-4">Sign in</h1>
           {feedback}
@@ -139,7 +139,7 @@ export default function Login(): JSX.Element {
           onError={handleLogoError}
         />
       </div>
-      <div className="card shadow-sm border-0">
+      <div className="card bg-body shadow-sm border-0">
         <div className="card-body p-4">
           <h1 className="h4 mb-3">Sign in</h1>
           {feedback}

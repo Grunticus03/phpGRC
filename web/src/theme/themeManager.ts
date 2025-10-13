@@ -461,17 +461,51 @@ const shouldAttachThemeStylesheet = (): boolean => {
   return !navigator.userAgent.toLowerCase().includes("jsdom");
 };
 
-const ensureThemeLink = (): HTMLLinkElement | null => {
-  if (typeof document === "undefined" || !shouldAttachThemeStylesheet()) return null;
-  let link = document.getElementById(THEME_LINK_ID) as HTMLLinkElement | null;
-  if (!link) {
-    link = document.createElement("link");
-    link.id = THEME_LINK_ID;
-    link.rel = "stylesheet";
-    link.type = "text/css";
-    document.head.appendChild(link);
+const setThemeStylesheet = (href: string | null): void => {
+  if (typeof document === "undefined" || !shouldAttachThemeStylesheet()) return;
+  const head = document.head;
+  const existing = document.getElementById(THEME_LINK_ID) as HTMLLinkElement | null;
+  const pendingId = `${THEME_LINK_ID}-pending`;
+  const pending = document.getElementById(pendingId) as HTMLLinkElement | null;
+
+  if (!href) {
+    pending?.remove();
+    existing?.remove();
+    return;
   }
-  return link;
+
+  if (pending && pending.href === href) return;
+  if (existing && existing.href === href) return;
+
+  pending?.remove();
+
+  const link = document.createElement("link");
+  link.id = pendingId;
+  link.rel = "stylesheet";
+  link.type = "text/css";
+  link.href = href;
+
+  link.addEventListener("load", () => {
+    const currentPending = document.getElementById(pendingId);
+    if (currentPending !== link) {
+      link.remove();
+      return;
+    }
+    existing?.remove();
+    link.id = THEME_LINK_ID;
+  });
+
+  link.addEventListener("error", () => {
+    if (link.parentNode) {
+      link.parentNode.removeChild(link);
+    }
+  }, { once: true });
+
+  if (existing?.nextSibling) {
+    existing.parentNode?.insertBefore(link, existing.nextSibling);
+  } else {
+    head.appendChild(link);
+  }
 };
 
 const themeEntries = (manifest: ThemeManifest): ManifestEntry[] => [
@@ -627,18 +661,8 @@ const findStylesheetHref = (slug: string): string | null => {
 const applySelection = (selection: ThemeSelection): void => {
   if (typeof document === "undefined") return;
 
-  const link = ensureThemeLink();
   const href = findStylesheetHref(selection.slug);
-
-  if (link) {
-    if (href) {
-      if (link.href !== href) {
-        link.href = href;
-      }
-    } else if (link.hasAttribute("href")) {
-      link.removeAttribute("href");
-    }
-  }
+  setThemeStylesheet(href);
 
   const html = document.documentElement;
   html.setAttribute("data-theme", selection.slug);
