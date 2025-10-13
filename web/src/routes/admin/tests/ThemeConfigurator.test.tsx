@@ -195,7 +195,7 @@ describe("ThemeConfigurator", () => {
     const themeSelect = await screen.findByLabelText("Default theme");
     fireEvent.change(themeSelect, { target: { value: "flatly" } });
 
-    const lightOption = screen.getByLabelText("Flatly") as HTMLInputElement;
+    const lightOption = screen.getByLabelText("Primary") as HTMLInputElement;
     expect(lightOption.disabled).toBe(false);
     fireEvent.click(lightOption);
 

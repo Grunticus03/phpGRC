@@ -609,8 +609,9 @@ const resolveThemeSelection = (): ThemeSelection => {
 };
 
 const findStylesheetHref = (slug: string): string | null => {
-  if (slug in BOOTSWATCH_THEME_HREFS) {
-    return BOOTSWATCH_THEME_HREFS[slug];
+  const base = slug.includes(":") ? slug.split(":")[0] ?? slug : slug;
+  if (base in BOOTSWATCH_THEME_HREFS) {
+    return BOOTSWATCH_THEME_HREFS[base];
   }
   return null;
 };
@@ -619,8 +620,7 @@ const applySelection = (selection: ThemeSelection): void => {
   if (typeof document === "undefined") return;
 
   const link = ensureThemeLink();
-  const variantSlug = selection.variant?.slug ?? selection.slug;
-  const href = variantSlug ? findStylesheetHref(variantSlug) : null;
+  const href = findStylesheetHref(selection.slug);
 
   if (link) {
     if (href) {
@@ -636,7 +636,7 @@ const applySelection = (selection: ThemeSelection): void => {
   html.setAttribute("data-theme", selection.slug);
   html.setAttribute("data-mode", selection.mode);
   html.setAttribute("data-bs-theme", selection.mode);
-  html.setAttribute("data-theme-variant", variantSlug);
+  html.setAttribute("data-theme-variant", selection.variant?.slug ?? selection.mode);
   html.setAttribute("data-theme-source", selection.source);
 
   currentSelection = selection;

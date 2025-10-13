@@ -147,22 +147,12 @@ export default function ThemeConfigurator(): JSX.Element {
       const defaultMode = defaultModeRaw ?? (modeSet.includes("light") ? "light" : "dark");
 
       const variants = (entry as { variants?: ThemeManifest["themes"][number]["variants"] })?.variants;
-      const darkVariantName = variants?.dark?.name;
-      const lightVariantName = variants?.light?.name;
-      const labelParts = [entry.name];
-      if (darkVariantName && darkVariantName !== entry.name) {
-        labelParts.push(darkVariantName);
-      } else if (lightVariantName && lightVariantName !== entry.name) {
-        labelParts.push(lightVariantName);
-      }
-      const label = labelParts.length > 1 ? labelParts.join(" / ") : entry.name;
-
       const sourceLabel =
         entry.source === "bootswatch" ? "Bootswatch" : entry.source === "custom" ? "Custom" : "Pack";
 
       return {
         slug: entry.slug,
-        label,
+        label: entry.name,
         source: sourceLabel,
         modes: modeSet,
         defaultMode,
@@ -178,7 +168,7 @@ export default function ThemeConfigurator(): JSX.Element {
 
   const availableModes: ThemeMode[] = currentThemeOption?.modes ?? (["light"] as ThemeMode[]);
   const variantLabels = {
-    light: currentThemeOption?.variants?.light?.name ?? "Light",
+    light: currentThemeOption?.variants?.light?.name ?? "Primary",
     dark: currentThemeOption?.variants?.dark?.name ?? "Dark",
   };
 

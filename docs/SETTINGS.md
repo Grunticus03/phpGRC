@@ -53,21 +53,12 @@ Canonical runtime settings. Stored in DB unless noted. Avatars and theme pack fi
 
 ## Bootswatch Variant Mapping
 
-When a Bootswatch theme supports both modes, the UI toggle swaps between the presets below. Themes not listed remain single-mode and automatically disable the toggle.
+Every Bootswatch theme ships with two internal presets:
 
-| Theme (slug) | Light preset | Dark preset |
-| --- | --- | --- |
-| cerulean | cerulean | slate |
-| cosmo | cosmo | cyborg |
-| flatly | flatly | darkly |
-| journal | journal | quartz |
-| litera | litera | vapor |
-| lumen | lumen | solar |
-| united | united | superhero |
+- `primary` — the light presentation of the theme
+- `dark` — the dark presentation of the same theme
 
-Dark-first themes (`slate`, `cyborg`, `darkly`, `quartz`, `vapor`, `solar`, `superhero`) use the reciprocal light preset shown above when users switch to light mode.
-
-All remaining Bootswatch slugs (`lux`, `materia`, `minty`, `morph`, `pulse`, `sandstone`, `simplex`, `sketchy`, `spacelab`, `yeti`, `zephyr`) currently ship as light-only variants.
+Switching between light and dark mode simply swaps between those presets without changing the active Bootswatch slug.
 
 ### File Ref shape (read-only)
 
