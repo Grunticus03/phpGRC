@@ -236,7 +236,7 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 - One theme stylesheet loaded at runtime
 - `<html data-theme data-mode>` set before CSS to avoid FOUC
 - User choice persisted; admin override respected but still allows light/dark if available
-- Assets bundled locally; pinned to `bootswatch@5.3.3`; no CDN fetches  
+- Assets bundled locally; pinned to `bootswatch@5.3.8`; no CDN fetches  
 **Phase:** 5.5  
 **Step:** 1  
 **Dependencies:** CORE-003  

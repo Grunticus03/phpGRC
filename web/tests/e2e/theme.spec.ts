@@ -139,7 +139,7 @@ test.beforeEach(async ({ page }, testInfo) => {
         status: 200,
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
-          version: '5.3.3',
+          version: '5.3.8',
           themes: [
             { slug: 'slate', name: 'Slate', variants: ['light', 'dark'] },
             { slug: 'flatly', name: 'Flatly', variants: ['light'] },

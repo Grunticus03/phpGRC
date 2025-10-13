@@ -34,7 +34,7 @@ export type ThemeManifest = {
 };
 
 export const DEFAULT_THEME_MANIFEST: ThemeManifest = {
-  version: "5.3.3",
+  version: "5.3.8",
   defaults: { dark: "slate", light: "flatly" },
   themes: BOOTSWATCH_THEMES.map((theme) => {
     const variantsMeta = BOOTSWATCH_THEME_VARIANTS[theme.slug] ?? {};

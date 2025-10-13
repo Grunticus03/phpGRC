@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 return [
     'manifest' => [
-        'version' => '5.3.3',
+        'version' => '5.3.8',
         'defaults' => [
             'dark' => 'slate',
             'light' => 'flatly',
@@ -26,6 +26,7 @@ return [
                 ];
             },
             [
+                ['slug' => 'brite', 'name' => 'Brite', 'default_mode' => 'light'],
                 ['slug' => 'cerulean', 'name' => 'Cerulean', 'default_mode' => 'light'],
                 ['slug' => 'cosmo', 'name' => 'Cosmo', 'default_mode' => 'light'],
                 ['slug' => 'cyborg', 'name' => 'Cyborg', 'default_mode' => 'dark'],

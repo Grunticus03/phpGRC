@@ -1,3 +1,4 @@
+import briteCss from "bootswatch/dist/brite/bootstrap.min.css?url";
 import ceruleanCss from "bootswatch/dist/cerulean/bootstrap.min.css?url";
 import cosmoCss from "bootswatch/dist/cosmo/bootstrap.min.css?url";
 import cyborgCss from "bootswatch/dist/cyborg/bootstrap.min.css?url";
@@ -34,6 +35,7 @@ export type BootswatchThemeMeta = {
 };
 
 export const BOOTSWATCH_THEMES: readonly BootswatchThemeMeta[] = [
+  { slug: "brite", name: "Brite", mode: "light", href: briteCss },
   { slug: "cerulean", name: "Cerulean", mode: "light", href: ceruleanCss },
   { slug: "cosmo", name: "Cosmo", mode: "light", href: cosmoCss },
   { slug: "cyborg", name: "Cyborg", mode: "dark", href: cyborgCss },

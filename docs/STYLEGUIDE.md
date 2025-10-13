@@ -64,7 +64,7 @@
 - Boot sequence:
   - Inline boot script reads cookie and sets `<html data-theme data-mode>` before CSS to prevent FOUC.
 - Bootswatch:
-  - Ship full set pinned to `bootswatch@5.3.3`. Assets bundled locally; no runtime fetches.
+- Ship full set pinned to `bootswatch@5.3.8`. Assets bundled locally; no runtime fetches.
   - Default theme is `slate`. Only one stylesheet is active at a time.
   - App’s Bootstrap JS continues to function. Third-party theme JS is not executed in 5.5.
 

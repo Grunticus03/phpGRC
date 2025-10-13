@@ -3075,7 +3075,7 @@ components:
       properties:
         version:
           type: string
-          example: 5.3.3
+          example: 5.3.8
         defaults:
           type: object
           additionalProperties: false

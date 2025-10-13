@@ -338,7 +338,7 @@ final class UiSettingsApiTest extends TestCase
         $resp->assertOk();
         $manifest = $resp->json();
         self::assertIsArray($manifest);
-        self::assertSame('5.3.3', $manifest['version'] ?? null);
+        self::assertSame('5.3.8', $manifest['version'] ?? null);
         self::assertIsArray($manifest['themes'] ?? null);
     }
 
@@ -361,7 +361,7 @@ final class UiSettingsApiTest extends TestCase
         $resp->assertOk();
         $manifest = $resp->json();
         self::assertIsArray($manifest);
-        self::assertSame('5.3.3', $manifest['version'] ?? null);
+        self::assertSame('5.3.8', $manifest['version'] ?? null);
         self::assertIsArray($manifest['themes'] ?? null);
     }
 

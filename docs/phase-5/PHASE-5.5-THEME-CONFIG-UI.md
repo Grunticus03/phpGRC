@@ -33,7 +33,7 @@ Owner: Web (Step 5.5.3 scaffold, 5.5.4 wiring)
 ### 3.1 Theme Manifest (`GET /settings/ui/themes`)
 ```ts
 type ThemeManifest = {
-  version: string;                       // Bootswatch version, e.g., "5.3.3"
+  version: string;                       // Bootswatch version, e.g., "5.3.8"
   defaults: { dark: string; light: string };
   themes: Array<{
     slug: string;                        // e.g., "slate"

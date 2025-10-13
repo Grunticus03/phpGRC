@@ -63,7 +63,7 @@ Create one issue per step titled `[5.5.x] Owner — Name` with labels `phase:5.5
 
 ### Bootswatch + theme packs
 
-- Bundle all Bootswatch themes locally (pinned `bootswatch@5.3.3`), hashed file names, manifest JSON, and inline boot script to avoid FOUC.  
+- Bundle all Bootswatch themes locally (pinned `bootswatch@5.3.8`), hashed file names, manifest JSON, and inline boot script to avoid FOUC.  
 - Default themes: Slate (dark), Flatly (light). Manifest enumerates available themes.  
 - Theme packs upload flow optional at launch but infrastructure lands in Phase 5.5.  
 - NOTICE includes Bootstrap + Bootswatch MIT entries; uploaded packs append vendor licenses.  

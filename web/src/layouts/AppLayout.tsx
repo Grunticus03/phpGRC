@@ -955,7 +955,7 @@ export default function AppLayout(): JSX.Element | null {
   const sidebarCollapsed = sidebarPrefs.collapsed;
   const hidePinButton =
     loc.pathname.startsWith("/admin/settings/branding") || loc.pathname.startsWith("/admin/settings/core");
-  const navbarToneClass = "navbar-dark bg-primary";
+  const navbarBackgroundClass = themeMode === "dark" ? "bg-dark" : "bg-primary";
   const headerButtonVariant = "btn-outline-light";
   const dropdownMenuTone = "dropdown-menu dropdown-menu-dark";
 
@@ -1098,7 +1098,7 @@ export default function AppLayout(): JSX.Element | null {
     <div className="app-shell d-flex flex-column min-vh-100">
       <header>
         <nav
-          className={`navbar navbar-expand-lg ${navbarToneClass} border-bottom shadow-sm`}
+          className={`navbar navbar-expand-lg ${navbarBackgroundClass} border-bottom shadow-sm`}
           data-bs-theme="dark"
         >
           <div className="container-fluid">
