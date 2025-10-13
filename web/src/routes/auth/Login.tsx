@@ -22,14 +22,14 @@ export default function Login(): JSX.Element {
   const [info, setInfo] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [logoSrc, setLogoSrc] = useState<string | null>(() => resolvePrimaryLogo(getCachedThemeSettings()));
-  const [layout, setLayout] = useState<"traditional" | "subdued">(() =>
-    getCachedThemeSettings().theme.login?.layout === "subdued" ? "subdued" : "traditional"
+  const [layout, setLayout] = useState<"layout_1" | "layout_2">(() =>
+    getCachedThemeSettings().theme.login?.layout === "layout_2" ? "layout_2" : "layout_1"
   );
 
   useEffect(() => {
     const unsubscribe = onThemeSettingsChange((next) => {
       setLogoSrc(resolvePrimaryLogo(next));
-      setLayout(next.theme.login?.layout === "subdued" ? "subdued" : "traditional");
+      setLayout(next.theme.login?.layout === "layout_2" ? "layout_2" : "layout_1");
     });
     return () => unsubscribe();
   }, []);
@@ -56,7 +56,7 @@ export default function Login(): JSX.Element {
   }
 
   const displayLogo = useMemo(() => logoSrc ?? DEFAULT_LOGO_SRC, [logoSrc]);
-  const isSubdued = layout === "subdued";
+  const isLayout2 = layout === "layout_2";
   const handleLogoError = (event: SyntheticEvent<HTMLImageElement>) => {
     event.currentTarget.onerror = null;
     event.currentTarget.src = DEFAULT_LOGO_SRC;
@@ -77,7 +77,9 @@ export default function Login(): JSX.Element {
     </>
   );
 
-  const traditionalLayout = (
+  const hasFeedback = info !== null || err !== null;
+
+  const layout1 = (
     <>
       <div className="text-center mb-4">
         <img
@@ -127,70 +129,63 @@ export default function Login(): JSX.Element {
     </>
   );
 
-  const subduedLayout = (
+  const layout2 = (
     <div className="w-100" style={{ maxWidth: "520px" }}>
-      <div className="mb-3">
-        <img
-          src={displayLogo}
-          alt="Organization logo"
-          height={48}
-          style={{ width: "auto", maxWidth: "200px" }}
-          className="d-block"
-          onError={handleLogoError}
-        />
-      </div>
-      <div className="card bg-body shadow-sm border-0">
-        <div className="card-body p-4">
-          <h1 className="h4 mb-3">Sign in</h1>
-          {feedback}
-
-          <form onSubmit={onSubmit} className="mt-3">
-            <div className="d-flex align-items-center gap-3 flex-wrap">
-              <div className="flex-grow-1 vstack gap-3">
-                <input
-                  type="email"
-                  className="form-control form-control-lg"
-                  value={email}
-                  onChange={(ev) => setEmail(ev.currentTarget.value)}
-                  required
-                  autoComplete="username"
-                  placeholder="Email"
-                  aria-label="Email address"
-                />
-                <input
-                  type="password"
-                  className="form-control form-control-lg"
-                  value={password}
-                  onChange={(ev) => setPassword(ev.currentTarget.value)}
-                  required
-                  autoComplete="current-password"
-                  placeholder="Password"
-                  aria-label="Password"
-                />
-              </div>
-              <button
-                type="submit"
-                className="btn btn-primary btn-lg rounded-circle d-flex align-items-center justify-content-center"
-                style={{ width: "64px", height: "64px" }}
-                disabled={busy}
-              >
-                {busy ? (
-                  <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true" />
-                ) : (
-                  <span aria-hidden="true">{"\u2192"}</span>
-                )}
-                <span className="visually-hidden">Sign in</span>
-              </button>
-            </div>
-          </form>
+      <h1 className="visually-hidden">Sign in</h1>
+      <form onSubmit={onSubmit} className="vstack gap-3 align-items-start w-100">
+        {hasFeedback ? <div className="ms-4 w-100">{feedback}</div> : null}
+        <div className="position-relative w-100">
+          <button
+            type="submit"
+            className="btn btn-primary btn-lg rounded-circle d-flex align-items-center justify-content-center position-absolute top-50 start-0"
+            style={{ width: "72px", height: "72px", transform: "translate(10%, -50%)" }}
+            disabled={busy}
+          >
+            {busy ? (
+              <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true" />
+            ) : (
+              <span aria-hidden="true">{"\u2192"}</span>
+            )}
+            <span className="visually-hidden">Submit credentials</span>
+          </button>
+          <div className="vstack gap-3 ms-4">
+            <img
+              src={displayLogo}
+              alt="Organization logo"
+              height={48}
+              style={{ width: "auto", maxWidth: "200px" }}
+              className="d-block"
+              onError={handleLogoError}
+            />
+            <input
+              type="email"
+              className="form-control form-control-lg"
+              value={email}
+              onChange={(ev) => setEmail(ev.currentTarget.value)}
+              required
+              autoComplete="username"
+              placeholder="Email"
+              aria-label="Email address"
+            />
+            <input
+              type="password"
+              className="form-control form-control-lg"
+              value={password}
+              onChange={(ev) => setPassword(ev.currentTarget.value)}
+              required
+              autoComplete="current-password"
+              placeholder="Password"
+              aria-label="Password"
+            />
+          </div>
         </div>
-      </div>
+      </form>
     </div>
   );
 
   return (
     <div className="d-flex flex-column min-vh-100 align-items-center justify-content-center bg-body-secondary px-3">
-      {isSubdued ? subduedLayout : traditionalLayout}
+      {isLayout2 ? layout2 : layout1}
     </div>
   );
 }

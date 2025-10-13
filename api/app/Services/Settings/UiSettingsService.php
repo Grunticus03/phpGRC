@@ -1047,13 +1047,13 @@ final class UiSettingsService
 
     private function sanitizeLoginLayout(mixed $value, ?string $default = null): string
     {
-        $fallback = $default ?? 'traditional';
+        $fallback = $default ?? 'layout_1';
         if (! is_string($value)) {
             return $fallback;
         }
         $token = strtolower(trim($value));
 
-        return in_array($token, ['traditional', 'subdued'], true) ? $token : $fallback;
+        return in_array($token, ['layout_1', 'layout_2'], true) ? $token : $fallback;
     }
 
     private function defaultOverride(string $token): ?string

@@ -149,7 +149,7 @@ describe("ThemeConfigurator", () => {
           force_global: true,
           allow_user_override: false,
           login: {
-            layout: "traditional",
+            layout: "layout_1",
           },
         },
       },
@@ -178,7 +178,7 @@ describe("ThemeConfigurator", () => {
                 ...DEFAULT_SETTINGS_BODY.config.ui,
                 theme: {
                   ...DEFAULT_SETTINGS_BODY.config.ui.theme,
-                  login: { layout: "subdued" },
+                  login: { layout: "layout_2" },
                 },
               },
             },
@@ -194,10 +194,10 @@ describe("ThemeConfigurator", () => {
 
     await waitForLoadingToExit();
 
-    const subduedOption = screen.getByLabelText("Subdued") as HTMLInputElement;
-    expect(subduedOption.checked).toBe(false);
-    fireEvent.click(subduedOption);
-    expect(subduedOption.checked).toBe(true);
+    const layout2Option = screen.getByLabelText("Layout 2") as HTMLInputElement;
+    expect(layout2Option.checked).toBe(false);
+    fireEvent.click(layout2Option);
+    expect(layout2Option.checked).toBe(true);
 
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
@@ -206,7 +206,7 @@ describe("ThemeConfigurator", () => {
     const putCall = calls.find((call) => call.method === "PUT" && call.url === "/api/settings/ui");
     expect(putCall).toBeTruthy();
     const payload = putCall?.init.body ? JSON.parse(String(putCall.init.body)) : null;
-    expect(payload?.ui?.theme?.login).toMatchObject({ layout: "subdued" });
+    expect(payload?.ui?.theme?.login).toMatchObject({ layout: "layout_2" });
   });
 
   it("allows selecting a default mode", async () => {
@@ -267,7 +267,7 @@ describe("ThemeConfigurator", () => {
           default: "flatly",
           mode: "light",
           login: {
-            layout: "traditional",
+            layout: "layout_1",
           },
         },
       },

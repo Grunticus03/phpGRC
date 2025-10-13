@@ -25,7 +25,7 @@ type FormState = {
     storage: "browser" | "filesystem";
     filesystemPath: string;
   };
-  loginLayout: "traditional" | "subdued";
+  loginLayout: "layout_1" | "layout_2";
 };
 
 type ThemeSettingsResponse = {
@@ -73,7 +73,7 @@ function buildInitialForm(settings: ThemeSettings): FormState {
   const forceGlobal = Boolean(mutable.theme.force_global);
   const mode = mutable.theme.mode === "light" ? "light" : "dark";
   const layoutRaw = mutable.theme.login?.layout;
-  const loginLayout = layoutRaw === "subdued" ? "subdued" : "traditional";
+  const loginLayout = layoutRaw === "layout_2" ? "layout_2" : "layout_1";
   return {
     theme: String(mutable.theme.default),
     mode,
@@ -136,7 +136,7 @@ export default function ThemeConfigurator(): JSX.Element {
       designer: { ...DEFAULT_THEME_SETTINGS.theme.designer },
       login: {
         layout:
-          DEFAULT_THEME_SETTINGS.theme.login?.layout === "subdued" ? "subdued" : "traditional",
+          DEFAULT_THEME_SETTINGS.theme.login?.layout === "layout_2" ? "layout_2" : "layout_1",
       },
     },
   } as ThemeSettings);
@@ -185,8 +185,8 @@ export default function ThemeConfigurator(): JSX.Element {
   const loginLayoutOptions = useMemo(
     () => [
       {
-        value: "traditional" as const,
-        label: "Traditional",
+        value: "layout_1" as const,
+        label: "Layout 1",
         description: "Centered form with logo stacked above the fields.",
         preview: (
           <div className="d-flex flex-column align-items-center gap-2" aria-hidden="true">
@@ -200,8 +200,8 @@ export default function ThemeConfigurator(): JSX.Element {
         ),
       },
       {
-        value: "subdued" as const,
-        label: "Subdued",
+        value: "layout_2" as const,
+        label: "Layout 2",
         description: "Compact logo above left-aligned fields with arrow submit.",
         preview: (
           <div className="vstack gap-2" aria-hidden="true">
@@ -245,7 +245,7 @@ export default function ThemeConfigurator(): JSX.Element {
           ...settings.theme.designer,
         },
         login: {
-          layout: settings.theme.login?.layout === "subdued" ? "subdued" : "traditional",
+          layout: settings.theme.login?.layout === "layout_2" ? "layout_2" : "layout_1",
         },
       },
     } as ThemeSettings;
@@ -398,7 +398,7 @@ export default function ThemeConfigurator(): JSX.Element {
     });
   };
 
-  const onSelectLoginLayout = (value: "traditional" | "subdued") => {
+  const onSelectLoginLayout = (value: "layout_1" | "layout_2") => {
     setForm((prev) => {
       if (prev.loginLayout === value) return prev;
       const next = { ...prev, loginLayout: value };

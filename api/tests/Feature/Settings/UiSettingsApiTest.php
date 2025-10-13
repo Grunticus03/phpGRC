@@ -136,7 +136,7 @@ final class UiSettingsApiTest extends TestCase
                         'shadow' => 'light',
                     ],
                     'login' => [
-                        'layout' => 'subdued',
+                        'layout' => 'layout_2',
                     ],
                 ],
                 'brand' => [
@@ -161,7 +161,7 @@ final class UiSettingsApiTest extends TestCase
                         'allow_user_override' => false,
                         'force_global' => true,
                         'login' => [
-                            'layout' => 'subdued',
+                            'layout' => 'layout_2',
                         ],
                     ],
                     'brand' => [
@@ -186,7 +186,7 @@ final class UiSettingsApiTest extends TestCase
         self::assertFalse($config['theme']['allow_user_override']);
         self::assertTrue($config['theme']['force_global']);
         self::assertSame('#ff0000', $config['theme']['overrides']['color.primary']);
-        self::assertSame('subdued', $config['theme']['login']['layout']);
+        self::assertSame('layout_2', $config['theme']['login']['layout']);
         $overrideDefaults = config('ui.defaults.theme.overrides');
         self::assertIsArray($overrideDefaults);
         $defaultBackground = $overrideDefaults['color.background'] ?? null;

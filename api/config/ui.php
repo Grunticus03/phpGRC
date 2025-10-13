@@ -78,7 +78,7 @@ return [
                 'motion' => 'full',
             ],
             'login' => [
-                'layout' => 'traditional',
+                'layout' => 'layout_1',
             ],
         ],
         'nav' => [
