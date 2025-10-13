@@ -959,10 +959,9 @@ export default function AppLayout(): JSX.Element | null {
   const sidebarCollapsed = sidebarPrefs.collapsed;
   const hidePinButton =
     loc.pathname.startsWith("/admin/settings/branding") || loc.pathname.startsWith("/admin/settings/core");
-  const isDarkMode = themeMode === "dark";
-  const navbarToneClass = isDarkMode ? "navbar-dark bg-primary" : "navbar-light bg-light";
-  const headerButtonVariant = isDarkMode ? "btn-outline-light" : "btn-outline-dark";
-  const dropdownMenuTone = isDarkMode ? "dropdown-menu dropdown-menu-dark" : "dropdown-menu";
+  const navbarToneClass = themeMode === "dark" ? "navbar-dark bg-dark" : "navbar-dark bg-primary";
+  const headerButtonVariant = "btn-outline-light";
+  const dropdownMenuTone = "dropdown-menu dropdown-menu-dark";
 
   const accountDropdownStyle: CSSProperties = {
     right: 0,
