@@ -24,9 +24,11 @@ import {
   bootstrapTheme,
   getCachedThemePrefs,
   getCachedThemeSettings,
+  getCachedThemeManifest,
   getCurrentTheme,
   onThemePrefsChange,
   onThemeSettingsChange,
+  onThemeManifestChange,
   updateThemePrefs,
   updateThemeSettings,
   toggleThemeMode,
@@ -45,6 +47,7 @@ import {
 import {
   DEFAULT_THEME_SETTINGS,
   DEFAULT_USER_PREFS,
+  type ThemeManifest,
   type ThemeSettings,
   type ThemeUserPrefs,
 } from "../routes/admin/themeData";
@@ -191,6 +194,7 @@ export default function AppLayout(): JSX.Element | null {
   const [brand, setBrand] = useState<BrandSnapshot>(() =>
     computeBrandSnapshot(getCachedThemeSettings())
   );
+  const [manifest, setManifest] = useState<ThemeManifest>(() => getCachedThemeManifest());
   const [sidebarDefaultOrder, setSidebarDefaultOrder] = useState<string[]>(() =>
     extractSidebarDefaultOrder(getCachedThemeSettings())
   );
@@ -231,7 +235,7 @@ export default function AppLayout(): JSX.Element | null {
   const [themeMode, setThemeMode] = useState<"light" | "dark">(initialThemeMode);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
-  const adminMenuRef = useRef<HTMLDivElement | null>(null);
+  const adminMenuRef = useRef<HTMLLIElement | null>(null);
   const [adminMenuOpen, setAdminMenuOpen] = useState(false);
   const adminMenuCloseTimer = useRef<number | null>(null);
   const [activeAdminSubmenu, setActiveAdminSubmenu] = useState<string | null>(null);
@@ -319,9 +323,13 @@ export default function AppLayout(): JSX.Element | null {
         setThemeMode(document.documentElement.getAttribute("data-mode") === "dark" ? "dark" : "light");
       }
     });
+    const offManifest = onThemeManifestChange((next) => {
+      setManifest(next);
+    });
     return () => {
       off();
       offSettings();
+      offManifest();
     };
   }, [updateSidebarState]);
 
@@ -912,6 +920,18 @@ export default function AppLayout(): JSX.Element | null {
     [sidebarDefaultOrder, sidebarPrefs.order]
   );
 
+  const canToggleTheme = useMemo(() => {
+    const modes = new Set<string>();
+    [...manifest.themes, ...manifest.packs].forEach((entry) => {
+      entry.supports?.mode?.forEach((mode) => {
+        if (mode === "light" || mode === "dark") {
+          modes.add(mode);
+        }
+      });
+    });
+    return modes.has("light") && modes.has("dark");
+  }, [manifest]);
+
   if (loading) return null;
 
   if (requireAuth && !authed && !loc.pathname.startsWith("/auth/")) {
@@ -939,6 +959,10 @@ export default function AppLayout(): JSX.Element | null {
   const sidebarCollapsed = sidebarPrefs.collapsed;
   const hidePinButton =
     loc.pathname.startsWith("/admin/settings/branding") || loc.pathname.startsWith("/admin/settings/core");
+  const isDarkMode = themeMode === "dark";
+  const navbarToneClass = isDarkMode ? "navbar-dark bg-primary" : "navbar-light bg-light";
+  const headerButtonVariant = isDarkMode ? "btn-outline-light" : "btn-outline-dark";
+  const dropdownMenuTone = isDarkMode ? "dropdown-menu dropdown-menu-dark" : "dropdown-menu";
 
   const accountDropdownStyle: CSSProperties = {
     right: 0,
@@ -1077,260 +1101,248 @@ export default function AppLayout(): JSX.Element | null {
 
   const layout = (
     <div className="app-shell d-flex flex-column min-vh-100">
-      <header className="border-bottom bg-body">
-        <div className="container-fluid d-flex align-items-center gap-3 py-2">
-          <button
-            type="button"
-            className="p-0 border-0 bg-transparent"
-            aria-label={sidebarPrefs.collapsed ? "Show sidebar" : "Hide sidebar"}
-            aria-expanded={!sidebarPrefs.collapsed}
-            onClick={toggleSidebar}
-            onMouseEnter={handleSidebarToggleHover}
-            onMouseLeave={handleSidebarToggleLeave}
-            onFocus={handleSidebarToggleHover}
-            disabled={prefsLoading}
-            style={{
-              width: "2.5rem",
-              height: "2.5rem",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              opacity: prefsLoading ? 0.4 : 1,
-            }}
-          >
-            <span aria-hidden="true" style={{ fontSize: "1.5rem", lineHeight: 1 }}>
-              ☰
-            </span>
-            <span className="visually-hidden">
-              {sidebarPrefs.collapsed ? "Show navigation menu" : "Hide navigation menu"}
-            </span>
-          </button>
-          <NavLink to="/" className="navbar-brand d-flex align-items-center gap-2 text-decoration-none">
-            <span
-              className="d-inline-flex align-items-center justify-content-center"
-              style={{ minHeight: "40px", padding: "4px 0" }}
-            >
-              <img
-                src={logoSrc}
-                alt="phpGRC logo"
-                height={40}
-                style={{ width: "auto", maxHeight: "40px" }}
-                data-fallback-applied="false"
-                onError={(event) => {
-                  if (event.currentTarget.dataset.fallbackApplied === "true") return;
-                  event.currentTarget.dataset.fallbackApplied = "true";
-                  if (brand.headerLogoId) {
-                    failedBrandAssetsRef.current.add(brand.headerLogoId);
-                  } else if (brand.primaryLogoId) {
-                    failedBrandAssetsRef.current.add(brand.primaryLogoId);
-                  }
-                  event.currentTarget.src = DEFAULT_LOGO_SRC;
-                  setBrand((prev) => ({ ...prev }));
-                }}
-              />
-            </span>
-          </NavLink>
-          <nav className="nav nav-pills gap-1 ms-3 flex-wrap align-items-center" aria-label="Primary navigation">
-            {coreNavItems.map((module) => {
-              if (module.id === "admin") {
-                const adminActive = loc.pathname.startsWith("/admin");
-                return (
-                  <div
-                    key={module.id}
-                    className="position-relative d-inline-flex"
-                    ref={adminMenuRef}
-                    onMouseEnter={openAdminMenu}
-                    onMouseLeave={scheduleAdminMenuClose}
-                    onFocusCapture={openAdminMenu}
-                    onBlur={(event) => {
-                      if (
-                        adminMenuRef.current &&
-                        !adminMenuRef.current.contains(event.relatedTarget as Node)
-                      ) {
-                        scheduleAdminMenuClose();
+      <header>
+        <nav className={`navbar navbar-expand-lg ${navbarToneClass} border-bottom shadow-sm`}>
+          <div className="container-fluid">
+            <div className="d-flex align-items-center gap-2">
+              <button
+                type="button"
+                className={`btn btn-sm ${headerButtonVariant}`}
+                aria-label={sidebarPrefs.collapsed ? "Show sidebar" : "Hide sidebar"}
+                aria-expanded={!sidebarPrefs.collapsed}
+                onClick={toggleSidebar}
+                onMouseEnter={handleSidebarToggleHover}
+                onMouseLeave={handleSidebarToggleLeave}
+                onFocus={handleSidebarToggleHover}
+                disabled={prefsLoading}
+              >
+                <span aria-hidden="true">{sidebarPrefs.collapsed ? "☰" : "✕"}</span>
+                <span className="visually-hidden">
+                  {sidebarPrefs.collapsed ? "Show navigation menu" : "Hide navigation menu"}
+                </span>
+              </button>
+              <NavLink to="/" className="navbar-brand d-flex align-items-center gap-2">
+                <span
+                  className="d-inline-flex align-items-center justify-content-center"
+                  style={{ minHeight: "40px", padding: "4px 0" }}
+                >
+                  <img
+                    src={logoSrc}
+                    alt="phpGRC logo"
+                    height={40}
+                    style={{ width: "auto", maxHeight: "40px" }}
+                    data-fallback-applied="false"
+                    onError={(event) => {
+                      if (event.currentTarget.dataset.fallbackApplied === "true") return;
+                      event.currentTarget.dataset.fallbackApplied = "true";
+                      if (brand.headerLogoId) {
+                        failedBrandAssetsRef.current.add(brand.headerLogoId);
+                      } else if (brand.primaryLogoId) {
+                        failedBrandAssetsRef.current.add(brand.primaryLogoId);
                       }
+                      event.currentTarget.src = DEFAULT_LOGO_SRC;
+                      setBrand((prev) => ({ ...prev }));
                     }}
-                  >
-                    <NavLink
-                      to={module.path}
-                      className={`nav-link py-1 px-2${adminActive ? " active fw-semibold" : ""}`}
-                    >
-                      {module.label}
-                    </NavLink>
-                    <div
-                      role="menu"
-                      aria-hidden={adminMenuOpen ? "false" : "true"}
-                      className="shadow-sm border bg-body rounded-2"
-                      style={{
-                        position: "absolute",
-                        top: "calc(100% + 0.35rem)",
-                        left: 0,
-                        minWidth: "13rem",
-                        padding: "0.5rem 0",
-                        transform: adminMenuOpen ? "translateY(0)" : "translateY(-6px)",
-                        opacity: adminMenuOpen ? 1 : 0,
-                        visibility: adminMenuOpen ? "visible" : "hidden",
-                        transition: "opacity 180ms ease, transform 180ms ease, visibility 0s linear 90ms",
-                        zIndex: 1050,
-                      }}
-                      onMouseEnter={openAdminMenu}
-                      onMouseLeave={scheduleAdminMenuClose}
-                    >
-                      {ADMIN_NAV_ITEMS.map((item) => {
-                        const submenuActive =
-                          item.children?.some((child) => loc.pathname.startsWith(child.to)) ?? false;
-                        if (item.children && item.children.length > 0) {
-                          const submenuOpen = adminMenuOpen && activeAdminSubmenu === item.id;
-                          return (
-                            <div
-                              key={item.id}
-                              className="position-relative"
-                              onMouseEnter={() => openAdminSubmenu(item.id)}
-                              onMouseLeave={scheduleAdminSubmenuClose}
-                              onFocusCapture={() => openAdminSubmenu(item.id)}
-                              onBlur={(event) => {
-                                if (!event.currentTarget.contains(event.relatedTarget as Node)) {
-                                  scheduleAdminSubmenuClose();
-                                }
-                              }}
-                            >
-                              <NavLink
-                                to={item.to}
-                                className={({ isActive }) =>
-                                  `dropdown-item d-flex align-items-center justify-content-between${
-                                    isActive || submenuActive ? " active fw-semibold" : ""
-                                  }`
-                                }
-                                role="menuitem"
-                                onClick={() => {
-                                  setAdminMenuOpen(false);
-                                  setActiveAdminSubmenu(null);
-                                }}
-                                onMouseEnter={() => openAdminSubmenu(item.id)}
-                              >
-                                <span>{item.label}</span>
-                              </NavLink>
-                              <div
-                                role="menu"
-                                aria-hidden={submenuOpen ? "false" : "true"}
-                                className="shadow-sm border bg-body rounded-2"
-                                style={{
-                                  position: "absolute",
-                                  top: "-9px",
-                                  left: "calc(100%)",
-                                  minWidth: "12rem",
-                                  padding: "0.5rem 0",
-                                  transform: submenuOpen ? "translateX(0)" : "translateX(-8px)",
-                                  opacity: submenuOpen ? 1 : 0,
-                                  visibility: submenuOpen ? "visible" : "hidden",
-                                  transition: "opacity 160ms ease, transform 160ms ease, visibility 0s linear 80ms",
-                                  zIndex: 1051,
-                                }}
-                                onMouseEnter={() => openAdminSubmenu(item.id)}
-                                onMouseLeave={scheduleAdminSubmenuClose}
-                              >
-                                {item.children.map((child) => (
+                  />
+                </span>
+              </NavLink>
+            </div>
+            <div className="flex-grow-1 d-flex align-items-center">
+              <ul className="navbar-nav me-auto align-items-center gap-1" aria-label="Primary navigation">
+                {coreNavItems.map((module) => {
+                  if (module.id === "admin") {
+                    const adminActive = loc.pathname.startsWith("/admin");
+                    return (
+                      <li
+                        key={module.id}
+                        className="nav-item dropdown"
+                        ref={adminMenuRef}
+                        onMouseEnter={openAdminMenu}
+                        onMouseLeave={scheduleAdminMenuClose}
+                        onFocusCapture={openAdminMenu}
+                        onBlur={(event) => {
+                          if (
+                            adminMenuRef.current &&
+                            !adminMenuRef.current.contains(event.relatedTarget as Node)
+                          ) {
+                            scheduleAdminMenuClose();
+                          }
+                        }}
+                      >
+                        <NavLink
+                          to={module.path}
+                          className={({ isActive }) =>
+                            `nav-link dropdown-toggle${isActive || adminActive ? " active" : ""}`
+                          }
+                          role="button"
+                        >
+                          {module.label}
+                        </NavLink>
+                        <div
+                          role="menu"
+                          aria-hidden={adminMenuOpen ? "false" : "true"}
+                          className={`${dropdownMenuTone} shadow border-0 rounded-2`}
+                          style={{
+                            display: adminMenuOpen ? "block" : "none",
+                            marginTop: "0.5rem",
+                            minWidth: "13rem",
+                          }}
+                          onMouseEnter={openAdminMenu}
+                          onMouseLeave={scheduleAdminMenuClose}
+                        >
+                          {ADMIN_NAV_ITEMS.map((item) => {
+                            const submenuActive =
+                              item.children?.some((child) => loc.pathname.startsWith(child.to)) ?? false;
+                            if (item.children && item.children.length > 0) {
+                              const submenuOpen = adminMenuOpen && activeAdminSubmenu === item.id;
+                              return (
+                                <div
+                                  key={item.id}
+                                  className="position-relative"
+                                  onMouseEnter={() => openAdminSubmenu(item.id)}
+                                  onMouseLeave={scheduleAdminSubmenuClose}
+                                  onFocusCapture={() => openAdminSubmenu(item.id)}
+                                  onBlur={(event) => {
+                                    if (!event.currentTarget.contains(event.relatedTarget as Node)) {
+                                      scheduleAdminSubmenuClose();
+                                    }
+                                  }}
+                                >
                                   <NavLink
-                                    key={child.id}
-                                    to={child.to}
+                                    to={item.to}
                                     className={({ isActive }) =>
-                                      `dropdown-item${isActive ? " active fw-semibold" : ""}`
+                                      `dropdown-item d-flex align-items-center justify-content-between${
+                                        isActive || submenuActive ? " active fw-semibold" : ""
+                                      }`
                                     }
                                     role="menuitem"
                                     onClick={() => {
                                       setAdminMenuOpen(false);
                                       setActiveAdminSubmenu(null);
                                     }}
+                                    onMouseEnter={() => openAdminSubmenu(item.id)}
                                   >
-                                    {child.label}
+                                    <span>{item.label}</span>
                                   </NavLink>
-                                ))}
-                              </div>
-                            </div>
-                          );
-                        }
-
-                        return (
-                          <NavLink
-                            key={item.id}
-                            to={item.to}
-                            className={({ isActive }) =>
-                              `dropdown-item${isActive ? " active fw-semibold" : ""}`
+                                  <div
+                                    role="menu"
+                                    aria-hidden={submenuOpen ? "false" : "true"}
+                                    className={`${dropdownMenuTone} shadow border-0 rounded-2`}
+                                    style={{
+                                      display: submenuOpen ? "block" : "none",
+                                      position: "absolute",
+                                      top: "-0.25rem",
+                                      left: "calc(100% - 0.25rem)",
+                                      minWidth: "12rem",
+                                    }}
+                                    onMouseEnter={() => openAdminSubmenu(item.id)}
+                                    onMouseLeave={scheduleAdminSubmenuClose}
+                                  >
+                                    {item.children.map((child) => (
+                                      <NavLink
+                                        key={child.id}
+                                        to={child.to}
+                                        className={({ isActive }) =>
+                                          `dropdown-item${isActive ? " active fw-semibold" : ""}`
+                                        }
+                                        role="menuitem"
+                                        onClick={() => {
+                                          setAdminMenuOpen(false);
+                                          setActiveAdminSubmenu(null);
+                                        }}
+                                      >
+                                        {child.label}
+                                      </NavLink>
+                                    ))}
+                                  </div>
+                                </div>
+                              );
                             }
-                            role="menuitem"
-                            onClick={() => {
-                              setAdminMenuOpen(false);
-                              setActiveAdminSubmenu(null);
-                            }}
-                            onMouseEnter={() => setActiveAdminSubmenu(null)}
-                            onFocus={() => setActiveAdminSubmenu(null)}
-                          >
-                            {item.label}
-                          </NavLink>
-                        );
-                      })}
+
+                            return (
+                              <NavLink
+                                key={item.id}
+                                to={item.to}
+                                className={({ isActive }) =>
+                                  `dropdown-item${isActive ? " active fw-semibold" : ""}`
+                                }
+                                role="menuitem"
+                                onClick={() => {
+                                  setAdminMenuOpen(false);
+                                  setActiveAdminSubmenu(null);
+                                }}
+                                onMouseEnter={() => setActiveAdminSubmenu(null)}
+                                onFocus={() => setActiveAdminSubmenu(null)}
+                              >
+                                {item.label}
+                              </NavLink>
+                            );
+                          })}
+                        </div>
+                      </li>
+                    );
+                  }
+
+                  return (
+                    <li className="nav-item" key={module.id}>
+                      <NavLink
+                        to={module.path}
+                        className={({ isActive }) => `nav-link${isActive ? " active" : ""}`}
+                      >
+                        {module.label}
+                      </NavLink>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+            <div className="d-flex align-items-center gap-2">
+              {requireAuth && !authed ? (
+                <NavLink className={`btn btn-sm ${headerButtonVariant}`} to="/auth/login">
+                  Login
+                </NavLink>
+              ) : (
+                <>
+                  {canToggleTheme ? (
+                    <button
+                      type="button"
+                      className={`btn btn-sm ${headerButtonVariant}`}
+                      aria-label={`Switch to ${themeMode === "dark" ? "light" : "dark"} mode`}
+                      title={`Switch to ${themeMode === "dark" ? "light" : "dark"} mode`}
+                      onClick={handleThemeToggle}
+                    >
+                      {themeMode === "dark" ? "🌙" : "☀️"}
+                    </button>
+                  ) : null}
+                  <div className="dropdown" ref={menuRef}>
+                    <button
+                      type="button"
+                      className={`btn btn-sm dropdown-toggle ${headerButtonVariant}`}
+                      aria-expanded={menuOpen}
+                      onClick={() => setMenuOpen((prev) => !prev)}
+                    >
+                      Account
+                    </button>
+                    <div
+                      className={`${dropdownMenuTone} dropdown-menu-end${menuOpen ? " show" : ""}`}
+                      style={accountDropdownStyle}
+                    >
+                      <button type="button" className="dropdown-item" onClick={handleProfile}>
+                        Profile
+                      </button>
+                      <button type="button" className="dropdown-item" onClick={handleLock}>
+                        Lock
+                      </button>
+                      <button type="button" className="dropdown-item text-danger" onClick={handleLogout}>
+                        Logout
+                      </button>
                     </div>
                   </div>
-                );
-              }
-
-              return (
-                <NavLink
-                  key={module.id}
-                  to={module.path}
-                  className={({ isActive }) =>
-                    `nav-link py-1 px-2${isActive ? " active fw-semibold" : ""}`
-                  }
-                >
-                  {module.label}
-                </NavLink>
-              );
-            })}
-          </nav>
-          <div className="ms-auto d-flex align-items-center gap-2">
-            {requireAuth && !authed ? (
-              <NavLink className="btn btn-primary btn-sm" to="/auth/login">
-                Login
-              </NavLink>
-            ) : (
-              <>
-                <button
-                  type="button"
-                  className="btn btn-outline-secondary btn-sm"
-                  aria-label={`Switch to ${themeMode === "dark" ? "light" : "dark"} mode`}
-                  title={`Switch to ${themeMode === "dark" ? "light" : "dark"} mode`}
-                  onClick={handleThemeToggle}
-                >
-                  {themeMode === "dark" ? "🌙" : "☀️"}
-                </button>
-                <div className="dropdown" ref={menuRef}>
-                  <button
-                    type="button"
-                    className="btn btn-outline-secondary btn-sm dropdown-toggle"
-                    aria-expanded={menuOpen}
-                    onClick={() => setMenuOpen((prev) => !prev)}
-                >
-                  Account
-                </button>
-                <div
-                  className={`dropdown-menu dropdown-menu-end${menuOpen ? " show" : ""}`}
-                  style={accountDropdownStyle}
-                >
-                  <button type="button" className="dropdown-item" onClick={handleProfile}>
-                    Profile
-                  </button>
-                  <button type="button" className="dropdown-item" onClick={handleLock}>
-                    Lock
-                  </button>
-                  <button type="button" className="dropdown-item text-danger" onClick={handleLogout}>
-                    Logout
-                    </button>
-                  </div>
-                </div>
-              </>
-            )}
+                </>
+              )}
+            </div>
           </div>
-        </div>
+        </nav>
       </header>
 
       <div className="app-body d-flex flex-grow-1 position-relative">
