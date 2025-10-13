@@ -73,12 +73,16 @@ export const DEFAULT_THEME_SETTINGS = {
     force_global: false,
     overrides: {
       "color.primary": "#0d6efd",
+      "color.background": "#10131a",
       "color.surface": "#1b1e21",
       "color.text": "#f8f9fa",
       shadow: "default",
       spacing: "default",
       typeScale: "medium",
       motion: "full",
+    },
+    login: {
+      layout: "traditional" as "traditional" | "subdued",
     },
   },
   nav: {
@@ -105,6 +109,7 @@ export const DEFAULT_USER_PREFS = {
   mode: null as "light" | "dark" | null,
   overrides: {
     "color.primary": "#0d6efd",
+    "color.background": "#10131a",
     "color.surface": "#1b1e21",
     "color.text": "#f8f9fa",
     shadow: "default",

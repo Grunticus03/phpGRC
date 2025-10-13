@@ -25,6 +25,7 @@ type FormState = {
     storage: "browser" | "filesystem";
     filesystemPath: string;
   };
+  loginLayout: "traditional" | "subdued";
 };
 
 type ThemeSettingsResponse = {
@@ -71,6 +72,8 @@ function buildInitialForm(settings: ThemeSettings): FormState {
   };
   const forceGlobal = Boolean(mutable.theme.force_global);
   const mode = mutable.theme.mode === "light" ? "light" : "dark";
+  const layoutRaw = mutable.theme.login?.layout;
+  const loginLayout = layoutRaw === "subdued" ? "subdued" : "traditional";
   return {
     theme: String(mutable.theme.default),
     mode,
@@ -84,6 +87,7 @@ function buildInitialForm(settings: ThemeSettings): FormState {
           ? designer.filesystem_path
           : "/opt/phpgrc/shared/themes",
     },
+    loginLayout,
   };
 }
 
@@ -92,6 +96,7 @@ function hasChanges(form: FormState, baseline: FormState | null): boolean {
   if (form.theme !== baseline.theme) return true;
   if (form.mode !== baseline.mode) return true;
   if (form.forceGlobal !== baseline.forceGlobal) return true;
+  if (form.loginLayout !== baseline.loginLayout) return true;
   if (form.designer.storage !== baseline.designer.storage) return true;
   if (form.designer.filesystemPath !== baseline.designer.filesystemPath) return true;
   const keys = new Set([...Object.keys(form.overrides), ...Object.keys(baseline.overrides)]);
@@ -128,6 +133,11 @@ export default function ThemeConfigurator(): JSX.Element {
     theme: {
       ...DEFAULT_THEME_SETTINGS.theme,
       overrides: { ...DEFAULT_THEME_SETTINGS.theme.overrides },
+      designer: { ...DEFAULT_THEME_SETTINGS.theme.designer },
+      login: {
+        layout:
+          DEFAULT_THEME_SETTINGS.theme.login?.layout === "subdued" ? "subdued" : "traditional",
+      },
     },
   } as ThemeSettings);
 
@@ -172,6 +182,52 @@ export default function ThemeConfigurator(): JSX.Element {
     dark: currentThemeOption?.variants?.dark?.name ?? "Dark",
   };
 
+  const loginLayoutOptions = useMemo(
+    () => [
+      {
+        value: "traditional" as const,
+        label: "Traditional",
+        description: "Centered form with logo stacked above the fields.",
+        preview: (
+          <div className="d-flex flex-column align-items-center gap-2" aria-hidden="true">
+            <div className="rounded-circle bg-primary opacity-75" style={{ width: "40px", height: "40px" }} />
+            <div className="w-100 bg-body border border-light-subtle rounded-3 shadow-sm p-3 vstack gap-2">
+              <div className="bg-body-secondary rounded-2" style={{ height: "10px" }} />
+              <div className="bg-body-secondary rounded-2" style={{ height: "10px" }} />
+              <div className="bg-primary text-white fw-semibold rounded-pill px-2 py-1 small text-center">Sign in</div>
+            </div>
+          </div>
+        ),
+      },
+      {
+        value: "subdued" as const,
+        label: "Subdued",
+        description: "Compact logo above left-aligned fields with arrow submit.",
+        preview: (
+          <div className="vstack gap-2" aria-hidden="true">
+            <div className="d-flex align-items-center gap-2">
+              <div className="rounded-circle bg-primary opacity-75" style={{ width: "28px", height: "28px" }} />
+              <div className="bg-body-secondary rounded-2 flex-grow-1" style={{ height: "8px", maxWidth: "72px" }} />
+            </div>
+            <div className="d-flex align-items-center gap-3">
+              <div className="flex-grow-1 vstack gap-2">
+                <div className="bg-body-secondary rounded-2" style={{ height: "10px" }} />
+                <div className="bg-body-secondary rounded-2" style={{ height: "10px" }} />
+              </div>
+              <div
+                className="d-flex align-items-center justify-content-center bg-primary text-white rounded-circle"
+                style={{ width: "36px", height: "36px" }}
+              >
+                <span aria-hidden="true">{"\u2192"}</span>
+              </div>
+            </div>
+          </div>
+        ),
+      },
+    ],
+    []
+  );
+
   useEffect(() => {
     const unsubscribe = onThemeManifestChange((next) => {
       setManifest(next);
@@ -187,6 +243,9 @@ export default function ThemeConfigurator(): JSX.Element {
         overrides: { ...settings.theme.overrides },
         designer: {
           ...settings.theme.designer,
+        },
+        login: {
+          layout: settings.theme.login?.layout === "subdued" ? "subdued" : "traditional",
         },
       },
     } as ThemeSettings;
@@ -210,6 +269,9 @@ export default function ThemeConfigurator(): JSX.Element {
         designer: {
           storage: next.designer.storage,
           filesystem_path: next.designer.filesystemPath,
+        },
+        login: {
+          layout: next.loginLayout,
         },
       },
     };
@@ -336,6 +398,15 @@ export default function ThemeConfigurator(): JSX.Element {
     });
   };
 
+  const onSelectLoginLayout = (value: "traditional" | "subdued") => {
+    setForm((prev) => {
+      if (prev.loginLayout === value) return prev;
+      const next = { ...prev, loginLayout: value };
+      previewTheme(next);
+      return next;
+    });
+  };
+
   const onDesignerStorageChange = (value: "browser" | "filesystem") => {
     setForm((prev) => {
       const next = {
@@ -402,6 +473,9 @@ export default function ThemeConfigurator(): JSX.Element {
             designer: {
               storage: form.designer.storage,
               filesystem_path: form.designer.filesystemPath,
+            },
+            login: {
+              layout: form.loginLayout,
             },
           },
         },
@@ -607,6 +681,48 @@ export default function ThemeConfigurator(): JSX.Element {
                     </div>
                   )}
                 </div>
+              </div>
+            </fieldset>
+
+            <fieldset className="vstack gap-3" disabled={disabled}>
+              <legend className="form-label fw-semibold mb-0">Login layout</legend>
+              <p className="text-secondary small mb-2">
+                Choose how the authentication page should present the form and branding.
+              </p>
+              <div className="row g-3">
+                {loginLayoutOptions.map((option) => {
+                  const inputId = `loginLayout-${option.value}`;
+                  const selected = form.loginLayout === option.value;
+                  return (
+                    <div key={option.value} className="col-md-6">
+                      <div
+                        className={`card h-100 border-2 ${selected ? "border-primary shadow-sm" : "border-light"}`}
+                      >
+                        <div className="card-body vstack gap-3">
+                          <div className="form-check d-flex align-items-center gap-2 mb-0">
+                            <input
+                              id={inputId}
+                              type="radio"
+                              className="form-check-input"
+                              name="loginLayout"
+                              value={option.value}
+                              checked={selected}
+                              onChange={() => onSelectLoginLayout(option.value)}
+                              disabled={disabled}
+                            />
+                            <label htmlFor={inputId} className="form-check-label fw-semibold">
+                              {option.label}
+                            </label>
+                          </div>
+                          <p className="text-secondary small mb-0">{option.description}</p>
+                          <div className="bg-body-secondary bg-opacity-25 rounded-3 p-3">
+                            {option.preview}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </fieldset>
           </>

@@ -135,6 +135,9 @@ final class UiSettingsApiTest extends TestCase
                         'color.primary' => '#ff0000',
                         'shadow' => 'light',
                     ],
+                    'login' => [
+                        'layout' => 'subdued',
+                    ],
                 ],
                 'brand' => [
                     'title_text' => 'Custom Dashboard',
@@ -157,6 +160,9 @@ final class UiSettingsApiTest extends TestCase
                         'default' => 'cosmo',
                         'allow_user_override' => false,
                         'force_global' => true,
+                        'login' => [
+                            'layout' => 'subdued',
+                        ],
                     ],
                     'brand' => [
                         'title_text' => 'Custom Dashboard',
@@ -180,6 +186,12 @@ final class UiSettingsApiTest extends TestCase
         self::assertFalse($config['theme']['allow_user_override']);
         self::assertTrue($config['theme']['force_global']);
         self::assertSame('#ff0000', $config['theme']['overrides']['color.primary']);
+        self::assertSame('subdued', $config['theme']['login']['layout']);
+        $overrideDefaults = config('ui.defaults.theme.overrides');
+        self::assertIsArray($overrideDefaults);
+        $defaultBackground = $overrideDefaults['color.background'] ?? null;
+        self::assertIsString($defaultBackground);
+        self::assertSame($defaultBackground, $config['theme']['overrides']['color.background']);
         self::assertSame($defaultBrandPath, $config['brand']['assets']['filesystem_path']);
     }
 

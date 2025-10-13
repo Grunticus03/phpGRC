@@ -364,12 +364,20 @@ const applyDesignTokens = (): void => {
   setOrClear("--bs-link-color", primary);
   setOrClear("--bs-link-hover-color", primary);
 
+  const background = overrides["color.background"];
+  setOrClear("--ui-color-background", background);
+
   const surface = overrides["color.surface"];
   setOrClear("--ui-color-surface", surface);
-  setOrClear("--bs-body-bg", surface);
-  if (surface && surface.trim() !== "") {
-    body.style.backgroundColor = surface;
+
+  const backgroundCandidate =
+    background && background.trim() !== "" ? background : surface && surface.trim() !== "" ? surface : null;
+
+  if (backgroundCandidate && backgroundCandidate.trim() !== "") {
+    setOrClear("--bs-body-bg", backgroundCandidate);
+    body.style.backgroundColor = backgroundCandidate;
   } else {
+    setOrClear("--bs-body-bg");
     body.style.removeProperty("background-color");
   }
 

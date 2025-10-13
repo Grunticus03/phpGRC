@@ -148,9 +148,65 @@ describe("ThemeConfigurator", () => {
           mode: "dark",
           force_global: true,
           allow_user_override: false,
+          login: {
+            layout: "traditional",
+          },
         },
       },
     });
+  });
+
+  it("persists the selected login layout", async () => {
+    installFetch(async (_input, init) => {
+      const method = (init?.method ?? "GET").toUpperCase();
+      const url = typeof _input === "string" ? _input : _input.toString();
+
+      if (url === "/api/settings/ui/themes" && method === "GET") {
+        return jsonResponse(DEFAULT_MANIFEST_BODY, { headers: { ETag: 'W/"manifest:login"' } });
+      }
+
+      if (url === "/api/settings/ui" && method === "GET") {
+        return jsonResponse(DEFAULT_SETTINGS_BODY, { headers: { ETag: 'W/"settings:login1"' } });
+      }
+
+      if (url === "/api/settings/ui" && method === "PUT") {
+        return jsonResponse(
+          {
+            ok: true,
+            config: {
+              ui: {
+                ...DEFAULT_SETTINGS_BODY.config.ui,
+                theme: {
+                  ...DEFAULT_SETTINGS_BODY.config.ui.theme,
+                  login: { layout: "subdued" },
+                },
+              },
+            },
+          },
+          { headers: { ETag: 'W/"settings:login2"' } }
+        );
+      }
+
+      return jsonResponse({ ok: true });
+    });
+
+    renderConfigurator();
+
+    await waitForLoadingToExit();
+
+    const subduedOption = screen.getByLabelText("Subdued") as HTMLInputElement;
+    expect(subduedOption.checked).toBe(false);
+    fireEvent.click(subduedOption);
+    expect(subduedOption.checked).toBe(true);
+
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    await screen.findByText(SUCCESS_TOAST, {}, { timeout: 4000 });
+
+    const putCall = calls.find((call) => call.method === "PUT" && call.url === "/api/settings/ui");
+    expect(putCall).toBeTruthy();
+    const payload = putCall?.init.body ? JSON.parse(String(putCall.init.body)) : null;
+    expect(payload?.ui?.theme?.login).toMatchObject({ layout: "subdued" });
   });
 
   it("allows selecting a default mode", async () => {
@@ -210,6 +266,9 @@ describe("ThemeConfigurator", () => {
         theme: {
           default: "flatly",
           mode: "light",
+          login: {
+            layout: "traditional",
+          },
         },
       },
     });

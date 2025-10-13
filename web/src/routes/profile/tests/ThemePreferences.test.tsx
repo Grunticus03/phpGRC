@@ -31,6 +31,7 @@ const GLOBAL_SETTINGS_BODY = {
         force_global: false,
         overrides: {
           "color.primary": "#0d6efd",
+          "color.background": "#10131a",
           "color.surface": "#1b1e21",
           "color.text": "#f8f9fa",
           shadow: "default",
@@ -60,6 +61,7 @@ const USER_PREFS_BODY = {
     mode: "dark" as const,
     overrides: {
       "color.primary": "#345678",
+      "color.background": "#10131a",
       "color.surface": "#1b1e21",
       "color.text": "#f8f9fa",
       shadow: "light",
@@ -142,8 +144,10 @@ describe("ThemePreferences", () => {
     const widthSlider = screen.getByLabelText("Sidebar width (px)") as HTMLInputElement;
     fireEvent.change(widthSlider, { target: { value: "200" } });
 
-    const colorInput = screen.getByLabelText(/primary color/i) as HTMLInputElement;
-    fireEvent.change(colorInput, { target: { value: "#123456" } });
+    const primaryInputs = screen.getAllByLabelText(/primary color/i) as HTMLInputElement[];
+    const primaryColorInput = primaryInputs.find((input) => input.type === "color");
+    expect(primaryColorInput).toBeDefined();
+    fireEvent.change(primaryColorInput as HTMLInputElement, { target: { value: "#123456" } });
 
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
@@ -152,7 +156,10 @@ describe("ThemePreferences", () => {
     expect(recordedIfMatch).toBe('W/"prefs:abc"');
     expect(recordedBody).toMatchObject({
       theme: "flatly",
-      overrides: expect.objectContaining({ "color.primary": "#123456" }),
+      overrides: expect.objectContaining({
+        "color.primary": "#123456",
+        "color.background": "#10131a",
+      }),
       sidebar: expect.objectContaining({ collapsed: true, width: 200 }),
     });
   });

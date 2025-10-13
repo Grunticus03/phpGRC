@@ -54,13 +54,23 @@ describe("ThemeDesigner", () => {
     const settingsColumn = document.querySelector(
       ".theme-designer-dropdown-column.settings"
     ) as HTMLElement;
-    const backgroundInput = within(settingsColumn).getByLabelText(/Background/i) as HTMLInputElement;
-    fireEvent.input(backgroundInput, { target: { value: "#123456" } });
+    const backgroundInputs = within(settingsColumn).getAllByLabelText(/Background/i) as HTMLInputElement[];
+    const backgroundColorInput = backgroundInputs.find((input) => input.type === "color");
+    expect(backgroundColorInput).toBeDefined();
+    fireEvent.input(backgroundColorInput as HTMLInputElement, { target: { value: "#123456" } });
 
     const preview = container.querySelector(".theme-designer-preview") as HTMLElement;
     expect(preview.style.getPropertyValue("--td-buttons-light-primary-background")).toBe("#123456");
     expect(preview.style.getPropertyValue("--td-buttons-dark-primary-background")).toBe("#0d6efd");
     expect(preview.style.getPropertyValue("--td-alerts-light-primary-background")).toBe("#123456");
+
+    const backgroundTextInput = backgroundInputs.find((input) => input.type === "text");
+    expect(backgroundTextInput).toBeDefined();
+    fireEvent.change(backgroundTextInput as HTMLInputElement, { target: { value: "rgba(1,2,3,0.5)" } });
+
+    expect(preview.style.getPropertyValue("--td-buttons-light-primary-background")).toBe("rgba(1,2,3,0.5)");
+    expect(preview.style.getPropertyValue("--td-alerts-light-primary-background")).toBe("rgba(1,2,3,0.5)");
+    expect(preview.style.getPropertyValue("--td-buttons-dark-primary-background")).toBe("#0d6efd");
   });
 
   it("renders feature previews similar to Bootswatch sample", () => {

@@ -7,7 +7,7 @@ import {
   onThemeSettingsChange,
   updateThemeManifest,
 } from "../../theme/themeManager";
-import { type CustomThemePack, type ThemeManifest } from "./themeData";
+import { DEFAULT_THEME_SETTINGS, type CustomThemePack, type ThemeManifest } from "./themeData";
 
 type SettingTarget = {
   key: string;
@@ -139,6 +139,9 @@ const VARIANT_DEFINITIONS: VariantDefinition[] = [
   { id: "warning", label: "Warning" },
   { id: "danger", label: "Danger" },
 ];
+
+const HEX_COLOR_PATTERN = /^#(?:[0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i;
+const DEFAULT_BACKGROUND_COLOR = DEFAULT_THEME_SETTINGS.theme.overrides["color.background"];
 
 function registerTarget(target: SettingTarget): SettingTarget {
   TARGET_REGISTRY.push(target);
@@ -336,6 +339,63 @@ function createContext(
   };
 }
 
+function createBackgroundSetting(): SettingConfig {
+  const featureId = "foundations";
+  const contextId = "global";
+  const variantId = "base";
+  const propertyId = "pageBackground";
+  const key = `${featureId}.${contextId}.${variantId}.${propertyId}`;
+  const target: SettingTarget = registerTarget({
+    key,
+    featureId,
+    contextId,
+    variantId,
+    propertyId,
+    variable: "--td-foundations-global-base-pageBackground",
+    defaultValue:
+      typeof DEFAULT_BACKGROUND_COLOR === "string" && DEFAULT_BACKGROUND_COLOR.trim() !== ""
+        ? DEFAULT_BACKGROUND_COLOR
+        : "#10131a",
+  });
+
+  return {
+    id: key,
+    label: "Background color",
+    control: "color",
+    propertyId,
+    targets: [target],
+    scope: contextId,
+  };
+}
+
+const FOUNDATIONS_FEATURE: ThemeFeature = {
+  id: "foundations",
+  label: "Foundations",
+  description: "Adjust global background styling for authentication and shell views.",
+  contexts: [
+    {
+      id: "global",
+      label: "Global",
+      variants: [
+        {
+          id: "base",
+          label: "Base",
+          settings: [createBackgroundSetting()],
+        },
+      ],
+    },
+  ],
+};
+
+const resolveSwatchValue = (setting: SettingConfig, value: string): string => {
+  const trimmed = value.trim();
+  if (HEX_COLOR_PATTERN.test(trimmed)) {
+    return trimmed;
+  }
+  const fallback = setting.targets[0]?.defaultValue ?? "#000000";
+  return typeof fallback === "string" && HEX_COLOR_PATTERN.test(fallback) ? fallback : "#000000";
+};
+
 function buildFeature(
   id: string,
   label: string,
@@ -353,6 +413,7 @@ function buildFeature(
 }
 
 const BASE_FEATURES: ThemeFeature[] = [
+  FOUNDATIONS_FEATURE,
   buildFeature("navbars", "Navbars", "Live preview of light and dark navigation bars.", [
     { id: "light", label: "Light" },
     { id: "dark", label: "Dark" },
@@ -741,7 +802,8 @@ export default function ThemeDesigner(): JSX.Element {
 
   const describeSettingValue = (setting: SettingConfig, value: string): string => {
     if (setting.control === "color") {
-      return value.toUpperCase();
+      const trimmed = value.trim();
+      return trimmed.startsWith("#") ? trimmed.toUpperCase() : trimmed;
     }
     if (setting.control === "toggle" && setting.toggleValues) {
       return value === setting.toggleValues.on ? "On" : "Off";
@@ -851,20 +913,38 @@ export default function ThemeDesigner(): JSX.Element {
                             const currentValue = resolveSettingValue(setting);
 
                             if (setting.control === "color") {
-                              const colorValue = currentValue || "#000000";
+                              const swatchValue = resolveSwatchValue(setting, currentValue);
+                              const labelId = `setting-label-${setting.id}`;
                               return (
-                                <label key={setting.id} className="theme-designer-setting">
-                                  <span className="theme-designer-setting-label">{setting.label}</span>
-                                  <input
-                                    type="color"
-                                    className="form-control form-control-color theme-designer-setting-input"
-                                    value={colorValue}
-                                    onChange={(event) => handleSettingChange(setting, event.target.value)}
-                                  />
-                                  <span className="theme-designer-setting-value">
-                                    {describeSettingValue(setting, colorValue)}
+                                <div key={setting.id} className="theme-designer-setting">
+                                  <span id={labelId} className="theme-designer-setting-label">
+                                    {setting.label}
                                   </span>
-                                </label>
+                                  <div className="theme-designer-color-inputs">
+                                    <input
+                                      type="color"
+                                      className="form-control form-control-color theme-designer-setting-input"
+                                      value={swatchValue}
+                                      onChange={(event) => handleSettingChange(setting, event.target.value)}
+                                      aria-labelledby={labelId}
+                                    />
+                                    <input
+                                      type="text"
+                                      className="form-control form-control-sm theme-designer-color-text"
+                                      value={currentValue}
+                                      onChange={(event) =>
+                                        handleSettingChange(setting, event.target.value.trim())
+                                      }
+                                      placeholder="#000000 or rgba(0,0,0,0.5)"
+                                      aria-labelledby={labelId}
+                                      autoComplete="off"
+                                      spellCheck={false}
+                                    />
+                                  </div>
+                                  <span className="theme-designer-setting-value">
+                                    {describeSettingValue(setting, currentValue)}
+                                  </span>
+                                </div>
                               );
                             }
 

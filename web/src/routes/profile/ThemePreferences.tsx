@@ -69,7 +69,7 @@ const formToPrefs = (form: PrefForm): ThemeUserPrefs => {
   return prefs;
 };
 
-const COLOR_OVERRIDES = ["color.primary", "color.surface", "color.text"] as const;
+const COLOR_OVERRIDES = ["color.primary", "color.background", "color.surface", "color.text"] as const;
 const SHADOW_PRESETS = ["none", "default", "light", "heavy", "custom"] as const;
 const SPACING_PRESETS = ["narrow", "default", "wide"] as const;
 const TYPE_SCALE_PRESETS = ["small", "medium", "large"] as const;
@@ -623,7 +623,7 @@ export default function ThemePreferences(): JSX.Element {
                   <h2 className="h5 mb-3">Design tokens</h2>
                   <div className="row g-3">
                     {COLOR_OVERRIDES.map((key) => (
-                      <div key={key} className="col-sm-4">
+                      <div key={key} className="col-sm-3">
                         <label htmlFor={`pref-${key}`} className="form-label text-capitalize">
                           {key.replace("color.", "")} color
                         </label>

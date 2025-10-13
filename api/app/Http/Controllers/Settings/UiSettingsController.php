@@ -26,7 +26,8 @@ final class UiSettingsController extends Controller
          *         allow_user_override: bool,
          *         force_global: bool,
          *         overrides: array<string,string|null>,
-         *         designer: array{storage:string, filesystem_path:string}
+         *         designer: array{storage:string, filesystem_path:string},
+         *         login: array{layout:string}
          *     },
          *     nav: array{sidebar: array{default_order: array<int,string>}},
          *     brand: array{
@@ -69,7 +70,8 @@ final class UiSettingsController extends Controller
          *         allow_user_override: bool,
          *         force_global: bool,
          *         overrides: array<string,string|null>,
-         *         designer: array{storage:string, filesystem_path:string}
+         *         designer: array{storage:string, filesystem_path:string},
+         *         login: array{layout:string}
          *     },
          *     nav: array{sidebar: array{default_order: array<int,string>}},
          *     brand: array{
@@ -141,7 +143,8 @@ final class UiSettingsController extends Controller
          *         allow_user_override: bool,
          *         force_global: bool,
          *         overrides: array<string,string|null>,
-         *         designer: array{storage:string, filesystem_path:string}
+         *         designer: array{storage:string, filesystem_path:string},
+         *         login: array{layout:string}
          *     },
          *     nav: array{sidebar: array{default_order: array<int,string>}},
          *     brand: array{

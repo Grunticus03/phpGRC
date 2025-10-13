@@ -25,6 +25,7 @@ final class UiSettingsService
         'ui.theme.overrides',
         'ui.theme.designer.storage',
         'ui.theme.designer.filesystem_path',
+        'ui.theme.login.layout',
         'ui.nav.sidebar.default_order',
         'ui.brand.assets.filesystem_path',
     ];
@@ -44,7 +45,8 @@ final class UiSettingsService
      *         allow_user_override: bool,
      *         force_global: bool,
      *         overrides: array<string,string|null>,
-     *         designer: array{storage: string, filesystem_path: string}
+     *         designer: array{storage: string, filesystem_path: string},
+     *         login: array{layout: string}
      *     },
      *     nav: array{sidebar: array{default_order: array<int,string>}},
      *     brand: array{
@@ -435,7 +437,8 @@ final class UiSettingsService
      *             allow_user_override: bool,
      *             force_global: bool,
      *             overrides: array<string,string|null>,
-     *             designer: array{storage: string, filesystem_path: string}
+     *             designer: array{storage: string, filesystem_path: string},
+     *             login: array{layout: string}
      *         },
      *         nav: array{sidebar: array{default_order: array<int,string>}},
      *         brand: array{
@@ -631,7 +634,8 @@ final class UiSettingsService
      *         allow_user_override: bool,
      *         force_global: bool,
      *         overrides: array<string,string|null>,
-     *         designer: array{storage: string, filesystem_path: string}
+     *         designer: array{storage: string, filesystem_path: string},
+     *         login: array{layout: string}
      *     },
      *     nav: array{sidebar: array{default_order: array<int,string>}},
      *     brand: array{
@@ -694,7 +698,7 @@ final class UiSettingsService
     /**
      * @param  array<string,mixed>  $config
      * @return array{
-     *     theme: array{default: string, mode: string, allow_user_override: bool, force_global: bool, overrides: array<string,string|null>, designer: array{storage: string, filesystem_path: string}},
+     *     theme: array{default: string, mode: string, allow_user_override: bool, force_global: bool, overrides: array<string,string|null>, designer: array{storage: string, filesystem_path: string}, login: array{layout: string}},
      *     nav: array{sidebar: array{default_order: array<int,string>}},
      *     brand: array{
      *         title_text: string,
@@ -724,6 +728,10 @@ final class UiSettingsService
         /** @var array<string,mixed> $designerDefaultsRaw */
         $designerDefaultsRaw = is_array($themeDefaults['designer'] ?? null) ? $themeDefaults['designer'] : [];
         $designer = $this->sanitizeDesignerConfig($designerDefaultsRaw, []);
+        /** @var array<string,mixed> $loginDefaults */ $loginDefaults = is_array($themeDefaults['login'] ?? null) ? $themeDefaults['login'] : [];
+        $themeLogin = [
+            'layout' => $this->sanitizeLoginLayout($loginDefaults['layout'] ?? null),
+        ];
 
         $defaultSlug = $this->sanitizeThemeSlug($themeDefaults['default'] ?? null, $fallbackTheme);
         $defaultMode = $this->sanitizeThemeMode($themeDefaults['mode'] ?? null, $defaultSlug);
@@ -735,6 +743,7 @@ final class UiSettingsService
             'force_global' => $this->toBool($themeDefaults['force_global'] ?? false),
             'overrides' => $this->sanitizeOverrides($themeOverridesBase),
             'designer' => $designer,
+            'login' => $themeLogin,
         ];
 
         if (isset($config['theme']) && is_array($config['theme'])) {
@@ -770,9 +779,20 @@ final class UiSettingsService
                     $designerOverride
                 );
             }
+
+            if (isset($themeInput['login']) && is_array($themeInput['login'])) {
+                $loginInput = $themeInput['login'];
+                if (array_key_exists('layout', $loginInput)) {
+                    $themeLogin['layout'] = $this->sanitizeLoginLayout(
+                        $loginInput['layout'],
+                        $themeLogin['layout']
+                    );
+                }
+            }
         }
 
         $theme['mode'] = $this->sanitizeThemeMode($theme['mode'], $theme['default']);
+        $theme['login'] = $themeLogin;
 
         /** @var array<string,mixed> $navDefaults */
         $navDefaults = (array) ($defaults['nav'] ?? []);
@@ -1023,6 +1043,17 @@ final class UiSettingsService
         return [
             'filesystem_path' => $this->brandAssets->sanitizePath($path, $defaultPath),
         ];
+    }
+
+    private function sanitizeLoginLayout(mixed $value, ?string $default = null): string
+    {
+        $fallback = $default ?? 'traditional';
+        if (! is_string($value)) {
+            return $fallback;
+        }
+        $token = strtolower(trim($value));
+
+        return in_array($token, ['traditional', 'subdued'], true) ? $token : $fallback;
     }
 
     private function defaultOverride(string $token): ?string
@@ -1309,6 +1340,11 @@ final class UiSettingsService
         $designerOverride = $designerInput;
 
         $designer = $this->sanitizeDesignerConfig($designerBase, $designerOverride);
+        /** @var array<string,mixed> $loginInput */
+        $loginInput = is_array($theme['login'] ?? null) ? $theme['login'] : [];
+        $login = [
+            'layout' => $this->sanitizeLoginLayout($loginInput['layout'] ?? null),
+        ];
 
         return [
             'ui.theme.default' => $theme['default'] ?? null,
@@ -1318,6 +1354,7 @@ final class UiSettingsService
             'ui.theme.overrides' => $theme['overrides'] ?? [],
             'ui.theme.designer.storage' => $designer['storage'],
             'ui.theme.designer.filesystem_path' => $designer['filesystem_path'],
+            'ui.theme.login.layout' => $login['layout'],
             'ui.nav.sidebar.default_order' => $sidebar['default_order'] ?? [],
             'ui.brand.title_text' => $brand['title_text'] ?? null,
             'ui.brand.favicon_asset_id' => $brand['favicon_asset_id'] ?? null,

@@ -69,12 +69,16 @@ return [
             'force_global' => false,
             'overrides' => [
                 'color.primary' => '#0d6efd',
+                'color.background' => '#10131a',
                 'color.surface' => '#1b1e21',
                 'color.text' => '#f8f9fa',
                 'shadow' => 'default',
                 'spacing' => 'default',
                 'typeScale' => 'medium',
                 'motion' => 'full',
+            ],
+            'login' => [
+                'layout' => 'traditional',
             ],
         ],
         'nav' => [
@@ -101,6 +105,7 @@ return [
         'mode' => null,
         'overrides' => [
             'color.primary' => '#0d6efd',
+            'color.background' => '#10131a',
             'color.surface' => '#1b1e21',
             'color.text' => '#f8f9fa',
             'shadow' => 'default',
@@ -118,6 +123,7 @@ return [
     'overrides' => [
         'allowed_keys' => [
             'color.primary',
+            'color.background',
             'color.surface',
             'color.text',
             'shadow',
