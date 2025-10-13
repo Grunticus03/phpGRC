@@ -5,7 +5,7 @@ import { MemoryRouter } from "react-router-dom";
 import React from "react";
 import Audit from "../Audit";
 
-const ROUTER_FUTURE_FLAGS = { v7_startTransition: true, v7_relativeSplatPath: true } as const;
+const ROUTER_FUTURE_FLAGS = { v7_relativeSplatPath: true } as const;
 
 function jsonResponse(body: unknown, init: ResponseInit = {}) {
   return new Response(JSON.stringify(body), {

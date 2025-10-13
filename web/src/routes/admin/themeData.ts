@@ -68,6 +68,9 @@ export const DEFAULT_THEME_SETTINGS = {
     header_logo_asset_id: null,
     footer_logo_asset_id: null,
     footer_logo_disabled: false,
+    assets: {
+      filesystem_path: "/opt/phpgrc/shared/brands" as string,
+    },
   },
 } as const;
 

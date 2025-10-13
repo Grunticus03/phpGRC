@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState, type CSSProperties } from "re
 import { baseHeaders } from "../../../lib/api";
 import { updateThemeSettings } from "../../../theme/themeManager";
 import { DEFAULT_THEME_SETTINGS, type ThemeSettings } from "../themeData";
+import { useToast } from "../../../components/toast/ToastProvider";
 
 type Mutable<T> = T extends object ? { -readonly [K in keyof T]: Mutable<T[K]> } : T;
 
@@ -87,12 +88,28 @@ const normalizeSettings = (incoming?: ThemeSettings | null): ThemeSettings => ({
   brand: {
     ...DEFAULT_THEME_SETTINGS.brand,
     ...((incoming?.brand ?? DEFAULT_THEME_SETTINGS.brand) as ThemeSettings["brand"]),
+    assets: {
+      ...DEFAULT_THEME_SETTINGS.brand.assets,
+      ...((incoming?.brand?.assets ?? DEFAULT_THEME_SETTINGS.brand.assets) as ThemeSettings["brand"]["assets"]),
+    },
   },
 });
 
-const createDefaultBrandConfig = (): BrandingConfig => ({
-  ...DEFAULT_THEME_SETTINGS.brand,
-});
+const normalizeBrandConfig = (source?: Partial<BrandingConfig>): BrandingConfig => {
+  const { assets, ...rest } = source ?? {};
+  return {
+    ...DEFAULT_THEME_SETTINGS.brand,
+    ...rest,
+    assets: {
+      ...DEFAULT_THEME_SETTINGS.brand.assets,
+      ...(assets ?? {}),
+    },
+  } as BrandingConfig;
+};
+
+const createDefaultBrandConfig = (): BrandingConfig => normalizeBrandConfig(DEFAULT_THEME_SETTINGS.brand);
+
+const cloneBrandConfig = (config: BrandingConfig): BrandingConfig => normalizeBrandConfig(config);
 
 async function parseJson<T>(res: Response): Promise<T | null> {
   try {
@@ -110,8 +127,8 @@ export default function BrandingCard(): JSX.Element {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [profileSaving, setProfileSaving] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
-  const [uploadMessage, setUploadMessage] = useState<string | null>(null);
+  const toast = useToast();
+  const { success: showSuccess, info: showInfo, warning: showWarning, danger: showDanger } = toast;
   const [readOnly, setReadOnly] = useState(false);
   const [isCreatingProfile, setIsCreatingProfile] = useState(false);
   const [newProfileName, setNewProfileName] = useState("");
@@ -168,10 +185,7 @@ export default function BrandingCard(): JSX.Element {
   const loadBranding = useCallback(
     async (options?: { preserveMessage?: boolean; profileId?: string }) => {
       setLoading(true);
-      if (!options?.preserveMessage) {
-        setMessage(null);
-        setUploadMessage(null);
-      }
+      const shouldNotify = !options?.preserveMessage;
 
       try {
         const settingsRes = await fetch("/api/settings/ui", {
@@ -182,13 +196,15 @@ export default function BrandingCard(): JSX.Element {
 
         if (settingsRes.status === 403) {
           setReadOnly(true);
-          setMessage("You do not have permission to update branding.");
+          if (shouldNotify) {
+            showWarning("You do not have permission to update branding.");
+          }
           etagRef.current = null;
           setProfiles([]);
           setSelectedProfileId(null);
           const defaults = createDefaultBrandConfig();
           setBrandConfig(defaults);
-          baselineRef.current = defaults;
+          baselineRef.current = cloneBrandConfig(defaults);
           setAssets([]);
           return;
         }
@@ -199,7 +215,9 @@ export default function BrandingCard(): JSX.Element {
           const body = await parseJson<BrandingResponse>(settingsRes);
           uiSettings = body?.config?.ui ?? null;
         } else {
-          setMessage("Failed to load branding settings. Using defaults.");
+          if (shouldNotify) {
+            showWarning("Failed to load branding settings. Using defaults.");
+          }
         }
 
         const profileList = await fetchProfiles();
@@ -226,28 +244,30 @@ export default function BrandingCard(): JSX.Element {
 
         const selectedProfile = profileList.find((profile) => profile.id === nextSelectedId) ?? null;
         if (selectedProfile) {
-          const config: BrandingConfig = { ...selectedProfile.brand };
+          const config = cloneBrandConfig(selectedProfile.brand as BrandingConfig);
           setBrandConfig(config);
-          baselineRef.current = { ...config };
+          baselineRef.current = cloneBrandConfig(config);
           const assetList = await fetchAssets(selectedProfile.id);
           setAssets(assetList);
         } else {
           const defaults = createDefaultBrandConfig();
           setBrandConfig(defaults);
-          baselineRef.current = defaults;
+          baselineRef.current = cloneBrandConfig(defaults);
           setAssets([]);
         }
 
         setReadOnly(false);
       } catch {
-        setMessage("Failed to load branding settings. Using defaults.");
+        if (shouldNotify) {
+          showWarning("Failed to load branding settings. Using defaults.");
+        }
         etagRef.current = null;
         const defaults = createDefaultBrandConfig();
         const normalized = normalizeSettings(null);
         settingsRef.current = normalized;
         updateThemeSettings(normalized);
         setBrandConfig(defaults);
-        baselineRef.current = defaults;
+        baselineRef.current = cloneBrandConfig(defaults);
         setProfiles([]);
         setSelectedProfileId(null);
         setAssets([]);
@@ -255,7 +275,7 @@ export default function BrandingCard(): JSX.Element {
         setLoading(false);
       }
     },
-    [fetchAssets, fetchProfiles]
+    [fetchAssets, fetchProfiles, showWarning]
   );
 
   const initializedRef = useRef(false);
@@ -278,29 +298,27 @@ export default function BrandingCard(): JSX.Element {
       setSelectedProfileId(null);
       const defaults = createDefaultBrandConfig();
       setBrandConfig(defaults);
-      baselineRef.current = defaults;
+      baselineRef.current = cloneBrandConfig(defaults);
       setAssets([]);
       return;
     }
 
     setSelectedProfileId(profileId);
-    setUploadMessage(null);
-
     const profile = profiles.find((item) => item.id === profileId) ?? null;
     if (profile) {
-      const config: BrandingConfig = { ...profile.brand };
+      const config = cloneBrandConfig(profile.brand as BrandingConfig);
       setBrandConfig(config);
-      baselineRef.current = { ...config };
+      baselineRef.current = cloneBrandConfig(config);
       previewBrand(config);
       if (profile.is_locked) {
-        setMessage("Default profile is locked. Create a new profile to customize branding.");
+        showWarning("Default profile is locked. Create a new profile to customize branding.");
       }
       setAssets([]);
       void fetchAssets(profile.id).then((list) => setAssets(list));
     } else {
       const defaults = createDefaultBrandConfig();
       setBrandConfig(defaults);
-      baselineRef.current = defaults;
+      baselineRef.current = cloneBrandConfig(defaults);
       previewBrand(defaults);
       setAssets([]);
     }
@@ -309,7 +327,7 @@ export default function BrandingCard(): JSX.Element {
   const handleCreateProfile = async () => {
     const name = newProfileName.trim();
     if (name === "") {
-      setMessage("Profile name is required.");
+      showWarning("Profile name is required.");
       return;
     }
 
@@ -335,10 +353,10 @@ export default function BrandingCard(): JSX.Element {
 
       setIsCreatingProfile(false);
       setNewProfileName("");
-      setMessage(`Profile "${body.profile.name}" created. Configure and save to apply.`);
+      showSuccess(`Profile "${body.profile.name}" created. Configure and save to apply.`);
       await loadBranding({ preserveMessage: true, profileId: body.profile.id });
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Failed to create profile.");
+      showDanger(error instanceof Error ? error.message : "Failed to create profile.");
     } finally {
       setProfileSaving(false);
     }
@@ -359,10 +377,10 @@ export default function BrandingCard(): JSX.Element {
         throw new Error(errMsg);
       }
 
-      setMessage("Profile activated.");
+      showSuccess("Profile activated.");
       await loadBranding({ preserveMessage: true, profileId });
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Failed to activate profile.");
+      showDanger(error instanceof Error ? error.message : "Failed to activate profile.");
     } finally {
       setProfileSaving(false);
     }
@@ -372,7 +390,7 @@ export default function BrandingCard(): JSX.Element {
     const base = settingsRef.current;
     const draft: ThemeSettings = {
       ...base,
-      brand: { ...config },
+      brand: { ...config, assets: { ...config.assets } },
     };
     updateThemeSettings(draft);
   };
@@ -380,6 +398,20 @@ export default function BrandingCard(): JSX.Element {
   const updateField = (key: keyof BrandingConfig, value: unknown) => {
     setBrandConfig((prev) => {
       const next = { ...prev, [key]: value } as BrandingConfig;
+      if (key === "assets" && value && typeof value === "object") {
+        next.assets = { ...(value as BrandingConfig["assets"]) };
+      } else {
+        next.assets = { ...prev.assets };
+      }
+      previewBrand(next);
+      return next;
+    });
+  };
+
+  const updateAssetsPath = (value: string) => {
+    setBrandConfig((prev) => {
+      const next = cloneBrandConfig(prev);
+      next.assets.filesystem_path = value;
       previewBrand(next);
       return next;
     });
@@ -395,37 +427,37 @@ export default function BrandingCard(): JSX.Element {
       brandConfig.secondary_logo_asset_id !== baseline.secondary_logo_asset_id ||
       brandConfig.header_logo_asset_id !== baseline.header_logo_asset_id ||
       brandConfig.footer_logo_asset_id !== baseline.footer_logo_asset_id ||
-      brandConfig.footer_logo_disabled !== baseline.footer_logo_disabled
+      brandConfig.footer_logo_disabled !== baseline.footer_logo_disabled ||
+      brandConfig.assets.filesystem_path !== baseline.assets.filesystem_path
     );
   };
 
   const handleSave = async (): Promise<void> => {
     if (readOnly) {
-      setMessage("Branding is read-only for your account.");
+      showWarning("Branding is read-only for your account.");
       return;
     }
     if (!selectedProfile) {
-      setMessage("Select a branding profile before saving.");
+      showWarning("Select a branding profile before saving.");
       return;
     }
     if (selectedProfile.is_locked) {
-      setMessage("Default branding profile cannot be modified.");
+      showWarning("Default branding profile cannot be modified.");
       return;
     }
     if (!hasChanges()) {
-      setMessage("No branding changes to save.");
+      showInfo("No branding changes to save.");
       return;
     }
 
     const etag = etagRef.current;
     if (!etag) {
       await loadBranding();
-      setMessage("Settings version refreshed. Please retry.");
+      showInfo("Settings version refreshed. Please retry.");
       return;
     }
 
     setSaving(true);
-    setMessage(null);
 
     try {
       const payload = {
@@ -452,7 +484,7 @@ export default function BrandingCard(): JSX.Element {
       if (res.status === 409) {
         const nextEtag = body?.etag ?? res.headers.get("ETag");
         if (nextEtag) etagRef.current = nextEtag;
-        setMessage("Branding changed elsewhere. Reloaded latest values.");
+        showWarning("Branding changed elsewhere. Reloaded latest values.");
         await loadBranding({ preserveMessage: true, profileId: selectedProfile.id });
         return;
       }
@@ -468,17 +500,17 @@ export default function BrandingCard(): JSX.Element {
         const normalized = normalizeSettings(body.config.ui);
         settingsRef.current = normalized;
         updateThemeSettings(normalized);
-        const updated: BrandingConfig = { ...normalized.brand };
+        const updated = cloneBrandConfig(normalized.brand as BrandingConfig);
         setBrandConfig(updated);
-        baselineRef.current = { ...updated };
+        baselineRef.current = cloneBrandConfig(updated);
       } else {
-        baselineRef.current = { ...brandConfig };
+        baselineRef.current = cloneBrandConfig(brandConfig);
       }
 
-      setMessage(`Branding saved for "${selectedProfile.name}".`);
+      showSuccess(`Branding saved for "${selectedProfile.name}".`);
       await loadBranding({ preserveMessage: true, profileId: selectedProfile.id });
     } catch (err) {
-      setMessage(err instanceof Error ? err.message : "Save failed.");
+      showDanger(err instanceof Error ? err.message : "Save failed.");
     } finally {
       setSaving(false);
     }
@@ -486,19 +518,19 @@ export default function BrandingCard(): JSX.Element {
 
   const handleUpload = async (kind: BrandAsset["kind"], file: File): Promise<void> => {
     if (!selectedProfile) {
-      setUploadMessage("Select a branding profile before uploading.");
+      showWarning("Select a branding profile before uploading.");
       return;
     }
     if (selectedProfile.is_locked) {
-      setUploadMessage("Default branding profile does not accept uploads.");
+      showWarning("Default branding profile does not accept uploads.");
       return;
     }
     if (!ALLOWED_TYPES.includes(file.type)) {
-      setUploadMessage(`Unsupported file type: ${file.type || "unknown"}.`);
+      showWarning(`Unsupported file type: ${file.type || "unknown"}.`);
       return;
     }
     if (file.size > MAX_FILE_SIZE) {
-      setUploadMessage("File exceeds 5 MB limit.");
+      showWarning("File exceeds 5 MB limit.");
       return;
     }
 
@@ -518,7 +550,7 @@ export default function BrandingCard(): JSX.Element {
       const body = await parseJson<UploadResponse>(res);
       if (!res.ok || !body?.asset) {
         const errMsg = typeof body?.message === "string" ? body.message : "Upload failed.";
-        setUploadMessage(errMsg);
+        showDanger(errMsg);
         return;
       }
 
@@ -546,17 +578,17 @@ export default function BrandingCard(): JSX.Element {
           break;
       }
 
-      setUploadMessage("Upload successful.");
+      showSuccess("Upload successful.");
       void fetchAssets(selectedProfile.id).then((list) => setAssets(list));
     } catch {
-      setUploadMessage("Upload failed.");
+      showDanger("Upload failed.");
     }
   };
 
   const handleDeleteAsset = async (assetId: string): Promise<void> => {
     if (!window.confirm("Delete this asset? This cannot be undone.")) return;
     if (!selectedProfile || selectedProfile.is_locked) {
-      setUploadMessage("Cannot modify assets for this profile.");
+      showWarning("Cannot modify assets for this profile.");
       return;
     }
     try {
@@ -568,10 +600,10 @@ export default function BrandingCard(): JSX.Element {
       if (!res.ok) {
         throw new Error(`Delete failed (${res.status})`);
       }
-      setMessage("Asset deleted.");
+      showSuccess("Asset deleted.");
       await loadBranding({ preserveMessage: true, profileId: selectedProfile.id });
     } catch (err) {
-      setUploadMessage(err instanceof Error ? err.message : "Delete failed.");
+      showDanger(err instanceof Error ? err.message : "Delete failed.");
     }
   };
 
@@ -605,7 +637,7 @@ export default function BrandingCard(): JSX.Element {
                 const next = { ...saved };
                 setBrandConfig(next);
                 previewBrand(next);
-                setMessage("Reverted to last saved branding.");
+                showInfo("Reverted to last saved branding.");
               }
             }}
             disabled={disabled}
@@ -628,17 +660,6 @@ export default function BrandingCard(): JSX.Element {
           <p>Loading branding settings…</p>
         ) : (
           <>
-            {message && (
-              <div className="alert alert-info mb-0" role="status">
-                {message}
-              </div>
-            )}
-            {uploadMessage && (
-              <div className="alert alert-secondary mb-0" role="note">
-                {uploadMessage}
-              </div>
-            )}
-
             <div className="border rounded p-3 bg-body-tertiary">
               <div className="row g-3 align-items-end">
                 <div className="col-lg">
@@ -745,6 +766,24 @@ export default function BrandingCard(): JSX.Element {
                   onChange={(event) => updateField("title_text", event.target.value)}
                 />
                 <div className="form-text">Default: phpGRC — &lt;module&gt;</div>
+              </div>
+
+              <div>
+                <label htmlFor="brandAssetPath" className="form-label fw-semibold">
+                  Brand assets directory
+                </label>
+                <input
+                  id="brandAssetPath"
+                  type="text"
+                  className="form-control"
+                  value={brandConfig.assets.filesystem_path}
+                  onChange={(event) => updateAssetsPath(event.target.value)}
+                  placeholder="/opt/phpgrc/shared/brands"
+                  disabled={disabled}
+                />
+                <div className="form-text">
+                  Absolute path on the server; a sub-folder per profile is created automatically.
+                </div>
               </div>
 
               <BrandAssetSection

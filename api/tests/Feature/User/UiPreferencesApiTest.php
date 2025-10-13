@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\User;
 
 use App\Models\User;
+use App\Models\UserUiPreference;
 use App\Services\Settings\UserUiPreferencesService;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
@@ -112,5 +113,30 @@ final class UiPreferencesApiTest extends TestCase
         $response = $this->getJson('/me/prefs/ui');
 
         $response->assertUnauthorized();
+    }
+
+    public function test_put_preferences_allows_guest_when_auth_disabled(): void
+    {
+        config()->set('core.rbac.require_auth', false);
+
+        $response = $this->putJson('/me/prefs/ui', [
+            'sidebar' => [
+                'collapsed' => true,
+                'width' => 260,
+            ],
+        ]);
+
+        $response->assertOk();
+        $response->assertJson([
+            'ok' => true,
+            'prefs' => [
+                'sidebar' => [
+                    'collapsed' => true,
+                ],
+            ],
+        ]);
+        $response->assertHeader('ETag');
+
+        self::assertSame(0, UserUiPreference::query()->count());
     }
 }

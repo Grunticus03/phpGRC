@@ -50,8 +50,26 @@ final class UiPreferencesController extends Controller
 
     public function update(UserUiPreferencesUpdateRequest $request): JsonResponse
     {
+        /** @var array<string,mixed> $validated */
+        $validated = $request->validated();
+
         $userId = $this->resolveUserId($request->user());
         if ($userId === null) {
+            if (! ConfigBoolean::value('core.rbac.require_auth', false)) {
+                $prefs = $this->prefs->preview($validated);
+                $etag = $this->prefs->etagFor($prefs);
+
+                return response()->json([
+                    'ok' => true,
+                    'prefs' => $prefs,
+                    'etag' => $etag,
+                ], 200)->withHeaders([
+                    'ETag' => $etag,
+                    'Cache-Control' => 'no-store, max-age=0',
+                    'Pragma' => 'no-cache',
+                ]);
+            }
+
             return $this->unauthorizedResponse();
         }
 
@@ -72,8 +90,6 @@ final class UiPreferencesController extends Controller
             ], 409)->withHeaders($baseHeaders);
         }
 
-        /** @var array<string,mixed> $validated */
-        $validated = $request->validated();
         $prefs = $this->prefs->apply($userId, $validated);
         $newEtag = $this->prefs->etagFor($prefs);
 

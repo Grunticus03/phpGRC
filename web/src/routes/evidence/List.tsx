@@ -15,6 +15,7 @@ import { primeUsers } from "../../lib/usersCache";
 import EvidenceTable, { type HeaderConfig } from "./EvidenceTable";
 import useColumnToggle from "../../components/table/useColumnToggle";
 import DateRangePicker from "../../components/pickers/DateRangePicker";
+import { useToast } from "../../components/toast/ToastProvider";
 
 type FetchState = "idle" | "loading" | "error" | "ok";
 
@@ -70,14 +71,11 @@ export default function EvidenceList(): JSX.Element {
   const [cursor, setCursor] = useState<string | null>(null);
   const [prevStack, setPrevStack] = useState<string[]>([]);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
-  const [downloadError, setDownloadError] = useState<string | null>(null);
   const [uploading, setUploading] = useState<boolean>(false);
-  const [uploadError, setUploadError] = useState<string | null>(null);
-  const [uploadSuccess, setUploadSuccess] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState<{ loaded: number; total: number; filename: string } | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
-  const [deleteSuccess, setDeleteSuccess] = useState<string | null>(null);
+  const toast = useToast();
+  const { success: showSuccess, danger: showDanger } = toast;
 
   const location = useLocation();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -228,7 +226,6 @@ export default function EvidenceList(): JSX.Element {
     setDateRangeError(null);
     setState("loading");
     setError("");
-    setDownloadError(null);
     try {
       const effectiveParams = resetCursor
         ? { ...params, ...overrides, cursor: null }
@@ -256,7 +253,6 @@ export default function EvidenceList(): JSX.Element {
   }
 
   async function handleDownload(item: Evidence) {
-    setDownloadError(null);
     setDownloadingId(item.id);
     try {
       await downloadEvidenceFile(item);
@@ -276,7 +272,7 @@ export default function EvidenceList(): JSX.Element {
           message = `Download failed (HTTP ${err.status}).`;
         }
       }
-      setDownloadError(message);
+      showDanger(message);
     } finally {
       setDownloadingId(null);
     }
@@ -348,8 +344,6 @@ export default function EvidenceList(): JSX.Element {
     let uploadedBytes = 0;
 
     setUploading(true);
-    setUploadError(null);
-    setUploadSuccess(null);
     if (files.length > 0) {
       setUploadProgress({
         loaded: 0,
@@ -386,18 +380,18 @@ export default function EvidenceList(): JSX.Element {
         uploadedNames.push(resolvedName);
       }
       if (uploadedNames.length === 1) {
-        setUploadSuccess(`${uploadedNames[0]} uploaded successfully.`);
+        showSuccess(`${uploadedNames[0]} uploaded successfully.`);
       } else if (uploadedNames.length > 1) {
-        setUploadSuccess(`${uploadedNames.length} files uploaded successfully.`);
+        showSuccess(`${uploadedNames.length} files uploaded successfully.`);
       }
       input.value = "";
       await load(true);
     } catch (err) {
       input.value = "";
       if (uploadedNames.length === 1) {
-        setUploadSuccess(`${uploadedNames[0]} uploaded successfully.`);
+        showSuccess(`${uploadedNames[0]} uploaded successfully.`);
       } else if (uploadedNames.length > 1) {
-        setUploadSuccess(`${uploadedNames.length} files uploaded successfully.`);
+        showSuccess(`${uploadedNames.length} files uploaded successfully.`);
       }
       let message = "Upload failed. Please try again.";
       if (err instanceof HttpError) {
@@ -427,7 +421,7 @@ export default function EvidenceList(): JSX.Element {
       } else if (err instanceof Error && err.message) {
         message = err.message;
       }
-      setUploadError(message);
+      showDanger(message);
       await load(true);
     } finally {
       setUploading(false);
@@ -441,12 +435,10 @@ export default function EvidenceList(): JSX.Element {
     const confirmed = window.confirm(`Delete ${name}? This cannot be undone.`);
     if (!confirmed) return;
 
-    setDeleteError(null);
-    setDeleteSuccess(null);
     setDeletingId(item.id);
     try {
       await deleteEvidence(item.id);
-      setDeleteSuccess(`${name} deleted.`);
+      showSuccess(`${name} deleted.`);
       await load(true);
     } catch (err) {
       let message = "Delete failed. Please try again.";
@@ -466,7 +458,7 @@ export default function EvidenceList(): JSX.Element {
       } else if (err instanceof Error && err.message) {
         message = err.message;
       }
-      setDeleteError(message);
+      showDanger(message);
     } finally {
       setDeletingId(null);
     }
@@ -1101,16 +1093,6 @@ export default function EvidenceList(): JSX.Element {
             </div>
           </div>
         )}
-        {uploadError && (
-          <div className="alert alert-danger mt-2" role="alert">
-            {uploadError}
-          </div>
-        )}
-        {uploadSuccess && (
-          <div className="alert alert-success mt-2" role="status">
-            {uploadSuccess}
-          </div>
-        )}
       </section>
 
       <section className="d-flex flex-wrap align-items-center gap-3 mb-3">
@@ -1152,13 +1134,6 @@ export default function EvidenceList(): JSX.Element {
 
       {state === "loading" && <p>Loading…</p>}
       {state === "error" && <p role="alert" className="text-danger">Error: {error}</p>}
-      {downloadError && <div className="alert alert-danger mt-3" role="alert">{downloadError}</div>}
-      {deleteError && <div className="alert alert-danger mt-3" role="alert">{deleteError}</div>}
-      {deleteSuccess && (
-        <div className="alert alert-success mt-3" role="status">
-          {deleteSuccess}
-        </div>
-      )}
 
       <EvidenceTable
         headers={tableHeaders}

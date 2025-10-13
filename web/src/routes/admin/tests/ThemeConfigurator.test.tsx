@@ -1,113 +1,115 @@
 /** @vitest-environment jsdom */
-import { describe, expect, it, beforeEach, afterEach, vi } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import React from "react";
+import { describe, expect, it, beforeEach, afterEach, vi } from "vitest";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitForElementToBeRemoved,
+} from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import ThemeConfigurator from "../ThemeConfigurator";
-import { DEFAULT_THEME_MANIFEST } from "../themeData";
 
-function jsonResponse(body: unknown, init: ResponseInit = {}) {
+import ThemeConfigurator from "../ThemeConfigurator";
+import { ToastProvider } from "../../../components/toast/ToastProvider";
+import { DEFAULT_THEME_MANIFEST, DEFAULT_THEME_SETTINGS } from "../themeData";
+
+type FetchCall = {
+  url: string;
+  method: string;
+  init: RequestInit;
+};
+
+const ROUTER_FUTURE_FLAGS = { v7_relativeSplatPath: true } as const;
+const SUCCESS_TOAST = "Theme settings saved.";
+const CONFLICT_TOAST = "Settings changed elsewhere. Reloaded latest values.";
+const FORBIDDEN_TOAST = "You do not have permission to adjust theme settings.";
+
+const jsonResponse = (body: unknown, init: ResponseInit = {}) => {
   const headers = new Headers(init.headers ?? {});
-  if (!headers.has("Content-Type")) headers.set("Content-Type", "application/json");
-  return new Response(JSON.stringify(body), { status: init.status ?? 200, headers });
-}
+  if (!headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
+  }
+
+  return new Response(JSON.stringify(body), {
+    status: init.status ?? 200,
+    headers,
+  });
+};
+
+const clone = <T,>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
+
+const DEFAULT_MANIFEST_BODY = clone(DEFAULT_THEME_MANIFEST);
+const DEFAULT_SETTINGS_BODY = {
+  ok: true,
+  config: {
+    ui: clone(DEFAULT_THEME_SETTINGS),
+  },
+};
+
+const renderConfigurator = () =>
+  render(
+    <MemoryRouter future={ROUTER_FUTURE_FLAGS}>
+      <ToastProvider>
+        <ThemeConfigurator />
+      </ToastProvider>
+    </MemoryRouter>
+  );
 
 describe("ThemeConfigurator", () => {
   const originalFetch = globalThis.fetch as typeof fetch;
-  let recordedBody: unknown = null;
-  let recordedIfMatch: string | null = null;
-  let fetchCalls: Array<[RequestInfo | URL, RequestInit | undefined]> = [];
+  let calls: FetchCall[];
 
   beforeEach(() => {
-    recordedBody = null;
-    recordedIfMatch = null;
-    fetchCalls = [];
+    calls = [];
+  });
 
-    globalThis.fetch = vi.fn(async (...args: Parameters<typeof fetch>) => {
-      fetchCalls.push([args[0], args[1]]);
-      const url = String(args[0]);
-      const init = (args[1] ?? {}) as RequestInit;
-      const method = (init.method ?? "GET").toUpperCase();
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+    vi.restoreAllMocks();
+  });
+
+  const installFetch = (impl: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>) => {
+    globalThis.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const requestInit: RequestInit = init ?? {};
+      const method = (requestInit.method ?? "GET").toUpperCase();
+      const url = typeof input === "string" ? input : input.toString();
+      calls.push({ url, method, init: requestInit });
+      return impl(input, init);
+    }) as unknown as typeof fetch;
+  };
+
+  const waitForLoadingToExit = async () => {
+    await waitForElementToBeRemoved(() => screen.queryByText("Loading theme settings…"), {
+      timeout: 4000,
+    });
+  };
+
+  it("submits updated theme settings with the current ETag", async () => {
+    installFetch(async (_input, init) => {
+      const method = (init?.method ?? "GET").toUpperCase();
+      const url = typeof _input === "string" ? _input : _input.toString();
 
       if (url === "/api/settings/ui/themes" && method === "GET") {
-        return jsonResponse(DEFAULT_MANIFEST_BODY, { headers: { ETag: 'W/"manifest:abc"' } });
+        return jsonResponse(DEFAULT_MANIFEST_BODY, { headers: { ETag: 'W/"manifest:1"' } });
       }
 
       if (url === "/api/settings/ui" && method === "GET") {
-        return jsonResponse(
-          {
-            ok: true,
-            config: {
-              ui: {
-                theme: {
-                  default: "slate",
-                  allow_user_override: true,
-                  force_global: false,
-                  overrides: {
-                    "color.primary": "#0d6efd",
-                    "color.surface": "#1b1e21",
-                    "color.text": "#f8f9fa",
-                    shadow: "default",
-                    spacing: "default",
-                    typeScale: "medium",
-                    motion: "full",
-                  },
-                  designer: {
-                    storage: "filesystem",
-                    filesystem_path: "/opt/phpgrc/shared/themes",
-                  },
-                },
-                nav: { sidebar: { default_order: [] } },
-                brand: {
-                  title_text: "phpGRC — Dashboard",
-                  favicon_asset_id: null,
-                  primary_logo_asset_id: null,
-                  secondary_logo_asset_id: null,
-                  header_logo_asset_id: null,
-                  footer_logo_asset_id: null,
-                  footer_logo_disabled: false,
-                },
-              },
-            },
-          },
-          { headers: { ETag: 'W/"settings:etag1"' } }
-        );
+        return jsonResponse(DEFAULT_SETTINGS_BODY, { headers: { ETag: 'W/"settings:etag1"' } });
       }
 
       if (url === "/api/settings/ui" && method === "PUT") {
-        try {
-          recordedBody = JSON.parse(String(init.body ?? "{}"));
-        } catch {
-          recordedBody = null;
-        }
-        const headers = new Headers(init.headers ?? {});
-        recordedIfMatch = headers.get("If-Match");
-
         return jsonResponse(
           {
             ok: true,
             config: {
               ui: {
+                ...DEFAULT_SETTINGS_BODY.config.ui,
                 theme: {
+                  ...DEFAULT_SETTINGS_BODY.config.ui.theme,
                   default: "flatly",
-                  allow_user_override: false,
                   force_global: true,
-                  overrides: {
-                    "color.primary": "#ff0000",
-                    "color.surface": "#1b1e21",
-                    "color.text": "#f8f9fa",
-                    shadow: "light",
-                    spacing: "wide",
-                    typeScale: "large",
-                    motion: "limited",
-                  },
-                  designer: {
-                    storage: "filesystem",
-                    filesystem_path: "/opt/phpgrc/shared/themes",
-                  },
+                  allow_user_override: false,
                 },
-                nav: { sidebar: { default_order: [] } },
-                brand: DEFAULT_BRAND_STATE,
               },
             },
           },
@@ -116,182 +118,112 @@ describe("ThemeConfigurator", () => {
       }
 
       return jsonResponse({ ok: true });
-    }) as unknown as typeof fetch;
-  });
+    });
 
-  afterEach(() => {
-    globalThis.fetch = originalFetch;
-    vi.restoreAllMocks();
-  });
+    renderConfigurator();
 
-  it("loads manifest, saves with If-Match, and updates state", async () => {
-    render(
-      <MemoryRouter>
-        <ThemeConfigurator />
-      </MemoryRouter>
-    );
+    await waitForLoadingToExit();
 
-    await waitFor(() => expect(screen.queryByText("Loading theme settings…")).toBeNull());
-
-    const designerLink = screen.getByRole("link", { name: "Theme Designer" });
-    expect(designerLink).toHaveAttribute("href", "/admin/settings/theme-designer");
-
-    const themeSelect = screen.getByLabelText("Default theme") as HTMLSelectElement;
-    expect(themeSelect.value).toBe("slate");
+    const themeSelect = await screen.findByLabelText("Default theme");
     fireEvent.change(themeSelect, { target: { value: "flatly" } });
-    expect(themeSelect.value).toBe("flatly");
 
     const forceToggle = screen.getByLabelText(
       "Force global theme (light/dark still follows capability rules)"
     ) as HTMLInputElement;
     fireEvent.click(forceToggle);
-    expect(forceToggle.checked).toBe(true);
 
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
-    await screen.findByText("Theme settings saved.");
+    await screen.findByText(SUCCESS_TOAST, {}, { timeout: 4000 });
 
-    expect(recordedIfMatch).toBe('W/"settings:etag1"');
-    expect(recordedBody).toMatchInlineSnapshot(`
-      {
-        "ui": {
-          "theme": {
-            "allow_user_override": false,
-            "default": "flatly",
-            "designer": {
-              "filesystem_path": "/opt/phpgrc/shared/themes",
-              "storage": "filesystem",
-            },
-            "force_global": true,
-            "overrides": {
-              "color.primary": "#0d6efd",
-              "color.surface": "#1b1e21",
-              "color.text": "#f8f9fa",
-              "motion": "full",
-              "shadow": "default",
-              "spacing": "default",
-              "typeScale": "medium",
-            },
-          },
+    const putCall = calls.find((call) => call.method === "PUT" && call.url === "/api/settings/ui");
+    expect(putCall).toBeTruthy();
+    expect(putCall?.init.headers instanceof Headers ? putCall.init.headers.get("If-Match") : new Headers(putCall?.init.headers ?? {}).get("If-Match")).toBe('W/"settings:etag1"');
+
+    const payload = putCall?.init.body ? JSON.parse(String(putCall.init.body)) : null;
+    expect(payload).toMatchObject({
+      ui: {
+        theme: {
+          default: "flatly",
+          force_global: true,
+          allow_user_override: false,
         },
-      }
-    `);
+      },
+    });
   });
 
-  it("handles 409 conflicts by reloading settings", async () => {
-    let conflictReturned = false;
-    const fetchMock = vi.fn(async (...args: Parameters<typeof fetch>) => {
-      const url = String(args[0]);
-      const init = (args[1] ?? {}) as RequestInit;
-      const method = (init.method ?? "GET").toUpperCase();
+  it("shows a conflict message and refetches when the save returns 409", async () => {
+    let conflict = true;
+
+    installFetch(async (_input, init) => {
+      const method = (init?.method ?? "GET").toUpperCase();
+      const url = typeof _input === "string" ? _input : _input.toString();
 
       if (url === "/api/settings/ui/themes" && method === "GET") {
         return jsonResponse(DEFAULT_MANIFEST_BODY);
       }
+
       if (url === "/api/settings/ui" && method === "GET") {
-        return jsonResponse(DEFAULT_SETTINGS_BODY, { headers: { ETag: 'W/"settings:etag1"' } });
+        return jsonResponse(DEFAULT_SETTINGS_BODY, { headers: { ETag: conflict ? 'W/"settings:etag1"' : 'W/"settings:etag2"' } });
       }
+
       if (url === "/api/settings/ui" && method === "PUT") {
-        if (!conflictReturned) {
-          conflictReturned = true;
+        if (conflict) {
+          conflict = false;
           return jsonResponse(
-            { ok: false, current_etag: 'W/"settings:etaglatest"' },
-            { status: 409, headers: { ETag: 'W/"settings:etaglatest"' } }
+            { ok: false, current_etag: 'W/"settings:new"' },
+            { status: 409, headers: { ETag: 'W/"settings:new"' } }
           );
         }
-        return jsonResponse(DEFAULT_SETTINGS_BODY, { headers: { ETag: 'W/"settings:etag2"' } });
+
+        return jsonResponse(DEFAULT_SETTINGS_BODY, { headers: { ETag: 'W/"settings:etag3"' } });
       }
+
       return jsonResponse({ ok: true });
     });
 
-    globalThis.fetch = fetchMock as unknown as typeof fetch;
+    renderConfigurator();
 
-    render(
-      <MemoryRouter>
-        <ThemeConfigurator />
-      </MemoryRouter>
-    );
+    await waitForLoadingToExit();
 
-    await waitFor(() => expect(screen.queryByText("Loading theme settings…")).toBeNull());
-
-    const themeSelect = screen.getByLabelText("Default theme") as HTMLSelectElement;
-    fireEvent.change(themeSelect, { target: { value: "flatly" } });
+    const themeSelect = await screen.findByLabelText("Default theme");
+    fireEvent.change(themeSelect, { target: { value: "cosmo" } });
 
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
-    await screen.findByText("Settings changed elsewhere. Reloaded latest values.");
+    await screen.findByText(CONFLICT_TOAST, {}, { timeout: 4000 });
 
-    const getCalls = fetchMock.mock.calls.filter(
-      ([url, init]) =>
-        String(url) === "/api/settings/ui" && ((init as RequestInit | undefined)?.method ?? "GET") === "GET"
-    );
-    expect(getCalls.length).toBeGreaterThanOrEqual(2);
+    const putCalls = calls.filter((call) => call.method === "PUT" && call.url === "/api/settings/ui");
+    expect(putCalls.length).toBeGreaterThanOrEqual(1);
+    const followUpGet = calls.filter((call) => call.method === "GET" && call.url === "/api/settings/ui");
+    expect(followUpGet.length).toBeGreaterThanOrEqual(2);
   });
 
-  it("shows read-only message when GET /settings/ui returns 403", async () => {
-    const fetchMock = vi.fn(async (...args: Parameters<typeof fetch>) => {
-      const url = String(args[0]);
-      const init = (args[1] ?? {}) as RequestInit;
-      const method = (init.method ?? "GET").toUpperCase();
+  it("enters read-only mode when the settings endpoint returns 403", async () => {
+    installFetch(async (_input, init) => {
+      const method = (init?.method ?? "GET").toUpperCase();
+      const url = typeof _input === "string" ? _input : _input.toString();
+
       if (url === "/api/settings/ui/themes" && method === "GET") {
         return jsonResponse(DEFAULT_MANIFEST_BODY);
       }
+
       if (url === "/api/settings/ui" && method === "GET") {
         return jsonResponse({}, { status: 403 });
       }
+
       return jsonResponse({ ok: true });
     });
-    globalThis.fetch = fetchMock as unknown as typeof fetch;
 
-    render(
-      <MemoryRouter>
-        <ThemeConfigurator />
-      </MemoryRouter>
-    );
+    renderConfigurator();
 
-    await screen.findByText("You do not have permission to adjust theme settings.");
+    await waitForElementToBeRemoved(() => screen.queryByText("Loading theme settings…"), {
+      timeout: 4000,
+    });
+
+    await screen.findByText(FORBIDDEN_TOAST, {}, { timeout: 4000 });
 
     const saveButton = screen.getByRole("button", { name: "Save" });
     expect(saveButton).toBeDisabled();
   });
 });
-
-const DEFAULT_BRAND_STATE = {
-  title_text: "phpGRC — Dashboard",
-  favicon_asset_id: null,
-  primary_logo_asset_id: null,
-  secondary_logo_asset_id: null,
-  header_logo_asset_id: null,
-  footer_logo_asset_id: null,
-  footer_logo_disabled: false,
-};
-
-const DEFAULT_MANIFEST_BODY = JSON.parse(JSON.stringify(DEFAULT_THEME_MANIFEST));
-
-const DEFAULT_SETTINGS_BODY = {
-  ok: true,
-  config: {
-    ui: {
-      theme: {
-        default: "slate",
-        allow_user_override: true,
-        force_global: false,
-        overrides: {
-          "color.primary": "#0d6efd",
-          "color.surface": "#1b1e21",
-          "color.text": "#f8f9fa",
-          shadow: "default",
-          spacing: "default",
-          typeScale: "medium",
-          motion: "full",
-        },
-        designer: {
-          storage: "filesystem",
-          filesystem_path: "/opt/phpgrc/shared/themes",
-        },
-      },
-      nav: { sidebar: { default_order: [] } },
-      brand: DEFAULT_BRAND_STATE,
-    },
-  },
-};

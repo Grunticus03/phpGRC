@@ -8,6 +8,7 @@ import {
   updateThemeSettings,
 } from "../../theme/themeManager";
 import { Link } from "react-router-dom";
+import { useToast } from "../../components/toast/ToastProvider";
 
 type FormState = {
   theme: string;
@@ -95,8 +96,9 @@ async function parseJson<T>(res: Response): Promise<T | null> {
 export default function ThemeConfigurator(): JSX.Element {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
   const [readOnly, setReadOnly] = useState(false);
+  const toast = useToast();
+  const { success: showSuccess, info: showInfo, warning: showWarning, danger: showDanger } = toast;
 
   const [manifest, setManifest] = useState<ThemeManifest>(() => getCachedThemeManifest());
   const [form, setForm] = useState<FormState>(buildInitialForm(DEFAULT_THEME_SETTINGS));
@@ -171,7 +173,7 @@ export default function ThemeConfigurator(): JSX.Element {
         headers: baseHeaders(),
       });
       if (!res.ok) {
-        setMessage("Theme manifest unavailable; using bundled defaults.");
+        showWarning("Theme manifest unavailable; using bundled defaults.");
         return;
       }
       const body = await parseJson<ThemeManifest>(res);
@@ -180,15 +182,13 @@ export default function ThemeConfigurator(): JSX.Element {
         updateThemeManifest(body);
       }
     } catch {
-      setMessage("Theme manifest unavailable; using bundled defaults.");
+      showWarning("Theme manifest unavailable; using bundled defaults.");
     }
-  }, []);
+  }, [showWarning]);
 
   const loadSettings = useCallback(async (options?: { preserveMessage?: boolean }) => {
     setLoading(true);
-    if (!options?.preserveMessage) {
-      setMessage(null);
-    }
+    const shouldNotify = !options?.preserveMessage;
     try {
       await loadManifest();
 
@@ -200,7 +200,9 @@ export default function ThemeConfigurator(): JSX.Element {
 
       if (res.status === 403) {
         setReadOnly(true);
-        setMessage("You do not have permission to adjust theme settings.");
+        if (shouldNotify) {
+          showWarning("You do not have permission to adjust theme settings.");
+        }
         etagRef.current = null;
         snapshotRef.current = buildInitialForm(DEFAULT_THEME_SETTINGS);
         setForm(buildInitialForm(DEFAULT_THEME_SETTINGS));
@@ -209,7 +211,9 @@ export default function ThemeConfigurator(): JSX.Element {
       }
 
       if (!res.ok) {
-        setMessage("Failed to load theme settings. Using defaults.");
+        if (shouldNotify) {
+          showWarning("Failed to load theme settings. Using defaults.");
+        }
         etagRef.current = null;
         snapshotRef.current = buildInitialForm(DEFAULT_THEME_SETTINGS);
         setForm(buildInitialForm(DEFAULT_THEME_SETTINGS));
@@ -222,7 +226,9 @@ export default function ThemeConfigurator(): JSX.Element {
       const settings = body?.config?.ui ?? DEFAULT_THEME_SETTINGS;
       applySettings(settings);
     } catch {
-      setMessage("Failed to load theme settings. Using defaults.");
+      if (shouldNotify) {
+        showWarning("Failed to load theme settings. Using defaults.");
+      }
       etagRef.current = null;
       snapshotRef.current = buildInitialForm(DEFAULT_THEME_SETTINGS);
       setForm(buildInitialForm(DEFAULT_THEME_SETTINGS));
@@ -230,11 +236,17 @@ export default function ThemeConfigurator(): JSX.Element {
     } finally {
       setLoading(false);
     }
-  }, [applySettings, loadManifest]);
+  }, [applySettings, loadManifest, showWarning]);
+
+  const loadSettingsRef = useRef(loadSettings);
 
   useEffect(() => {
-    void loadSettings();
+    loadSettingsRef.current = loadSettings;
   }, [loadSettings]);
+
+  useEffect(() => {
+    void loadSettingsRef.current();
+  }, []);
 
   const onChangeTheme = (value: string) => {
     setForm((prev) => {
@@ -288,28 +300,27 @@ export default function ThemeConfigurator(): JSX.Element {
     const snapshot = snapshotRef.current ?? buildInitialForm(DEFAULT_THEME_SETTINGS);
     setForm(snapshot);
     previewTheme(snapshot);
-    setMessage("Reverted to last saved values.");
+    showInfo("Reverted to last saved values.");
   };
 
   const handleSave = async () => {
     if (readOnly) {
-      setMessage("Read-only mode: theme settings cannot be changed.");
+      showWarning("Read-only mode: theme settings cannot be changed.");
       return;
     }
     const snapshot = snapshotRef.current;
     if (!hasChanges(form, snapshot)) {
-      setMessage("No changes to save.");
+      showInfo("No changes to save.");
       return;
     }
     const etag = etagRef.current;
     if (!etag) {
       await loadSettings();
-      setMessage("Settings version refreshed. Please retry.");
+      showInfo("Settings version refreshed. Please retry.");
       return;
     }
 
     setSaving(true);
-    setMessage(null);
 
     try {
       const payload = {
@@ -344,7 +355,7 @@ export default function ThemeConfigurator(): JSX.Element {
         if (nextEtag) {
           etagRef.current = nextEtag;
         }
-        setMessage("Settings changed elsewhere. Reloaded latest values.");
+        showWarning("Settings changed elsewhere. Reloaded latest values.");
         await loadSettings({ preserveMessage: true });
         return;
       }
@@ -366,9 +377,9 @@ export default function ThemeConfigurator(): JSX.Element {
       }
 
       const msg = typeof body?.message === "string" ? body.message : "Theme settings saved.";
-      setMessage(msg);
+      showSuccess(msg);
     } catch (err) {
-      setMessage(err instanceof Error ? err.message : "Save failed.");
+      showDanger(err instanceof Error ? err.message : "Save failed.");
     } finally {
       setSaving(false);
     }
@@ -415,11 +426,6 @@ export default function ThemeConfigurator(): JSX.Element {
           <p>Loading theme settings…</p>
         ) : (
           <>
-            {message && (
-              <div className="alert alert-info mb-0" role="status">
-                {message}
-              </div>
-            )}
             <fieldset className="vstack gap-3" disabled={disabled}>
               <div>
                 <label htmlFor="themeSelect" className="form-label fw-semibold">

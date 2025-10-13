@@ -897,10 +897,10 @@ export default function Audit(): JSX.Element {
               resetActiveFilter();
             }
           }}
-          placeholder="e.g. 192.168.0.10"
+          placeholder="e.g. 192.168.0"
           aria-invalid={!!fieldErrors.ip?.length}
         />
-        <div className="form-text">Exact match on audit IP address.</div>
+        <div className="form-text">Supports * wildcards; matches start of the address by default.</div>
         {fieldErrors.ip?.length ? (
           <ul role="alert" className="text-danger small mb-0 ps-3 mt-2">
             {fieldErrors.ip.map((m, i) => (

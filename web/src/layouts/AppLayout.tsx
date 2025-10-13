@@ -47,6 +47,7 @@ import {
   type ThemeSettings,
   type ThemeUserPrefs,
 } from "../routes/admin/themeData";
+import { ToastProvider } from "../components/toast/ToastProvider";
 
 type Fingerprint = {
   summary?: { rbac?: { require_auth?: boolean } };
@@ -679,6 +680,13 @@ export default function AppLayout(): JSX.Element | null {
     setSidebarCollapsed(nextCollapsed, { silent: true });
   }, [setSidebarCollapsed]);
 
+  const handleSidebarToggleHover = useCallback(() => {
+    if (sidebarPrefsRef.current.pinned) return;
+    if (sidebarPrefsRef.current.collapsed) {
+      setSidebarCollapsed(false, { persist: false, silent: true });
+    }
+  }, [setSidebarCollapsed]);
+
   const closeFloatingSidebar = useCallback(() => {
     if (customizingRef.current) return;
     if (!sidebarPrefsRef.current.pinned && !sidebarPrefsRef.current.collapsed) {
@@ -901,13 +909,6 @@ export default function AppLayout(): JSX.Element | null {
   }
 
   const hideNav = loc.pathname.startsWith("/auth/");
-  if (hideNav) {
-    return (
-      <main id="main" role="main">
-        <Outlet />
-      </main>
-    );
-  }
 
   const displayedOrder = customizing ? editingOrder : effectiveSidebarOrder;
   const sidebarItems = displayedOrder
@@ -922,6 +923,8 @@ export default function AppLayout(): JSX.Element | null {
 
   const sidebarPinned = sidebarPrefs.pinned;
   const sidebarCollapsed = sidebarPrefs.collapsed;
+  const hidePinButton =
+    loc.pathname.startsWith("/admin/settings/branding") || loc.pathname.startsWith("/admin/settings/core");
 
   const accountDropdownStyle: CSSProperties = {
     right: 0,
@@ -1042,21 +1045,23 @@ export default function AppLayout(): JSX.Element | null {
         )}
       </div>
 
-      <div className="mt-auto px-3 pb-3 pt-2 text-end">
-        <button
-          type="button"
-          className="btn btn-outline-secondary btn-sm"
-          onClick={toggleSidebarPin}
-          aria-pressed={sidebarPrefs.pinned}
-          title={sidebarPrefs.pinned ? "Unpin sidebar" : "Pin sidebar"}
-        >
-          {sidebarPrefs.pinned ? "Unpin sidebar" : "Pin sidebar"}
-        </button>
-      </div>
+      {!hidePinButton && (
+        <div className="mt-auto px-3 pb-3 pt-2 text-end">
+          <button
+            type="button"
+            className="btn btn-outline-secondary btn-sm"
+            onClick={toggleSidebarPin}
+            aria-pressed={sidebarPrefs.pinned}
+            title={sidebarPrefs.pinned ? "Unpin sidebar" : "Pin sidebar"}
+          >
+            {sidebarPrefs.pinned ? "Unpin sidebar" : "Pin sidebar"}
+          </button>
+        </div>
+      )}
     </div>
   );
 
-  return (
+  const layout = (
     <div className="app-shell d-flex flex-column min-vh-100">
       <header className="border-bottom bg-body">
         <div className="container-fluid d-flex align-items-center gap-3 py-2">
@@ -1066,6 +1071,7 @@ export default function AppLayout(): JSX.Element | null {
             aria-label={sidebarPrefs.collapsed ? "Show sidebar" : "Hide sidebar"}
             aria-expanded={!sidebarPrefs.collapsed}
             onClick={toggleSidebar}
+            onMouseEnter={handleSidebarToggleHover}
             disabled={prefsLoading}
             style={{
               width: "2.5rem",
@@ -1406,4 +1412,14 @@ export default function AppLayout(): JSX.Element | null {
       </div>
     </div>
   );
+
+  const content = hideNav ? (
+    <main id="main" role="main">
+      <Outlet />
+    </main>
+  ) : (
+    layout
+  );
+
+  return <ToastProvider>{content}</ToastProvider>;
 }

@@ -8,6 +8,7 @@ use App\Models\AuditEvent;
 use App\Models\Role;
 use App\Models\User;
 use App\Services\Settings\UiSettingsService;
+use Illuminate\Filesystem\Filesystem;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Config;
 use Laravel\Sanctum\Sanctum;
@@ -16,6 +17,28 @@ use Tests\TestCase;
 final class UiSettingsApiTest extends TestCase
 {
     use RefreshDatabase;
+
+    private string $brandAssetRoot;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->brandAssetRoot = storage_path('app/test-ui-brand-assets');
+        Config::set('ui.defaults.brand.assets.filesystem_path', $this->brandAssetRoot);
+        $filesystem = new Filesystem;
+        if ($filesystem->isDirectory($this->brandAssetRoot)) {
+            $filesystem->deleteDirectory($this->brandAssetRoot);
+        }
+    }
+
+    protected function tearDown(): void
+    {
+        $filesystem = new Filesystem;
+        if (isset($this->brandAssetRoot) && $filesystem->isDirectory($this->brandAssetRoot)) {
+            $filesystem->deleteDirectory($this->brandAssetRoot);
+        }
+        parent::tearDown();
+    }
 
     public function test_get_ui_settings_returns_defaults_with_etag(): void
     {
@@ -124,6 +147,8 @@ final class UiSettingsApiTest extends TestCase
             ->putJson('/settings/ui', $payload);
 
         $updated->assertOk();
+        $defaultBrandPath = config('ui.defaults.brand.assets.filesystem_path');
+        self::assertIsString($defaultBrandPath);
         $updated->assertJson([
             'ok' => true,
             'config' => [
@@ -136,6 +161,9 @@ final class UiSettingsApiTest extends TestCase
                     'brand' => [
                         'title_text' => 'Custom Dashboard',
                         'footer_logo_disabled' => true,
+                        'assets' => [
+                            'filesystem_path' => $defaultBrandPath,
+                        ],
                     ],
                 ],
             ],
@@ -152,6 +180,7 @@ final class UiSettingsApiTest extends TestCase
         self::assertFalse($config['theme']['allow_user_override']);
         self::assertTrue($config['theme']['force_global']);
         self::assertSame('#ff0000', $config['theme']['overrides']['color.primary']);
+        self::assertSame($defaultBrandPath, $config['brand']['assets']['filesystem_path']);
     }
 
     public function test_get_ui_settings_honors_if_none_match_with_multiple_values(): void
@@ -210,6 +239,48 @@ final class UiSettingsApiTest extends TestCase
         $config = $service->currentConfig();
         self::assertSame('darkly', $config['theme']['default']);
         self::assertSame('Wildcard Update', $config['brand']['title_text']);
+        self::assertSame(
+            config('ui.defaults.brand.assets.filesystem_path'),
+            $config['brand']['assets']['filesystem_path']
+        );
+    }
+
+    public function test_put_ui_settings_updates_brand_asset_path(): void
+    {
+        $user = User::factory()->create();
+        Sanctum::actingAs($user);
+
+        $initial = $this->getJson('/settings/ui');
+        $initial->assertOk();
+        $etag = $initial->headers->get('ETag');
+        self::assertNotNull($etag);
+
+        $payload = [
+            'ui' => [
+                'brand' => [
+                    'assets' => [
+                        'filesystem_path' => 'var/www/custom-brands',
+                    ],
+                ],
+            ],
+        ];
+
+        $response = $this->withHeaders(['If-Match' => $etag])
+            ->putJson('/settings/ui', $payload);
+
+        $response->assertOk();
+        $response->assertJsonFragment([
+            'ok' => true,
+        ]);
+
+        /** @var UiSettingsService $service */
+        $service = app(UiSettingsService::class);
+        $config = $service->currentConfig();
+        self::assertSame('/var/www/custom-brands', $config['brand']['assets']['filesystem_path']);
+
+        $this->assertDatabaseHas('ui_settings', [
+            'key' => 'ui.brand.assets.filesystem_path',
+        ]);
     }
 
     public function test_put_ui_settings_rejects_stale_etag_and_returns_current(): void

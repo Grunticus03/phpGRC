@@ -3,6 +3,7 @@ import { describe, expect, it, beforeEach, afterEach, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import React from "react";
 import BrandingCard from "../branding/BrandingCard";
+import { ToastProvider } from "../../../components/toast/ToastProvider";
 
 function jsonResponse(body: unknown, init: ResponseInit = {}) {
   const headers = new Headers(init.headers ?? {});
@@ -25,6 +26,9 @@ const SETTINGS_BODY = {
         header_logo_asset_id: null,
         footer_logo_asset_id: null,
         footer_logo_disabled: false,
+        assets: {
+          filesystem_path: "/opt/phpgrc/shared/brands",
+        },
       },
     },
   },
@@ -47,6 +51,9 @@ const PROFILES_BODY = {
         header_logo_asset_id: null,
         footer_logo_asset_id: null,
         footer_logo_disabled: false,
+        assets: {
+          filesystem_path: "/opt/phpgrc/shared/brands",
+        },
       },
       created_at: null,
       updated_at: null,
@@ -139,7 +146,11 @@ describe("BrandingCard", () => {
   });
 
   it("loads branding data and saves with If-Match", async () => {
-    render(<BrandingCard />);
+    render(
+      <ToastProvider>
+        <BrandingCard />
+      </ToastProvider>
+    );
 
     await waitFor(() => expect(screen.queryByText("Loading branding settings…")).toBeNull());
     expect(screen.getByLabelText("Branding profile")).toBeInTheDocument();
@@ -151,11 +162,47 @@ describe("BrandingCard", () => {
     await screen.findByText('Branding saved for "Custom".');
 
     expect(lastIfMatch).toBe('W/"branding:1"');
-    expect(saveBody).toMatchObject({ ui: { brand: { title_text: "New Title", profile_id: "bp_custom" } } });
+    expect(saveBody).toMatchObject({
+      ui: {
+        brand: {
+          title_text: "New Title",
+          profile_id: "bp_custom",
+          assets: { filesystem_path: "/opt/phpgrc/shared/brands" },
+        },
+      },
+    });
+  });
+
+  it("includes updated asset path when saved", async () => {
+    render(
+      <ToastProvider>
+        <BrandingCard />
+      </ToastProvider>
+    );
+    await waitFor(() => expect(screen.queryByText("Loading branding settings…")).toBeNull());
+
+    const pathField = screen.getByLabelText("Brand assets directory") as HTMLInputElement;
+    fireEvent.change(pathField, { target: { value: "/srv/custom-brands" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    await screen.findByText('Branding saved for "Custom".');
+
+    expect(saveBody).toMatchObject({
+      ui: {
+        brand: {
+          assets: { filesystem_path: "/srv/custom-brands" },
+          profile_id: "bp_custom",
+        },
+      },
+    });
   });
 
   it("handles upload validations", async () => {
-    render(<BrandingCard />);
+    render(
+      <ToastProvider>
+        <BrandingCard />
+      </ToastProvider>
+    );
     await waitFor(() => expect(screen.queryByText("Loading branding settings…")).toBeNull());
 
     const fileInput = screen.getByLabelText("Upload Primary logo") as HTMLInputElement;
@@ -199,7 +246,11 @@ describe("BrandingCard", () => {
       return jsonResponse({ ok: true });
     });
 
-    render(<BrandingCard />);
+    render(
+      <ToastProvider>
+        <BrandingCard />
+      </ToastProvider>
+    );
     await waitFor(() => expect(screen.queryByText("Loading branding settings…")).toBeNull());
 
     fireEvent.change(screen.getByLabelText("Title text"), { target: { value: "Conflict Title" } });
@@ -226,7 +277,11 @@ describe("BrandingCard", () => {
       return jsonResponse({ ok: true });
     });
 
-    render(<BrandingCard />);
+    render(
+      <ToastProvider>
+        <BrandingCard />
+      </ToastProvider>
+    );
 
     await screen.findByText("You do not have permission to update branding.");
     expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();

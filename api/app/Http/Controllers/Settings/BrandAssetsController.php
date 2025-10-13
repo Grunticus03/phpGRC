@@ -7,6 +7,7 @@ namespace App\Http\Controllers\Settings;
 use App\Http\Requests\Settings\BrandAssetUploadRequest;
 use App\Models\BrandAsset;
 use App\Models\BrandProfile;
+use App\Services\Settings\BrandAssetStorageService;
 use App\Services\Settings\UiSettingsService;
 use Carbon\CarbonInterface;
 use Illuminate\Http\JsonResponse;
@@ -19,7 +20,10 @@ use Illuminate\Support\Str;
 
 final class BrandAssetsController extends Controller
 {
-    public function __construct(private readonly UiSettingsService $settings) {}
+    public function __construct(
+        private readonly UiSettingsService $settings,
+        private readonly BrandAssetStorageService $storage
+    ) {}
 
     public function index(Request $request): JsonResponse
     {
@@ -197,6 +201,27 @@ final class BrandAssetsController extends Controller
             return $record;
         });
 
+        try {
+            $this->storage->writeAsset($asset, $bytes);
+        } catch (\Throwable $exception) {
+            report($exception);
+            DB::transaction(function () use ($asset): void {
+                /** @var mixed $storedId */
+                $storedId = $asset->getAttribute('id');
+                $cleanupId = is_string($storedId) ? $storedId : null;
+                $asset->delete();
+                if ($cleanupId !== null) {
+                    $this->settings->clearBrandAssetReference($cleanupId);
+                }
+            });
+
+            return response()->json([
+                'ok' => false,
+                'code' => 'STORAGE_ERROR',
+                'message' => 'Unable to persist brand asset to filesystem.',
+            ], 500);
+        }
+
         return response()->json([
             'ok' => true,
             'asset' => $this->transform($asset),
@@ -211,8 +236,13 @@ final class BrandAssetsController extends Controller
             return response()->noContent(404);
         }
 
-        /** @var mixed $rawBytes */
-        $rawBytes = $asset->getAttribute('bytes');
+        $rawBytes = $this->storage->readAsset($asset);
+        if (! is_string($rawBytes) || $rawBytes === '') {
+            /** @var mixed $fallbackBytes */
+            $fallbackBytes = $asset->getAttribute('bytes');
+            $rawBytes = is_string($fallbackBytes) ? $fallbackBytes : null;
+        }
+
         if (! is_string($rawBytes) || $rawBytes === '') {
             return response()->noContent(404);
         }
@@ -268,6 +298,18 @@ final class BrandAssetsController extends Controller
                 $this->settings->clearBrandAssetReference($assetId);
             }
         });
+
+        try {
+            $this->storage->deleteAsset($asset);
+        } catch (\Throwable $exception) {
+            report($exception);
+
+            return response()->json([
+                'ok' => false,
+                'code' => 'STORAGE_ERROR',
+                'message' => 'Unable to delete brand asset file from filesystem.',
+            ], 500);
+        }
 
         return response()->json([
             'ok' => true,

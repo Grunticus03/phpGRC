@@ -7,8 +7,11 @@ namespace Tests\Feature\Settings;
 use App\Models\BrandAsset;
 use App\Models\BrandProfile;
 use App\Models\User;
+use App\Services\Settings\BrandAssetStorageService;
 use App\Services\Settings\UiSettingsService;
+use Illuminate\Filesystem\Filesystem;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Config;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -17,12 +20,30 @@ final class BrandAssetsApiTest extends TestCase
     /** @var list<string> */
     private array $tempFiles = [];
 
+    private string $assetRoot;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->assetRoot = storage_path('app/test-brand-assets');
+        Config::set('ui.defaults.brand.assets.filesystem_path', $this->assetRoot);
+        $filesystem = new Filesystem;
+        if ($filesystem->isDirectory($this->assetRoot)) {
+            $filesystem->deleteDirectory($this->assetRoot);
+        }
+    }
+
     protected function tearDown(): void
     {
         foreach ($this->tempFiles as $path) {
             if (is_string($path) && $path !== '' && file_exists($path)) {
                 @unlink($path);
             }
+        }
+
+        $filesystem = new Filesystem;
+        if (isset($this->assetRoot) && $filesystem->isDirectory($this->assetRoot)) {
+            $filesystem->deleteDirectory($this->assetRoot);
         }
 
         $this->tempFiles = [];
@@ -56,6 +77,16 @@ final class BrandAssetsApiTest extends TestCase
             'profile_id' => $profile->getAttribute('id'),
         ]);
 
+        /** @var BrandAsset|null $stored */
+        $stored = BrandAsset::query()->find($assetId);
+        self::assertInstanceOf(BrandAsset::class, $stored);
+
+        /** @var BrandAssetStorageService $storage */
+        $storage = app(BrandAssetStorageService::class);
+        $assetPath = $storage->assetPath($stored);
+        self::assertIsString($assetPath);
+        self::assertFileExists($assetPath);
+
         /** @var UiSettingsService $settings */
         $settings = app(UiSettingsService::class);
         $settings->apply([
@@ -69,6 +100,7 @@ final class BrandAssetsApiTest extends TestCase
         $delete->assertOk();
 
         $this->assertDatabaseMissing('brand_assets', ['id' => $assetId]);
+        self::assertFileDoesNotExist($assetPath);
 
         $config = $settings->currentConfig();
         self::assertNull($config['brand']['primary_logo_asset_id']);

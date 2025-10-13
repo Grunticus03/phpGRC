@@ -90,8 +90,41 @@ final class UserUiPreferencesService
     public function apply(int $userId, array $input): array
     {
         $current = $this->get($userId);
+        $prefs = $this->mergePreferences($current, $input);
+
+        UserUiPreference::query()->updateOrCreate(
+            ['user_id' => $userId],
+            [
+                'theme' => $prefs['theme'],
+                'mode' => $prefs['mode'],
+                'overrides' => json_encode($prefs['overrides'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+                'sidebar_collapsed' => $prefs['sidebar']['collapsed'],
+                'sidebar_width' => $prefs['sidebar']['width'],
+                'sidebar_order' => json_encode($prefs['sidebar']['order'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            ]
+        );
+
+        return $prefs;
+    }
+
+    /**
+     * @param  array<string,mixed>  $input
+     * @return UserPrefs
+     */
+    public function preview(array $input): array
+    {
+        return $this->mergePreferences($this->defaults(), $input);
+    }
+
+    /**
+     * @param  UserPrefs  $baseline
+     * @param  array<string,mixed>  $input
+     * @return UserPrefs
+     */
+    private function mergePreferences(array $baseline, array $input): array
+    {
         /** @var UserPrefs $merged */
-        $merged = $current;
+        $merged = $baseline;
 
         if (array_key_exists('theme', $input)) {
             $merged['theme'] = $this->sanitizeTheme($input['theme']);
@@ -123,21 +156,7 @@ final class UserUiPreferencesService
             }
         }
 
-        $prefs = $this->sanitizePrefs($merged);
-
-        UserUiPreference::query()->updateOrCreate(
-            ['user_id' => $userId],
-            [
-                'theme' => $prefs['theme'],
-                'mode' => $prefs['mode'],
-                'overrides' => json_encode($prefs['overrides'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
-                'sidebar_collapsed' => $prefs['sidebar']['collapsed'],
-                'sidebar_width' => $prefs['sidebar']['width'],
-                'sidebar_order' => json_encode($prefs['sidebar']['order'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
-            ]
-        );
-
-        return $prefs;
+        return $this->sanitizePrefs($merged);
     }
 
     /**

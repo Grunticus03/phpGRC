@@ -73,7 +73,7 @@ final class AuditController extends Controller
             'actor_id' => ['nullable', 'integer'],
             'entity_type' => ['nullable', 'string', 'max:128'],
             'entity_id' => ['nullable', 'string', 'max:191'],
-            'ip' => ['nullable', 'ip'],
+            'ip' => ['nullable', 'regex:/^[A-Fa-f0-9:\.\*%]+$/'],
         ];
 
         /** @var \Illuminate\Contracts\Validation\Validator $v */
@@ -153,7 +153,10 @@ final class AuditController extends Controller
             $q->whereRaw('LOWER(audit_events.entity_id) = ?', [strtolower($data['entity_id'])]);
         }
         if (is_string($data['ip']) && $data['ip'] !== '') {
-            $q->whereRaw('LOWER(audit_events.ip) = ?', [strtolower($data['ip'])]);
+            $pattern = $this->prepareIpPattern($data['ip']);
+            if ($pattern !== null) {
+                $q->whereRaw("LOWER(audit_events.ip) LIKE ? ESCAPE '\\\\'", [$pattern]);
+            }
         }
         if (is_string($data['occurred_from']) && $data['occurred_from'] !== '') {
             $q->where('occurred_at', '>=', Carbon::parse($data['occurred_from'])->utc());
@@ -502,6 +505,23 @@ final class AuditController extends Controller
         }
 
         return [$ts, $id, $lim, $em];
+    }
+
+    private function prepareIpPattern(string $raw): ?string
+    {
+        $trimmed = strtolower(trim($raw));
+        if ($trimmed === '') {
+            return null;
+        }
+
+        $escaped = str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $trimmed);
+        $normalized = str_replace('*', '%', $escaped);
+
+        if (! str_contains($normalized, '%') && ! str_contains($normalized, '_')) {
+            $normalized .= '%';
+        }
+
+        return $normalized;
     }
 
     private function ulid(): string

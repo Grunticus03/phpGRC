@@ -365,8 +365,15 @@ const prefersDark = (): boolean => {
   return window.matchMedia("(prefers-color-scheme: dark)").matches;
 };
 
+const shouldAttachThemeStylesheet = (): boolean => {
+  if (typeof navigator === "undefined" || typeof navigator.userAgent !== "string") {
+    return true;
+  }
+  return !navigator.userAgent.toLowerCase().includes("jsdom");
+};
+
 const ensureThemeLink = (): HTMLLinkElement | null => {
-  if (typeof document === "undefined") return null;
+  if (typeof document === "undefined" || !shouldAttachThemeStylesheet()) return null;
   let link = document.getElementById(THEME_LINK_ID) as HTMLLinkElement | null;
   if (!link) {
     link = document.createElement("link");

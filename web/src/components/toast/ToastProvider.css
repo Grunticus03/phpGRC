@@ -1,0 +1,44 @@
+.app-toast-viewport {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  z-index: 1090;
+  pointer-events: none;
+}
+
+.app-toast {
+  min-width: 260px;
+  max-width: min(420px, 90vw);
+  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+  border-radius: 0.5rem;
+  padding: 0.75rem 1rem;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  pointer-events: auto;
+  opacity: 0;
+  transform: translateY(-6px);
+  transition: opacity 180ms ease, transform 180ms ease;
+}
+
+.app-toast[data-visible="true"] {
+  opacity: 0.98;
+  transform: translateY(0);
+}
+
+.app-toast[data-visible="false"] {
+  opacity: 0;
+  transform: translateY(-8px);
+}
+
+.app-toast-body {
+  flex: 1 1 auto;
+  margin-right: 0.75rem;
+}
+
+.app-toast .btn-close {
+  margin-top: 0.1rem;
+}

@@ -69,7 +69,12 @@ const router = createBrowserRouter(
 
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Route>
-  )
+  ),
+  {
+    future: {
+      v7_relativeSplatPath: true,
+    },
+  }
 );
 
 export default router;

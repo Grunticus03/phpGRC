@@ -45,6 +45,8 @@ final class UiSettingsUpdateRequest extends FormRequest
             'ui.brand.header_logo_asset_id' => ['sometimes', 'nullable', 'string', 'max:64'],
             'ui.brand.footer_logo_asset_id' => ['sometimes', 'nullable', 'string', 'max:64'],
             'ui.brand.footer_logo_disabled' => ['sometimes', 'boolean'],
+            'ui.brand.assets' => ['sometimes', 'array'],
+            'ui.brand.assets.filesystem_path' => ['sometimes', 'string', 'max:255'],
         ];
     }
 }

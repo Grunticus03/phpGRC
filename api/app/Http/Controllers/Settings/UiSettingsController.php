@@ -36,7 +36,8 @@ final class UiSettingsController extends Controller
          *         secondary_logo_asset_id: string|null,
          *         header_logo_asset_id: string|null,
          *         footer_logo_asset_id: string|null,
-         *         footer_logo_disabled: bool
+         *         footer_logo_disabled: bool,
+         *         assets: array{filesystem_path: string}
          *     }
          * } $config
          */
@@ -78,7 +79,8 @@ final class UiSettingsController extends Controller
          *         secondary_logo_asset_id: string|null,
          *         header_logo_asset_id: string|null,
          *         footer_logo_asset_id: string|null,
-         *         footer_logo_disabled: bool
+         *         footer_logo_disabled: bool,
+         *         assets: array{filesystem_path: string}
          *     }
          * } $configBefore
          */
@@ -149,7 +151,8 @@ final class UiSettingsController extends Controller
          *         secondary_logo_asset_id: string|null,
          *         header_logo_asset_id: string|null,
          *         footer_logo_asset_id: string|null,
-         *         footer_logo_disabled: bool
+         *         footer_logo_disabled: bool,
+         *         assets: array{filesystem_path: string}
          *     }
          * } $config
          */

@@ -12,7 +12,7 @@ const originalFetch = globalThis.fetch as typeof fetch;
 const originalCreateObjectURL = globalThis.URL.createObjectURL;
 const originalRevokeObjectURL = globalThis.URL.revokeObjectURL;
 const mockNavigate = vi.fn();
-const ROUTER_FUTURE_FLAGS = { v7_startTransition: true, v7_relativeSplatPath: true } as const;
+const ROUTER_FUTURE_FLAGS = { v7_relativeSplatPath: true } as const;
 
 vi.mock("react-router-dom", async () => {
   const actual = await vi.importActual<typeof import("react-router-dom")>("react-router-dom");

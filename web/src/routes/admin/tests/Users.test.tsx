@@ -4,8 +4,9 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { vi } from "vitest";
 import Users from "../Users";
+import { ToastProvider } from "../../../components/toast/ToastProvider";
 
-const ROUTER_FUTURE_FLAGS = { v7_startTransition: true, v7_relativeSplatPath: true } as const;
+const ROUTER_FUTURE_FLAGS = { v7_relativeSplatPath: true } as const;
 
 const originalFetch = globalThis.fetch as typeof fetch;
 
@@ -20,7 +21,14 @@ function renderPage() {
   render(
     <MemoryRouter future={ROUTER_FUTURE_FLAGS} initialEntries={["/admin/users"]}>
       <Routes>
-        <Route path="/admin/users" element={<Users />} />
+        <Route
+          path="/admin/users"
+          element={
+            <ToastProvider>
+              <Users />
+            </ToastProvider>
+          }
+        />
       </Routes>
     </MemoryRouter>
   );

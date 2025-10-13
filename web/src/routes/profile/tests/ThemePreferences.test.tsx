@@ -3,6 +3,7 @@ import { describe, expect, it, beforeEach, afterEach, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import React from "react";
 import ThemePreferences from "../ThemePreferences";
+import { ToastProvider } from "../../../components/toast/ToastProvider";
 import { DEFAULT_THEME_MANIFEST } from "../../admin/themeData";
 
 function jsonResponse(body: unknown, init: ResponseInit = {}) {
@@ -123,7 +124,11 @@ describe("ThemePreferences", () => {
   });
 
   it("loads prefs, saves with If-Match, and respects overrides", async () => {
-    render(<ThemePreferences />);
+    render(
+      <ToastProvider>
+        <ThemePreferences />
+      </ToastProvider>
+    );
 
     await waitFor(() => expect(screen.queryByText("Loading preferences…")).toBeNull());
 
@@ -188,7 +193,11 @@ describe("ThemePreferences", () => {
       return jsonResponse({ ok: true });
     });
 
-    render(<ThemePreferences />);
+    render(
+      <ToastProvider>
+        <ThemePreferences />
+      </ToastProvider>
+    );
 
     await waitFor(() => expect(screen.queryByText("Loading preferences…")).toBeNull());
 
@@ -232,7 +241,11 @@ describe("ThemePreferences", () => {
       return jsonResponse({ ok: true });
     });
 
-    render(<ThemePreferences />);
+    render(
+      <ToastProvider>
+        <ThemePreferences />
+      </ToastProvider>
+    );
 
     await waitFor(() => expect(screen.queryByText("Loading preferences…")).toBeNull());
 
@@ -259,7 +272,11 @@ describe("ThemePreferences", () => {
       return jsonResponse({ ok: true });
     });
 
-    render(<ThemePreferences />);
+    render(
+      <ToastProvider>
+        <ThemePreferences />
+      </ToastProvider>
+    );
 
     await screen.findByText("You do not have permission to manage UI preferences.");
     expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();

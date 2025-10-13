@@ -2,6 +2,7 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { apiDelete, apiGet, apiPost, apiPut, HttpError } from "../../lib/api";
 import { listRoles } from "../../lib/api/rbac";
 import { roleIdsFromNames, roleLabelFromId, roleOptionsFromList, type RoleOption } from "../../lib/roles";
+import { useToast } from "../../components/toast/ToastProvider";
 
 type User = {
   id: number;
@@ -17,8 +18,6 @@ type Paged<T> = {
 };
 
 type UserResponse = { ok: true; user: User };
-
-type Banner = { kind: "success" | "error"; text: string };
 
 type EditFormState = {
   name: string;
@@ -106,7 +105,8 @@ export default function Users(): JSX.Element {
   const [items, setItems] = useState<User[]>([]);
   const [meta, setMeta] = useState<Paged<User>["meta"]>({ page: 1, per_page: 25, total: 0, total_pages: 0 });
   const [listLoading, setListLoading] = useState<boolean>(false);
-  const [banner, setBanner] = useState<Banner | null>(null);
+  const toast = useToast();
+  const { success: showSuccess, danger: showDanger } = toast;
 
   const [roleOptions, setRoleOptions] = useState<RoleOption[]>([]);
   const [rolesLoading, setRolesLoading] = useState<boolean>(false);
@@ -224,16 +224,16 @@ export default function Users(): JSX.Element {
       } else {
         setItems([]);
         setMeta({ page: 1, per_page: perPage, total: 0, total_pages: 0 });
-        setBanner({ kind: "error", text: "Users API shape invalid or not implemented." });
+        showDanger("Users API shape invalid or not implemented.");
       }
     } catch (err) {
       setItems([]);
       const message = messageFromError(err, "Failed to load users.");
-      setBanner({ kind: "error", text: message });
+      showDanger(message);
     } finally {
       setListLoading(false);
     }
-  }, [appliedQ, page, perPage]);
+  }, [appliedQ, page, perPage, showDanger]);
 
   useEffect(() => {
     void load();
@@ -286,7 +286,6 @@ export default function Users(): JSX.Element {
 
     if (Object.keys(nextFieldErrors).length > 0) {
       setCreateFieldErrors(nextFieldErrors);
-      setCreateError("Please fix the highlighted fields.");
       return;
     }
 
@@ -300,14 +299,13 @@ export default function Users(): JSX.Element {
     setCreateFieldErrors({});
     setCreateBusy(true);
     setCreateError(null);
-    setBanner(null);
 
     try {
       await apiPost<UserResponse, typeof payload>("/api/users", payload);
       formEl.reset();
       setCreateRoles([]);
       setCreateFieldErrors({});
-      setBanner({ kind: "success", text: "User created." });
+      showSuccess("User created.");
       if (page !== 1) {
         setPage(1);
       } else {
@@ -316,7 +314,7 @@ export default function Users(): JSX.Element {
     } catch (err) {
       const message = messageFromError(err, "Create failed.");
       setCreateError(message);
-      setBanner({ kind: "error", text: message });
+      showDanger(message);
       if (err instanceof HttpError && err.body) {
         const fieldErrors = extractFieldErrors(err.body);
         if (Object.keys(fieldErrors).length > 0) {
@@ -390,17 +388,16 @@ export default function Users(): JSX.Element {
     setEditBusy(true);
     setEditError(null);
     setEditFieldErrors({});
-    setBanner(null);
 
     try {
       const res = await apiPut<UserResponse, typeof payload>(`/api/users/${selectedUser.id}`, payload);
       setSelectedUser(res.user);
-      setBanner({ kind: "success", text: "User updated." });
+      showSuccess("User updated.");
       await load();
     } catch (err) {
       const message = messageFromError(err, "Update failed.");
       setEditError(message);
-      setBanner({ kind: "error", text: message });
+      showDanger(message);
       if (err instanceof HttpError && err.body) {
         const fieldErrors = extractFieldErrors(err.body);
         if (Object.keys(fieldErrors).length > 0) {
@@ -420,7 +417,6 @@ export default function Users(): JSX.Element {
     if (!deleteCandidate || deleteBusy) return;
 
     setDeleteBusy(true);
-    setBanner(null);
 
     try {
       await apiDelete<{ ok: true }>(`/api/users/${deleteCandidate.id}`);
@@ -428,11 +424,11 @@ export default function Users(): JSX.Element {
         setSelectedUser(null);
       }
       setDeleteCandidate(null);
-      setBanner({ kind: "success", text: "User deleted." });
+      showSuccess("User deleted.");
       await load();
     } catch (err) {
       const message = messageFromError(err, "Delete failed.");
-      setBanner({ kind: "error", text: message });
+      showDanger(message);
       setDeleteCandidate(null);
     } finally {
       setDeleteBusy(false);
@@ -451,11 +447,6 @@ export default function Users(): JSX.Element {
       </header>
 
       <section aria-live="polite" className="mb-3">
-        {banner && (
-          <div className={`alert ${banner.kind === "success" ? "alert-success" : "alert-danger"}`} role="alert">
-            {banner.text}
-          </div>
-        )}
       </section>
 
       <section aria-labelledby="users-search" className="mb-4">

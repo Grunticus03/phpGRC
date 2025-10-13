@@ -5,8 +5,9 @@ import { render, screen, fireEvent, waitFor, within } from "@testing-library/rea
 import { MemoryRouter } from "react-router-dom";
 
 import EvidenceList from "../List";
+import { ToastProvider } from "../../../components/toast/ToastProvider";
 
-const ROUTER_FUTURE_FLAGS = { v7_startTransition: true, v7_relativeSplatPath: true } as const;
+const ROUTER_FUTURE_FLAGS = { v7_relativeSplatPath: true } as const;
 
 function jsonResponse(body: unknown, init: ResponseInit = {}) {
   return new Response(JSON.stringify(body), {
@@ -124,7 +125,9 @@ describe("Evidence List", () => {
   it("selects owner via search and includes owner_id in evidence request", async () => {
     render(
       <MemoryRouter future={ROUTER_FUTURE_FLAGS}>
-        <EvidenceList />
+        <ToastProvider>
+          <EvidenceList />
+        </ToastProvider>
       </MemoryRouter>
     );
 
@@ -157,7 +160,9 @@ describe("Evidence List", () => {
   it("downloads evidence file when user clicks Download", async () => {
     render(
       <MemoryRouter future={ROUTER_FUTURE_FLAGS}>
-        <EvidenceList />
+        <ToastProvider>
+          <EvidenceList />
+        </ToastProvider>
       </MemoryRouter>
     );
 
@@ -177,7 +182,9 @@ describe("Evidence List", () => {
   it("shows an error when download fails", async () => {
     render(
       <MemoryRouter future={ROUTER_FUTURE_FLAGS}>
-        <EvidenceList />
+        <ToastProvider>
+          <EvidenceList />
+        </ToastProvider>
       </MemoryRouter>
     );
 
@@ -200,7 +207,9 @@ describe("Evidence List", () => {
   it("applies MIME label filter from query string", async () => {
     render(
       <MemoryRouter future={ROUTER_FUTURE_FLAGS} initialEntries={["/admin/evidence?mime_label=PNG%20image"]}>
-        <EvidenceList />
+        <ToastProvider>
+          <EvidenceList />
+        </ToastProvider>
       </MemoryRouter>
     );
 
@@ -219,7 +228,9 @@ describe("Evidence List", () => {
   it("applies friendly MIME filter via UI", async () => {
     render(
       <MemoryRouter future={ROUTER_FUTURE_FLAGS}>
-        <EvidenceList />
+        <ToastProvider>
+          <EvidenceList />
+        </ToastProvider>
       </MemoryRouter>
     );
 

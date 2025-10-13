@@ -14,6 +14,7 @@ import {
   updateThemePrefs,
   updateThemeSettings,
 } from "../../theme/themeManager";
+import { useToast } from "../../components/toast/ToastProvider";
 
 type UserPrefsResponse = {
   ok?: boolean;
@@ -131,7 +132,8 @@ export default function ThemePreferences(): JSX.Element {
   const [form, setForm] = useState<PrefForm>(buildForm(DEFAULT_USER_PREFS));
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
+  const toast = useToast();
+  const { success: showSuccess, info: showInfo, warning: showWarning, danger: showDanger } = toast;
   const [readOnly, setReadOnly] = useState(false);
 
   const etagRef = useRef<string | null>(null);
@@ -174,9 +176,6 @@ export default function ThemePreferences(): JSX.Element {
 
   const loadAll = useCallback(async (options?: { preserveMessage?: boolean }) => {
     setLoading(true);
-    if (!options?.preserveMessage) {
-      setMessage(null);
-    }
 
     try {
       const [manifestRes, globalRes, prefsRes] = await Promise.all([
@@ -215,14 +214,18 @@ export default function ThemePreferences(): JSX.Element {
 
       if (prefsRes.status === 403) {
         setReadOnly(true);
-        setMessage("You do not have permission to manage UI preferences.");
+        if (!options?.preserveMessage) {
+          showWarning("You do not have permission to manage UI preferences.");
+        }
         etagRef.current = null;
         applyPrefs(DEFAULT_USER_PREFS);
         return;
       }
 
       if (!prefsRes.ok) {
-        setMessage("Failed to load preferences. Using defaults.");
+        if (!options?.preserveMessage) {
+          showWarning("Failed to load preferences. Using defaults.");
+        }
         etagRef.current = null;
         applyPrefs(DEFAULT_USER_PREFS);
         return;
@@ -238,7 +241,9 @@ export default function ThemePreferences(): JSX.Element {
 
       setReadOnly(false);
     } catch {
-      setMessage("Failed to load preferences. Using defaults.");
+      if (!options?.preserveMessage) {
+        showWarning("Failed to load preferences. Using defaults.");
+      }
       etagRef.current = null;
       applyPrefs(DEFAULT_USER_PREFS);
       setGlobalSettings(DEFAULT_THEME_SETTINGS);
@@ -246,11 +251,17 @@ export default function ThemePreferences(): JSX.Element {
     } finally {
       setLoading(false);
     }
-  }, [applyPrefs]);
+  }, [applyPrefs, showWarning]);
+
+  const loadAllRef = useRef(loadAll);
 
   useEffect(() => {
-    void loadAll();
+    loadAllRef.current = loadAll;
   }, [loadAll]);
+
+  useEffect(() => {
+    void loadAllRef.current();
+  }, []);
 
   const onSelectTheme = (value: string) => {
     setForm((prev) => {
@@ -308,7 +319,7 @@ export default function ThemePreferences(): JSX.Element {
       };
       setForm(next);
       previewForm(next);
-      setMessage("Reverted to last saved preferences.");
+      showInfo("Reverted to last saved preferences.");
     }
   };
 
@@ -326,14 +337,14 @@ export default function ThemePreferences(): JSX.Element {
     };
     setForm(next);
     previewForm(next);
-    setMessage("Preferences reset to global defaults.");
+    showInfo("Preferences reset to global defaults.");
   };
 
   const persistForm = useCallback(
     async (formSnapshot: PrefForm, options?: { silent?: boolean }) => {
       if (readOnly) {
         if (!options?.silent) {
-          setMessage("Read-only mode: preferences cannot be changed.");
+          showWarning("Read-only mode: preferences cannot be changed.");
         }
         return false;
       }
@@ -342,7 +353,7 @@ export default function ThemePreferences(): JSX.Element {
       const payload = buildPayload(formSnapshot, baseline);
       if (Object.keys(payload).length === 0) {
         if (!options?.silent) {
-          setMessage("No changes to save.");
+          showInfo("No changes to save.");
         }
         return true;
       }
@@ -351,15 +362,12 @@ export default function ThemePreferences(): JSX.Element {
       if (!etag) {
         await loadAll({ preserveMessage: options?.silent });
         if (!options?.silent) {
-          setMessage("Preferences version refreshed. Please retry.");
+          showInfo("Preferences version refreshed. Please retry.");
         }
         return false;
       }
 
       setSaving(true);
-      if (!options?.silent) {
-        setMessage(null);
-      }
 
       try {
         const bodyPayload: Record<string, unknown> = { ...payload };
@@ -388,7 +396,7 @@ export default function ThemePreferences(): JSX.Element {
             etagRef.current = nextEtag;
           }
           if (!options?.silent) {
-            setMessage("Preferences changed elsewhere. Reloaded latest values.");
+            showWarning("Preferences changed elsewhere. Reloaded latest values.");
           }
           await loadAll({ preserveMessage: options?.silent ?? true });
           return false;
@@ -413,20 +421,20 @@ export default function ThemePreferences(): JSX.Element {
 
         if (!options?.silent) {
           const successMsg = typeof body?.message === "string" ? body.message : "Preferences saved.";
-          setMessage(successMsg);
+          showSuccess(successMsg);
         }
 
         return true;
       } catch (err) {
         if (!options?.silent) {
-          setMessage(err instanceof Error ? err.message : "Save failed.");
+          showDanger(err instanceof Error ? err.message : "Save failed.");
         }
         return false;
       } finally {
         setSaving(false);
       }
     },
-    [readOnly, allowOverride, forceGlobal, loadAll, applyPrefs, previewForm]
+    [readOnly, allowOverride, forceGlobal, loadAll, applyPrefs, previewForm, showWarning, showSuccess, showDanger, showInfo]
   );
 
   const handleSave = async () => {
@@ -486,11 +494,6 @@ export default function ThemePreferences(): JSX.Element {
             <p>Loading preferences…</p>
           ) : (
             <>
-              {message && (
-                <div className="alert alert-info mb-0" role="status">
-                  {message}
-                </div>
-              )}
 
               <fieldset className="vstack gap-3" disabled={disabled}>
                 <div>

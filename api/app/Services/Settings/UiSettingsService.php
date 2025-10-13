@@ -25,11 +25,15 @@ final class UiSettingsService
         'ui.theme.designer.storage',
         'ui.theme.designer.filesystem_path',
         'ui.nav.sidebar.default_order',
+        'ui.brand.assets.filesystem_path',
     ];
 
     private const DEFAULT_PROFILE_ID = 'bp_default';
 
-    public function __construct(private readonly ThemePackService $themePacks) {}
+    public function __construct(
+        private readonly ThemePackService $themePacks,
+        private readonly BrandAssetStorageService $brandAssets
+    ) {}
 
     /**
      * @return array{
@@ -48,7 +52,8 @@ final class UiSettingsService
      *         secondary_logo_asset_id: string|null,
      *         header_logo_asset_id: string|null,
      *         footer_logo_asset_id: string|null,
-     *         footer_logo_disabled: bool
+     *         footer_logo_disabled: bool,
+     *         assets: array{filesystem_path: string}
      *     }
      * }
      */
@@ -96,7 +101,10 @@ final class UiSettingsService
         }
 
         $profile = $this->activeBrandProfile();
-        $config['brand'] = $this->brandProfileAsConfig($profile);
+        $config['brand'] = array_merge(
+            $this->brandProfileAsConfig($profile),
+            ['assets' => $this->brandAssets->storageConfig()]
+        );
 
         /** @var array<string,mixed> $config */
         return $this->sanitizeConfig($config);
@@ -326,12 +334,21 @@ final class UiSettingsService
          *     secondary_logo_asset_id:string|null,
          *     header_logo_asset_id:string|null,
          *     footer_logo_asset_id:string|null,
-         *     footer_logo_disabled:bool
+         *     footer_logo_disabled:bool,
+         *     assets: array{filesystem_path:string}
          * } $brand
          */
         $brand = $sanitized['brand'];
 
-        return $brand;
+        return [
+            'title_text' => $brand['title_text'],
+            'favicon_asset_id' => $brand['favicon_asset_id'],
+            'primary_logo_asset_id' => $brand['primary_logo_asset_id'],
+            'secondary_logo_asset_id' => $brand['secondary_logo_asset_id'],
+            'header_logo_asset_id' => $brand['header_logo_asset_id'],
+            'footer_logo_asset_id' => $brand['footer_logo_asset_id'],
+            'footer_logo_disabled' => $brand['footer_logo_disabled'],
+        ];
     }
 
     private function sanitizeProfileName(?string $name): string
@@ -425,7 +442,8 @@ final class UiSettingsService
      *             secondary_logo_asset_id: string|null,
      *             header_logo_asset_id: string|null,
      *             footer_logo_asset_id: string|null,
-     *             footer_logo_disabled: bool
+     *             footer_logo_disabled: bool,
+     *             assets: array{filesystem_path: string}
      *         }
      *     },
      *     changes: list<array{key:string, old:mixed, new:mixed, action:string}>
@@ -449,16 +467,30 @@ final class UiSettingsService
             $combined['nav']['sidebar'] = array_merge($current['nav']['sidebar'], $navInput);
         }
 
-        $combined['brand'] = $current['brand'];
+        /** @var array<string,mixed> $currentBrand */
+        $currentBrand = $current['brand'];
+        $combined['brand'] = $currentBrand;
+        /** @var array{filesystem_path:string} $currentBrandAssets */
+        $currentBrandAssets = $currentBrand['assets'];
+        $combined['brand']['assets'] = $currentBrandAssets;
         $brandChanges = [];
 
         /** @var array<string,mixed>|null $brandInput */
         $brandInput = isset($input['brand']) && is_array($input['brand']) ? $input['brand'] : null;
+        /** @var array<string,mixed>|null $assetsInput */
+        $assetsInput = null;
         if ($brandInput !== null) {
             $profileId = null;
             if (array_key_exists('profile_id', $brandInput) && is_string($brandInput['profile_id'])) {
                 $profileId = trim($brandInput['profile_id']);
                 unset($brandInput['profile_id']);
+            }
+
+            if (isset($brandInput['assets']) && is_array($brandInput['assets'])) {
+                /** @var array<string,mixed> $assetsPayload */
+                $assetsPayload = $brandInput['assets'];
+                $assetsInput = $assetsPayload;
+                unset($brandInput['assets']);
             }
 
             /** @var BrandProfile|null $profile */
@@ -470,28 +502,43 @@ final class UiSettingsService
                 throw new BrandProfileNotFoundException('Brand profile not found.');
             }
 
-            $beforeProfileConfig = $this->brandProfileAsConfig($profile);
+            if ($brandInput !== []) {
+                $beforeProfileConfig = $this->brandProfileAsConfig($profile);
+                $updatedProfile = $this->updateBrandProfile($profile, $brandInput);
+                /** @var array{filesystem_path:string} $brandAssetsBefore */
+                $brandAssetsBefore = $combined['brand']['assets'];
 
-            $updatedProfile = $this->updateBrandProfile($profile, $brandInput);
-
-            if ($updatedProfile->getAttribute('is_active')) {
-                $combined['brand'] = $this->brandProfileAsConfig($updatedProfile);
-                $brandChanges = $this->diffBrandChanges(
-                    $beforeProfileConfig,
-                    $combined['brand'],
-                    'ui.brand'
-                );
-            } else {
-                $profileIdAttr = $updatedProfile->getAttribute('id');
-                if (! is_string($profileIdAttr)) {
-                    throw new \UnexpectedValueException('Brand profile id must be a string.');
+                if ($updatedProfile->getAttribute('is_active')) {
+                    $combined['brand'] = array_merge(
+                        $this->brandProfileAsConfig($updatedProfile),
+                        ['assets' => $brandAssetsBefore]
+                    );
+                    $brandChanges = $this->diffBrandChanges(
+                        $beforeProfileConfig,
+                        $this->brandProfileAsConfig($updatedProfile),
+                        'ui.brand'
+                    );
+                } else {
+                    $profileIdAttr = $updatedProfile->getAttribute('id');
+                    if (! is_string($profileIdAttr)) {
+                        throw new \UnexpectedValueException('Brand profile id must be a string.');
+                    }
+                    $brandChanges = $this->diffBrandChanges(
+                        $beforeProfileConfig,
+                        $this->brandProfileAsConfig($updatedProfile),
+                        sprintf('ui.brand_profiles.%s', $profileIdAttr)
+                    );
                 }
-                $brandChanges = $this->diffBrandChanges(
-                    $beforeProfileConfig,
-                    $this->brandProfileAsConfig($updatedProfile),
-                    sprintf('ui.brand_profiles.%s', $profileIdAttr)
-                );
             }
+        }
+
+        if ($assetsInput !== null) {
+            /** @var array{filesystem_path:string} $existingAssets */
+            $existingAssets = $combined['brand']['assets'];
+            $combined['brand']['assets'] = $this->sanitizeBrandAssetsConfig(
+                $existingAssets,
+                $assetsInput
+            );
         }
 
         $sanitized = $this->sanitizeConfig($combined);
@@ -591,7 +638,8 @@ final class UiSettingsService
      *         secondary_logo_asset_id: string|null,
      *         header_logo_asset_id: string|null,
      *         footer_logo_asset_id: string|null,
-     *         footer_logo_disabled: bool
+     *         footer_logo_disabled: bool,
+     *         assets: array{filesystem_path: string}
      *     }
      * } $config
      */
@@ -652,7 +700,8 @@ final class UiSettingsService
      *         secondary_logo_asset_id: string|null,
      *         header_logo_asset_id: string|null,
      *         footer_logo_asset_id: string|null,
-     *         footer_logo_disabled: bool
+     *         footer_logo_disabled: bool,
+     *         assets: array{filesystem_path: string}
      *     }
      * }
      */
@@ -732,6 +781,8 @@ final class UiSettingsService
 
         /** @var array<string,mixed> $brandDefaults */
         $brandDefaults = (array) ($defaults['brand'] ?? []);
+        /** @var array<string,mixed> $brandAssetsDefaults */
+        $brandAssetsDefaults = is_array($brandDefaults['assets'] ?? null) ? $brandDefaults['assets'] : [];
         $brand = [
             'title_text' => $this->sanitizeTitle($brandDefaults['title_text'] ?? null),
             'favicon_asset_id' => $this->sanitizeAssetId($brandDefaults['favicon_asset_id'] ?? null),
@@ -740,6 +791,7 @@ final class UiSettingsService
             'header_logo_asset_id' => $this->sanitizeAssetId($brandDefaults['header_logo_asset_id'] ?? null),
             'footer_logo_asset_id' => $this->sanitizeAssetId($brandDefaults['footer_logo_asset_id'] ?? null),
             'footer_logo_disabled' => $this->toBool($brandDefaults['footer_logo_disabled'] ?? false),
+            'assets' => $this->sanitizeBrandAssetsConfig($brandAssetsDefaults, []),
         ];
 
         if (isset($config['brand']) && is_array($config['brand'])) {
@@ -758,6 +810,17 @@ final class UiSettingsService
 
             if (array_key_exists('footer_logo_disabled', $brandInput)) {
                 $brand['footer_logo_disabled'] = $this->toBool($brandInput['footer_logo_disabled']);
+            }
+
+            if (isset($brandInput['assets']) && is_array($brandInput['assets'])) {
+                /** @var array<string,mixed> $brandAssetsOverride */
+                $brandAssetsOverride = $brandInput['assets'];
+                /** @var array<string,mixed> $brandAssetsState */
+                $brandAssetsState = $brand['assets'];
+                $brand['assets'] = $this->sanitizeBrandAssetsConfig(
+                    $brandAssetsState,
+                    $brandAssetsOverride
+                );
             }
         }
 
@@ -924,6 +987,29 @@ final class UiSettingsService
         }
 
         return $trimmed;
+    }
+
+    /**
+     * @param  array<string,mixed>  $base
+     * @param  array<string,mixed>  $override
+     * @return array{filesystem_path:string}
+     */
+    private function sanitizeBrandAssetsConfig(array $base, array $override): array
+    {
+        $defaultPath = $this->brandAssets->defaultPath();
+        $path = $defaultPath;
+
+        if (array_key_exists('filesystem_path', $base)) {
+            $path = $this->brandAssets->sanitizePath($base['filesystem_path'], $path);
+        }
+
+        if (array_key_exists('filesystem_path', $override)) {
+            $path = $this->brandAssets->sanitizePath($override['filesystem_path'], $path);
+        }
+
+        return [
+            'filesystem_path' => $this->brandAssets->sanitizePath($path, $defaultPath),
+        ];
     }
 
     private function defaultOverride(string $token): ?string
@@ -1112,6 +1198,11 @@ final class UiSettingsService
         $sidebar = (array) ($nav['sidebar'] ?? []);
         /** @var array<string,mixed> $brand */
         $brand = (array) ($config['brand'] ?? []);
+        /** @var array{filesystem_path:string}|null $brandAssets */
+        $brandAssets = is_array($brand['assets'] ?? null) ? $brand['assets'] : null;
+        if ($brandAssets === null) {
+            $brandAssets = $this->sanitizeBrandAssetsConfig([], []);
+        }
 
         /** @var array<string,mixed> $designerInput */
         $designerInput = is_array($theme['designer'] ?? null) ? $theme['designer'] : [];
@@ -1142,6 +1233,7 @@ final class UiSettingsService
             'ui.brand.header_logo_asset_id' => $brand['header_logo_asset_id'] ?? null,
             'ui.brand.footer_logo_asset_id' => $brand['footer_logo_asset_id'] ?? null,
             'ui.brand.footer_logo_disabled' => $brand['footer_logo_disabled'] ?? null,
+            'ui.brand.assets.filesystem_path' => $brandAssets['filesystem_path'],
         ];
     }
 
