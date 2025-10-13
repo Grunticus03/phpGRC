@@ -113,8 +113,8 @@ jobs:
           restore-keys: ${{ runner.os }}-composer-
       - name: Composer validate
         run: composer validate --strict --no-check-publish
-      - name: Resolve lockfile (sync with composer.json)
-        run: composer update --no-interaction --prefer-dist --no-progress --prefer-stable
+#      - name: Resolve lockfile (sync with composer.json)
+#        run: composer update --no-interaction --prefer-dist --no-progress --prefer-stable
       - name: Install deps
         run: composer install --no-interaction --prefer-dist
       - run: vendor/bin/pint -v

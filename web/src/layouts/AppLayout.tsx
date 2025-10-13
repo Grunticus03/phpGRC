@@ -69,6 +69,10 @@ type SidebarNotice = {
   ephemeral?: boolean;
 };
 
+type LoadUserPrefsOptions = {
+  skipStateUpdate?: boolean;
+};
+
 type AdminNavLeaf = {
   id: string;
   label: string;
@@ -381,16 +385,26 @@ export default function AppLayout(): JSX.Element | null {
     }
   }, [authed]);
 
-  const loadUserPrefs = useCallback(async () => {
+  const loadUserPrefs = useCallback(async (options?: LoadUserPrefsOptions) => {
+    const skipStateUpdate = options?.skipStateUpdate === true;
+    const manageLoadingState = !skipStateUpdate;
+
     if (!authed) {
-      updateSidebarState(() => normalizeSidebarPrefs(DEFAULT_USER_PREFS.sidebar), { silent: true });
+      if (!skipStateUpdate) {
+        updateSidebarState(() => normalizeSidebarPrefs(DEFAULT_USER_PREFS.sidebar), { silent: true });
+      }
       sidebarEtagRef.current = null;
       setSidebarReadOnly(true);
       return;
     }
 
-    setPrefsLoading(true);
-    setSidebarNotice(null);
+    const initialPinned = sidebarPrefsRef.current.pinned;
+    const initialCollapsed = sidebarPrefsRef.current.collapsed;
+
+    if (manageLoadingState) {
+      setPrefsLoading(true);
+      setSidebarNotice(null);
+    }
 
     try {
       const res = await fetch("/api/me/prefs/ui", {
@@ -403,7 +417,9 @@ export default function AppLayout(): JSX.Element | null {
         setSidebarReadOnly(true);
         sidebarEtagRef.current = res.headers.get("ETag");
         setSidebarNotice({ text: "You do not have permission to customize the sidebar.", tone: "error" });
-        updateSidebarState(() => normalizeSidebarPrefs(DEFAULT_USER_PREFS.sidebar), { silent: true });
+        if (!skipStateUpdate) {
+          updateSidebarState(() => normalizeSidebarPrefs(DEFAULT_USER_PREFS.sidebar), { silent: true });
+        }
         return;
       }
 
@@ -413,21 +429,43 @@ export default function AppLayout(): JSX.Element | null {
 
       if (!res.ok || !body?.prefs) {
         setSidebarReadOnly(false);
-        updateSidebarState(() => normalizeSidebarPrefs(DEFAULT_USER_PREFS.sidebar), { silent: true });
+        if (!skipStateUpdate) {
+          updateSidebarState(() => normalizeSidebarPrefs(DEFAULT_USER_PREFS.sidebar), { silent: true });
+        }
         return;
       }
 
       const normalized = normalizeSidebarPrefs(body.prefs.sidebar);
-      updateSidebarState(() => normalized);
-      updateThemePrefs(body.prefs);
+      if (!skipStateUpdate) {
+        const pinnedChanged = sidebarPrefsRef.current.pinned !== initialPinned;
+        const collapsedChanged = sidebarPrefsRef.current.collapsed !== initialCollapsed;
+        const nextSidebarPrefs: SidebarPrefs = {
+          ...normalized,
+          pinned: pinnedChanged ? sidebarPrefsRef.current.pinned : normalized.pinned,
+          collapsed: collapsedChanged ? sidebarPrefsRef.current.collapsed : normalized.collapsed,
+        };
+        updateSidebarState(() => nextSidebarPrefs);
+        const nextThemePrefs = {
+          ...body.prefs,
+          sidebar: {
+            ...body.prefs.sidebar,
+            ...nextSidebarPrefs,
+          },
+        } as ThemeUserPrefs;
+        updateThemePrefs(nextThemePrefs);
+      }
       setSidebarReadOnly(false);
     } catch {
       setSidebarReadOnly(true);
       sidebarEtagRef.current = null;
       setSidebarNotice({ text: "Failed to load sidebar preferences. Using defaults.", tone: "error" });
-      updateSidebarState(() => normalizeSidebarPrefs(DEFAULT_USER_PREFS.sidebar), { silent: true });
+      if (!skipStateUpdate) {
+        updateSidebarState(() => normalizeSidebarPrefs(DEFAULT_USER_PREFS.sidebar), { silent: true });
+      }
     } finally {
-      setPrefsLoading(false);
+      if (manageLoadingState) {
+        setPrefsLoading(false);
+      }
     }
   }, [authed, updateSidebarState]);
 
@@ -436,7 +474,7 @@ export default function AppLayout(): JSX.Element | null {
       if (!authed || sidebarReadOnly) return false;
 
       if (!sidebarEtagRef.current) {
-        await loadUserPrefs();
+        await loadUserPrefs({ skipStateUpdate: true });
         if (!sidebarEtagRef.current) return false;
       }
 
@@ -953,8 +991,6 @@ export default function AppLayout(): JSX.Element | null {
 
   const sidebarPinned = sidebarPrefs.pinned;
   const sidebarCollapsed = sidebarPrefs.collapsed;
-  const hidePinButton =
-    loc.pathname.startsWith("/admin/settings/branding") || loc.pathname.startsWith("/admin/settings/core");
   const navbarBackgroundClass = themeMode === "dark" ? "bg-dark" : "bg-primary";
   const headerButtonVariant = "btn-outline-light";
   const dropdownMenuTone = "dropdown-menu dropdown-menu-dark";
@@ -1078,19 +1114,18 @@ export default function AppLayout(): JSX.Element | null {
         )}
       </div>
 
-      {!hidePinButton && (
-        <div className="mt-auto px-3 pb-3 pt-2 text-end">
-          <button
-            type="button"
-            className="btn btn-outline-secondary btn-sm"
-            onClick={toggleSidebarPin}
-            aria-pressed={sidebarPrefs.pinned}
-            title={sidebarPrefs.pinned ? "Unpin sidebar" : "Pin sidebar"}
-          >
-            {sidebarPrefs.pinned ? "Unpin sidebar" : "Pin sidebar"}
-          </button>
-        </div>
-      )}
+      <div className="mt-auto px-3 pb-3 pt-2 text-end">
+        <button
+          type="button"
+          className="btn btn-outline-secondary btn-sm"
+          onClick={toggleSidebarPin}
+          aria-pressed={sidebarPrefs.pinned}
+          title={sidebarPrefs.pinned ? "Unpin sidebar" : "Pin sidebar"}
+          disabled={prefsLoading || sidebarSaving || sidebarReadOnly}
+        >
+          {sidebarPrefs.pinned ? "Unpin sidebar" : "Pin sidebar"}
+        </button>
+      </div>
     </div>
   );
 
