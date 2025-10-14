@@ -64,12 +64,10 @@ describe("ThemeDesigner", () => {
     expect(preview.style.getPropertyValue("--td-buttons-dark-primary-background")).toBe("#0d6efd");
     expect(preview.style.getPropertyValue("--td-alerts-light-primary-background")).toBe("#123456");
 
-    const backgroundTextInput = backgroundInputs.find((input) => input.type === "text");
-    expect(backgroundTextInput).toBeDefined();
-    fireEvent.change(backgroundTextInput as HTMLInputElement, { target: { value: "rgba(1,2,3,0.5)" } });
+    fireEvent.input(backgroundColorInput as HTMLInputElement, { target: { value: "#abcdef" } });
 
-    expect(preview.style.getPropertyValue("--td-buttons-light-primary-background")).toBe("rgba(1,2,3,0.5)");
-    expect(preview.style.getPropertyValue("--td-alerts-light-primary-background")).toBe("rgba(1,2,3,0.5)");
+    expect(preview.style.getPropertyValue("--td-buttons-light-primary-background")).toBe("#abcdef");
+    expect(preview.style.getPropertyValue("--td-alerts-light-primary-background")).toBe("#abcdef");
     expect(preview.style.getPropertyValue("--td-buttons-dark-primary-background")).toBe("#0d6efd");
   });
 

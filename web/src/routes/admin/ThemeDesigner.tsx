@@ -928,18 +928,6 @@ export default function ThemeDesigner(): JSX.Element {
                                       onChange={(event) => handleSettingChange(setting, event.target.value)}
                                       aria-labelledby={labelId}
                                     />
-                                    <input
-                                      type="text"
-                                      className="form-control form-control-sm theme-designer-color-text"
-                                      value={currentValue}
-                                      onChange={(event) =>
-                                        handleSettingChange(setting, event.target.value.trim())
-                                      }
-                                      placeholder="#000000 or rgba(0,0,0,0.5)"
-                                      aria-labelledby={labelId}
-                                      autoComplete="off"
-                                      spellCheck={false}
-                                    />
                                   </div>
                                   <span className="theme-designer-setting-value">
                                     {describeSettingValue(setting, currentValue)}

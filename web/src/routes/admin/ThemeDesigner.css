@@ -163,7 +163,7 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto auto;
   align-items: center;
-  column-gap: 1rem;
+  column-gap: 1.25rem;
   row-gap: 0.35rem;
   font-size: 0.9rem;
 }
@@ -191,20 +191,8 @@
   margin-left: auto;
 }
 
-.theme-designer-color-text {
-  width: 9rem;
-  min-width: 8rem;
-  font-family: var(--bs-font-monospace);
-  font-size: 0.85rem;
-  padding: 0.25rem 0.5rem;
-}
-
 .theme-designer-color-inputs .theme-designer-setting-input {
   flex-shrink: 0;
-}
-
-.theme-designer-color-inputs .theme-designer-color-text {
-  flex-grow: 1;
 }
 
 .theme-designer-toggle {
@@ -217,6 +205,23 @@
   font-family: var(--bs-font-monospace);
   font-size: 0.8rem;
   color: var(--bs-secondary-color);
+}
+
+@media (max-width: 768px) {
+  .theme-designer-setting {
+    grid-template-columns: 1fr;
+    justify-items: stretch;
+  }
+
+  .theme-designer-color-inputs,
+  .theme-designer-setting-value,
+  .theme-designer-toggle {
+    justify-self: stretch;
+  }
+
+  .theme-designer-color-inputs {
+    margin-left: 0;
+  }
 }
 
 .theme-designer-preview {
