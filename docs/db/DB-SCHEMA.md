@@ -1,6 +1,6 @@
 # phpGRC Database Schema
 
-Snapshot generated from migrations against **phpgrc** as of 2025-10-11 (UTC).
+Snapshot generated from migrations against **phpgrc** as of 2025-10-14 (UTC).
 
 - SQL dialect: MySQL 8.0+
 - All times UTC.
@@ -130,6 +130,138 @@ Snapshot generated from migrations against **phpgrc** as of 2025-10-11 (UTC).
 
 ---
 
+### `evidence`
+
+| Column | Type | Null | Default | Extra |
+|-------:|------|------|---------|-------|
+| id | varchar(255) | ✓ | NULL | — |
+| owner_id | bigint unsigned | ✓ | NULL | — |
+| filename | varchar(255) | ✓ | NULL | — |
+| mime | varchar(128) | ✓ | NULL | — |
+| size_bytes | bigint unsigned | ✓ | NULL | — |
+| sha256 | varchar(64) | ✓ | NULL | — |
+| version | int unsigned | ✓ | 1 | — |
+| bytes | longblob | ✗ | NULL | — |
+| created_at | datetime | ✓ | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
+| updated_at | datetime | ✓ | CURRENT_TIMESTAMP | DEFAULT_GENERATED on update CURRENT_TIMESTAMP |
+
+**Indexes & Constraints**
+- `PRIMARY KEY (id)`
+- `INDEX evidence_created_id_idx (created_at, id)`
+- `INDEX evidence_owner_id_filename_index (owner_id, filename)`
+- `INDEX evidence_sha256_index (sha256)`
+
+- `FOREIGN KEY evidence_owner_id_fk (owner_id) REFERENCES users(id) ON UPDATE NO ACTION ON DELETE CASCADE`
+
+---
+
+### `exports`
+
+| Column | Type | Null | Default | Extra |
+|-------:|------|------|---------|-------|
+| id | varchar(26) | ✓ | NULL | — |
+| type | varchar(16) | ✓ | NULL | — |
+| params | json | ✗ | NULL | — |
+| status | varchar(32) | ✓ | NULL | — |
+| progress | tinyint unsigned | ✓ | 0 | — |
+| artifact_disk | varchar(64) | ✗ | NULL | — |
+| artifact_path | varchar(191) | ✗ | NULL | — |
+| artifact_mime | varchar(191) | ✗ | NULL | — |
+| artifact_size | bigint unsigned | ✗ | NULL | — |
+| artifact_sha256 | varchar(64) | ✗ | NULL | — |
+| created_at | datetime | ✓ | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
+| completed_at | datetime | ✗ | NULL | — |
+| failed_at | datetime | ✗ | NULL | — |
+| error_code | varchar(64) | ✗ | NULL | — |
+| error_note | varchar(191) | ✗ | NULL | — |
+
+**Indexes & Constraints**
+- `PRIMARY KEY (id)`
+- `INDEX exports_status_index (status)`
+- `INDEX exports_status_type_index (status, type)`
+
+---
+
+### `mime_labels`
+
+| Column | Type | Null | Default | Extra |
+|-------:|------|------|---------|-------|
+| id | bigint unsigned | ✓ | NULL | auto_increment |
+| value | varchar(191) | ✓ | NULL | — |
+| match_type | enum('exact','prefix') | ✓ | 'exact' | — |
+| label | varchar(191) | ✓ | NULL | — |
+| created_at | timestamp | ✗ | NULL | — |
+| updated_at | timestamp | ✗ | NULL | — |
+
+**Indexes & Constraints**
+- `PRIMARY KEY (id)`
+- `UNIQUE INDEX mime_labels_value_match_type_unique (value, match_type)`
+
+---
+
+### `policy_role_assignments`
+
+| Column | Type | Null | Default | Extra |
+|-------:|------|------|---------|-------|
+| policy | varchar(255) | ✓ | NULL | — |
+| role_id | varchar(255) | ✓ | NULL | — |
+| created_at | timestamp | ✗ | NULL | — |
+| updated_at | timestamp | ✗ | NULL | — |
+
+**Indexes & Constraints**
+- `PRIMARY KEY (policy, role_id)`
+- `INDEX policy_role_assignments_role_id_foreign (role_id)`
+
+- `FOREIGN KEY policy_role_assignments_policy_foreign (policy) REFERENCES policy_roles(policy) ON UPDATE NO ACTION ON DELETE CASCADE`
+- `FOREIGN KEY policy_role_assignments_role_id_foreign (role_id) REFERENCES roles(id) ON UPDATE NO ACTION ON DELETE CASCADE`
+
+---
+
+### `policy_roles`
+
+| Column | Type | Null | Default | Extra |
+|-------:|------|------|---------|-------|
+| policy | varchar(255) | ✓ | NULL | — |
+| label | varchar(255) | ✗ | NULL | — |
+| created_at | timestamp | ✗ | NULL | — |
+| updated_at | timestamp | ✗ | NULL | — |
+
+**Indexes & Constraints**
+- `PRIMARY KEY (policy)`
+
+---
+
+### `role_user`
+
+| Column | Type | Null | Default | Extra |
+|-------:|------|------|---------|-------|
+| user_id | bigint unsigned | ✓ | NULL | — |
+| role_id | varchar(191) | ✓ | NULL | — |
+
+**Indexes & Constraints**
+- `PRIMARY KEY (user_id, role_id)`
+- `INDEX role_user_role_id_foreign (role_id)`
+
+- `FOREIGN KEY role_user_role_id_foreign (role_id) REFERENCES roles(id) ON UPDATE NO ACTION ON DELETE CASCADE`
+- `FOREIGN KEY role_user_user_id_foreign (user_id) REFERENCES users(id) ON UPDATE NO ACTION ON DELETE CASCADE`
+
+---
+
+### `roles`
+
+| Column | Type | Null | Default | Extra |
+|-------:|------|------|---------|-------|
+| id | varchar(191) | ✓ | NULL | — |
+| name | varchar(255) | ✓ | NULL | — |
+| created_at | timestamp | ✗ | NULL | — |
+| updated_at | timestamp | ✗ | NULL | — |
+
+**Indexes & Constraints**
+- `PRIMARY KEY (id)`
+- `UNIQUE INDEX roles_name_unique (name)`
+
+---
+
 ### `ui_settings`
 
 | Column | Type | Null | Default | Extra |
@@ -163,9 +295,9 @@ Snapshot generated from migrations against **phpgrc** as of 2025-10-11 (UTC).
 
 **Indexes & Constraints**
 - `PRIMARY KEY (id)`
-- `UNIQUE INDEX ui_theme_pack_files_pack_slug_path_unique (pack_slug, path)`
-- `INDEX ui_theme_pack_files_pack_slug_index (pack_slug)`
 - `INDEX ui_theme_pack_files_created_at_index (created_at)`
+- `INDEX ui_theme_pack_files_pack_slug_index (pack_slug)`
+- `UNIQUE INDEX ui_theme_pack_files_pack_slug_path_unique (pack_slug, path)`
 
 - `FOREIGN KEY ui_theme_pack_files_pack_slug_foreign (pack_slug) REFERENCES ui_theme_packs(slug) ON UPDATE CASCADE ON DELETE CASCADE`
 
@@ -192,182 +324,33 @@ Snapshot generated from migrations against **phpgrc** as of 2025-10-11 (UTC).
 
 **Indexes & Constraints**
 - `PRIMARY KEY (slug)`
-- `INDEX ui_theme_packs_enabled_index (enabled)`
 - `INDEX ui_theme_packs_created_at_index (created_at)`
+- `INDEX ui_theme_packs_enabled_index (enabled)`
 - `INDEX ui_theme_packs_imported_by_foreign (imported_by)`
 
 - `FOREIGN KEY ui_theme_packs_imported_by_foreign (imported_by) REFERENCES users(id) ON UPDATE CASCADE ON DELETE SET NULL`
 
 ---
 
-### `evidence`
-
-| Column | Type | Null | Default | Extra |
-|-------:|------|------|---------|-------|
-| id | varchar(255) | ✓ | NULL | — |
-| owner_id | bigint unsigned | ✓ | NULL | — |
-| filename | varchar(255) | ✓ | NULL | — |
-| mime | varchar(128) | ✓ | NULL | — |
-| size_bytes | bigint unsigned | ✓ | NULL | — |
-| sha256 | varchar(64) | ✓ | NULL | — |
-| version | int unsigned | ✓ | 1 | — |
-| bytes | longblob | ✗ | NULL | — |
-| created_at | datetime | ✓ | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
-| updated_at | datetime | ✓ | CURRENT_TIMESTAMP | DEFAULT_GENERATED on update CURRENT_TIMESTAMP |
-
-**Indexes & Constraints**
-- `PRIMARY KEY (id)`
-- `INDEX evidence_created_id_idx (created_at, id)`
-- `INDEX evidence_owner_id_filename_index (owner_id, filename)`
-- `INDEX evidence_sha256_index (sha256)`
-
-- `FOREIGN KEY evidence_owner_id_fk (owner_id) REFERENCES users(id) ON UPDATE NO ACTION ON DELETE CASCADE`
-
----
-
-### `mime_labels`
-
-| Column | Type | Null | Default | Extra |
-|-------:|------|------|---------|-------|
-| id | bigint unsigned | ✓ | NULL | auto_increment |
-| value | varchar(191) | ✓ | NULL | — |
-| match_type | enum('exact','prefix') | ✓ | 'exact' | — |
-| label | varchar(191) | ✓ | NULL | — |
-| created_at | timestamp | ✗ | NULL | — |
-| updated_at | timestamp | ✗ | NULL | — |
-
-**Indexes & Constraints**
-- `PRIMARY KEY (id)`
-- `UNIQUE INDEX mime_labels_value_match_type_unique (value, match_type)`
-
-**Seed Data**
-- Installed by migration `0000_00_00_000150_create_mime_labels_table.php` with common MIME to label mappings (e.g., PDF document, PNG image) and vendor prefixes (e.g., Office formats).
-
----
-
-### `exports`
-
-| Column | Type | Null | Default | Extra |
-|-------:|------|------|---------|-------|
-| id | varchar(26) | ✓ | NULL | — |
-| type | varchar(16) | ✓ | NULL | — |
-| params | json | ✗ | NULL | — |
-| status | varchar(32) | ✓ | NULL | — |
-| progress | tinyint unsigned | ✓ | 0 | — |
-| artifact_disk | varchar(64) | ✗ | NULL | — |
-| artifact_path | varchar(191) | ✗ | NULL | — |
-| artifact_mime | varchar(191) | ✗ | NULL | — |
-| artifact_size | bigint unsigned | ✗ | NULL | — |
-| artifact_sha256 | varchar(64) | ✗ | NULL | — |
-| created_at | datetime | ✓ | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
-| completed_at | datetime | ✗ | NULL | — |
-| failed_at | datetime | ✗ | NULL | — |
-| error_code | varchar(64) | ✗ | NULL | — |
-| error_note | varchar(191) | ✗ | NULL | — |
-
-**Indexes & Constraints**
-- `PRIMARY KEY (id)`
-- `INDEX exports_status_index (status)`
-- `INDEX exports_status_type_index (status, type)`
-
----
-
-### `role_user`
+### `user_ui_prefs`
 
 | Column | Type | Null | Default | Extra |
 |-------:|------|------|---------|-------|
 | user_id | bigint unsigned | ✓ | NULL | — |
-| role_id | varchar(191) | ✓ | NULL | — |
+| theme | varchar(64) | ✗ | NULL | — |
+| mode | varchar(16) | ✗ | NULL | — |
+| overrides | text | ✗ | NULL | — |
+| sidebar_collapsed | tinyint(1) | ✓ | 0 | — |
+| sidebar_pinned | tinyint(1) | ✓ | 1 | — |
+| sidebar_width | int unsigned | ✓ | 280 | — |
+| sidebar_order | text | ✗ | NULL | — |
+| created_at | datetime | ✓ | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
+| updated_at | datetime | ✓ | CURRENT_TIMESTAMP | DEFAULT_GENERATED on update CURRENT_TIMESTAMP |
 
 **Indexes & Constraints**
-- `PRIMARY KEY (user_id, role_id)`
-- `INDEX role_user_role_id_foreign (role_id)`
+- `PRIMARY KEY (user_id)`
 
-- `FOREIGN KEY role_user_role_id_foreign (role_id) REFERENCES roles(id) ON UPDATE NO ACTION ON DELETE CASCADE`
-- `FOREIGN KEY role_user_user_id_foreign (user_id) REFERENCES users(id) ON UPDATE NO ACTION ON DELETE CASCADE`
-
----
-
-### `roles`
-
-| Column | Type | Null | Default | Extra |
-|-------:|------|------|---------|-------|
-| id | varchar(191) | ✓ | NULL | — |
-| name | varchar(255) | ✓ | NULL | — |
-| created_at | timestamp | ✗ | NULL | — |
-| updated_at | timestamp | ✗ | NULL | — |
-
-**Indexes & Constraints**
-- `PRIMARY KEY (id)`
-- `UNIQUE INDEX roles_name_unique (name)`
-
-**Seed Data**
-- Inserted by migration `2025_09_22_000003_seed_default_roles.php`:
-- `role_admin` → `Admin`
-- `role_auditor` → `Auditor`
-- `role_risk_manager` → `Risk Manager`
-- `role_user` → `User`
-
----
-
-### `policy_roles`
-
-| Column | Type | Null | Default | Extra |
-|-------:|------|------|---------|-------|
-| policy | varchar(255) | ✓ | NULL | PRIMARY KEY |
-| label | varchar(255) | ✗ | NULL | — |
-| created_at | timestamp | ✗ | NULL | — |
-| updated_at | timestamp | ✗ | NULL | — |
-
-**Indexes & Constraints**
-- `PRIMARY KEY (policy)`
-
-**Seed Data** (migration `2025_09_30_000400_create_policy_tables.php`)
-- core.settings.manage — Manage core settings
-- core.audit.view — View audit events
-- core.audit.export — Export audit events
-- core.metrics.view — View metrics
-- core.reports.view — View reports
-- core.users.view — View users
-- core.users.manage — Manage users
-- core.evidence.view — View evidence
-- core.evidence.manage — Manage evidence
-- core.exports.generate — Generate exports
-- core.rbac.view — View RBAC policies
-- rbac.roles.manage — Manage roles
-- rbac.user_roles.manage — Manage user roles
-
----
-
-### `policy_role_assignments`
-
-| Column | Type | Null | Default | Extra |
-|-------:|------|------|---------|-------|
-| policy | varchar(255) | ✓ | NULL | part of PRIMARY KEY |
-| role_id | varchar(255) | ✓ | NULL | part of PRIMARY KEY |
-| created_at | timestamp | ✗ | NULL | — |
-| updated_at | timestamp | ✗ | NULL | — |
-
-**Indexes & Constraints**
-- `PRIMARY KEY (policy, role_id)`
-- `INDEX policy_role_assignments_role_id_foreign (role_id)`
-- `FOREIGN KEY policy_role_assignments_policy_foreign (policy) REFERENCES policy_roles(policy) ON UPDATE NO ACTION ON DELETE CASCADE`
-- `FOREIGN KEY policy_role_assignments_role_id_foreign (role_id) REFERENCES roles(id) ON UPDATE NO ACTION ON DELETE CASCADE`
-
-**Seed Data** (migration `2025_09_30_000400_create_policy_tables.php`)
-- core.settings.manage → role_admin
-- core.audit.view → role_admin, role_auditor, role_risk_manager
-- core.audit.export → role_admin, role_auditor
-- core.metrics.view → role_admin, role_auditor, role_risk_manager
-- core.reports.view → role_admin, role_auditor, role_risk_manager
-- core.users.view → role_admin
-- core.users.manage → role_admin
-- core.evidence.view → role_admin, role_auditor, role_risk_manager, role_user
-- core.evidence.manage → role_admin, role_risk_manager
-- core.exports.generate → role_admin, role_risk_manager
-- core.rbac.view → role_admin, role_auditor
-- rbac.roles.manage → role_admin
-- rbac.user_roles.manage → role_admin
+- `FOREIGN KEY user_ui_prefs_user_id_foreign (user_id) REFERENCES users(id) ON UPDATE CASCADE ON DELETE CASCADE`
 
 ---
 
@@ -386,27 +369,6 @@ Snapshot generated from migrations against **phpgrc** as of 2025-10-11 (UTC).
 **Indexes & Constraints**
 - `PRIMARY KEY (id)`
 - `UNIQUE INDEX users_email_unique (email)`
-
----
-
-### `user_ui_prefs`
-
-| Column | Type | Null | Default | Extra |
-|-------:|------|------|---------|-------|
-| user_id | bigint unsigned | ✓ | NULL | — |
-| theme | varchar(64) | ✗ | NULL | — |
-| mode | varchar(16) | ✗ | NULL | — |
-| overrides | text | ✗ | NULL | — |
-| sidebar_collapsed | tinyint(1) | ✓ | 0 | — |
-| sidebar_width | int unsigned | ✓ | 280 | — |
-| sidebar_order | text | ✗ | NULL | — |
-| created_at | datetime | ✓ | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
-| updated_at | datetime | ✓ | CURRENT_TIMESTAMP | DEFAULT_GENERATED on update CURRENT_TIMESTAMP |
-
-**Indexes & Constraints**
-- `PRIMARY KEY (user_id)`
-
-- `FOREIGN KEY user_ui_prefs_user_id_foreign (user_id) REFERENCES users(id) ON UPDATE CASCADE ON DELETE CASCADE`
 
 ---
 
