@@ -78,61 +78,66 @@ const ASSETS_BODY = {
       id: "as_primary",
       profile_id: "bp_custom",
       kind: "primary_logo" as const,
-      name: "primary.webp",
+      name: "contoso--grp123.webp",
+      display_name: "contoso.webp",
       mime: "image/webp",
       size_bytes: 1024,
       sha256: "abc",
       uploaded_by: "admin",
       created_at: "2025-09-30T12:00:00Z",
-      url: "https://example.com/primary.webp",
+      url: "https://example.com/contoso--grp123.webp",
     },
     {
       id: "as_secondary",
       profile_id: "bp_custom",
       kind: "secondary_logo" as const,
-      name: "secondary.webp",
+      name: "contoso--grp123--secondary-logo.webp",
+      display_name: "contoso.webp",
       mime: "image/webp",
       size_bytes: 900,
       sha256: "def",
       uploaded_by: "admin",
       created_at: "2025-09-30T12:00:01Z",
-      url: "https://example.com/secondary.webp",
+      url: "https://example.com/contoso--grp123--secondary-logo.webp",
     },
     {
       id: "as_header",
       profile_id: "bp_custom",
       kind: "header_logo" as const,
-      name: "header.webp",
+      name: "contoso--grp123--header-logo.webp",
+      display_name: "contoso.webp",
       mime: "image/webp",
       size_bytes: 880,
       sha256: "ghi",
       uploaded_by: "admin",
       created_at: "2025-09-30T12:00:02Z",
-      url: "https://example.com/header.webp",
+      url: "https://example.com/contoso--grp123--header-logo.webp",
     },
     {
       id: "as_footer",
       profile_id: "bp_custom",
       kind: "footer_logo" as const,
-      name: "footer.webp",
+      name: "contoso--grp123--footer-logo.webp",
+      display_name: "contoso.webp",
       mime: "image/webp",
       size_bytes: 860,
       sha256: "jkl",
       uploaded_by: "admin",
       created_at: "2025-09-30T12:00:03Z",
-      url: "https://example.com/footer.webp",
+      url: "https://example.com/contoso--grp123--footer-logo.webp",
     },
     {
       id: "as_favicon",
       profile_id: "bp_custom",
       kind: "favicon" as const,
-      name: "favicon.webp",
+      name: "contoso--grp123--favicon.webp",
+      display_name: "contoso.webp",
       mime: "image/webp",
       size_bytes: 400,
       sha256: "mno",
       uploaded_by: "admin",
       created_at: "2025-09-30T12:00:04Z",
-      url: "https://example.com/favicon.webp",
+      url: "https://example.com/contoso--grp123--favicon.webp",
     },
   ],
 };
@@ -208,6 +213,8 @@ describe("BrandingCard", () => {
     await waitFor(() => expect(screen.queryByText("Loading branding settings…")).toBeNull());
     expect(screen.getByLabelText("Branding profile")).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: "Restore default" }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: "Delete" })).toHaveLength(1);
+    expect(screen.getAllByText("contoso.webp").length).toBeGreaterThan(0);
     expect(screen.getByTestId("auto-managed-secondary_logo")).toHaveTextContent(
       "Managed via Primary logo upload."
     );
@@ -262,6 +269,10 @@ describe("BrandingCard", () => {
     await waitFor(() => expect(screen.queryByText("Loading branding settings…")).toBeNull());
 
     const fileInput = screen.getByLabelText("Upload Primary logo") as HTMLInputElement;
+    const primarySelect = screen.getByLabelText("Primary logo asset selection") as HTMLSelectElement;
+    const secondarySelect = screen.getByLabelText("Secondary logo asset selection") as HTMLSelectElement;
+    expect(primarySelect.value).toBe("as_primary");
+    expect(secondarySelect.value).toBe("as_secondary");
 
     const file = new File(["png"], "logo.png", { type: "image/png" });
 
@@ -272,6 +283,8 @@ describe("BrandingCard", () => {
     expect(uploadBody).not.toBeNull();
     expect(uploadBody?.get("profile_id")).toBe("bp_custom");
     expect(uploadBody?.get("kind")).toBe("primary_logo");
+    expect(primarySelect.value).toBe("as_primary");
+    expect(secondarySelect.value).toBe("as_secondary");
   });
 
   it("handles 409 conflicts", async () => {

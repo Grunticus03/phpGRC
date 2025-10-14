@@ -70,12 +70,18 @@ final class BrandAssetsApiTest extends TestCase
         self::assertIsArray($data);
         $assetId = $data['asset']['id'] ?? null;
         self::assertIsString($assetId);
+        self::assertMatchesRegularExpression('/logo--[a-z0-9]+\\.webp/', $data['asset']['name'] ?? '');
+        self::assertSame('logo.webp', $data['asset']['display_name'] ?? null);
 
         /** @var array<string,mixed>|null $variants */
         $variants = $data['variants'] ?? null;
         self::assertIsArray($variants);
         self::assertArrayHasKey('primary_logo', $variants);
         self::assertSame(5, count($variants));
+        foreach ($variants as $variant) {
+            self::assertIsArray($variant);
+            self::assertSame('logo.webp', $variant['display_name'] ?? null);
+        }
 
         $this->assertDatabaseHas('brand_assets', [
             'id' => $assetId,

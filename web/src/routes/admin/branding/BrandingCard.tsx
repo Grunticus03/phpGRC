@@ -29,6 +29,7 @@ type BrandAsset = {
   profile_id: string;
   kind: "primary_logo" | "secondary_logo" | "header_logo" | "footer_logo" | "favicon";
   name: string;
+  display_name?: string;
   mime: string;
   size_bytes: number;
   sha256: string;
@@ -592,27 +593,10 @@ export default function BrandingCard(): JSX.Element {
         return;
       }
 
-      const variantEntries = VARIANT_ORDER.map((variantKind) => variants[variantKind]).filter(
-        (entry): entry is BrandAsset => entry !== null && typeof entry === "object" && typeof entry.id === "string"
-      );
-
-      const assetsWithUrls = variantEntries.map((entry) => ({
-        ...entry,
-        url: assetDownloadUrl(entry.id),
-      }));
-
-      setAssets(assetsWithUrls);
-
-      setBrandConfig((prev) => {
-        const next = cloneBrandConfig(prev);
-        next.primary_logo_asset_id = (variants.primary_logo?.id ?? null) as string | null;
-        next.secondary_logo_asset_id = (variants.secondary_logo?.id ?? null) as string | null;
-        next.header_logo_asset_id = (variants.header_logo?.id ?? null) as string | null;
-        next.footer_logo_asset_id = (variants.footer_logo?.id ?? null) as string | null;
-        next.favicon_asset_id = (variants.favicon?.id ?? null) as string | null;
-        previewBrand(next);
-        return next;
-      });
+      const primaryAsset = variants.primary_logo ?? body.asset;
+      if (primaryAsset && typeof primaryAsset.id === "string") {
+        updateField("primary_logo_asset_id", primaryAsset.id);
+      }
 
       showSuccess("Upload successful.");
       void fetchAssets(selectedProfile.id).then((list) => setAssets(list));
@@ -974,7 +958,7 @@ function BrandAssetSection({
                     </div>
                   )}
                   <div className="small text-muted">
-                    <div>{asset.name}</div>
+                    <div>{asset.display_name ?? asset.name}</div>
                     <div>{asset.mime}</div>
                     <div>{formatBytes(asset.size_bytes)}</div>
                   </div>
@@ -1022,11 +1006,12 @@ function BrandAssetSection({
             value={asset?.id ?? ""}
             onChange={(event) => onSelect(event.target.value || null)}
             disabled={disabled || filteredAssets.length === 0}
+            aria-label={`${label} asset selection`}
           >
             <option value="">Select existing…</option>
             {filteredAssets.map((item) => (
               <option key={item.id} value={item.id}>
-                {`${assetLabel[item.kind]} • ${item.name}`}
+                {`${assetLabel[item.kind]} • ${item.display_name ?? item.name}`}
               </option>
             ))}
           </select>
@@ -1147,7 +1132,7 @@ function BrandAssetTable({ assets, onDelete, disabled }: BrandAssetTableProps): 
         <tbody>
           {assets.map((asset) => (
             <tr key={asset.id}>
-              <td>{asset.name}</td>
+              <td>{asset.display_name ?? asset.name}</td>
               <td>{assetLabel[asset.kind]}</td>
               <td>{formatBytes(asset.size_bytes)}</td>
               <td>{formatTimestamp(asset.created_at)}</td>

@@ -202,8 +202,11 @@ final class BrandAssetsController extends Controller
             ->get()
             ->all();
 
+        $baseSlug = $this->baseFileSlug($name);
+        $groupKey = Str::lower(Str::ulid()->toBase32());
+
         try {
-            $variants = $this->createVariantImages($bytes, $name);
+            $variants = $this->createVariantImages($bytes, $baseSlug, $groupKey);
         } catch (\RuntimeException $exception) {
             report($exception);
 
@@ -372,10 +375,17 @@ final class BrandAssetsController extends Controller
         $kind = is_string($kindRaw) ? $kindRaw : '';
 
         if ($kind === 'primary_logo' && $profileId !== null) {
-            $assetsToDelete = BrandAsset::query()
-                ->where('profile_id', $profileId)
-                ->get()
-                ->all();
+            /** @var mixed $nameRaw */
+            $nameRaw = $asset->getAttribute('name');
+            $name = is_string($nameRaw) ? $nameRaw : null;
+            $groupPrefix = $name !== null ? $this->variantGroupPrefix($name) : null;
+            if ($groupPrefix !== null) {
+                $assetsToDelete = BrandAsset::query()
+                    ->where('profile_id', $profileId)
+                    ->where('name', 'like', $groupPrefix.'%')
+                    ->get()
+                    ->all();
+            }
         }
 
         DB::transaction(function () use ($assetsToDelete): void {
@@ -412,7 +422,7 @@ final class BrandAssetsController extends Controller
     /**
      * @return array<string, array{name:string,bytes:string,size_bytes:int,sha256:string}>
      */
-    private function createVariantImages(string $bytes, string $baseName): array
+    private function createVariantImages(string $bytes, string $baseSlug, string $groupKey): array
     {
         if (! function_exists('imagecreatefromstring') || ! function_exists('imagewebp')) {
             throw new \RuntimeException('Image conversion to WebP is not available.');
@@ -434,7 +444,7 @@ final class BrandAssetsController extends Controller
                 imagedestroy($resized);
 
                 $variants[$kind] = [
-                    'name' => $this->variantFileName($baseName, $kind),
+                    'name' => $this->variantFileName($baseSlug, $groupKey, $kind),
                     'bytes' => $encoded,
                     'size_bytes' => strlen($encoded),
                     'sha256' => hash('sha256', $encoded, false),
@@ -548,19 +558,14 @@ final class BrandAssetsController extends Controller
         return $encoded;
     }
 
-    private function variantFileName(string $originalName, string $kind): string
+    private function variantFileName(string $baseSlug, string $groupKey, string $kind): string
     {
-        /** @var string $base */
-        $base = pathinfo($originalName, PATHINFO_FILENAME);
-        $normalized = preg_replace('/[^a-z0-9]+/i', '-', strtolower($base)) ?? '';
-        $normalized = trim($normalized, '-');
-        if ($normalized === '') {
-            $normalized = 'brand';
+        $suffix = str_replace('_', '-', strtolower($kind));
+        if ($kind === 'primary_logo') {
+            return sprintf('%s--%s.webp', $baseSlug, $groupKey);
         }
 
-        $suffix = str_replace('_', '-', strtolower($kind));
-
-        return sprintf('%s-%s.webp', $normalized, $suffix);
+        return sprintf('%s--%s--%s.webp', $baseSlug, $groupKey, $suffix);
     }
 
     /** @return array<string,mixed> */
@@ -601,11 +606,54 @@ final class BrandAssetsController extends Controller
             'profile_id' => $asset->getAttribute('profile_id'),
             'kind' => $kind,
             'name' => $name,
+            'display_name' => $this->displayNameForAsset($asset, $name),
             'mime' => $mime,
             'size_bytes' => $size,
             'sha256' => Str::lower($sha),
             'uploaded_by' => is_string($uploaded) ? $uploaded : null,
             'created_at' => $createdAt->toJSON(),
         ];
+    }
+
+    private function baseFileSlug(string $originalName): string
+    {
+        /** @var string $base */
+        $base = pathinfo($originalName, PATHINFO_FILENAME);
+        $normalized = preg_replace('/[^a-z0-9]+/i', '-', strtolower($base)) ?? '';
+        $normalized = trim($normalized, '-');
+
+        return $normalized !== '' ? $normalized : 'brand';
+    }
+
+    private function displayNameForAsset(BrandAsset $asset, string $storedName): string
+    {
+        $extension = pathinfo($storedName, PATHINFO_EXTENSION);
+        /** @var string $filename */
+        $filename = pathinfo($storedName, PATHINFO_FILENAME);
+        $parts = explode('--', $filename);
+        $base = $parts[0];
+        if ($base === '') {
+            $base = 'brand';
+        }
+        $ext = $extension !== '' ? $extension : 'webp';
+
+        return sprintf('%s.%s', $base, $ext);
+    }
+
+    private function variantGroupPrefix(string $storedName): ?string
+    {
+        $withoutExtension = (string) preg_replace('/\.webp$/i', '', $storedName);
+        $segments = explode('--', $withoutExtension);
+        if (count($segments) < 2) {
+            return null;
+        }
+
+        [$slug, $group] = array_pad($segments, 2, '');
+
+        if ($slug === '' || $group === '') {
+            return null;
+        }
+
+        return sprintf('%s--%s', $slug, $group);
     }
 }
