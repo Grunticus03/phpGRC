@@ -13,7 +13,6 @@ $defaultEnv = [
     'APP_KEY' => 'base64:4sC72kLZfrN7kYM/qfNwCuWHa3gwPrmDkSumCF1FpHc=',
     'CACHE_DRIVER' => 'array',
     'QUEUE_CONNECTION' => 'sync',
-    'APP_BASE_PATH' => dirname(__FILE__).'/api',
 ];
 
 foreach ($defaultEnv as $key => $value) {

@@ -136,6 +136,7 @@ jobs:
             echo "QUEUE_CONNECTION=sync"
             echo "DB_CONNECTION=sqlite"
             echo "DB_DATABASE=$SQLITE_DB"
+            echo "APP_BASE_PATH=$GITHUB_WORKSPACE/api"
           } >> "$GITHUB_ENV"
           {
             echo "APP_ENV=local"
@@ -148,6 +149,7 @@ jobs:
             echo "QUEUE_CONNECTION=sync"
             echo "DB_CONNECTION=sqlite"
             echo "DB_DATABASE=$SQLITE_DB"
+            echo "APP_BASE_PATH=$GITHUB_WORKSPACE/api"
           } > .env
       - name: Prepare Laravel storage
         run: |
@@ -175,6 +177,7 @@ jobs:
             echo "QUEUE_CONNECTION="
             echo "DB_CONNECTION="
             echo "DB_DATABASE="
+            echo "APP_BASE_PATH="
           } >> "$GITHUB_ENV"
       - name: Composer audit (prod only)
         run: composer audit --locked --no-dev
