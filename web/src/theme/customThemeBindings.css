@@ -262,3 +262,20 @@ html[data-mode="dark"] {
     var(--bs-nav-pills-link-active-color)
   );
 }
+
+html[data-theme="slate"] .btn-primary,
+html[data-theme="slate"] .btn-secondary,
+html[data-theme="slate"] .btn-success,
+html[data-theme="slate"] .btn-info,
+html[data-theme="slate"] .btn-warning,
+html[data-theme="slate"] .btn-danger,
+html[data-theme="slate"] .btn-light,
+html[data-theme="slate"] .btn-dark {
+  border-width: 0;
+  border-color: transparent;
+}
+
+html[data-theme="slate"] :is(.btn-primary, .btn-secondary, .btn-success, .btn-info, .btn-warning, .btn-danger, .btn-light, .btn-dark):is(:hover, :focus, :active, :focus-visible, :focus-within) {
+  border-width: 0;
+  border-color: transparent;
+}

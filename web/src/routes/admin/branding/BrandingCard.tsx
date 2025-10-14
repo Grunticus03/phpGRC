@@ -3,6 +3,7 @@ import { baseHeaders } from "../../../lib/api";
 import { updateThemeSettings } from "../../../theme/themeManager";
 import { DEFAULT_THEME_SETTINGS, type ThemeSettings } from "../themeData";
 import { useToast } from "../../../components/toast/ToastProvider";
+import ConfirmModal from "../../../components/modal/ConfirmModal";
 
 type Mutable<T> = T extends object ? { -readonly [K in keyof T]: Mutable<T[K]> } : T;
 
@@ -158,6 +159,8 @@ export default function BrandingCard(): JSX.Element {
   const [readOnly, setReadOnly] = useState(false);
   const [isCreatingProfile, setIsCreatingProfile] = useState(false);
   const [newProfileName, setNewProfileName] = useState("");
+  const [deleteAssetTarget, setDeleteAssetTarget] = useState<BrandAsset | null>(null);
+  const [deleteAssetBusy, setDeleteAssetBusy] = useState(false);
 
   const etagRef = useRef<string | null>(null);
   const baselineRef = useRef<BrandingConfig | null>(null);
@@ -597,14 +600,30 @@ export default function BrandingCard(): JSX.Element {
     }
   };
 
-  const handleDeleteAsset = async (assetId: string): Promise<void> => {
-    if (!window.confirm("Delete this asset? This cannot be undone.")) return;
+  const requestDeleteAsset = (asset: BrandAsset): void => {
     if (!selectedProfile || selectedProfile.is_locked) {
       showWarning("Cannot modify assets for this profile.");
       return;
     }
+    setDeleteAssetTarget(asset);
+  };
+
+  const dismissDeleteAssetModal = (): void => {
+    if (deleteAssetBusy) return;
+    setDeleteAssetTarget(null);
+  };
+
+  const handleDeleteAsset = async (): Promise<void> => {
+    if (!deleteAssetTarget) return;
+    const profile = selectedProfile;
+    if (!profile || profile.is_locked) {
+      showWarning("Cannot modify assets for this profile.");
+      setDeleteAssetTarget(null);
+      return;
+    }
+    setDeleteAssetBusy(true);
     try {
-      const res = await fetch(`/api/settings/ui/brand-assets/${encodeURIComponent(assetId)}`, {
+      const res = await fetch(`/api/settings/ui/brand-assets/${encodeURIComponent(deleteAssetTarget.id)}`, {
         method: "DELETE",
         credentials: "same-origin",
         headers: baseHeaders(),
@@ -613,9 +632,12 @@ export default function BrandingCard(): JSX.Element {
         throw new Error(`Delete failed (${res.status})`);
       }
       showSuccess("Asset deleted.");
-      await loadBranding({ preserveMessage: true, profileId: selectedProfile.id });
+      await loadBranding({ preserveMessage: true, profileId: profile.id });
+      setDeleteAssetTarget(null);
     } catch (err) {
       showDanger(err instanceof Error ? err.message : "Delete failed.");
+    } finally {
+      setDeleteAssetBusy(false);
     }
   };
 
@@ -626,8 +648,15 @@ export default function BrandingCard(): JSX.Element {
     return assets.find((asset) => asset.id === id) ?? null;
   };
 
+  const deleteAssetLabel =
+    deleteAssetTarget?.display_name?.trim() ||
+    deleteAssetTarget?.name?.trim() ||
+    deleteAssetTarget?.id ||
+    "";
+
   return (
-    <section className="card mb-4" aria-label="branding-card">
+    <>
+      <section className="card mb-4" aria-label="branding-card">
       <div className="card-header d-flex justify-content-between align-items-center">
         <strong>Branding</strong>
         <div className="d-flex gap-2">
@@ -879,13 +908,32 @@ export default function BrandingCard(): JSX.Element {
 
             <BrandAssetTable
               assets={assets.filter((asset) => asset.kind === "primary_logo")}
-              onDelete={handleDeleteAsset}
+              onDelete={requestDeleteAsset}
               disabled={disabled}
             />
           </>
         )}
       </div>
     </section>
+      {deleteAssetTarget && (
+        <ConfirmModal
+          open
+          title={`Delete ${deleteAssetLabel || "asset"}?`}
+          busy={deleteAssetBusy}
+          confirmLabel={deleteAssetBusy ? "Deleting…" : "Delete"}
+          confirmTone="danger"
+          onCancel={dismissDeleteAssetModal}
+          onConfirm={() => {
+            if (!deleteAssetBusy) {
+              void handleDeleteAsset();
+            }
+          }}
+          disableBackdropClose={deleteAssetBusy}
+        >
+          <p className="mb-0">This action cannot be undone.</p>
+        </ConfirmModal>
+      )}
+    </>
   );
 }
 
@@ -1094,7 +1142,7 @@ function PlacementIllustration({ kind }: { kind: BrandAsset["kind"] }): JSX.Elem
 
 type BrandAssetTableProps = {
   assets: BrandAsset[];
-  onDelete: (assetId: string) => void;
+  onDelete: (asset: BrandAsset) => void;
   disabled: boolean;
 };
 
@@ -1132,7 +1180,7 @@ function BrandAssetTable({ assets, onDelete, disabled }: BrandAssetTableProps): 
                 <button
                   type="button"
                   className="btn btn-outline-danger btn-sm"
-                  onClick={() => onDelete(asset.id)}
+                  onClick={() => onDelete(asset)}
                   disabled={disabled}
                 >
                   Delete

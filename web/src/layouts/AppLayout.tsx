@@ -265,9 +265,7 @@ export default function AppLayout(): JSX.Element | null {
   const adminSubmenuCloseTimer = useRef<number | null>(null);
   const dragSidebarIdRef = useRef<string | null>(null);
   const failedBrandAssetsRef = useRef<Set<string>>(new Set());
-  const shouldHidePinButton =
-    loc.pathname.startsWith("/admin/settings/branding") ||
-    loc.pathname.startsWith("/admin/settings/core");
+  const shouldHidePinButton = customizing;
 
   const openAdminMenu = useCallback(() => {
     if (adminMenuCloseTimer.current !== null) {

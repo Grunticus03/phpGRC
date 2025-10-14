@@ -4783,6 +4783,30 @@
           "motion": "full"
         }
       },
+      "UiThemeDesignerSettings": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "storage",
+          "filesystem_path"
+        ],
+        "properties": {
+          "storage": {
+            "type": "string",
+            "enum": [
+              "browser",
+              "filesystem"
+            ],
+            "description": "Storage backend for Theme Designer.",
+            "example": "filesystem"
+          },
+          "filesystem_path": {
+            "type": "string",
+            "description": "Absolute path where custom themes are persisted when `storage` is `filesystem`.",
+            "example": "/opt/phpgrc/shared/themes"
+          }
+        }
+      },
       "UiThemeSettings": {
         "type": "object",
         "additionalProperties": false,

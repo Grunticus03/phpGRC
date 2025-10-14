@@ -16,6 +16,7 @@ import EvidenceTable, { type HeaderConfig } from "./EvidenceTable";
 import useColumnToggle from "../../components/table/useColumnToggle";
 import DateRangePicker from "../../components/pickers/DateRangePicker";
 import { useToast } from "../../components/toast/ToastProvider";
+import ConfirmModal from "../../components/modal/ConfirmModal";
 
 type FetchState = "idle" | "loading" | "error" | "ok";
 
@@ -34,6 +35,11 @@ function chipStyle(): React.CSSProperties {
 }
 
 type FilterKey = "created" | "owner" | "filename" | "mime" | "sha";
+
+const evidenceDisplayName = (item: Evidence): string => {
+  const name = item.filename?.trim();
+  return name && name !== "" ? name : item.id;
+};
 
 export default function EvidenceList(): JSX.Element {
   // Filters
@@ -78,6 +84,8 @@ export default function EvidenceList(): JSX.Element {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const toast = useToast();
   const { success: showSuccess, danger: showDanger } = toast;
+  const [deleteCandidate, setDeleteCandidate] = useState<Evidence | null>(null);
+  const [bulkDeletePromptOpen, setBulkDeletePromptOpen] = useState(false);
 
   const location = useLocation();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -478,20 +486,35 @@ export default function EvidenceList(): JSX.Element {
     }
   }
 
-  async function handleDelete(item: Evidence) {
+  function handleDelete(item: Evidence) {
     if (deletingId || bulkDeleting) return;
-    const name = item.filename?.trim() !== "" ? item.filename.trim() : item.id;
-    const confirmed = window.confirm(`Delete ${name}? This cannot be undone.`);
-    if (!confirmed) return;
+    setDeleteCandidate(item);
+  }
 
-    setDeletingId(item.id);
+  const deleteCandidateBusy = deleteCandidate !== null && deletingId === deleteCandidate.id;
+  const deleteCandidateLabel = deleteCandidate ? evidenceDisplayName(deleteCandidate) : "";
+
+  const dismissDeleteCandidate = (): void => {
+    if (deleteCandidateBusy) return;
+    setDeleteCandidate(null);
+  };
+
+  async function confirmDeleteCandidate() {
+    if (!deleteCandidate || deleteCandidateBusy || bulkDeleting) {
+      return;
+    }
+
+    const target = deleteCandidate;
+    const label = evidenceDisplayName(target);
+
+    setDeletingId(target.id);
     try {
-      await deleteEvidence(item.id);
-      showSuccess(`${name} deleted.`);
+      await deleteEvidence(target.id);
+      showSuccess(`${label} deleted.`);
       setSelectedIds((prev) => {
-        if (!prev.has(item.id)) return prev;
+        if (!prev.has(target.id)) return prev;
         const next = new Set(prev);
-        next.delete(item.id);
+        next.delete(target.id);
         return next;
       });
       await reloadCurrentPage();
@@ -499,16 +522,27 @@ export default function EvidenceList(): JSX.Element {
       showDanger(formatDeleteError(err));
     } finally {
       setDeletingId(null);
+      setDeleteCandidate(null);
     }
   }
 
-  async function handleDeleteSelected() {
+  function handleDeleteSelected() {
     if (selectedIds.size === 0 || deletingId || bulkDeleting) {
       return;
     }
-    const count = selectedIds.size;
-    const confirmed = window.confirm(`Delete ${count} selected item${count === 1 ? "" : "s"}? This cannot be undone.`);
-    if (!confirmed) return;
+    setBulkDeletePromptOpen(true);
+  }
+
+  const cancelBulkDeletePrompt = (): void => {
+    if (bulkDeleting) return;
+    setBulkDeletePromptOpen(false);
+  };
+
+  async function confirmBulkDelete() {
+    if (selectedIds.size === 0 || deletingId || bulkDeleting) {
+      setBulkDeletePromptOpen(false);
+      return;
+    }
 
     setBulkDeleting(true);
     try {
@@ -543,6 +577,7 @@ export default function EvidenceList(): JSX.Element {
       }
     } finally {
       setBulkDeleting(false);
+      setBulkDeletePromptOpen(false);
     }
   }
 
@@ -1303,10 +1338,48 @@ export default function EvidenceList(): JSX.Element {
         <button type="button" className="btn btn-outline-secondary btn-sm" onClick={prevPage} disabled={state !== "ok" || prevStack.length === 0}>
           Prev
         </button>
-        <button type="button" className="btn btn-outline-secondary btn-sm" onClick={nextPage} disabled={state !== "ok" || !cursor}>
-          Next
-        </button>
-      </nav>
+      <button type="button" className="btn btn-outline-secondary btn-sm" onClick={nextPage} disabled={state !== "ok" || !cursor}>
+        Next
+      </button>
+    </nav>
+
+      {deleteCandidate && (
+        <ConfirmModal
+          open
+          title={`Delete ${deleteCandidateLabel}?`}
+          busy={deleteCandidateBusy}
+          confirmLabel={deleteCandidateBusy ? "Deleting…" : "Delete"}
+          confirmTone="danger"
+          onCancel={dismissDeleteCandidate}
+          onConfirm={() => {
+            if (!deleteCandidateBusy) {
+              void confirmDeleteCandidate();
+            }
+          }}
+          disableBackdropClose={deleteCandidateBusy}
+        >
+          <p className="mb-0">This action cannot be undone.</p>
+        </ConfirmModal>
+      )}
+
+      {bulkDeletePromptOpen && (
+        <ConfirmModal
+          open
+          title={`Delete ${selectedCount} selected item${selectedCount === 1 ? "" : "s"}?`}
+          busy={bulkDeleting}
+          confirmLabel={bulkDeleting ? "Deleting…" : "Delete"}
+          confirmTone="danger"
+          onCancel={cancelBulkDeletePrompt}
+          onConfirm={() => {
+            if (!bulkDeleting) {
+              void confirmBulkDelete();
+            }
+          }}
+          disableBackdropClose={bulkDeleting}
+        >
+          <p className="mb-0">This action cannot be undone.</p>
+        </ConfirmModal>
+      )}
     </main>
   );
 }

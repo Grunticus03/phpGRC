@@ -27,7 +27,13 @@ final class AuditMessageFormatter
             'rbac.role.deleted' => self::formatRoleDeleted($event, $meta),
             'rbac.user.created' => self::formatUserCreated($event, $meta),
             'rbac.user.deleted' => self::formatUserDeleted($event, $meta),
-            'setting.modified' => self::formatSettingModified($event, $meta),
+            'setting.modified',
+            'ui.brand.updated',
+            'ui.theme.updated',
+            'ui.theme.overrides.updated',
+            'ui.nav.sidebar.saved',
+            'ui.theme.pack.updated',
+            'ui.theme.pack.deleted' => self::formatSettingModified($event, $meta),
             'evidence.uploaded' => self::formatEvidenceUploaded($event, $meta),
             'evidence.downloaded' => self::formatEvidenceDownloaded($event, $meta),
             'evidence.deleted' => self::formatEvidenceDeleted($event, $meta),
@@ -272,6 +278,14 @@ final class AuditMessageFormatter
 
         $changeType = self::readString($meta, ['change_type', 'action']);
         $actionVerb = self::formatSettingChangeVerb($changeType);
+        $eventAction = trim($event->action);
+        if ($eventAction !== '') {
+            if (str_ends_with($eventAction, '.deleted')) {
+                $actionVerb = 'deleted';
+            } elseif (str_ends_with($eventAction, '.saved')) {
+                $actionVerb = 'saved';
+            }
+        }
 
         $old = self::readString($meta, ['old_value']);
         if ($old === '') {
