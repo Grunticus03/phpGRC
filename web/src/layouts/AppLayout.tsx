@@ -993,16 +993,6 @@ export default function AppLayout(): JSX.Element | null {
     return supported.length > 1;
   }, [manifest, currentTheme.slug]);
 
-  if (loading) return null;
-
-  if (requireAuth && !authed && !loc.pathname.startsWith("/auth/")) {
-    const intended = `${loc.pathname}${loc.search}${loc.hash}`;
-    rememberIntendedPath(intended);
-    markSessionExpired();
-    navigate("/auth/login", { replace: true });
-    return null;
-  }
-
   const hideNav = loc.pathname.startsWith("/auth/");
 
   useEffect(() => {
@@ -1030,6 +1020,16 @@ export default function AppLayout(): JSX.Element | null {
       document.documentElement.style.removeProperty("--app-navbar-height");
     };
   }, [hideNav, themeMode, brand.headerLogoId, brand.primaryLogoId, brand.title]);
+
+  if (loading) return null;
+
+  if (requireAuth && !authed && !loc.pathname.startsWith("/auth/")) {
+    const intended = `${loc.pathname}${loc.search}${loc.hash}`;
+    rememberIntendedPath(intended);
+    markSessionExpired();
+    navigate("/auth/login", { replace: true });
+    return null;
+  }
 
   const displayedOrder = customizing ? editingOrder : effectiveSidebarOrder;
   const sidebarItems = displayedOrder
