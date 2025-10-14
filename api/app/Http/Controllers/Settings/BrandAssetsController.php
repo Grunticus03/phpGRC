@@ -20,6 +20,17 @@ use Illuminate\Support\Str;
 
 final class BrandAssetsController extends Controller
 {
+    /**
+     * @var array<string,array{width:int,height:int,quality:int}>
+     */
+    private const VARIANT_SPECS = [
+        'primary_logo' => ['width' => 480, 'height' => 180, 'quality' => 90],
+        'secondary_logo' => ['width' => 360, 'height' => 140, 'quality' => 90],
+        'header_logo' => ['width' => 280, 'height' => 100, 'quality' => 85],
+        'footer_logo' => ['width' => 280, 'height' => 100, 'quality' => 85],
+        'favicon' => ['width' => 96, 'height' => 96, 'quality' => 95],
+    ];
+
     public function __construct(
         private readonly UiSettingsService $settings,
         private readonly BrandAssetStorageService $storage
@@ -109,7 +120,6 @@ final class BrandAssetsController extends Controller
             'image/png',
             'image/jpeg',
             'image/webp',
-            'image/svg+xml',
         ];
 
         if (! in_array($mime, $allowed, true)) {
@@ -128,8 +138,6 @@ final class BrandAssetsController extends Controller
         if (mb_strlen($name) > 160) {
             $name = mb_substr($name, 0, 160);
         }
-
-        $sha256 = hash('sha256', $bytes, false);
 
         $user = $request->user();
         $actorId = null;
@@ -181,50 +189,114 @@ final class BrandAssetsController extends Controller
         /** @var mixed $kindInput */
         $kindInput = $request->input('kind', 'primary_logo');
         $kind = is_string($kindInput) ? $kindInput : 'primary_logo';
+        if ($kind !== 'primary_logo') {
+            return response()->json([
+                'ok' => false,
+                'code' => 'UNSUPPORTED_KIND',
+                'message' => 'Only primary logo uploads are supported. Variants are generated automatically.',
+            ], 422);
+        }
 
-        /** @var BrandAsset $asset */
-        $asset = DB::transaction(function () use ($bytes, $size, $mime, $name, $sha256, $actorId, $actorName, $kind, $profile): BrandAsset {
-            $record = new BrandAsset([
-                'profile_id' => $profile->getAttribute('id'),
-                'kind' => $kind,
-                'name' => $name,
-                'mime' => $mime,
-                'size_bytes' => $size,
-                'sha256' => $sha256,
-                'bytes' => $bytes,
-                'uploaded_by' => $actorId,
-                'uploaded_by_name' => $actorName,
-            ]);
+        $existingAssets = BrandAsset::query()
+            ->where('profile_id', $profile->getAttribute('id'))
+            ->get()
+            ->all();
 
-            $record->save();
+        try {
+            $variants = $this->createVariantImages($bytes, $name);
+        } catch (\RuntimeException $exception) {
+            report($exception);
 
-            return $record;
+            return response()->json([
+                'ok' => false,
+                'code' => 'IMAGE_PROCESSING_FAILED',
+                'message' => $exception->getMessage(),
+            ], 415);
+        }
+
+        /** @var array<string, BrandAsset> $created */
+        $created = [];
+
+        DB::transaction(function () use (&$created, $variants, $profile, $actorId, $actorName): void {
+            foreach ($variants as $variantKind => $variant) {
+                $record = new BrandAsset([
+                    'profile_id' => $profile->getAttribute('id'),
+                    'kind' => $variantKind,
+                    'name' => $variant['name'],
+                    'mime' => 'image/webp',
+                    'size_bytes' => $variant['size_bytes'],
+                    'sha256' => $variant['sha256'],
+                    'bytes' => $variant['bytes'],
+                    'uploaded_by' => $actorId,
+                    'uploaded_by_name' => $actorName,
+                ]);
+
+                $record->save();
+                $created[$variantKind] = $record;
+            }
         });
 
         try {
-            $this->storage->writeAsset($asset, $bytes);
+            foreach ($created as $asset) {
+                /** @var mixed $rawBytes */
+                $rawBytes = $asset->getAttribute('bytes');
+                if (! is_string($rawBytes)) {
+                    throw new \RuntimeException('Missing asset bytes.');
+                }
+                $this->storage->writeAsset($asset, $rawBytes);
+            }
         } catch (\Throwable $exception) {
             report($exception);
-            DB::transaction(function () use ($asset): void {
-                /** @var mixed $storedId */
-                $storedId = $asset->getAttribute('id');
-                $cleanupId = is_string($storedId) ? $storedId : null;
-                $asset->delete();
-                if ($cleanupId !== null) {
-                    $this->settings->clearBrandAssetReference($cleanupId);
+            DB::transaction(function () use ($created): void {
+                foreach ($created as $asset) {
+                    /** @var mixed $storedId */
+                    $storedId = $asset->getAttribute('id');
+                    $cleanupId = is_string($storedId) ? $storedId : null;
+                    $asset->delete();
+                    if ($cleanupId !== null) {
+                        $this->settings->clearBrandAssetReference($cleanupId);
+                    }
                 }
             });
 
             return response()->json([
                 'ok' => false,
                 'code' => 'STORAGE_ERROR',
-                'message' => 'Unable to persist brand asset to filesystem.',
+                'message' => 'Unable to persist brand asset variants to filesystem.',
             ], 500);
         }
 
+        if ($existingAssets !== []) {
+            DB::transaction(function () use ($existingAssets): void {
+                foreach ($existingAssets as $asset) {
+                    /** @var mixed $storedId */
+                    $storedId = $asset->getAttribute('id');
+                    $assetId = is_string($storedId) ? $storedId : (is_scalar($storedId) ? (string) $storedId : null);
+                    $asset->delete();
+                    if ($assetId !== null) {
+                        $this->settings->clearBrandAssetReference($assetId);
+                    }
+                }
+            });
+
+            foreach ($existingAssets as $asset) {
+                try {
+                    $this->storage->deleteAsset($asset);
+                } catch (\Throwable $exception) {
+                    report($exception);
+                }
+            }
+        }
+
+        $assetsPayload = array_map(
+            fn (BrandAsset $asset): array => $this->transform($asset),
+            $created
+        );
+
         return response()->json([
             'ok' => true,
-            'asset' => $this->transform($asset),
+            'asset' => $this->transform($created['primary_logo']),
+            'variants' => $assetsPayload,
         ], 201);
     }
 
@@ -289,31 +361,206 @@ final class BrandAssetsController extends Controller
             ], 404);
         }
 
-        DB::transaction(function () use ($asset): void {
-            /** @var mixed $storedId */
-            $storedId = $asset->getAttribute('id');
-            $assetId = is_string($storedId) ? $storedId : (is_scalar($storedId) ? (string) $storedId : null);
-            $asset->delete();
-            if (is_string($assetId)) {
-                $this->settings->clearBrandAssetReference($assetId);
+        /** @var mixed $profileIdRaw */
+        $profileIdRaw = $asset->getAttribute('profile_id');
+        $profileId = is_string($profileIdRaw) && $profileIdRaw !== '' ? $profileIdRaw : null;
+
+        $assetsToDelete = [$asset];
+
+        /** @var mixed $kindRaw */
+        $kindRaw = $asset->getAttribute('kind');
+        $kind = is_string($kindRaw) ? $kindRaw : '';
+
+        if ($kind === 'primary_logo' && $profileId !== null) {
+            $assetsToDelete = BrandAsset::query()
+                ->where('profile_id', $profileId)
+                ->get()
+                ->all();
+        }
+
+        DB::transaction(function () use ($assetsToDelete): void {
+            foreach ($assetsToDelete as $entry) {
+                /** @var mixed $storedId */
+                $storedId = $entry->getAttribute('id');
+                $entryId = is_string($storedId) ? $storedId : (is_scalar($storedId) ? (string) $storedId : null);
+                $entry->delete();
+                if ($entryId !== null) {
+                    $this->settings->clearBrandAssetReference($entryId);
+                }
             }
         });
 
-        try {
-            $this->storage->deleteAsset($asset);
-        } catch (\Throwable $exception) {
-            report($exception);
+        foreach ($assetsToDelete as $entry) {
+            try {
+                $this->storage->deleteAsset($entry);
+            } catch (\Throwable $exception) {
+                report($exception);
 
-            return response()->json([
-                'ok' => false,
-                'code' => 'STORAGE_ERROR',
-                'message' => 'Unable to delete brand asset file from filesystem.',
-            ], 500);
+                return response()->json([
+                    'ok' => false,
+                    'code' => 'STORAGE_ERROR',
+                    'message' => 'Unable to delete brand asset file from filesystem.',
+                ], 500);
+            }
         }
 
         return response()->json([
             'ok' => true,
         ], 200);
+    }
+
+    /**
+     * @return array<string, array{name:string,bytes:string,size_bytes:int,sha256:string}>
+     */
+    private function createVariantImages(string $bytes, string $baseName): array
+    {
+        if (! function_exists('imagecreatefromstring') || ! function_exists('imagewebp')) {
+            throw new \RuntimeException('Image conversion to WebP is not available.');
+        }
+
+        $source = @imagecreatefromstring($bytes);
+        if (! $source instanceof \GdImage) {
+            throw new \RuntimeException('Unable to decode uploaded image.');
+        }
+
+        $source = $this->ensureTrueColor($source);
+
+        $variants = [];
+
+        try {
+            foreach (self::VARIANT_SPECS as $kind => $spec) {
+                $resized = $this->resizeToFit($source, $spec['width'], $spec['height']);
+                $encoded = $this->encodeWebp($resized, $spec['quality']);
+                imagedestroy($resized);
+
+                $variants[$kind] = [
+                    'name' => $this->variantFileName($baseName, $kind),
+                    'bytes' => $encoded,
+                    'size_bytes' => strlen($encoded),
+                    'sha256' => hash('sha256', $encoded, false),
+                ];
+            }
+        } finally {
+            imagedestroy($source);
+        }
+
+        return $variants;
+    }
+
+    private function ensureTrueColor(\GdImage $image): \GdImage
+    {
+        if (imageistruecolor($image)) {
+            imagealphablending($image, false);
+            imagesavealpha($image, true);
+
+            return $image;
+        }
+
+        $width = max(1, imagesx($image));
+        $height = max(1, imagesy($image));
+
+        $trueColor = imagecreatetruecolor($width, $height);
+        if (! $trueColor instanceof \GdImage) {
+            throw new \RuntimeException('Unable to create image buffer.');
+        }
+
+        imagealphablending($trueColor, false);
+        imagesavealpha($trueColor, true);
+        $transparent = imagecolorallocatealpha($trueColor, 0, 0, 0, 127);
+        if (! is_int($transparent)) {
+            imagedestroy($trueColor);
+            throw new \RuntimeException('Unable to allocate transparent color.');
+        }
+
+        if (! imagefill($trueColor, 0, 0, $transparent)) {
+            imagedestroy($trueColor);
+            throw new \RuntimeException('Unable to initialise image fill.');
+        }
+
+        if (! imagecopy($trueColor, $image, 0, 0, 0, 0, $width, $height)) {
+            imagedestroy($trueColor);
+            throw new \RuntimeException('Unable to normalize uploaded image.');
+        }
+
+        imagedestroy($image);
+
+        return $trueColor;
+    }
+
+    private function resizeToFit(\GdImage $source, int $targetWidth, int $targetHeight): \GdImage
+    {
+        $sourceWidth = max(1, imagesx($source));
+        $sourceHeight = max(1, imagesy($source));
+
+        $scaleX = $targetWidth / $sourceWidth;
+        $scaleY = $targetHeight / $sourceHeight;
+        $scale = max(
+            (float) min($scaleX, $scaleY, 1.0),
+            1.0 / (float) max($sourceWidth, $sourceHeight)
+        );
+
+        $scaledWidth = (int) round((float) $sourceWidth * $scale);
+        $scaledHeight = (int) round((float) $sourceHeight * $scale);
+        $width = max(1, $scaledWidth);
+        $height = max(1, $scaledHeight);
+
+        $canvas = imagecreatetruecolor($width, $height);
+        if (! $canvas instanceof \GdImage) {
+            throw new \RuntimeException('Unable to create resized image buffer.');
+        }
+
+        imagealphablending($canvas, false);
+        imagesavealpha($canvas, true);
+        $transparent = imagecolorallocatealpha($canvas, 0, 0, 0, 127);
+        if (! is_int($transparent)) {
+            imagedestroy($canvas);
+            throw new \RuntimeException('Unable to allocate transparent color.');
+        }
+
+        if (! imagefill($canvas, 0, 0, $transparent)) {
+            imagedestroy($canvas);
+            throw new \RuntimeException('Unable to prime resized image.');
+        }
+
+        if (! imagecopyresampled($canvas, $source, 0, 0, 0, 0, $width, $height, $sourceWidth, $sourceHeight)) {
+            imagedestroy($canvas);
+            throw new \RuntimeException('Unable to resize uploaded image.');
+        }
+
+        return $canvas;
+    }
+
+    private function encodeWebp(\GdImage $image, int $quality): string
+    {
+        ob_start();
+        try {
+            if (! imagewebp($image, null, $quality)) {
+                throw new \RuntimeException('Unable to encode image as WebP.');
+            }
+        } finally {
+            $encoded = ob_get_clean();
+        }
+
+        if (! is_string($encoded) || $encoded === '') {
+            throw new \RuntimeException('Failed to capture encoded WebP image.');
+        }
+
+        return $encoded;
+    }
+
+    private function variantFileName(string $originalName, string $kind): string
+    {
+        /** @var string $base */
+        $base = pathinfo($originalName, PATHINFO_FILENAME);
+        $normalized = preg_replace('/[^a-z0-9]+/i', '-', strtolower($base)) ?? '';
+        $normalized = trim($normalized, '-');
+        if ($normalized === '') {
+            $normalized = 'brand';
+        }
+
+        $suffix = str_replace('_', '-', strtolower($kind));
+
+        return sprintf('%s-%s.webp', $normalized, $suffix);
     }
 
     /** @return array<string,mixed> */

@@ -85,7 +85,7 @@
 - Login screen wired to API; logout clears session and returns to login when `require_auth` is true, or stays on current page when disabled.
 
 ## Docs
-- Redoc x-logo path fixed: `x-logo.url: "/api/images/phpGRC-light-horizontal-trans.png"`.
+- Redoc x-logo path fixed: `x-logo.url: "/api/images/phpGRC-light-horizontal-trans.webp"`.
 - API docs UI is now served at **/api/docs** and linked from the Admin UI.
 - **OpenAPI:** `components.responses.RateLimited` documents headers `Retry-After`, `X-RateLimit-Limit`, `X-RateLimit-Remaining`. `HealthFingerprintResponse.summary.api_throttle` documented.
 - **OpenAPI (pending, next):** `/api/users*` endpoints will be added with full request/response schemas and examples in the next doc sweep (beta feature).

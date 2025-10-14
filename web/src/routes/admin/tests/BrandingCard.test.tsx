@@ -22,9 +22,9 @@ const SETTINGS_BODY = {
         title_text: "phpGRC",
         favicon_asset_id: null,
         primary_logo_asset_id: "as_primary",
-        secondary_logo_asset_id: null,
-        header_logo_asset_id: null,
-        footer_logo_asset_id: null,
+        secondary_logo_asset_id: "as_secondary",
+        header_logo_asset_id: "as_header",
+        footer_logo_asset_id: "as_footer",
         footer_logo_disabled: false,
         assets: {
           filesystem_path: "/opt/phpgrc/shared/brands",
@@ -78,16 +78,69 @@ const ASSETS_BODY = {
       id: "as_primary",
       profile_id: "bp_custom",
       kind: "primary_logo" as const,
-      name: "primary.png",
-      mime: "image/png",
+      name: "primary.webp",
+      mime: "image/webp",
       size_bytes: 1024,
       sha256: "abc",
       uploaded_by: "admin",
       created_at: "2025-09-30T12:00:00Z",
-      url: "https://example.com/primary.png",
+      url: "https://example.com/primary.webp",
+    },
+    {
+      id: "as_secondary",
+      profile_id: "bp_custom",
+      kind: "secondary_logo" as const,
+      name: "secondary.webp",
+      mime: "image/webp",
+      size_bytes: 900,
+      sha256: "def",
+      uploaded_by: "admin",
+      created_at: "2025-09-30T12:00:01Z",
+      url: "https://example.com/secondary.webp",
+    },
+    {
+      id: "as_header",
+      profile_id: "bp_custom",
+      kind: "header_logo" as const,
+      name: "header.webp",
+      mime: "image/webp",
+      size_bytes: 880,
+      sha256: "ghi",
+      uploaded_by: "admin",
+      created_at: "2025-09-30T12:00:02Z",
+      url: "https://example.com/header.webp",
+    },
+    {
+      id: "as_footer",
+      profile_id: "bp_custom",
+      kind: "footer_logo" as const,
+      name: "footer.webp",
+      mime: "image/webp",
+      size_bytes: 860,
+      sha256: "jkl",
+      uploaded_by: "admin",
+      created_at: "2025-09-30T12:00:03Z",
+      url: "https://example.com/footer.webp",
+    },
+    {
+      id: "as_favicon",
+      profile_id: "bp_custom",
+      kind: "favicon" as const,
+      name: "favicon.webp",
+      mime: "image/webp",
+      size_bytes: 400,
+      sha256: "mno",
+      uploaded_by: "admin",
+      created_at: "2025-09-30T12:00:04Z",
+      url: "https://example.com/favicon.webp",
     },
   ],
 };
+
+const VARIANT_MAP = ASSETS_BODY.assets.reduce<Record<string, (typeof ASSETS_BODY.assets)[number]>>((acc, asset) => {
+  acc[asset.kind] = asset;
+  return acc;
+}, {});
 
 describe("BrandingCard", () => {
   const originalFetch = globalThis.fetch as typeof fetch;
@@ -127,7 +180,7 @@ describe("BrandingCard", () => {
 
       if (url === "/api/settings/ui/brand-assets" && method === "POST") {
         uploadBody = init.body as FormData;
-        return jsonResponse({ ok: true, asset: ASSETS_BODY.assets[0] });
+        return jsonResponse({ ok: true, asset: VARIANT_MAP.primary_logo, variants: VARIANT_MAP });
       }
 
       if (url.startsWith("/api/settings/ui/brand-assets/") && method === "DELETE") {
@@ -155,6 +208,9 @@ describe("BrandingCard", () => {
     await waitFor(() => expect(screen.queryByText("Loading branding settings…")).toBeNull());
     expect(screen.getByLabelText("Branding profile")).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: "Restore default" }).length).toBeGreaterThan(0);
+    expect(screen.getByTestId("auto-managed-secondary_logo")).toHaveTextContent(
+      "Managed via Primary logo upload."
+    );
 
     fireEvent.change(screen.getByLabelText("Title text"), { target: { value: "New Title" } });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
@@ -207,7 +263,7 @@ describe("BrandingCard", () => {
 
     const fileInput = screen.getByLabelText("Upload Primary logo") as HTMLInputElement;
 
-    const file = new File(["svg"], "logo.svg", { type: "image/svg+xml" });
+    const file = new File(["png"], "logo.png", { type: "image/png" });
 
     // trigger upload
     fireEvent.change(fileInput, { target: { files: [file] } });
@@ -215,6 +271,7 @@ describe("BrandingCard", () => {
     await screen.findByText("Upload successful.");
     expect(uploadBody).not.toBeNull();
     expect(uploadBody?.get("profile_id")).toBe("bp_custom");
+    expect(uploadBody?.get("kind")).toBe("primary_logo");
   });
 
   it("handles 409 conflicts", async () => {

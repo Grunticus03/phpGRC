@@ -92,7 +92,7 @@ type UserPrefsResponse = {
   message?: string;
 };
 
-const DEFAULT_LOGO_SRC = "/api/images/phpGRC-light-horizontal-trans.png";
+const DEFAULT_LOGO_SRC = "/api/images/phpGRC-light-horizontal-trans.webp";
 const LONG_PRESS_DURATION_MS = 600;
 
 const brandAssetUrl = (assetId: string): string =>

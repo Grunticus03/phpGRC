@@ -19,13 +19,13 @@ final class BrandAssetUploadRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'kind' => ['required', 'string', 'in:primary_logo,secondary_logo,header_logo,footer_logo,favicon'],
+            'kind' => ['required', 'string', 'in:primary_logo'],
             'profile_id' => ['required', 'string', 'max:64', 'exists:brand_profiles,id'],
             'file' => [
                 'required',
                 'file',
                 'max:5120', // 5 MB
-                'mimetypes:image/png,image/jpeg,image/webp,image/svg+xml',
+                'mimetypes:image/png,image/jpeg,image/webp',
             ],
         ];
     }

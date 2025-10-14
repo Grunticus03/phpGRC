@@ -4,7 +4,7 @@ import { getCachedThemeSettings, onThemeSettingsChange } from "../../theme/theme
 import { DEFAULT_THEME_SETTINGS, type ThemeSettings } from "../admin/themeData";
 import "./LoginLayout3.css";
 
-const DEFAULT_LOGO_SRC = "/api/images/phpGRC-light-horizontal-trans.png";
+const DEFAULT_LOGO_SRC = "/api/images/phpGRC-light-horizontal-trans.webp";
 
 const brandAssetUrl = (assetId: string): string =>
   `/api/settings/ui/brand-assets/${encodeURIComponent(assetId)}/download`;

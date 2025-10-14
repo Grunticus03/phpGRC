@@ -6,7 +6,17 @@ import { useToast } from "../../../components/toast/ToastProvider";
 
 type Mutable<T> = T extends object ? { -readonly [K in keyof T]: Mutable<T[K]> } : T;
 
-type BrandingConfig = Mutable<ThemeSettings["brand"]>;
+type BrandingConfig = {
+  -readonly [K in keyof ThemeSettings["brand"]]: ThemeSettings["brand"][K] extends null
+    ? string | null
+    : ThemeSettings["brand"][K] extends string
+    ? string
+    : ThemeSettings["brand"][K] extends boolean
+    ? boolean
+    : ThemeSettings["brand"][K] extends object
+    ? Mutable<ThemeSettings["brand"][K]>
+    : ThemeSettings["brand"][K];
+};
 
 type BrandingResponse = {
   ok?: boolean;
@@ -48,6 +58,7 @@ type UploadResponse = {
   message?: string;
   note?: string;
   asset?: BrandAsset;
+  variants?: Partial<Record<BrandAsset["kind"], BrandAsset>>;
 };
 
 type BrandProfilesResponse = {
@@ -61,7 +72,7 @@ type BrandProfileResponse = {
 };
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
-const ALLOWED_TYPES = ["image/png", "image/jpeg", "image/webp", "image/svg+xml"];
+const ALLOWED_TYPES = ["image/png", "image/jpeg", "image/webp"];
 
 const assetLabel: Record<BrandAsset["kind"], string> = {
   primary_logo: "Primary logo",
@@ -70,6 +81,14 @@ const assetLabel: Record<BrandAsset["kind"], string> = {
   footer_logo: "Footer logo",
   favicon: "Favicon",
 };
+
+const VARIANT_ORDER: BrandAsset["kind"][] = [
+  "primary_logo",
+  "secondary_logo",
+  "header_logo",
+  "footer_logo",
+  "favicon",
+];
 
 const assetDownloadUrl = (assetId: string): string =>
   `/api/settings/ui/brand-assets/${encodeURIComponent(assetId)}/download`;
@@ -98,18 +117,32 @@ const normalizeSettings = (incoming?: ThemeSettings | null): ThemeSettings => ({
 const normalizeBrandConfig = (source?: Partial<BrandingConfig>): BrandingConfig => {
   const { assets, ...rest } = source ?? {};
   return {
-    ...DEFAULT_THEME_SETTINGS.brand,
-    ...rest,
+    title_text:
+      typeof rest?.title_text === "string" && rest.title_text.trim() !== ""
+        ? rest.title_text
+        : DEFAULT_THEME_SETTINGS.brand.title_text,
+    footer_logo_disabled:
+      typeof rest?.footer_logo_disabled === "boolean"
+        ? rest.footer_logo_disabled
+        : DEFAULT_THEME_SETTINGS.brand.footer_logo_disabled,
+    favicon_asset_id: rest?.favicon_asset_id ?? null,
+    primary_logo_asset_id: rest?.primary_logo_asset_id ?? null,
+    secondary_logo_asset_id: rest?.secondary_logo_asset_id ?? null,
+    header_logo_asset_id: rest?.header_logo_asset_id ?? null,
+    footer_logo_asset_id: rest?.footer_logo_asset_id ?? null,
     assets: {
-      ...DEFAULT_THEME_SETTINGS.brand.assets,
-      ...(assets ?? {}),
+      filesystem_path:
+        typeof assets?.filesystem_path === "string" && assets.filesystem_path.trim() !== ""
+          ? assets.filesystem_path
+          : DEFAULT_THEME_SETTINGS.brand.assets.filesystem_path,
     },
   } as BrandingConfig;
 };
 
-const createDefaultBrandConfig = (): BrandingConfig => normalizeBrandConfig(DEFAULT_THEME_SETTINGS.brand);
+const createDefaultBrandConfig = (): BrandingConfig =>
+  normalizeBrandConfig(DEFAULT_THEME_SETTINGS.brand as unknown as Partial<BrandingConfig>);
 
-const cloneBrandConfig = (config: BrandingConfig): BrandingConfig => normalizeBrandConfig(config);
+const cloneBrandConfig = (config: BrandingConfig): BrandingConfig => normalizeBrandConfig({ ...config });
 
 async function parseJson<T>(res: Response): Promise<T | null> {
   try {
@@ -390,7 +423,7 @@ export default function BrandingCard(): JSX.Element {
     const base = settingsRef.current;
     const draft: ThemeSettings = {
       ...base,
-      brand: { ...config, assets: { ...config.assets } },
+      brand: { ...config, assets: { ...config.assets } } as ThemeSettings["brand"],
     };
     updateThemeSettings(draft);
   };
@@ -517,6 +550,10 @@ export default function BrandingCard(): JSX.Element {
   };
 
   const handleUpload = async (kind: BrandAsset["kind"], file: File): Promise<void> => {
+    if (kind !== "primary_logo") {
+      showInfo("Upload new branding assets via the Primary logo section.");
+      return;
+    }
     if (!selectedProfile) {
       showWarning("Select a branding profile before uploading.");
       return;
@@ -535,7 +572,7 @@ export default function BrandingCard(): JSX.Element {
     }
 
     const formData = new FormData();
-    formData.append("kind", kind);
+    formData.append("kind", "primary_logo");
     formData.append("profile_id", selectedProfile.id);
     formData.append("file", file);
 
@@ -548,35 +585,34 @@ export default function BrandingCard(): JSX.Element {
       });
 
       const body = await parseJson<UploadResponse>(res);
-      if (!res.ok || !body?.asset) {
+      const variants = body?.variants ?? null;
+      if (!res.ok || !body?.asset || !variants || typeof variants !== "object") {
         const errMsg = typeof body?.message === "string" ? body.message : "Upload failed.";
         showDanger(errMsg);
         return;
       }
 
-      const mutableAsset: BrandAsset = {
-        ...body.asset,
-        url: assetDownloadUrl(body.asset.id),
-      };
-      setAssets((prev) => [mutableAsset, ...prev.filter((asset) => asset.id !== mutableAsset.id)]);
+      const variantEntries = VARIANT_ORDER.map((variantKind) => variants[variantKind]).filter(
+        (entry): entry is BrandAsset => entry !== null && typeof entry === "object" && typeof entry.id === "string"
+      );
 
-      switch (kind) {
-        case "primary_logo":
-          updateField("primary_logo_asset_id", body.asset.id);
-          break;
-        case "secondary_logo":
-          updateField("secondary_logo_asset_id", body.asset.id);
-          break;
-        case "header_logo":
-          updateField("header_logo_asset_id", body.asset.id);
-          break;
-        case "footer_logo":
-          updateField("footer_logo_asset_id", body.asset.id);
-          break;
-        case "favicon":
-          updateField("favicon_asset_id", body.asset.id);
-          break;
-      }
+      const assetsWithUrls = variantEntries.map((entry) => ({
+        ...entry,
+        url: assetDownloadUrl(entry.id),
+      }));
+
+      setAssets(assetsWithUrls);
+
+      setBrandConfig((prev) => {
+        const next = cloneBrandConfig(prev);
+        next.primary_logo_asset_id = (variants.primary_logo?.id ?? null) as string | null;
+        next.secondary_logo_asset_id = (variants.secondary_logo?.id ?? null) as string | null;
+        next.header_logo_asset_id = (variants.header_logo?.id ?? null) as string | null;
+        next.footer_logo_asset_id = (variants.footer_logo?.id ?? null) as string | null;
+        next.favicon_asset_id = (variants.favicon?.id ?? null) as string | null;
+        previewBrand(next);
+        return next;
+      });
 
       showSuccess("Upload successful.");
       void fetchAssets(selectedProfile.id).then((list) => setAssets(list));
@@ -865,7 +901,11 @@ export default function BrandingCard(): JSX.Element {
               />
             </fieldset>
 
-            <BrandAssetTable assets={assets} onDelete={handleDeleteAsset} disabled={disabled} />
+            <BrandAssetTable
+              assets={assets.filter((asset) => asset.kind === "primary_logo")}
+              onDelete={handleDeleteAsset}
+              disabled={disabled}
+            />
           </>
         )}
       </div>
@@ -899,7 +939,8 @@ function BrandAssetSection({
   disabled,
 }: BrandAssetSectionProps): JSX.Element {
   const inputRef = useRef<HTMLInputElement | null>(null);
-  const filteredAssets = assets;
+  const filteredAssets = assets.filter((candidate) => candidate.kind === kind);
+  const allowUpload = kind === "primary_logo";
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -952,8 +993,13 @@ function BrandAssetSection({
           <button
             type="button"
             className="btn btn-outline-primary btn-sm"
-            onClick={() => inputRef.current?.click()}
-            disabled={disabled}
+            onClick={() => {
+              if (allowUpload) {
+                inputRef.current?.click();
+              }
+            }}
+            disabled={disabled || !allowUpload}
+            title={allowUpload ? undefined : "Automatically generated from the Primary logo."}
           >
             Upload new
           </button>
@@ -964,7 +1010,13 @@ function BrandAssetSection({
             className="d-none"
             aria-label={`Upload ${label}`}
             onChange={handleFileChange}
+            disabled={disabled || !allowUpload}
           />
+          {!allowUpload && (
+            <div className="text-muted small" data-testid={`auto-managed-${kind}`}>
+              Managed via Primary logo upload.
+            </div>
+          )}
           <select
             className="form-select form-select-sm"
             value={asset?.id ?? ""}

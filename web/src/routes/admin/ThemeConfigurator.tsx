@@ -65,7 +65,7 @@ const toStoredOverrides = (source: Record<string, string>): ThemeSettings["theme
   return base as ThemeSettings["theme"]["overrides"];
 };
 
-const DEFAULT_LOGO_SRC = "/api/images/phpGRC-light-horizontal-trans.png";
+const DEFAULT_LOGO_SRC = "/api/images/phpGRC-light-horizontal-trans.webp";
 
 const brandAssetUrl = (assetId: string): string =>
   `/api/settings/ui/brand-assets/${encodeURIComponent(assetId)}/download`;

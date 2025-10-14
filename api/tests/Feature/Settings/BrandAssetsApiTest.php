@@ -71,39 +71,69 @@ final class BrandAssetsApiTest extends TestCase
         $assetId = $data['asset']['id'] ?? null;
         self::assertIsString($assetId);
 
+        /** @var array<string,mixed>|null $variants */
+        $variants = $data['variants'] ?? null;
+        self::assertIsArray($variants);
+        self::assertArrayHasKey('primary_logo', $variants);
+        self::assertSame(5, count($variants));
+
         $this->assertDatabaseHas('brand_assets', [
             'id' => $assetId,
             'kind' => 'primary_logo',
             'profile_id' => $profile->getAttribute('id'),
         ]);
 
-        /** @var BrandAsset|null $stored */
-        $stored = BrandAsset::query()->find($assetId);
-        self::assertInstanceOf(BrandAsset::class, $stored);
+        $storedAssets = BrandAsset::query()->get();
+        self::assertCount(5, $storedAssets);
 
         /** @var BrandAssetStorageService $storage */
         $storage = app(BrandAssetStorageService::class);
-        $assetPath = $storage->assetPath($stored);
-        self::assertIsString($assetPath);
-        self::assertFileExists($assetPath);
+
+        $paths = [];
+        foreach ($storedAssets as $stored) {
+            self::assertSame('image/webp', $stored->getAttribute('mime'));
+            $path = $storage->assetPath($stored);
+            self::assertIsString($path);
+            self::assertFileExists($path);
+            $paths[] = $path;
+        }
 
         /** @var UiSettingsService $settings */
         $settings = app(UiSettingsService::class);
+        $idsByKind = [];
+        foreach ($storedAssets as $stored) {
+            /** @var string $kind */
+            $kind = $stored->getAttribute('kind');
+            /** @var string $idValue */
+            $idValue = $stored->getAttribute('id');
+            $idsByKind[$kind] = $idValue;
+        }
+
         $settings->apply([
             'brand' => [
                 'profile_id' => $profile->getAttribute('id'),
-                'primary_logo_asset_id' => $assetId,
+                'primary_logo_asset_id' => $idsByKind['primary_logo'] ?? null,
+                'secondary_logo_asset_id' => $idsByKind['secondary_logo'] ?? null,
+                'header_logo_asset_id' => $idsByKind['header_logo'] ?? null,
+                'footer_logo_asset_id' => $idsByKind['footer_logo'] ?? null,
+                'favicon_asset_id' => $idsByKind['favicon'] ?? null,
             ],
         ], $user->id);
 
         $delete = $this->deleteJson('/settings/ui/brand-assets/'.$assetId);
         $delete->assertOk();
 
-        $this->assertDatabaseMissing('brand_assets', ['id' => $assetId]);
-        self::assertFileDoesNotExist($assetPath);
+        self::assertSame(0, BrandAsset::query()->count());
+        foreach ($paths as $path) {
+            self::assertFileDoesNotExist($path);
+        }
 
         $config = $settings->currentConfig();
         self::assertNull($config['brand']['primary_logo_asset_id']);
+        self::assertNull($config['brand']['secondary_logo_asset_id']);
+        self::assertNull($config['brand']['header_logo_asset_id']);
+        self::assertNull($config['brand']['footer_logo_asset_id']);
+        self::assertNull($config['brand']['favicon_asset_id']);
     }
 
     public function test_upload_rejects_unsupported_mime(): void
@@ -116,7 +146,7 @@ final class BrandAssetsApiTest extends TestCase
         $file = UploadedFile::fake()->create('logo.png', 10, 'image/png');
 
         $response = $this->postJson('/settings/ui/brand-assets', [
-            'kind' => 'favicon',
+            'kind' => 'primary_logo',
             'profile_id' => $profile->getAttribute('id'),
             'file' => $file,
         ]);
@@ -140,7 +170,7 @@ final class BrandAssetsApiTest extends TestCase
         $file = $this->makeOversizedUploadedFile();
 
         $response = $this->postJson('/settings/ui/brand-assets', [
-            'kind' => 'secondary_logo',
+            'kind' => 'primary_logo',
             'profile_id' => $profile->getAttribute('id'),
             'file' => $file,
         ]);
@@ -164,7 +194,7 @@ final class BrandAssetsApiTest extends TestCase
         $file = $this->makeUnreadableUploadedFile();
 
         $response = $this->postJson('/settings/ui/brand-assets', [
-            'kind' => 'header_logo',
+            'kind' => 'primary_logo',
             'profile_id' => $profile->getAttribute('id'),
             'file' => $file,
         ]);
