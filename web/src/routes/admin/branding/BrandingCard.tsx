@@ -83,14 +83,6 @@ const assetLabel: Record<BrandAsset["kind"], string> = {
   favicon: "Favicon",
 };
 
-const VARIANT_ORDER: BrandAsset["kind"][] = [
-  "primary_logo",
-  "secondary_logo",
-  "header_logo",
-  "footer_logo",
-  "favicon",
-];
-
 const assetDownloadUrl = (assetId: string): string =>
   `/api/settings/ui/brand-assets/${encodeURIComponent(assetId)}/download`;
 
