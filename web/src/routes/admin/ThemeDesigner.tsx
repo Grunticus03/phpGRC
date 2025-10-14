@@ -800,21 +800,6 @@ export default function ThemeDesigner(): JSX.Element {
     return primaryTarget.defaultValue;
   };
 
-  const describeSettingValue = (setting: SettingConfig, value: string): string => {
-    if (setting.control === "color") {
-      const trimmed = value.trim();
-      return trimmed.startsWith("#") ? trimmed.toUpperCase() : trimmed;
-    }
-    if (setting.control === "toggle" && setting.toggleValues) {
-      return value === setting.toggleValues.on ? "On" : "Off";
-    }
-    if (setting.control === "select" && setting.options) {
-      const match = setting.options.find((option) => option.value === value);
-      return match?.label ?? (value === "" ? "Inherit" : value);
-    }
-    return value;
-  };
-
   const onMenuMouseLeave = () => {
     setOpenFeature(null);
     setActiveContext(null);
@@ -929,9 +914,6 @@ export default function ThemeDesigner(): JSX.Element {
                                       aria-labelledby={labelId}
                                     />
                                   </div>
-                                  <span className="theme-designer-setting-value">
-                                    {describeSettingValue(setting, currentValue)}
-                                  </span>
                                 </div>
                               );
                             }
@@ -951,9 +933,6 @@ export default function ThemeDesigner(): JSX.Element {
                                       </option>
                                     ))}
                                   </select>
-                                  <span className="theme-designer-setting-value">
-                                    {describeSettingValue(setting, currentValue)}
-                                  </span>
                                 </label>
                               );
                             }
@@ -974,9 +953,6 @@ export default function ThemeDesigner(): JSX.Element {
                                       }
                                     />
                                   </div>
-                                  <span className="theme-designer-setting-value">
-                                    {describeSettingValue(setting, currentValue)}
-                                  </span>
                                 </div>
                               );
                             }
@@ -1026,10 +1002,6 @@ export default function ThemeDesigner(): JSX.Element {
       <section className="theme-designer-preview container py-4" style={variableStyles}>
         <header className="mb-4">
           <h1 className="mb-1">Theme Designer</h1>
-          <p className="text-muted mb-0">
-            Fine-tune Bootstrap components visually. Use the sticky menu to target a component, then adjust contextual
-            colors. Changes update the preview instantly.
-          </p>
         </header>
 
         <section className="mb-5">

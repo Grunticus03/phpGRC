@@ -161,7 +161,7 @@
 
 .theme-designer-setting {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   column-gap: 1.25rem;
   row-gap: 0.35rem;
@@ -201,11 +201,7 @@
   justify-content: center;
 }
 
-.theme-designer-setting-value {
-  font-family: var(--bs-font-monospace);
-  font-size: 0.8rem;
-  color: var(--bs-secondary-color);
-}
+
 
 @media (max-width: 768px) {
   .theme-designer-setting {

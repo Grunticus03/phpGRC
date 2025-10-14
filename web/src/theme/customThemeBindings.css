@@ -116,6 +116,39 @@
   );
 }
 
+/* Alternating row colors for tables using theme primary and secondary palette */
+.table tbody tr:nth-of-type(odd) {
+  background-color: rgba(var(--bs-primary-rgb), 0.08);
+  color: var(--bs-body-color);
+}
+
+.table tbody tr:nth-of-type(even) {
+  background-color: rgba(var(--bs-secondary-rgb), 0.08);
+  color: var(--bs-body-color);
+}
+
+.table tbody tr {
+  transition: background-color 0.18s ease;
+}
+
+.table tbody tr:hover {
+  background-color: rgba(var(--bs-primary-rgb), 0.18);
+  color: var(--bs-body-color);
+}
+
+html[data-mode="dark"] .table tbody tr:nth-of-type(odd) {
+  background-color: rgba(var(--bs-primary-rgb), 0.22);
+}
+
+html[data-mode="dark"] .table tbody tr:nth-of-type(even) {
+  background-color: rgba(var(--bs-secondary-rgb), 0.22);
+}
+
+html[data-mode="dark"] .table tbody tr:hover {
+  background-color: rgba(var(--bs-primary-rgb), 0.32);
+  color: var(--bs-body-color);
+}
+
 html[data-mode="dark"] {
   --td-navbar-light-primary-background-current: var(
     --td-navbars-dark-primary-background,
