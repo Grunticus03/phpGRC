@@ -82,7 +82,7 @@ export const DEFAULT_THEME_SETTINGS = {
       motion: "full",
     },
     login: {
-      layout: "layout_1" as "layout_1" | "layout_2",
+      layout: "layout_1" as "layout_1" | "layout_2" | "layout_3",
     },
   },
   nav: {

@@ -25,7 +25,7 @@ type FormState = {
     storage: "browser" | "filesystem";
     filesystemPath: string;
   };
-  loginLayout: "layout_1" | "layout_2";
+  loginLayout: "layout_1" | "layout_2" | "layout_3";
 };
 
 type ThemeSettingsResponse = {
@@ -73,7 +73,8 @@ function buildInitialForm(settings: ThemeSettings): FormState {
   const forceGlobal = Boolean(mutable.theme.force_global);
   const mode = mutable.theme.mode === "light" ? "light" : "dark";
   const layoutRaw = mutable.theme.login?.layout;
-  const loginLayout = layoutRaw === "layout_2" ? "layout_2" : "layout_1";
+  const loginLayout: FormState["loginLayout"] =
+    layoutRaw === "layout_2" || layoutRaw === "layout_3" ? layoutRaw : "layout_1";
   return {
     theme: String(mutable.theme.default),
     mode,
@@ -125,9 +126,9 @@ export default function ThemeConfigurator(): JSX.Element {
 
   const [manifest, setManifest] = useState<ThemeManifest>(() => getCachedThemeManifest());
   const [form, setForm] = useState<FormState>(buildInitialForm(DEFAULT_THEME_SETTINGS));
-
   const etagRef = useRef<string | null>(null);
   const snapshotRef = useRef<FormState | null>(buildInitialForm(DEFAULT_THEME_SETTINGS));
+  const defaultLoginLayout = DEFAULT_THEME_SETTINGS.theme.login?.layout;
   const settingsRef = useRef<ThemeSettings>({
     ...DEFAULT_THEME_SETTINGS,
     theme: {
@@ -136,7 +137,9 @@ export default function ThemeConfigurator(): JSX.Element {
       designer: { ...DEFAULT_THEME_SETTINGS.theme.designer },
       login: {
         layout:
-          DEFAULT_THEME_SETTINGS.theme.login?.layout === "layout_2" ? "layout_2" : "layout_1",
+          defaultLoginLayout === "layout_2" || defaultLoginLayout === "layout_3"
+            ? defaultLoginLayout
+            : "layout_1",
       },
     },
   } as ThemeSettings);
@@ -224,6 +227,30 @@ export default function ThemeConfigurator(): JSX.Element {
           </div>
         ),
       },
+      {
+        value: "layout_3" as const,
+        label: "Layout 3",
+        description: "Animated two-step sign-in with sequential email and password prompts.",
+        preview: (
+          <div className="vstack gap-2" aria-hidden="true">
+            <div className="bg-body border border-light-subtle rounded-3 shadow-sm p-2">
+              <div className="bg-body-secondary rounded-2 mx-auto" style={{ height: "10px", width: "70%" }} />
+            </div>
+            <div className="bg-body border border-light-subtle rounded-3 shadow-sm p-2 vstack gap-2">
+              <div className="bg-body-secondary rounded-2" style={{ height: "10px", width: "80%" }} />
+              <div className="d-flex align-items-center justify-content-between">
+                <div className="bg-body-secondary rounded-2" style={{ height: "10px", width: "60%" }} />
+                <div
+                  className="d-flex align-items-center justify-content-center bg-primary text-white rounded-circle"
+                  style={{ width: "24px", height: "24px" }}
+                >
+                  <span aria-hidden="true">{"\u2192"}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        ),
+      },
     ],
     []
   );
@@ -245,7 +272,10 @@ export default function ThemeConfigurator(): JSX.Element {
           ...settings.theme.designer,
         },
         login: {
-          layout: settings.theme.login?.layout === "layout_2" ? "layout_2" : "layout_1",
+          layout:
+            settings.theme.login?.layout === "layout_2" || settings.theme.login?.layout === "layout_3"
+              ? (settings.theme.login?.layout as FormState["loginLayout"])
+              : "layout_1",
         },
       },
     } as ThemeSettings;
@@ -398,7 +428,7 @@ export default function ThemeConfigurator(): JSX.Element {
     });
   };
 
-  const onSelectLoginLayout = (value: "layout_1" | "layout_2") => {
+  const onSelectLoginLayout = (value: FormState["loginLayout"]) => {
     setForm((prev) => {
       if (prev.loginLayout === value) return prev;
       const next = { ...prev, loginLayout: value };
