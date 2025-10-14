@@ -115,6 +115,7 @@ return [
         ],
         'sidebar' => [
             'collapsed' => false,
+            'pinned' => true,
             'width' => 280,
             'order' => [],
         ],

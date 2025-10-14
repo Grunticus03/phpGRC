@@ -16,10 +16,10 @@ const resolvePrimaryLogo = (settings: ThemeSettings | null | undefined): string 
   return `${brandAssetUrl(primaryId)}?v=${encodeURIComponent(primaryId)}`;
 };
 
-const LAYOUT3_EMAIL_ENTER_MS = 650;
-const LAYOUT3_EMAIL_EXIT_MS = 420;
-const LAYOUT3_PASSWORD_ENTER_MS = 650;
-const LAYOUT3_PASSWORD_EXIT_MS = 420;
+const LAYOUT3_EMAIL_ENTER_MS = 1200;
+const LAYOUT3_EMAIL_EXIT_MS = 500;
+const LAYOUT3_PASSWORD_ENTER_MS = 1200;
+const LAYOUT3_PASSWORD_EXIT_MS = 500;
 const LAYOUT3_PASSWORD_SHAKE_MS = 320;
 const LAYOUT3_PAGE_FADE_MS = 500;
 
@@ -46,6 +46,7 @@ export default function Login(): JSX.Element {
   const [emailAnimation, setEmailAnimation] = useState<Layout3PanelAnimation>("idle");
   const [passwordAnimation, setPasswordAnimation] = useState<Layout3PanelAnimation>("idle");
   const [pageAnimation, setPageAnimation] = useState<"idle" | "fading">("idle");
+  const [layout3Transitioning, setLayout3Transitioning] = useState(false);
   const emailInputRef = useRef<HTMLInputElement | null>(null);
   const passwordInputRef = useRef<HTMLInputElement | null>(null);
   const animationTimers = useRef<number[]>([]);
@@ -101,6 +102,7 @@ export default function Login(): JSX.Element {
       setEmailAnimation("idle");
       setPasswordAnimation("idle");
       setPageAnimation("idle");
+      setLayout3Transitioning(false);
       setErr(null);
       setPassword("");
       return;
@@ -142,7 +144,7 @@ export default function Login(): JSX.Element {
   }, []);
 
   const advanceToPassword = useCallback(() => {
-    if (!isLayout3 || layout3View !== "email") return;
+    if (!isLayout3 || layout3View !== "email" || layout3Transitioning) return;
     const emailField = emailInputRef.current;
     if (emailField && !emailField.checkValidity()) {
       emailField.reportValidity();
@@ -150,36 +152,54 @@ export default function Login(): JSX.Element {
     }
     setErr(null);
     setPassword("");
+    if (prefersReducedMotion) {
+      setEmailAnimation("idle");
+      setLayout3View("password");
+      setPasswordAnimation("idle");
+      setLayout3Transitioning(false);
+      return;
+    }
+    setLayout3Transitioning(true);
     setEmailAnimation("exit");
-    setLayout3View("password");
-    setPasswordAnimation(prefersReducedMotion ? "idle" : "enter");
-    if (!prefersReducedMotion) {
-      schedule(() => {
-        setEmailAnimation((current) => (current === "exit" ? "idle" : current));
-      }, LAYOUT3_EMAIL_EXIT_MS);
+    schedule(() => {
+      setEmailAnimation((current) => (current === "exit" ? "idle" : current));
+    }, LAYOUT3_EMAIL_EXIT_MS);
+    schedule(() => {
+      setLayout3View("password");
+      setPasswordAnimation("enter");
       schedule(() => {
         setPasswordAnimation((current) => (current === "enter" ? "idle" : current));
       }, LAYOUT3_PASSWORD_ENTER_MS);
-    }
-  }, [isLayout3, layout3View, prefersReducedMotion, schedule]);
+      setLayout3Transitioning(false);
+    }, LAYOUT3_EMAIL_EXIT_MS);
+  }, [isLayout3, layout3View, layout3Transitioning, prefersReducedMotion, schedule]);
 
   const handleBackToEmail = useCallback(() => {
-    if (!isLayout3 || layout3View !== "password" || pageAnimation === "fading") return;
+    if (!isLayout3 || layout3View !== "password" || pageAnimation === "fading" || layout3Transitioning) return;
     setErr(null);
     setBusy(false);
     setPassword("");
+    if (prefersReducedMotion) {
+      setPasswordAnimation("idle");
+      setLayout3View("email");
+      setEmailAnimation("idle");
+      setLayout3Transitioning(false);
+      return;
+    }
+    setLayout3Transitioning(true);
     setPasswordAnimation("exit");
-    setLayout3View("email");
-    setEmailAnimation(prefersReducedMotion ? "idle" : "enter");
-    if (!prefersReducedMotion) {
-      schedule(() => {
-        setPasswordAnimation((current) => (current === "exit" ? "idle" : current));
-      }, LAYOUT3_PASSWORD_EXIT_MS);
+    schedule(() => {
+      setPasswordAnimation((current) => (current === "exit" ? "idle" : current));
+    }, LAYOUT3_PASSWORD_EXIT_MS);
+    schedule(() => {
+      setLayout3View("email");
+      setEmailAnimation("enter");
       schedule(() => {
         setEmailAnimation((current) => (current === "enter" ? "idle" : current));
       }, LAYOUT3_EMAIL_ENTER_MS);
-    }
-  }, [isLayout3, layout3View, pageAnimation, prefersReducedMotion, schedule]);
+      setLayout3Transitioning(false);
+    }, LAYOUT3_PASSWORD_EXIT_MS);
+  }, [isLayout3, layout3View, pageAnimation, layout3Transitioning, prefersReducedMotion, schedule]);
 
   const triggerPasswordShake = useCallback(() => {
     if (!isLayout3) return;
@@ -198,6 +218,7 @@ export default function Login(): JSX.Element {
         return;
       }
       setLayout3View("password");
+      setLayout3Transitioning(false);
       setPageAnimation("fading");
       setPasswordAnimation("exit");
       schedule(() => {
@@ -232,7 +253,7 @@ export default function Login(): JSX.Element {
         window.location.assign(dest);
       }
     } catch {
-      setErr("Invalid credentials or server error.");
+      setErr("Invalid credentials");
       if (isLayout3) {
         triggerPasswordShake();
       }
@@ -271,6 +292,7 @@ export default function Login(): JSX.Element {
     layout3Ready ? "is-ready" : "",
     pageAnimation === "fading" ? "is-fading" : "",
     busy ? "is-busy" : "",
+    layout3Transitioning ? "is-transitioning" : "",
   ]
     .filter(Boolean)
     .join(" ");
@@ -323,12 +345,12 @@ export default function Login(): JSX.Element {
               autoComplete="username"
               placeholder="Email"
               aria-label="Email address"
-              disabled={layout3View !== "email" || busy}
+              disabled={layout3View !== "email" || busy || layout3Transitioning}
             />
             <button
               type="submit"
               className="btn btn-primary btn-lg w-100 login-layout3__primary-btn mt-3"
-              disabled={layout3View !== "email" || busy}
+              disabled={layout3View !== "email" || busy || layout3Transitioning}
             >
               Continue
             </button>
@@ -342,7 +364,7 @@ export default function Login(): JSX.Element {
                 className="btn btn-link login-layout3__back"
                 onClick={handleBackToEmail}
                 aria-label="Back to email entry"
-                disabled={busy || pageAnimation === "fading"}
+                disabled={busy || pageAnimation === "fading" || layout3Transitioning}
               >
                 <span aria-hidden="true">{"\u2190"}</span>
               </button>
@@ -363,12 +385,12 @@ export default function Login(): JSX.Element {
               autoComplete="current-password"
               placeholder="Password"
               aria-label="Password"
-              disabled={layout3View !== "password" || busy}
+              disabled={layout3View !== "password" || busy || layout3Transitioning}
             />
             <button
               type="submit"
               className="btn btn-primary btn-lg w-100 login-layout3__primary-btn mt-3"
-              disabled={busy || pageAnimation === "fading"}
+              disabled={busy || pageAnimation === "fading" || layout3Transitioning}
             >
               {busy ? "Signing in..." : "Sign in"}
             </button>

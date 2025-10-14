@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Model;
  * @property string|null $mode
  * @property string|null $overrides
  * @property bool $sidebar_collapsed
+ * @property bool $sidebar_pinned
  * @property int $sidebar_width
  * @property string|null $sidebar_order
  * @property \Illuminate\Support\Carbon|null $created_at
@@ -33,6 +34,7 @@ final class UserUiPreference extends Model
         'mode',
         'overrides',
         'sidebar_collapsed',
+        'sidebar_pinned',
         'sidebar_width',
         'sidebar_order',
     ];
@@ -45,6 +47,7 @@ final class UserUiPreference extends Model
     protected $casts = [
         'user_id' => 'integer',
         'sidebar_collapsed' => 'boolean',
+        'sidebar_pinned' => 'boolean',
         'sidebar_width' => 'integer',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',

@@ -176,7 +176,21 @@ const resolveLogoSrc = (brand: BrandSnapshot, failed?: Set<string>): string => {
 const normalizeSidebarPrefs = (prefs?: ThemeUserPrefs["sidebar"] | SidebarPrefs): SidebarPrefs => {
   const source = prefs ?? DEFAULT_USER_PREFS.sidebar;
   const collapsed = Boolean(source.collapsed);
-  const pinned = source.pinned === false ? false : true;
+  const pinnedRaw = (source as { pinned?: unknown }).pinned;
+  const pinned = (() => {
+    if (pinnedRaw === false) return false;
+    if (pinnedRaw === true) return true;
+    if (pinnedRaw === null || pinnedRaw === undefined) return true;
+    if (typeof pinnedRaw === "number") {
+      return pinnedRaw !== 0;
+    }
+    if (typeof pinnedRaw === "string") {
+      const token = pinnedRaw.trim().toLowerCase();
+      if (token === "0" || token === "false" || token === "off" || token === "no") return false;
+      if (token === "1" || token === "true" || token === "on" || token === "yes") return true;
+    }
+    return true;
+  })();
   const widthRaw = typeof source.width === "number" ? source.width : DEFAULT_USER_PREFS.sidebar.width;
   const width = clampSidebarWidth(widthRaw);
   const order = Array.isArray(source.order)

@@ -25,6 +25,7 @@ final class UserUiPreferencesUpdateRequest extends FormRequest
             'overrides.*' => ['nullable', 'string', 'max:120'],
             'sidebar' => ['sometimes', 'array'],
             'sidebar.collapsed' => ['sometimes', 'boolean'],
+            'sidebar.pinned' => ['sometimes', 'boolean'],
             'sidebar.width' => ['sometimes', 'numeric', 'min:50', 'max:480'],
             'sidebar.order' => ['sometimes', 'array'],
             'sidebar.order.*' => ['string', 'max:64'],

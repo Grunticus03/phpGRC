@@ -62,6 +62,7 @@ final class UiPreferencesApiTest extends TestCase
             ],
             'sidebar' => [
                 'collapsed' => true,
+                'pinned' => false,
                 'width' => 320,
                 'order' => ['risks', 'audits'],
             ],
@@ -77,6 +78,7 @@ final class UiPreferencesApiTest extends TestCase
                 'mode' => 'light',
                 'sidebar' => [
                     'collapsed' => true,
+                    'pinned' => false,
                 ],
             ],
         ]);
@@ -89,6 +91,7 @@ final class UiPreferencesApiTest extends TestCase
         self::assertSame('light', $prefs['mode']);
         self::assertSame('#123456', $prefs['overrides']['color.primary']);
         self::assertTrue($prefs['sidebar']['collapsed']);
+        self::assertFalse($prefs['sidebar']['pinned']);
         self::assertSame(320, $prefs['sidebar']['width']);
         self::assertSame(['risks', 'audits'], $prefs['sidebar']['order']);
     }
@@ -122,6 +125,7 @@ final class UiPreferencesApiTest extends TestCase
         $response = $this->putJson('/me/prefs/ui', [
             'sidebar' => [
                 'collapsed' => true,
+                'pinned' => false,
                 'width' => 260,
             ],
         ]);
@@ -132,6 +136,7 @@ final class UiPreferencesApiTest extends TestCase
             'prefs' => [
                 'sidebar' => [
                     'collapsed' => true,
+                    'pinned' => false,
                 ],
             ],
         ]);

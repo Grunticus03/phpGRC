@@ -8,7 +8,7 @@ use App\Models\UserUiPreference;
 
 /**
  * @phpstan-type ThemeOverrides array<string,string|null>
- * @phpstan-type SidebarPrefs array{collapsed: bool, width: int, order: array<int,string>}
+ * @phpstan-type SidebarPrefs array{collapsed: bool, pinned: bool, width: int, order: array<int,string>}
  * @phpstan-type UserPrefs array{
  *     theme: string|null,
  *     mode: string|null,
@@ -63,6 +63,10 @@ final class UserUiPreferencesService
         $collapsed = $record->getAttribute('sidebar_collapsed');
         $prefs['sidebar']['collapsed'] = $this->toBool($collapsed);
 
+        /** @var mixed $pinned */
+        $pinned = $record->getAttribute('sidebar_pinned');
+        $prefs['sidebar']['pinned'] = $pinned === null ? true : $this->toBool($pinned);
+
         /** @var mixed $width */
         $width = $record->getAttribute('sidebar_width');
         if (is_int($width) || is_float($width) || (is_string($width) && is_numeric($width))) {
@@ -99,6 +103,7 @@ final class UserUiPreferencesService
                 'mode' => $prefs['mode'],
                 'overrides' => json_encode($prefs['overrides'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
                 'sidebar_collapsed' => $prefs['sidebar']['collapsed'],
+                'sidebar_pinned' => $prefs['sidebar']['pinned'],
                 'sidebar_width' => $prefs['sidebar']['width'],
                 'sidebar_order' => json_encode($prefs['sidebar']['order'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
             ]
@@ -145,6 +150,9 @@ final class UserUiPreferencesService
             $sidebarInput = $input['sidebar'];
             if (array_key_exists('collapsed', $sidebarInput)) {
                 $merged['sidebar']['collapsed'] = $this->toBool($sidebarInput['collapsed']);
+            }
+            if (array_key_exists('pinned', $sidebarInput)) {
+                $merged['sidebar']['pinned'] = $this->toBool($sidebarInput['pinned']);
             }
             if (array_key_exists('width', $sidebarInput)) {
                 $merged['sidebar']['width'] = $this->sanitizeWidth($sidebarInput['width']);
@@ -204,6 +212,7 @@ final class UserUiPreferencesService
             'overrides' => $this->sanitizeOverrides([]),
             'sidebar' => [
                 'collapsed' => false,
+                'pinned' => true,
                 'width' => 280,
                 'order' => [],
             ],
@@ -223,6 +232,9 @@ final class UserUiPreferencesService
             $sidebar = $prefs['sidebar'];
             if (array_key_exists('collapsed', $sidebar)) {
                 $defaults['sidebar']['collapsed'] = $this->toBool($sidebar['collapsed']);
+            }
+            if (array_key_exists('pinned', $sidebar)) {
+                $defaults['sidebar']['pinned'] = $this->toBool($sidebar['pinned']);
             }
             if (array_key_exists('width', $sidebar)) {
                 $defaults['sidebar']['width'] = $this->sanitizeWidth($sidebar['width']);
