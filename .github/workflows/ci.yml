@@ -116,7 +116,7 @@ jobs:
       - name: Install deps (including dev tools)
         env:
           COMPOSER_NO_DEV: "0"
-        run: COMPOSER_NO_DEV=0 composer install --no-interaction --prefer-dist --with-all-dependencies
+        run: COMPOSER_NO_DEV=0 composer install --no-interaction --prefer-dist
       - run: vendor/bin/pint -v
       - run: vendor/bin/phpstan analyse --level=9 --error-format=github --no-progress --memory-limit=-1
       - name: Generate app key for static analysis
