@@ -1,12 +1,14 @@
-import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useMemo, useState, useId, type CSSProperties } from "react";
 import "./ThemeDesigner.css";
 import { baseHeaders } from "../../lib/api";
 import {
   getCachedThemeManifest,
   getCachedThemeSettings,
+  onThemeManifestChange,
   onThemeSettingsChange,
   updateThemeManifest,
 } from "../../theme/themeManager";
+import ConfirmModal from "../../components/modal/ConfirmModal";
 import { DEFAULT_THEME_SETTINGS, type CustomThemePack, type ThemeManifest } from "./themeData";
 
 type SettingTarget = {
@@ -55,6 +57,8 @@ type ThemeFeature = {
   description?: string;
   contexts: ThemeContext[];
 };
+
+type ThemeManifestEntry = ThemeManifest["themes"][number] | ThemeManifest["packs"][number];
 
 const FONT_OPTIONS: SettingOption[] = [
   {
@@ -194,6 +198,12 @@ function createColorSetting(
 
 const toKebab = (value: string): string =>
   value.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
+
+const slugifyThemeName = (name: string): string =>
+  name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
 
 function createSelectSetting(
   featureId: string,
@@ -587,15 +597,53 @@ const UNIQUE_TARGETS: SettingTarget[] = Array.from(
   ).values()
 );
 
+const buildDesignerValuesFromVariables = (
+  variables: Record<string, string> | null | undefined
+): Record<string, string> => {
+  const next: Record<string, string> = {};
+  if (!variables) return next;
+
+  UNIQUE_TARGETS.forEach((target) => {
+    const value = variables[target.variable];
+    if (typeof value !== "string") {
+      return;
+    }
+    const normalized = value.trim();
+    if (normalized === "" || normalized === target.defaultValue) {
+      return;
+    }
+    next[target.key] = normalized;
+  });
+
+  return next;
+};
+
 export default function ThemeDesigner(): JSX.Element {
   const [openFeature, setOpenFeature] = useState<string | null>("all");
   const [activeContext, setActiveContext] = useState<string | null>(null);
   const [activeVariant, setActiveVariant] = useState<string | null>(null);
   const [values, setValues] = useState<Record<string, string>>({});
   const [designerConfig, setDesignerConfig] = useState(() => getCachedThemeSettings().theme.designer);
+  const [manifest, setManifest] = useState<ThemeManifest>(() => getCachedThemeManifest());
   const [customThemeName, setCustomThemeName] = useState<string>("");
-  const [saveStatus, setSaveStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
-  const [isSaving, setIsSaving] = useState(false);
+  const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
+  const [themeMenuOpen, setThemeMenuOpen] = useState(false);
+  const [saveModalOpen, setSaveModalOpen] = useState(false);
+  const [loadModalOpen, setLoadModalOpen] = useState(false);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [saveBusy, setSaveBusy] = useState(false);
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  const [loadSelection, setLoadSelection] = useState<string>("");
+  const [deleteSelection, setDeleteSelection] = useState<string>("");
+  const [saveModalError, setSaveModalError] = useState<string | null>(null);
+  const [loadModalError, setLoadModalError] = useState<string | null>(null);
+  const [deleteModalError, setDeleteModalError] = useState<string | null>(null);
+  const [pendingOverwriteSlug, setPendingOverwriteSlug] = useState<string | null>(null);
+  const [loadedThemeSlug, setLoadedThemeSlug] = useState<string | null>(null);
+
+  const loadSelectId = useId();
+  const saveInputId = useId();
+  const deleteSelectId = useId();
 
   useEffect(() => {
     const unsubscribe = onThemeSettingsChange((next) => {
@@ -603,6 +651,47 @@ export default function ThemeDesigner(): JSX.Element {
     });
     return unsubscribe;
   }, []);
+
+  useEffect(() => {
+    const unsubscribe = onThemeManifestChange((next) => {
+      setManifest(next);
+    });
+    return unsubscribe;
+  }, []);
+
+  const themeEntries = useMemo<ThemeManifestEntry[]>(() => {
+    return [...manifest.themes, ...manifest.packs];
+  }, [manifest]);
+
+  const customEntries = useMemo(
+    () => themeEntries.filter((entry) => entry.source === "custom"),
+    [themeEntries]
+  );
+
+  const hasCustomThemes = useMemo(
+    () => customEntries.length > 0,
+    [customEntries]
+  );
+
+  useEffect(() => {
+    if (loadSelection && !themeEntries.some((entry) => entry.slug === loadSelection)) {
+      setLoadSelection(themeEntries[0]?.slug ?? "");
+    }
+  }, [loadSelection, themeEntries]);
+
+  useEffect(() => {
+    if (deleteSelection && !customEntries.some((entry) => entry.slug === deleteSelection)) {
+      setDeleteSelection(customEntries[0]?.slug ?? "");
+    }
+  }, [customEntries, deleteSelection]);
+
+  const findEntryBySlug = useCallback(
+    (slug: string | null | undefined): ThemeManifestEntry | null => {
+      if (!slug) return null;
+      return themeEntries.find((entry) => entry.slug === slug) ?? null;
+    },
+    [themeEntries]
+  );
 
   const computeCustomVariables = useCallback((): Record<string, string> => {
     const collected: Record<string, string> = {};
@@ -617,120 +706,328 @@ export default function ThemeDesigner(): JSX.Element {
     return collected;
   }, [values]);
 
-  const handleSaveTheme = useCallback(() => {
-    const name = customThemeName.trim();
-    if (name === "") {
-      setSaveStatus({ type: "error", message: "Enter a theme name." });
+  const applyPackToManifest = useCallback((pack: CustomThemePack) => {
+    const manifestSnapshot = getCachedThemeManifest();
+    const packs = manifestSnapshot.packs.filter((entry) => entry.slug !== pack.slug);
+    const nextManifest: ThemeManifest = {
+      ...manifestSnapshot,
+      packs: [...packs, pack],
+    };
+    updateThemeManifest(nextManifest);
+  }, []);
+
+  const removePackFromManifest = useCallback((slug: string) => {
+    const manifestSnapshot = getCachedThemeManifest();
+    const nextManifest: ThemeManifest = {
+      ...manifestSnapshot,
+      packs: manifestSnapshot.packs.filter((entry) => entry.slug !== slug),
+    };
+    updateThemeManifest(nextManifest);
+  }, []);
+
+  const handleOpenLoadModal = useCallback(() => {
+    setFeedback(null);
+    setLoadModalError(null);
+    setThemeMenuOpen(false);
+    const initial = loadSelection || loadedThemeSlug || themeEntries[0]?.slug || "";
+    setLoadSelection(initial);
+    setLoadModalOpen(true);
+  }, [loadSelection, loadedThemeSlug, themeEntries]);
+
+  const handleOpenSaveModal = useCallback(() => {
+    setFeedback(null);
+    setSaveModalError(null);
+    setPendingOverwriteSlug(null);
+    if (customThemeName.trim() === "" && loadedThemeSlug) {
+      const entry = findEntryBySlug(loadedThemeSlug);
+      if (entry) {
+        setCustomThemeName(entry.name);
+      }
+    }
+    setThemeMenuOpen(false);
+    setSaveModalOpen(true);
+  }, [customThemeName, findEntryBySlug, loadedThemeSlug]);
+
+  const handleOpenDeleteModal = useCallback(() => {
+    setFeedback(null);
+    setDeleteModalError(null);
+    setPendingOverwriteSlug(null);
+    setThemeMenuOpen(false);
+    const initial =
+      customEntries.find((entry) => entry.slug === deleteSelection)?.slug ??
+      customEntries[0]?.slug ??
+      "";
+    setDeleteSelection(initial);
+    setDeleteModalOpen(true);
+  }, [customEntries, deleteSelection]);
+
+  const handleCloseLoadModal = useCallback(() => {
+    setLoadModalOpen(false);
+    setLoadModalError(null);
+  }, []);
+
+  const handleCloseSaveModal = useCallback(() => {
+    setSaveModalOpen(false);
+    setSaveModalError(null);
+    setPendingOverwriteSlug(null);
+  }, []);
+
+  const handleCloseDeleteModal = useCallback(() => {
+    setDeleteModalOpen(false);
+    setDeleteModalError(null);
+  }, []);
+
+  const handleConfirmLoad = useCallback(() => {
+    setLoadModalError(null);
+    setFeedback(null);
+
+    const slug = loadSelection || loadedThemeSlug || "";
+    const entry = findEntryBySlug(slug);
+    if (!entry) {
+      setLoadModalError("Select a theme to load.");
       return;
     }
 
-    if (saveStatus) {
-      setSaveStatus(null);
+    const variables = (entry as { variables?: Record<string, string> | null }).variables ?? null;
+    setValues(buildDesignerValuesFromVariables(variables));
+    setCustomThemeName(entry.name);
+    setLoadedThemeSlug(entry.slug);
+    setFeedback({ type: "success", message: `Loaded “${entry.name}”.` });
+    setLoadModalOpen(false);
+  }, [findEntryBySlug, loadSelection, loadedThemeSlug]);
+
+  const handleConfirmSave = useCallback(async () => {
+    setSaveModalError(null);
+    setFeedback(null);
+
+    const trimmedName = customThemeName.trim();
+    if (trimmedName === "") {
+      setSaveModalError("Enter a theme name.");
+      return;
     }
 
-    const slug = name
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "");
-
+    const slug = slugifyThemeName(trimmedName);
     if (!slug) {
-      setSaveStatus({ type: "error", message: "Theme name must include alphanumeric characters." });
+      setSaveModalError("Theme name must include alphanumeric characters.");
       return;
     }
 
-    const manifest = getCachedThemeManifest();
-    const existing = [...manifest.themes, ...manifest.packs].find((item) => item.slug === slug);
+    const existing = findEntryBySlug(slug);
     if (existing && existing.source !== "custom") {
-      setSaveStatus({ type: "error", message: "Theme name conflicts with a built-in theme." });
+      setSaveModalError("Theme name conflicts with a built-in theme.");
       return;
     }
 
     const variables = computeCustomVariables();
     if (Object.keys(variables).length === 0) {
-      setSaveStatus({ type: "error", message: "Adjust at least one setting before saving." });
+      setSaveModalError("Adjust at least one setting before saving.");
       return;
     }
 
-    const applyPackToManifest = (pack: CustomThemePack): void => {
-      const manifest = getCachedThemeManifest();
-      const packs = manifest.packs.filter((entry) => entry.slug !== pack.slug);
-      const nextManifest: ThemeManifest = {
-        ...manifest,
-        packs: [...packs, pack],
-      };
-      updateThemeManifest(nextManifest);
-      setSaveStatus({ type: "success", message: `Saved “${name}”.` });
+    if (existing && existing.source === "custom" && pendingOverwriteSlug !== slug) {
+      setPendingOverwriteSlug(slug);
+      setSaveModalError("A custom theme with this name already exists. Choose “Overwrite” to replace it.");
+      return;
+    }
+
+    setSaveBusy(true);
+    setPendingOverwriteSlug(null);
+
+    const commit = (pack: CustomThemePack): void => {
+      applyPackToManifest(pack);
     };
 
-    if (designerConfig.storage === "filesystem") {
-      setIsSaving(true);
-      setSaveStatus(null);
-      void (async () => {
+    try {
+      if (designerConfig.storage === "filesystem") {
+        const res = await fetch("/api/settings/ui/designer/themes", {
+          method: "POST",
+          credentials: "same-origin",
+          headers: baseHeaders({ "Content-Type": "application/json" }),
+          body: JSON.stringify({ name: trimmedName, slug, variables }),
+        });
+
+        let body: unknown = null;
         try {
-          const res = await fetch("/api/settings/ui/designer/themes", {
-            method: "POST",
-            credentials: "same-origin",
-            headers: baseHeaders({ "Content-Type": "application/json" }),
-            body: JSON.stringify({ name, slug, variables }),
-          });
-
-          let body: unknown = null;
-          try {
-            body = await res.json();
-          } catch {
-            body = null;
-          }
-
-          if (!res.ok) {
-            const message =
-              typeof (body as { message?: string } | null)?.message === "string"
-                ? (body as { message: string }).message
-                : `Save failed (HTTP ${res.status}).`;
-            setSaveStatus({ type: "error", message });
-            return;
-          }
-
-          const pack = (body as { pack?: CustomThemePack } | null)?.pack;
-          if (pack) {
-            applyPackToManifest(pack);
-          } else {
-            applyPackToManifest({
-              slug,
-              name,
-              source: "custom",
-              supports: { mode: ["light", "dark"] },
-              variables,
-            });
-          }
-        } catch (error) {
-          setSaveStatus({
-            type: "error",
-            message: error instanceof Error ? error.message : "Save failed.",
-          });
-        } finally {
-          setIsSaving(false);
+          body = await res.json();
+        } catch {
+          body = null;
         }
-      })();
+
+        if (!res.ok) {
+          const message =
+            typeof (body as { message?: string } | null)?.message === "string"
+              ? (body as { message: string }).message
+              : `Save failed (HTTP ${res.status}).`;
+          throw new Error(message);
+        }
+
+        const pack = (body as { pack?: CustomThemePack } | null)?.pack;
+        if (pack) {
+          commit(pack);
+        } else {
+          commit({
+            slug,
+            name: trimmedName,
+            source: "custom",
+            supports: { mode: ["light", "dark"] },
+            variables,
+          });
+        }
+      } else {
+        commit({
+          slug,
+          name: trimmedName,
+          source: "custom",
+          supports: { mode: ["light", "dark"] },
+          variables,
+        });
+      }
+
+      setFeedback({ type: "success", message: `Saved “${trimmedName}”.` });
+      setSaveModalOpen(false);
+      setCustomThemeName(trimmedName);
+      setLoadedThemeSlug(slug);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Save failed.";
+      setSaveModalError(message);
+      return;
+    } finally {
+      setSaveBusy(false);
+    }
+  }, [
+    applyPackToManifest,
+    computeCustomVariables,
+    customThemeName,
+    designerConfig.storage,
+    findEntryBySlug,
+    pendingOverwriteSlug,
+  ]);
+
+  const handleConfirmDelete = useCallback(async () => {
+    setDeleteModalError(null);
+    setFeedback(null);
+
+    if (!deleteSelection) {
+      setDeleteModalError("Select a theme to delete.");
       return;
     }
 
-    applyPackToManifest({
-      slug,
-      name,
-      source: "custom",
-      supports: { mode: ["light", "dark"] },
-      variables,
-    });
-  }, [computeCustomVariables, customThemeName, designerConfig.storage, saveStatus]);
+    const entry = findEntryBySlug(deleteSelection);
+    if (!entry) {
+      setDeleteModalError("Theme not found.");
+      return;
+    }
+
+    if (entry.source !== "custom") {
+      setDeleteModalError("Built-in themes cannot be deleted.");
+      return;
+    }
+
+    const slug = entry.slug;
+    const name = entry.name;
+
+    setDeleteBusy(true);
+
+    try {
+      if (designerConfig.storage === "filesystem") {
+        const res = await fetch(`/api/settings/ui/designer/themes/${slug}`, {
+          method: "DELETE",
+          credentials: "same-origin",
+          headers: baseHeaders(),
+        });
+
+        let body: unknown = null;
+        try {
+          body = await res.json();
+        } catch {
+          body = null;
+        }
+
+        if (!res.ok) {
+          const message =
+            typeof (body as { message?: string } | null)?.message === "string"
+              ? (body as { message: string }).message
+              : `Delete failed (HTTP ${res.status}).`;
+          throw new Error(message);
+        }
+      }
+
+      removePackFromManifest(slug);
+
+      if (loadedThemeSlug === slug) {
+        setLoadedThemeSlug(null);
+      }
+
+      if (slugifyThemeName(customThemeName) === slug) {
+        setCustomThemeName("");
+      }
+
+      setFeedback({ type: "success", message: `Deleted “${name}”.` });
+      setDeleteModalOpen(false);
+      setDeleteSelection("");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Delete failed.";
+      setDeleteModalError(message);
+      return;
+    } finally {
+      setDeleteBusy(false);
+    }
+  }, [
+    customThemeName,
+    deleteSelection,
+    designerConfig.storage,
+    findEntryBySlug,
+    loadedThemeSlug,
+    removePackFromManifest,
+  ]);
 
   useEffect(() => {
-    setActiveContext(null);
-    setActiveVariant(null);
+    if (!openFeature) {
+      setActiveContext(null);
+      setActiveVariant(null);
+      return;
+    }
+    const feature = FEATURE_LOOKUP.get(openFeature);
+    if (!feature) {
+      setActiveContext(null);
+      setActiveVariant(null);
+      return;
+    }
+    setActiveContext((current) => {
+      if (current && feature.contexts.some((context) => context.id === current)) {
+        return current;
+      }
+      return feature.contexts[0]?.id ?? null;
+    });
   }, [openFeature]);
 
   useEffect(() => {
-    setActiveVariant(null);
-  }, [activeContext]);
+    if (!openFeature) {
+      setActiveVariant(null);
+      return;
+    }
+    const feature = FEATURE_LOOKUP.get(openFeature);
+    if (!feature) {
+      setActiveVariant(null);
+      return;
+    }
+    const context =
+      feature.contexts.find((candidate) => candidate.id === activeContext) ?? feature.contexts[0] ?? null;
+    if (!context) {
+      setActiveVariant(null);
+      setActiveContext(null);
+      return;
+    }
+    if (context.id !== activeContext) {
+      setActiveContext(context.id);
+    }
+    setActiveVariant((current) => {
+      if (current && context.variants.some((variant) => variant.id === current)) {
+        return current;
+      }
+      return context.variants[0]?.id ?? null;
+    });
+  }, [activeContext, openFeature]);
 
   const variableStyles = useMemo<CSSProperties>(() => {
     const styles: CSSProperties = {};
@@ -752,6 +1049,7 @@ export default function ThemeDesigner(): JSX.Element {
       : null;
 
   const handleFeatureToggle = (featureId: string) => {
+    setThemeMenuOpen(false);
     setOpenFeature((current) => (current === featureId ? null : featureId));
   };
 
@@ -804,6 +1102,7 @@ export default function ThemeDesigner(): JSX.Element {
     setOpenFeature(null);
     setActiveContext(null);
     setActiveVariant(null);
+    setThemeMenuOpen(false);
   };
 
   return (
@@ -816,6 +1115,75 @@ export default function ThemeDesigner(): JSX.Element {
       >
         <div className="theme-designer-menu-inner">
           <ul className="theme-designer-menu-list">
+            <li
+              className={`theme-designer-menu-item theme-designer-menu-item--theme${
+                themeMenuOpen ? " theme-designer-menu-item--open" : ""
+              }`}
+              onMouseEnter={() => {
+                if (!themeMenuOpen) {
+                  setThemeMenuOpen(true);
+                }
+              }}
+              onFocus={() => {
+                setThemeMenuOpen(true);
+              }}
+              onMouseLeave={() => {
+                setThemeMenuOpen(false);
+              }}
+              onBlur={(event) => {
+                const next = event.relatedTarget as Node | null;
+                if (!event.currentTarget.contains(next)) {
+                  setThemeMenuOpen(false);
+                }
+              }}
+            >
+              <button
+                type="button"
+                className="theme-designer-menu-button"
+                onClick={() => setThemeMenuOpen((current) => !current)}
+                aria-haspopup="true"
+                aria-expanded={themeMenuOpen}
+              >
+                Theme
+              </button>
+
+              {themeMenuOpen && (
+                <div className="theme-designer-dropdown level-1 theme-designer-theme-dropdown">
+                  <div className="theme-designer-theme-panel">
+                    <ul className="theme-designer-dropdown-list theme-designer-theme-actions">
+                      <li>
+                        <button
+                          type="button"
+                          className="theme-designer-dropdown-link"
+                          onClick={handleOpenLoadModal}
+                        >
+                          Load…
+                        </button>
+                      </li>
+                      <li>
+                        <button
+                          type="button"
+                          className="theme-designer-dropdown-link"
+                          onClick={handleOpenSaveModal}
+                        >
+                          Save…
+                        </button>
+                      </li>
+                      <li>
+                        <button
+                          type="button"
+                          className="theme-designer-dropdown-link"
+                          onClick={handleOpenDeleteModal}
+                          disabled={!hasCustomThemes}
+                        >
+                          Delete…
+                        </button>
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+              )}
+            </li>
             {DESIGNER_FEATURES.map((feature) => (
               <li
                 key={feature.id}
@@ -968,36 +1336,119 @@ export default function ThemeDesigner(): JSX.Element {
             </li>
           ))}
           </ul>
-          <div className="theme-designer-menu-tools">
-            <input
-              type="text"
-              className="form-control form-control-sm theme-designer-name-input"
-              placeholder="Custom theme name"
-              value={customThemeName}
-              onChange={(event) => {
-                setCustomThemeName(event.target.value);
-                if (saveStatus) setSaveStatus(null);
-              }}
-            />
-            <button
-              type="button"
-              className="btn btn-primary btn-sm theme-designer-save-button"
-              onClick={handleSaveTheme}
-              disabled={isSaving}
-            >
-              {isSaving ? "Saving..." : "Save Theme"}
-            </button>
-          </div>
         </div>
-        {saveStatus && (
+        {feedback && (
           <div
-            className={`theme-designer-feedback theme-designer-feedback--${saveStatus.type}`}
+            className={`theme-designer-feedback theme-designer-feedback--${feedback.type}`}
             role="status"
           >
-            {saveStatus.message}
+            {feedback.message}
           </div>
         )}
       </div>
+
+      <ConfirmModal
+        open={loadModalOpen}
+        title="Load Theme"
+        confirmLabel="Load"
+        onConfirm={handleConfirmLoad}
+        onCancel={handleCloseLoadModal}
+      >
+        <div className="mb-3">
+          <label htmlFor={loadSelectId} className="form-label">
+            Choose a theme
+          </label>
+          <select
+            id={loadSelectId}
+            className="form-select"
+            value={loadSelection}
+            onChange={(event) => setLoadSelection(event.target.value)}
+          >
+            {themeEntries.map((entry) => (
+              <option key={entry.slug} value={entry.slug}>
+                {entry.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        {loadModalError && <div className="text-danger small">{loadModalError}</div>}
+      </ConfirmModal>
+
+      <ConfirmModal
+        open={saveModalOpen}
+        title="Save Theme"
+        confirmLabel={pendingOverwriteSlug ? "Overwrite" : "Save"}
+        confirmTone={pendingOverwriteSlug ? "danger" : "primary"}
+        busy={saveBusy}
+        onConfirm={handleConfirmSave}
+        onCancel={handleCloseSaveModal}
+        disableBackdropClose={saveBusy}
+      >
+        <div className="mb-3">
+          <label htmlFor={saveInputId} className="form-label">
+            Theme name
+          </label>
+          <input
+            id={saveInputId}
+            type="text"
+            className="form-control"
+            value={customThemeName}
+            onChange={(event) => {
+              setCustomThemeName(event.target.value);
+              setSaveModalError(null);
+              setPendingOverwriteSlug(null);
+            }}
+            disabled={saveBusy}
+            placeholder="Enter a unique name"
+          />
+        </div>
+        {pendingOverwriteSlug && (
+          <div className="alert alert-warning mb-2" role="alert">
+            A custom theme with this name already exists. Saving again will overwrite it.
+          </div>
+        )}
+        {saveModalError && <div className="text-danger small">{saveModalError}</div>}
+      </ConfirmModal>
+
+      <ConfirmModal
+        open={deleteModalOpen}
+        title="Delete Theme"
+        confirmLabel="Delete"
+        confirmTone="danger"
+        busy={deleteBusy}
+        onConfirm={handleConfirmDelete}
+        onCancel={handleCloseDeleteModal}
+        disableBackdropClose={deleteBusy}
+      >
+        {customEntries.length > 0 ? (
+          <>
+            <div className="mb-3">
+              <label htmlFor={deleteSelectId} className="form-label">
+                Choose a custom theme
+              </label>
+              <select
+                id={deleteSelectId}
+                className="form-select"
+                value={deleteSelection}
+                onChange={(event) => setDeleteSelection(event.target.value)}
+                disabled={deleteBusy}
+              >
+                {customEntries.map((entry) => (
+                  <option key={entry.slug} value={entry.slug}>
+                    {entry.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <p className="mb-0 text-muted small">
+              This permanently removes the saved theme and any overrides associated with it.
+            </p>
+          </>
+        ) : (
+          <p className="mb-0 text-muted small">No custom themes are available to delete.</p>
+        )}
+        {deleteModalError && <div className="text-danger small mt-2">{deleteModalError}</div>}
+      </ConfirmModal>
 
       <section className="theme-designer-preview container py-4" style={variableStyles}>
         <header className="mb-4">

@@ -234,6 +234,7 @@ export default function BrandingCard(): JSX.Element {
           const defaults = createDefaultBrandConfig();
           setBrandConfig(defaults);
           baselineRef.current = cloneBrandConfig(defaults);
+          previewBrand(defaults);
           setAssets([]);
           return;
         }
@@ -276,12 +277,14 @@ export default function BrandingCard(): JSX.Element {
           const config = cloneBrandConfig(selectedProfile.brand as BrandingConfig);
           setBrandConfig(config);
           baselineRef.current = cloneBrandConfig(config);
+          previewBrand(config);
           const assetList = await fetchAssets(selectedProfile.id);
           setAssets(assetList);
         } else {
           const defaults = createDefaultBrandConfig();
           setBrandConfig(defaults);
           baselineRef.current = cloneBrandConfig(defaults);
+          previewBrand(defaults);
           setAssets([]);
         }
 
@@ -297,6 +300,7 @@ export default function BrandingCard(): JSX.Element {
         updateThemeSettings(normalized);
         setBrandConfig(defaults);
         baselineRef.current = cloneBrandConfig(defaults);
+        previewBrand(defaults);
         setProfiles([]);
         setSelectedProfileId(null);
         setAssets([]);
