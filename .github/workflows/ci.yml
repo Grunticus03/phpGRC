@@ -113,10 +113,10 @@ jobs:
           restore-keys: ${{ runner.os }}-composer-
       - name: Composer validate
         run: composer validate --strict --no-check-publish
-#      - name: Resolve lockfile (sync with composer.json)
-#        run: composer update --no-interaction --prefer-dist --no-progress --prefer-stable
-      - name: Install deps
-        run: composer install --no-interaction --prefer-dist
+      - name: Install deps (including dev tools)
+        env:
+          COMPOSER_NO_DEV: "0"
+        run: COMPOSER_NO_DEV=0 composer install --no-interaction --prefer-dist --with-all-dependencies
       - run: vendor/bin/pint -v
       - run: vendor/bin/phpstan analyse --level=9 --error-format=github --no-progress --memory-limit=-1
       - name: Generate app key for static analysis
