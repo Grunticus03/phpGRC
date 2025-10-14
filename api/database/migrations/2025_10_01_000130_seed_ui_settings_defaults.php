@@ -38,7 +38,7 @@ return new class extends Migration
                 'value' => json_encode([], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
                 'type' => 'json',
             ],
-            ['key' => 'ui.brand.title_text', 'value' => 'phpGRC — Dashboard', 'type' => 'string'],
+            ['key' => 'ui.brand.title_text', 'value' => 'phpGRC', 'type' => 'string'],
             ['key' => 'ui.brand.favicon_asset_id', 'value' => 'null', 'type' => 'json'],
             ['key' => 'ui.brand.primary_logo_asset_id', 'value' => 'null', 'type' => 'json'],
             ['key' => 'ui.brand.secondary_logo_asset_id', 'value' => 'null', 'type' => 'json'],

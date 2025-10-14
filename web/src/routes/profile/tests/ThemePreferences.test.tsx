@@ -42,7 +42,7 @@ const GLOBAL_SETTINGS_BODY = {
       },
       nav: { sidebar: { default_order: [] } },
       brand: {
-        title_text: "phpGRC — Dashboard",
+        title_text: "phpGRC",
         favicon_asset_id: null,
         primary_logo_asset_id: null,
         secondary_logo_asset_id: null,

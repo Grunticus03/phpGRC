@@ -195,6 +195,38 @@ final class UiSettingsApiTest extends TestCase
         self::assertSame($defaultBrandPath, $config['brand']['assets']['filesystem_path']);
     }
 
+    public function test_put_ui_settings_accepts_layout_3(): void
+    {
+        $user = User::factory()->create();
+        Sanctum::actingAs($user);
+
+        $initial = $this->getJson('/settings/ui');
+        $initial->assertOk();
+        $etag = $initial->headers->get('ETag');
+        self::assertNotNull($etag);
+
+        $payload = [
+            'ui' => [
+                'theme' => [
+                    'login' => [
+                        'layout' => 'layout_3',
+                    ],
+                ],
+            ],
+        ];
+
+        $response = $this->withHeaders(['If-Match' => $etag])
+            ->putJson('/settings/ui', $payload);
+
+        $response->assertOk();
+        $response->assertJsonPath('config.ui.theme.login.layout', 'layout_3');
+
+        /** @var UiSettingsService $service */
+        $service = app(UiSettingsService::class);
+        $config = $service->currentConfig();
+        self::assertSame('layout_3', $config['theme']['login']['layout']);
+    }
+
     public function test_get_ui_settings_honors_if_none_match_with_multiple_values(): void
     {
         $user = User::factory()->create();

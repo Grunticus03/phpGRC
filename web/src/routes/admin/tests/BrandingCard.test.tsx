@@ -19,7 +19,7 @@ const SETTINGS_BODY = {
   config: {
     ui: {
       brand: {
-        title_text: "phpGRC — Dashboard",
+        title_text: "phpGRC",
         favicon_asset_id: null,
         primary_logo_asset_id: "as_primary",
         secondary_logo_asset_id: null,

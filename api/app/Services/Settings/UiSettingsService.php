@@ -1053,7 +1053,7 @@ final class UiSettingsService
         }
         $token = strtolower(trim($value));
 
-        return in_array($token, ['layout_1', 'layout_2'], true) ? $token : $fallback;
+        return in_array($token, ['layout_1', 'layout_2', 'layout_3'], true) ? $token : $fallback;
     }
 
     private function defaultOverride(string $token): ?string
@@ -1093,9 +1093,9 @@ final class UiSettingsService
     {
         /** @var mixed $defaultRaw */
         $defaultRaw = config('ui.defaults.brand.title_text');
-        $defaultTitle = is_string($defaultRaw) ? trim($defaultRaw) : 'phpGRC — Dashboard';
+        $defaultTitle = is_string($defaultRaw) ? trim($defaultRaw) : 'phpGRC';
         if ($defaultTitle === '') {
-            $defaultTitle = 'phpGRC — Dashboard';
+            $defaultTitle = 'phpGRC';
         }
 
         if (! is_string($value)) {
