@@ -329,10 +329,10 @@
 
 .theme-designer-preview button[data-feature="buttons"] {
   border-width: 1px;
-  font-weight: var(--td-button-font-weight, var(--td-typography-font-weight, inherit));
-  font-style: var(--td-button-font-style, var(--td-typography-font-style, normal));
+  font-weight: var(--td-button-font-weight, var(--td-typography-font-weight, inherit)) !important;
+  font-style: var(--td-button-font-style, var(--td-typography-font-style, normal)) !important;
   text-decoration: var(--td-button-text-decoration, var(--td-typography-text-decoration, none)) !important;
-  font-size: var(--td-button-font-size, var(--td-typography-font-size, inherit));
+  font-size: var(--td-button-font-size, var(--td-typography-font-size, inherit)) !important;
 }
 
 .theme-designer-preview ul[data-feature="pills"] .nav-link {
@@ -347,10 +347,10 @@
 .theme-designer-alert {
   border-radius: 0.75rem;
   padding: 1rem 1.25rem;
-  font-weight: var(--td-alert-font-weight, var(--td-typography-font-weight, inherit));
-  font-style: var(--td-alert-font-style, var(--td-typography-font-style, normal));
+  font-weight: var(--td-alert-font-weight, var(--td-typography-font-weight, inherit)) !important;
+  font-style: var(--td-alert-font-style, var(--td-typography-font-style, normal)) !important;
   text-decoration: var(--td-alert-text-decoration, var(--td-typography-text-decoration, none)) !important;
-  font-size: var(--td-alert-font-size, var(--td-typography-font-size, inherit));
+  font-size: var(--td-alert-font-size, var(--td-typography-font-size, inherit)) !important;
 }
 
 .theme-designer-alert strong,

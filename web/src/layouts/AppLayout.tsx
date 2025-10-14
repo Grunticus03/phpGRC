@@ -1005,7 +1005,9 @@ export default function AppLayout(): JSX.Element | null {
     const updateNavbarHeight = () => {
       const header = sidebarHoverZoneRef.current;
       if (!header) return;
-      document.documentElement.style.setProperty("--app-navbar-height", `${header.offsetHeight}px`);
+      const nav = header.querySelector("nav");
+      const height = nav instanceof HTMLElement ? nav.offsetHeight : header.offsetHeight;
+      document.documentElement.style.setProperty("--app-navbar-height", `${height}px`);
     };
 
     updateNavbarHeight();

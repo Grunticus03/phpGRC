@@ -216,7 +216,7 @@ describe("BrandingCard", () => {
     expect(screen.getAllByRole("button", { name: "Delete" })).toHaveLength(1);
     expect(screen.getAllByText("contoso.webp").length).toBeGreaterThan(0);
     expect(screen.getByTestId("auto-managed-secondary_logo")).toHaveTextContent(
-      "Managed via Primary logo upload."
+      "Managed via asset upload."
     );
 
     fireEvent.change(screen.getByLabelText("Title text"), { target: { value: "New Title" } });
@@ -268,7 +268,7 @@ describe("BrandingCard", () => {
     );
     await waitFor(() => expect(screen.queryByText("Loading branding settings…")).toBeNull());
 
-    const fileInput = screen.getByLabelText("Upload Primary logo") as HTMLInputElement;
+    const fileInput = screen.getByLabelText("Upload asset") as HTMLInputElement;
     const primarySelect = screen.getByLabelText("Primary logo asset selection") as HTMLSelectElement;
     const secondarySelect = screen.getByLabelText("Secondary logo asset selection") as HTMLSelectElement;
     expect(primarySelect.value).toBe("as_primary");
@@ -279,7 +279,7 @@ describe("BrandingCard", () => {
     // trigger upload
     fireEvent.change(fileInput, { target: { files: [file] } });
 
-    await screen.findByText("Upload successful.");
+    await screen.findByText("Upload successful. Select it from the dropdown to apply.");
     expect(uploadBody).not.toBeNull();
     expect(uploadBody?.get("profile_id")).toBe("bp_custom");
     expect(uploadBody?.get("kind")).toBe("primary_logo");

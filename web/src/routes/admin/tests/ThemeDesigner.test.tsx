@@ -39,8 +39,7 @@ describe("ThemeDesigner", () => {
     expect(darkModeButton).toHaveAttribute("aria-pressed", "true");
 
     const defaultOpen = navigation.querySelector(".theme-designer-menu-item--open .theme-designer-menu-button");
-    expect(defaultOpen).not.toBeNull();
-    expect((defaultOpen as HTMLButtonElement).textContent).toBe("All");
+    expect(defaultOpen).toBeNull();
 
     const openSettings = async (feature: string): Promise<HTMLElement> => {
       const trigger = Array.from(

@@ -552,7 +552,7 @@ export default function BrandingCard(): JSX.Element {
 
   const handleUpload = async (kind: BrandAsset["kind"], file: File): Promise<void> => {
     if (kind !== "primary_logo") {
-      showInfo("Upload new branding assets using the Upload primary logo control.");
+      showInfo("Upload new branding assets using the Upload asset control.");
       return;
     }
     if (!selectedProfile) {
@@ -593,12 +593,7 @@ export default function BrandingCard(): JSX.Element {
         return;
       }
 
-      const primaryAsset = variants.primary_logo ?? body.asset;
-      if (primaryAsset && typeof primaryAsset.id === "string") {
-        updateField("primary_logo_asset_id", primaryAsset.id);
-      }
-
-      showSuccess("Upload successful.");
+      showSuccess("Upload successful. Select it from the dropdown to apply.");
       void fetchAssets(selectedProfile.id).then((list) => setAssets(list));
     } catch {
       showDanger("Upload failed.");
@@ -843,14 +838,14 @@ export default function BrandingCard(): JSX.Element {
                   }}
                   disabled={disabled}
                 >
-                  Upload primary logo
+                  Upload asset
                 </button>
                 <input
                   ref={primaryUploadInputRef}
                   type="file"
                   accept={ALLOWED_TYPES.join(",")}
                   className="d-none"
-                  aria-label="Upload Primary logo"
+                  aria-label="Upload asset"
                   onChange={(event) => {
                     const file = event.target.files?.[0];
                     if (file) {
@@ -1037,7 +1032,7 @@ function BrandAssetSection({
         <div className="d-flex flex-column gap-2">
           {kind !== "primary_logo" && (
             <div className="text-muted small" data-testid={`auto-managed-${kind}`}>
-              Managed via Primary logo upload.
+              Managed via asset upload.
             </div>
           )}
           <select

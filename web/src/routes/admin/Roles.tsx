@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import {
   listRoles,
   createRole,
@@ -10,6 +10,7 @@ import {
   type RoleListResponse,
 } from "../../lib/api/rbac";
 import { roleOptionsFromList, roleLabelFromId, canonicalRoleId, type RoleOption } from "../../lib/roles";
+import ConfirmModal from "../../components/modal/ConfirmModal";
 
 export default function Roles(): JSX.Element {
   const [loading, setLoading] = useState(true);
@@ -18,6 +19,10 @@ export default function Roles(): JSX.Element {
   const [msg, setMsg] = useState<string | null>(null);
   const [name, setName] = useState<string>("");
   const [submitting, setSubmitting] = useState<boolean>(false);
+  const [renameTarget, setRenameTarget] = useState<RoleOption | null>(null);
+  const [renameValue, setRenameValue] = useState<string>("");
+  const [renameError, setRenameError] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<RoleOption | null>(null);
 
   async function load(abort?: AbortSignal) {
     setLoading(true);
@@ -90,50 +95,82 @@ export default function Roles(): JSX.Element {
     }
   };
 
-  async function renameRole(role: RoleOption) {
-    const next = prompt("Rename role", role.name);
-    if (next === null) return;
-    const trimmed = next.trim();
-    if (trimmed.length < 2) {
-      setMsg("Role name must be at least 2 characters.");
+  const renameInputId = useId();
+
+  const openRenameModal = (role: RoleOption) => {
+    if (submitting) return;
+    setRenameTarget(role);
+    setRenameValue(role.name);
+    setRenameError(null);
+    setMsg(null);
+  };
+
+  const closeRenameModal = () => {
+    if (submitting) return;
+    setRenameTarget(null);
+    setRenameValue("");
+    setRenameError(null);
+  };
+
+  const handleConfirmRename = async () => {
+    if (!renameTarget) return;
+    const trimmed = renameValue.trim();
+    if (trimmed.length < 2 || trimmed.length > 64) {
+      setRenameError("Role name must be 2–64 characters.");
       return;
     }
 
     setSubmitting(true);
     setMsg(null);
+    setRenameError(null);
     try {
-      const result: UpdateRoleResult = await updateRole(role.id, trimmed);
+      const result: UpdateRoleResult = await updateRole(renameTarget.id, trimmed);
       if (result.kind === "updated") {
         const label = roleLabelFromId(result.roleName) ?? result.roleName;
         setMsg(`Renamed to ${label}.`);
         await load();
+        closeRenameModal();
       } else if (result.kind === "stub") {
         const accepted = result.acceptedName ?? trimmed;
         const label = roleLabelFromId(accepted) ?? accepted;
         setMsg(`Accepted: "${label}". Persistence not implemented.`);
+        closeRenameModal();
       } else {
-        setMsg(result.message ?? result.code ?? "Rename failed.");
+        setRenameError(result.message ?? result.code ?? "Rename failed.");
       }
     } catch {
-      setMsg("Rename failed.");
+      setRenameError("Rename failed.");
     } finally {
       setSubmitting(false);
     }
-  }
+  };
 
-  async function removeRole(role: RoleOption) {
-    const label = role.name;
-    if (!confirm(`Delete ${label}?`)) return;
+  const openDeleteModal = (role: RoleOption) => {
+    if (submitting) return;
+    setDeleteTarget(role);
+    setMsg(null);
+  };
+
+  const closeDeleteModal = () => {
+    if (submitting) return;
+    setDeleteTarget(null);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) return;
+    const label = deleteTarget.name;
 
     setSubmitting(true);
     setMsg(null);
     try {
-      const result: DeleteRoleResult = await deleteRole(role.id);
+      const result: DeleteRoleResult = await deleteRole(deleteTarget.id);
       if (result.kind === "deleted") {
         setMsg(`${label} deleted.`);
         await load();
+        closeDeleteModal();
       } else if (result.kind === "stub") {
         setMsg("Accepted. Persistence not implemented.");
+        closeDeleteModal();
       } else {
         setMsg(result.message ?? result.code ?? "Delete failed.");
       }
@@ -142,7 +179,7 @@ export default function Roles(): JSX.Element {
     } finally {
       setSubmitting(false);
     }
-  }
+  };
 
   if (loading)
     return (
@@ -183,20 +220,22 @@ export default function Roles(): JSX.Element {
             <tbody>
               {roles.map((role) => (
                 <tr key={role.id}>
-                  <td>{role.name}</td>
+                  <td>
+                    <button
+                      type="button"
+                      className="w-100 text-start border-0 bg-transparent p-0 role-name-trigger"
+                      onClick={() => openRenameModal(role)}
+                      aria-label={`Rename ${role.name}`}
+                      disabled={submitting}
+                    >
+                      {role.name}
+                    </button>
+                  </td>
                   <td className="d-flex gap-2">
                     <button
                       type="button"
-                      className="btn btn-outline-secondary btn-sm"
-                      onClick={() => void renameRole(role)}
-                      disabled={submitting}
-                    >
-                      Rename
-                    </button>
-                    <button
-                      type="button"
                       className="btn btn-outline-danger btn-sm"
-                      onClick={() => void removeRole(role)}
+                      onClick={() => openDeleteModal(role)}
                       disabled={submitting}
                     >
                       Delete
@@ -226,16 +265,59 @@ export default function Roles(): JSX.Element {
             placeholder="e.g., Compliance Lead"
             required
             autoComplete="off"
-            aria-describedby="roleHelp"
+          aria-describedby="roleHelp"
           />
           <div id="roleHelp" className="form-text">
-            2–64 characters. Letters, numbers, spaces, and dashes recommended.
+            2–64 characters; alphanumeric, space, and hyphen characters.
           </div>
         </div>
         <button type="submit" className="btn btn-primary" disabled={name.trim().length < 2 || submitting}>
           {submitting ? "Submitting…" : "Submit"}
         </button>
       </form>
+
+      <ConfirmModal
+        open={renameTarget !== null}
+        title={renameTarget ? `Rename ${renameTarget.name}` : "Rename role"}
+        confirmLabel={submitting ? "Renaming…" : "Rename"}
+        busy={submitting}
+        onConfirm={handleConfirmRename}
+        onCancel={closeRenameModal}
+        disableBackdropClose={submitting}
+      >
+        <div className="mb-3">
+          <label htmlFor={renameInputId} className="form-label">
+            Role name
+          </label>
+          <input
+            id={renameInputId}
+            type="text"
+            className="form-control"
+            value={renameValue}
+            onChange={(event) => setRenameValue(event.target.value)}
+            maxLength={64}
+            minLength={2}
+            autoComplete="off"
+            disabled={submitting}
+            autoFocus
+          />
+        </div>
+        <div className="text-muted small mb-2">2–64 characters; alphanumeric, space, and hyphen characters.</div>
+        {renameError && <div className="text-danger small">{renameError}</div>}
+      </ConfirmModal>
+
+      <ConfirmModal
+        open={deleteTarget !== null}
+        title={deleteTarget ? `Delete ${deleteTarget.name}?` : "Delete role"}
+        confirmLabel={submitting ? "Deleting…" : "Delete"}
+        confirmTone="danger"
+        busy={submitting}
+        onConfirm={handleConfirmDelete}
+        onCancel={closeDeleteModal}
+        disableBackdropClose={submitting}
+      >
+        <p className="mb-0">This action cannot be undone.</p>
+      </ConfirmModal>
     </section>
   );
 }

@@ -1,5 +1,5 @@
 import React from "react";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Routes, Route } from "react-router-dom";
 import { vi } from "vitest";
@@ -48,8 +48,9 @@ describe("Admin Roles page", () => {
 
     expect(await screen.findByRole("heading", { name: /Roles Management/i })).toBeInTheDocument();
     expect(await screen.findByRole("table")).toBeInTheDocument();
-    expect(screen.getAllByRole("button", { name: /Rename/i })).toHaveLength(2);
     expect(screen.getAllByRole("button", { name: /Delete/i })).toHaveLength(2);
+    expect(screen.getByRole("button", { name: "Rename Admin" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Rename Auditor" })).toBeInTheDocument();
   });
 
   test("submits create role and refreshes list", async () => {
@@ -149,11 +150,16 @@ describe("Admin Roles page", () => {
     }) as unknown as typeof fetch;
 
     globalThis.fetch = fetchMock;
-    const promptSpy = vi.spyOn(window, "prompt").mockReturnValue("Admin_Primary");
-
+    const user = userEvent.setup();
     renderPage();
-    const renameBtn = await screen.findByRole("button", { name: /rename/i });
-    await userEvent.click(renameBtn);
+    const renameBtn = await screen.findByRole("button", { name: "Rename Admin" });
+    await user.click(renameBtn);
+
+    const input = await screen.findByLabelText("Role name");
+    await user.clear(input);
+    await user.type(input, "Admin Primary");
+
+    await user.click(screen.getByRole("button", { name: /^Rename$/i }));
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
@@ -161,8 +167,6 @@ describe("Admin Roles page", () => {
         expect.objectContaining({ method: "PATCH" })
       );
     });
-
-    promptSpy.mockRestore();
   });
 
   test("delete issues DELETE request", async () => {
@@ -180,11 +184,14 @@ describe("Admin Roles page", () => {
     }) as unknown as typeof fetch;
 
     globalThis.fetch = fetchMock;
-    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
-
+    const user = userEvent.setup();
     renderPage();
-    const deleteBtn = await screen.findByRole("button", { name: /delete/i });
-    await userEvent.click(deleteBtn);
+    const deleteBtn = await screen.findByRole("button", { name: /^Delete$/i });
+    await user.click(deleteBtn);
+
+    const dialog = await screen.findByRole("dialog", { name: "Delete Admin?" });
+    const confirmBtn = within(dialog).getByRole("button", { name: /^Delete$/i });
+    await user.click(confirmBtn);
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
@@ -192,7 +199,5 @@ describe("Admin Roles page", () => {
         expect.objectContaining({ method: "DELETE" })
       );
     });
-
-    confirmSpy.mockRestore();
   });
 });

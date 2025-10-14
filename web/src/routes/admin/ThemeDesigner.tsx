@@ -623,7 +623,7 @@ const buildDesignerValuesFromVariables = (
 };
 
 export default function ThemeDesigner(): JSX.Element {
-  const [openFeature, setOpenFeature] = useState<string | null>("all");
+  const [openFeature, setOpenFeature] = useState<string | null>(null);
   const [activeContext, setActiveContext] = useState<string | null>(null);
   const [activeVariant, setActiveVariant] = useState<string | null>(null);
   const [values, setValues] = useState<Record<string, string>>({});
