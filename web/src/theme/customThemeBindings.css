@@ -117,36 +117,38 @@
 }
 
 /* Alternating row colors for tables using theme primary and secondary palette */
-.table tbody tr:nth-of-type(odd) {
+.table tbody tr:nth-of-type(odd) > * {
   background-color: rgba(var(--bs-primary-rgb), 0.08);
   color: var(--bs-body-color);
 }
 
-.table tbody tr:nth-of-type(even) {
+.table tbody tr:nth-of-type(even) > * {
   background-color: rgba(var(--bs-secondary-rgb), 0.08);
   color: var(--bs-body-color);
 }
 
-.table tbody tr {
-  transition: background-color 0.18s ease;
+.table tbody tr > * {
+  transition: background-color 0.18s ease, color 0.18s ease;
 }
 
-.table tbody tr:hover {
+.table tbody tr:hover > * {
   background-color: rgba(var(--bs-primary-rgb), 0.18);
   color: var(--bs-body-color);
 }
 
-html[data-mode="dark"] .table tbody tr:nth-of-type(odd) {
-  background-color: rgba(var(--bs-primary-rgb), 0.22);
+html[data-mode="dark"] .table tbody tr:nth-of-type(odd) > * {
+  background-color: rgba(var(--bs-primary-rgb), 0.24);
+  color: var(--bs-light);
 }
 
-html[data-mode="dark"] .table tbody tr:nth-of-type(even) {
-  background-color: rgba(var(--bs-secondary-rgb), 0.22);
+html[data-mode="dark"] .table tbody tr:nth-of-type(even) > * {
+  background-color: rgba(var(--bs-secondary-rgb), 0.24);
+  color: var(--bs-light);
 }
 
-html[data-mode="dark"] .table tbody tr:hover {
+html[data-mode="dark"] .table tbody tr:hover > * {
   background-color: rgba(var(--bs-primary-rgb), 0.32);
-  color: var(--bs-body-color);
+  color: var(--bs-light);
 }
 
 html[data-mode="dark"] {

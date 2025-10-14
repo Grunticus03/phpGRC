@@ -140,28 +140,18 @@ describe("ThemePreferences", () => {
     fireEvent.change(themeSelect, { target: { value: "flatly" } });
     expect(themeSelect.value).toBe("flatly");
 
-    fireEvent.click(screen.getByLabelText("Collapse sidebar by default"));
-    const widthSlider = screen.getByLabelText("Sidebar width (px)") as HTMLInputElement;
-    fireEvent.change(widthSlider, { target: { value: "200" } });
-
-    const primaryInputs = screen.getAllByLabelText(/primary color/i) as HTMLInputElement[];
-    const primaryColorInput = primaryInputs.find((input) => input.type === "color");
-    expect(primaryColorInput).toBeDefined();
-    fireEvent.change(primaryColorInput as HTMLInputElement, { target: { value: "#123456" } });
-
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     await screen.findByText("Preferences saved.");
 
     expect(recordedIfMatch).toBe('W/"prefs:abc"');
-    expect(recordedBody).toMatchObject({
+    expect(recordedBody && typeof recordedBody === "object").toBe(true);
+    const payload = recordedBody as Record<string, unknown>;
+    expect(payload).toMatchObject({
       theme: "flatly",
-      overrides: expect.objectContaining({
-        "color.primary": "#123456",
-        "color.background": "#10131a",
-      }),
-      sidebar: expect.objectContaining({ collapsed: true, width: 200 }),
     });
+    expect(payload.overrides).toBeUndefined();
+    expect(payload.sidebar).toBeUndefined();
   });
 
   it("allows setting mode to follow system", async () => {
@@ -181,7 +171,9 @@ describe("ThemePreferences", () => {
 
     await screen.findByText("Preferences saved.");
 
-    expect(recordedBody).toMatchObject({
+    expect(recordedBody && typeof recordedBody === "object").toBe(true);
+    const payload = recordedBody as Record<string, unknown>;
+    expect(payload).toMatchObject({
       mode: null,
     });
   });
@@ -233,12 +225,15 @@ describe("ThemePreferences", () => {
 
     const themeSelect = screen.getByLabelText("Theme selection") as HTMLSelectElement;
     expect(themeSelect).toBeDisabled();
-    fireEvent.click(screen.getByLabelText("Collapse sidebar by default"));
+    const systemRadio = screen.getByLabelText("Follow system") as HTMLInputElement;
+    fireEvent.click(systemRadio);
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     await screen.findByText("Preferences saved.");
-    expect(recordedBody).toMatchObject({
-      theme: null,
+    expect(recordedBody && typeof recordedBody === "object").toBe(true);
+    const payload = recordedBody as Record<string, unknown>;
+    expect(payload).toMatchObject({
+      mode: null,
     });
   });
 
@@ -279,7 +274,8 @@ describe("ThemePreferences", () => {
 
     await waitFor(() => expect(screen.queryByText("Loading preferences…")).toBeNull());
 
-    fireEvent.click(screen.getByLabelText("Collapse sidebar by default"));
+    const themeSelect = screen.getByLabelText("Theme selection") as HTMLSelectElement;
+    fireEvent.change(themeSelect, { target: { value: "flatly" } });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     await screen.findByText("Preferences changed elsewhere. Reloaded latest values.");

@@ -69,15 +69,6 @@ const formToPrefs = (form: PrefForm): ThemeUserPrefs => {
   return prefs;
 };
 
-const COLOR_OVERRIDES = ["color.primary", "color.background", "color.surface", "color.text"] as const;
-const SHADOW_PRESETS = ["none", "default", "light", "heavy", "custom"] as const;
-const SPACING_PRESETS = ["narrow", "default", "wide"] as const;
-const TYPE_SCALE_PRESETS = ["small", "medium", "large"] as const;
-const MOTION_PRESETS = ["none", "limited", "full"] as const;
-
-const MIN_SIDEBAR_WIDTH = 50;
-const MAX_SIDEBAR_WIDTH = 480; // ~50% on 960px width
-
 const buildForm = (prefs: ThemeUserPrefs): PrefForm => ({
   theme: prefs.theme,
   mode: prefs.mode,
@@ -327,31 +318,6 @@ export default function ThemePreferences(): JSX.Element {
       previewForm(next);
       return next;
     });
-  };
-
-  const onOverrideChange = (key: string, value: string) => {
-    setForm((prev) => {
-      const next = { ...prev, overrides: { ...prev.overrides, [key]: value } };
-      previewForm(next);
-      return next;
-    });
-  };
-
-  const onOverridePresetChange = (key: string, value: string) => {
-    setForm((prev) => {
-      const next = { ...prev, overrides: { ...prev.overrides, [key]: value } };
-      previewForm(next);
-      return next;
-    });
-  };
-
-  const onSidebarCollapsed = (value: boolean) => {
-    setForm((prev) => ({ ...prev, sidebar: { ...prev.sidebar, collapsed: value } }));
-  };
-
-  const onSidebarWidth = (value: number) => {
-    const clamped = Math.max(MIN_SIDEBAR_WIDTH, Math.min(MAX_SIDEBAR_WIDTH, value));
-    setForm((prev) => ({ ...prev, sidebar: { ...prev.sidebar, width: clamped } }));
   };
 
   const resetToSaved = () => {
@@ -619,128 +585,6 @@ export default function ThemePreferences(): JSX.Element {
                   ) : null}
                 </fieldset>
 
-                <div>
-                  <h2 className="h5 mb-3">Design tokens</h2>
-                  <div className="row g-3">
-                    {COLOR_OVERRIDES.map((key) => (
-                      <div key={key} className="col-sm-3">
-                        <label htmlFor={`pref-${key}`} className="form-label text-capitalize">
-                          {key.replace("color.", "")} color
-                        </label>
-                        <input
-                          id={`pref-${key}`}
-                          type="color"
-                          className="form-control form-control-color"
-                          value={form.overrides[key] ?? "#000000"}
-                          onChange={(event) => onOverrideChange(key, event.target.value)}
-                        />
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="row g-3 mt-1">
-                    <div className="col-sm-3">
-                      <label htmlFor="prefShadow" className="form-label">
-                        Shadow preset
-                      </label>
-                      <select
-                        id="prefShadow"
-                        className="form-select"
-                        value={form.overrides.shadow ?? "default"}
-                        onChange={(event) => onOverridePresetChange("shadow", event.target.value)}
-                      >
-                        {SHADOW_PRESETS.map((preset) => (
-                          <option key={preset} value={preset}>
-                            {preset}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="col-sm-3">
-                      <label htmlFor="prefSpacing" className="form-label">
-                        Spacing scale
-                      </label>
-                      <select
-                        id="prefSpacing"
-                        className="form-select"
-                        value={form.overrides.spacing ?? "default"}
-                        onChange={(event) => onOverridePresetChange("spacing", event.target.value)}
-                      >
-                        {SPACING_PRESETS.map((preset) => (
-                          <option key={preset} value={preset}>
-                            {preset}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="col-sm-3">
-                      <label htmlFor="prefTypeScale" className="form-label">
-                        Type scale
-                      </label>
-                      <select
-                        id="prefTypeScale"
-                        className="form-select"
-                        value={form.overrides.typeScale ?? "medium"}
-                        onChange={(event) => onOverridePresetChange("typeScale", event.target.value)}
-                      >
-                        {TYPE_SCALE_PRESETS.map((preset) => (
-                          <option key={preset} value={preset}>
-                            {preset}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="col-sm-3">
-                      <label htmlFor="prefMotion" className="form-label">
-                        Motion
-                      </label>
-                      <select
-                        id="prefMotion"
-                        className="form-select"
-                        value={form.overrides.motion ?? "full"}
-                        onChange={(event) => onOverridePresetChange("motion", event.target.value)}
-                      >
-                        {MOTION_PRESETS.map((preset) => (
-                          <option key={preset} value={preset}>
-                            {preset}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <h2 className="h5 mb-3">Sidebar</h2>
-                  <div className="form-check mb-2">
-                    <input
-                      id="prefSidebarCollapsed"
-                      type="checkbox"
-                      className="form-check-input"
-                      checked={form.sidebar.collapsed}
-                      onChange={(event) => onSidebarCollapsed(event.target.checked)}
-                    />
-                    <label htmlFor="prefSidebarCollapsed" className="form-check-label">
-                      Collapse sidebar by default
-                    </label>
-                  </div>
-                  <label htmlFor="prefSidebarWidth" className="form-label">
-                    Sidebar width (px)
-                  </label>
-                  <input
-                    id="prefSidebarWidth"
-                    type="range"
-                    className="form-range"
-                    min={MIN_SIDEBAR_WIDTH}
-                    max={MAX_SIDEBAR_WIDTH}
-                    value={form.sidebar.width}
-                    onChange={(event) => onSidebarWidth(Number(event.target.value))}
-                  />
-                  <div className="form-text">Current width: {form.sidebar.width}px (min 50px, max ~50% viewport).</div>
-                  <div className="alert alert-secondary mt-3" role="note">
-                    Sidebar module ordering coming soon.
-                  </div>
-                </div>
               </fieldset>
             </>
           )}
