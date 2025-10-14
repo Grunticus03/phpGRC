@@ -22,10 +22,6 @@
     </pluginClass>
   </plugins>
 
-  <bootstrapFiles>
-    <file name="../psalm-bootstrap.php"/>
-  </bootstrapFiles>
-
   <stubs>
     <file name="stubs/laravel-sanctum-polyfill.php"/>
   </stubs>
