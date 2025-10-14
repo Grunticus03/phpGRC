@@ -68,7 +68,10 @@
     "optimize-autoloader": true,
     "preferred-install": "dist",
     "platform-check": true,
-    "autoloader-suffix": "ApiAutoload"
+    "autoloader-suffix": "ApiAutoload",
+    "allow-plugins": {
+      "psalm/plugin-laravel": true
+    }
   },
   "minimum-stability": "stable",
   "prefer-stable": true
