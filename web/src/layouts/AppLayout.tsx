@@ -234,6 +234,8 @@ export default function AppLayout(): JSX.Element | null {
   const sidebarFadeTimer = useRef<number | null>(null);
   const sidebarHideTimer = useRef<number | null>(null);
   const sidebarRef = useRef<HTMLElement | null>(null);
+  const sidebarHoverZoneRef = useRef<HTMLElement | null>(null);
+  const [sidebarToggleHovering, setSidebarToggleHovering] = useState(false);
 
   const [customizing, setCustomizing] = useState<boolean>(false);
   const customizingRef = useRef(false);
@@ -261,6 +263,9 @@ export default function AppLayout(): JSX.Element | null {
   const adminSubmenuCloseTimer = useRef<number | null>(null);
   const dragSidebarIdRef = useRef<string | null>(null);
   const failedBrandAssetsRef = useRef<Set<string>>(new Set());
+  const shouldHidePinButton =
+    loc.pathname.startsWith("/admin/settings/branding") ||
+    loc.pathname.startsWith("/admin/settings/core");
 
   const openAdminMenu = useCallback(() => {
     if (adminMenuCloseTimer.current !== null) {
@@ -743,23 +748,30 @@ export default function AppLayout(): JSX.Element | null {
   }, [setSidebarCollapsed]);
 
   const handleSidebarToggleHover = useCallback(() => {
+    setSidebarToggleHovering(true);
     if (sidebarPrefsRef.current.pinned) return;
     if (sidebarPrefsRef.current.collapsed) {
       setSidebarCollapsed(false, { persist: false, silent: true });
     }
-  }, [setSidebarCollapsed]);
+  }, [setSidebarCollapsed, setSidebarToggleHovering]);
 
   const handleSidebarToggleLeave = useCallback(
-    (event: ReactMouseEvent<HTMLButtonElement>) => {
+    (event: ReactMouseEvent<HTMLElement>) => {
+      setSidebarToggleHovering(false);
       if (customizingRef.current) return;
       if (sidebarPrefsRef.current.pinned) return;
       const nextTarget = event.relatedTarget as Node | null;
-      if (nextTarget && sidebarRef.current && sidebarRef.current.contains(nextTarget)) {
-        return;
+      if (nextTarget) {
+        if (sidebarRef.current?.contains(nextTarget)) {
+          return;
+        }
+        if (sidebarHoverZoneRef.current?.contains(nextTarget)) {
+          return;
+        }
       }
       setSidebarCollapsed(true, { persist: false, silent: true });
     },
-    [setSidebarCollapsed]
+    [setSidebarCollapsed, setSidebarToggleHovering]
   );
 
   const closeFloatingSidebar = useCallback(() => {
@@ -1129,23 +1141,31 @@ export default function AppLayout(): JSX.Element | null {
       </div>
 
       <div className="mt-auto px-3 pb-3 pt-2 text-end">
-        <button
-          type="button"
-          className="btn btn-outline-secondary btn-sm"
-          onClick={toggleSidebarPin}
-          aria-pressed={sidebarPrefs.pinned}
-          title={sidebarPrefs.pinned ? "Unpin sidebar" : "Pin sidebar"}
-          disabled={prefsLoading || sidebarSaving || sidebarReadOnly}
-        >
-          {sidebarPrefs.pinned ? "Unpin sidebar" : "Pin sidebar"}
-        </button>
+        {!shouldHidePinButton && (
+          <button
+            type="button"
+            className="btn btn-icon"
+            onClick={toggleSidebarPin}
+            aria-pressed={sidebarPrefs.pinned}
+            title={sidebarPrefs.pinned ? "Unpin sidebar" : "Pin sidebar"}
+            disabled={prefsLoading || sidebarSaving || sidebarReadOnly}
+          >
+            <i
+              className={`bi ${sidebarPrefs.pinned ? "bi-pin-fill" : "bi-pin"}`}
+              aria-hidden="true"
+            />
+            <span className="visually-hidden">
+              {sidebarPrefs.pinned ? "Unpin sidebar" : "Pin sidebar"}
+            </span>
+          </button>
+        )}
       </div>
     </div>
   );
 
   const layout = (
     <div className="app-shell d-flex flex-column min-vh-100">
-      <header>
+      <header ref={sidebarHoverZoneRef} onMouseLeave={handleSidebarToggleLeave}>
         <nav
           className={`navbar navbar-expand-lg ${navbarBackgroundClass} border-bottom shadow-sm`}
           data-bs-theme="dark"
@@ -1154,7 +1174,7 @@ export default function AppLayout(): JSX.Element | null {
             <div className="d-flex align-items-center gap-2">
               <button
                 type="button"
-                className={`btn btn-sm ${headerButtonVariant}`}
+                className="btn btn-icon"
                 aria-label={sidebarPrefs.collapsed ? "Show sidebar" : "Hide sidebar"}
                 aria-expanded={!sidebarPrefs.collapsed}
                 onClick={toggleSidebar}
@@ -1163,7 +1183,14 @@ export default function AppLayout(): JSX.Element | null {
                 onFocus={handleSidebarToggleHover}
                 disabled={prefsLoading}
               >
-                <span aria-hidden="true">{sidebarPrefs.collapsed ? "☰" : "✕"}</span>
+                <i
+                  className={`bi ${
+                    !sidebarPrefs.collapsed || sidebarToggleHovering
+                      ? "bi-layout-text-sidebar-reverse"
+                      : "bi-layout-sidebar"
+                  }`}
+                  aria-hidden="true"
+                />
                 <span className="visually-hidden">
                   {sidebarPrefs.collapsed ? "Show navigation menu" : "Hide navigation menu"}
                 </span>
@@ -1353,18 +1380,23 @@ export default function AppLayout(): JSX.Element | null {
                   {canToggleTheme ? (
                     <button
                       type="button"
-                      className={`btn btn-sm ${headerButtonVariant}`}
+                      className="btn btn-icon"
                       aria-label={`Switch to ${themeMode === "dark" ? "light" : "dark"} mode`}
                       title={`Switch to ${themeMode === "dark" ? "light" : "dark"} mode`}
                       onClick={handleThemeToggle}
                     >
-                      {themeMode === "dark" ? "🌙" : "☀️"}
+                      <i
+                        className={`bi ${
+                          themeMode === "dark" ? "bi-moon-fill" : "bi-brightness-high-fill"
+                        }`}
+                        aria-hidden="true"
+                      />
                     </button>
                   ) : null}
                   <div className="dropdown" ref={menuRef}>
                     <button
                       type="button"
-                      className={`btn btn-sm dropdown-toggle ${headerButtonVariant}`}
+                      className="btn btn-icon dropdown-toggle"
                       aria-expanded={menuOpen}
                       onClick={() => setMenuOpen((prev) => !prev)}
                     >
@@ -1406,6 +1438,7 @@ export default function AppLayout(): JSX.Element | null {
                   position: "relative",
                 }}
                 tabIndex={sidebarCollapsed || sidebarReadOnly ? -1 : 0}
+                onMouseLeave={handleSidebarToggleLeave}
                 onPointerDown={onCustomizePressStart}
                 onPointerUp={onCustomizePressEnd}
                 onPointerLeave={onCustomizePressEnd}
@@ -1456,6 +1489,7 @@ export default function AppLayout(): JSX.Element | null {
             }}
             tabIndex={sidebarCollapsed ? -1 : 0}
             aria-hidden={sidebarCollapsed}
+            onMouseLeave={handleSidebarToggleLeave}
             onPointerDown={onCustomizePressStart}
             onPointerUp={onCustomizePressEnd}
             onPointerLeave={onCustomizePressEnd}

@@ -1,0 +1,23 @@
+.btn-icon {
+  border: none;
+  background: transparent;
+  color: inherit;
+  padding: 0.25rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.btn-icon:focus-visible {
+  outline: 2px solid var(--bs-primary);
+  outline-offset: 2px;
+}
+
+.btn-icon i {
+  font-size: 1.1rem;
+}
+
+.btn-icon.dropdown-toggle::after {
+  display: none;
+}
