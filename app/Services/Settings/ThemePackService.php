@@ -727,9 +727,13 @@ final class ThemePackService
 
     private function sanitizeJs(string $contents, string $path): string
     {
-        $pattern = '#\b(?:eval\s*\(|new\s+Function\s*\(|ServiceWorker|navigator\\.serviceWorker|XMLHttpRequest\s*\(|fetch\s*\(\s*[\"\](?:https?:)?//)#i';
-        if (preg_match($pattern, $contents) === 1) {
+        $pattern = '/\b(?:eval\s*\(|new\s+Function\s*\(|ServiceWorker\b|navigator\s*\.\s*serviceWorker\b|XMLHttpRequest\s*\(|fetch\s*\()/i';
+        $result = preg_match($pattern, $contents);
+        if ($result === 1) {
             throw new ThemePackException('THEME_IMPORT_INVALID', sprintf('JavaScript file contains disallowed APIs: %s', $path));
+        }
+        if ($result === false) {
+            throw new ThemePackException('THEME_IMPORT_INVALID', sprintf('Unable to inspect JavaScript file: %s', $path));
         }
 
         return $contents;
@@ -853,8 +857,400 @@ final class ThemePackService
     private function guardImports(string $css, string $path): void
     {
         $matches = [];
-        $count = preg_match_all('#@import\s+(?:url\()?[\
-    private function guardImports(string $css, string $path): void
+        $count = preg_match_all('/@import\s+(?:url\(\s*)?(["\']?)([^"\')\s]+)\1\s*\)?/i', $css, $matches);
+        if ($count === false) {
+            throw new ThemePackException('THEME_IMPORT_INVALID', sprintf('Unable to inspect @import directives: %s', $path));
+        }
+        if ($count === 0) {
+            return;
+        }
+
+        /** @var list<non-empty-string> $importTargets */
+        $importTargets = $matches[2];
+        foreach ($importTargets as $target) {
+            $this->guardCssUrlValue($target, $path, '@import');
+        }
+    }
+
+    private function guardUrls(string $css, string $path): void
     {
         $matches = [];
-        $count = preg_match_all('#@import\s+(?:url\()?[\
+        $count = preg_match_all('/url\(\s*(["\']?)(.*?)\1\s*\)/is', $css, $matches);
+        if ($count === false) {
+            throw new ThemePackException('THEME_IMPORT_INVALID', sprintf('Unable to inspect CSS url() references: %s', $path));
+        }
+        if ($count === 0) {
+            return;
+        }
+
+        /** @var list<non-empty-string> $urlTargets */
+        $urlTargets = $matches[2];
+        foreach ($urlTargets as $target) {
+            $this->guardCssUrlValue($target, $path, 'url()');
+        }
+    }
+
+    private function guardCssUrlValue(string $raw, string $path, string $context): void
+    {
+        $trimmed = trim($raw);
+        if ($trimmed === '') {
+            return;
+        }
+
+        $unquoted = trim($trimmed, " \t\n\r\0\x0B\"'");
+        if ($unquoted === '') {
+            return;
+        }
+
+        $lower = strtolower($unquoted);
+        if (str_starts_with($lower, 'javascript:')) {
+            throw new ThemePackException('THEME_IMPORT_INVALID', sprintf('CSS %s contains a javascript: URL: %s (%s)', $context, $unquoted, $path));
+        }
+
+        if (str_starts_with($lower, 'data:')) {
+            $this->guardDataUri($unquoted, $path);
+
+            return;
+        }
+
+        if (str_starts_with($unquoted, '//')) {
+            throw new ThemePackException('THEME_IMPORT_INVALID', sprintf('CSS %s references an external URL: %s (%s)', $context, $unquoted, $path));
+        }
+
+        if (preg_match('/^[a-z][a-z0-9+\-.]*:/i', $unquoted)) {
+            if ($this->isExternalUrl($unquoted)) {
+                throw new ThemePackException('THEME_IMPORT_INVALID', sprintf('CSS %s references an external URL: %s (%s)', $context, $unquoted, $path));
+            }
+
+            throw new ThemePackException('THEME_IMPORT_INVALID', sprintf('CSS %s uses an unsupported scheme: %s (%s)', $context, $unquoted, $path));
+        }
+
+        $base = preg_split('/[#?]/', $unquoted, 2)[0] ?? '';
+        $normalized = $this->normalizePath($base);
+        if ($normalized === null) {
+            throw new ThemePackException('THEME_IMPORT_INVALID', sprintf('CSS %s contains an invalid path: %s (%s)', $context, $unquoted, $path));
+        }
+    }
+
+    private function guardDataUri(string $uri, string $path): void
+    {
+        if (! str_starts_with(strtolower($uri), 'data:')) {
+            throw new ThemePackException('THEME_IMPORT_INVALID', sprintf('Invalid data URI detected: %s (%s)', $uri, $path));
+        }
+
+        $parts = explode(',', $uri, 2);
+        if (count($parts) !== 2) {
+            throw new ThemePackException('THEME_IMPORT_INVALID', sprintf('Malformed data URI: %s (%s)', $uri, $path));
+        }
+
+        [$meta, $payload] = $parts;
+        $meta = substr($meta, 5);
+        $metaLower = strtolower($meta);
+
+        $isBase64 = str_contains($metaLower, ';base64');
+        $mime = $metaLower;
+        if ($isBase64) {
+            $mime = str_replace(';base64', '', $mime);
+        }
+
+        $mime = $mime === '' ? 'text/plain' : $mime;
+
+        $allowedMimePrefixes = [
+            'image/',
+            'font/',
+            'text/css',
+            'application/font-woff2',
+            'application/octet-stream',
+        ];
+
+        $allowed = false;
+        foreach ($allowedMimePrefixes as $prefix) {
+            if (str_starts_with($mime, $prefix)) {
+                $allowed = true;
+                break;
+            }
+        }
+
+        if (! $allowed) {
+            throw new ThemePackException('THEME_IMPORT_INVALID', sprintf('Unsupported data URI mime type: %s (%s)', $mime, $path));
+        }
+
+        if ($isBase64) {
+            $decoded = base64_decode($payload, true);
+        } else {
+            $decoded = rawurldecode($payload);
+        }
+
+        if (! is_string($decoded)) {
+            throw new ThemePackException('THEME_IMPORT_INVALID', sprintf('Unable to decode data URI: %s', $path));
+        }
+
+        if (strlen($decoded) > self::MAX_DATA_URI_BYTES) {
+            throw new ThemePackException('THEME_IMPORT_INVALID', sprintf('Data URI exceeds maximum size in %s', $path));
+        }
+    }
+
+    private function isExternalUrl(string $value): bool
+    {
+        $trim = trim($value);
+        if ($trim === '') {
+            return false;
+        }
+
+        if (str_starts_with($trim, '//')) {
+            return true;
+        }
+
+        $scheme = parse_url($trim, PHP_URL_SCHEME);
+        if (! is_string($scheme)) {
+            return false;
+        }
+
+        $scheme = strtolower($scheme);
+
+        return in_array($scheme, ['http', 'https'], true);
+    }
+
+    private function sanitizeName(mixed $value): string
+    {
+        if (! is_string($value)) {
+            throw new ThemePackException('VALIDATION_FAILED', 'Name must be a string.', 422);
+        }
+
+        $trimmed = trim($value);
+        if ($trimmed === '') {
+            throw new ThemePackException('VALIDATION_FAILED', 'Name cannot be empty.', 422);
+        }
+
+        return mb_substr($trimmed, 0, 160);
+    }
+
+    private function sanitizeNullableString(mixed $value, int $length = 120): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        if (! is_string($value)) {
+            throw new ThemePackException('VALIDATION_FAILED', 'Expected string or null value.', 422);
+        }
+
+        $trimmed = trim($value);
+        if ($trimmed === '') {
+            return null;
+        }
+
+        return mb_substr($trimmed, 0, $length);
+    }
+
+    /**
+     * @return array{id:int|null,name:string|null}
+     */
+    private function normalizeActor(?int $actorId, ?string $actorName): array
+    {
+        $id = $actorId !== null && $actorId > 0 ? $actorId : null;
+
+        $name = null;
+        if (is_string($actorName)) {
+            $trim = trim($actorName);
+            if ($trim !== '') {
+                $name = mb_substr($trim, 0, 120);
+            }
+        }
+
+        return [
+            'id' => $id,
+            'name' => $name,
+        ];
+    }
+
+    private function toBool(mixed $value): bool
+    {
+        if (is_bool($value)) {
+            return $value;
+        }
+
+        if (is_string($value)) {
+            $normalized = strtolower(trim($value));
+            if (in_array($normalized, ['1', 'true', 'yes', 'on'], true)) {
+                return true;
+            }
+            if (in_array($normalized, ['0', 'false', 'no', 'off', ''], true)) {
+                return false;
+            }
+        }
+
+        if (is_int($value)) {
+            return $value === 1;
+        }
+
+        throw new ThemePackException('VALIDATION_FAILED', 'Invalid boolean value.', 422);
+    }
+
+    private function clearThemeAssignments(string $slug, ?int $actorId): array
+    {
+        $now = now('UTC')->toDateTimeString();
+
+        $affected = UserUiPreference::query()
+            ->where('theme', $slug)
+            ->update([
+                'theme' => null,
+                'updated_at' => $now,
+            ]);
+
+        $defaultKey = 'ui.theme.default';
+        /** @var UiSetting|null $stored */
+        $stored = UiSetting::query()->find($defaultKey);
+
+        $defaultOld = $this->defaultThemeSlug();
+        if ($stored !== null) {
+            /** @var string|null $rawValue */
+            $rawValue = $stored->getAttribute('value');
+            /** @var string|null $rawType */
+            $rawType = $stored->getAttribute('type');
+            if (is_string($rawValue) && is_string($rawType)) {
+                /** @var mixed $decoded */
+                $decoded = $this->decodeSettingValue($rawValue, $rawType);
+                if (is_string($decoded) && $decoded !== '') {
+                    $defaultOld = $decoded;
+                } elseif ($decoded === null) {
+                    $defaultOld = null;
+                }
+            }
+        }
+
+        $defaultChanged = false;
+        $defaultNew = $defaultOld;
+
+        if ($defaultOld === $slug) {
+            $fallback = $this->defaultThemeSlug();
+            $defaultNew = $fallback;
+            $defaultChanged = true;
+
+            if ($stored === null) {
+                $stored = new UiSetting([
+                    'key' => $defaultKey,
+                ]);
+            }
+
+            $stored->setAttribute('value', $fallback);
+            $stored->setAttribute('type', 'string');
+            $stored->setAttribute('updated_by', $actorId);
+            $stored->setAttribute('updated_at', $now);
+            if (! $stored->exists) {
+                $stored->setAttribute('created_at', $now);
+            }
+            $stored->save();
+
+            $modeKey = 'ui.theme.mode';
+            /** @var UiSetting|null $modeSetting */
+            $modeSetting = UiSetting::query()->find($modeKey);
+            if ($modeSetting === null) {
+                $modeSetting = new UiSetting([
+                    'key' => $modeKey,
+                ]);
+            }
+
+            $fallbackMode = $this->defaultThemeModeForSlug($fallback);
+            $modeSetting->setAttribute('value', $fallbackMode);
+            $modeSetting->setAttribute('type', 'string');
+            $modeSetting->setAttribute('updated_by', $actorId);
+            $modeSetting->setAttribute('updated_at', $now);
+            if (! $modeSetting->exists) {
+                $modeSetting->setAttribute('created_at', $now);
+            }
+            $modeSetting->save();
+        }
+
+        return [
+            'affected_users' => $affected,
+            'default_changed' => $defaultChanged,
+            'default_old' => $defaultOld,
+            'default_new' => $defaultNew,
+        ];
+    }
+
+    private function decodeSettingValue(string $value, string $type): mixed
+    {
+        return match ($type) {
+            'bool' => $value === '1',
+            'int' => (int) $value,
+            'float' => (float) $value,
+            'json' => json_decode($value, true),
+            default => $value,
+        };
+    }
+
+    /**
+     * @param  array<int|string,string>  $assets
+     * @return list<string>
+     */
+    private function modesForAssets(array $assets): array
+    {
+        $modes = [];
+        foreach (['light', 'dark'] as $mode) {
+            $value = $assets[$mode] ?? null;
+            if (is_string($value) && trim($value) !== '') {
+                $modes[] = $mode;
+            }
+        }
+
+        return $modes === [] ? ['light', 'dark'] : $modes;
+    }
+
+    private function defaultThemeModeForSlug(string $slug): string
+    {
+        $manifest = $this->manifest();
+        /** @var list<array<string,mixed>> $themes */
+        $themes = $manifest['themes'];
+        /** @var list<array<string,mixed>> $packs */
+        $packs = $manifest['packs'];
+        $entries = array_merge($themes, $packs);
+
+        foreach ($entries as $entry) {
+            if (($entry['slug'] ?? null) !== $slug) {
+                continue;
+            }
+            $default = $entry['default_mode'] ?? null;
+            if (is_string($default)) {
+                $default = strtolower($default);
+                if (in_array($default, ['light', 'dark'], true)) {
+                    return $default;
+                }
+            }
+            $supports = $entry['supports'] ?? [];
+            if (! is_array($supports)) {
+                break;
+            }
+            $modes = $supports['mode'] ?? [];
+            if (! is_array($modes)) {
+                break;
+            }
+            if (in_array('dark', $modes, true) && ! in_array('light', $modes, true)) {
+                return 'dark';
+            }
+            break;
+        }
+
+        return 'light';
+    }
+
+    private function defaultThemeSlug(): string
+    {
+        /** @var array<string,string>|null $defaults */
+        $defaults = config('ui.manifest.defaults');
+
+        $fallback = 'slate';
+        if (is_array($defaults)) {
+            $candidate = $defaults['dark'] ?? null;
+            if (is_string($candidate)) {
+                $trimmed = trim($candidate);
+                if ($trimmed !== '') {
+                    $fallback = $trimmed;
+                }
+            }
+        }
+
+        return $fallback;
+    }
+}
