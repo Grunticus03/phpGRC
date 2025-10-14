@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { Evidence } from "../../lib/api/evidence";
 import { formatBytes, formatDate, type TimeFormat } from "../../lib/format";
 import { getCachedUser, loadUsers, type UserCacheValue } from "../../lib/usersCache";
@@ -13,6 +13,11 @@ type Props = {
   downloadingId: string | null;
   onDelete: (item: Evidence) => void;
   deletingId: string | null;
+  bulkDeleting: boolean;
+  selectedIds: ReadonlySet<string>;
+  onToggleSelect: (item: Evidence, selected: boolean) => void;
+  onToggleSelectAll: (selected: boolean) => void;
+  selectionDisabled?: boolean;
 };
 
 export type HeaderConfig = FilterableHeaderConfig;
@@ -70,6 +75,11 @@ export default function EvidenceTable({
   downloadingId,
   onDelete,
   deletingId,
+  bulkDeleting,
+  selectedIds,
+  onToggleSelect,
+  onToggleSelectAll,
+  selectionDisabled = false,
 }: Props): JSX.Element {
   const ownerIds = useMemo(() => computeOwnerIds(items), [items]);
   const ownerIdsKey = useMemo(() => ownerIds.join(","), [ownerIds]);
@@ -118,6 +128,24 @@ export default function EvidenceTable({
     };
   }, [ownerIdsKey, ownerIds]);
 
+  const selectedOnPage = useMemo(() => {
+    let count = 0;
+    for (const item of items) {
+      if (selectedIds.has(item.id)) count += 1;
+    }
+    return count;
+  }, [items, selectedIds]);
+
+  const allOnPageSelected = items.length > 0 && selectedOnPage === items.length;
+  const someOnPageSelected = selectedOnPage > 0 && !allOnPageSelected;
+  const selectAllRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    if (selectAllRef.current) {
+      selectAllRef.current.indeterminate = someOnPageSelected;
+    }
+  }, [someOnPageSelected, allOnPageSelected]);
+
   if (items.length === 0 && fetchState === "ok") {
     return (
       <div className="alert alert-light border" role="status">
@@ -130,7 +158,22 @@ export default function EvidenceTable({
     <div className="table-responsive">
       <table className="table" aria-label="Evidence results">
         <thead>
-          <FilterableHeaderRow headers={headers} />
+          <FilterableHeaderRow
+            headers={headers}
+            leadingCell={
+              <th scope="col" className="text-center" style={{ width: "2.5rem" }}>
+                <input
+                  ref={selectAllRef}
+                  type="checkbox"
+                  className="form-check-input"
+                  checked={items.length > 0 && allOnPageSelected}
+                  onChange={(event) => onToggleSelectAll(event.currentTarget.checked)}
+                  disabled={selectionDisabled || items.length === 0}
+                  aria-label={items.length > 0 && allOnPageSelected ? "Deselect all evidence on this page" : "Select all evidence on this page"}
+                />
+              </th>
+            }
+          />
         </thead>
         <tbody>
           {items.map((item) => {
@@ -139,9 +182,24 @@ export default function EvidenceTable({
               const sizeLabel = formatBytes(item.size);
               const mimeLabel = item.mime_label?.trim() ? item.mime_label : item.mime;
               const shaPreview = item.sha256 ? `${item.sha256.slice(0, 12)}…` : "";
+              const isSelected = selectedIds.has(item.id);
+              const isDeletingThis = deletingId === item.id;
+
+              const deleteDisabled = bulkDeleting || deletingId !== null;
+              const deleteLabel = bulkDeleting || isDeletingThis ? "Deleting…" : "Delete";
 
               return (
-                <tr key={item.id}>
+                <tr key={item.id} className={isSelected ? "table-active" : undefined}>
+                  <td className="text-center" style={{ width: "2.5rem" }}>
+                    <input
+                      type="checkbox"
+                      className="form-check-input"
+                      checked={isSelected}
+                      onChange={(event) => onToggleSelect(item, event.currentTarget.checked)}
+                      disabled={selectionDisabled}
+                      aria-label={`${isSelected ? "Deselect" : "Select"} ${item.filename || item.id}`}
+                    />
+                  </td>
                   <td title={item.created_at}>{createdLabel}</td>
                   <td className="text-break" style={{ maxWidth: "12rem" }} title={ownerTitle(item.owner_id, ownerVal)}>
                     {ownerVal === undefined ? (
@@ -171,10 +229,10 @@ export default function EvidenceTable({
                       type="button"
                       className="btn btn-outline-danger btn-sm"
                       onClick={() => onDelete(item)}
-                      disabled={deletingId === item.id}
+                      disabled={deleteDisabled}
                       aria-label={`Delete ${item.filename || item.id}`}
                     >
-                      {deletingId === item.id ? "Deleting…" : "Delete"}
+                      {deleteLabel}
                     </button>
                   </td>
                 </tr>

@@ -74,6 +74,8 @@ export default function EvidenceList(): JSX.Element {
   const [uploading, setUploading] = useState<boolean>(false);
   const [uploadProgress, setUploadProgress] = useState<{ loaded: number; total: number; filename: string } | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const toast = useToast();
   const { success: showSuccess, danger: showDanger } = toast;
 
@@ -235,6 +237,20 @@ export default function EvidenceList(): JSX.Element {
         const ok = res as EvidenceListOk;
         setTimeFormat((prev) => (ok.time_format ? normalizeTimeFormat(ok.time_format) : prev));
         setItems(ok.data);
+        setSelectedIds((prev) => {
+          if (prev.size === 0) return prev;
+          const allowed = new Set(ok.data.map((item) => item.id));
+          let changed = false;
+          const next = new Set<string>();
+          for (const id of prev) {
+            if (allowed.has(id)) {
+              next.add(id);
+            } else {
+              changed = true;
+            }
+          }
+          return changed ? next : prev;
+        });
         if (resetCursor) {
           setPrevStack([]);
         }
@@ -250,6 +266,18 @@ export default function EvidenceList(): JSX.Element {
       setState("error");
       setError("Request failed");
     }
+  }
+
+  function cursorForCurrentPage(): string | null {
+    if (prevStack.length === 0) {
+      return null;
+    }
+    return prevStack[prevStack.length - 1] ?? null;
+  }
+
+  async function reloadCurrentPage() {
+    const pageCursor = cursorForCurrentPage();
+    await load(false, { cursor: pageCursor });
   }
 
   async function handleDownload(item: Evidence) {
@@ -318,6 +346,27 @@ export default function EvidenceList(): JSX.Element {
     }
     const msg = body.message;
     return typeof msg === "string" && msg.trim() !== "" ? msg.trim() : null;
+  }
+
+  function formatDeleteError(err: unknown): string {
+    let message = "Delete failed. Please try again.";
+    if (err instanceof HttpError) {
+      const body = (err.body ?? null) as Record<string, unknown> | null;
+      const msgValue = body?.["message"];
+      const codeValue = body?.["code"];
+      const msg = typeof msgValue === "string" ? msgValue : null;
+      const code = typeof codeValue === "string" ? codeValue : null;
+      if (msg) {
+        message = `Delete failed: ${msg}`;
+      } else if (code) {
+        message = `Delete failed: ${code}`;
+      } else {
+        message = `Delete failed (HTTP ${err.status}).`;
+      }
+    } else if (err instanceof Error && err.message) {
+      message = err.message;
+    }
+    return message;
   }
 
   async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
@@ -430,7 +479,7 @@ export default function EvidenceList(): JSX.Element {
   }
 
   async function handleDelete(item: Evidence) {
-    if (deletingId) return;
+    if (deletingId || bulkDeleting) return;
     const name = item.filename?.trim() !== "" ? item.filename.trim() : item.id;
     const confirmed = window.confirm(`Delete ${name}? This cannot be undone.`);
     if (!confirmed) return;
@@ -439,28 +488,61 @@ export default function EvidenceList(): JSX.Element {
     try {
       await deleteEvidence(item.id);
       showSuccess(`${name} deleted.`);
-      await load(true);
+      setSelectedIds((prev) => {
+        if (!prev.has(item.id)) return prev;
+        const next = new Set(prev);
+        next.delete(item.id);
+        return next;
+      });
+      await reloadCurrentPage();
     } catch (err) {
-      let message = "Delete failed. Please try again.";
-      if (err instanceof HttpError) {
-        const body = (err.body ?? null) as Record<string, unknown> | null;
-        const msgValue = body?.["message"];
-        const codeValue = body?.["code"];
-        const msg = typeof msgValue === "string" ? msgValue : null;
-        const code = typeof codeValue === "string" ? codeValue : null;
-        if (msg) {
-          message = `Delete failed: ${msg}`;
-        } else if (code) {
-          message = `Delete failed: ${code}`;
-        } else {
-          message = `Delete failed (HTTP ${err.status}).`;
-        }
-      } else if (err instanceof Error && err.message) {
-        message = err.message;
-      }
-      showDanger(message);
+      showDanger(formatDeleteError(err));
     } finally {
       setDeletingId(null);
+    }
+  }
+
+  async function handleDeleteSelected() {
+    if (selectedIds.size === 0 || deletingId || bulkDeleting) {
+      return;
+    }
+    const count = selectedIds.size;
+    const confirmed = window.confirm(`Delete ${count} selected item${count === 1 ? "" : "s"}? This cannot be undone.`);
+    if (!confirmed) return;
+
+    setBulkDeleting(true);
+    try {
+      const ids = Array.from(selectedIds);
+      const deleted: string[] = [];
+      let failureMessage: string | null = null;
+
+      for (const id of ids) {
+        try {
+          await deleteEvidence(id);
+          deleted.push(id);
+        } catch (err) {
+          failureMessage = formatDeleteError(err);
+          break;
+        }
+      }
+
+      if (deleted.length > 0) {
+        showSuccess(`Deleted ${deleted.length} item${deleted.length === 1 ? "" : "s"}.`);
+        setSelectedIds((prev) => {
+          const next = new Set(prev);
+          for (const id of deleted) {
+            next.delete(id);
+          }
+          return next;
+        });
+        await reloadCurrentPage();
+      }
+
+      if (failureMessage) {
+        showDanger(failureMessage);
+      }
+    } finally {
+      setBulkDeleting(false);
     }
   }
 
@@ -1048,6 +1130,56 @@ export default function EvidenceList(): JSX.Element {
         ? Math.min(100, Math.round((uploadProgress.loaded / uploadProgress.total) * 100))
         : 0;
 
+  const selectedCount = selectedIds.size;
+
+  const handleToggleSelect = useCallback(
+    (item: Evidence, checked: boolean) => {
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        if (checked) {
+          if (next.has(item.id)) {
+            return prev;
+          }
+          next.add(item.id);
+          return next;
+        }
+        if (!next.has(item.id)) {
+          return prev;
+        }
+        next.delete(item.id);
+        return next;
+      });
+    },
+    []
+  );
+
+  const handleToggleSelectAll = useCallback(
+    (checked: boolean) => {
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        if (checked) {
+          let changed = false;
+          for (const item of items) {
+            if (!next.has(item.id)) {
+              next.add(item.id);
+              changed = true;
+            }
+          }
+          return changed ? next : prev;
+        }
+
+        let changed = false;
+        for (const item of items) {
+          if (next.delete(item.id)) {
+            changed = true;
+          }
+        }
+        return changed ? next : prev;
+      });
+    },
+    [items]
+  );
+
   return (
     <main className="container py-3">
       <h1 className="mb-3">Evidence</h1>
@@ -1132,8 +1264,24 @@ export default function EvidenceList(): JSX.Element {
 
       <hr className="my-4" />
 
-      {state === "loading" && <p>Loading…</p>}
-      {state === "error" && <p role="alert" className="text-danger">Error: {error}</p>}
+  {state === "loading" && <p>Loading…</p>}
+  {state === "error" && <p role="alert" className="text-danger">Error: {error}</p>}
+
+      <div className="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
+        <span className="small text-muted">
+          {selectedCount > 0 ? `${selectedCount} selected` : "No items selected"}
+        </span>
+        <div className="d-flex flex-wrap align-items-center gap-2">
+          <button
+            type="button"
+            className="btn btn-outline-danger btn-sm"
+            onClick={handleDeleteSelected}
+            disabled={selectedCount === 0 || bulkDeleting || deletingId !== null}
+          >
+            {bulkDeleting ? "Deleting…" : "Delete selected"}
+          </button>
+        </div>
+      </div>
 
       <EvidenceTable
         headers={tableHeaders}
@@ -1144,6 +1292,11 @@ export default function EvidenceList(): JSX.Element {
         downloadingId={downloadingId}
         onDelete={handleDelete}
         deletingId={deletingId}
+        bulkDeleting={bulkDeleting}
+        selectedIds={selectedIds}
+        onToggleSelect={handleToggleSelect}
+        onToggleSelectAll={handleToggleSelectAll}
+        selectionDisabled={bulkDeleting || deletingId !== null}
       />
 
       <nav aria-label="Evidence pagination" className="d-flex align-items-center gap-2">

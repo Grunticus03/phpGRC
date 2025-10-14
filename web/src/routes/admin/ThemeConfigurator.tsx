@@ -8,6 +8,7 @@ import {
 } from "./themeData";
 import {
   getCachedThemeManifest,
+  getCachedThemeSettings,
   onThemeManifestChange,
   updateThemeManifest,
   updateThemeSettings,
@@ -62,6 +63,19 @@ const toStoredOverrides = (source: Record<string, string>): ThemeSettings["theme
     (base as Record<string, string>)[key] = value;
   });
   return base as ThemeSettings["theme"]["overrides"];
+};
+
+const DEFAULT_LOGO_SRC = "/api/images/phpGRC-light-horizontal-trans.png";
+
+const brandAssetUrl = (assetId: string): string =>
+  `/api/settings/ui/brand-assets/${encodeURIComponent(assetId)}/download`;
+
+const resolvePrimaryLogoSrc = (settings: ThemeSettings): string | null => {
+  const raw = ((settings.brand ?? null) as { primary_logo_asset_id?: unknown } | null)?.primary_logo_asset_id;
+  if (typeof raw !== "string") return null;
+  const trimmed = raw.trim();
+  if (trimmed === "") return null;
+  return `${brandAssetUrl(trimmed)}?v=${encodeURIComponent(trimmed)}`;
 };
 
 function buildInitialForm(settings: ThemeSettings): FormState {
@@ -129,6 +143,9 @@ export default function ThemeConfigurator(): JSX.Element {
   const etagRef = useRef<string | null>(null);
   const snapshotRef = useRef<FormState | null>(buildInitialForm(DEFAULT_THEME_SETTINGS));
   const defaultLoginLayout = DEFAULT_THEME_SETTINGS.theme.login?.layout;
+  const [primaryLogoSrc, setPrimaryLogoSrc] = useState<string | null>(() =>
+    resolvePrimaryLogoSrc(getCachedThemeSettings() as ThemeSettings)
+  );
   const settingsRef = useRef<ThemeSettings>({
     ...DEFAULT_THEME_SETTINGS,
     theme: {
@@ -186,14 +203,38 @@ export default function ThemeConfigurator(): JSX.Element {
   };
 
   const loginLayoutOptions = useMemo(
-    () => [
+    () => {
+      const renderLogo = (width: number, height: number, options?: { rounded?: boolean }) => {
+        const src = primaryLogoSrc ?? DEFAULT_LOGO_SRC;
+        if (src) {
+          return (
+            <img
+              src={src}
+              alt=""
+              style={{
+                maxWidth: `${width}px`,
+                maxHeight: `${height}px`,
+                objectFit: "contain",
+              }}
+            />
+          );
+        }
+        return (
+          <div
+            className={`${options?.rounded !== false ? "rounded-circle" : "rounded-3"} bg-primary opacity-75`}
+            style={{ width: `${width}px`, height: `${height}px` }}
+          />
+        );
+      };
+
+      return [
       {
         value: "layout_1" as const,
         label: "Layout 1",
         description: "Centered form with logo stacked above the fields.",
         preview: (
           <div className="d-flex flex-column align-items-center gap-2" aria-hidden="true">
-            <div className="rounded-circle bg-primary opacity-75" style={{ width: "40px", height: "40px" }} />
+            {renderLogo(72, 40)}
             <div className="w-100 bg-body border border-light-subtle rounded-3 shadow-sm p-3 vstack gap-2">
               <div className="bg-body-secondary rounded-2" style={{ height: "10px" }} />
               <div className="bg-body-secondary rounded-2" style={{ height: "10px" }} />
@@ -209,7 +250,7 @@ export default function ThemeConfigurator(): JSX.Element {
         preview: (
           <div className="vstack gap-2" aria-hidden="true">
             <div className="d-flex align-items-center gap-2">
-              <div className="rounded-circle bg-primary opacity-75" style={{ width: "28px", height: "28px" }} />
+              {renderLogo(56, 32)}
               <div className="bg-body-secondary rounded-2 flex-grow-1" style={{ height: "8px", maxWidth: "72px" }} />
             </div>
             <div className="d-flex align-items-center gap-3">
@@ -233,8 +274,8 @@ export default function ThemeConfigurator(): JSX.Element {
         description: "Animated two-step sign-in with sequential email and password prompts.",
         preview: (
           <div className="vstack gap-2" aria-hidden="true">
-            <div className="bg-body border border-light-subtle rounded-3 shadow-sm p-2">
-              <div className="bg-body-secondary rounded-2 mx-auto" style={{ height: "10px", width: "70%" }} />
+            <div className="bg-body border border-light-subtle rounded-3 shadow-sm p-2 d-flex justify-content-center">
+              {renderLogo(96, 36, { rounded: false })}
             </div>
             <div className="bg-body border border-light-subtle rounded-3 shadow-sm p-2 vstack gap-2">
               <div className="bg-body-secondary rounded-2" style={{ height: "10px", width: "80%" }} />
@@ -251,8 +292,9 @@ export default function ThemeConfigurator(): JSX.Element {
           </div>
         ),
       },
-    ],
-    []
+      ];
+    },
+    [primaryLogoSrc]
   );
 
   useEffect(() => {
@@ -279,6 +321,7 @@ export default function ThemeConfigurator(): JSX.Element {
         },
       },
     } as ThemeSettings;
+    setPrimaryLogoSrc(resolvePrimaryLogoSrc(settings));
     const nextForm = buildInitialForm(settings);
     snapshotRef.current = nextForm;
     setForm(nextForm);
@@ -350,6 +393,7 @@ export default function ThemeConfigurator(): JSX.Element {
         snapshotRef.current = buildInitialForm(DEFAULT_THEME_SETTINGS);
         setForm(buildInitialForm(DEFAULT_THEME_SETTINGS));
         updateThemeSettings(DEFAULT_THEME_SETTINGS);
+        setPrimaryLogoSrc(resolvePrimaryLogoSrc(DEFAULT_THEME_SETTINGS));
         return;
       }
 
@@ -361,6 +405,7 @@ export default function ThemeConfigurator(): JSX.Element {
         snapshotRef.current = buildInitialForm(DEFAULT_THEME_SETTINGS);
         setForm(buildInitialForm(DEFAULT_THEME_SETTINGS));
         updateThemeSettings(DEFAULT_THEME_SETTINGS);
+        setPrimaryLogoSrc(resolvePrimaryLogoSrc(DEFAULT_THEME_SETTINGS));
         return;
       }
 
@@ -376,6 +421,7 @@ export default function ThemeConfigurator(): JSX.Element {
       snapshotRef.current = buildInitialForm(DEFAULT_THEME_SETTINGS);
       setForm(buildInitialForm(DEFAULT_THEME_SETTINGS));
       updateThemeSettings(DEFAULT_THEME_SETTINGS);
+      setPrimaryLogoSrc(resolvePrimaryLogoSrc(DEFAULT_THEME_SETTINGS));
     } finally {
       setLoading(false);
     }

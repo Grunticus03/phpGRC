@@ -188,6 +188,7 @@
   gap: 0.5rem;
   flex-wrap: wrap;
   justify-self: end;
+  margin-left: auto;
 }
 
 .theme-designer-color-text {

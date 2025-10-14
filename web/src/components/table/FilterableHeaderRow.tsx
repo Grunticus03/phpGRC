@@ -12,11 +12,14 @@ export type FilterableHeaderConfig = {
 
 type Props = {
   headers: FilterableHeaderConfig[];
+  leadingCell?: ReactNode;
+  trailingCell?: ReactNode;
 };
 
-export default function FilterableHeaderRow({ headers }: Props): JSX.Element {
+export default function FilterableHeaderRow({ headers, leadingCell, trailingCell }: Props): JSX.Element {
   return (
     <tr>
+      {leadingCell}
       {headers.map(({ key, label, onToggle, isActive, filterContent, summaryContent, className }) => (
         <th key={key} scope="col" className={className}>
           {onToggle ? (
@@ -34,6 +37,7 @@ export default function FilterableHeaderRow({ headers }: Props): JSX.Element {
           {filterContent}
         </th>
       ))}
+      {trailingCell}
     </tr>
   );
 }

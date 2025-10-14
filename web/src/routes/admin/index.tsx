@@ -9,6 +9,7 @@ type AdminTreeNode = {
   href?: string;
   children?: AdminTreeNode[];
   defaultExpanded?: boolean;
+  collapsible?: boolean;
 };
 
 const ADMIN_TREE: AdminTreeNode[] = [
@@ -16,11 +17,13 @@ const ADMIN_TREE: AdminTreeNode[] = [
     id: "settings",
     label: "Settings",
     defaultExpanded: true,
+    collapsible: false,
     children: [
       {
         id: "settings-theme",
         label: "Theme",
         defaultExpanded: true,
+        collapsible: false,
         children: [
           { id: "settings-theme-config", label: "Theme Settings", to: "/admin/settings/theming" },
           { id: "settings-theme-designer", label: "Theme Designer", to: "/admin/settings/theme-designer" },
@@ -60,13 +63,15 @@ type TreeItemProps = {
 
 function TreeItem({ node, level, isLast }: TreeItemProps): JSX.Element {
   const hasChildren = Array.isArray(node.children) && node.children.length > 0;
-  const [expanded, setExpanded] = useState(node.defaultExpanded ?? level === 1);
+  const collapsible = node.collapsible !== false && hasChildren;
+  const [expandedState, setExpandedState] = useState(node.defaultExpanded ?? level === 1);
+  const expanded = collapsible ? expandedState : true;
 
-  const toggleSlot = hasChildren ? (
+  const toggleSlot = collapsible ? (
     <button
       type="button"
       className="btn btn-sm btn-outline-secondary admin-tree-toggle"
-      onClick={() => setExpanded((prev) => !prev)}
+      onClick={() => setExpandedState((prev) => !prev)}
       aria-label={`${expanded ? "Collapse" : "Expand"} ${node.label}`}
       aria-expanded={expanded}
     >

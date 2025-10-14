@@ -76,7 +76,8 @@ type LoadUserPrefsOptions = {
 type AdminNavLeaf = {
   id: string;
   label: string;
-  to: string;
+  to?: string;
+  href?: string;
 };
 
 type AdminNavItem = AdminNavLeaf & {
@@ -112,6 +113,7 @@ const ADMIN_NAV_ITEMS: readonly AdminNavItem[] = [
   { id: "admin.user-roles", label: "User Roles", to: "/admin/user-roles" },
   { id: "admin.users", label: "Users", to: "/admin/users" },
   { id: "admin.audit", label: "Audit Logs", to: "/admin/audit" },
+  { id: "admin.api-docs", label: "API Docs", href: "/api/docs" },
 ];
 
 type SidebarPrefs = {
@@ -1266,7 +1268,7 @@ export default function AppLayout(): JSX.Element | null {
                         >
                           {ADMIN_NAV_ITEMS.map((item) => {
                             const submenuActive =
-                              item.children?.some((child) => loc.pathname.startsWith(child.to)) ?? false;
+                              item.children?.some((child) => child.to && loc.pathname.startsWith(child.to)) ?? false;
                             if (item.children && item.children.length > 0) {
                               const submenuOpen = adminMenuOpen && activeAdminSubmenu === item.id;
                               return (
@@ -1282,22 +1284,37 @@ export default function AppLayout(): JSX.Element | null {
                                     }
                                   }}
                                 >
-                                  <NavLink
-                                    to={item.to}
-                                    className={({ isActive }) =>
-                                      `dropdown-item d-flex align-items-center justify-content-between${
-                                        isActive || submenuActive ? " active fw-semibold" : ""
-                                      }`
-                                    }
-                                    role="menuitem"
-                                    onClick={() => {
-                                      setAdminMenuOpen(false);
-                                      setActiveAdminSubmenu(null);
-                                    }}
-                                    onMouseEnter={() => openAdminSubmenu(item.id)}
-                                  >
-                                    <span>{item.label}</span>
-                                  </NavLink>
+                                  {item.to ? (
+                                    <NavLink
+                                      to={item.to}
+                                      className={({ isActive }) =>
+                                        `dropdown-item d-flex align-items-center justify-content-between${
+                                          isActive || submenuActive ? " active fw-semibold" : ""
+                                        }`
+                                      }
+                                      role="menuitem"
+                                      onClick={() => {
+                                        setAdminMenuOpen(false);
+                                        setActiveAdminSubmenu(null);
+                                      }}
+                                      onMouseEnter={() => openAdminSubmenu(item.id)}
+                                    >
+                                      <span>{item.label}</span>
+                                    </NavLink>
+                                  ) : item.href ? (
+                                    <a
+                                      href={item.href}
+                                      className="dropdown-item d-flex align-items-center justify-content-between"
+                                      role="menuitem"
+                                      onClick={() => {
+                                        setAdminMenuOpen(false);
+                                        setActiveAdminSubmenu(null);
+                                      }}
+                                      onMouseEnter={() => openAdminSubmenu(item.id)}
+                                    >
+                                      <span>{item.label}</span>
+                                    </a>
+                                  ) : null}
                                   <div
                                     role="menu"
                                     aria-hidden={submenuOpen ? "false" : "true"}
@@ -1312,45 +1329,89 @@ export default function AppLayout(): JSX.Element | null {
                                     onMouseEnter={() => openAdminSubmenu(item.id)}
                                     onMouseLeave={scheduleAdminSubmenuClose}
                                   >
-                                    {item.children.map((child) => (
-                                      <NavLink
-                                        key={child.id}
-                                        to={child.to}
-                                        className={({ isActive }) =>
-                                          `dropdown-item${isActive ? " active fw-semibold" : ""}`
-                                        }
-                                        role="menuitem"
-                                        onClick={() => {
-                                          setAdminMenuOpen(false);
-                                          setActiveAdminSubmenu(null);
-                                        }}
-                                      >
-                                        {child.label}
-                                      </NavLink>
-                                    ))}
+                                    {item.children.map((child) => {
+                                      if (child.to) {
+                                        return (
+                                          <NavLink
+                                            key={child.id}
+                                            to={child.to}
+                                            className={({ isActive }) =>
+                                              `dropdown-item${isActive ? " active fw-semibold" : ""}`
+                                            }
+                                            role="menuitem"
+                                            onClick={() => {
+                                              setAdminMenuOpen(false);
+                                              setActiveAdminSubmenu(null);
+                                            }}
+                                          >
+                                            {child.label}
+                                          </NavLink>
+                                        );
+                                      }
+                                      if (child.href) {
+                                        return (
+                                          <a
+                                            key={child.id}
+                                            href={child.href}
+                                            className="dropdown-item"
+                                            role="menuitem"
+                                            onClick={() => {
+                                              setAdminMenuOpen(false);
+                                              setActiveAdminSubmenu(null);
+                                            }}
+                                          >
+                                            {child.label}
+                                          </a>
+                                        );
+                                      }
+                                      return null;
+                                    })}
                                   </div>
                                 </div>
                               );
                             }
 
-                            return (
-                              <NavLink
-                                key={item.id}
-                                to={item.to}
-                                className={({ isActive }) =>
-                                  `dropdown-item${isActive ? " active fw-semibold" : ""}`
-                                }
-                                role="menuitem"
-                                onClick={() => {
-                                  setAdminMenuOpen(false);
-                                  setActiveAdminSubmenu(null);
-                                }}
-                                onMouseEnter={() => setActiveAdminSubmenu(null)}
-                                onFocus={() => setActiveAdminSubmenu(null)}
-                              >
-                                {item.label}
-                              </NavLink>
-                            );
+                            if (item.to) {
+                              return (
+                                <NavLink
+                                  key={item.id}
+                                  to={item.to}
+                                  className={({ isActive }) =>
+                                    `dropdown-item${isActive ? " active fw-semibold" : ""}`
+                                  }
+                                  role="menuitem"
+                                  onClick={() => {
+                                    setAdminMenuOpen(false);
+                                    setActiveAdminSubmenu(null);
+                                  }}
+                                  onMouseEnter={() => setActiveAdminSubmenu(null)}
+                                  onFocus={() => setActiveAdminSubmenu(null)}
+                                >
+                                  {item.label}
+                                </NavLink>
+                              );
+                            }
+
+                            if (item.href) {
+                              return (
+                                <a
+                                  key={item.id}
+                                  href={item.href}
+                                  className="dropdown-item"
+                                  role="menuitem"
+                                  onClick={() => {
+                                    setAdminMenuOpen(false);
+                                    setActiveAdminSubmenu(null);
+                                  }}
+                                  onMouseEnter={() => setActiveAdminSubmenu(null)}
+                                  onFocus={() => setActiveAdminSubmenu(null)}
+                                >
+                                  {item.label}
+                                </a>
+                              );
+                            }
+
+                            return null;
                           })}
                         </div>
                       </li>
