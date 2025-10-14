@@ -35,7 +35,6 @@ const ADMIN_TREE: AdminTreeNode[] = [
   },
   { id: "roles", label: "Roles", to: "/admin/roles" },
   { id: "users", label: "Users", to: "/admin/users" },
-  { id: "user-roles", label: "User Roles", to: "/admin/user-roles" },
   { id: "audit", label: "Audit Logs", to: "/admin/audit" },
   { id: "api-docs", label: "API Documentation", href: "/api/docs" },
 ];

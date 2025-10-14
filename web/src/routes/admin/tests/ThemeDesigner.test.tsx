@@ -32,6 +32,12 @@ describe("ThemeDesigner", () => {
     const preview = container.querySelector(".theme-designer-preview") as HTMLElement;
     expect(preview).not.toBeNull();
 
+    const modeToggle = screen.getByRole("group", { name: "Theme mode" });
+    const primaryModeButton = within(modeToggle).getByRole("button", { name: "Primary" });
+    const darkModeButton = within(modeToggle).getByRole("button", { name: "Dark" });
+    expect(primaryModeButton).toHaveAttribute("aria-pressed", "false");
+    expect(darkModeButton).toHaveAttribute("aria-pressed", "true");
+
     const defaultOpen = navigation.querySelector(".theme-designer-menu-item--open .theme-designer-menu-button");
     expect(defaultOpen).not.toBeNull();
     expect((defaultOpen as HTMLButtonElement).textContent).toBe("All");
@@ -160,5 +166,18 @@ describe("ThemeDesigner", () => {
 
     fireEvent.click(themeButton);
     expect(screen.getByRole("button", { name: "Delete…" })).toBeDisabled();
+  });
+
+  it("keeps the Theme menu open when hovering into the dropdown", async () => {
+    render(<ThemeDesigner />);
+
+    const themeButton = screen.getByRole("button", { name: "Theme" });
+    const themeListItem = themeButton.closest("li") as HTMLElement;
+
+    fireEvent.mouseEnter(themeListItem);
+    const loadOption = await screen.findByRole("button", { name: "Load…" });
+
+    fireEvent.mouseLeave(themeListItem, { relatedTarget: loadOption });
+    expect(loadOption).toBeVisible();
   });
 });

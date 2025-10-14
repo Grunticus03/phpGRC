@@ -4,8 +4,11 @@ import { baseHeaders } from "../../lib/api";
 import {
   getCachedThemeManifest,
   getCachedThemeSettings,
+  getCurrentTheme,
   onThemeManifestChange,
+  onThemePrefsChange,
   onThemeSettingsChange,
+  toggleThemeMode,
   updateThemeManifest,
 } from "../../theme/themeManager";
 import ConfirmModal from "../../components/modal/ConfirmModal";
@@ -59,6 +62,7 @@ type ThemeFeature = {
 };
 
 type ThemeManifestEntry = ThemeManifest["themes"][number] | ThemeManifest["packs"][number];
+type ThemeSelectionState = ReturnType<typeof getCurrentTheme>;
 
 const FONT_OPTIONS: SettingOption[] = [
   {
@@ -640,16 +644,24 @@ export default function ThemeDesigner(): JSX.Element {
   const [deleteModalError, setDeleteModalError] = useState<string | null>(null);
   const [pendingOverwriteSlug, setPendingOverwriteSlug] = useState<string | null>(null);
   const [loadedThemeSlug, setLoadedThemeSlug] = useState<string | null>(null);
+  const [themeSelection, setThemeSelection] = useState<ThemeSelectionState>(() => getCurrentTheme());
 
   const loadSelectId = useId();
   const saveInputId = useId();
   const deleteSelectId = useId();
 
   useEffect(() => {
-    const unsubscribe = onThemeSettingsChange((next) => {
+    const offSettings = onThemeSettingsChange((next) => {
       setDesignerConfig(next.theme.designer);
+      setThemeSelection(getCurrentTheme());
     });
-    return unsubscribe;
+    const offPrefs = onThemePrefsChange(() => {
+      setThemeSelection(getCurrentTheme());
+    });
+    return () => {
+      offSettings();
+      offPrefs();
+    };
   }, []);
 
   useEffect(() => {
@@ -672,6 +684,15 @@ export default function ThemeDesigner(): JSX.Element {
     () => customEntries.length > 0,
     [customEntries]
   );
+
+  const canToggleMode = useMemo(() => {
+    const entry = themeEntries.find((candidate) => candidate.slug === themeSelection.slug);
+    if (!entry?.supports?.mode) return false;
+    const supported = entry.supports.mode.filter((mode): mode is "light" | "dark" => mode === "light" || mode === "dark");
+    return supported.length > 1;
+  }, [themeEntries, themeSelection.slug]);
+
+  const isDarkMode = themeSelection.mode === "dark";
 
   useEffect(() => {
     if (loadSelection && !themeEntries.some((entry) => entry.slug === loadSelection)) {
@@ -1048,6 +1069,16 @@ export default function ThemeDesigner(): JSX.Element {
       ? contextForVariants.variants.find((variant) => variant.id === activeVariant) ?? null
       : null;
 
+  const handleModeSelect = useCallback(
+    (mode: "light" | "dark") => {
+      if (!canToggleMode) return;
+      if (themeSelection.mode === mode) return;
+      const nextMode = toggleThemeMode();
+      setThemeSelection((prev) => ({ ...prev, mode: nextMode }));
+    },
+    [canToggleMode, themeSelection.mode]
+  );
+
   const handleFeatureToggle = (featureId: string) => {
     setThemeMenuOpen(false);
     setOpenFeature((current) => (current === featureId ? null : featureId));
@@ -1127,8 +1158,11 @@ export default function ThemeDesigner(): JSX.Element {
               onFocus={() => {
                 setThemeMenuOpen(true);
               }}
-              onMouseLeave={() => {
-                setThemeMenuOpen(false);
+              onMouseLeave={(event) => {
+                const next = event.relatedTarget as Node | null;
+                if (!event.currentTarget.contains(next)) {
+                  setThemeMenuOpen(false);
+                }
               }}
               onBlur={(event) => {
                 const next = event.relatedTarget as Node | null;
@@ -1184,29 +1218,29 @@ export default function ThemeDesigner(): JSX.Element {
                 </div>
               )}
             </li>
-            {DESIGNER_FEATURES.map((feature) => (
-              <li
-                key={feature.id}
-                className={`theme-designer-menu-item${
-                  openFeature === feature.id ? " theme-designer-menu-item--open" : ""
+          {DESIGNER_FEATURES.map((feature) => (
+            <li
+              key={feature.id}
+              className={`theme-designer-menu-item${
+                openFeature === feature.id ? " theme-designer-menu-item--open" : ""
               }`}
               onMouseEnter={() => {
-            if (openFeature !== feature.id) {
-              setOpenFeature(feature.id);
-            }
-          }}
-        >
-          <button
-            type="button"
-            className="theme-designer-menu-button"
-            onClick={() => handleFeatureToggle(feature.id)}
-            onFocus={() => {
-              setOpenFeature(feature.id);
-            }}
-            aria-haspopup="true"
-            aria-expanded={openFeature === feature.id}
-          >
-            {feature.label}
+                if (openFeature !== feature.id) {
+                  setOpenFeature(feature.id);
+                }
+              }}
+            >
+              <button
+                type="button"
+                className="theme-designer-menu-button"
+                onClick={() => handleFeatureToggle(feature.id)}
+                onFocus={() => {
+                  setOpenFeature(feature.id);
+                }}
+                aria-haspopup="true"
+                aria-expanded={openFeature === feature.id}
+              >
+                {feature.label}
               </button>
 
               {openFeature === feature.id && (
@@ -1335,7 +1369,29 @@ export default function ThemeDesigner(): JSX.Element {
               )}
             </li>
           ))}
-          </ul>
+        </ul>
+        {canToggleMode ? (
+          <div className="theme-designer-mode-toggle ms-auto" role="group" aria-label="Theme mode">
+            <div className="btn-group btn-group-sm" role="group" aria-label="Theme mode toggle">
+              <button
+                type="button"
+                className={`btn btn-outline-primary${!isDarkMode ? " active" : ""}`}
+                aria-pressed={!isDarkMode}
+                onClick={() => handleModeSelect("light")}
+              >
+                Primary
+              </button>
+              <button
+                type="button"
+                className={`btn btn-outline-primary${isDarkMode ? " active" : ""}`}
+                aria-pressed={isDarkMode}
+                onClick={() => handleModeSelect("dark")}
+              >
+                Dark
+              </button>
+            </div>
+          </div>
+        ) : null}
         </div>
         {feedback && (
           <div

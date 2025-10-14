@@ -161,6 +161,7 @@ export default function BrandingCard(): JSX.Element {
   const [newProfileName, setNewProfileName] = useState("");
   const [deleteAssetTarget, setDeleteAssetTarget] = useState<BrandAsset | null>(null);
   const [deleteAssetBusy, setDeleteAssetBusy] = useState(false);
+  const primaryUploadInputRef = useRef<HTMLInputElement | null>(null);
 
   const etagRef = useRef<string | null>(null);
   const baselineRef = useRef<BrandingConfig | null>(null);
@@ -551,7 +552,7 @@ export default function BrandingCard(): JSX.Element {
 
   const handleUpload = async (kind: BrandAsset["kind"], file: File): Promise<void> => {
     if (kind !== "primary_logo") {
-      showInfo("Upload new branding assets via the Primary logo section.");
+      showInfo("Upload new branding assets using the Upload primary logo control.");
       return;
     }
     if (!selectedProfile) {
@@ -831,6 +832,37 @@ export default function BrandingCard(): JSX.Element {
                 </div>
               </div>
 
+              <div className="d-flex flex-column align-items-start gap-2 mb-3">
+                <button
+                  type="button"
+                  className="btn btn-outline-primary btn-sm"
+                  onClick={() => {
+                    if (!disabled) {
+                      primaryUploadInputRef.current?.click();
+                    }
+                  }}
+                  disabled={disabled}
+                >
+                  Upload primary logo
+                </button>
+                <input
+                  ref={primaryUploadInputRef}
+                  type="file"
+                  accept={ALLOWED_TYPES.join(",")}
+                  className="d-none"
+                  aria-label="Upload Primary logo"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    if (file) {
+                      void handleUpload("primary_logo", file);
+                    }
+                    event.target.value = "";
+                  }}
+                  disabled={disabled}
+                />
+                <div className="form-text mb-0">PNG, JPG, or WebP up to 5 MB.</div>
+              </div>
+
               <BrandAssetSection
                 label="Primary logo"
                 description="Displayed in header and as fallback for other locations."
@@ -838,7 +870,6 @@ export default function BrandingCard(): JSX.Element {
                 asset={findAssetById(brandConfig.primary_logo_asset_id)}
                 assets={assets}
                 hasCustomValue={brandConfig.primary_logo_asset_id !== null}
-                onUpload={handleUpload}
                 onSelect={(assetId) => updateField("primary_logo_asset_id", assetId)}
                 onClear={() => updateField("primary_logo_asset_id", null)}
                 disabled={disabled}
@@ -851,7 +882,6 @@ export default function BrandingCard(): JSX.Element {
                 asset={findAssetById(brandConfig.secondary_logo_asset_id)}
                 assets={assets}
                 hasCustomValue={brandConfig.secondary_logo_asset_id !== null}
-                onUpload={handleUpload}
                 onSelect={(assetId) => updateField("secondary_logo_asset_id", assetId)}
                 onClear={() => updateField("secondary_logo_asset_id", null)}
                 disabled={disabled}
@@ -864,7 +894,6 @@ export default function BrandingCard(): JSX.Element {
                 asset={findAssetById(brandConfig.header_logo_asset_id)}
                 assets={assets}
                 hasCustomValue={brandConfig.header_logo_asset_id !== null}
-                onUpload={handleUpload}
                 onSelect={(assetId) => updateField("header_logo_asset_id", assetId)}
                 onClear={() => updateField("header_logo_asset_id", null)}
                 disabled={disabled}
@@ -877,7 +906,6 @@ export default function BrandingCard(): JSX.Element {
                 asset={findAssetById(brandConfig.footer_logo_asset_id)}
                 assets={assets}
                 hasCustomValue={brandConfig.footer_logo_asset_id !== null}
-                onUpload={handleUpload}
                 onSelect={(assetId) => updateField("footer_logo_asset_id", assetId)}
                 onClear={() => updateField("footer_logo_asset_id", null)}
                 disabled={disabled}
@@ -903,7 +931,6 @@ export default function BrandingCard(): JSX.Element {
                 asset={findAssetById(brandConfig.favicon_asset_id)}
                 assets={assets}
                 hasCustomValue={brandConfig.favicon_asset_id !== null}
-                onUpload={handleUpload}
                 onSelect={(assetId) => updateField("favicon_asset_id", assetId)}
                 onClear={() => updateField("favicon_asset_id", null)}
                 disabled={disabled}
@@ -948,7 +975,6 @@ type BrandAssetSectionProps = {
   asset: BrandAsset | null;
   assets: BrandAsset[];
   hasCustomValue: boolean;
-  onUpload: (kind: BrandAsset["kind"], file: File) => void | Promise<void>;
   onSelect: (assetId: string | null) => void;
   onClear: () => void;
   disabled: boolean;
@@ -961,20 +987,11 @@ function BrandAssetSection({
   asset,
   assets,
   hasCustomValue,
-  onUpload,
   onSelect,
   onClear,
   disabled,
 }: BrandAssetSectionProps): JSX.Element {
-  const inputRef = useRef<HTMLInputElement | null>(null);
   const filteredAssets = assets.filter((candidate) => candidate.kind === kind);
-  const allowUpload = kind === "primary_logo";
-
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    void onUpload(kind, file);
-  };
 
   return (
     <div className="card border-secondary-subtle">
@@ -1018,29 +1035,7 @@ function BrandAssetSection({
           </div>
         </div>
         <div className="d-flex flex-column gap-2">
-          <button
-            type="button"
-            className="btn btn-outline-primary btn-sm"
-            onClick={() => {
-              if (allowUpload) {
-                inputRef.current?.click();
-              }
-            }}
-            disabled={disabled || !allowUpload}
-            title={allowUpload ? undefined : "Automatically generated from the Primary logo."}
-          >
-            Upload new
-          </button>
-          <input
-            ref={inputRef}
-            type="file"
-            accept={ALLOWED_TYPES.join(",")}
-            className="d-none"
-            aria-label={`Upload ${label}`}
-            onChange={handleFileChange}
-            disabled={disabled || !allowUpload}
-          />
-          {!allowUpload && (
+          {kind !== "primary_logo" && (
             <div className="text-muted small" data-testid={`auto-managed-${kind}`}>
               Managed via Primary logo upload.
             </div>

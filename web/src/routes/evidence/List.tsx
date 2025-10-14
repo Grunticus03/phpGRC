@@ -1304,7 +1304,7 @@ export default function EvidenceList(): JSX.Element {
 
       <div className="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
         <span className="small text-muted">
-          {selectedCount > 0 ? `${selectedCount} selected` : "No items selected"}
+          {selectedCount > 0 ? `${selectedCount} selected` : ""}
         </span>
         <div className="d-flex flex-wrap align-items-center gap-2">
           <button

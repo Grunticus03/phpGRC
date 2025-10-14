@@ -6,7 +6,7 @@
 
 .theme-designer-menu {
   position: sticky;
-  top: 0;
+  top: var(--app-navbar-height, 0px);
   z-index: 940;
   background: var(--bs-body-bg);
 }
@@ -16,6 +16,12 @@
   align-items: center;
   gap: 1rem;
   padding: 0.5rem 1rem;
+}
+
+.theme-designer-mode-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .theme-designer-menu-list {
@@ -325,7 +331,7 @@
   border-width: 1px;
   font-weight: var(--td-button-font-weight, var(--td-typography-font-weight, inherit));
   font-style: var(--td-button-font-style, var(--td-typography-font-style, normal));
-  text-decoration: var(--td-button-text-decoration, var(--td-typography-text-decoration, none));
+  text-decoration: var(--td-button-text-decoration, var(--td-typography-text-decoration, none)) !important;
   font-size: var(--td-button-font-size, var(--td-typography-font-size, inherit));
 }
 
@@ -343,8 +349,16 @@
   padding: 1rem 1.25rem;
   font-weight: var(--td-alert-font-weight, var(--td-typography-font-weight, inherit));
   font-style: var(--td-alert-font-style, var(--td-typography-font-style, normal));
-  text-decoration: var(--td-alert-text-decoration, var(--td-typography-text-decoration, none));
+  text-decoration: var(--td-alert-text-decoration, var(--td-typography-text-decoration, none)) !important;
   font-size: var(--td-alert-font-size, var(--td-typography-font-size, inherit));
+}
+
+.theme-designer-alert strong,
+.theme-designer-alert b {
+  font-weight: inherit;
+  font-style: inherit;
+  text-decoration: inherit;
+  font-size: inherit;
 }
 
 .theme-designer-preview table[data-feature="tables"] tbody tr {

@@ -17,7 +17,6 @@ import BrandingSettings from "./routes/admin/BrandingSettings";
 import ThemingSettings from "./routes/admin/ThemingSettings";
 import ThemeDesigner from "./routes/admin/ThemeDesigner";
 import Roles from "./routes/admin/Roles";
-import UserRoles from "./routes/admin/UserRoles";
 import Audit from "./routes/admin/Audit";
 import EvidenceList from "./routes/evidence/List";
 import Users from "./routes/admin/Users";
@@ -57,7 +56,6 @@ const router = createBrowserRouter(
         </Route>
         <Route path="roles" element={<Roles />} />
         <Route path="users" element={<Users />} />
-        <Route path="user-roles" element={<UserRoles />} />
         <Route path="audit" element={<Audit />} />
         <Route path="evidence" element={<EvidenceList />} />
       </Route>

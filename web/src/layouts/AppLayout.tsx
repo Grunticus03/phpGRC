@@ -110,7 +110,6 @@ const ADMIN_NAV_ITEMS: readonly AdminNavItem[] = [
     ],
   },
   { id: "admin.roles", label: "Roles", to: "/admin/roles" },
-  { id: "admin.user-roles", label: "User Roles", to: "/admin/user-roles" },
   { id: "admin.users", label: "Users", to: "/admin/users" },
   { id: "admin.audit", label: "Audit Logs", to: "/admin/audit" },
   { id: "admin.api-docs", label: "API Docs", href: "/api/docs" },
@@ -978,7 +977,9 @@ export default function AppLayout(): JSX.Element | null {
   const handleThemeToggle = useCallback(() => {
     const next = toggleThemeMode();
     setThemeMode(next);
-  }, []);
+    setSidebarToggleHovering(false);
+    closeFloatingSidebar();
+  }, [closeFloatingSidebar]);
 
   const effectiveSidebarOrder = useMemo(
     () => mergeSidebarOrder(SIDEBAR_MODULES, sidebarDefaultOrder, sidebarPrefs.order),
@@ -1003,6 +1004,32 @@ export default function AppLayout(): JSX.Element | null {
   }
 
   const hideNav = loc.pathname.startsWith("/auth/");
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    if (hideNav) {
+      document.documentElement.style.removeProperty("--app-navbar-height");
+      return;
+    }
+
+    const updateNavbarHeight = () => {
+      const header = sidebarHoverZoneRef.current;
+      if (!header) return;
+      document.documentElement.style.setProperty("--app-navbar-height", `${header.offsetHeight}px`);
+    };
+
+    updateNavbarHeight();
+
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    window.addEventListener("resize", updateNavbarHeight);
+    return () => {
+      window.removeEventListener("resize", updateNavbarHeight);
+      document.documentElement.style.removeProperty("--app-navbar-height");
+    };
+  }, [hideNav, themeMode, brand.headerLogoId, brand.primaryLogoId, brand.title]);
 
   const displayedOrder = customizing ? editingOrder : effectiveSidebarOrder;
   const sidebarItems = displayedOrder
@@ -1165,7 +1192,11 @@ export default function AppLayout(): JSX.Element | null {
 
   const layout = (
     <div className="app-shell d-flex flex-column min-vh-100">
-      <header ref={sidebarHoverZoneRef} onMouseLeave={handleSidebarToggleLeave}>
+      <header
+        ref={sidebarHoverZoneRef}
+        onMouseLeave={handleSidebarToggleLeave}
+        style={{ position: "sticky", top: 0, zIndex: 1050, backgroundColor: "var(--bs-body-bg)" }}
+      >
         <nav
           className={`navbar navbar-expand-lg ${navbarBackgroundClass} border-bottom shadow-sm`}
           data-bs-theme="dark"
