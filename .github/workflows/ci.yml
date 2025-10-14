@@ -118,7 +118,7 @@ jobs:
           COMPOSER_NO_DEV: "0"
         run: COMPOSER_NO_DEV=0 composer install --no-interaction --prefer-dist
       - run: vendor/bin/pint -v
-      - run: vendor/bin/phpstan analyse --level=9 --error-format=github --no-progress --memory-limit=-1
+      - run: vendor/bin/phpstan analyse --level=10 --error-format=github --no-progress --memory-limit=-1
       - name: Generate app key for static analysis
         run: |
           KEY=$(php -r "echo 'base64:'.base64_encode(random_bytes(32));")
