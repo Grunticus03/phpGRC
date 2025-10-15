@@ -52,6 +52,7 @@ import {
   type ThemeUserPrefs,
 } from "../routes/admin/themeData";
 import { ToastProvider } from "../components/toast/ToastProvider";
+import { persistThemeModePreference } from "./persistThemeModePreference";
 
 type Fingerprint = {
   summary?: { rbac?: { require_auth?: boolean } };
@@ -566,6 +567,22 @@ export default function AppLayout(): JSX.Element | null {
     [authed, sidebarReadOnly, loadUserPrefs, updateSidebarState]
   );
 
+  const persistThemeMode = useCallback(
+    (mode: "light" | "dark") => {
+      const settings = getCachedThemeSettings();
+      const allowOverride = settings.theme.allow_user_override && !settings.theme.force_global;
+      void persistThemeModePreference(mode, {
+        authed,
+        allowOverride,
+        etagRef: sidebarEtagRef,
+        loadUserPrefs,
+        getPrefs: getCachedThemePrefs,
+        updatePrefs: updateThemePrefs,
+      });
+    },
+    [authed, loadUserPrefs]
+  );
+
   useEffect(() => {
     const off = onUnauthorized(() => {
       if (!loc.pathname.startsWith("/auth/")) {
@@ -978,8 +995,9 @@ export default function AppLayout(): JSX.Element | null {
     const next = toggleThemeMode();
     setThemeMode(next);
     setSidebarToggleHovering(false);
+    persistThemeMode(next);
     closeFloatingSidebar();
-  }, [closeFloatingSidebar]);
+  }, [closeFloatingSidebar, persistThemeMode]);
 
   const effectiveSidebarOrder = useMemo(
     () => mergeSidebarOrder(SIDEBAR_MODULES, sidebarDefaultOrder, sidebarPrefs.order),

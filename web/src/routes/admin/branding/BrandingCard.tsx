@@ -777,12 +777,12 @@ export default function BrandingCard(): JSX.Element {
                       type="button"
                       className="btn btn-outline-secondary btn-sm"
                       onClick={() => {
-                        setIsCreatingProfile((value) => !value);
+                        setIsCreatingProfile(true);
                         setNewProfileName("");
                       }}
                       disabled={profileSaving || readOnly}
                     >
-                      {isCreatingProfile ? "Cancel" : "New profile"}
+                      New profile
                     </button>
                     <button
                       type="button"
@@ -806,33 +806,6 @@ export default function BrandingCard(): JSX.Element {
                     </button>
                   </div>
                 </div>
-                {isCreatingProfile && !readOnly && (
-                  <div className="col-lg-4">
-                    <label htmlFor="newProfileName" className="form-label fw-semibold mb-1">
-                      Create new profile
-                    </label>
-                    <div className="d-flex gap-2">
-                      <input
-                        id="newProfileName"
-                        type="text"
-                        className="form-control form-control-sm"
-                        placeholder="Profile name"
-                        value={newProfileName}
-                        maxLength={120}
-                        onChange={(event) => setNewProfileName(event.target.value)}
-                        disabled={profileSaving}
-                      />
-                      <button
-                        type="button"
-                        className="btn btn-primary btn-sm"
-                        onClick={() => void handleCreateProfile()}
-                        disabled={profileSaving}
-                      >
-                        {profileSaving ? "Creating…" : "Create"}
-                      </button>
-                    </div>
-                  </div>
-                )}
                 {selectedProfile?.is_active && (
                   <div className="col-lg-auto">
                     <span className="badge text-bg-success">Active</span>
@@ -994,6 +967,50 @@ export default function BrandingCard(): JSX.Element {
         )}
       </div>
     </section>
+      {isCreatingProfile && (
+        <ConfirmModal
+          open
+          title="Create branding profile"
+          confirmLabel={profileSaving ? "Creating…" : "Create"}
+          busy={profileSaving}
+          confirmDisabled={newProfileName.trim().length === 0}
+          initialFocus="none"
+          onCancel={() => {
+            if (profileSaving) return;
+            setIsCreatingProfile(false);
+            setNewProfileName("");
+          }}
+          onConfirm={() => {
+            if (!profileSaving) {
+              void handleCreateProfile();
+            }
+          }}
+          disableBackdropClose={profileSaving}
+        >
+          <div className="mb-3">
+            <label htmlFor="newProfileName" className="form-label">
+              Profile name
+            </label>
+            <input
+              id="newProfileName"
+              type="text"
+              className="form-control"
+              placeholder="Profile name"
+              value={newProfileName}
+              maxLength={120}
+              onChange={(event) => setNewProfileName(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && !profileSaving && newProfileName.trim().length > 0) {
+                  event.preventDefault();
+                  void handleCreateProfile();
+                }
+              }}
+              disabled={profileSaving}
+              autoFocus
+            />
+          </div>
+        </ConfirmModal>
+      )}
       {deleteProfileTarget && (
         <ConfirmModal
           open

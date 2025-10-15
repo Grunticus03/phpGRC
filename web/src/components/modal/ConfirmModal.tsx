@@ -11,6 +11,8 @@ type ConfirmModalProps = {
   onConfirm: () => void;
   onCancel: () => void;
   disableBackdropClose?: boolean;
+  confirmDisabled?: boolean;
+  initialFocus?: "confirm" | "none";
 };
 
 export default function ConfirmModal({
@@ -24,20 +26,22 @@ export default function ConfirmModal({
   onConfirm,
   onCancel,
   disableBackdropClose = false,
+  confirmDisabled = false,
+  initialFocus = "confirm",
 }: ConfirmModalProps): JSX.Element | null {
   const confirmButtonRef = useRef<HTMLButtonElement | null>(null);
   const titleId = useId();
   const bodyId = useId();
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || initialFocus !== "confirm") return;
     const timer = window.setTimeout(() => {
       confirmButtonRef.current?.focus();
     }, 0);
     return () => {
       window.clearTimeout(timer);
     };
-  }, [open, busy]);
+  }, [open, busy, initialFocus]);
 
   if (!open) {
     return null;
@@ -99,7 +103,7 @@ export default function ConfirmModal({
                 type="button"
                 className={confirmClass}
                 onClick={onConfirm}
-                disabled={busy}
+                disabled={busy || confirmDisabled}
                 ref={confirmButtonRef}
               >
                 {confirmLabel}

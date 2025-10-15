@@ -623,7 +623,6 @@ const buildDesignerValuesFromVariables = (
 };
 
 export default function ThemeDesigner(): JSX.Element {
-  const [navbarOffset, setNavbarOffset] = useState(0);
   const [openFeature, setOpenFeature] = useState<string | null>(null);
   const [activeContext, setActiveContext] = useState<string | null>(null);
   const [activeVariant, setActiveVariant] = useState<string | null>(null);
@@ -650,37 +649,6 @@ export default function ThemeDesigner(): JSX.Element {
   const loadSelectId = useId();
   const saveInputId = useId();
   const deleteSelectId = useId();
-
-  useEffect(() => {
-    if (typeof window === "undefined" || typeof document === "undefined") {
-      return;
-    }
-
-    const readNavbarOffset = () => {
-      const raw = getComputedStyle(document.documentElement).getPropertyValue("--app-navbar-height");
-      const parsed = Number.parseFloat(raw) || 0;
-      setNavbarOffset((current) => (Math.abs(current - parsed) > 0.5 ? parsed : current));
-    };
-
-    readNavbarOffset();
-    const raf = window.requestAnimationFrame(readNavbarOffset);
-
-    window.addEventListener("resize", readNavbarOffset);
-    return () => {
-      window.removeEventListener("resize", readNavbarOffset);
-      window.cancelAnimationFrame(raf);
-    };
-  }, []);
-
-  const menuInlineStyles = useMemo<CSSProperties>(() => {
-    if (navbarOffset <= 0) {
-      return {};
-    }
-    return {
-      top: navbarOffset,
-      marginTop: -navbarOffset,
-    };
-  }, [navbarOffset]);
 
   useEffect(() => {
     const offSettings = onThemeSettingsChange((next) => {
@@ -1175,7 +1143,6 @@ export default function ThemeDesigner(): JSX.Element {
         role="navigation"
         aria-label="Theme designer controls"
         onMouseLeave={onMenuMouseLeave}
-        style={menuInlineStyles}
       >
         <div className="theme-designer-menu-inner">
           <ul className="theme-designer-menu-list">

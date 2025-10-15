@@ -153,11 +153,17 @@ describe("BrandingCard", () => {
   let uploadBody: FormData | null = null;
   let saveBody: unknown = null;
   let lastIfMatch: string | null = null;
+  let createdProfileName: string | null = null;
+  let profileCounter = 0;
+  let profileList: typeof PROFILES_BODY.profiles = [];
 
   beforeEach(() => {
     uploadBody = null;
     saveBody = null;
     lastIfMatch = null;
+    createdProfileName = null;
+    profileList = PROFILES_BODY.profiles.map((profile) => ({ ...profile }));
+    profileCounter = profileList.length;
 
     fetchMock = vi.fn(async (...args: Parameters<typeof fetch>) => {
       const url = String(args[0]);
@@ -169,10 +175,33 @@ describe("BrandingCard", () => {
       }
 
       if (url === "/api/settings/ui/brand-profiles" && method === "GET") {
-        return jsonResponse(PROFILES_BODY);
+        return jsonResponse({ ok: true, profiles: profileList });
+      }
+
+      if (url === "/api/settings/ui/brand-profiles" && method === "POST") {
+        const parsed = JSON.parse(String(init.body ?? "{}")) as { name?: string };
+        const name = typeof parsed.name === "string" ? parsed.name : "";
+        createdProfileName = name;
+        const newProfile = {
+          id: `bp_created_${++profileCounter}`,
+          name,
+          is_default: false,
+          is_active: false,
+          is_locked: false,
+          brand: SETTINGS_BODY.config.ui.brand,
+          created_at: null,
+          updated_at: null,
+        };
+        profileList = [...profileList, newProfile];
+        return jsonResponse({ ok: true, profile: newProfile });
       }
 
       if (url.startsWith("/api/settings/ui/brand-assets") && method === "GET") {
+        const parsedUrl = new URL(url, "http://localhost");
+        const requestedProfile = parsedUrl.searchParams.get("profile_id");
+        if (requestedProfile && requestedProfile !== "bp_custom") {
+          return jsonResponse({ ok: true, assets: [] });
+        }
         return jsonResponse(ASSETS_BODY);
       }
 
@@ -258,6 +287,33 @@ describe("BrandingCard", () => {
         },
       },
     });
+  });
+
+  it("creates a new branding profile using modal", async () => {
+    render(
+      <ToastProvider>
+        <BrandingCard />
+      </ToastProvider>
+    );
+
+    await waitFor(() => expect(screen.queryByText("Loading branding settings…")).toBeNull());
+
+    fireEvent.click(screen.getByRole("button", { name: "New profile" }));
+
+    const nameField = await screen.findByLabelText("Profile name");
+    const confirmButton = screen.getByRole("button", { name: "Create" });
+    expect(confirmButton).toBeDisabled();
+
+    fireEvent.change(nameField, { target: { value: "Marketing" } });
+    expect(screen.getByRole("button", { name: "Create" })).toBeEnabled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Create" }));
+
+    await screen.findByText('Profile "Marketing" created. Configure and save to apply.');
+    expect(createdProfileName).toBe("Marketing");
+
+    await waitFor(() => expect(screen.queryByLabelText("Profile name")).not.toBeInTheDocument());
+    await screen.findByRole("option", { name: "Marketing" });
   });
 
   it("handles upload validations", async () => {
