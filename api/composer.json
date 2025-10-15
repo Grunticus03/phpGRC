@@ -52,7 +52,7 @@
     "test": "php vendor/bin/phpunit",
     "lint": "php vendor/bin/pint -v",
     "stan": "php vendor/bin/phpstan analyse --error-format=github --no-progress --memory-limit=-1",
-    "psalm": "@php scripts/composer/run-psalm.php",
+    "psalm": "@php -d auto_prepend_file=../psalm-bootstrap.php vendor/bin/psalm --no-cache",
     "phpmd": "php vendor/bin/phpmd app/,config/,database/,routes/ ansi phpmd.xml",
     "audit": "composer audit --locked --no-dev",
     "check": [
