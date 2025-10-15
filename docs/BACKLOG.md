@@ -228,6 +228,22 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 
 ---
 
+### CORE-017 — Fine-grained Permission Matrix
+**Description:** Expand RBAC to include per-feature permissions (view/edit/create/delete) with persistence, evaluator support, and admin UI grouping (Users, Evidence, Reports, etc.).  
+**Acceptance Criteria:**
+- Permission catalog table storing slug, label, description, and category
+- Role-permission pivot and seeder for default role grants
+- API endpoints + OpenAPI schemas for listing, assigning, and auditing permissions
+- Evaluator checks granular permissions alongside existing policy map
+- Admin Roles page groups permissions with checklists; supports assign/remove + search
+- Backend and frontend tests covering happy path, denies, and audit emission  
+**Phase:** 6  
+**Step:** 1  
+**Dependencies:** CORE-004, CORE-011  
+**Status:** Planned
+
+---
+
 ## 🎨 UI / Theming (Phase 5.5)
 
 ### THEME-001 — Bootswatch Runtime Themes

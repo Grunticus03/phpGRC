@@ -371,4 +371,3 @@ Snapshot generated from migrations against **phpgrc** as of 2025-10-14 (UTC).
 - `UNIQUE INDEX users_email_unique (email)`
 
 ---
-
