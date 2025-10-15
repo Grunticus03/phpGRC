@@ -193,6 +193,8 @@ Route::prefix('/settings/ui')
             ->defaults('policy', 'core.settings.manage');
         Route::put('/brand-profiles/{profile}', [BrandProfilesController::class, 'update'])
             ->defaults('policy', 'core.settings.manage');
+        Route::delete('/brand-profiles/{profile}', [BrandProfilesController::class, 'destroy'])
+            ->defaults('policy', 'core.settings.manage');
         Route::post('/brand-profiles/{profile}/activate', [BrandProfilesController::class, 'activate'])
             ->defaults('policy', 'core.settings.manage');
 

@@ -4,16 +4,16 @@ declare(strict_types=1);
 
 namespace App\Events;
 
+use App\Support\Laravel\EventDispatchable;
+use App\Support\Laravel\SerializesModels;
 use Carbon\CarbonInterface;
-use Illuminate\Foundation\Events\Dispatchable;
-use Illuminate\Queue\SerializesModels;
 
 /**
  * Emitted after settings are applied.
  */
 final class SettingsUpdated
 {
-    use Dispatchable;
+    use EventDispatchable;
     use SerializesModels;
 
     /**

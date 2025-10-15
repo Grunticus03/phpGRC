@@ -122,6 +122,38 @@ final class BrandProfilesController extends Controller
         ], 200);
     }
 
+    public function destroy(Request $request, string $profileId): JsonResponse
+    {
+        $profile = $this->settings->brandProfileById($profileId);
+        if (! $profile instanceof BrandProfile) {
+            return response()->json([
+                'ok' => false,
+                'code' => 'PROFILE_NOT_FOUND',
+                'message' => 'Branding profile not found.',
+            ], 404);
+        }
+
+        $wasActive = (bool) $profile->getAttribute('is_active');
+
+        try {
+            $this->settings->deleteBrandProfile($profile);
+        } catch (BrandProfileLockedException $exception) {
+            return response()->json([
+                'ok' => false,
+                'code' => 'PROFILE_LOCKED',
+                'message' => $exception->getMessage(),
+            ], 409);
+        }
+
+        return response()->json([
+            'ok' => true,
+            'deleted' => [
+                'id' => $profileId,
+                'was_active' => $wasActive,
+            ],
+        ], 200);
+    }
+
     /**
      * @return array<string,mixed>
      */

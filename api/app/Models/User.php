@@ -22,6 +22,7 @@ use Laravel\Sanctum\HasApiTokens;
  *
  * @psalm-suppress MissingTemplateParam
  * @psalm-suppress PropertyNotSetInConstructor
+ * @psalm-suppress MissingConstructor
  */
 final class User extends Authenticatable
 {

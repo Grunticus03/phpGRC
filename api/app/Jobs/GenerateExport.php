@@ -5,12 +5,12 @@ declare(strict_types=1);
 namespace App\Jobs;
 
 use App\Models\Export;
+use App\Support\Laravel\BusDispatchable;
+use App\Support\Laravel\InteractsWithQueue;
+use App\Support\Laravel\Queueable;
+use App\Support\Laravel\SerializesModels;
 use Carbon\CarbonImmutable;
-use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Foundation\Bus\Dispatchable;
-use Illuminate\Queue\InteractsWithQueue;
-use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Storage;
 use RuntimeException;
 use Throwable;
@@ -20,7 +20,7 @@ use Throwable;
  */
 final class GenerateExport implements ShouldQueue
 {
-    use Dispatchable;
+    use BusDispatchable;
     use InteractsWithQueue;
     use Queueable;
     use SerializesModels;

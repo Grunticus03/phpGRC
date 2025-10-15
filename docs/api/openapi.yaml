@@ -524,6 +524,41 @@ paths:
                 $ref: "#/components/schemas/ErrorSimple"
         "422":
           $ref: "#/components/responses/ValidationFailed"
+    delete:
+      operationId: settingsUiBrandProfilesDelete
+      tags: [Settings]
+      summary: Delete branding profile
+      description: Deletes a branding profile and associated assets. Default profiles cannot be removed. Requires `core.settings.manage`.
+      parameters:
+        - name: profile
+          in: path
+          required: true
+          schema:
+            type: string
+            description: Branding profile identifier (`bp_<ulid>`).
+      responses:
+        "200":
+          description: Profile deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Ok"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: Profile not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorSimple"
+        "409":
+          description: Profile is locked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorSimple"
 
   /settings/ui/brand-profiles/{profile}/activate:
     post:

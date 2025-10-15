@@ -161,6 +161,9 @@ export default function BrandingCard(): JSX.Element {
   const [newProfileName, setNewProfileName] = useState("");
   const [deleteAssetTarget, setDeleteAssetTarget] = useState<BrandAsset | null>(null);
   const [deleteAssetBusy, setDeleteAssetBusy] = useState(false);
+  const [deleteProfileTarget, setDeleteProfileTarget] = useState<BrandProfile | null>(null);
+  const [deleteProfileBusy, setDeleteProfileBusy] = useState(false);
+  const [deleteProfileError, setDeleteProfileError] = useState<string | null>(null);
   const primaryUploadInputRef = useRef<HTMLInputElement | null>(null);
 
   const etagRef = useRef<string | null>(null);
@@ -417,6 +420,36 @@ export default function BrandingCard(): JSX.Element {
       showDanger(error instanceof Error ? error.message : "Failed to activate profile.");
     } finally {
       setProfileSaving(false);
+    }
+  };
+
+  const handleDeleteProfile = async () => {
+    if (!deleteProfileTarget) {
+      return;
+    }
+
+    setDeleteProfileBusy(true);
+    try {
+      const res = await fetch(`/api/settings/ui/brand-profiles/${encodeURIComponent(deleteProfileTarget.id)}`, {
+        method: "DELETE",
+        credentials: "same-origin",
+        headers: baseHeaders(),
+      });
+
+      const body = await parseJson<Record<string, unknown>>(res);
+      if (!res.ok) {
+        const errMsg = typeof body?.message === "string" ? (body.message as string) : "Failed to delete profile.";
+        throw new Error(errMsg);
+      }
+
+      showSuccess("Profile deleted.");
+      setDeleteProfileError(null);
+      setDeleteProfileTarget(null);
+      await loadBranding({ preserveMessage: true });
+    } catch (error) {
+      setDeleteProfileError(error instanceof Error ? error.message : "Failed to delete profile.");
+    } finally {
+      setDeleteProfileBusy(false);
     }
   };
 
@@ -751,6 +784,26 @@ export default function BrandingCard(): JSX.Element {
                     >
                       {isCreatingProfile ? "Cancel" : "New profile"}
                     </button>
+                    <button
+                      type="button"
+                      className="btn btn-outline-danger btn-sm"
+                      onClick={() => {
+                        if (!selectedProfile || selectedProfile.is_default || selectedProfile.is_locked) {
+                          return;
+                        }
+                        setDeleteProfileError(null);
+                        setDeleteProfileTarget(selectedProfile);
+                      }}
+                      disabled={
+                        !selectedProfile ||
+                        selectedProfile.is_default ||
+                        selectedProfile.is_locked ||
+                        profileSaving ||
+                        readOnly
+                      }
+                    >
+                      Delete profile
+                    </button>
                   </div>
                 </div>
                 {isCreatingProfile && !readOnly && (
@@ -941,6 +994,31 @@ export default function BrandingCard(): JSX.Element {
         )}
       </div>
     </section>
+      {deleteProfileTarget && (
+        <ConfirmModal
+          open
+          title={`Delete "${deleteProfileTarget.name}" profile?`}
+          busy={deleteProfileBusy}
+          confirmLabel={deleteProfileBusy ? "Deleting…" : "Delete"}
+          confirmTone="danger"
+          onCancel={() => {
+            if (deleteProfileBusy) return;
+            setDeleteProfileTarget(null);
+            setDeleteProfileError(null);
+          }}
+          onConfirm={() => {
+            if (!deleteProfileBusy) {
+              void handleDeleteProfile();
+            }
+          }}
+          disableBackdropClose={deleteProfileBusy}
+        >
+          <p className="mb-2">
+            This removes the branding profile and any uploaded assets associated with it. This action cannot be undone.
+          </p>
+          {deleteProfileError && <div className="text-danger small mb-0">{deleteProfileError}</div>}
+        </ConfirmModal>
+      )}
       {deleteAssetTarget && (
         <ConfirmModal
           open

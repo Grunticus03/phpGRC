@@ -133,4 +133,48 @@ final class BrandProfilesApiTest extends TestCase
                 ->exists()
         );
     }
+
+    public function test_delete_profile_removes_record(): void
+    {
+        $user = User::factory()->create();
+        Sanctum::actingAs($user);
+
+        /** @var UiSettingsService $settings */
+        $settings = app(UiSettingsService::class);
+        $profile = $settings->createBrandProfile('Disposable Profile');
+        $profileId = (string) $profile->getAttribute('id');
+
+        $response = $this->deleteJson('/settings/ui/brand-profiles/'.$profileId);
+
+        $response->assertOk();
+        $response->assertJson([
+            'ok' => true,
+            'deleted' => [
+                'id' => $profileId,
+            ],
+        ]);
+
+        $this->assertDatabaseMissing('brand_profiles', [
+            'id' => $profileId,
+        ]);
+    }
+
+    public function test_delete_profile_rejects_default(): void
+    {
+        $user = User::factory()->create();
+        Sanctum::actingAs($user);
+
+        /** @var UiSettingsService $settings */
+        $settings = app(UiSettingsService::class);
+        $default = $settings->brandProfileById('bp_default');
+        self::assertInstanceOf(BrandProfile::class, $default);
+
+        $response = $this->deleteJson('/settings/ui/brand-profiles/'.$default->getAttribute('id'));
+
+        $response->assertStatus(409);
+        $response->assertJson([
+            'ok' => false,
+            'code' => 'PROFILE_LOCKED',
+        ]);
+    }
 }

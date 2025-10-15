@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Settings;
 
+use App\Models\BrandAsset;
 use App\Models\BrandProfile;
 use App\Models\UiSetting;
 use App\Services\Settings\Exceptions\BrandProfileLockedException;
@@ -254,6 +255,58 @@ final class UiSettingsService
             $profile->setAttribute('is_active', true);
             $profile->save();
         });
+    }
+
+    public function deleteBrandProfile(BrandProfile $profile): void
+    {
+        if ($profile->getAttribute('is_default') || $profile->getAttribute('is_locked')) {
+            throw new BrandProfileLockedException('Default branding profile cannot be deleted.');
+        }
+
+        /** @var mixed $profileIdRaw */
+        $profileIdRaw = $profile->getAttribute('id');
+        if (! is_string($profileIdRaw) || $profileIdRaw === '') {
+            throw new \RuntimeException('Brand profile id must be a non-empty string.');
+        }
+
+        $profileId = $profileIdRaw;
+        $wasActive = (bool) $profile->getAttribute('is_active');
+
+        /** @var EloquentCollection<int, BrandAsset> $assets */
+        $assets = BrandAsset::query()
+            ->where('profile_id', $profileId)
+            ->get();
+
+        DB::transaction(function () use ($profile, $assets, $profileId, $wasActive): void {
+            foreach ($assets as $asset) {
+                $asset->delete();
+            }
+
+            $profile->delete();
+
+            if ($wasActive) {
+                $replacement = BrandProfile::query()
+                    ->where('id', '!=', $profileId)
+                    ->orderByDesc('is_active')
+                    ->orderByDesc('is_default')
+                    ->orderBy('name')
+                    ->first();
+
+                if ($replacement instanceof BrandProfile) {
+                    $this->activateBrandProfile($replacement);
+                } else {
+                    $this->activateBrandProfile($this->ensureDefaultProfile());
+                }
+            }
+        });
+
+        foreach ($assets as $asset) {
+            try {
+                $this->brandAssets->deleteAsset($asset);
+            } catch (\Throwable $exception) {
+                report($exception);
+            }
+        }
     }
 
     private function ensureDefaultProfile(): BrandProfile
