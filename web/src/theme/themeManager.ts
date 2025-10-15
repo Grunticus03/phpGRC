@@ -27,6 +27,9 @@ type ThemeSelection = {
 
 const THEME_LINK_ID = "phpgrc-theme-css";
 const CUSTOM_THEME_STORAGE_KEY = "phpgrc.customThemePacks";
+const THEME_SELECTION_STORAGE_KEY = "phpgrc.theme.selection";
+const THEME_SELECTION_COOKIE = "phpgrc_theme_selection";
+const THEME_SELECTION_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 30; // 30 days
 
 const hasLocalStorage = (): boolean => {
   if (typeof window === "undefined") return false;
@@ -169,6 +172,37 @@ const persistCustomThemePacks = (): void => {
     window.localStorage.setItem(CUSTOM_THEME_STORAGE_KEY, JSON.stringify(customPackCache));
   } catch {
     // ignore storage errors (quota/security)
+  }
+};
+
+const persistSelectionSnapshot = (selection: ThemeSelection): void => {
+  if (typeof document === "undefined") return;
+  const snapshot = {
+    slug: selection.slug,
+    mode: selection.mode,
+    source: selection.source,
+    variant: selection.variant?.slug ?? null,
+  };
+  const payload = JSON.stringify(snapshot);
+
+  if (hasLocalStorage()) {
+    try {
+      window.localStorage.setItem(THEME_SELECTION_STORAGE_KEY, payload);
+    } catch {
+      // ignore storage failures
+    }
+  }
+
+  try {
+    const encoded = encodeURIComponent(payload);
+    document.cookie = [
+      `${THEME_SELECTION_COOKIE}=${encoded}`,
+      "Path=/",
+      `Max-Age=${THEME_SELECTION_COOKIE_MAX_AGE_SECONDS}`,
+      "SameSite=Lax",
+    ].join("; ");
+  } catch {
+    // ignore cookie assignment failures
   }
 };
 
@@ -672,6 +706,7 @@ const applySelection = (selection: ThemeSelection): void => {
   html.setAttribute("data-theme-source", selection.source);
 
   currentSelection = selection;
+  persistSelectionSnapshot(selection);
 };
 
 const refreshTheme = (): void => {

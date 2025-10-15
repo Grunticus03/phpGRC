@@ -12,6 +12,85 @@
         margin: 0;
       }
     </style>
+    <script>
+      (function () {
+        var DEFAULT_THEME = "slate";
+        var DEFAULT_MODE = "dark";
+        var DEFAULT_SOURCE = "bootswatch";
+        var STORAGE_KEY = "phpgrc.theme.selection";
+        var COOKIE_NAME = "phpgrc_theme_selection";
+
+        function getStoredSelection() {
+          var raw = null;
+          if (typeof window !== "undefined") {
+            try {
+              var store = window.localStorage;
+              if (store) {
+                raw = store.getItem(STORAGE_KEY);
+              }
+            } catch (err) {
+              raw = null;
+            }
+          }
+
+          if (!raw && typeof document !== "undefined") {
+            var cookies = document.cookie ? document.cookie.split(";") : [];
+            for (var i = 0; i < cookies.length; i += 1) {
+              var entry = cookies[i].trim();
+              if (entry && entry.indexOf(COOKIE_NAME + "=") === 0) {
+                raw = entry.substring(COOKIE_NAME.length + 1);
+                try {
+                  raw = decodeURIComponent(raw);
+                } catch (err) {
+                  // ignore decode errors; raw remains encoded
+                }
+                break;
+              }
+            }
+          }
+
+          if (!raw) return null;
+          try {
+            return JSON.parse(raw);
+          } catch (err) {
+            return null;
+          }
+        }
+
+        function prefersDark() {
+          if (typeof window === "undefined" || typeof window.matchMedia !== "function") return false;
+          try {
+            return window.matchMedia("(prefers-color-scheme: dark)").matches;
+          } catch (err) {
+            return false;
+          }
+        }
+
+        try {
+          var stored = getStoredSelection();
+          var slug = stored && typeof stored.slug === "string" ? stored.slug : DEFAULT_THEME;
+          var modeCandidate = stored && (stored.mode === "light" || stored.mode === "dark") ? stored.mode : null;
+          var mode = modeCandidate || (prefersDark() ? "dark" : DEFAULT_MODE);
+          var variant =
+            stored && typeof stored.variant === "string" && stored.variant !== "" ? stored.variant : mode;
+          var source = stored && typeof stored.source === "string" ? stored.source : DEFAULT_SOURCE;
+
+          var html = document.documentElement;
+          html.setAttribute("data-theme", slug);
+          html.setAttribute("data-mode", mode);
+          html.setAttribute("data-bs-theme", mode);
+          html.setAttribute("data-theme-variant", variant);
+          html.setAttribute("data-theme-source", source);
+        } catch (err) {
+          var fallbackHtml = document.documentElement;
+          fallbackHtml.setAttribute("data-theme", DEFAULT_THEME);
+          fallbackHtml.setAttribute("data-mode", DEFAULT_MODE);
+          fallbackHtml.setAttribute("data-bs-theme", DEFAULT_MODE);
+          fallbackHtml.setAttribute("data-theme-variant", DEFAULT_MODE);
+          fallbackHtml.setAttribute("data-theme-source", DEFAULT_SOURCE);
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
