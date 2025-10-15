@@ -5,17 +5,36 @@ declare(strict_types=1);
 namespace Tests\Feature\Settings;
 
 use App\Models\BrandProfile;
+use App\Models\Role;
 use App\Models\User;
 use App\Services\Settings\UiSettingsService;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
 final class BrandProfilesApiTest extends TestCase
 {
+    use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        config()->set('core.rbac.enabled', true);
+        config()->set('core.rbac.mode', 'persist');
+        config()->set('core.rbac.require_auth', true);
+    }
+
+    protected function tearDown(): void
+    {
+        config()->set('core.rbac.mode', 'stub');
+        config()->set('core.rbac.require_auth', false);
+        parent::tearDown();
+    }
+
     public function test_index_returns_profiles(): void
     {
-        $user = User::factory()->create();
-        Sanctum::actingAs($user);
+        $this->actingAsThemeAuditor();
 
         $response = $this->getJson('/settings/ui/brand-profiles');
 
@@ -45,8 +64,7 @@ final class BrandProfilesApiTest extends TestCase
 
     public function test_store_creates_profile(): void
     {
-        $user = User::factory()->create();
-        Sanctum::actingAs($user);
+        $this->actingAsThemeManager();
 
         $response = $this->postJson('/settings/ui/brand-profiles', [
             'name' => 'Marketing Launch',
@@ -64,8 +82,7 @@ final class BrandProfilesApiTest extends TestCase
 
     public function test_update_profile_allows_changes_for_non_default(): void
     {
-        $user = User::factory()->create();
-        Sanctum::actingAs($user);
+        $user = $this->actingAsThemeManager();
 
         /** @var UiSettingsService $settings */
         $settings = app(UiSettingsService::class);
@@ -91,8 +108,7 @@ final class BrandProfilesApiTest extends TestCase
 
     public function test_update_profile_rejects_default(): void
     {
-        $user = User::factory()->create();
-        Sanctum::actingAs($user);
+        $this->actingAsThemeManager();
 
         /** @var UiSettingsService $settings */
         $settings = app(UiSettingsService::class);
@@ -114,8 +130,7 @@ final class BrandProfilesApiTest extends TestCase
 
     public function test_activate_profile_sets_active_flag(): void
     {
-        $user = User::factory()->create();
-        Sanctum::actingAs($user);
+        $this->actingAsThemeManager();
 
         /** @var UiSettingsService $settings */
         $settings = app(UiSettingsService::class);
@@ -136,8 +151,7 @@ final class BrandProfilesApiTest extends TestCase
 
     public function test_delete_profile_removes_record(): void
     {
-        $user = User::factory()->create();
-        Sanctum::actingAs($user);
+        $this->actingAsThemeManager();
 
         /** @var UiSettingsService $settings */
         $settings = app(UiSettingsService::class);
@@ -161,8 +175,7 @@ final class BrandProfilesApiTest extends TestCase
 
     public function test_delete_profile_rejects_default(): void
     {
-        $user = User::factory()->create();
-        Sanctum::actingAs($user);
+        $this->actingAsThemeManager();
 
         /** @var UiSettingsService $settings */
         $settings = app(UiSettingsService::class);
@@ -176,5 +189,29 @@ final class BrandProfilesApiTest extends TestCase
             'ok' => false,
             'code' => 'PROFILE_LOCKED',
         ]);
+    }
+
+    private function actingAsThemeManager(): User
+    {
+        $user = User::factory()->create();
+        $this->assignRole($user, 'role_theme_manager', 'Theme Manager');
+        Sanctum::actingAs($user);
+
+        return $user;
+    }
+
+    private function actingAsThemeAuditor(): User
+    {
+        $user = User::factory()->create();
+        $this->assignRole($user, 'role_theme_auditor', 'Theme Auditor');
+        Sanctum::actingAs($user);
+
+        return $user;
+    }
+
+    private function assignRole(User $user, string $roleId, string $roleName): void
+    {
+        Role::query()->updateOrCreate(['id' => $roleId], ['name' => $roleName]);
+        $user->roles()->sync([$roleId]);
     }
 }

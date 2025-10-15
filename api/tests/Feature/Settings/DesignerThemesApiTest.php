@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Settings;
 
+use App\Models\Role;
 use App\Models\UiSetting;
 use App\Models\User;
 use Illuminate\Filesystem\Filesystem;
@@ -26,18 +27,22 @@ final class DesignerThemesApiTest extends TestCase
 
         config()->set('ui.defaults.theme.designer.filesystem_path', $this->storagePath);
         config()->set('ui.defaults.theme.designer.storage', 'filesystem');
+        config()->set('core.rbac.enabled', true);
+        config()->set('core.rbac.mode', 'persist');
+        config()->set('core.rbac.require_auth', true);
     }
 
     protected function tearDown(): void
     {
         (new Filesystem)->deleteDirectory($this->storagePath);
+        config()->set('core.rbac.mode', 'stub');
+        config()->set('core.rbac.require_auth', false);
         parent::tearDown();
     }
 
     public function test_store_theme_persists_file_and_updates_manifest(): void
     {
-        $user = User::factory()->create();
-        Sanctum::actingAs($user);
+        $this->actingAsThemeManager();
 
         $response = $this->postJson('/settings/ui/designer/themes', [
             'name' => 'My Custom Theme',
@@ -71,8 +76,7 @@ final class DesignerThemesApiTest extends TestCase
 
     public function test_store_theme_blocks_conflicts_with_builtin_slug(): void
     {
-        $user = User::factory()->create();
-        Sanctum::actingAs($user);
+        $this->actingAsThemeManager();
 
         $response = $this->postJson('/settings/ui/designer/themes', [
             'name' => 'Slate Override',
@@ -93,8 +97,7 @@ final class DesignerThemesApiTest extends TestCase
 
     public function test_store_theme_respects_storage_setting(): void
     {
-        $user = User::factory()->create();
-        Sanctum::actingAs($user);
+        $this->actingAsThemeManager();
 
         UiSetting::query()->create([
             'key' => 'ui.theme.designer.storage',
@@ -118,8 +121,7 @@ final class DesignerThemesApiTest extends TestCase
 
     public function test_delete_theme_removes_file(): void
     {
-        $user = User::factory()->create();
-        Sanctum::actingAs($user);
+        $this->actingAsThemeManager();
 
         $this->postJson('/settings/ui/designer/themes', [
             'name' => 'Delete Me',
@@ -149,8 +151,7 @@ final class DesignerThemesApiTest extends TestCase
 
     public function test_index_returns_storage_config_and_themes(): void
     {
-        $user = User::factory()->create();
-        Sanctum::actingAs($user);
+        $manager = $this->actingAsThemeManager();
 
         $this->postJson('/settings/ui/designer/themes', [
             'name' => 'Index Theme',
@@ -158,6 +159,8 @@ final class DesignerThemesApiTest extends TestCase
                 '--td-index' => '#abcdef',
             ],
         ])->assertCreated();
+
+        $this->actingAsThemeAuditor();
 
         $response = $this->getJson('/settings/ui/designer/themes');
         $response->assertOk();
@@ -174,5 +177,57 @@ final class DesignerThemesApiTest extends TestCase
         self::assertIsArray($themes);
         $slugs = array_map(static fn ($item) => $item['slug'] ?? null, $themes);
         self::assertContains('index-theme', $slugs);
+    }
+
+    public function test_theme_auditor_cannot_create_or_delete_themes(): void
+    {
+        $this->actingAsThemeAuditor();
+
+        $this->postJson('/settings/ui/designer/themes', [
+            'name' => 'Denied Theme',
+            'variables' => [
+                '--td-denied' => '#000000',
+            ],
+        ])->assertStatus(403);
+
+        $manager = $this->actingAsThemeManager();
+        $this->postJson('/settings/ui/designer/themes', [
+            'name' => 'Created By Manager',
+            'variables' => [
+                '--td-manager' => '#333333',
+            ],
+        ])->assertCreated();
+
+        $this->actingAsThemeAuditor();
+        $this->deleteJson('/settings/ui/designer/themes/created-by-manager')
+            ->assertStatus(403);
+
+        Sanctum::actingAs($manager);
+        $this->deleteJson('/settings/ui/designer/themes/created-by-manager')
+            ->assertStatus(200);
+    }
+
+    private function actingAsThemeManager(): User
+    {
+        $user = User::factory()->create();
+        $this->assignRole($user, 'role_theme_manager', 'Theme Manager');
+        Sanctum::actingAs($user);
+
+        return $user;
+    }
+
+    private function actingAsThemeAuditor(): User
+    {
+        $user = User::factory()->create();
+        $this->assignRole($user, 'role_theme_auditor', 'Theme Auditor');
+        Sanctum::actingAs($user);
+
+        return $user;
+    }
+
+    private function assignRole(User $user, string $roleId, string $roleName): void
+    {
+        Role::query()->updateOrCreate(['id' => $roleId], ['name' => $roleName]);
+        $user->roles()->sync([$roleId]);
     }
 }

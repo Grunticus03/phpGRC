@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Settings;
 
+use App\Models\Role;
 use App\Models\UiThemePack;
 use App\Models\UiThemePackFile;
 use App\Models\User;
@@ -23,6 +24,15 @@ final class ThemePacksApiTest extends TestCase
     /** @var list<string> */
     private array $tempFiles = [];
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        config()->set('core.rbac.enabled', true);
+        config()->set('core.rbac.mode', 'persist');
+        config()->set('core.rbac.require_auth', true);
+    }
+
     protected function tearDown(): void
     {
         foreach ($this->tempFiles as $path) {
@@ -32,13 +42,15 @@ final class ThemePacksApiTest extends TestCase
         }
         $this->tempFiles = [];
 
+        config()->set('core.rbac.mode', 'stub');
+        config()->set('core.rbac.require_auth', false);
+
         parent::tearDown();
     }
 
     public function test_import_theme_pack_succeeds(): void
     {
-        $user = User::factory()->create();
-        Sanctum::actingAs($user);
+        $this->actingAsThemeManager();
 
         $archive = $this->makeThemePackArchive([
             'manifest.json' => json_encode([
@@ -90,8 +102,7 @@ final class ThemePacksApiTest extends TestCase
 
     public function test_import_theme_pack_rejects_external_css_urls(): void
     {
-        $user = User::factory()->create();
-        Sanctum::actingAs($user);
+        $this->actingAsThemeManager();
 
         $archive = $this->makeThemePackArchive([
             'manifest.json' => json_encode([
@@ -125,8 +136,7 @@ final class ThemePacksApiTest extends TestCase
 
     public function test_delete_theme_pack_resets_assignments(): void
     {
-        $user = User::factory()->create();
-        Sanctum::actingAs($user);
+        $user = $this->actingAsThemeManager();
 
         $archive = $this->makeValidThemePack('solar');
         $this->postJson('/settings/ui/themes/import', ['file' => $archive])->assertCreated();
@@ -164,8 +174,7 @@ final class ThemePacksApiTest extends TestCase
 
     public function test_update_theme_pack_disables_and_resets(): void
     {
-        $user = User::factory()->create();
-        Sanctum::actingAs($user);
+        $user = $this->actingAsThemeManager();
 
         $archive = $this->makeValidThemePack('ocean');
         $this->postJson('/settings/ui/themes/import', ['file' => $archive])->assertCreated();
@@ -210,6 +219,32 @@ final class ThemePacksApiTest extends TestCase
         self::assertIsArray($packs);
         $slugs = array_map(static fn ($pack) => $pack['slug'] ?? null, $packs);
         self::assertNotContains('pack:ocean', $slugs);
+    }
+
+    public function test_theme_auditor_cannot_mutate_theme_packs(): void
+    {
+        $this->actingAsThemeAuditor();
+
+        $this->postJson('/settings/ui/themes/import', [
+            'file' => $this->makeValidThemePack('audit'),
+        ])->assertStatus(403);
+
+        $manager = $this->actingAsThemeManager();
+        $this->postJson('/settings/ui/themes/import', [
+            'file' => $this->makeValidThemePack('manager-pack'),
+        ])->assertCreated();
+
+        $this->actingAsThemeAuditor();
+        $this->putJson('/settings/ui/themes/pack:manager-pack', [
+            'enabled' => false,
+        ])->assertStatus(403);
+
+        $this->deleteJson('/settings/ui/themes/pack:manager-pack')
+            ->assertStatus(403);
+
+        Sanctum::actingAs($manager);
+        $this->deleteJson('/settings/ui/themes/pack:manager-pack')
+            ->assertStatus(200);
     }
 
     /**
@@ -259,5 +294,29 @@ final class ThemePacksApiTest extends TestCase
             'styles/dark.css' => 'body { background:#000000; color:#ffffff; }',
             'LICENSE.html' => '<p>License</p>',
         ]);
+    }
+
+    private function actingAsThemeManager(): User
+    {
+        $user = User::factory()->create();
+        $this->assignRole($user, 'role_theme_manager', 'Theme Manager');
+        Sanctum::actingAs($user);
+
+        return $user;
+    }
+
+    private function actingAsThemeAuditor(): User
+    {
+        $user = User::factory()->create();
+        $this->assignRole($user, 'role_theme_auditor', 'Theme Auditor');
+        Sanctum::actingAs($user);
+
+        return $user;
+    }
+
+    private function assignRole(User $user, string $roleId, string $roleName): void
+    {
+        Role::query()->updateOrCreate(['id' => $roleId], ['name' => $roleName]);
+        $user->roles()->sync([$roleId]);
     }
 }

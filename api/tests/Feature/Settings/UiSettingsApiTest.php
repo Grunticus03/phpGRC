@@ -415,15 +415,16 @@ final class UiSettingsApiTest extends TestCase
         Config::set('core.rbac.mode', 'persist');
         Config::set('core.rbac.require_auth', true);
         Config::set('core.audit.enabled', true);
-
-        $user = User::factory()->create();
-        Sanctum::actingAs($user);
+        $manager = User::factory()->create();
+        $this->attachNamedRole($manager, 'Theme Manager');
+        Sanctum::actingAs($manager);
 
         $initial = $this->getJson('/settings/ui');
         $initial->assertOk();
         $etag = $initial->headers->get('ETag');
         self::assertNotNull($etag);
-
+        $user = User::factory()->create();
+        Sanctum::actingAs($user);
         $payload = [
             'ui' => [
                 'theme' => [
@@ -447,7 +448,7 @@ final class UiSettingsApiTest extends TestCase
         /** @var array<string,mixed>|null $meta */
         $meta = $event->getAttribute('meta');
         self::assertIsArray($meta);
-        self::assertSame('core.settings.manage', $meta['policy'] ?? null);
+        self::assertSame('ui.theme.manage', $meta['policy'] ?? null);
     }
 
     public function test_put_ui_settings_records_ui_audit_events(): void

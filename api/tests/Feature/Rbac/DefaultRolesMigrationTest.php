@@ -15,7 +15,14 @@ final class DefaultRolesMigrationTest extends TestCase
     public function test_default_roles_exist_after_migration(): void
     {
         $defaults = Role::query()
-            ->whereIn('id', ['role_admin', 'role_auditor', 'role_risk_manager', 'role_user'])
+            ->whereIn('id', [
+                'role_admin',
+                'role_auditor',
+                'role_risk_manager',
+                'role_theme_auditor',
+                'role_theme_manager',
+                'role_user',
+            ])
             ->orderBy('id')
             ->pluck('name', 'id')
             ->all();
@@ -24,6 +31,8 @@ final class DefaultRolesMigrationTest extends TestCase
             'role_admin' => 'Admin',
             'role_auditor' => 'Auditor',
             'role_risk_manager' => 'Risk Manager',
+            'role_theme_auditor' => 'Theme Auditor',
+            'role_theme_manager' => 'Theme Manager',
             'role_user' => 'User',
         ], $defaults);
     }

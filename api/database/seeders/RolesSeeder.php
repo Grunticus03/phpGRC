@@ -28,6 +28,8 @@ final class RolesSeeder extends Seeder
             ['id' => 'role_admin',    'name' => 'Admin'],
             ['id' => 'role_auditor',  'name' => 'Auditor'],
             ['id' => 'role_risk_manager', 'name' => 'Risk Manager'],
+            ['id' => 'role_theme_manager', 'name' => 'Theme Manager'],
+            ['id' => 'role_theme_auditor', 'name' => 'Theme Auditor'],
             ['id' => 'role_user',     'name' => 'User'],
         ];
 

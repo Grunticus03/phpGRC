@@ -67,6 +67,8 @@ return [
             'Admin',
             'Auditor',
             'Risk Manager',
+            'Theme Manager',
+            'Theme Auditor',
             'User',
         ],
 
@@ -90,6 +92,9 @@ return [
             'core.rbac.view' => ['role_admin', 'role_auditor'],
             'rbac.roles.manage' => ['role_admin'],
             'rbac.user_roles.manage' => ['role_admin'],
+            'ui.theme.view' => ['role_admin', 'role_auditor', 'role_theme_manager', 'role_theme_auditor'],
+            'ui.theme.manage' => ['role_admin', 'role_theme_manager'],
+            'ui.theme.pack.manage' => ['role_admin', 'role_theme_manager'],
         ],
     ],
 
@@ -105,6 +110,13 @@ return [
             ],
             'audit' => [
                 'export' => true,
+            ],
+            'theme' => [
+                'view' => true,
+                'manage' => true,
+                'pack' => [
+                    'manage' => true,
+                ],
             ],
         ],
     ],

@@ -102,8 +102,8 @@
 
 ## Phase 5.5 — Theming & Layout
 - [x] Bootswatch theme set shipped; default **Slate**; light/dark toggle; respects system when no user choice; assets bundled locally with pinned `bootswatch@5.3.8`.
-- [ ] No-FOUC boot: early `<html data-theme data-mode>` script using cookie/localStorage; SSR-safe and inline.
-- [ ] Design tokens & presets:
+- [x] No-FOUC boot: early `<html data-theme data-mode>` script using cookie/localStorage; SSR-safe and inline.
+- [x] Design tokens & presets:
   - Color: full picker (wheel, hex, RGB, eyedropper). Persist RGBA.
   - Shadow: `none | default | light | heavy | custom(validated)`.
   - Spacing: `narrow | default | wide`.

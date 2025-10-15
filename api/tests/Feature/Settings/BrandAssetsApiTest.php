@@ -6,10 +6,12 @@ namespace Tests\Feature\Settings;
 
 use App\Models\BrandAsset;
 use App\Models\BrandProfile;
+use App\Models\Role;
 use App\Models\User;
 use App\Services\Settings\BrandAssetStorageService;
 use App\Services\Settings\UiSettingsService;
 use Illuminate\Filesystem\Filesystem;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Config;
 use Laravel\Sanctum\Sanctum;
@@ -17,6 +19,8 @@ use Tests\TestCase;
 
 final class BrandAssetsApiTest extends TestCase
 {
+    use RefreshDatabase;
+
     /** @var list<string> */
     private array $tempFiles = [];
 
@@ -31,6 +35,10 @@ final class BrandAssetsApiTest extends TestCase
         if ($filesystem->isDirectory($this->assetRoot)) {
             $filesystem->deleteDirectory($this->assetRoot);
         }
+
+        config()->set('core.rbac.enabled', true);
+        config()->set('core.rbac.mode', 'persist');
+        config()->set('core.rbac.require_auth', true);
     }
 
     protected function tearDown(): void
@@ -47,13 +55,14 @@ final class BrandAssetsApiTest extends TestCase
         }
 
         $this->tempFiles = [];
+        config()->set('core.rbac.mode', 'stub');
+        config()->set('core.rbac.require_auth', false);
         parent::tearDown();
     }
 
     public function test_upload_and_delete_brand_asset(): void
     {
-        $user = User::factory()->create();
-        Sanctum::actingAs($user);
+        $user = $this->actingAsThemeManager();
 
         $profile = $this->createEditableProfile(true);
 
@@ -144,8 +153,7 @@ final class BrandAssetsApiTest extends TestCase
 
     public function test_upload_rejects_unsupported_mime(): void
     {
-        $user = User::factory()->create();
-        Sanctum::actingAs($user);
+        $this->actingAsThemeManager();
 
         $profile = $this->createEditableProfile();
 
@@ -168,8 +176,7 @@ final class BrandAssetsApiTest extends TestCase
 
     public function test_upload_rejects_files_over_five_megabytes(): void
     {
-        $user = User::factory()->create();
-        Sanctum::actingAs($user);
+        $this->actingAsThemeManager();
 
         $profile = $this->createEditableProfile();
 
@@ -192,8 +199,7 @@ final class BrandAssetsApiTest extends TestCase
 
     public function test_upload_fails_when_bytes_cannot_be_read(): void
     {
-        $user = User::factory()->create();
-        Sanctum::actingAs($user);
+        $this->actingAsThemeManager();
 
         $profile = $this->createEditableProfile();
 
@@ -216,8 +222,7 @@ final class BrandAssetsApiTest extends TestCase
 
     public function test_delete_nonexistent_brand_asset_returns_not_found(): void
     {
-        $user = User::factory()->create();
-        Sanctum::actingAs($user);
+        $this->actingAsThemeManager();
 
         $response = $this->deleteJson('/settings/ui/brand-assets/nonexistent');
 
@@ -230,6 +235,8 @@ final class BrandAssetsApiTest extends TestCase
 
     public function test_download_brand_asset_returns_bytes(): void
     {
+        $this->actingAsThemeAuditor();
+
         /** @var UiSettingsService $settings */
         $settings = app(UiSettingsService::class);
         $activeProfile = $settings->activeBrandProfile();
@@ -337,5 +344,29 @@ final class BrandAssetsApiTest extends TestCase
         }
 
         return $profile;
+    }
+
+    private function actingAsThemeManager(): User
+    {
+        $user = User::factory()->create();
+        $this->assignRole($user, 'role_theme_manager', 'Theme Manager');
+        Sanctum::actingAs($user);
+
+        return $user;
+    }
+
+    private function actingAsThemeAuditor(): User
+    {
+        $user = User::factory()->create();
+        $this->assignRole($user, 'role_theme_auditor', 'Theme Auditor');
+        Sanctum::actingAs($user);
+
+        return $user;
+    }
+
+    private function assignRole(User $user, string $roleId, string $roleName): void
+    {
+        Role::query()->updateOrCreate(['id' => $roleId], ['name' => $roleName]);
+        $user->roles()->sync([$roleId]);
     }
 }

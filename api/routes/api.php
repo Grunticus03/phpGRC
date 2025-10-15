@@ -154,6 +154,7 @@ Route::post('/auth/break-glass', [BreakGlassController::class, 'invoke'])->middl
  |--------------------------------------------------------------------------
 */
 $rbacStack = ['auth.cookie', RbacMiddleware::class];
+$rbacAuthStack = ['auth.cookie', 'auth.require_sanctum', RbacMiddleware::class];
 
 /*
  |--------------------------------------------------------------------------
@@ -176,53 +177,70 @@ Route::prefix('/admin')
             ->defaults('policy', 'core.evidence.manage');
     });
 
-Route::get('/settings/ui/themes', UiThemeManifestController::class)
-    ->middleware(['auth.cookie', 'auth.require_sanctum']);
-
-Route::get('/settings/ui', [UiSettingsApiController::class, 'show'])
-    ->middleware(['auth.cookie', 'auth.require_sanctum']);
-
 Route::prefix('/settings/ui')
-    ->middleware($rbacStack)
+    ->middleware($rbacAuthStack)
     ->group(function (): void {
+        Route::match(['GET', 'HEAD'], '/', [UiSettingsApiController::class, 'show'])
+            ->defaults('policy', 'ui.theme.view')
+            ->defaults('capability', 'core.theme.view');
         Route::put('/', [UiSettingsApiController::class, 'update'])
-            ->defaults('policy', 'core.settings.manage');
+            ->defaults('policy', 'ui.theme.manage')
+            ->defaults('capability', 'core.theme.manage');
+
+        Route::get('/themes', UiThemeManifestController::class)
+            ->defaults('policy', 'ui.theme.view')
+            ->defaults('capability', 'core.theme.view');
 
         Route::get('/brand-profiles', [BrandProfilesController::class, 'index'])
-            ->defaults('policy', 'core.settings.manage');
+            ->defaults('policy', 'ui.theme.view')
+            ->defaults('capability', 'core.theme.view');
         Route::post('/brand-profiles', [BrandProfilesController::class, 'store'])
-            ->defaults('policy', 'core.settings.manage');
+            ->defaults('policy', 'ui.theme.manage')
+            ->defaults('capability', 'core.theme.manage');
         Route::put('/brand-profiles/{profile}', [BrandProfilesController::class, 'update'])
-            ->defaults('policy', 'core.settings.manage');
+            ->defaults('policy', 'ui.theme.manage')
+            ->defaults('capability', 'core.theme.manage');
         Route::delete('/brand-profiles/{profile}', [BrandProfilesController::class, 'destroy'])
-            ->defaults('policy', 'core.settings.manage');
+            ->defaults('policy', 'ui.theme.manage')
+            ->defaults('capability', 'core.theme.manage');
         Route::post('/brand-profiles/{profile}/activate', [BrandProfilesController::class, 'activate'])
-            ->defaults('policy', 'core.settings.manage');
+            ->defaults('policy', 'ui.theme.manage')
+            ->defaults('capability', 'core.theme.manage');
 
         Route::get('/brand-assets', [BrandAssetsController::class, 'index'])
-            ->defaults('policy', 'core.settings.manage');
+            ->defaults('policy', 'ui.theme.view')
+            ->defaults('capability', 'core.theme.view');
         Route::post('/brand-assets', [BrandAssetsController::class, 'store'])
-            ->defaults('policy', 'core.settings.manage');
+            ->defaults('policy', 'ui.theme.manage')
+            ->defaults('capability', 'core.theme.manage');
         Route::delete('/brand-assets/{asset}', [BrandAssetsController::class, 'destroy'])
-            ->defaults('policy', 'core.settings.manage');
+            ->defaults('policy', 'ui.theme.manage')
+            ->defaults('capability', 'core.theme.manage');
+        Route::get('/brand-assets/{asset}/download', [BrandAssetsController::class, 'download'])
+            ->defaults('policy', 'ui.theme.view')
+            ->defaults('capability', 'core.theme.view');
 
         Route::post('/themes/import', [ThemePacksController::class, 'import'])
             ->middleware(GenericRateLimit::class)
             ->defaults('throttle', ['strategy' => 'user', 'window_seconds' => 600, 'max_requests' => 5])
-            ->defaults('policy', 'core.settings.manage');
+            ->defaults('policy', 'ui.theme.pack.manage')
+            ->defaults('capability', 'core.theme.pack.manage');
         Route::put('/themes/{slug}', [ThemePacksController::class, 'update'])
-            ->defaults('policy', 'core.settings.manage');
+            ->defaults('policy', 'ui.theme.pack.manage')
+            ->defaults('capability', 'core.theme.pack.manage');
         Route::delete('/themes/{slug}', [ThemePacksController::class, 'destroy'])
-            ->defaults('policy', 'core.settings.manage');
+            ->defaults('policy', 'ui.theme.pack.manage')
+            ->defaults('capability', 'core.theme.pack.manage');
         Route::get('/designer/themes', [DesignerThemesController::class, 'index'])
-            ->defaults('policy', 'core.settings.manage');
+            ->defaults('policy', 'ui.theme.view')
+            ->defaults('capability', 'core.theme.view');
         Route::post('/designer/themes', [DesignerThemesController::class, 'store'])
-            ->defaults('policy', 'core.settings.manage');
+            ->defaults('policy', 'ui.theme.manage')
+            ->defaults('capability', 'core.theme.manage');
         Route::delete('/designer/themes/{slug}', [DesignerThemesController::class, 'destroy'])
-            ->defaults('policy', 'core.settings.manage');
+            ->defaults('policy', 'ui.theme.manage')
+            ->defaults('capability', 'core.theme.manage');
     });
-
-Route::get('/settings/ui/brand-assets/{asset}/download', [BrandAssetsController::class, 'download']);
 
 Route::prefix('/me')
     ->middleware(['auth.cookie', 'auth.require_sanctum'])

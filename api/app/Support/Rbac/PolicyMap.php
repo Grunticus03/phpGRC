@@ -284,9 +284,11 @@ final class PolicyMap
     {
         return [
             'admin' => ['*'],
-            'auditor' => [],
+            'auditor' => ['core.audit.export', 'core.theme.view'],
+            'risk_manager' => ['core.evidence.upload', 'core.evidence.delete', 'core.exports.generate'],
+            'theme_manager' => ['core.theme.view', 'core.theme.manage', 'core.theme.pack.manage'],
+            'theme_auditor' => ['core.theme.view'],
             'user' => [],
-            'risk_manager' => [],
         ];
     }
 
