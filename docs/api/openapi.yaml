@@ -2438,12 +2438,14 @@ components:
           maxLength: 128
           example: core.settings.manage
         label:
-          type: string
-          nullable: true
+          type:
+            - string
+            - "null"
           description: Human-readable label for the policy.
         description:
-          type: string
-          nullable: true
+          type:
+            - string
+            - "null"
           description: Longer description of the policy’s purpose.
         roles:
           type: array
@@ -2507,8 +2509,9 @@ components:
           description: Human-friendly label.
           example: Admin
         name:
-          type: string
-          nullable: true
+          type:
+            - string
+            - "null"
           description: Stored role name when persistence is enabled.
 
     RolePolicyResponse:
