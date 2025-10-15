@@ -78,6 +78,7 @@
 - [x] Fine-grained RBAC policies (PolicyMap/Evaluator) and role management UI hardening
 - [x] Predefined reports & dashboards (beyond KPIs v1)
 - [ ] Admin/User docs baseline *(deferred to Phase 6 release docs backlog)*
+- [ ] **Phase 6: Granular permissions UI** — permission catalog, API, and role assignment refinements (see Backlog item)
 
 ### Phase 5 — Additions (2025-09-23..2025-09-28)
 - [x] **Runtime settings moved to DB** for all non-connection knobs; `core_settings` table + `SettingsServiceProvider` boot overlay.

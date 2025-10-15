@@ -244,13 +244,28 @@ final class RolePoliciesController extends Controller
     {
         /** @var mixed $modeRaw */
         $modeRaw = config('core.rbac.mode');
-        $mode = is_string($modeRaw) ? $modeRaw : 'stub';
+        $modeLower = is_string($modeRaw) ? strtolower($modeRaw) : 'stub';
+        if (! in_array($modeLower, ['stub', 'persist', 'db'], true)) {
+            $modeLower = 'stub';
+        }
 
         /** @var mixed $persistRaw */
         $persistRaw = config('core.rbac.persistence');
-        $persistence = is_string($persistRaw) || is_bool($persistRaw) ? (string) $persistRaw : null;
+        $persistFlag = filter_var($persistRaw, FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE);
 
-        return ['mode' => $mode, 'persistence' => $persistence];
+        $effectiveMode = $modeLower === 'db' ? 'persist' : $modeLower;
+        if ($persistFlag === true) {
+            $effectiveMode = 'persist';
+        }
+
+        $persistence = null;
+        if (is_bool($persistRaw)) {
+            $persistence = $persistRaw ? 'true' : 'false';
+        } elseif (is_string($persistRaw) && trim($persistRaw) !== '') {
+            $persistence = $persistRaw;
+        }
+
+        return ['mode' => $effectiveMode, 'persistence' => $persistence];
     }
 
     private function persistenceEnabled(): bool
