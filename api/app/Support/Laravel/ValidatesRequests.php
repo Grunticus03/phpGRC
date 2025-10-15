@@ -9,12 +9,13 @@ use Illuminate\Foundation\Validation\ValidatesRequests as LaravelValidatesReques
 /**
  * Laravel's validation helpers interact with interface types that Psalm cannot
  * see the extended methods on; centralise the suppressions here.
- *
- * @psalm-suppress MixedArgument
- * @psalm-suppress MixedArgumentTypeCoercion
- * @psalm-suppress UndefinedInterfaceMethod
  */
 trait ValidatesRequests
 {
+    /**
+     * @psalm-suppress MixedArgument
+     * @psalm-suppress MixedArgumentTypeCoercion
+     * @psalm-suppress UndefinedInterfaceMethod
+     */
     use LaravelValidatesRequests;
 }

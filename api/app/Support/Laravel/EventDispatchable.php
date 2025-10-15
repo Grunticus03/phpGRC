@@ -9,10 +9,11 @@ use Illuminate\Foundation\Events\Dispatchable as LaravelEventDispatchable;
 /**
  * Event dispatch helpers rely on mixed inputs; suppress Psalm's mixed argument
  * complaints without weakening our event definitions.
- *
- * @psalm-suppress MixedArgument
  */
 trait EventDispatchable
 {
+    /**
+     * @psalm-suppress MixedArgument
+     */
     use LaravelEventDispatchable;
 }
