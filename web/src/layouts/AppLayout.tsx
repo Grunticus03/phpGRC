@@ -227,6 +227,7 @@ export default function AppLayout(): JSX.Element | null {
   }, [sidebarPrefs]);
 
   const sidebarEtagRef = useRef<string | null>(null);
+  const uiSettingsEtagRef = useRef<string | null>(null);
 
   const [sidebarNotice, setSidebarNotice] = useState<SidebarNotice | null>(null);
   const [sidebarSaving, setSidebarSaving] = useState<boolean>(false);
@@ -379,6 +380,7 @@ export default function AppLayout(): JSX.Element | null {
       const snapshot = computeBrandSnapshot(DEFAULT_THEME_SETTINGS);
       setBrand((prev) => (brandSnapshotsEqual(prev, snapshot) ? prev : snapshot));
       setSidebarDefaultOrder(extractSidebarDefaultOrder(DEFAULT_THEME_SETTINGS));
+      uiSettingsEtagRef.current = null;
       return;
     }
 
@@ -389,6 +391,7 @@ export default function AppLayout(): JSX.Element | null {
         headers: baseHeaders(),
       });
       if (!res.ok) throw new Error(`Failed to load UI settings (HTTP ${res.status})`);
+      uiSettingsEtagRef.current = res.headers.get("ETag");
       const body = await parseJson<UiSettingsResponse>(res);
       const settings = body?.config?.ui ?? null;
       if (settings) {
@@ -401,6 +404,7 @@ export default function AppLayout(): JSX.Element | null {
       const snapshot = computeBrandSnapshot(DEFAULT_THEME_SETTINGS);
       setBrand((prev) => (brandSnapshotsEqual(prev, snapshot) ? prev : snapshot));
       setSidebarDefaultOrder(extractSidebarDefaultOrder(DEFAULT_THEME_SETTINGS));
+      uiSettingsEtagRef.current = null;
     }
   }, [authed]);
 
@@ -567,20 +571,92 @@ export default function AppLayout(): JSX.Element | null {
     [authed, sidebarReadOnly, loadUserPrefs, updateSidebarState]
   );
 
+  const persistThemeModeSettings = useCallback(
+    async (mode: "light" | "dark") => {
+      if (!authed) return;
+
+      let etag = uiSettingsEtagRef.current;
+      if (!etag) {
+        await loadUiSettings();
+        etag = uiSettingsEtagRef.current;
+        if (!etag) return;
+      }
+
+      const settings = getCachedThemeSettings();
+      const payload = {
+        ui: {
+          theme: {
+            default: settings.theme.default,
+            mode,
+            allow_user_override: settings.theme.allow_user_override,
+            force_global: settings.theme.force_global,
+            overrides: settings.theme.overrides,
+            designer: {
+              ...settings.theme.designer,
+            },
+            login: {
+              ...settings.theme.login,
+            },
+          },
+        },
+      };
+
+      try {
+        const res = await fetch("/api/settings/ui", {
+          method: "PUT",
+          credentials: "same-origin",
+          headers: baseHeaders({
+            "Content-Type": "application/json",
+            "If-Match": etag ?? "",
+          }),
+          body: JSON.stringify(payload),
+        });
+
+        const body = await parseJson<{
+          config?: { ui?: ThemeSettings };
+          etag?: string | null;
+          current_etag?: string | null;
+        }>(res);
+
+        if (res.status === 409) {
+          uiSettingsEtagRef.current = body?.current_etag ?? res.headers.get("ETag") ?? null;
+          await loadUiSettings();
+          return;
+        }
+
+        if (!res.ok) {
+          return;
+        }
+
+        uiSettingsEtagRef.current = res.headers.get("ETag") ?? body?.etag ?? null;
+        if (body?.config?.ui) {
+          updateThemeSettings(body.config.ui);
+        }
+      } catch {
+        // ignore persistence failures; settings will reload on next bootstrap
+      }
+    },
+    [authed, loadUiSettings]
+  );
+
   const persistThemeMode = useCallback(
     (mode: "light" | "dark") => {
       const settings = getCachedThemeSettings();
       const allowOverride = settings.theme.allow_user_override && !settings.theme.force_global;
-      void persistThemeModePreference(mode, {
-        authed,
-        allowOverride,
-        etagRef: sidebarEtagRef,
-        loadUserPrefs,
-        getPrefs: getCachedThemePrefs,
-        updatePrefs: updateThemePrefs,
-      });
+      if (allowOverride) {
+        void persistThemeModePreference(mode, {
+          authed,
+          allowOverride,
+          etagRef: sidebarEtagRef,
+          loadUserPrefs,
+          getPrefs: getCachedThemePrefs,
+          updatePrefs: updateThemePrefs,
+        });
+      } else {
+        void persistThemeModeSettings(mode);
+      }
     },
-    [authed, loadUserPrefs]
+    [authed, loadUserPrefs, persistThemeModeSettings]
   );
 
   useEffect(() => {
