@@ -23,7 +23,12 @@ foreach ($defaultEnv as $key => $value) {
     }
 }
 
-$pluginCacheDir = __DIR__ . '/api/build/psalm-plugin-cache';
+$pluginCacheDir = getenv('PSALM_LARAVEL_PLUGIN_CACHE_PATH');
+
+if ($pluginCacheDir === false || $pluginCacheDir === '') {
+    $hash = substr(md5(__DIR__), 0, 12);
+    $pluginCacheDir = rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . "psalm-plugin-{$hash}";
+}
 
 if (! is_dir($pluginCacheDir) && ! @mkdir($pluginCacheDir, 0775, true) && ! is_dir($pluginCacheDir)) {
     throw new RuntimeException("Unable to create Psalm plugin cache directory at {$pluginCacheDir}");
