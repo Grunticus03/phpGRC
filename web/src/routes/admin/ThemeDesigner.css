@@ -6,9 +6,10 @@
 
 .theme-designer-menu {
   position: sticky;
-  top: var(--app-navbar-height, 0px);
+  top: 0;
   z-index: 940;
   background: var(--bs-body-bg);
+  width: 100%;
 }
 
 .theme-designer-menu-inner {
