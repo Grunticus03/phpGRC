@@ -923,6 +923,149 @@ paths:
         "429":
           $ref: "#/components/responses/RateLimited"
 
+  /rbac/policies:
+    get:
+      operationId: rbacPoliciesList
+      tags: [RBAC]
+      summary: List policies and assigned roles
+      description: Returns effective policy assignments merged from configuration, database overrides, and route annotations.
+      responses:
+        "200":
+          description: Policy assignments
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PolicyListResponse"
+              examples:
+                assignments:
+                  summary: Example policy assignments
+                  value:
+                    ok: true
+                    data:
+                      policies:
+                        - policy: core.settings.manage
+                          label: Manage core settings
+                          description: Allows administrators to update global configuration values.
+                          roles: [admin]
+                        - policy: core.audit.view
+                          label: View audit events
+                          description: Grants read-only access to the audit log.
+                          roles: [admin, auditor]
+                    meta:
+                      mode: persist
+                      persistence: "true"
+                      policy_count: 2
+                      role_catalog: [admin, auditor, risk_manager, user]
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+
+  /rbac/roles/{role}/policies:
+    parameters:
+      - name: role
+        in: path
+        required: true
+        description: Role id, canonical slug, or name.
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 128
+    get:
+      operationId: rbacRolePoliciesGet
+      tags: [RBAC]
+      summary: Get policies for a role
+      description: Returns the policies currently assigned to the requested role.
+      responses:
+        "200":
+          description: Assigned policies
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RolePolicyResponse"
+              examples:
+                admin:
+                  summary: Policies assigned to Admin
+                  value:
+                    ok: true
+                    role:
+                      id: role_admin
+                      key: admin
+                      label: Admin
+                      name: Admin
+                    policies: [core.audit.view, core.settings.manage]
+                    meta:
+                      assignable: true
+                      mode: persist
+                      persistence: "true"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: Role not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RoleNotFoundError"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+    put:
+      operationId: rbacRolePoliciesUpdate
+      tags: [RBAC]
+      summary: Replace policies for a role
+      description: Replaces the policies assigned to the specified role when persistence mode is active. In stub mode the request is accepted without storing changes.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RolePolicyUpdateRequest"
+            examples:
+              update:
+                summary: Update Admin policies
+                value:
+                  policies: [core.audit.view, core.metrics.view]
+      responses:
+        "200":
+          description: Updated policy assignments
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RolePolicyResponse"
+        "202":
+          description: Accepted (stub-only)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RoleDeleteStubAccepted"
+              examples:
+                stub:
+                  summary: Stub mode acknowledgements
+                  value:
+                    ok: true
+                    note: stub-only
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: Role not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RoleNotFoundError"
+        "422":
+          description: Validation errors
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationFailed"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+
   /rbac/users/{user}/roles:
     parameters:
       - name: user
@@ -2284,6 +2427,128 @@ components:
           const: stub-only
         accepted:
           $ref: "#/components/schemas/RoleCreateRequest"
+
+    PolicyAssignment:
+      type: object
+      required: [policy, roles]
+      properties:
+        policy:
+          type: string
+          minLength: 3
+          maxLength: 128
+          example: core.settings.manage
+        label:
+          type: string
+          nullable: true
+          description: Human-readable label for the policy.
+        description:
+          type: string
+          nullable: true
+          description: Longer description of the policy’s purpose.
+        roles:
+          type: array
+          description: Canonical role slugs currently granted this policy.
+          items:
+            type: string
+            minLength: 2
+            maxLength: 64
+          example: [admin, auditor]
+
+    PolicyListResponse:
+      type: object
+      required: [ok, data]
+      properties:
+        ok:
+          type: boolean
+          const: true
+        data:
+          type: object
+          required: [policies]
+          properties:
+            policies:
+              type: array
+              items:
+                $ref: "#/components/schemas/PolicyAssignment"
+        meta:
+          type: object
+          properties:
+            mode:
+              type: string
+              description: Current RBAC mode.
+            persistence:
+              oneOf:
+                - type: string
+                - type: "null"
+              description: Raw persistence flag; stringified when present.
+            policy_count:
+              type: integer
+              minimum: 0
+            role_catalog:
+              type: array
+              items:
+                type: string
+                minLength: 2
+                maxLength: 64
+
+    RoleDescriptor:
+      type: object
+      required: [id, key, label]
+      properties:
+        id:
+          type: string
+          description: Primary identifier for the role (database id or normalized token).
+          example: role_admin
+        key:
+          type: string
+          description: Canonical role slug without the `role_` prefix.
+          example: admin
+        label:
+          type: string
+          description: Human-friendly label.
+          example: Admin
+        name:
+          type: string
+          nullable: true
+          description: Stored role name when persistence is enabled.
+
+    RolePolicyResponse:
+      type: object
+      required: [ok, role, policies]
+      properties:
+        ok:
+          type: boolean
+          const: true
+        role:
+          $ref: "#/components/schemas/RoleDescriptor"
+        policies:
+          type: array
+          items:
+            type: string
+            minLength: 3
+            maxLength: 128
+        meta:
+          type: object
+          properties:
+            assignable:
+              type: boolean
+            mode:
+              type: string
+            persistence:
+              oneOf:
+                - type: string
+                - type: "null"
+
+    RolePolicyUpdateRequest:
+      type: object
+      required: [policies]
+      properties:
+        policies:
+          type: array
+          description: Policy keys to assign to the role. Existing assignments are replaced.
+          items:
+            type: string
+            minLength: 3
+            maxLength: 128
 
     RoleDeleteResponse:
       type: object

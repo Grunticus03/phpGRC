@@ -19,6 +19,7 @@ use App\Http\Controllers\Export\StatusController;
 use App\Http\Controllers\Metrics\MetricsController;
 use App\Http\Controllers\OpenApiController;
 use App\Http\Controllers\Rbac\PolicyController;
+use App\Http\Controllers\Rbac\RolePoliciesController;
 use App\Http\Controllers\Rbac\RolesController;
 use App\Http\Controllers\Rbac\UserRolesController;
 use App\Http\Controllers\Rbac\UserSearchController;
@@ -333,6 +334,15 @@ Route::prefix('/rbac')
             ->where('role', '.*')
             ->defaults('policy', 'rbac.roles.manage');
         Route::delete('/roles/{role}', [RolesController::class, 'destroy'])
+            ->where('role', '.*')
+            ->defaults('policy', 'rbac.roles.manage');
+
+        Route::match(['GET', 'HEAD'], '/policies', [RolePoliciesController::class, 'index'])
+            ->defaults('policy', 'core.rbac.view');
+        Route::match(['GET', 'HEAD'], '/roles/{role}/policies', [RolePoliciesController::class, 'show'])
+            ->where('role', '.*')
+            ->defaults('policy', 'rbac.roles.manage');
+        Route::put('/roles/{role}/policies', [RolePoliciesController::class, 'update'])
             ->where('role', '.*')
             ->defaults('policy', 'rbac.roles.manage');
 
