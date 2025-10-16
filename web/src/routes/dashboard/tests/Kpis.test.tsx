@@ -1,13 +1,23 @@
 /** @vitest-environment jsdom */
 import React from "react";
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { render, screen, waitFor, fireEvent } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent, within, act } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 
-import Kpis from "../Kpis";
+import Kpis, { DASHBOARD_TOGGLE_EDIT_MODE_EVENT } from "../Kpis";
 
 const KPIS_URL = "/api/dashboard/kpis";
 const REPORT_URL = "/api/reports/admin-activity";
+const UI_PREFS_URL = "/api/me/prefs/ui";
+
+type StoredWidget = {
+  id?: string | null;
+  type?: string;
+  x?: number;
+  y?: number;
+  w?: number;
+  h?: number;
+};
 const originalFetch = globalThis.fetch as typeof fetch;
 const originalCreateObjectURL = globalThis.URL.createObjectURL;
 const originalRevokeObjectURL = globalThis.URL.revokeObjectURL;
@@ -60,7 +70,9 @@ describe("Dashboard", () => {
     });
 
     globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
-      const url = typeof input === "string" ? input : (input as Request).url ?? String(input);
+      const request = typeof input === "string" ? null : (input as Request);
+      const url = typeof input === "string" ? input : request?.url ?? String(input);
+      const method = request?.method ?? "GET";
 
       if (url.startsWith(KPIS_URL)) {
         return json({
@@ -102,6 +114,61 @@ describe("Dashboard", () => {
             },
           },
         });
+      }
+
+      if (url.startsWith(UI_PREFS_URL)) {
+        if (method === "PUT") {
+          let widgets: StoredWidget[] = [];
+          try {
+            const payload = await request?.clone().json();
+            const bodyDashboard = (payload as { dashboard?: { widgets?: StoredWidget[] } })?.dashboard;
+            if (Array.isArray(bodyDashboard?.widgets)) {
+              widgets = bodyDashboard.widgets;
+            }
+          } catch {
+            widgets = [];
+          }
+
+          return json(
+            {
+              ok: true,
+              prefs: {
+                theme: null,
+                mode: null,
+                overrides: {},
+                sidebar: { collapsed: false, pinned: true, width: 280, order: [], hidden: [] },
+                dashboard: { widgets },
+              },
+              etag: '"prefs-etag"',
+            },
+            {
+              headers: {
+                "Content-Type": "application/json",
+                ETag: '"prefs-etag"',
+              },
+            }
+          );
+        }
+
+        return json(
+          {
+            ok: true,
+            prefs: {
+              theme: null,
+              mode: null,
+              overrides: {},
+              sidebar: { collapsed: false, pinned: true, width: 280, order: [], hidden: [] },
+              dashboard: { widgets: [] },
+            },
+            etag: '"prefs-etag"',
+          },
+          {
+            headers: {
+              "Content-Type": "application/json",
+              ETag: '"prefs-etag"',
+            },
+          }
+        );
       }
 
       if (url.startsWith(REPORT_URL)) {
@@ -197,6 +264,45 @@ describe("Dashboard", () => {
     );
 
     await screen.findByText(/access to KPIs/i);
+  });
+
+  it("enters edit mode, opens widget modal, and exits without saving", async () => {
+    render(
+      <MemoryRouter future={ROUTER_FUTURE_FLAGS}>
+        <Kpis />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.queryByText("Loading…")).not.toBeInTheDocument();
+    });
+
+    act(() => {
+      window.dispatchEvent(new CustomEvent(DASHBOARD_TOGGLE_EDIT_MODE_EVENT));
+    });
+    await screen.findByRole("button", { name: /save dashboard layout/i });
+
+    const widgetButton = screen.getByRole("button", { name: /open widget picker/i });
+    fireEvent.click(widgetButton);
+
+    const modal = await screen.findByRole("dialog", { name: /add widgets/i });
+    const authOption = within(modal).getByText("Authentication Activity");
+    fireEvent.click(authOption);
+
+    const addButton = within(modal).getByRole("button", { name: /add/i });
+    expect(addButton).toBeEnabled();
+    fireEvent.click(addButton);
+
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog", { name: /add widgets/i })).not.toBeInTheDocument();
+    });
+
+    const closeButton = screen.getByRole("button", { name: /discard dashboard layout changes/i });
+    fireEvent.click(closeButton);
+
+    await waitFor(() => {
+      expect(screen.queryByRole("button", { name: /save dashboard layout/i })).not.toBeInTheDocument();
+    });
   });
 
   it("downloads admin activity report when button clicked", async () => {

@@ -100,6 +100,8 @@ const MAX_PRIMARY_MODULES = 19;
 const OVERFLOW_CHUNK_SIZE = 20;
 const VISIBLE_DRAG_END_ID = "__visible_end__";
 const HIDDEN_DRAG_END_ID = "__hidden_end__";
+const DASHBOARD_TOGGLE_EDIT_MODE_EVENT = "dashboard-toggle-edit-mode";
+const DASHBOARD_EDIT_MODE_STATE_EVENT = "dashboard-edit-mode-state";
 
 const brandAssetUrl = (assetId: string): string =>
   `/api/settings/ui/brand-assets/${encodeURIComponent(assetId)}/download`;
@@ -305,6 +307,8 @@ export default function AppLayout(): JSX.Element | null {
   const initialThemeMode = getCurrentTheme().mode;
   const [themeMode, setThemeMode] = useState<"light" | "dark">(initialThemeMode);
   const currentTheme = getCurrentTheme();
+  const [dashboardEditing, setDashboardEditing] = useState(false);
+  const [dashboardReady, setDashboardReady] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const adminMenuRef = useRef<HTMLLIElement | null>(null);
@@ -1207,6 +1211,10 @@ export default function AppLayout(): JSX.Element | null {
     closeFloatingSidebar();
   }, [closeFloatingSidebar, persistThemeMode]);
 
+  const handleDashboardEditToggle = useCallback(() => {
+    window.dispatchEvent(new CustomEvent(DASHBOARD_TOGGLE_EDIT_MODE_EVENT));
+  }, []);
+
   const effectiveSidebarOrder = useMemo(
     () => mergeSidebarOrder(SIDEBAR_MODULES, sidebarDefaultOrder, sidebarPrefs.order),
     [sidebarDefaultOrder, sidebarPrefs.order]
@@ -1220,6 +1228,27 @@ export default function AppLayout(): JSX.Element | null {
   }, [manifest, currentTheme.slug]);
 
   const hideNav = loc.pathname.startsWith("/auth/");
+  const isDashboardRoute = loc.pathname.startsWith("/dashboard");
+
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const custom = event as CustomEvent<{ editing?: boolean; ready?: boolean }>;
+      const detail = custom.detail ?? {};
+      setDashboardEditing(Boolean(detail.editing));
+      setDashboardReady(Boolean(detail.ready));
+    };
+    window.addEventListener(DASHBOARD_EDIT_MODE_STATE_EVENT, handler);
+    return () => {
+      window.removeEventListener(DASHBOARD_EDIT_MODE_STATE_EVENT, handler);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isDashboardRoute) {
+      setDashboardEditing(false);
+      setDashboardReady(false);
+    }
+  }, [isDashboardRoute]);
 
   useEffect(() => {
     if (typeof document === "undefined") return;
@@ -1966,6 +1995,22 @@ export default function AppLayout(): JSX.Element | null {
                 </NavLink>
               ) : (
                 <>
+                  {isDashboardRoute ? (
+                    <button
+                      type="button"
+                      className="btn btn-icon"
+                      aria-label={dashboardEditing ? "Exit dashboard edit mode" : "Enter dashboard edit mode"}
+                      aria-pressed={dashboardEditing}
+                      title={dashboardEditing ? "Exit dashboard edit mode" : "Enter dashboard edit mode"}
+                      disabled={!dashboardReady && !dashboardEditing}
+                      onClick={handleDashboardEditToggle}
+                    >
+                      <i
+                        className={`bi ${dashboardEditing ? "bi-speedometer" : "bi-speedometer2"}`}
+                        aria-hidden="true"
+                      />
+                    </button>
+                  ) : null}
                   {canToggleTheme ? (
                     <button
                       type="button"

@@ -120,6 +120,9 @@ return [
             'order' => [],
             'hidden' => [],
         ],
+        'dashboard' => [
+            'widgets' => [],
+        ],
     ],
 
     'overrides' => [

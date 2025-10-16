@@ -16,6 +16,7 @@ use Illuminate\Database\Eloquent\Model;
  * @property int $sidebar_width
  * @property string|null $sidebar_order
  * @property string|null $sidebar_hidden
+ * @property string|null $dashboard_layout
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
  */
@@ -39,6 +40,7 @@ final class UserUiPreference extends Model
         'sidebar_width',
         'sidebar_order',
         'sidebar_hidden',
+        'dashboard_layout',
     ];
 
     /**

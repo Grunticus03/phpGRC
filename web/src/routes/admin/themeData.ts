@@ -124,6 +124,16 @@ export const DEFAULT_USER_PREFS = {
     order: [] as string[],
     hidden: [] as string[],
   },
+  dashboard: {
+    widgets: [] as Array<{
+      id: string | null;
+      type: string;
+      x: number;
+      y: number;
+      w: number;
+      h: number;
+    }>,
+  },
 } as const;
 
 export type ThemeSettings = typeof DEFAULT_THEME_SETTINGS;

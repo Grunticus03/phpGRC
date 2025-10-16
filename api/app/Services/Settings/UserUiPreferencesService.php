@@ -15,11 +15,23 @@ use App\Models\UserUiPreference;
  *     order: array<int,string>,
  *     hidden: array<int,string>
  * }
+ * @phpstan-type DashboardWidget array{
+ *     id: string|null,
+ *     type: string,
+ *     x: int,
+ *     y: int,
+ *     w: int,
+ *     h: int
+ * }
+ * @phpstan-type DashboardPrefs array{
+ *     widgets: array<int,DashboardWidget>
+ * }
  * @phpstan-type UserPrefs array{
  *     theme: string|null,
  *     mode: string|null,
  *     overrides: ThemeOverrides,
- *     sidebar: SidebarPrefs
+ *     sidebar: SidebarPrefs,
+ *     dashboard: DashboardPrefs
  * }
  */
 final class UserUiPreferencesService
@@ -27,6 +39,19 @@ final class UserUiPreferencesService
     private const MIN_SIDEBAR_WIDTH = 50;
 
     private const MAX_SIDEBAR_WIDTH = 480;
+
+    private const GRID_BOUNDARY = 100;
+
+    private const MIN_DIMENSION = 1;
+
+    private const MAX_WIDGETS = 100;
+
+    /** @var array<int,string> */
+    private const ALLOWED_WIDGET_TYPES = [
+        'auth-activity',
+        'evidence-types',
+        'admin-activity',
+    ];
 
     /** @return UserPrefs */
     public function get(int $userId): array
@@ -101,6 +126,18 @@ final class UserUiPreferencesService
             }
         }
 
+        /** @var mixed $dashboardRaw */
+        $dashboardRaw = $record->getAttribute('dashboard_layout');
+        if (is_string($dashboardRaw) && $dashboardRaw !== '') {
+            /** @var array<mixed,mixed>|null $decodedDashboard */
+            $decodedDashboard = json_decode($dashboardRaw, true);
+            if (is_array($decodedDashboard)) {
+                /** @var array<string,mixed> $dashboardInput */
+                $dashboardInput = ['widgets' => $decodedDashboard];
+                $prefs['dashboard'] = $this->sanitizeDashboard($dashboardInput);
+            }
+        }
+
         return $prefs;
     }
 
@@ -124,6 +161,7 @@ final class UserUiPreferencesService
                 'sidebar_width' => $prefs['sidebar']['width'],
                 'sidebar_order' => json_encode($prefs['sidebar']['order'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
                 'sidebar_hidden' => json_encode($prefs['sidebar']['hidden'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+                'dashboard_layout' => json_encode($prefs['dashboard']['widgets'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
             ]
         );
 
@@ -187,6 +225,12 @@ final class UserUiPreferencesService
             }
         }
 
+        if (array_key_exists('dashboard', $input) && is_array($input['dashboard'])) {
+            /** @var array<string,mixed> $dashboardInput */
+            $dashboardInput = $input['dashboard'];
+            $merged['dashboard'] = $this->sanitizeDashboard($dashboardInput);
+        }
+
         return $this->sanitizePrefs($merged);
     }
 
@@ -240,6 +284,9 @@ final class UserUiPreferencesService
                 'order' => [],
                 'hidden' => [],
             ],
+            'dashboard' => [
+                'widgets' => [],
+            ],
         ];
 
         $defaults['theme'] = $this->sanitizeTheme($prefs['theme'] ?? null);
@@ -273,6 +320,14 @@ final class UserUiPreferencesService
                 $hiddenInput = $sidebar['hidden'];
                 $defaults['sidebar']['hidden'] = $this->sanitizeOrder(array_values($hiddenInput));
             }
+        }
+
+        if (isset($prefs['dashboard']) && is_array($prefs['dashboard'])) {
+            /** @var array<string,mixed> $dashboardInput */
+            $dashboardInput = $prefs['dashboard'];
+            $defaults['dashboard'] = $this->sanitizeDashboard($dashboardInput);
+        } else {
+            $defaults['dashboard'] = $this->sanitizeDashboard(['widgets' => []]);
         }
 
         return $defaults;
@@ -416,6 +471,135 @@ final class UserUiPreferencesService
         }
 
         return $result;
+    }
+
+    /**
+     * @param  array<string,mixed>  $input
+     * @return DashboardPrefs
+     */
+    private function sanitizeDashboard(array $input): array
+    {
+        $widgets = [];
+        /** @var array<int,mixed> $rawWidgets */
+        $rawWidgets = [];
+        if (isset($input['widgets']) && is_array($input['widgets'])) {
+            $rawWidgets = array_values($input['widgets']);
+        }
+
+        foreach ($rawWidgets as $raw) {
+            if (! is_array($raw)) {
+                continue;
+            }
+
+            $type = $this->sanitizeWidgetType($raw['type'] ?? null);
+            if ($type === null) {
+                continue;
+            }
+
+            $x = $this->sanitizeCoordinate($raw['x'] ?? null);
+            $y = $this->sanitizeCoordinate($raw['y'] ?? null);
+            $width = $this->sanitizeDimension($raw['w'] ?? null);
+            $height = $this->sanitizeDimension($raw['h'] ?? null);
+
+            $maxWidth = max(self::MIN_DIMENSION, self::GRID_BOUNDARY - $x);
+            $maxHeight = max(self::MIN_DIMENSION, self::GRID_BOUNDARY - $y);
+            $width = min($width, $maxWidth);
+            $height = min($height, $maxHeight);
+
+            $widgets[] = [
+                'id' => $this->sanitizeWidgetId($raw['id'] ?? null),
+                'type' => $type,
+                'x' => $x,
+                'y' => $y,
+                'w' => $width,
+                'h' => $height,
+            ];
+
+            if (count($widgets) >= self::MAX_WIDGETS) {
+                break;
+            }
+        }
+
+        return [
+            'widgets' => $widgets,
+        ];
+    }
+
+    private function sanitizeWidgetId(mixed $value): ?string
+    {
+        if (! is_string($value)) {
+            return null;
+        }
+
+        $token = trim($value);
+        if ($token === '') {
+            return null;
+        }
+
+        if (strlen($token) > 100) {
+            $token = substr($token, 0, 100);
+        }
+
+        return $token;
+    }
+
+    private function sanitizeWidgetType(mixed $value): ?string
+    {
+        if (! is_string($value)) {
+            return null;
+        }
+        $token = trim($value);
+        if ($token === '') {
+            return null;
+        }
+
+        if (! in_array($token, self::ALLOWED_WIDGET_TYPES, true)) {
+            return null;
+        }
+
+        return $token;
+    }
+
+    private function sanitizeCoordinate(mixed $value): int
+    {
+        $candidate = $this->sanitizeInt($value, 0);
+        $max = self::GRID_BOUNDARY - self::MIN_DIMENSION;
+        if ($candidate < 0) {
+            return 0;
+        }
+        if ($candidate > $max) {
+            return $max;
+        }
+
+        return $candidate;
+    }
+
+    private function sanitizeDimension(mixed $value): int
+    {
+        $candidate = $this->sanitizeInt($value, self::MIN_DIMENSION);
+        if ($candidate < self::MIN_DIMENSION) {
+            $candidate = self::MIN_DIMENSION;
+        }
+        if ($candidate > self::GRID_BOUNDARY) {
+            $candidate = self::GRID_BOUNDARY;
+        }
+
+        return $candidate;
+    }
+
+    private function sanitizeInt(mixed $value, int $fallback): int
+    {
+        if (is_int($value)) {
+            return $value;
+        }
+        if (is_float($value)) {
+            return (int) round($value);
+        }
+        if (is_string($value) && is_numeric($value)) {
+            return (int) round((float) $value);
+        }
+
+        return $fallback;
     }
 
     private function sanitizeWidth(mixed $value): int

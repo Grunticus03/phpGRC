@@ -345,6 +345,7 @@ Snapshot generated from migrations against **phpgrc_test** as of 2025-10-16 (UTC
 | sidebar_width | int unsigned | ✓ | 280 | — |
 | sidebar_order | text | ✗ | NULL | — |
 | sidebar_hidden | text | ✗ | NULL | — |
+| dashboard_layout | text | ✗ | NULL | — |
 | created_at | datetime | ✓ | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
 | updated_at | datetime | ✓ | CURRENT_TIMESTAMP | DEFAULT_GENERATED on update CURRENT_TIMESTAMP |
 

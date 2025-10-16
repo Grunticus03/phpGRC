@@ -31,6 +31,14 @@ final class UserUiPreferencesUpdateRequest extends FormRequest
             'sidebar.order.*' => ['string', 'max:64'],
             'sidebar.hidden' => ['sometimes', 'array'],
             'sidebar.hidden.*' => ['string', 'max:64'],
+            'dashboard' => ['sometimes', 'array'],
+            'dashboard.widgets' => ['sometimes', 'array'],
+            'dashboard.widgets.*.id' => ['nullable', 'string', 'max:100'],
+            'dashboard.widgets.*.type' => ['required_with:dashboard.widgets', 'string', 'in:auth-activity,evidence-types,admin-activity'],
+            'dashboard.widgets.*.x' => ['required_with:dashboard.widgets', 'integer', 'min:0', 'max:100'],
+            'dashboard.widgets.*.y' => ['required_with:dashboard.widgets', 'integer', 'min:0', 'max:100'],
+            'dashboard.widgets.*.w' => ['required_with:dashboard.widgets', 'integer', 'min:1', 'max:100'],
+            'dashboard.widgets.*.h' => ['required_with:dashboard.widgets', 'integer', 'min:1', 'max:100'],
         ];
     }
 }
