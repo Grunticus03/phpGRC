@@ -344,6 +344,7 @@ Snapshot generated from migrations against **phpgrc_test** as of 2025-10-16 (UTC
 | sidebar_pinned | tinyint(1) | ✓ | 1 | — |
 | sidebar_width | int unsigned | ✓ | 280 | — |
 | sidebar_order | text | ✗ | NULL | — |
+| sidebar_hidden | text | ✗ | NULL | — |
 | created_at | datetime | ✓ | CURRENT_TIMESTAMP | DEFAULT_GENERATED |
 | updated_at | datetime | ✓ | CURRENT_TIMESTAMP | DEFAULT_GENERATED on update CURRENT_TIMESTAMP |
 
@@ -371,4 +372,3 @@ Snapshot generated from migrations against **phpgrc_test** as of 2025-10-16 (UTC
 - `UNIQUE INDEX users_email_unique (email)`
 
 ---
-
