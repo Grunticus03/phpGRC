@@ -72,11 +72,11 @@ Create one issue per step titled `[5.5.x] Owner — Name` with labels `phase:5.5
 ### RBAC defaults
 
 - **New roles:**  
-  - `role_theme_manager` → `admin.theme`, `ui.theme.manage`, `ui.branding.manage`, `ui.theme.import`.  
-  - `role_theme_auditor` → `ui.theme.view` (read-only).  
-- `role_admin` retains all capabilities (including theming).  
+  - `role_theme_manager` → policies `ui.theme.manage`, `ui.theme.pack.manage` (inherits `ui.theme.view`); capabilities `core.theme.manage`, `core.theme.pack.manage`, `core.theme.view`.  
+  - `role_theme_auditor` → policy `ui.theme.view` (read-only) via capability `core.theme.view`.  
+- `role_admin` retains wildcard access, including all theming capabilities.  
 - Policy map + evaluator must load new roles; audits include differentiated role IDs.  
-- Settings/theming routes require `admin.theme` (or admin). Read-only endpoints allow `ui.theme.view`.
+- Settings/theming routes require the new `ui.theme.manage` / `ui.theme.pack.manage` policies. Read-only endpoints allow `ui.theme.view`.
 
 ### QA expectations
 

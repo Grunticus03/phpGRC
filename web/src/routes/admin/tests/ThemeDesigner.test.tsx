@@ -1,8 +1,27 @@
 /** @vitest-environment jsdom */
-import { describe, expect, it, beforeEach, afterEach } from "vitest";
+import { describe, expect, it, beforeEach, afterEach, vi } from "vitest";
 import { render, screen, fireEvent, within, waitFor } from "@testing-library/react";
 import React from "react";
 import ThemeDesigner from "../ThemeDesigner";
+
+vi.mock("../../../lib/themeAccess", async () => {
+  const actual = await vi.importActual<typeof import("../../../lib/themeAccess")>(
+    "../../../lib/themeAccess"
+  );
+  return {
+    ...actual,
+    getThemeAccess: vi
+      .fn()
+      .mockResolvedValue({
+        canView: true,
+        canManage: true,
+        canManagePacks: true,
+        roles: ["admin"],
+      }),
+  };
+});
+
+import { getThemeAccess } from "../../../lib/themeAccess";
 
 describe("ThemeDesigner", () => {
   let originalMatchMedia: typeof window.matchMedia;
@@ -19,10 +38,17 @@ describe("ThemeDesigner", () => {
       removeEventListener: () => {},
       dispatchEvent: () => false,
     })) as unknown as typeof window.matchMedia;
+    vi.mocked(getThemeAccess).mockResolvedValue({
+      canView: true,
+      canManage: true,
+      canManagePacks: true,
+      roles: ["admin"],
+    });
   });
 
   afterEach(() => {
     window.matchMedia = originalMatchMedia;
+    vi.clearAllMocks();
   });
 
   it("opens multilevel menus and updates variables for All > Light > Primary", async () => {
@@ -146,6 +172,8 @@ describe("ThemeDesigner", () => {
     expect(screen.getByRole("button", { name: "Load…" })).toBeVisible();
     expect(screen.getByRole("button", { name: "Delete…" })).toBeDisabled();
 
+    await waitFor(() => expect(saveAction).not.toBeDisabled());
+
     fireEvent.click(saveAction);
 
     const saveModal = await screen.findByRole("dialog", { name: "Save Theme" });
@@ -178,5 +206,25 @@ describe("ThemeDesigner", () => {
 
     fireEvent.mouseLeave(themeListItem, { relatedTarget: loadOption });
     expect(loadOption).toBeVisible();
+  });
+
+  it("disables theme management actions when user only has view access", async () => {
+    vi.mocked(getThemeAccess).mockResolvedValueOnce({
+      canView: true,
+      canManage: false,
+      canManagePacks: false,
+      roles: ["theme_auditor"],
+    });
+
+    render(<ThemeDesigner />);
+
+    const themeButton = await screen.findByRole("button", { name: "Theme" });
+    fireEvent.click(themeButton);
+
+    const saveAction = await screen.findByRole("button", { name: "Save…" });
+    const deleteAction = await screen.findByRole("button", { name: "Delete…" });
+
+    expect(saveAction).toBeDisabled();
+    expect(deleteAction).toBeDisabled();
   });
 });

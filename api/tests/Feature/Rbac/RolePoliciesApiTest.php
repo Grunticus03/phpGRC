@@ -96,7 +96,7 @@ final class RolePoliciesApiTest extends TestCase
             ->assertStatus(200)
             ->assertJsonPath('ok', true)
             ->assertJsonPath('role.key', 'auditor')
-            ->assertJsonPath('policies', ['core.audit.export', 'core.audit.view']);
+            ->assertJsonPath('policies', ['core.audit.export', 'core.audit.view', 'ui.theme.view']);
     }
 
     public function test_update_replaces_assignments_and_writes_audit(): void

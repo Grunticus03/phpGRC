@@ -65,22 +65,17 @@ Overrides come from `config('core.rbac.policies')`.
 
 ---
 
-## 3b) Phase 5.5 planned additions
-- **New policies:**  
-  - `admin.theme` (global theming/branding manage)  
-  - `ui.theme.view` (read-only access to theme settings/prefs)  
-  - `ui.theme.manage` (token overrides + theme changes)  
-  - `ui.theme.import` (theme pack upload/delete)  
-  - `ui.branding.manage` (logo/favicon/title uploads)  
-  - `ui.prefs.manage` (per-user pref updates when acting on behalf of another user; TBD if required)
+## 3b) Phase 5.5 theming additions (implemented)
+- **Policies (seeded in `policy_roles`):**  
+  - `ui.theme.view` — read-only access to theme settings, designer listings, brand assets.  
+  - `ui.theme.manage` — token overrides, designer CRUD, branding writes.  
+  - `ui.theme.pack.manage` — theme pack import/update/delete.
+- **Capabilities (config toggles):** `core.theme.view`, `core.theme.manage`, `core.theme.pack.manage`.
 - **Default role assignments:**  
-  - `admin.theme`, `ui.theme.manage`, `ui.theme.import`, `ui.branding.manage` → `role_admin`, `role_theme_manager`.  
   - `ui.theme.view` → `role_admin`, `role_theme_manager`, `role_theme_auditor`.  
-  - `ui.prefs.manage` → `role_admin`, `role_theme_manager` (final need to confirm during implementation).  
+  - `ui.theme.manage`, `ui.theme.pack.manage` → `role_admin`, `role_theme_manager`.
 - **New roles:** seed `role_theme_manager` and `role_theme_auditor` with normalized IDs; ensure PolicyMap caches include them.
-- **Audit impacts:** theming routes emit `ui.theme.*` audits keyed to acting role; PolicyMap override audits must include new roles where applicable.
-
-> These entries remain planned until Phase 5.5 migrations land. Update this section once migrations seed the new policies/roles.
+- **Audit impacts:** theming routes emit `ui.theme.*` audits keyed to acting role; PolicyMap override audits include the new roles where applicable.
 
 ---
 

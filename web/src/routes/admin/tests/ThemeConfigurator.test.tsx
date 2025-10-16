@@ -9,9 +9,27 @@ import {
 } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 
+vi.mock("../../../lib/themeAccess", async () => {
+  const actual = await vi.importActual<typeof import("../../../lib/themeAccess")>(
+    "../../../lib/themeAccess"
+  );
+  return {
+    ...actual,
+    getThemeAccess: vi
+      .fn()
+      .mockResolvedValue({
+        canView: true,
+        canManage: true,
+        canManagePacks: true,
+        roles: ["admin"],
+      }),
+  };
+});
+
 import ThemeConfigurator from "../ThemeConfigurator";
 import { ToastProvider } from "../../../components/toast/ToastProvider";
 import { DEFAULT_THEME_MANIFEST, DEFAULT_THEME_SETTINGS } from "../themeData";
+import { getThemeAccess } from "../../../lib/themeAccess";
 
 type FetchCall = {
   url: string;
@@ -61,11 +79,17 @@ describe("ThemeConfigurator", () => {
 
   beforeEach(() => {
     calls = [];
+    vi.mocked(getThemeAccess).mockResolvedValue({
+      canView: true,
+      canManage: true,
+      canManagePacks: true,
+      roles: ["admin"],
+    });
   });
 
   afterEach(() => {
     globalThis.fetch = originalFetch;
-    vi.restoreAllMocks();
+    vi.clearAllMocks();
   });
 
   const installFetch = (impl: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>) => {
@@ -347,5 +371,39 @@ describe("ThemeConfigurator", () => {
 
     const saveButton = screen.getByRole("button", { name: "Save" });
     expect(saveButton).toBeDisabled();
+  });
+
+  it("disables controls when user only has view access", async () => {
+    vi.mocked(getThemeAccess).mockResolvedValueOnce({
+      canView: true,
+      canManage: false,
+      canManagePacks: false,
+      roles: ["theme_auditor"],
+    });
+
+    installFetch(async (_input, init) => {
+      const method = (init?.method ?? "GET").toUpperCase();
+      const url = typeof _input === "string" ? _input : _input.toString();
+
+      if (url === "/api/settings/ui/themes" && method === "GET") {
+        return jsonResponse(DEFAULT_MANIFEST_BODY, { headers: { ETag: 'W/"manifest:1"' } });
+      }
+
+      if (url === "/api/settings/ui" && method === "GET") {
+        return jsonResponse(DEFAULT_SETTINGS_BODY, { headers: { ETag: 'W/"settings:etag1"' } });
+      }
+
+      return jsonResponse({ ok: true });
+    });
+
+    renderConfigurator();
+
+    await waitForLoadingToExit();
+
+    const saveButton = screen.getByRole("button", { name: "Save" });
+    expect(saveButton).toBeDisabled();
+
+    const themeSelect = screen.getByLabelText("Default theme") as HTMLSelectElement;
+    expect(themeSelect).toBeDisabled();
   });
 });

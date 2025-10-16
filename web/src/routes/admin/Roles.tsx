@@ -185,6 +185,37 @@ export default function Roles(): JSX.Element {
     });
   }, [policyAssignments]);
 
+  type PolicyGroup = {
+    key: string;
+    title: string;
+    policies: PolicyAssignment[];
+  };
+
+  const groupedPolicies = useMemo<PolicyGroup[]>(() => {
+    if (sortedPolicies.length === 0) return [];
+
+    const themePolicies = sortedPolicies.filter((policy) => policy.policy.startsWith("ui.theme."));
+    const otherPolicies = sortedPolicies.filter((policy) => !policy.policy.startsWith("ui.theme."));
+
+    const groups: PolicyGroup[] = [];
+    if (themePolicies.length > 0) {
+      groups.push({
+        key: "theme",
+        title: "Theme",
+        policies: themePolicies,
+      });
+    }
+    if (otherPolicies.length > 0) {
+      groups.push({
+        key: "general",
+        title: "General",
+        policies: otherPolicies,
+      });
+    }
+
+    return groups;
+  }, [sortedPolicies]);
+
   const hasChanges = useMemo(() => {
     if (selectedPolicies.length !== savedPolicies.length) return true;
     const a = [...selectedPolicies].sort((x, y) =>
@@ -534,29 +565,45 @@ export default function Roles(): JSX.Element {
                 {sortedPolicies.length === 0 && !policyLoading ? (
                   <p className="text-muted mb-0">No policies defined.</p>
                 ) : (
-                  <div className="d-flex flex-column gap-3">
-                    {sortedPolicies.map((policy) => {
-                      const checkboxId = `policy-${policy.policy.replace(/[^a-zA-Z0-9_-]+/g, "_")}`;
-                      const checked = selectedPolicies.includes(policy.policy);
-                      return (
-                        <div className="form-check" key={policy.policy}>
-                          <input
-                            className="form-check-input"
-                            type="checkbox"
-                            id={checkboxId}
-                            checked={checked}
-                            onChange={() => togglePolicy(policy.policy)}
-                            disabled={rolePoliciesLoading || !canEditPolicies}
-                          />
-                          <label className="form-check-label" htmlFor={checkboxId}>
-                            <span className="fw-semibold">{policy.label ?? policy.policy}</span>
-                            <span className="d-block text-muted small">
-                              {policy.description ?? policy.policy}
-                            </span>
-                          </label>
+                  <div className="d-flex flex-column gap-4">
+                    {groupedPolicies.map((group) => (
+                      <section
+                        key={group.key}
+                        aria-labelledby={`policy-group-${group.key}`}
+                        className="d-flex flex-column gap-3"
+                      >
+                        <h3
+                          id={`policy-group-${group.key}`}
+                          className="h6 text-uppercase text-muted mb-0"
+                        >
+                          {group.title}
+                        </h3>
+                        <div className="d-flex flex-column gap-3">
+                          {group.policies.map((policy) => {
+                            const checkboxId = `policy-${policy.policy.replace(/[^a-zA-Z0-9_-]+/g, "_")}`;
+                            const checked = selectedPolicies.includes(policy.policy);
+                            return (
+                              <div className="form-check" key={policy.policy}>
+                                <input
+                                  className="form-check-input"
+                                  type="checkbox"
+                                  id={checkboxId}
+                                  checked={checked}
+                                  onChange={() => togglePolicy(policy.policy)}
+                                  disabled={rolePoliciesLoading || !canEditPolicies}
+                                />
+                                <label className="form-check-label" htmlFor={checkboxId}>
+                                  <span className="fw-semibold">{policy.label ?? policy.policy}</span>
+                                  <span className="d-block text-muted small">
+                                    {policy.description ?? policy.policy}
+                                  </span>
+                                </label>
+                              </div>
+                            );
+                          })}
                         </div>
-                      );
-                    })}
+                      </section>
+                    ))}
                   </div>
                 )}
               </div>

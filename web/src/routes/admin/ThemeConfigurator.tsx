@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { baseHeaders } from "../../lib/api";
+import { getThemeAccess, deriveThemeAccess, type ThemeAccess } from "../../lib/themeAccess";
 import {
   DEFAULT_THEME_SETTINGS,
   type ThemeManifest,
@@ -135,6 +136,7 @@ export default function ThemeConfigurator(): JSX.Element {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [readOnly, setReadOnly] = useState(false);
+  const [, setThemeAccess] = useState<ThemeAccess | null>(null);
   const toast = useToast();
   const { success: showSuccess, info: showInfo, warning: showWarning, danger: showDanger } = toast;
 
@@ -142,6 +144,7 @@ export default function ThemeConfigurator(): JSX.Element {
   const [form, setForm] = useState<FormState>(buildInitialForm(DEFAULT_THEME_SETTINGS));
   const etagRef = useRef<string | null>(null);
   const snapshotRef = useRef<FormState | null>(buildInitialForm(DEFAULT_THEME_SETTINGS));
+  const accessRef = useRef<ThemeAccess | null>(null);
   const defaultLoginLayout = DEFAULT_THEME_SETTINGS.theme.login?.layout;
   const [primaryLogoSrc, setPrimaryLogoSrc] = useState<string | null>(() =>
     resolvePrimaryLogoSrc(getCachedThemeSettings() as ThemeSettings)
@@ -201,6 +204,28 @@ export default function ThemeConfigurator(): JSX.Element {
     light: currentThemeOption?.variants?.light?.name ?? "Primary",
     dark: currentThemeOption?.variants?.dark?.name ?? "Dark",
   };
+
+  useEffect(() => {
+    let active = true;
+    void getThemeAccess()
+      .then((access) => {
+        if (!active) return;
+        accessRef.current = access;
+        setThemeAccess(access);
+        setReadOnly(!access.canManage);
+      })
+      .catch(() => {
+        if (!active) return;
+        const fallback = deriveThemeAccess([]);
+        accessRef.current = fallback;
+        setThemeAccess(fallback);
+        setReadOnly(true);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const loginLayoutOptions = useMemo(
     () => {
@@ -406,6 +431,9 @@ export default function ThemeConfigurator(): JSX.Element {
         setForm(buildInitialForm(DEFAULT_THEME_SETTINGS));
         updateThemeSettings(DEFAULT_THEME_SETTINGS);
         setPrimaryLogoSrc(resolvePrimaryLogoSrc(DEFAULT_THEME_SETTINGS));
+        if (accessRef.current) {
+          setReadOnly(!accessRef.current.canManage);
+        }
         return;
       }
 
@@ -413,6 +441,9 @@ export default function ThemeConfigurator(): JSX.Element {
       const body = await parseJson<ThemeSettingsResponse>(res);
       const settings = body?.config?.ui ?? DEFAULT_THEME_SETTINGS;
       applySettings(settings);
+      if (accessRef.current) {
+        setReadOnly(!accessRef.current.canManage);
+      }
     } catch {
       if (shouldNotify) {
         showWarning("Failed to load theme settings. Using defaults.");
@@ -422,6 +453,9 @@ export default function ThemeConfigurator(): JSX.Element {
       setForm(buildInitialForm(DEFAULT_THEME_SETTINGS));
       updateThemeSettings(DEFAULT_THEME_SETTINGS);
       setPrimaryLogoSrc(resolvePrimaryLogoSrc(DEFAULT_THEME_SETTINGS));
+      if (accessRef.current) {
+        setReadOnly(!accessRef.current.canManage);
+      }
     } finally {
       setLoading(false);
     }

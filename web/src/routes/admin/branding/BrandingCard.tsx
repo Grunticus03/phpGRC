@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 import { baseHeaders } from "../../../lib/api";
+import { getThemeAccess, deriveThemeAccess, type ThemeAccess } from "../../../lib/themeAccess";
 import { updateThemeSettings } from "../../../theme/themeManager";
 import { DEFAULT_THEME_SETTINGS, type ThemeSettings } from "../themeData";
 import { useToast } from "../../../components/toast/ToastProvider";
@@ -157,6 +158,7 @@ export default function BrandingCard(): JSX.Element {
   const toast = useToast();
   const { success: showSuccess, info: showInfo, warning: showWarning, danger: showDanger } = toast;
   const [readOnly, setReadOnly] = useState(false);
+  const [, setThemeAccess] = useState<ThemeAccess | null>(null);
   const [isCreatingProfile, setIsCreatingProfile] = useState(false);
   const [newProfileName, setNewProfileName] = useState("");
   const [deleteAssetTarget, setDeleteAssetTarget] = useState<BrandAsset | null>(null);
@@ -169,11 +171,34 @@ export default function BrandingCard(): JSX.Element {
   const etagRef = useRef<string | null>(null);
   const baselineRef = useRef<BrandingConfig | null>(null);
   const settingsRef = useRef<ThemeSettings>(DEFAULT_THEME_SETTINGS);
-  const selectedProfileRef = useRef<string | null>(null);
+const selectedProfileRef = useRef<string | null>(null);
+const accessRef = useRef<ThemeAccess | null>(null);
+
+useEffect(() => {
+  selectedProfileRef.current = selectedProfileId;
+}, [selectedProfileId]);
 
   useEffect(() => {
-    selectedProfileRef.current = selectedProfileId;
-  }, [selectedProfileId]);
+    let active = true;
+    void getThemeAccess()
+      .then((access) => {
+        if (!active) return;
+        accessRef.current = access;
+        setThemeAccess(access);
+        setReadOnly(!access.canManage);
+      })
+      .catch(() => {
+        if (!active) return;
+        const fallback = deriveThemeAccess([]);
+        accessRef.current = fallback;
+        setThemeAccess(fallback);
+        setReadOnly(true);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const fetchAssets = useCallback(async (profileId: string): Promise<BrandAsset[]> => {
     if (!profileId) return [];
@@ -292,7 +317,7 @@ export default function BrandingCard(): JSX.Element {
           setAssets([]);
         }
 
-        setReadOnly(false);
+        setReadOnly(accessRef.current ? !accessRef.current.canManage : false);
       } catch {
         if (shouldNotify) {
           showWarning("Failed to load branding settings. Using defaults.");
@@ -308,6 +333,7 @@ export default function BrandingCard(): JSX.Element {
         setProfiles([]);
         setSelectedProfileId(null);
         setAssets([]);
+        setReadOnly(accessRef.current ? !accessRef.current.canManage : false);
       } finally {
         setLoading(false);
       }

@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useMemo, useState, useId, type CSSProperties } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useId, type CSSProperties } from "react";
 import "./ThemeDesigner.css";
 import { baseHeaders } from "../../lib/api";
+import { getThemeAccess, deriveThemeAccess, type ThemeAccess } from "../../lib/themeAccess";
 import {
   getCachedThemeManifest,
   getCachedThemeSettings,
@@ -645,10 +646,32 @@ export default function ThemeDesigner(): JSX.Element {
   const [pendingOverwriteSlug, setPendingOverwriteSlug] = useState<string | null>(null);
   const [loadedThemeSlug, setLoadedThemeSlug] = useState<string | null>(null);
   const [themeSelection, setThemeSelection] = useState<ThemeSelectionState>(() => getCurrentTheme());
+  const [themeAccess, setThemeAccess] = useState<ThemeAccess | null>(null);
+  const accessRef = useRef<ThemeAccess | null>(null);
 
   const loadSelectId = useId();
   const saveInputId = useId();
   const deleteSelectId = useId();
+
+  useEffect(() => {
+    let active = true;
+    void getThemeAccess()
+      .then((access) => {
+        if (!active) return;
+        accessRef.current = access;
+        setThemeAccess(access);
+      })
+      .catch(() => {
+        if (!active) return;
+        const fallback = deriveThemeAccess([]);
+        accessRef.current = fallback;
+        setThemeAccess(fallback);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     const offSettings = onThemeSettingsChange((next) => {
@@ -684,6 +707,9 @@ export default function ThemeDesigner(): JSX.Element {
     () => customEntries.length > 0,
     [customEntries]
   );
+
+  const canManageTheme = themeAccess?.canManage ?? false;
+  const canManageThemePacks = themeAccess?.canManagePacks ?? false;
 
   const canToggleMode = useMemo(() => {
     const entry = themeEntries.find((candidate) => candidate.slug === themeSelection.slug);
@@ -756,6 +782,11 @@ export default function ThemeDesigner(): JSX.Element {
   }, [loadSelection, loadedThemeSlug, themeEntries]);
 
   const handleOpenSaveModal = useCallback(() => {
+    if (!canManageTheme) {
+      setThemeMenuOpen(false);
+      setFeedback({ type: "error", message: "You do not have permission to save themes." });
+      return;
+    }
     setFeedback(null);
     setSaveModalError(null);
     setPendingOverwriteSlug(null);
@@ -767,9 +798,14 @@ export default function ThemeDesigner(): JSX.Element {
     }
     setThemeMenuOpen(false);
     setSaveModalOpen(true);
-  }, [customThemeName, findEntryBySlug, loadedThemeSlug]);
+  }, [canManageTheme, customThemeName, findEntryBySlug, loadedThemeSlug]);
 
   const handleOpenDeleteModal = useCallback(() => {
+    if (!canManageTheme) {
+      setThemeMenuOpen(false);
+      setFeedback({ type: "error", message: "You do not have permission to delete themes." });
+      return;
+    }
     setFeedback(null);
     setDeleteModalError(null);
     setPendingOverwriteSlug(null);
@@ -780,7 +816,7 @@ export default function ThemeDesigner(): JSX.Element {
       "";
     setDeleteSelection(initial);
     setDeleteModalOpen(true);
-  }, [customEntries, deleteSelection]);
+  }, [canManageTheme, customEntries, deleteSelection]);
 
   const handleCloseLoadModal = useCallback(() => {
     setLoadModalOpen(false);
@@ -820,6 +856,11 @@ export default function ThemeDesigner(): JSX.Element {
   const handleConfirmSave = useCallback(async () => {
     setSaveModalError(null);
     setFeedback(null);
+
+    if (!canManageThemePacks) {
+      setSaveModalError("You do not have permission to save themes.");
+      return;
+    }
 
     const trimmedName = customThemeName.trim();
     if (trimmedName === "") {
@@ -917,6 +958,7 @@ export default function ThemeDesigner(): JSX.Element {
     }
   }, [
     applyPackToManifest,
+    canManageThemePacks,
     computeCustomVariables,
     customThemeName,
     designerConfig.storage,
@@ -927,6 +969,11 @@ export default function ThemeDesigner(): JSX.Element {
   const handleConfirmDelete = useCallback(async () => {
     setDeleteModalError(null);
     setFeedback(null);
+
+    if (!canManageThemePacks) {
+      setDeleteModalError("You do not have permission to delete themes.");
+      return;
+    }
 
     if (!deleteSelection) {
       setDeleteModalError("Select a theme to delete.");
@@ -994,6 +1041,7 @@ export default function ThemeDesigner(): JSX.Element {
       setDeleteBusy(false);
     }
   }, [
+    canManageThemePacks,
     customThemeName,
     deleteSelection,
     designerConfig.storage,
@@ -1199,6 +1247,7 @@ export default function ThemeDesigner(): JSX.Element {
                           type="button"
                           className="theme-designer-dropdown-link"
                           onClick={handleOpenSaveModal}
+                          disabled={!canManageTheme}
                         >
                           Save…
                         </button>
@@ -1208,7 +1257,7 @@ export default function ThemeDesigner(): JSX.Element {
                           type="button"
                           className="theme-designer-dropdown-link"
                           onClick={handleOpenDeleteModal}
-                          disabled={!hasCustomThemes}
+                          disabled={!canManageTheme || !hasCustomThemes}
                         >
                           Delete…
                         </button>
@@ -1439,6 +1488,7 @@ export default function ThemeDesigner(): JSX.Element {
         onConfirm={handleConfirmSave}
         onCancel={handleCloseSaveModal}
         disableBackdropClose={saveBusy}
+        confirmDisabled={!canManageThemePacks}
       >
         <div className="mb-3">
           <label htmlFor={saveInputId} className="form-label">
@@ -1454,7 +1504,7 @@ export default function ThemeDesigner(): JSX.Element {
               setSaveModalError(null);
               setPendingOverwriteSlug(null);
             }}
-            disabled={saveBusy}
+            disabled={saveBusy || !canManageThemePacks}
             placeholder="Enter a unique name"
           />
         </div>
@@ -1475,6 +1525,7 @@ export default function ThemeDesigner(): JSX.Element {
         onConfirm={handleConfirmDelete}
         onCancel={handleCloseDeleteModal}
         disableBackdropClose={deleteBusy}
+        confirmDisabled={!canManageThemePacks}
       >
         {customEntries.length > 0 ? (
           <>
@@ -1487,7 +1538,7 @@ export default function ThemeDesigner(): JSX.Element {
                 className="form-select"
                 value={deleteSelection}
                 onChange={(event) => setDeleteSelection(event.target.value)}
-                disabled={deleteBusy}
+                disabled={deleteBusy || !canManageThemePacks}
               >
                 {customEntries.map((entry) => (
                   <option key={entry.slug} value={entry.slug}>

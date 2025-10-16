@@ -25,6 +25,10 @@
   - Audit: user CRUD and role changes emit RBAC and AUTH audit events (where enabled).
 - **Global Navigation (added)**
   - Accessible nav bar with active-route highlighting and “Skip to content” link, rendered across the SPA (visible once bootstrap completes).
+- **Theme RBAC expansion (added)**
+  - Seeded roles: `role_theme_manager` (manage/import) and `role_theme_auditor` (read-only).  
+  - New policies: `ui.theme.view`, `ui.theme.manage`, `ui.theme.pack.manage` (exposed via PolicyMap + API).  
+  - New capabilities: `core.theme.view`, `core.theme.manage`, `core.theme.pack.manage` enforce feature toggles on Settings routes.
 
 ## Routing & Deploy (history mode)
 - SPA now uses BrowserRouter (history mode). Deep-link reloads serve `index.html` via Apache fallback.

@@ -14,10 +14,10 @@ Consumers must degrade gracefully if providers are absent.
 | core.audit.log           | Core        | All modules                 | **Phase 4 implemented** (DB-backed, retention job, strict params, listing filters, RBAC events)|
 | core.evidence.manage     | Core        | Risks, Compliance, Audits   | **Phase 4 implemented** (persist + SHA-256 + versioning + listing + HEAD/ETag)                 |
 | core.exports             | Core        | Reporting                   | **Phase 4 implemented** (job/status/download; CSV/JSON/PDF; gated by capability)               |
-| ui.theme.manage          | Core        | Web SPA, Admin              | **Phase 5.5 design locked** (Bootswatch/tokens/overrides; roles: `role_admin`, `role_theme_manager`) |
-| ui.theme.import          | Core        | Admin                       | **Phase 5.5 design locked** (zip import scrubbed; roles: `role_admin`, `role_theme_manager`)      |
-| ui.branding.manage       | Core        | Web SPA, Exports            | **Phase 5.5 design locked** (logos, favicon, title text; roles: `role_admin`, `role_theme_manager`) |
-| ui.prefs                 | Core        | Web SPA                     | **Phase 5.5 design locked** (user theme/mode/sidebar; read via `ui.theme.view` inc. `role_theme_auditor`) |
+| core.theme.view          | Core        | Web SPA, Admin              | **Phase 5.5 implemented** (read-only theming + branding endpoints; roles: `role_admin`, `role_theme_manager`, `role_theme_auditor`) |
+| core.theme.manage        | Core        | Web SPA, Admin              | **Phase 5.5 implemented** (UI settings designer + branding writes; roles: `role_admin`, `role_theme_manager`) |
+| core.theme.pack.manage   | Core        | Admin                       | **Phase 5.5 implemented** (theme pack import/update/delete; roles: `role_admin`, `role_theme_manager`) |
+| ui.prefs                 | Core        | Web SPA                     | **Phase 5.5 implemented** (user theme/mode/sidebar; gated by `core.theme.view`, read includes `role_theme_auditor`) |
 | reporting.dashboards     | Reporting   | All modules                 | Phase 5 target                                                                                  |
 | incidents.manage         | Incidents   | Risks, BCP, Reporting       | Phase 6 target                                                                                  |
 | vendors.manage           | Vendors     | Risks, Reporting            | Phase 6 target                                                                                  |

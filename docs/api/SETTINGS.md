@@ -192,8 +192,10 @@ Use `GET /me/prefs/ui` to fetch the current preferences and `PUT /me/prefs/ui` w
 
 # RBAC
 
-- Global UI changes and theme imports require `role_admin` or capability `admin.theme` (granted to `role_theme_manager`).
-- Read-only endpoints allow `role_theme_auditor` via `ui.theme.view`. Per-user preferences require authentication.
+- Read-only endpoints (manifest, designer index, brand asset download) require policy `ui.theme.view` **and** capability `core.theme.view` (default roles: `role_admin`, `role_theme_manager`, `role_theme_auditor`).
+- Mutating designer/branding routes require policy `ui.theme.manage` **and** capability `core.theme.manage` (default roles: `role_admin`, `role_theme_manager`).
+- Theme pack import/update/delete require policy `ui.theme.pack.manage` **and** capability `core.theme.pack.manage` (default roles: `role_admin`, `role_theme_manager`).
+- Per-user preferences continue to honor `require_auth`; with RBAC persistence enabled the caller must satisfy `ui.theme.view`.
 
 ---
 

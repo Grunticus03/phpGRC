@@ -32,13 +32,31 @@ const defaultPoliciesResponse = {
         description: "Grants read-only access to the audit log.",
         roles: ["admin", "auditor"],
       },
+      {
+        policy: "ui.theme.view",
+        label: "View theme settings",
+        description: "Read-only access to theme configuration and branding assets.",
+        roles: ["admin", "theme_manager", "theme_auditor"],
+      },
+      {
+        policy: "ui.theme.manage",
+        label: "Manage theme settings",
+        description: "Allows editing theme configuration and branding assets.",
+        roles: ["admin", "theme_manager"],
+      },
+      {
+        policy: "ui.theme.pack.manage",
+        label: "Manage theme packs",
+        description: "Import, update, and delete theme pack archives.",
+        roles: ["admin", "theme_manager"],
+      },
     ],
   },
   meta: {
     mode: "persist",
     persistence: "true",
-    policy_count: 2,
-    role_catalog: ["admin", "auditor"],
+    policy_count: 5,
+    role_catalog: ["admin", "auditor", "theme_manager", "theme_auditor"],
   },
 };
 
@@ -66,26 +84,7 @@ describe("Admin Roles page", () => {
         return jsonResponse(200, { ok: true, roles: ["admin", "auditor"] });
       }
       if (method === "GET" && /\/rbac\/policies\b/.test(url)) {
-        return jsonResponse(200, {
-          ok: true,
-          data: {
-            policies: [
-              {
-                policy: "core.settings.manage",
-                label: "Manage core settings",
-                description: "Allows administrators to update global configuration values.",
-                roles: ["admin"],
-              },
-              {
-                policy: "core.audit.view",
-                label: "View audit events",
-                description: "Grants read-only access to the audit log.",
-                roles: ["auditor"],
-              },
-            ],
-          },
-          meta: defaultPoliciesResponse.meta,
-        });
+        return jsonResponse(200, defaultPoliciesResponse);
       }
       return jsonResponse(200, { ok: true });
     }) as unknown as typeof fetch;
@@ -116,26 +115,7 @@ describe("Admin Roles page", () => {
         return jsonResponse(201, { ok: true, role: { id: "role_compliance", name: "compliance_lead" } });
       }
       if (method === "GET" && /\/rbac\/policies\b/.test(url)) {
-        return jsonResponse(200, {
-          ok: true,
-          data: {
-            policies: [
-              {
-                policy: "core.settings.manage",
-                label: "Manage core settings",
-                description: "Allows administrators to update global configuration values.",
-                roles: [],
-              },
-              {
-                policy: "core.audit.view",
-                label: "View audit events",
-                description: "Grants read-only access to the audit log.",
-                roles: ["auditor"],
-              },
-            ],
-          },
-          meta: defaultPoliciesResponse.meta,
-        });
+        return jsonResponse(200, defaultPoliciesResponse);
       }
       return jsonResponse(200, { ok: true });
     }) as unknown as typeof fetch;
@@ -298,7 +278,7 @@ describe("Admin Roles page", () => {
         return jsonResponse(200, {
           ok: true,
           role: { id: "role_admin", key: "admin", label: "Admin", name: "Admin" },
-          policies: ["core.settings.manage"],
+          policies: ["core.settings.manage", "ui.theme.manage", "ui.theme.pack.manage", "ui.theme.view"],
           meta: { assignable: true, mode: "persist" },
         });
       }
@@ -306,7 +286,7 @@ describe("Admin Roles page", () => {
         return jsonResponse(200, {
           ok: true,
           role: { id: "role_admin", key: "admin", label: "Admin", name: "Admin" },
-          policies: ["core.audit.view", "core.settings.manage"],
+          policies: ["core.audit.view", "ui.theme.manage", "ui.theme.pack.manage", "ui.theme.view"],
           meta: { assignable: true, mode: "persist" },
         });
       }
@@ -351,7 +331,12 @@ describe("Admin Roles page", () => {
           (options?.method ?? "GET").toUpperCase() === "PUT"
         ) {
           const body = JSON.parse((options?.body as string) ?? "{}") as { policies?: unknown };
-          expect(body.policies).toEqual(["core.audit.view"]);
+          expect(body.policies).toEqual([
+            "core.audit.view",
+            "ui.theme.manage",
+            "ui.theme.pack.manage",
+            "ui.theme.view",
+          ]);
           found = true;
           break;
         }
@@ -360,6 +345,47 @@ describe("Admin Roles page", () => {
     });
 
     expect(await screen.findByText(/Updated permissions for Admin/i)).toBeInTheDocument();
+  });
+
+  test("groups theme policies under a Theme heading", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === "string" ? input : (input as Request).url ?? String(input);
+      const method = (init?.method ?? "GET").toUpperCase();
+
+      if (method === "GET" && /\/rbac\/roles\b/.test(url)) {
+        return jsonResponse(200, { ok: true, roles: ["admin"] });
+      }
+      if (method === "GET" && /\/rbac\/policies\b/.test(url)) {
+        return jsonResponse(200, defaultPoliciesResponse);
+      }
+      if (method === "GET" && /\/rbac\/roles\/admin\/policies\b/.test(url)) {
+        return jsonResponse(200, {
+          ok: true,
+          role: { id: "role_admin", key: "admin", label: "Admin", name: "Admin" },
+          policies: ["core.settings.manage", "ui.theme.manage", "ui.theme.pack.manage", "ui.theme.view"],
+          meta: { assignable: true, mode: "persist" },
+        });
+      }
+
+      return jsonResponse(200, { ok: true });
+    }) as unknown as typeof fetch;
+
+    globalThis.fetch = fetchMock;
+    const user = userEvent.setup();
+
+    renderPage();
+
+    const manageBtn = await screen.findByRole("button", { name: /Manage permissions/i });
+    await user.click(manageBtn);
+
+    const themeHeading = await screen.findByRole("heading", { name: /^Theme$/i });
+    expect(themeHeading).toBeInTheDocument();
+    const themeSection = themeHeading.parentElement as HTMLElement | null;
+    expect(themeSection).not.toBeNull();
+    expect(within(themeSection as HTMLElement).getByLabelText(/View theme settings/i)).toBeInTheDocument();
+    expect(within(themeSection as HTMLElement).getByLabelText(/Manage theme packs/i)).toBeInTheDocument();
+
+    expect(await screen.findByRole("heading", { name: /^General$/i })).toBeInTheDocument();
   });
 
   test("shows stub notice when policy update is accepted without persistence", async () => {
@@ -377,7 +403,7 @@ describe("Admin Roles page", () => {
         return jsonResponse(200, {
           ok: true,
           role: { id: "role_admin", key: "admin", label: "Admin", name: "Admin" },
-          policies: ["core.audit.view"],
+          policies: ["ui.theme.view"],
           meta: { assignable: true, mode: "stub" },
         });
       }

@@ -2,8 +2,27 @@
 import { describe, expect, it, beforeEach, afterEach, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import React from "react";
+
+vi.mock("../../../lib/themeAccess", async () => {
+  const actual = await vi.importActual<typeof import("../../../lib/themeAccess")>(
+    "../../../lib/themeAccess"
+  );
+  return {
+    ...actual,
+    getThemeAccess: vi
+      .fn()
+      .mockResolvedValue({
+        canView: true,
+        canManage: true,
+        canManagePacks: true,
+        roles: ["admin"],
+      }),
+  };
+});
+
 import BrandingCard from "../branding/BrandingCard";
 import { ToastProvider } from "../../../components/toast/ToastProvider";
+import { getThemeAccess } from "../../../lib/themeAccess";
 
 function jsonResponse(body: unknown, init: ResponseInit = {}) {
   const headers = new Headers(init.headers ?? {});
@@ -164,6 +183,12 @@ describe("BrandingCard", () => {
     createdProfileName = null;
     profileList = PROFILES_BODY.profiles.map((profile) => ({ ...profile }));
     profileCounter = profileList.length;
+    vi.mocked(getThemeAccess).mockResolvedValue({
+      canView: true,
+      canManage: true,
+      canManagePacks: true,
+      roles: ["admin"],
+    });
 
     fetchMock = vi.fn(async (...args: Parameters<typeof fetch>) => {
       const url = String(args[0]);
@@ -229,7 +254,7 @@ describe("BrandingCard", () => {
 
   afterEach(() => {
     globalThis.fetch = originalFetch;
-    vi.restoreAllMocks();
+    vi.clearAllMocks();
   });
 
   it("loads branding data and saves with If-Match", async () => {
@@ -411,5 +436,26 @@ describe("BrandingCard", () => {
 
     await screen.findByText("You do not have permission to update branding.");
     expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+  });
+
+  it("disables branding controls when user only has view access", async () => {
+    vi.mocked(getThemeAccess).mockResolvedValueOnce({
+      canView: true,
+      canManage: false,
+      canManagePacks: false,
+      roles: ["theme_auditor"],
+    });
+
+    render(
+      <ToastProvider>
+        <BrandingCard />
+      </ToastProvider>
+    );
+
+    await waitFor(() => expect(screen.queryByText("Loading branding settings…")).toBeNull());
+
+    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+    const titleInput = screen.getByLabelText("Title text") as HTMLInputElement;
+    expect(titleInput).toBeDisabled();
   });
 });

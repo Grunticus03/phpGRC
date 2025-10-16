@@ -214,8 +214,10 @@ Stored in `brand_assets`.
 
 # RBAC
 
-- Global UI changes and theme imports require `role_admin` or capability `admin.theme` (granted to `role_theme_manager`).
-- Read-only endpoints allow `role_theme_auditor` via `ui.theme.view`. Per-user preferences require authentication.
+- Read-only endpoints (theme manifest, designer index, brand asset download) require policy `ui.theme.view` **and** capability `core.theme.view` (default roles: `role_admin`, `role_theme_manager`, `role_theme_auditor`).
+- Mutating theme settings/branding calls (`PUT /settings/ui`, designer create/delete, brand asset upload/delete) require policy `ui.theme.manage` **and** capability `core.theme.manage` (default roles: `role_admin`, `role_theme_manager`).
+- Theme pack import/update/delete routes require policy `ui.theme.pack.manage` **and** capability `core.theme.pack.manage` (default roles: `role_admin`, `role_theme_manager`).
+- Per-user preferences remain auth-gated; when RBAC persistence is enabled the caller must satisfy `ui.theme.view`.
 - **Audit (additive):**
   - `ui.theme.updated`, `ui.theme.overrides.updated`, `ui.brand.updated`, `ui.nav.sidebar.saved`,  
     `ui.theme.pack.imported|deleted|enabled|disabled`
