@@ -96,6 +96,10 @@ type UserPrefsResponse = {
 
 const DEFAULT_LOGO_SRC = "/api/images/phpGRC-light-horizontal-trans.webp";
 const LONG_PRESS_DURATION_MS = 600;
+const MAX_PRIMARY_MODULES = 19;
+const OVERFLOW_CHUNK_SIZE = 20;
+const VISIBLE_DRAG_END_ID = "__visible_end__";
+const HIDDEN_DRAG_END_ID = "__hidden_end__";
 
 const brandAssetUrl = (assetId: string): string =>
   `/api/settings/ui/brand-assets/${encodeURIComponent(assetId)}/download`;
@@ -122,6 +126,7 @@ type SidebarPrefs = {
   width: number;
   pinned: boolean;
   order: string[];
+  hidden: string[];
 };
 
 const arraysEqual = (a: readonly string[], b: readonly string[]): boolean => {
@@ -196,12 +201,41 @@ const normalizeSidebarPrefs = (prefs?: ThemeUserPrefs["sidebar"] | SidebarPrefs)
   })();
   const widthRaw = typeof source.width === "number" ? source.width : DEFAULT_USER_PREFS.sidebar.width;
   const width = clampSidebarWidth(widthRaw);
-  const order = Array.isArray(source.order)
+  const orderSet = new Set<string>();
+  const orderRaw = Array.isArray(source.order)
     ? source.order
         .map((value) => (typeof value === "string" ? value.trim() : ""))
-        .filter((value) => value !== "")
+        .filter((value) => {
+          if (value === "" || orderSet.has(value)) return false;
+          orderSet.add(value);
+          return true;
+        })
     : [];
-  return { collapsed, width, pinned, order };
+
+  const hiddenSource = (source as { hidden?: unknown }).hidden;
+  const hiddenSet = new Set<string>();
+  const hidden = Array.isArray(hiddenSource)
+    ? hiddenSource
+        .map((value) => (typeof value === "string" ? value.trim() : ""))
+        .filter((value) => {
+          if (value === "" || hiddenSet.has(value)) return false;
+          hiddenSet.add(value);
+          return true;
+        })
+    : [];
+
+  const filteredOrder = orderRaw.filter((value) => !hiddenSet.has(value));
+
+  return { collapsed, width, pinned, order: filteredOrder, hidden: [...hidden] };
+};
+
+const chunk = <T,>(items: readonly T[], size: number): T[][] => {
+  if (size <= 0) return [];
+  const result: T[][] = [];
+  for (let index = 0; index < items.length; index += size) {
+    result.push(items.slice(index, index + size));
+  }
+  return result;
 };
 
 export default function AppLayout(): JSX.Element | null {
@@ -247,8 +281,21 @@ export default function AppLayout(): JSX.Element | null {
     customizingRef.current = customizing;
   }, [customizing]);
 
+  useEffect(() => {
+    if (!customizing) {
+      setSidebarOverflowOpen(false);
+    }
+  }, [customizing]);
+
+  const [sidebarOverflowOpen, setSidebarOverflowOpen] = useState(false);
+  const overflowContainerRef = useRef<HTMLDivElement | null>(null);
+  const overflowMenuRef = useRef<HTMLDivElement | null>(null);
+  const overflowTriggerRef = useRef<HTMLButtonElement | null>(null);
+
   const [editingOrder, setEditingOrder] = useState<string[]>([]);
+  const [editingHidden, setEditingHidden] = useState<string[]>([]);
   const baselineOrderRef = useRef<string[]>([]);
+  const baselineHiddenRef = useRef<string[]>([]);
   const customizeTimerRef = useRef<number | null>(null);
 
   const resizingRef = useRef(false);
@@ -266,6 +313,7 @@ export default function AppLayout(): JSX.Element | null {
   const [activeAdminSubmenu, setActiveAdminSubmenu] = useState<string | null>(null);
   const adminSubmenuCloseTimer = useRef<number | null>(null);
   const dragSidebarIdRef = useRef<string | null>(null);
+  const dragSidebarSourceRef = useRef<"visible" | "hidden" | null>(null);
   const failedBrandAssetsRef = useRef<Set<string>>(new Set());
   const shouldHidePinButton = customizing;
 
@@ -310,6 +358,18 @@ export default function AppLayout(): JSX.Element | null {
     }, 120);
   }, []);
 
+  const handleOverflowBlur = useCallback(
+    (event: ReactFocusEvent<HTMLElement>) => {
+      if (customizing) return;
+      const next = event.relatedTarget as Node | null;
+      if (next && overflowContainerRef.current && overflowContainerRef.current.contains(next)) {
+        return;
+      }
+      setSidebarOverflowOpen(false);
+    },
+    [customizing]
+  );
+
   const updateSidebarState = useCallback(
     (updater: (prev: SidebarPrefs) => SidebarPrefs, options?: { silent?: boolean }) => {
       setSidebarPrefs((prev) => {
@@ -318,7 +378,8 @@ export default function AppLayout(): JSX.Element | null {
           prev.collapsed === next.collapsed &&
           prev.width === next.width &&
           prev.pinned === next.pinned &&
-          arraysEqual(prev.order, next.order)
+          arraysEqual(prev.order, next.order) &&
+          arraysEqual(prev.hidden, next.hidden)
         ) {
           sidebarPrefsRef.current = prev;
           return prev;
@@ -948,8 +1009,13 @@ export default function AppLayout(): JSX.Element | null {
       sidebarDefaultOrder,
       sidebarPrefsRef.current.order
     );
-    baselineOrderRef.current = [...order];
-    setEditingOrder(order);
+    const hidden = sidebarPrefsRef.current.hidden ?? [];
+    const hiddenSet = new Set(hidden);
+    const visibleOrder = order.filter((id) => !hiddenSet.has(id));
+    baselineOrderRef.current = [...visibleOrder];
+    baselineHiddenRef.current = [...hidden];
+    setEditingOrder(visibleOrder);
+    setEditingHidden([...hidden]);
     setCustomizing(true);
   }, [sidebarReadOnly, sidebarDefaultOrder]);
 
@@ -975,38 +1041,43 @@ export default function AppLayout(): JSX.Element | null {
 
   const exitCustomize = useCallback(
     (force = false) => {
-      const dirty = !arraysEqual(editingOrder, baselineOrderRef.current);
+      const dirty =
+        !arraysEqual(editingOrder, baselineOrderRef.current) ||
+        !arraysEqual(editingHidden, baselineHiddenRef.current);
       if (!force && dirty) {
         const confirmExit = window.confirm("Discard unsaved sidebar changes?");
         if (!confirmExit) return;
       }
       setEditingOrder([]);
+      setEditingHidden([]);
       setCustomizing(false);
       stopCustomizeTimer();
     },
-    [editingOrder]
+    [editingOrder, editingHidden]
   );
-
-  const handleCancelCustomize = () => {
-    setEditingOrder([...baselineOrderRef.current]);
-    exitCustomize(true);
-  };
 
   const handleDefaultOrder = () => {
     const defaults = mergeSidebarOrder(SIDEBAR_MODULES, sidebarDefaultOrder, []);
     setEditingOrder(defaults);
+    setEditingHidden([]);
   };
 
   const handleSaveCustomize = async () => {
     if (sidebarReadOnly || sidebarSaving) return;
-    if (arraysEqual(editingOrder, baselineOrderRef.current)) {
+    if (
+      arraysEqual(editingOrder, baselineOrderRef.current) &&
+      arraysEqual(editingHidden, baselineHiddenRef.current)
+    ) {
       exitCustomize(true);
       return;
     }
-    const saved = await persistSidebarPrefs({ order: editingOrder });
+    const saved = await persistSidebarPrefs({ order: editingOrder, hidden: editingHidden });
     if (saved) {
       baselineOrderRef.current = [...editingOrder];
-      updateSidebarState((prev) => ({ ...prev, order: editingOrder }));
+      baselineHiddenRef.current = [...editingHidden];
+      const nextOrder = [...editingOrder];
+      const nextHidden = [...editingHidden];
+      updateSidebarState((prev) => ({ ...prev, order: nextOrder, hidden: nextHidden }));
       exitCustomize(true);
     }
   };
@@ -1024,30 +1095,89 @@ export default function AppLayout(): JSX.Element | null {
     });
   };
 
-  const handleSidebarDragStart = (moduleId: string) => {
-    dragSidebarIdRef.current = moduleId;
+  const moveModuleToHidden = (moduleId: string) => {
+    setEditingOrder((prev) => prev.filter((id) => id !== moduleId));
+    setEditingHidden((prev) => {
+      if (prev.includes(moduleId)) return prev;
+      return [...prev, moduleId];
+    });
   };
 
-  const handleSidebarDragEnter = (targetId: string) => {
-    const draggedId = dragSidebarIdRef.current;
-    if (!draggedId || draggedId === targetId) return;
-    setEditingOrder((prev) => {
-      const draggedIndex = prev.indexOf(draggedId);
-      if (draggedIndex === -1) return prev;
+  const moveHiddenModule = (moduleId: string, delta: -1 | 1) => {
+    setEditingHidden((prev) => {
+      const index = prev.indexOf(moduleId);
+      if (index === -1) return prev;
+      const nextIndex = index + delta;
+      if (nextIndex < 0 || nextIndex >= prev.length) return prev;
       const next = [...prev];
-      next.splice(draggedIndex, 1);
-      const insertionIndex = targetId === "__end__" ? next.length : next.indexOf(targetId);
-      if (insertionIndex < 0) {
-        next.push(draggedId);
-      } else {
-        next.splice(insertionIndex, 0, draggedId);
-      }
+      const [item] = next.splice(index, 1);
+      next.splice(nextIndex, 0, item);
       return next;
     });
   };
 
+  const moveModuleToVisible = (moduleId: string) => {
+    setEditingHidden((prev) => prev.filter((id) => id !== moduleId));
+    setEditingOrder((prev) => {
+      if (prev.includes(moduleId)) return prev;
+      return [...prev, moduleId];
+    });
+  };
+
+  const handleSidebarDragStart = (moduleId: string, source: "visible" | "hidden") => {
+    dragSidebarIdRef.current = moduleId;
+    dragSidebarSourceRef.current = source;
+  };
+
+  const handleSidebarDragEnter = (targetId: string, targetCollection: "visible" | "hidden") => {
+    const draggedId = dragSidebarIdRef.current;
+    const sourceCollection = dragSidebarSourceRef.current;
+    if (!draggedId || !sourceCollection) return;
+    if (targetCollection === sourceCollection && draggedId === targetId) return;
+
+    let nextVisible = editingOrder;
+    let nextHidden = editingHidden;
+
+    if (sourceCollection === "visible") {
+      if (!nextVisible.includes(draggedId)) return;
+      nextVisible = nextVisible.filter((id) => id !== draggedId);
+    } else {
+      if (!nextHidden.includes(draggedId)) return;
+      nextHidden = nextHidden.filter((id) => id !== draggedId);
+    }
+
+    if (targetCollection === "visible") {
+      let insertionIndex =
+        targetId === VISIBLE_DRAG_END_ID ? nextVisible.length : nextVisible.indexOf(targetId);
+      if (insertionIndex < 0) insertionIndex = nextVisible.length;
+      const updatedVisible = [...nextVisible];
+      updatedVisible.splice(insertionIndex, 0, draggedId);
+      if (!arraysEqual(updatedVisible, editingOrder)) {
+        setEditingOrder(updatedVisible);
+      }
+      if (!arraysEqual(nextHidden, editingHidden)) {
+        setEditingHidden(nextHidden);
+      }
+    } else {
+      let insertionIndex =
+        targetId === HIDDEN_DRAG_END_ID ? nextHidden.length : nextHidden.indexOf(targetId);
+      if (insertionIndex < 0) insertionIndex = nextHidden.length;
+      const updatedHidden = [...nextHidden];
+      updatedHidden.splice(insertionIndex, 0, draggedId);
+      if (!arraysEqual(nextVisible, editingOrder)) {
+        setEditingOrder(nextVisible);
+      }
+      if (!arraysEqual(updatedHidden, editingHidden)) {
+        setEditingHidden(updatedHidden);
+      }
+    }
+
+    dragSidebarSourceRef.current = targetCollection;
+  };
+
   const handleSidebarDragEnd = () => {
     dragSidebarIdRef.current = null;
+    dragSidebarSourceRef.current = null;
   };
 
   const handleLogout = useCallback(async () => {
@@ -1129,8 +1259,19 @@ export default function AppLayout(): JSX.Element | null {
     return null;
   }
 
-  const displayedOrder = customizing ? editingOrder : effectiveSidebarOrder;
+  const hiddenForVisible = new Set(sidebarPrefs.hidden);
+  const visibleSidebarOrder = effectiveSidebarOrder.filter((id) => !hiddenForVisible.has(id));
+  const displayedOrder = customizing ? editingOrder : visibleSidebarOrder;
+
   const sidebarItems = displayedOrder
+    .map((id) => MODULE_LOOKUP.get(id))
+    .filter((module): module is ModuleMeta => Boolean(module));
+
+  const primaryModules = sidebarItems.slice(0, MAX_PRIMARY_MODULES);
+  const overflowModules = sidebarItems.slice(MAX_PRIMARY_MODULES);
+  const overflowColumns = chunk(overflowModules, OVERFLOW_CHUNK_SIZE);
+  const hiddenModuleIds = customizing ? editingHidden : sidebarPrefs.hidden;
+  const hiddenModuleItems = hiddenModuleIds
     .map((id) => MODULE_LOOKUP.get(id))
     .filter((module): module is ModuleMeta => Boolean(module));
 
@@ -1138,7 +1279,9 @@ export default function AppLayout(): JSX.Element | null {
   const sidebarWidth = Math.max(sidebarPrefs.width, MIN_SIDEBAR_WIDTH);
   const logoSrc = resolveLogoSrc(brand, failedBrandAssetsRef.current);
 
-  const customizingDirty = !arraysEqual(editingOrder, baselineOrderRef.current);
+  const customizingDirty =
+    !arraysEqual(editingOrder, baselineOrderRef.current) ||
+    !arraysEqual(editingHidden, baselineHiddenRef.current);
 
   const sidebarPinned = sidebarPrefs.pinned;
   const sidebarCollapsed = sidebarPrefs.collapsed;
@@ -1156,35 +1299,35 @@ export default function AppLayout(): JSX.Element | null {
   const sidebarContent = (
     <div className="d-flex flex-column h-100">
       {customizing && (
-        <div className="px-3 py-2 border-bottom d-flex flex-wrap gap-2">
+        <div className="px-3 py-2 border-bottom d-flex justify-content-end gap-2">
           <button
             type="button"
-            className="btn btn-primary btn-sm"
+            className="btn btn-primary btn-icon btn-sm"
             onClick={() => void handleSaveCustomize()}
             disabled={!customizingDirty || sidebarSaving}
           >
-            {sidebarSaving ? "Saving…" : "Save"}
+            {sidebarSaving ? (
+              <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+            ) : (
+              <i className="bi bi-floppy" aria-hidden="true"></i>
+            )}
+            <span className="visually-hidden">Save sidebar layout</span>
           </button>
           <button
             type="button"
-            className="btn btn-outline-secondary btn-sm"
-            onClick={handleCancelCustomize}
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            className="btn btn-outline-secondary btn-sm"
+            className="btn btn-outline-secondary btn-icon btn-sm"
             onClick={handleDefaultOrder}
           >
-            Default
+            <i className="bi bi-arrow-counterclockwise" aria-hidden="true"></i>
+            <span className="visually-hidden">Restore default order</span>
           </button>
           <button
             type="button"
-            className="btn btn-outline-secondary btn-sm"
+            className="btn btn-outline-secondary btn-icon btn-sm"
             onClick={() => exitCustomize()}
           >
-            Exit
+            <i className="bi bi-x" aria-hidden="true"></i>
+            <span className="visually-hidden">Exit customization</span>
           </button>
         </div>
       )}
@@ -1209,58 +1352,316 @@ export default function AppLayout(): JSX.Element | null {
 
       <div className="flex-grow-1 overflow-auto">
         {customizing ? (
-          <ul className="list-group list-group-flush">
-            {sidebarItems.map((module, index) => (
-              <li
-                key={module.id}
-                className="list-group-item d-flex align-items-center justify-content-between gap-3"
-                draggable
-                onDragStart={() => handleSidebarDragStart(module.id)}
-                onDragEnter={() => handleSidebarDragEnter(module.id)}
+          <div className="px-3 py-3 d-flex flex-column gap-3">
+            <section>
+              <h3 className="h6 text-uppercase text-muted mb-2">Sidebar Modules</h3>
+              <div
+                className="border rounded-2 overflow-hidden"
                 onDragOver={(event) => event.preventDefault()}
-                onDragEnd={handleSidebarDragEnd}
+                onDragEnter={(event) => {
+                  const target = event.target as HTMLElement;
+                  if (
+                    event.currentTarget === target ||
+                    target === event.currentTarget.firstElementChild
+                  ) {
+                    handleSidebarDragEnter(VISIBLE_DRAG_END_ID, "visible");
+                  }
+                }}
                 onDrop={(event) => {
                   event.preventDefault();
                   handleSidebarDragEnd();
                 }}
               >
-                <span>{module.label}</span>
-                <span aria-hidden="true" style={{ cursor: "grab", fontSize: "1.1rem" }}>
-                  ⋮⋮
-                </span>
-                <div className="visually-hidden">
-                  <button
-                    type="button"
-                    onClick={() => moveSidebarModule(module.id, -1)}
-                    disabled={index === 0}
-                  >
-                    Move {module.label} up
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => moveSidebarModule(module.id, 1)}
-                    disabled={index === sidebarItems.length - 1}
-                  >
-                    Move {module.label} down
-                  </button>
+                <ul className="list-group list-group-flush">
+                  {primaryModules.length === 0 ? (
+                    <li className="list-group-item text-muted text-center py-3">
+                      No modules available.
+                    </li>
+                  ) : (
+                    primaryModules.map((module) => {
+                      const index = editingOrder.indexOf(module.id);
+                      return (
+                        <li
+                          key={module.id}
+                          className="list-group-item d-flex align-items-center justify-content-between gap-3"
+                          draggable
+                          onDragStart={() => handleSidebarDragStart(module.id, "visible")}
+                          onDragEnter={() => handleSidebarDragEnter(module.id, "visible")}
+                          onDragOver={(event) => event.preventDefault()}
+                          onDragEnd={handleSidebarDragEnd}
+                          onDrop={(event) => {
+                            event.preventDefault();
+                            handleSidebarDragEnd();
+                          }}
+                        >
+                          <span>{module.label}</span>
+                          <span aria-hidden="true" style={{ cursor: "grab", fontSize: "1.1rem" }}>
+                            ⋮⋮
+                          </span>
+                          <div className="visually-hidden">
+                            <button
+                              type="button"
+                              onClick={() => moveSidebarModule(module.id, -1)}
+                              disabled={index <= 0}
+                            >
+                              Move {module.label} up
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => moveSidebarModule(module.id, 1)}
+                              disabled={index === editingOrder.length - 1}
+                            >
+                              Move {module.label} down
+                            </button>
+                            <button type="button" onClick={() => moveModuleToHidden(module.id)}>
+                              Hide {module.label}
+                            </button>
+                          </div>
+                        </li>
+                      );
+                    })
+                  )}
+                </ul>
+              </div>
+            </section>
+
+            {overflowModules.length > 0 && (
+              <section>
+                <h3 className="h6 text-uppercase text-muted mb-2">More Modules</h3>
+                <div
+                  className="border rounded-2 overflow-hidden"
+                  onDragOver={(event) => event.preventDefault()}
+                  onDragEnter={(event) => {
+                    const target = event.target as HTMLElement;
+                    if (
+                      event.currentTarget === target ||
+                      target === event.currentTarget.firstElementChild
+                    ) {
+                      handleSidebarDragEnter(VISIBLE_DRAG_END_ID, "visible");
+                    }
+                  }}
+                  onDrop={(event) => {
+                    event.preventDefault();
+                    handleSidebarDragEnd();
+                  }}
+                >
+                  <ul className="list-group list-group-flush">
+                    {overflowModules.map((module) => {
+                      const index = editingOrder.indexOf(module.id);
+                      return (
+                        <li
+                          key={module.id}
+                          className="list-group-item d-flex align-items-center justify-content-between gap-3"
+                          draggable
+                          onDragStart={() => handleSidebarDragStart(module.id, "visible")}
+                          onDragEnter={() => handleSidebarDragEnter(module.id, "visible")}
+                          onDragOver={(event) => event.preventDefault()}
+                          onDragEnd={handleSidebarDragEnd}
+                          onDrop={(event) => {
+                            event.preventDefault();
+                            handleSidebarDragEnd();
+                          }}
+                        >
+                          <span>{module.label}</span>
+                          <span aria-hidden="true" style={{ cursor: "grab", fontSize: "1.1rem" }}>
+                            ⋮⋮
+                          </span>
+                          <div className="visually-hidden">
+                            <button
+                              type="button"
+                              onClick={() => moveSidebarModule(module.id, -1)}
+                              disabled={index <= 0}
+                            >
+                              Move {module.label} up
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => moveSidebarModule(module.id, 1)}
+                              disabled={index === editingOrder.length - 1}
+                            >
+                              Move {module.label} down
+                            </button>
+                            <button type="button" onClick={() => moveModuleToHidden(module.id)}>
+                              Hide {module.label}
+                            </button>
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
                 </div>
-              </li>
-            ))}
-          </ul>
+              </section>
+            )}
+
+            <section>
+              <h3 className="h6 text-uppercase text-muted mb-2">Hidden Modules</h3>
+              <div
+                className="border rounded-2 overflow-hidden"
+                style={{ borderStyle: "dashed" }}
+                onDragOver={(event) => event.preventDefault()}
+                onDragEnter={(event) => {
+                  const target = event.target as HTMLElement;
+                  if (
+                    event.currentTarget === target ||
+                    target === event.currentTarget.firstElementChild
+                  ) {
+                    handleSidebarDragEnter(HIDDEN_DRAG_END_ID, "hidden");
+                  }
+                }}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  handleSidebarDragEnd();
+                }}
+              >
+                <ul className="list-group list-group-flush">
+                  {hiddenModuleItems.length === 0 ? (
+                    <li className="list-group-item text-muted text-center py-3">
+                      Drag modules here to hide them.
+                    </li>
+                  ) : (
+                    hiddenModuleItems.map((module) => {
+                      const index = editingHidden.indexOf(module.id);
+                      return (
+                        <li
+                          key={module.id}
+                          className="list-group-item d-flex align-items-center justify-content-between gap-3"
+                          draggable
+                          onDragStart={() => handleSidebarDragStart(module.id, "hidden")}
+                          onDragEnter={() => handleSidebarDragEnter(module.id, "hidden")}
+                          onDragOver={(event) => event.preventDefault()}
+                          onDragEnd={handleSidebarDragEnd}
+                          onDrop={(event) => {
+                            event.preventDefault();
+                            handleSidebarDragEnd();
+                          }}
+                        >
+                          <span>{module.label}</span>
+                          <span aria-hidden="true" style={{ cursor: "grab", fontSize: "1.1rem" }}>
+                            ⋮⋮
+                          </span>
+                          <div className="visually-hidden">
+                            <button
+                              type="button"
+                              onClick={() => moveHiddenModule(module.id, -1)}
+                              disabled={index <= 0}
+                            >
+                              Move {module.label} up
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => moveHiddenModule(module.id, 1)}
+                              disabled={index === editingHidden.length - 1}
+                            >
+                              Move {module.label} down
+                            </button>
+                            <button type="button" onClick={() => moveModuleToVisible(module.id)}>
+                              Show {module.label}
+                            </button>
+                          </div>
+                        </li>
+                      );
+                    })
+                  )}
+                </ul>
+              </div>
+            </section>
+          </div>
         ) : (
           <nav className="nav flex-column gap-1 px-2 py-3" aria-label="Sidebar modules">
-            {sidebarItems.map((module) => (
+            {primaryModules.map((module) => (
               <NavLink
                 key={module.id}
                 to={module.path}
                 className={({ isActive }) =>
                   `nav-link text-truncate${isActive ? " active fw-semibold" : ""}`
                 }
-                onClick={closeFloatingSidebar}
+                onClick={() => {
+                  closeFloatingSidebar();
+                  setSidebarOverflowOpen(false);
+                }}
               >
                 {module.label}
               </NavLink>
             ))}
+            {overflowModules.length > 0 && (
+              <div
+                className="position-relative"
+                ref={overflowContainerRef}
+                onMouseEnter={() => {
+                  if (!customizing) setSidebarOverflowOpen(true);
+                }}
+                onMouseLeave={() => {
+                  if (!customizing) setSidebarOverflowOpen(false);
+                }}
+                onFocusCapture={() => {
+                  if (!customizing) setSidebarOverflowOpen(true);
+                }}
+                onBlur={handleOverflowBlur}
+              >
+                <button
+                  type="button"
+                  ref={overflowTriggerRef}
+                  className="nav-link text-truncate w-100 text-start"
+                  style={{ border: 0, background: "none" }}
+                  aria-haspopup="true"
+                  aria-expanded={customizing || sidebarOverflowOpen}
+                >
+                  More
+                </button>
+                <div
+                  ref={overflowMenuRef}
+                  className="mt-1"
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    left: "100%",
+                    marginLeft: "0.5rem",
+                    minWidth: "12rem",
+                    maxHeight: "calc(100vh - 4rem)",
+                    overflowY: "auto",
+                    padding: "0.5rem",
+                    borderRadius: "0.5rem",
+                    border: "1px solid var(--bs-border-color-translucent)",
+                    backgroundColor: "var(--bs-body-bg)",
+                    boxShadow: "0 0.75rem 1.5rem rgba(0, 0, 0, 0.18)",
+                    opacity: customizing || sidebarOverflowOpen ? 1 : 0,
+                    transform: customizing || sidebarOverflowOpen ? "translateX(0)" : "translateX(-8px)",
+                    pointerEvents: customizing || sidebarOverflowOpen ? "auto" : "none",
+                    transition: "transform 150ms ease, opacity 150ms ease",
+                    zIndex: 1040,
+                  }}
+                  onMouseEnter={() => {
+                    if (!customizing) setSidebarOverflowOpen(true);
+                  }}
+                  onMouseLeave={() => {
+                    if (!customizing) setSidebarOverflowOpen(false);
+                  }}
+                >
+                  <div className="d-flex gap-3">
+                    {overflowColumns.map((column, columnIndex) => (
+                      <ul key={`overflow-col-${columnIndex}`} className="nav flex-column gap-1">
+                        {column.map((module) => (
+                          <li key={module.id}>
+                            <NavLink
+                              to={module.path}
+                              className={({ isActive }) =>
+                                `nav-link text-truncate${isActive ? " active fw-semibold" : ""}`
+                              }
+                              onClick={() => {
+                                closeFloatingSidebar();
+                                setSidebarOverflowOpen(false);
+                              }}
+                            >
+                              {module.label}
+                            </NavLink>
+                          </li>
+                        ))}
+                      </ul>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
           </nav>
         )}
       </div>

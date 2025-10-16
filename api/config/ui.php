@@ -118,6 +118,7 @@ return [
             'pinned' => true,
             'width' => 280,
             'order' => [],
+            'hidden' => [],
         ],
     ],
 

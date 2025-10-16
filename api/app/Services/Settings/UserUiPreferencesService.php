@@ -8,7 +8,13 @@ use App\Models\UserUiPreference;
 
 /**
  * @phpstan-type ThemeOverrides array<string,string|null>
- * @phpstan-type SidebarPrefs array{collapsed: bool, pinned: bool, width: int, order: array<int,string>}
+ * @phpstan-type SidebarPrefs array{
+ *     collapsed: bool,
+ *     pinned: bool,
+ *     width: int,
+ *     order: array<int,string>,
+ *     hidden: array<int,string>
+ * }
  * @phpstan-type UserPrefs array{
  *     theme: string|null,
  *     mode: string|null,
@@ -84,6 +90,17 @@ final class UserUiPreferencesService
             }
         }
 
+        /** @var mixed $hiddenRaw */
+        $hiddenRaw = $record->getAttribute('sidebar_hidden');
+        if (is_string($hiddenRaw) && $hiddenRaw !== '') {
+            /** @var array<mixed,mixed>|null $decodedHidden */
+            $decodedHidden = json_decode($hiddenRaw, true);
+            if (is_array($decodedHidden)) {
+                /** @var array<int|string,mixed> $decodedHidden */
+                $prefs['sidebar']['hidden'] = $this->sanitizeOrder(array_values($decodedHidden));
+            }
+        }
+
         return $prefs;
     }
 
@@ -106,6 +123,7 @@ final class UserUiPreferencesService
                 'sidebar_pinned' => $prefs['sidebar']['pinned'],
                 'sidebar_width' => $prefs['sidebar']['width'],
                 'sidebar_order' => json_encode($prefs['sidebar']['order'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+                'sidebar_hidden' => json_encode($prefs['sidebar']['hidden'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
             ]
         );
 
@@ -162,6 +180,11 @@ final class UserUiPreferencesService
                 $orderInput = $sidebarInput['order'];
                 $merged['sidebar']['order'] = $this->sanitizeOrder(array_values($orderInput));
             }
+            if (array_key_exists('hidden', $sidebarInput) && is_array($sidebarInput['hidden'])) {
+                /** @var array<int|string,mixed> $hiddenInput */
+                $hiddenInput = $sidebarInput['hidden'];
+                $merged['sidebar']['hidden'] = $this->sanitizeOrder(array_values($hiddenInput));
+            }
         }
 
         return $this->sanitizePrefs($merged);
@@ -215,6 +238,7 @@ final class UserUiPreferencesService
                 'pinned' => true,
                 'width' => 280,
                 'order' => [],
+                'hidden' => [],
             ],
         ];
 
@@ -243,6 +267,11 @@ final class UserUiPreferencesService
                 /** @var array<int|string,mixed> $orderInput */
                 $orderInput = $sidebar['order'];
                 $defaults['sidebar']['order'] = $this->sanitizeOrder(array_values($orderInput));
+            }
+            if (array_key_exists('hidden', $sidebar) && is_array($sidebar['hidden'])) {
+                /** @var array<int|string,mixed> $hiddenInput */
+                $hiddenInput = $sidebar['hidden'];
+                $defaults['sidebar']['hidden'] = $this->sanitizeOrder(array_values($hiddenInput));
             }
         }
 

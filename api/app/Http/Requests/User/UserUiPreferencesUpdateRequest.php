@@ -29,6 +29,8 @@ final class UserUiPreferencesUpdateRequest extends FormRequest
             'sidebar.width' => ['sometimes', 'numeric', 'min:50', 'max:480'],
             'sidebar.order' => ['sometimes', 'array'],
             'sidebar.order.*' => ['string', 'max:64'],
+            'sidebar.hidden' => ['sometimes', 'array'],
+            'sidebar.hidden.*' => ['string', 'max:64'],
         ];
     }
 }

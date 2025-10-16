@@ -456,18 +456,12 @@ export default function Users(): JSX.Element {
 
   return (
     <main className="container py-4">
-      <header className="d-flex align-items-center justify-content-between mb-3">
-        <h1 className="h3 mb-0">Users</h1>
-      </header>
-
       <section aria-live="polite" className="mb-3">
       </section>
 
-      <section aria-labelledby="users-search" className="mb-4">
-        <h2 id="users-search" className="h5">Search</h2>
+      <section className="mb-4">
         <form className="row g-2 align-items-end" onSubmit={handleSearchSubmit}>
           <div className="col-12 col-md-6">
-            <label htmlFor="users_q" className="form-label">Query</label>
             <input
               id="users_q"
               name="q"
@@ -476,6 +470,7 @@ export default function Users(): JSX.Element {
               placeholder="Search name, email, or role"
               className="form-control"
               autoComplete="off"
+              aria-label="Search users"
             />
           </div>
           <div className="col-auto">
@@ -490,7 +485,6 @@ export default function Users(): JSX.Element {
         <table className="table table-sm align-middle">
           <thead>
             <tr>
-              <th scope="col" style={{ width: "6rem" }}>ID</th>
               <th scope="col">Name</th>
               <th scope="col">Email</th>
               <th scope="col">Roles</th>
@@ -513,31 +507,29 @@ export default function Users(): JSX.Element {
                 aria-label={`Edit user ${user.email}`}
                 style={{ cursor: "pointer" }}
               >
-                <td>{user.id}</td>
                 <td>{user.name}</td>
                 <td>{user.email}</td>
                 <td>{user.roles.length > 0 ? user.roles.join(", ") : <span className="text-muted">None</span>}</td>
                 <td className="text-end">
-                  <div className="btn-group btn-group-sm" role="group" aria-label={`Actions for ${user.email}`}>
-                    <button
-                      type="button"
-                      className="btn btn-outline-danger"
-                      onClick={(event) => {
-                        event.preventDefault();
-                        event.stopPropagation();
-                        beginDelete(user);
-                      }}
-                      disabled={deleteBusy && deleteCandidate?.id === user.id}
-                    >
-                      Delete
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    className="btn btn-icon btn-outline-danger"
+                    aria-label={`Delete ${user.email}`}
+                    onClick={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      beginDelete(user);
+                    }}
+                    disabled={deleteBusy && deleteCandidate?.id === user.id}
+                  >
+                    <i className="bi bi-trash" aria-hidden="true"></i>
+                  </button>
                 </td>
               </tr>
             ))}
             {items.length === 0 && !listLoading && (
               <tr>
-                <td colSpan={5} className="text-center text-muted py-4">No users</td>
+                <td colSpan={4} className="text-center text-muted py-4">No users</td>
               </tr>
             )}
           </tbody>

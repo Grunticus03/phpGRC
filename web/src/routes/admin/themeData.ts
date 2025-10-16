@@ -122,6 +122,7 @@ export const DEFAULT_USER_PREFS = {
     width: 280,
     pinned: true,
     order: [] as string[],
+    hidden: [] as string[],
   },
 } as const;
 

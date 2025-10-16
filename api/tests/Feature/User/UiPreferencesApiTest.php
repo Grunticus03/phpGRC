@@ -65,6 +65,7 @@ final class UiPreferencesApiTest extends TestCase
                 'pinned' => false,
                 'width' => 320,
                 'order' => ['risks', 'audits'],
+                'hidden' => ['archives', 'reports'],
             ],
         ];
 
@@ -79,6 +80,7 @@ final class UiPreferencesApiTest extends TestCase
                 'sidebar' => [
                     'collapsed' => true,
                     'pinned' => false,
+                    'hidden' => ['archives', 'reports'],
                 ],
             ],
         ]);
@@ -94,6 +96,7 @@ final class UiPreferencesApiTest extends TestCase
         self::assertFalse($prefs['sidebar']['pinned']);
         self::assertSame(320, $prefs['sidebar']['width']);
         self::assertSame(['risks', 'audits'], $prefs['sidebar']['order']);
+        self::assertSame(['archives', 'reports'], $prefs['sidebar']['hidden']);
     }
 
     public function test_get_preferences_returns_defaults_when_auth_disabled(): void
