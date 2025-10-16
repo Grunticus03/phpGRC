@@ -1,4 +1,4 @@
-import { authMe, type AuthUser } from "./api";
+import { apiGet, authMe, type AuthUser } from "./api";
 
 export type ThemeAccess = {
   canView: boolean;
@@ -18,6 +18,17 @@ const DEFAULT_ACCESS: ThemeAccess = {
   canManage: false,
   canManagePacks: false,
   roles: [],
+};
+
+const FULL_ACCESS: ThemeAccess = {
+  canView: true,
+  canManage: true,
+  canManagePacks: true,
+  roles: [],
+};
+
+type Fingerprint = {
+  summary?: { rbac?: { require_auth?: boolean } };
 };
 
 export function normalizeRole(role: string): string {
@@ -49,6 +60,47 @@ export function deriveThemeAccess(rawRoles: string[]): ThemeAccess {
 
 let cachedAccess: ThemeAccess | null = null;
 let inflight: Promise<ThemeAccess> | null = null;
+let requireAuthFlag: boolean | null = null;
+let requireAuthInflight: Promise<boolean> | null = null;
+
+function cloneAccess(access: ThemeAccess): ThemeAccess {
+  return { ...access, roles: [...access.roles] };
+}
+
+async function resolveRequireAuth(): Promise<boolean> {
+  if (requireAuthFlag !== null) {
+    return requireAuthFlag;
+  }
+
+  if (requireAuthInflight === null) {
+    requireAuthInflight = apiGet<Fingerprint>("/api/health/fingerprint")
+      .then((fp) => {
+        const requireAuth = Boolean(fp?.summary?.rbac?.require_auth);
+        requireAuthFlag = requireAuth;
+        return requireAuth;
+      })
+      .catch(() => {
+        requireAuthFlag = false;
+        return false;
+      })
+      .finally(() => {
+        requireAuthInflight = null;
+      });
+  }
+
+  return requireAuthInflight;
+}
+
+function prepareFullAccess(): ThemeAccess {
+  const access = cloneAccess(FULL_ACCESS);
+  cachedAccess = access;
+  return access;
+}
+
+export function seedThemeRequireAuth(flag: boolean): void {
+  requireAuthFlag = flag;
+  cachedAccess = flag ? null : prepareFullAccess();
+}
 
 export async function getThemeAccess(): Promise<ThemeAccess> {
   if (cachedAccess) {
@@ -59,15 +111,21 @@ export async function getThemeAccess(): Promise<ThemeAccess> {
     return inflight;
   }
 
-  inflight = authMe()
-    .then((user: AuthUser) => {
-      const access = deriveThemeAccess(user.roles ?? []);
-      cachedAccess = access;
-      return access;
-    })
-    .catch(() => {
-      cachedAccess = { ...DEFAULT_ACCESS };
-      return cachedAccess;
+  inflight = resolveRequireAuth()
+    .then(async (requireAuth) => {
+      if (!requireAuth) {
+        return prepareFullAccess();
+      }
+
+      try {
+        const user: AuthUser = await authMe();
+        const access = deriveThemeAccess(user.roles ?? []);
+        cachedAccess = access;
+        return access;
+      } catch {
+        cachedAccess = cloneAccess(DEFAULT_ACCESS);
+        return cachedAccess;
+      }
     })
     .finally(() => {
       inflight = null;
@@ -77,6 +135,6 @@ export async function getThemeAccess(): Promise<ThemeAccess> {
 }
 
 export function resetThemeAccessCache(): void {
-  cachedAccess = null;
+  cachedAccess = requireAuthFlag === false ? prepareFullAccess() : null;
   inflight = null;
 }

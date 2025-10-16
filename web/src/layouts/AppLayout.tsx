@@ -20,6 +20,7 @@ import {
   rememberIntendedPath,
   apiGet,
 } from "../lib/api";
+import { seedThemeRequireAuth } from "../lib/themeAccess";
 import {
   bootstrapTheme,
   getCachedThemePrefs,
@@ -674,6 +675,7 @@ export default function AppLayout(): JSX.Element | null {
       try {
         const fp = await apiGet<Fingerprint>("/api/health/fingerprint");
         const req = Boolean(fp?.summary?.rbac?.require_auth);
+        seedThemeRequireAuth(req);
         setRequireAuth(req);
 
         if (req) {
