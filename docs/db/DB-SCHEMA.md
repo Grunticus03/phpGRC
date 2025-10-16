@@ -1,6 +1,6 @@
 # phpGRC Database Schema
 
-Snapshot generated from migrations against **phpgrc** as of 2025-10-14 (UTC).
+Snapshot generated from migrations against **phpgrc_test** as of 2025-10-16 (UTC).
 
 - SQL dialect: MySQL 8.0+
 - All times UTC.
@@ -371,3 +371,4 @@ Snapshot generated from migrations against **phpgrc** as of 2025-10-14 (UTC).
 - `UNIQUE INDEX users_email_unique (email)`
 
 ---
+
