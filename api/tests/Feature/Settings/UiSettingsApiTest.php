@@ -42,8 +42,7 @@ final class UiSettingsApiTest extends TestCase
 
     public function test_get_ui_settings_returns_defaults_with_etag(): void
     {
-        $user = User::factory()->create();
-        Sanctum::actingAs($user);
+        $this->actingAsThemeManager();
 
         $response = $this->getJson('/settings/ui');
         $response->assertOk();
@@ -97,8 +96,7 @@ final class UiSettingsApiTest extends TestCase
 
     public function test_put_ui_settings_requires_if_match(): void
     {
-        $user = User::factory()->create();
-        Sanctum::actingAs($user);
+        $this->actingAsThemeManager();
 
         $response = $this->putJson('/settings/ui', [
             'ui' => [
@@ -117,8 +115,7 @@ final class UiSettingsApiTest extends TestCase
 
     public function test_put_ui_settings_updates_configuration(): void
     {
-        $user = User::factory()->create();
-        Sanctum::actingAs($user);
+        $user = $this->actingAsThemeManager();
 
         $initial = $this->getJson('/settings/ui');
         $initial->assertOk();
@@ -197,8 +194,7 @@ final class UiSettingsApiTest extends TestCase
 
     public function test_put_ui_settings_accepts_layout_3(): void
     {
-        $user = User::factory()->create();
-        Sanctum::actingAs($user);
+        $user = $this->actingAsThemeManager();
 
         $initial = $this->getJson('/settings/ui');
         $initial->assertOk();
@@ -229,8 +225,7 @@ final class UiSettingsApiTest extends TestCase
 
     public function test_get_ui_settings_honors_if_none_match_with_multiple_values(): void
     {
-        $user = User::factory()->create();
-        Sanctum::actingAs($user);
+        $user = $this->actingAsThemeManager();
 
         $initial = $this->getJson('/settings/ui');
         $initial->assertOk();
@@ -253,8 +248,7 @@ final class UiSettingsApiTest extends TestCase
 
     public function test_put_ui_settings_accepts_wildcard_if_match_header(): void
     {
-        $user = User::factory()->create();
-        Sanctum::actingAs($user);
+        $user = $this->actingAsThemeManager();
 
         $payload = [
             'ui' => [
@@ -291,8 +285,7 @@ final class UiSettingsApiTest extends TestCase
 
     public function test_put_ui_settings_updates_brand_asset_path(): void
     {
-        $user = User::factory()->create();
-        Sanctum::actingAs($user);
+        $user = $this->actingAsThemeManager();
 
         $initial = $this->getJson('/settings/ui');
         $initial->assertOk();
@@ -329,8 +322,7 @@ final class UiSettingsApiTest extends TestCase
 
     public function test_put_ui_settings_rejects_stale_etag_and_returns_current(): void
     {
-        $user = User::factory()->create();
-        Sanctum::actingAs($user);
+        $user = $this->actingAsThemeManager();
 
         $first = $this->getJson('/settings/ui');
         $first->assertOk();
@@ -398,8 +390,7 @@ final class UiSettingsApiTest extends TestCase
     {
         Config::set('core.rbac.require_auth', true);
 
-        $user = User::factory()->create();
-        Sanctum::actingAs($user);
+        $this->actingAsThemeManager();
 
         $resp = $this->getJson('/settings/ui/themes');
         $resp->assertOk();
@@ -529,6 +520,15 @@ final class UiSettingsApiTest extends TestCase
         );
 
         $user->roles()->syncWithoutDetaching([$role->getKey()]);
+    }
+
+    private function actingAsThemeManager(): User
+    {
+        $user = User::factory()->create();
+        $this->attachNamedRole($user, 'Admin');
+        Sanctum::actingAs($user);
+
+        return $user;
     }
 
     public function test_brand_assets_default_to_primary_logo_when_missing(): void

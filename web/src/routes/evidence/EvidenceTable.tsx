@@ -161,16 +161,18 @@ export default function EvidenceTable({
           <FilterableHeaderRow
             headers={headers}
             leadingCell={
-              <th scope="col" className="text-center" style={{ width: "2.5rem" }}>
-                <input
-                  ref={selectAllRef}
-                  type="checkbox"
-                  className="form-check-input"
-                  checked={items.length > 0 && allOnPageSelected}
-                  onChange={(event) => onToggleSelectAll(event.currentTarget.checked)}
-                  disabled={selectionDisabled || items.length === 0}
-                  aria-label={items.length > 0 && allOnPageSelected ? "Deselect all evidence on this page" : "Select all evidence on this page"}
-                />
+              <th scope="col" className="text-center" style={{ width: "6.5rem" }}>
+                <div className="d-flex justify-content-center align-items-center gap-2">
+                  <input
+                    ref={selectAllRef}
+                    type="checkbox"
+                    className="form-check-input"
+                    checked={items.length > 0 && allOnPageSelected}
+                    onChange={(event) => onToggleSelectAll(event.currentTarget.checked)}
+                    disabled={selectionDisabled || items.length === 0}
+                    aria-label={items.length > 0 && allOnPageSelected ? "Deselect all evidence on this page" : "Select all evidence on this page"}
+                  />
+                </div>
               </th>
             }
           />
@@ -186,19 +188,62 @@ export default function EvidenceTable({
               const isDeletingThis = deletingId === item.id;
 
               const deleteDisabled = bulkDeleting || deletingId !== null;
-              const deleteLabel = bulkDeleting || isDeletingThis ? "Deleting…" : "Delete";
+              const isDownloading = downloadingId === item.id;
+              const showDeleteSpinner = isDeletingThis || bulkDeleting;
 
               return (
                 <tr key={item.id} className={isSelected ? "table-active" : undefined}>
-                  <td className="text-center" style={{ width: "2.5rem" }}>
-                    <input
-                      type="checkbox"
-                      className="form-check-input"
-                      checked={isSelected}
-                      onChange={(event) => onToggleSelect(item, event.currentTarget.checked)}
-                      disabled={selectionDisabled}
-                      aria-label={`${isSelected ? "Deselect" : "Select"} ${item.filename || item.id}`}
-                    />
+                  <td className="text-center" style={{ width: "6.5rem" }}>
+                    <div className="d-flex justify-content-center align-items-center gap-2">
+                      <input
+                        type="checkbox"
+                        className="form-check-input"
+                        checked={isSelected}
+                        onChange={(event) => onToggleSelect(item, event.currentTarget.checked)}
+                        disabled={selectionDisabled}
+                        aria-label={`${isSelected ? "Deselect" : "Select"} ${item.filename || item.id}`}
+                      />
+                      <button
+                        type="button"
+                        className="btn btn-outline-primary btn-sm"
+                        onClick={() => onDownload(item)}
+                        disabled={isDownloading}
+                        aria-label={
+                          isDownloading
+                            ? `Downloading ${item.filename || item.id}`
+                            : `Download ${item.filename || item.id}`
+                        }
+                      >
+                        {isDownloading ? (
+                          <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true" />
+                        ) : (
+                          <i className="bi bi-download" aria-hidden="true" />
+                        )}
+                        <span className="visually-hidden">
+                          {isDownloading ? `Downloading ${item.filename || item.id}` : `Download ${item.filename || item.id}`}
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-outline-danger btn-sm"
+                        onClick={() => onDelete(item)}
+                        disabled={deleteDisabled}
+                        aria-label={
+                          showDeleteSpinner
+                            ? `Deleting ${item.filename || item.id}`
+                            : `Delete ${item.filename || item.id}`
+                        }
+                      >
+                        {showDeleteSpinner ? (
+                          <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true" />
+                        ) : (
+                          <i className="bi bi-trash" aria-hidden="true" />
+                        )}
+                        <span className="visually-hidden">
+                          {showDeleteSpinner ? `Deleting ${item.filename || item.id}` : `Delete ${item.filename || item.id}`}
+                        </span>
+                      </button>
+                    </div>
                   </td>
                   <td title={item.created_at}>{createdLabel}</td>
                   <td className="text-break" style={{ maxWidth: "12rem" }} title={ownerTitle(item.owner_id, ownerVal)}>
@@ -213,28 +258,6 @@ export default function EvidenceTable({
                   <td className="text-break" style={{ maxWidth: "14rem" }} title={item.mime}>{mimeLabel}</td>
                   <td style={{ fontFamily: "monospace" }}>{shaPreview}</td>
                   <td>{item.version}</td>
-                  <td>
-                    <button
-                      type="button"
-                      className="btn btn-outline-primary btn-sm"
-                      onClick={() => onDownload(item)}
-                      disabled={downloadingId === item.id}
-                      aria-label={`Download ${item.filename || item.id}`}
-                    >
-                      {downloadingId === item.id ? "Downloading…" : "Download"}
-                    </button>
-                  </td>
-                  <td>
-                    <button
-                      type="button"
-                      className="btn btn-outline-danger btn-sm"
-                      onClick={() => onDelete(item)}
-                      disabled={deleteDisabled}
-                      aria-label={`Delete ${item.filename || item.id}`}
-                    >
-                      {deleteLabel}
-                    </button>
-                  </td>
                 </tr>
               );
             })}

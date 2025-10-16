@@ -25,7 +25,7 @@ final class CoreSettingsSeeder extends Seeder
         $this->put('core.metrics.throttle.window_seconds', 60);
 
         // RBAC persistence toggle
-        $this->put('core.rbac.persistence', false);
+        $this->put('core.rbac.persistence', true);
 
         // UI defaults
         $this->put('core.ui.time_format', 'LOCAL');

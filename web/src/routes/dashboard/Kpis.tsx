@@ -193,7 +193,7 @@ const WIDGET_DEFINITIONS: Record<WidgetType, WidgetDefinition> = {
     description: "Stacked daily success vs failure over the selected window.",
     minSize: { w: 1, h: 1 },
     maxSize: { w: GRID_BOUNDARY, h: GRID_BOUNDARY },
-    defaultSize: { w: 7, h: 2 },
+    defaultSize: { w: 8, h: 2 },
   },
   "evidence-types": {
     type: "evidence-types",
@@ -384,7 +384,7 @@ function createWidgetInstance(type: WidgetType, rect?: WidgetRect): WidgetInstan
 
 function createInitialWidgets(): WidgetInstance[] {
   return [
-    createWidgetInstance("auth-activity", { x: 0, y: 0, w: 7, h: 2 }),
+    createWidgetInstance("auth-activity", { x: 0, y: 0, w: 8, h: 2 }),
     createWidgetInstance("evidence-types", { x: 0, y: 2, w: 4, h: 2 }),
     createWidgetInstance("admin-activity", { x: 4, y: 2, w: 4, h: 2 }),
   ];

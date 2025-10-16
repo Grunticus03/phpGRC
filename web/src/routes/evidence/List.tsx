@@ -1146,16 +1146,6 @@ export default function EvidenceList(): JSX.Element {
       key: "version",
       label: "Version",
     },
-    {
-      key: "download",
-      label: "Download",
-      className: "text-nowrap",
-    },
-    {
-      key: "delete",
-      label: "Delete",
-      className: "text-nowrap",
-    },
   ];
 
   const uploadPercent =
@@ -1220,7 +1210,6 @@ export default function EvidenceList(): JSX.Element {
       <h1 className="mb-3">Evidence</h1>
 
       <section className="mb-4">
-        <h2 className="h5">Upload Evidence</h2>
         <div className="d-flex flex-column flex-sm-row align-items-sm-center gap-2" aria-label="Upload evidence">
           <input
             ref={fileInputRef}
@@ -1262,51 +1251,46 @@ export default function EvidenceList(): JSX.Element {
         )}
       </section>
 
-      <section className="d-flex flex-wrap align-items-center gap-3 mb-3">
-        <button
-          type="button"
-          className="btn btn-outline-secondary btn-sm"
-          onClick={clearAllFilters}
-          disabled={!hasActiveFilters || state === "loading"}
-        >
-          Clear filters
-        </button>
-        <div className="d-flex align-items-center gap-2">
-          <label htmlFor="evidence-limit" className="form-label mb-0">Limit</label>
-          <input
-            id="evidence-limit"
-            type="number"
-            inputMode="numeric"
-            min={1}
-            max={100}
-            className="form-control form-control-sm"
-            style={{ width: "5rem" }}
-            value={limitDraft}
-            onChange={(e) => setLimitDraft(e.currentTarget.value)}
-            onBlur={applyLimitFromDraft}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                applyLimitFromDraft();
-              } else if (e.key === "Escape") {
-                e.preventDefault();
-                setLimitDraft(String(limit));
-              }
-            }}
-          />
-        </div>
-      </section>
-
       <hr className="my-4" />
 
   {state === "loading" && <p>Loading…</p>}
   {state === "error" && <p role="alert" className="text-danger">Error: {error}</p>}
 
-      <div className="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
-        <span className="small text-muted">
-          {selectedCount > 0 ? `${selectedCount} selected` : ""}
-        </span>
+      <div className="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
+        <span className="small text-muted">{selectedCount > 0 ? `${selectedCount} selected` : ""}</span>
         <div className="d-flex flex-wrap align-items-center gap-2">
+          <button
+            type="button"
+            className="btn btn-outline-secondary btn-sm"
+            onClick={clearAllFilters}
+            disabled={!hasActiveFilters || state === "loading"}
+          >
+            Clear filters
+          </button>
+          <div className="d-flex align-items-center gap-2">
+            <label htmlFor="evidence-limit" className="form-label mb-0">Limit</label>
+            <input
+              id="evidence-limit"
+              type="number"
+              inputMode="numeric"
+              min={1}
+              max={100}
+              className="form-control form-control-sm"
+              style={{ width: "5rem" }}
+              value={limitDraft}
+              onChange={(e) => setLimitDraft(e.currentTarget.value)}
+              onBlur={applyLimitFromDraft}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  applyLimitFromDraft();
+                } else if (e.key === "Escape") {
+                  e.preventDefault();
+                  setLimitDraft(String(limit));
+                }
+              }}
+            />
+          </div>
           <button
             type="button"
             className="btn btn-outline-danger btn-sm"

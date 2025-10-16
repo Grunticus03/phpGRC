@@ -57,7 +57,7 @@ return [
         'enabled' => true,
         // Use DB to control persistence/require_auth; defaults below are safe for tests
         'mode' => 'stub',
-        'persistence' => false,
+        'persistence' => true,
 
         // Default false; set true via DB override: core.rbac.require_auth
         'require_auth' => false,
