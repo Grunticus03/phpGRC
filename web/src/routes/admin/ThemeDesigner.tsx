@@ -1,8 +1,19 @@
-import { useCallback, useEffect, useMemo, useRef, useState, useId, type CSSProperties } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useId,
+  type CSSProperties,
+  type FocusEvent,
+  type MouseEvent,
+} from "react";
 import "./ThemeDesigner.css";
 import { baseHeaders } from "../../lib/api";
 import { getThemeAccess, deriveThemeAccess, type ThemeAccess } from "../../lib/themeAccess";
 import {
+  getCachedThemePrefs,
   getCachedThemeManifest,
   getCachedThemeSettings,
   getCurrentTheme,
@@ -11,9 +22,15 @@ import {
   onThemeSettingsChange,
   toggleThemeMode,
   updateThemeManifest,
+  updateThemePrefs,
 } from "../../theme/themeManager";
 import ConfirmModal from "../../components/modal/ConfirmModal";
-import { DEFAULT_THEME_SETTINGS, type CustomThemePack, type ThemeManifest } from "./themeData";
+import {
+  DEFAULT_THEME_SETTINGS,
+  type CustomThemePack,
+  type ThemeManifest,
+  type ThemeUserPrefs,
+} from "./themeData";
 
 type SettingTarget = {
   key: string;
@@ -602,6 +619,287 @@ const UNIQUE_TARGETS: SettingTarget[] = Array.from(
   ).values()
 );
 
+const RGB_COLOR_PATTERN =
+  /^rgba?\(\s*([0-9]{1,3}(?:\.[0-9]+)?)\s*,\s*([0-9]{1,3}(?:\.[0-9]+)?)\s*,\s*([0-9]{1,3}(?:\.[0-9]+)?)(?:\s*,\s*([0-9]*(?:\.[0-9]+)?))?\s*\)$/i;
+
+const clamp = (value: number, min: number, max: number): number => Math.min(Math.max(value, min), max);
+
+const toHexChannel = (value: number): string => {
+  const clamped = clamp(Math.round(value), 0, 255);
+  const hex = clamped.toString(16);
+  return hex.length === 1 ? `0${hex}` : hex;
+};
+
+const rgbToHex = (r: number, g: number, b: number): string =>
+  `#${toHexChannel(r)}${toHexChannel(g)}${toHexChannel(b)}`;
+
+const hexToRgb = (value: string): { r: number; g: number; b: number } | null => {
+  const normalized = value.trim().toLowerCase();
+  if (!/^#?[0-9a-f]{3,8}$/.test(normalized)) return null;
+  const trimmed = normalized.startsWith("#") ? normalized.slice(1) : normalized;
+  if (trimmed.length === 3) {
+    const r = parseInt(trimmed[0] + trimmed[0], 16);
+    const g = parseInt(trimmed[1] + trimmed[1], 16);
+    const b = parseInt(trimmed[2] + trimmed[2], 16);
+    return { r, g, b };
+  }
+  if (trimmed.length === 6 || trimmed.length === 8) {
+    const r = parseInt(trimmed.slice(0, 2), 16);
+    const g = parseInt(trimmed.slice(2, 4), 16);
+    const b = parseInt(trimmed.slice(4, 6), 16);
+    return { r, g, b };
+  }
+  return null;
+};
+
+const normalizeCssColor = (raw: string | null | undefined): string | null => {
+  const value = raw?.trim();
+  if (!value) return null;
+  if (HEX_COLOR_PATTERN.test(value)) {
+    const hex = value.startsWith("#") ? value : `#${value}`;
+    return hex.length === 4
+      ? `#${hex[1]}${hex[1]}${hex[2]}${hex[2]}${hex[3]}${hex[3]}`
+      : hex.toLowerCase();
+  }
+  const match = value.match(RGB_COLOR_PATTERN);
+  if (match) {
+    const [, rs, gs, bs, alphaRaw] = match;
+    const alpha = typeof alphaRaw === "string" && alphaRaw !== "" ? Number.parseFloat(alphaRaw) : 1;
+    if (Number.isNaN(alpha) || alpha <= 0) {
+      return null;
+    }
+    const r = Number.parseFloat(rs ?? "");
+    const g = Number.parseFloat(gs ?? "");
+    const b = Number.parseFloat(bs ?? "");
+    if ([r, g, b].some((component) => Number.isNaN(component))) {
+      return null;
+    }
+    return rgbToHex(r, g, b);
+  }
+  return null;
+};
+
+const mixHexColors = (first: string, second: string, secondWeight: number): string => {
+  const rgbFirst = hexToRgb(first);
+  const rgbSecond = hexToRgb(second);
+  if (!rgbFirst || !rgbSecond) {
+    return first;
+  }
+  const weight = clamp(secondWeight, 0, 1);
+  const r = rgbFirst.r * (1 - weight) + rgbSecond.r * weight;
+  const g = rgbFirst.g * (1 - weight) + rgbSecond.g * weight;
+  const b = rgbFirst.b * (1 - weight) + rgbSecond.b * weight;
+  return rgbToHex(r, g, b);
+};
+
+const relativeLuminance = (hex: string): number => {
+  const rgb = hexToRgb(hex);
+  if (!rgb) return 0;
+  const transform = (channel: number): number => {
+    const c = channel / 255;
+    return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+  };
+  const r = transform(rgb.r);
+  const g = transform(rgb.g);
+  const b = transform(rgb.b);
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+};
+
+const contrastRatio = (hexA: string, hexB: string): number => {
+  const l1 = relativeLuminance(hexA) + 0.05;
+  const l2 = relativeLuminance(hexB) + 0.05;
+  return l1 > l2 ? l1 / l2 : l2 / l1;
+};
+
+const chooseContrastingColor = (background: string, candidates: string[]): string => {
+  const normalizedBackground = normalizeCssColor(background) ?? "#000000";
+  let winner = "#ffffff";
+  let best = -Infinity;
+  candidates.forEach((candidate) => {
+    const normalizedCandidate = normalizeCssColor(candidate);
+    if (!normalizedCandidate) return;
+    const ratio = contrastRatio(normalizedBackground, normalizedCandidate);
+    if (ratio > best) {
+      best = ratio;
+      winner = normalizedCandidate;
+    }
+  });
+  return winner;
+};
+
+const computeDefaultBaseValues = (): Record<string, string> => {
+  const base: Record<string, string> = {};
+  UNIQUE_TARGETS.forEach((target) => {
+    base[target.key] = target.defaultValue;
+  });
+  return base;
+};
+
+const waitForThemeStylesheet = async (
+  baseSlug: string,
+  shouldCancel?: () => boolean
+): Promise<void> => {
+  if (typeof document === "undefined") return;
+  const userAgent =
+    typeof navigator !== "undefined" && typeof navigator.userAgent === "string"
+      ? navigator.userAgent.toLowerCase()
+      : "";
+  if (userAgent.includes("jsdom")) {
+    return;
+  }
+  const maxAttempts = 40;
+  for (let attempts = 0; attempts < maxAttempts; attempts++) {
+    if (shouldCancel?.()) {
+      return;
+    }
+    const link = document.getElementById("phpgrc-theme-css") as HTMLLinkElement | null;
+    if (link && link.href.includes(baseSlug) && link.sheet) {
+      return;
+    }
+    const pending = document.getElementById("phpgrc-theme-css-pending") as HTMLLinkElement | null;
+    if (pending && pending.href.includes(baseSlug) && pending.sheet) {
+      return;
+    }
+    await new Promise((resolve) => {
+      setTimeout(resolve, 50);
+    });
+  }
+};
+
+const buildBootswatchBaseValues = (): Record<string, string> => {
+  if (typeof document === "undefined") return {};
+
+  const rootStyle = getComputedStyle(document.documentElement);
+  const bodyStyle = document.body ? getComputedStyle(document.body) : rootStyle;
+
+  const getColorVar = (variable: string, fallback: string): string => {
+    const fromRoot = normalizeCssColor(rootStyle.getPropertyValue(variable));
+    if (fromRoot) {
+      return fromRoot;
+    }
+    const fromBody = normalizeCssColor(bodyStyle.getPropertyValue(variable));
+    return fromBody ?? fallback;
+  };
+
+  const getBodyFontFamily = (): string => {
+    const cssVar = rootStyle.getPropertyValue("--bs-body-font-family").trim();
+    if (cssVar) return cssVar;
+    const bodyFamily = bodyStyle.fontFamily?.trim();
+    return bodyFamily && bodyFamily !== "" ? bodyFamily : TYPOGRAPHY_DEFAULT_FONT;
+  };
+
+  const normalizeFontWeight = (value: string): string => {
+    const trimmed = value.trim().toLowerCase();
+    if (trimmed === "" || trimmed === "normal") return "400";
+    if (trimmed === "bold") return "700";
+    const parsed = Number.parseInt(trimmed, 10);
+    if (!Number.isNaN(parsed) && parsed > 0) {
+      return `${parsed}`;
+    }
+    return "400";
+  };
+
+  const white = getColorVar("--bs-white", "#ffffff");
+  const black = getColorVar("--bs-black", "#000000");
+  const bodyBackgroundFallback =
+    normalizeCssColor(bodyStyle.backgroundColor) ?? DEFAULT_BACKGROUND_COLOR;
+  const bodyBg = getColorVar("--bs-body-bg", bodyBackgroundFallback);
+  const bodyColor = getColorVar(
+    "--bs-body-color",
+    normalizeCssColor(bodyStyle.color) ?? "#212529"
+  );
+  const emphasisColor = getColorVar("--bs-emphasis-color", black);
+
+  const solidColors: Record<string, string> = {};
+  const subtleColors: Record<string, string> = {};
+  const emphasisTextColors: Record<string, string> = {};
+  const solidTextColors: Record<string, string> = {};
+
+  VARIANT_DEFINITIONS.forEach((variant) => {
+    const solid = getColorVar(`--bs-${variant.id}`, VARIANT_COLOR_DEFAULTS[variant.id] ?? "#6c757d");
+    solidColors[variant.id] = solid;
+
+    const subtleFallback = mixHexColors(solid, bodyBg, 0.85);
+    subtleColors[variant.id] = getColorVar(`--bs-${variant.id}-bg-subtle`, subtleFallback);
+
+    const emphasisFallback = chooseContrastingColor(subtleColors[variant.id], [
+      emphasisColor,
+      bodyColor,
+      black,
+    ]);
+    emphasisTextColors[variant.id] = getColorVar(
+      `--bs-${variant.id}-text-emphasis`,
+      emphasisFallback
+    );
+
+    const darkTextCandidate = emphasisColor || bodyColor || "#212529";
+    const luminance = relativeLuminance(solid);
+    solidTextColors[variant.id] =
+      luminance < 0.55 ? white : chooseContrastingColor(solid, [darkTextCandidate, white]);
+  });
+
+  const rootFontSize = Number.parseFloat(rootStyle.fontSize) || 16;
+  const bodyFontSize = Number.parseFloat(bodyStyle.fontSize) || rootFontSize;
+  const fontSizeRem = `${(bodyFontSize / rootFontSize).toFixed(3)}rem`.replace(/\.?0+rem$/, "rem");
+
+  const textDecorationLine =
+    (bodyStyle.textDecorationLine ?? "").trim() ||
+    (bodyStyle.textDecoration ?? "").split(" ").find((token) => token === "underline") ||
+    "none";
+
+  const base: Record<string, string> = {};
+
+  UNIQUE_TARGETS.forEach((target) => {
+    if (target.featureId === "foundations" && target.propertyId === "pageBackground") {
+      base[target.key] = bodyBg;
+      return;
+    }
+
+    if (target.featureId === "typography") {
+      switch (target.propertyId) {
+        case "fontFamily":
+          base[target.key] = getBodyFontFamily();
+          return;
+        case "fontWeight":
+          base[target.key] = normalizeFontWeight(bodyStyle.fontWeight ?? "400");
+          return;
+        case "fontStyle":
+          base[target.key] = (bodyStyle.fontStyle ?? "normal").trim() || "normal";
+          return;
+        case "textDecoration":
+          base[target.key] = textDecorationLine || "none";
+          return;
+        case "fontSize":
+          base[target.key] = fontSizeRem;
+          return;
+        default:
+          break;
+      }
+    }
+
+    if (target.propertyId === "background") {
+      if (target.featureId === "alerts" || target.featureId === "tables") {
+        base[target.key] = subtleColors[target.variantId] ?? solidColors[target.variantId] ?? target.defaultValue;
+        return;
+      }
+      base[target.key] = solidColors[target.variantId] ?? target.defaultValue;
+      return;
+    }
+
+    if (target.propertyId === "text") {
+      if (target.featureId === "alerts" || target.featureId === "tables") {
+        base[target.key] = emphasisTextColors[target.variantId] ?? bodyColor;
+        return;
+      }
+
+      base[target.key] = solidTextColors[target.variantId] ?? white;
+      return;
+    }
+  });
+
+  return base;
+};
+
 const buildDesignerValuesFromVariables = (
   variables: Record<string, string> | null | undefined
 ): Record<string, string> => {
@@ -628,6 +926,7 @@ export default function ThemeDesigner(): JSX.Element {
   const [activeContext, setActiveContext] = useState<string | null>(null);
   const [activeVariant, setActiveVariant] = useState<string | null>(null);
   const [values, setValues] = useState<Record<string, string>>({});
+  const [baseValues, setBaseValues] = useState<Record<string, string>>(() => computeDefaultBaseValues());
   const [designerConfig, setDesignerConfig] = useState(() => getCachedThemeSettings().theme.designer);
   const [manifest, setManifest] = useState<ThemeManifest>(() => getCachedThemeManifest());
   const [customThemeName, setCustomThemeName] = useState<string>("");
@@ -648,10 +947,62 @@ export default function ThemeDesigner(): JSX.Element {
   const [themeSelection, setThemeSelection] = useState<ThemeSelectionState>(() => getCurrentTheme());
   const [themeAccess, setThemeAccess] = useState<ThemeAccess | null>(null);
   const accessRef = useRef<ThemeAccess | null>(null);
+  const themeMenuCloseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const previewPendingSlugRef = useRef<string | null>(null);
+  const previewRestorePrefsRef = useRef<ThemeUserPrefs | null>(null);
+  const skipBaseEffectRef = useRef(false);
 
   const loadSelectId = useId();
   const saveInputId = useId();
   const deleteSelectId = useId();
+
+  const cancelThemeMenuClose = useCallback(() => {
+    if (themeMenuCloseTimeoutRef.current !== null) {
+      clearTimeout(themeMenuCloseTimeoutRef.current);
+      themeMenuCloseTimeoutRef.current = null;
+    }
+  }, []);
+
+  const scheduleThemeMenuClose = useCallback(() => {
+    cancelThemeMenuClose();
+    themeMenuCloseTimeoutRef.current = setTimeout(() => {
+      setThemeMenuOpen(false);
+      themeMenuCloseTimeoutRef.current = null;
+    }, 120);
+  }, [cancelThemeMenuClose]);
+
+  const handleThemeMenuMouseEnter = useCallback(() => {
+    cancelThemeMenuClose();
+    if (!themeMenuOpen) {
+      setThemeMenuOpen(true);
+    }
+  }, [cancelThemeMenuClose, themeMenuOpen]);
+
+  const handleThemeMenuMouseLeave = useCallback(
+    (event: MouseEvent<HTMLElement>) => {
+      const next = event.relatedTarget as Node | null;
+      if (event.currentTarget.contains(next)) {
+        return;
+      }
+      scheduleThemeMenuClose();
+    },
+    [scheduleThemeMenuClose]
+  );
+
+  const handleThemeMenuFocus = useCallback(() => {
+    cancelThemeMenuClose();
+    setThemeMenuOpen(true);
+  }, [cancelThemeMenuClose]);
+
+  const handleThemeMenuBlur = useCallback((event: FocusEvent<HTMLLIElement>) => {
+    const next = event.relatedTarget as Node | null;
+    if (event.currentTarget.contains(next)) {
+      return;
+    }
+    setThemeMenuOpen(false);
+  }, []);
+
+  useEffect(() => () => cancelThemeMenuClose(), [cancelThemeMenuClose]);
 
   useEffect(() => {
     let active = true;
@@ -693,6 +1044,49 @@ export default function ThemeDesigner(): JSX.Element {
     });
     return unsubscribe;
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (skipBaseEffectRef.current) {
+      skipBaseEffectRef.current = false;
+      return;
+    }
+
+    const applyBaseValues = async () => {
+      if (typeof document === "undefined") return;
+
+      if (themeSelection.source === "bootswatch") {
+        const slugBase = themeSelection.slug.split(":")[0] ?? themeSelection.slug;
+        await waitForThemeStylesheet(slugBase, () => cancelled);
+        if (cancelled) return;
+        const next = computeDefaultBaseValues();
+        const overrides = buildBootswatchBaseValues();
+        Object.assign(next, overrides);
+        setBaseValues(next);
+
+        const previewSlug = previewPendingSlugRef.current;
+        const restorePrefs = previewRestorePrefsRef.current;
+        const matchesPreview =
+          previewSlug !== null &&
+          (themeSelection.slug === previewSlug || themeSelection.slug.startsWith(`${previewSlug}:`));
+        if (!cancelled && matchesPreview && restorePrefs) {
+          previewPendingSlugRef.current = null;
+          previewRestorePrefsRef.current = null;
+          skipBaseEffectRef.current = true;
+          updateThemePrefs(restorePrefs);
+        }
+      } else {
+        setBaseValues(computeDefaultBaseValues());
+      }
+    };
+
+    void applyBaseValues();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [themeSelection.slug, themeSelection.mode, themeSelection.source]);
 
   const themeEntries = useMemo<ThemeManifestEntry[]>(() => {
     return [...manifest.themes, ...manifest.packs];
@@ -772,6 +1166,65 @@ export default function ThemeDesigner(): JSX.Element {
     updateThemeManifest(nextManifest);
   }, []);
 
+  const previewThemeSelection = useCallback(
+    (slug: string, preferredMode?: "light" | "dark") => {
+      const entry = findEntryBySlug(slug);
+      if (!entry) return;
+      if (entry.source !== "bootswatch") {
+        previewPendingSlugRef.current = null;
+        previewRestorePrefsRef.current = null;
+        return;
+      }
+
+      const supportedModes: ("light" | "dark")[] = Array.isArray(entry.supports?.mode)
+        ? entry.supports.mode.filter((mode): mode is "light" | "dark" => mode === "light" || mode === "dark")
+        : ["light", "dark"];
+
+      const defaultModeRaw =
+        (entry as { default_mode?: string } | null)?.default_mode ??
+        (entry as { supports?: { mode?: string[] } } | null)?.supports?.mode?.[0];
+      const defaultMode: "light" | "dark" | null =
+        defaultModeRaw === "light" || defaultModeRaw === "dark" ? defaultModeRaw : null;
+
+      const candidateModes: ("light" | "dark")[] = [];
+
+      if (preferredMode && supportedModes.includes(preferredMode)) {
+        candidateModes.push(preferredMode);
+      }
+      if (supportedModes.includes(themeSelection.mode) && !candidateModes.includes(themeSelection.mode)) {
+        candidateModes.push(themeSelection.mode);
+      }
+      if (defaultMode && supportedModes.includes(defaultMode) && !candidateModes.includes(defaultMode)) {
+        candidateModes.push(defaultMode);
+      }
+      supportedModes.forEach((mode) => {
+        if (!candidateModes.includes(mode)) {
+          candidateModes.push(mode);
+        }
+      });
+
+      const nextMode = candidateModes[0] ?? "light";
+      const currentPrefs = getCachedThemePrefs();
+      previewPendingSlugRef.current = slug;
+      previewRestorePrefsRef.current = currentPrefs;
+      skipBaseEffectRef.current = false;
+
+      const nextPrefs: ThemeUserPrefs = {
+        ...currentPrefs,
+        theme: slug,
+        mode: nextMode,
+        overrides: { ...currentPrefs.overrides },
+        sidebar: {
+          ...currentPrefs.sidebar,
+          order: [...currentPrefs.sidebar.order],
+          hidden: [...currentPrefs.sidebar.hidden],
+        },
+      };
+      updateThemePrefs(nextPrefs);
+    },
+    [findEntryBySlug, themeSelection.mode]
+  );
+
   const handleOpenLoadModal = useCallback(() => {
     setFeedback(null);
     setLoadModalError(null);
@@ -845,13 +1298,18 @@ export default function ThemeDesigner(): JSX.Element {
       return;
     }
 
+    const entryDefaultMode = (entry as { default_mode?: string } | null)?.default_mode;
+    const preferredMode =
+      entryDefaultMode === "light" || entryDefaultMode === "dark" ? entryDefaultMode : undefined;
+    previewThemeSelection(entry.slug, preferredMode);
+
     const variables = (entry as { variables?: Record<string, string> | null }).variables ?? null;
     setValues(buildDesignerValuesFromVariables(variables));
     setCustomThemeName(entry.name);
     setLoadedThemeSlug(entry.slug);
     setFeedback({ type: "success", message: `Loaded “${entry.name}”.` });
     setLoadModalOpen(false);
-  }, [findEntryBySlug, loadSelection, loadedThemeSlug]);
+  }, [findEntryBySlug, loadSelection, loadedThemeSlug, previewThemeSelection]);
 
   const handleConfirmSave = useCallback(async () => {
     setSaveModalError(null);
@@ -1101,11 +1559,15 @@ export default function ThemeDesigner(): JSX.Element {
   const variableStyles = useMemo<CSSProperties>(() => {
     const styles: CSSProperties = {};
     UNIQUE_TARGETS.forEach((target) => {
-      const value = values[target.key] ?? target.defaultValue;
-      (styles as Record<string, string>)[target.variable] = value;
+      const override = values[target.key];
+      const fallback = baseValues[target.key] ?? target.defaultValue;
+      const value = typeof override === "string" ? override : fallback;
+      if (typeof value === "string") {
+        (styles as Record<string, string>)[target.variable] = value;
+      }
     });
     return styles;
-  }, [values]);
+  }, [baseValues, values]);
 
   const activeFeature = openFeature ? FEATURE_LOOKUP.get(openFeature) ?? null : null;
   const contextForVariants =
@@ -1174,6 +1636,10 @@ export default function ThemeDesigner(): JSX.Element {
     if (typeof storedValue === "string") {
       return storedValue;
     }
+    const baseValue = baseValues[primaryTarget.key];
+    if (typeof baseValue === "string") {
+      return baseValue;
+    }
     return primaryTarget.defaultValue;
   };
 
@@ -1198,31 +1664,18 @@ export default function ThemeDesigner(): JSX.Element {
               className={`theme-designer-menu-item theme-designer-menu-item--theme${
                 themeMenuOpen ? " theme-designer-menu-item--open" : ""
               }`}
-              onMouseEnter={() => {
-                if (!themeMenuOpen) {
-                  setThemeMenuOpen(true);
-                }
-              }}
-              onFocus={() => {
-                setThemeMenuOpen(true);
-              }}
-              onMouseLeave={(event) => {
-                const next = event.relatedTarget as Node | null;
-                if (!event.currentTarget.contains(next)) {
-                  setThemeMenuOpen(false);
-                }
-              }}
-              onBlur={(event) => {
-                const next = event.relatedTarget as Node | null;
-                if (!event.currentTarget.contains(next)) {
-                  setThemeMenuOpen(false);
-                }
-              }}
+              onMouseEnter={handleThemeMenuMouseEnter}
+              onFocus={handleThemeMenuFocus}
+              onMouseLeave={handleThemeMenuMouseLeave}
+              onBlur={handleThemeMenuBlur}
             >
               <button
                 type="button"
                 className="theme-designer-menu-button"
-                onClick={() => setThemeMenuOpen((current) => !current)}
+                onClick={() => {
+                  cancelThemeMenuClose();
+                  setThemeMenuOpen((current) => !current);
+                }}
                 aria-haspopup="true"
                 aria-expanded={themeMenuOpen}
               >
@@ -1230,7 +1683,11 @@ export default function ThemeDesigner(): JSX.Element {
               </button>
 
               {themeMenuOpen && (
-                <div className="theme-designer-dropdown level-1 theme-designer-theme-dropdown">
+                <div
+                  className="theme-designer-dropdown level-1 theme-designer-theme-dropdown"
+                  onMouseEnter={handleThemeMenuMouseEnter}
+                  onMouseLeave={handleThemeMenuMouseLeave}
+                >
                   <div className="theme-designer-theme-panel">
                     <ul className="theme-designer-dropdown-list theme-designer-theme-actions">
                       <li>

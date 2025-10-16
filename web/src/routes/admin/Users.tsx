@@ -481,60 +481,61 @@ export default function Users(): JSX.Element {
         </form>
       </section>
 
-      <div className="table-responsive">
-        <table className="table table-sm align-middle">
-          <thead>
-            <tr>
-              <th scope="col">Name</th>
-              <th scope="col">Email</th>
-              <th scope="col">Roles</th>
-              <th scope="col" style={{ width: "7rem" }} className="text-end">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.map((user) => (
-              <tr
-                key={user.id}
-                className={selectedUser?.id === user.id ? "table-active" : undefined}
-                onClick={() => openEdit(user)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" || event.key === " ") {
-                    event.preventDefault();
-                    openEdit(user);
-                  }
-                }}
-                tabIndex={0}
-                aria-label={`Edit user ${user.email}`}
-                style={{ cursor: "pointer" }}
-              >
-                <td>{user.name}</td>
-                <td>{user.email}</td>
-                <td>{user.roles.length > 0 ? user.roles.join(", ") : <span className="text-muted">None</span>}</td>
-                <td className="text-end">
-                  <button
-                    type="button"
-                    className="btn btn-icon btn-outline-danger"
-                    aria-label={`Delete ${user.email}`}
-                    onClick={(event) => {
-                      event.preventDefault();
-                      event.stopPropagation();
-                      beginDelete(user);
-                    }}
-                    disabled={deleteBusy && deleteCandidate?.id === user.id}
-                  >
-                    <i className="bi bi-trash" aria-hidden="true"></i>
-                  </button>
-                </td>
-              </tr>
-            ))}
-            {items.length === 0 && !listLoading && (
+      {items.length === 0 && !listLoading ? (
+        <div className="alert alert-info mt-3" role="status">
+          No users have been created.
+        </div>
+      ) : (
+        <div className="table-responsive">
+          <table className="table table-sm align-middle">
+            <thead>
               <tr>
-                <td colSpan={4} className="text-center text-muted py-4">No users</td>
+                <th scope="col">Name</th>
+                <th scope="col">Email</th>
+                <th scope="col">Roles</th>
+                <th scope="col" style={{ width: "7rem" }} className="text-end">Actions</th>
               </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {items.map((user) => (
+                <tr
+                  key={user.id}
+                  className={selectedUser?.id === user.id ? "table-active" : undefined}
+                  onClick={() => openEdit(user)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      openEdit(user);
+                    }
+                  }}
+                  tabIndex={0}
+                  aria-label={`Edit user ${user.email}`}
+                  style={{ cursor: "pointer" }}
+                >
+                  <td>{user.name}</td>
+                  <td>{user.email}</td>
+                  <td>{user.roles.length > 0 ? user.roles.join(", ") : <span className="text-muted">None</span>}</td>
+                  <td className="text-end">
+                    <button
+                      type="button"
+                      className="btn btn-icon btn-outline-danger"
+                      aria-label={`Delete ${user.email}`}
+                      onClick={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        beginDelete(user);
+                      }}
+                      disabled={deleteBusy && deleteCandidate?.id === user.id}
+                    >
+                      <i className="bi bi-trash" aria-hidden="true"></i>
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       <nav aria-label="Pagination" className="d-flex align-items-center gap-3 mt-2">
         <button type="button" className="btn btn-outline-secondary btn-sm" onClick={() => setPage((prev) => Math.max(1, prev - 1))} disabled={!canPrev || listLoading}>

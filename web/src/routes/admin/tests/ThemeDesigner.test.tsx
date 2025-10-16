@@ -49,6 +49,8 @@ describe("ThemeDesigner", () => {
   afterEach(() => {
     window.matchMedia = originalMatchMedia;
     vi.clearAllMocks();
+    document.documentElement.removeAttribute("style");
+    document.body.removeAttribute("style");
   });
 
   it("opens multilevel menus and updates variables for All > Light > Primary", async () => {
@@ -193,6 +195,80 @@ describe("ThemeDesigner", () => {
 
     fireEvent.click(themeButton);
     expect(screen.getByRole("button", { name: "Delete…" })).toBeDisabled();
+  });
+
+  it("applies Bootswatch palette to the preview when loading a Bootswatch theme", async () => {
+    const root = document.documentElement;
+    const body = document.body;
+
+    root.style.setProperty("--bs-body-bg", "#202530");
+    root.style.setProperty("--bs-body-color", "#f8f9fa");
+    root.style.setProperty("--bs-emphasis-color", "#0d0f12");
+    root.style.setProperty("--bs-white", "#ffffff");
+    root.style.setProperty("--bs-black", "#000000");
+    root.style.setProperty("--bs-primary", "#1a73e8");
+    root.style.setProperty("--bs-primary-bg-subtle", "#d7e6ff");
+    root.style.setProperty("--bs-primary-text-emphasis", "#0b3484");
+    root.style.setProperty("--bs-body-bg", "#202530");
+    root.style.setProperty("--bs-secondary", "#88929c");
+    root.style.setProperty("--bs-secondary-bg-subtle", "#dfe2e5");
+    root.style.setProperty("--bs-secondary-text-emphasis", "#3b3f42");
+    root.style.setProperty("--bs-success", "#34a853");
+    root.style.setProperty("--bs-success-bg-subtle", "#d8f2df");
+    root.style.setProperty("--bs-success-text-emphasis", "#1b5c2c");
+    root.style.setProperty("--bs-info", "#00acc1");
+    root.style.setProperty("--bs-info-bg-subtle", "#cff3f7");
+    root.style.setProperty("--bs-info-text-emphasis", "#005965");
+    root.style.setProperty("--bs-warning", "#fbbc04");
+    root.style.setProperty("--bs-warning-bg-subtle", "#fef2cd");
+    root.style.setProperty("--bs-warning-text-emphasis", "#7a5802");
+    root.style.setProperty("--bs-danger", "#ea4335");
+    root.style.setProperty("--bs-danger-bg-subtle", "#fddad7");
+    root.style.setProperty("--bs-danger-text-emphasis", "#7a261f");
+    root.style.setProperty("--bs-body-font-family", '"Quicksand", system-ui, sans-serif');
+
+    if (body) {
+      body.style.fontFamily = '"Quicksand", system-ui, sans-serif';
+      body.style.fontWeight = "400";
+      body.style.fontStyle = "normal";
+      body.style.textDecorationLine = "none";
+      body.style.color = "#f8f9fa";
+      body.style.backgroundColor = "#202530";
+      body.style.fontSize = "16px";
+    }
+
+    const { container } = render(<ThemeDesigner />);
+    const preview = container.querySelector(".theme-designer-preview") as HTMLElement;
+    expect(preview).not.toBeNull();
+    const originalTheme = document.documentElement.getAttribute("data-theme");
+
+    const themeButton = screen.getByRole("button", { name: "Theme" });
+    fireEvent.click(themeButton);
+
+    const loadAction = await screen.findByRole("button", { name: "Load…" });
+    fireEvent.click(loadAction);
+
+    const modal = await screen.findByRole("dialog", { name: "Load Theme" });
+    const select = within(modal).getByLabelText("Choose a theme") as HTMLSelectElement;
+    fireEvent.change(select, { target: { value: "cerulean" } });
+
+    const confirm = within(modal).getByRole("button", { name: "Load" });
+    fireEvent.click(confirm);
+    root.style.setProperty("--bs-body-bg", "#202530");
+    if (body) {
+      body.style.backgroundColor = "#202530";
+    }
+
+    await waitFor(() => {
+      expect(preview.style.getPropertyValue("--td-buttons-light-primary-background")).toBe("#1a73e8");
+    });
+    await waitFor(() => {
+      expect(preview.style.getPropertyValue("--td-foundations-global-base-pageBackground")).toBe("#202530");
+    });
+    expect(preview.style.getPropertyValue("--td-buttons-light-primary-text")).toBe("#ffffff");
+    await waitFor(() => {
+      expect(document.documentElement.getAttribute("data-theme")).toBe(originalTheme);
+    });
   });
 
   it("keeps the Theme menu open when hovering into the dropdown", async () => {
