@@ -86,6 +86,7 @@ When legitimate schema changes occur:
 4. Normalize/diff to confirm no further drift.
 5. Remove `schema.live.md` before committing.
 6. Commit schema changes with clear message (e.g., `docs: update DB-SCHEMA for new permissions`).
+7. Run `./scripts/check-migration-doc-drift.sh` (the CI check) to ensure migration/doc parity.
 
 ---
 

@@ -111,7 +111,7 @@
   - Motion: `full | limited | none`.
 - [x] Admin Theme Configurator with live preview, AA contrast guardrails, strict validation (422 on unsafe).
 - [x] Per-user theme and token overrides; admin “force global” still allows light/dark for supported themes.
-- [ ] RBAC: introduce `role_theme_manager` (manage/import) and `role_theme_auditor` (read-only); only `admin.theme`/`role_admin` update settings/import themes.
+- [x] RBAC: seed `role_theme_manager` (manage/import) and `role_theme_auditor` (read-only) plus `ui.theme.*` policies guarded by `core.theme.view|manage|pack.manage`.
 - [x] Branding: primary/secondary/header/footer logos, favicon, title text; SVG sanitized; ≤ 5 MB each; defaults applied.
 - [x] Global layout:
   - Top navbar lists core modules; brand logo top-left acts as Home; sizing rules enforced.

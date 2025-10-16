@@ -7,7 +7,7 @@
 - [ ] Playwright snapshots recorded for Slate/Flatly/Darkly.
 
 ## RBAC + Audit
-- [x] Only `role_admin` or `role_theme_manager` (capability `admin.theme`) hits `/settings/ui` and theme import routes; read-only endpoints allow `role_theme_auditor`.
+- [x] Policy `ui.theme.manage` + capability `core.theme.manage` (default `role_admin`, `role_theme_manager`) guard `/settings/ui` designer/branding routes; theme pack routes require `ui.theme.pack.manage` + `core.theme.pack.manage`; read-only endpoints require `ui.theme.view` + `core.theme.view` (includes `role_theme_auditor`).
 - [x] Audits emitted: `ui.theme.updated`, `ui.theme.overrides.updated`, `ui.brand.updated`, `ui.nav.sidebar.saved`, `ui.theme.pack.imported|deleted|enabled|disabled`.
 - [ ] Sensitive bytes not stored in audit meta.
 

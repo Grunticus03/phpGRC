@@ -256,7 +256,7 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 **Phase:** 5.5  
 **Step:** 1  
 **Dependencies:** CORE-003  
-**Status:** In Progress
+**Status:** Done
 
 ---
 
@@ -266,11 +266,11 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 - Tokens: color (picker & RGBA), shadow preset or validated custom, spacing preset, type scale preset, motion preset
 - AA contrast validation on save
 - Audits: `ui.theme.updated`, `ui.theme.overrides.updated`
-- RBAC: `role_admin` or `role_theme_manager` (capability `admin.theme`) required; `role_theme_auditor` read-only  
+- RBAC: `ui.theme.manage` + `core.theme.manage` grant mutate access (`role_admin`, `role_theme_manager`); `ui.theme.view` + `core.theme.view` allow read-only (`role_theme_auditor`)  
 **Phase:** 5.5  
 **Step:** 2  
 **Dependencies:** THEME-001  
-**Status:** Planned
+**Status:** Done
 
 ---
 
