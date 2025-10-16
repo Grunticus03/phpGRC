@@ -450,6 +450,7 @@ export default function Kpis(): JSX.Element {
     cloneWidgets(defaultLayoutRef.current)
   );
   const savedWidgetsRef = useRef<WidgetInstance[]>(cloneWidgets(defaultLayoutRef.current));
+  const hasStoredLayoutRef = useRef(false);
   const [floatingRects, setFloatingRects] = useState<Record<string, WidgetRect>>({});
   const [activeDrag, setActiveDrag] = useState<DragState | null>(null);
   const dragStateRef = useRef<DragState | null>(null);
@@ -482,6 +483,18 @@ export default function Kpis(): JSX.Element {
   useEffect(() => {
     savedWidgetsRef.current = cloneWidgets(savedWidgets);
   }, [savedWidgets]);
+
+  useEffect(() => {
+    if (!layoutNotice) return undefined;
+    const timer = window.setTimeout(() => {
+      if (isMountedRef.current) {
+        setLayoutNotice(null);
+      }
+    }, 2000);
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [layoutNotice]);
 
   const loadDashboardPrefs = useCallback(
     async (options: { apply?: boolean } = {}): Promise<ThemeUserPrefs | null> => {
@@ -544,13 +557,26 @@ export default function Kpis(): JSX.Element {
           updateThemePrefs(body.prefs);
         }
 
-        const storedWidgets = Array.isArray(prefs.dashboard?.widgets) ? (prefs.dashboard?.widgets as StoredWidget[]) : [];
-        const hydrated = storedWidgets.length > 0
-          ? hydrateStoredWidgets(storedWidgets)
-          : cloneWidgets(defaultLayoutRef.current);
-        const display = cloneWidgets(hydrated);
+        const rawWidgets = prefs.dashboard?.widgets;
+        const storedWidgets = Array.isArray(rawWidgets) ? (rawWidgets as StoredWidget[]) : null;
+        if (storedWidgets === null) {
+          hasStoredLayoutRef.current = false;
+        } else if (storedWidgets.length > 0) {
+          hasStoredLayoutRef.current = true;
+        }
+        const hydrated = (() => {
+          if (storedWidgets === null) {
+            return cloneWidgets(defaultLayoutRef.current);
+          }
+          if (storedWidgets.length === 0) {
+            return hasStoredLayoutRef.current ? ([] as WidgetInstance[]) : cloneWidgets(defaultLayoutRef.current);
+          }
+          return hydrateStoredWidgets(storedWidgets);
+        })();
+
+        const display = hydrated.length > 0 ? cloneWidgets(hydrated) : [];
         setWidgets(display);
-        const saved = cloneWidgets(display);
+        const saved = display.length > 0 ? cloneWidgets(display) : [];
         setSavedWidgets(saved);
         savedWidgetsRef.current = cloneWidgets(saved);
         setPrefsLoaded(true);
@@ -558,7 +584,7 @@ export default function Kpis(): JSX.Element {
 
       return body?.prefs ?? null;
     },
-    [defaultLayoutRef]
+    []
   );
 
   useEffect(() => {
@@ -734,17 +760,23 @@ export default function Kpis(): JSX.Element {
       }
 
       const stored = body?.prefs?.dashboard?.widgets;
-      const nextWidgetsSource = Array.isArray(stored) && stored.length > 0
-        ? hydrateStoredWidgets(stored)
-        : cloneWidgets(widgets);
-      const normalized = nextWidgetsSource.length > 0
-        ? nextWidgetsSource
-        : cloneWidgets(defaultLayoutRef.current);
+      const storedWidgets = Array.isArray(stored) ? (stored as StoredWidget[]) : null;
+      const nextWidgetsSource = (() => {
+        if (storedWidgets === null) {
+          return cloneWidgets(widgets);
+        }
+        if (storedWidgets.length === 0) {
+          return [] as WidgetInstance[];
+        }
+        return hydrateStoredWidgets(storedWidgets);
+      })();
+      const normalized = nextWidgetsSource.length > 0 ? nextWidgetsSource : [];
 
-      const display = cloneWidgets(normalized);
+      const display = normalized.length > 0 ? cloneWidgets(normalized) : [];
+      hasStoredLayoutRef.current = true;
       if (!isMountedRef.current) return;
       setWidgets(display);
-      const saved = cloneWidgets(display);
+      const saved = display.length > 0 ? cloneWidgets(display) : [];
       setSavedWidgets(saved);
       savedWidgetsRef.current = cloneWidgets(saved);
       setIsEditing(false);
@@ -762,7 +794,7 @@ export default function Kpis(): JSX.Element {
         setSavingLayout(false);
       }
     }
-  }, [defaultLayoutRef, loadDashboardPrefs, savingLayout, widgets]);
+  }, [loadDashboardPrefs, savingLayout, widgets]);
 
   const handleDefault = useCallback(() => {
     const defaults = cloneWidgets(defaultLayoutRef.current);

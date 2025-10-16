@@ -23,6 +23,7 @@ const originalCreateObjectURL = globalThis.URL.createObjectURL;
 const originalRevokeObjectURL = globalThis.URL.revokeObjectURL;
 const mockNavigate = vi.fn();
 const ROUTER_FUTURE_FLAGS = { v7_startTransition: true, v7_relativeSplatPath: true } as const;
+let savedWidgets: StoredWidget[] = [];
 
 vi.mock("react-router-dom", async () => {
   const actual = await vi.importActual<typeof import("react-router-dom")>("react-router-dom");
@@ -60,6 +61,7 @@ function json(body: unknown, init: ResponseInit = {}) {
 describe("Dashboard", () => {
   beforeEach(() => {
     mockNavigate.mockReset();
+    savedWidgets = [];
     Object.defineProperty(globalThis.URL, "createObjectURL", {
       configurable: true,
       value: vi.fn(() => "blob:mock-url"),
@@ -69,10 +71,15 @@ describe("Dashboard", () => {
       value: vi.fn(),
     });
 
-    globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
-      const request = typeof input === "string" ? null : (input as Request);
-      const url = typeof input === "string" ? input : request?.url ?? String(input);
-      const method = request?.method ?? "GET";
+    globalThis.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const request = typeof input === "string" || input instanceof URL ? null : (input as Request);
+      const url =
+        typeof input === "string"
+          ? input
+          : input instanceof URL
+            ? input.toString()
+            : request?.url ?? String(input);
+      const method = request?.method ?? init?.method ?? "GET";
 
       if (url.startsWith(KPIS_URL)) {
         return json({
@@ -120,14 +127,20 @@ describe("Dashboard", () => {
         if (method === "PUT") {
           let widgets: StoredWidget[] = [];
           try {
-            const payload = await request?.clone().json();
-            const bodyDashboard = (payload as { dashboard?: { widgets?: StoredWidget[] } })?.dashboard;
+            let payload: unknown = null;
+            if (request) {
+              payload = await request.clone().json();
+            } else if (typeof init?.body === "string") {
+              payload = JSON.parse(init.body);
+            }
+            const bodyDashboard = (payload as { dashboard?: { widgets?: StoredWidget[] } } | null)?.dashboard;
             if (Array.isArray(bodyDashboard?.widgets)) {
-              widgets = bodyDashboard.widgets;
+              widgets = bodyDashboard.widgets.map((widget) => ({ ...widget }));
             }
           } catch {
             widgets = [];
           }
+          savedWidgets = widgets.map((widget) => ({ ...widget }));
 
           return json(
             {
@@ -137,7 +150,7 @@ describe("Dashboard", () => {
                 mode: null,
                 overrides: {},
                 sidebar: { collapsed: false, pinned: true, width: 280, order: [], hidden: [] },
-                dashboard: { widgets },
+                dashboard: { widgets: savedWidgets.map((widget) => ({ ...widget })) },
               },
               etag: '"prefs-etag"',
             },
@@ -158,7 +171,7 @@ describe("Dashboard", () => {
               mode: null,
               overrides: {},
               sidebar: { collapsed: false, pinned: true, width: 280, order: [], hidden: [] },
-              dashboard: { widgets: [] },
+              dashboard: { widgets: savedWidgets.map((widget) => ({ ...widget })) },
             },
             etag: '"prefs-etag"',
           },
@@ -303,6 +316,59 @@ describe("Dashboard", () => {
     await waitFor(() => {
       expect(screen.queryByRole("button", { name: /save dashboard layout/i })).not.toBeInTheDocument();
     });
+  });
+
+  it("saves dashboard layout changes and restores them on reload", async () => {
+    const view = render(
+      <MemoryRouter future={ROUTER_FUTURE_FLAGS}>
+        <Kpis />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.queryByText("Loading…")).not.toBeInTheDocument();
+    });
+
+    expect(screen.getByText(/Admin Activity/i)).toBeInTheDocument();
+
+    act(() => {
+      window.dispatchEvent(new CustomEvent(DASHBOARD_TOGGLE_EDIT_MODE_EVENT));
+    });
+
+    await screen.findByRole("button", { name: /save dashboard layout/i });
+    const removeAdmin = screen.getByRole("button", { name: /remove admin activity/i });
+    fireEvent.click(removeAdmin);
+    await waitFor(() => {
+      expect(screen.queryByText(/Admin Activity/i)).not.toBeInTheDocument();
+    });
+    await waitFor(() => {
+      expect(view.container.querySelectorAll(".dashboard-widget").length).toBe(2);
+    });
+
+    const saveButton = screen.getByRole("button", { name: /save dashboard layout/i });
+    fireEvent.click(saveButton);
+
+    await waitFor(() => {
+      expect(screen.queryByRole("button", { name: /save dashboard layout/i })).not.toBeInTheDocument();
+    });
+    await waitFor(() => {
+      expect(savedWidgets.length).toBe(2);
+    });
+
+    view.unmount();
+
+    render(
+      <MemoryRouter future={ROUTER_FUTURE_FLAGS}>
+        <Kpis />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.queryByText("Loading…")).not.toBeInTheDocument();
+    });
+
+    expect(screen.queryByText(/Admin Activity/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/Authentications last 7 days/i)).toBeInTheDocument();
   });
 
   it("downloads admin activity report when button clicked", async () => {
