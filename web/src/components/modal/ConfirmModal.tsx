@@ -13,6 +13,7 @@ type ConfirmModalProps = {
   disableBackdropClose?: boolean;
   confirmDisabled?: boolean;
   initialFocus?: "confirm" | "none";
+  hideCancelButton?: boolean;
 };
 
 export default function ConfirmModal({
@@ -28,6 +29,7 @@ export default function ConfirmModal({
   disableBackdropClose = false,
   confirmDisabled = false,
   initialFocus = "confirm",
+  hideCancelButton = false,
 }: ConfirmModalProps): JSX.Element | null {
   const confirmButtonRef = useRef<HTMLButtonElement | null>(null);
   const titleId = useId();
@@ -96,9 +98,11 @@ export default function ConfirmModal({
               {children}
             </div>
             <div className="modal-footer">
-              <button type="button" className="btn btn-outline-secondary" onClick={onCancel} disabled={busy}>
-                {cancelLabel}
-              </button>
+              {!hideCancelButton && (
+                <button type="button" className="btn btn-outline-secondary" onClick={onCancel} disabled={busy}>
+                  {cancelLabel}
+                </button>
+              )}
               <button
                 type="button"
                 className={confirmClass}

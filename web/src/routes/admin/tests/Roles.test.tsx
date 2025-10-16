@@ -34,20 +34,20 @@ const defaultPoliciesResponse = {
       },
       {
         policy: "ui.theme.view",
-        label: "View theme settings",
-        description: "Read-only access to theme configuration and branding assets.",
+        label: null,
+        description: null,
         roles: ["admin", "theme_manager", "theme_auditor"],
       },
       {
         policy: "ui.theme.manage",
-        label: "Manage theme settings",
-        description: "Allows editing theme configuration and branding assets.",
+        label: null,
+        description: null,
         roles: ["admin", "theme_manager"],
       },
       {
         policy: "ui.theme.pack.manage",
-        label: "Manage theme packs",
-        description: "Import, update, and delete theme pack archives.",
+        label: null,
+        description: null,
         roles: ["admin", "theme_manager"],
       },
     ],
@@ -76,7 +76,7 @@ afterEach(() => {
 });
 
 describe("Admin Roles page", () => {
-  test("renders list with rename/delete actions", async () => {
+  test("renders list with contextual actions when a role is selected", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = typeof input === "string" ? input : (input as Request).url ?? String(input);
       const method = (init?.method ?? "GET").toUpperCase();
@@ -91,13 +91,23 @@ describe("Admin Roles page", () => {
 
     globalThis.fetch = fetchMock;
 
+    const user = userEvent.setup();
     renderPage();
 
     expect(await screen.findByRole("heading", { name: /Roles Management/i })).toBeInTheDocument();
     expect(await screen.findByRole("table")).toBeInTheDocument();
-    expect(screen.getAllByRole("button", { name: /Delete/i })).toHaveLength(2);
-    expect(screen.getByRole("button", { name: "Rename Admin" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Rename Auditor" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: /Create role/i })).toBeInTheDocument();
+    expect(screen.queryByText(/Select a role to manage permissions\./i)).not.toBeInTheDocument();
+
+    expect(screen.queryByRole("button", { name: "Rename Admin" })).not.toBeInTheDocument();
+
+    const adminToggle = await screen.findByRole("button", { name: /Open permissions for Admin/i });
+    await user.click(adminToggle);
+
+    expect(await screen.findByRole("button", { name: "Rename Admin" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Delete Admin" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Close permissions panel/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Save permissions/i })).toBeDisabled();
   });
 
   test("submits create role and refreshes list", async () => {
@@ -125,9 +135,10 @@ describe("Admin Roles page", () => {
     renderPage();
     const user = userEvent.setup();
 
-    const input = await screen.findByLabelText(/create role/i);
+    await user.click(await screen.findByRole("button", { name: /Create role/i }));
+    const input = await screen.findByLabelText("Role name");
     await user.type(input, "Compliance");
-    await user.click(screen.getByRole("button", { name: /submit/i }));
+    await user.click(screen.getByRole("button", { name: /^Create$/i }));
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ method: "POST" }));
@@ -183,12 +194,58 @@ describe("Admin Roles page", () => {
     renderPage();
     const user = userEvent.setup();
 
-    const input = await screen.findByLabelText(/create role/i);
+    await user.click(await screen.findByRole("button", { name: /Create role/i }));
+    const input = await screen.findByLabelText("Role name");
     await user.clear(input);
     await user.type(input, "Admin");
-    await user.click(screen.getByRole("button", { name: /submit/i }));
+    await user.click(screen.getByRole("button", { name: /^Create$/i }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent('Role "Admin" already exists.');
+  });
+
+  test("shows inline validation feedback on invalid create role input", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === "string" ? input : (input as Request).url ?? String(input);
+      const method = (init?.method ?? "GET").toUpperCase();
+
+      if (method === "GET" && /\/rbac\/roles\b/.test(url)) {
+        return jsonResponse(200, { ok: true, roles: ["admin"] });
+      }
+      if (method === "GET" && /\/rbac\/policies\b/.test(url)) {
+        return jsonResponse(200, defaultPoliciesResponse);
+      }
+      return jsonResponse(200, { ok: true });
+    }) as unknown as typeof fetch;
+
+    globalThis.fetch = fetchMock;
+
+    renderPage();
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole("button", { name: /Create role/i }));
+    const input = await screen.findByLabelText("Role name");
+    await user.clear(input);
+    await user.type(input, "@");
+    await user.click(screen.getByRole("button", { name: /^Create$/i }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(
+          "Name must be between 2 and 64 characters. Name may only use alphanumeric, spaces, and hyphen characters."
+        )
+      ).toBeInTheDocument();
+    });
+
+    await waitFor(() => {
+      expect(input).toHaveClass("is-shaking");
+    });
+    expect(input).toHaveClass("is-invalid");
+    expect(screen.queryByRole("button", { name: /Cancel/i })).not.toBeInTheDocument();
+
+    const calls = (fetchMock as unknown as { mock: { calls: Array<[RequestInfo | URL, RequestInit | undefined]> } }).mock
+      .calls;
+    const hasPost = calls.some(([, options]) => ((options?.method ?? "GET").toUpperCase() === "POST"));
+    expect(hasPost).toBe(false);
   });
 
   test("rename issues PATCH request", async () => {
@@ -211,8 +268,12 @@ describe("Admin Roles page", () => {
     globalThis.fetch = fetchMock;
     const user = userEvent.setup();
     renderPage();
+    const adminToggle = await screen.findByRole("button", { name: /Open permissions for Admin/i });
+    await user.click(adminToggle);
     const renameBtn = await screen.findByRole("button", { name: "Rename Admin" });
     await user.click(renameBtn);
+    const renameDialog = await screen.findByRole("dialog", { name: /Rename Admin/i });
+    expect(within(renameDialog).queryByRole("button", { name: /Cancel/i })).not.toBeInTheDocument();
 
     const input = await screen.findByLabelText("Role name");
     await user.clear(input);
@@ -248,7 +309,9 @@ describe("Admin Roles page", () => {
     globalThis.fetch = fetchMock;
     const user = userEvent.setup();
     renderPage();
-    const deleteBtn = await screen.findByRole("button", { name: /^Delete$/i });
+    const adminToggle = await screen.findByRole("button", { name: /Open permissions for Admin/i });
+    await user.click(adminToggle);
+    const deleteBtn = await screen.findByRole("button", { name: "Delete Admin" });
     await user.click(deleteBtn);
 
     const dialog = await screen.findByRole("dialog", { name: "Delete Admin?" });
@@ -298,8 +361,8 @@ describe("Admin Roles page", () => {
 
     renderPage();
 
-    const manageBtn = await screen.findByRole("button", { name: /Manage permissions/i });
-    await user.click(manageBtn);
+    const adminToggle = await screen.findByRole("button", { name: /Open permissions for Admin/i });
+    await user.click(adminToggle);
 
     const settingsCheckbox = (await screen.findByLabelText(
       /Manage core settings/i
@@ -315,7 +378,7 @@ describe("Admin Roles page", () => {
       await user.click(auditCheckbox);
     }
 
-    const saveBtn = screen.getByRole("button", { name: /Save changes/i });
+    const saveBtn = screen.getByRole("button", { name: /Save permissions/i });
     await waitFor(() => expect(saveBtn).toBeEnabled());
     await user.click(saveBtn);
 
@@ -375,8 +438,8 @@ describe("Admin Roles page", () => {
 
     renderPage();
 
-    const manageBtn = await screen.findByRole("button", { name: /Manage permissions/i });
-    await user.click(manageBtn);
+    const adminToggle = await screen.findByRole("button", { name: /Open permissions for Admin/i });
+    await user.click(adminToggle);
 
     const themeHeading = await screen.findByRole("heading", { name: /^Theme$/i });
     expect(themeHeading).toBeInTheDocument();
@@ -384,6 +447,14 @@ describe("Admin Roles page", () => {
     expect(themeSection).not.toBeNull();
     expect(within(themeSection as HTMLElement).getByLabelText(/View theme settings/i)).toBeInTheDocument();
     expect(within(themeSection as HTMLElement).getByLabelText(/Manage theme packs/i)).toBeInTheDocument();
+    expect(
+      within(themeSection as HTMLElement).getByText(
+        /Read-only access to theme configuration and branding assets\./i
+      )
+    ).toBeInTheDocument();
+    expect(
+      within(themeSection as HTMLElement).getByText(/Import, update, and delete theme pack archives\./i)
+    ).toBeInTheDocument();
 
     expect(await screen.findByRole("heading", { name: /^General$/i })).toBeInTheDocument();
   });
@@ -418,15 +489,15 @@ describe("Admin Roles page", () => {
 
     renderPage();
 
-    const manageBtn = await screen.findByRole("button", { name: /Manage permissions/i });
-    await user.click(manageBtn);
+    const adminToggle = await screen.findByRole("button", { name: /Open permissions for Admin/i });
+    await user.click(adminToggle);
 
     const settingsCheckbox = (await screen.findByLabelText(
       /Manage core settings/i
     )) as HTMLInputElement;
     await user.click(settingsCheckbox);
 
-    const saveBtn = screen.getByRole("button", { name: /Save changes/i });
+    const saveBtn = screen.getByRole("button", { name: /Save permissions/i });
     await waitFor(() => expect(saveBtn).toBeEnabled());
     await user.click(saveBtn);
 
