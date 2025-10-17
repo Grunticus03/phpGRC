@@ -24,6 +24,7 @@ export type CustomThemePack = {
   default_mode?: ThemeMode;
   variants?: Partial<Record<ThemeMode, ThemeVariant>>;
   variables?: Record<string, string>;
+  locked?: boolean;
 };
 
 export type ThemeManifest = {
@@ -58,7 +59,55 @@ export const DEFAULT_THEME_MANIFEST: ThemeManifest = {
       ...(Object.keys(variants).length > 0 ? { variants } : {}),
     };
   }),
-  packs: [],
+  packs: [
+    {
+      slug: "glassmorphism-codex",
+      name: "Glassmorphism (Codex)",
+      source: "custom",
+      default_mode: "light",
+      supports: { mode: ["light", "dark"] },
+      variants: {
+        light: { slug: "glassmorphism-codex", name: "Glassmorphism — Primary" },
+        dark: { slug: "glassmorphism-codex-dark", name: "Glassmorphism — Dark" },
+      },
+      variables: {
+        "--codex-glass-backdrop": "blur(28px)",
+        "--codex-glass-border": "1px solid rgba(255, 255, 255, 0.22)",
+        "--codex-glass-highlight": "rgba(255, 255, 255, 0.35)",
+        "--codex-glass-surface": "rgba(255, 255, 255, 0.55)",
+        "--codex-glass-surface-dark": "rgba(15, 23, 42, 0.6)",
+        "--codex-glass-shadow": "0 32px 80px rgba(15, 23, 42, 0.45)",
+        "--codex-glass-text-light": "rgba(30, 41, 59, 0.9)",
+        "--codex-glass-text-dark": "rgba(241, 245, 255, 0.92)",
+        "--codex-glass-accent": "#60a5fa",
+        "--codex-glass-accent-dark": "#38bdf8",
+      },
+      locked: true,
+    },
+    {
+      slug: "animated-codex",
+      name: "Animated (Codex)",
+      source: "custom",
+      default_mode: "light",
+      supports: { mode: ["light", "dark"] },
+      variants: {
+        light: { slug: "animated-codex", name: "Animated — Primary" },
+        dark: { slug: "animated-codex-dark", name: "Animated — Dark" },
+      },
+      variables: {
+        "--codex-animated-gradient":
+          "linear-gradient(120deg, rgba(59,130,246,0.9) 0%, rgba(236,72,153,0.85) 50%, rgba(16,185,129,0.85) 100%)",
+        "--codex-animated-gradient-dark":
+          "linear-gradient(130deg, rgba(59,130,246,0.85) 0%, rgba(147,51,234,0.85) 45%, rgba(14,116,144,0.9) 100%)",
+        "--codex-animated-highlight": "#fbbf24",
+        "--codex-animated-accent": "#f97316",
+        "--codex-animated-accent-dark": "#fb923c",
+        "--codex-animated-shadow": "0 28px 68px rgba(88, 28, 135, 0.45)",
+        "--codex-animated-speed": "18s",
+      },
+      locked: true,
+    },
+  ],
 };
 
 export const DEFAULT_THEME_SETTINGS = {

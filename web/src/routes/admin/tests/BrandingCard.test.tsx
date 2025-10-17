@@ -149,14 +149,14 @@ const ASSETS_BODY = {
       id: "as_favicon",
       profile_id: "bp_custom",
       kind: "favicon" as const,
-      name: "contoso--grp123--favicon.webp",
-      display_name: "contoso.webp",
-      mime: "image/webp",
+      name: "contoso--grp123--favicon.ico",
+      display_name: "contoso.ico",
+      mime: "image/x-icon",
       size_bytes: 400,
       sha256: "mno",
       uploaded_by: "admin",
       created_at: "2025-09-30T12:00:04Z",
-      url: "https://example.com/contoso--grp123--favicon.webp",
+      url: "https://example.com/contoso--grp123--favicon.ico",
     },
   ],
 };
@@ -385,6 +385,8 @@ describe("BrandingCard", () => {
         return jsonResponse(ASSETS_BODY);
       }
       if (url === "/api/settings/ui" && method === "PUT") {
+        const headers = new Headers(init.headers ?? {});
+        lastIfMatch = headers.get("If-Match");
         if (conflict) {
           conflict = false;
           return jsonResponse({ ok: false }, {
@@ -407,7 +409,9 @@ describe("BrandingCard", () => {
     fireEvent.change(screen.getByLabelText("Title text"), { target: { value: "Conflict Title" } });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
-    await screen.findByText("Branding changed elsewhere. Reloaded latest values.");
+    await screen.findByText("Branding changed elsewhere. Retrying with the latest version.");
+    await screen.findByText('Branding saved for "Custom".');
+    expect(lastIfMatch).toBe('W/"branding:fresh"');
   });
 
   it("shows read-only state on 403", async () => {

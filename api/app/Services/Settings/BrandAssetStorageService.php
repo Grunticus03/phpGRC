@@ -231,6 +231,8 @@ final class BrandAssetStorageService
             'image/jpg' => 'jpg',
             'image/pjpeg' => 'jpg',
             'image/webp' => 'webp',
+            'image/x-icon' => 'ico',
+            'image/vnd.microsoft.icon' => 'ico',
             'image/svg+xml' => 'svg',
             default => '',
         };

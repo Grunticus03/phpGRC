@@ -21,14 +21,14 @@ use Illuminate\Support\Str;
 final class BrandAssetsController extends Controller
 {
     /**
-     * @var array<string,array{width:int,height:int,quality:int}>
+     * @var array<string,array{width:int,height:int,mime:string,extension:string,quality?:int}>
      */
     private const VARIANT_SPECS = [
-        'primary_logo' => ['width' => 480, 'height' => 180, 'quality' => 90],
-        'secondary_logo' => ['width' => 360, 'height' => 140, 'quality' => 90],
-        'header_logo' => ['width' => 280, 'height' => 100, 'quality' => 85],
-        'footer_logo' => ['width' => 280, 'height' => 100, 'quality' => 85],
-        'favicon' => ['width' => 96, 'height' => 96, 'quality' => 95],
+        'primary_logo' => ['width' => 480, 'height' => 180, 'quality' => 90, 'mime' => 'image/webp', 'extension' => 'webp'],
+        'secondary_logo' => ['width' => 360, 'height' => 140, 'quality' => 90, 'mime' => 'image/webp', 'extension' => 'webp'],
+        'header_logo' => ['width' => 280, 'height' => 100, 'quality' => 85, 'mime' => 'image/webp', 'extension' => 'webp'],
+        'footer_logo' => ['width' => 280, 'height' => 100, 'quality' => 85, 'mime' => 'image/webp', 'extension' => 'webp'],
+        'favicon' => ['width' => 64, 'height' => 64, 'quality' => 95, 'mime' => 'image/x-icon', 'extension' => 'ico'],
     ];
 
     public function __construct(
@@ -56,7 +56,6 @@ final class BrandAssetsController extends Controller
 
         /** @var array<int, BrandAsset> $assets */
         $assets = BrandAsset::query()
-            ->where('profile_id', $profile->getAttribute('id'))
             ->orderByDesc('created_at')
             ->get()
             ->all();
@@ -197,11 +196,6 @@ final class BrandAssetsController extends Controller
             ], 422);
         }
 
-        $existingAssets = BrandAsset::query()
-            ->where('profile_id', $profile->getAttribute('id'))
-            ->get()
-            ->all();
-
         $baseSlug = $this->baseFileSlug($name);
         $groupKey = Str::lower(Str::ulid()->toBase32());
 
@@ -226,7 +220,7 @@ final class BrandAssetsController extends Controller
                     'profile_id' => $profile->getAttribute('id'),
                     'kind' => $variantKind,
                     'name' => $variant['name'],
-                    'mime' => 'image/webp',
+                    'mime' => $variant['mime'],
                     'size_bytes' => $variant['size_bytes'],
                     'sha256' => $variant['sha256'],
                     'bytes' => $variant['bytes'],
@@ -267,28 +261,6 @@ final class BrandAssetsController extends Controller
                 'code' => 'STORAGE_ERROR',
                 'message' => 'Unable to persist brand asset variants to filesystem.',
             ], 500);
-        }
-
-        if ($existingAssets !== []) {
-            DB::transaction(function () use ($existingAssets): void {
-                foreach ($existingAssets as $asset) {
-                    /** @var mixed $storedId */
-                    $storedId = $asset->getAttribute('id');
-                    $assetId = is_string($storedId) ? $storedId : (is_scalar($storedId) ? (string) $storedId : null);
-                    $asset->delete();
-                    if ($assetId !== null) {
-                        $this->settings->clearBrandAssetReference($assetId);
-                    }
-                }
-            });
-
-            foreach ($existingAssets as $asset) {
-                try {
-                    $this->storage->deleteAsset($asset);
-                } catch (\Throwable $exception) {
-                    report($exception);
-                }
-            }
         }
 
         $assetsPayload = array_map(
@@ -420,7 +392,7 @@ final class BrandAssetsController extends Controller
     }
 
     /**
-     * @return array<string, array{name:string,bytes:string,size_bytes:int,sha256:string}>
+     * @return array<string, array{name:string,bytes:string,size_bytes:int,sha256:string,mime:string}>
      */
     private function createVariantImages(string $bytes, string $baseSlug, string $groupKey): array
     {
@@ -440,14 +412,23 @@ final class BrandAssetsController extends Controller
         try {
             foreach (self::VARIANT_SPECS as $kind => $spec) {
                 $resized = $this->resizeToFit($source, $spec['width'], $spec['height']);
-                $encoded = $this->encodeWebp($resized, $spec['quality']);
+                if ($spec['extension'] === 'ico') {
+                    if (! function_exists('imagepng')) {
+                        throw new \RuntimeException('Image conversion to ICO is not available.');
+                    }
+                    $encoded = $this->encodeIco($resized);
+                } else {
+                    $quality = $spec['quality'];
+                    $encoded = $this->encodeWebp($resized, $quality);
+                }
                 imagedestroy($resized);
 
                 $variants[$kind] = [
-                    'name' => $this->variantFileName($baseSlug, $groupKey, $kind),
+                    'name' => $this->variantFileName($baseSlug, $groupKey, $kind, $spec['extension']),
                     'bytes' => $encoded,
                     'size_bytes' => strlen($encoded),
                     'sha256' => hash('sha256', $encoded, false),
+                    'mime' => $spec['mime'],
                 ];
             }
         } finally {
@@ -558,14 +539,50 @@ final class BrandAssetsController extends Controller
         return $encoded;
     }
 
-    private function variantFileName(string $baseSlug, string $groupKey, string $kind): string
+    private function encodeIco(\GdImage $image): string
+    {
+        $width = max(1, imagesx($image));
+        $height = max(1, imagesy($image));
+
+        ob_start();
+        try {
+            if (! imagepng($image)) {
+                throw new \RuntimeException('Unable to encode image as PNG for favicon.');
+            }
+        } finally {
+            $pngData = ob_get_clean();
+        }
+
+        if (! is_string($pngData) || $pngData === '') {
+            throw new \RuntimeException('Failed to capture PNG bytes for favicon.');
+        }
+
+        $pngSize = strlen($pngData);
+
+        $header = pack('v3', 0, 1, 1);
+        $entry = pack(
+            'CCCCvvVV',
+            $width >= 256 ? 0 : ($width & 0xFF),
+            $height >= 256 ? 0 : ($height & 0xFF),
+            0,
+            0,
+            0,
+            0,
+            $pngSize,
+            6 + 16
+        );
+
+        return $header.$entry.$pngData;
+    }
+
+    private function variantFileName(string $baseSlug, string $groupKey, string $kind, string $extension): string
     {
         $suffix = str_replace('_', '-', strtolower($kind));
         if ($kind === 'primary_logo') {
-            return sprintf('%s--%s.webp', $baseSlug, $groupKey);
+            return sprintf('%s--%s.%s', $baseSlug, $groupKey, $extension);
         }
 
-        return sprintf('%s--%s--%s.webp', $baseSlug, $groupKey, $suffix);
+        return sprintf('%s--%s--%s.%s', $baseSlug, $groupKey, $suffix, $extension);
     }
 
     /** @return array<string,mixed> */
@@ -642,8 +659,8 @@ final class BrandAssetsController extends Controller
 
     private function variantGroupPrefix(string $storedName): ?string
     {
-        $withoutExtension = (string) preg_replace('/\.webp$/i', '', $storedName);
-        $segments = explode('--', $withoutExtension);
+        $filename = pathinfo($storedName, PATHINFO_FILENAME);
+        $segments = explode('--', $filename);
         if (count($segments) < 2) {
             return null;
         }

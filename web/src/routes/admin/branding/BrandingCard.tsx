@@ -88,6 +88,28 @@ const assetLabel: Record<BrandAsset["kind"], string> = {
 const assetDownloadUrl = (assetId: string): string =>
   `/api/settings/ui/brand-assets/${encodeURIComponent(assetId)}/download`;
 
+const mergeAssetsById = (current: BrandAsset[], incoming: BrandAsset[]): BrandAsset[] => {
+  if (incoming.length === 0) return current;
+  const map = new Map<string, BrandAsset>();
+  current.forEach((asset) => {
+    map.set(asset.id, asset);
+  });
+  incoming.forEach((asset) => {
+    map.set(asset.id, {
+      ...asset,
+      url: asset.url ?? assetDownloadUrl(asset.id),
+    });
+  });
+  return Array.from(map.values()).sort((a, b) => {
+    const aTime = Date.parse(a.created_at ?? "");
+    const bTime = Date.parse(b.created_at ?? "");
+    if (Number.isNaN(aTime) || Number.isNaN(bTime)) {
+      return b.id.localeCompare(a.id);
+    }
+    return bTime - aTime;
+  });
+};
+
 const normalizeSettings = (incoming?: ThemeSettings | null): ThemeSettings => ({
   ...DEFAULT_THEME_SETTINGS,
   ...(incoming ?? {}),
@@ -171,12 +193,12 @@ export default function BrandingCard(): JSX.Element {
   const etagRef = useRef<string | null>(null);
   const baselineRef = useRef<BrandingConfig | null>(null);
   const settingsRef = useRef<ThemeSettings>(DEFAULT_THEME_SETTINGS);
-const selectedProfileRef = useRef<string | null>(null);
-const accessRef = useRef<ThemeAccess | null>(null);
+  const selectedProfileRef = useRef<string | null>(null);
+  const accessRef = useRef<ThemeAccess | null>(null);
 
-useEffect(() => {
-  selectedProfileRef.current = selectedProfileId;
-}, [selectedProfileId]);
+  useEffect(() => {
+    selectedProfileRef.current = selectedProfileId;
+  }, [selectedProfileId]);
 
   useEffect(() => {
     let active = true;
@@ -562,35 +584,48 @@ useEffect(() => {
         },
       };
 
-      const res = await fetch("/api/settings/ui", {
-        method: "PUT",
-        credentials: "same-origin",
-        headers: baseHeaders({
-          "Content-Type": "application/json",
-          "If-Match": etag,
-        }),
-        body: JSON.stringify(payload),
-      });
+      const performSave = async (ifMatch: string) => {
+        const response = await fetch("/api/settings/ui", {
+          method: "PUT",
+          credentials: "same-origin",
+          headers: baseHeaders({
+            "Content-Type": "application/json",
+            "If-Match": ifMatch,
+          }),
+          body: JSON.stringify(payload),
+        });
+        const responseBody = await parseJson<BrandingResponse>(response);
+        return { response, responseBody };
+      };
 
-      const body = await parseJson<BrandingResponse>(res);
+      let { response, responseBody } = await performSave(etag);
 
-      if (res.status === 409) {
-        const nextEtag = body?.etag ?? res.headers.get("ETag");
-        if (nextEtag) etagRef.current = nextEtag;
-        showWarning("Branding changed elsewhere. Reloaded latest values.");
-        await loadBranding({ preserveMessage: true, profileId: selectedProfile.id });
-        return;
+      if (response.status === 409) {
+        const nextEtag = responseBody?.etag ?? response.headers.get("ETag");
+        if (nextEtag && nextEtag !== etag) {
+          etagRef.current = nextEtag;
+          showInfo("Branding changed elsewhere. Retrying with the latest version.");
+          ({ response, responseBody } = await performSave(nextEtag));
+        } else {
+          const fallbackEtag = nextEtag ?? null;
+          if (fallbackEtag) {
+            etagRef.current = fallbackEtag;
+          }
+          showWarning("Branding changed elsewhere. Reloaded latest values.");
+          await loadBranding({ preserveMessage: true, profileId: selectedProfile.id });
+          return;
+        }
       }
 
-      if (!res.ok) {
-        throw new Error(`Save failed (HTTP ${res.status}).`);
+      if (!response.ok) {
+        throw new Error(`Save failed (HTTP ${response.status}).`);
       }
 
-      const nextEtag = res.headers.get("ETag") ?? body?.etag ?? null;
+      const nextEtag = response.headers.get("ETag") ?? responseBody?.etag ?? null;
       if (nextEtag) etagRef.current = nextEtag;
 
-      if (body?.config?.ui) {
-        const normalized = normalizeSettings(body.config.ui);
+      if (responseBody?.config?.ui) {
+        const normalized = normalizeSettings(responseBody.config.ui);
         settingsRef.current = normalized;
         updateThemeSettings(normalized);
         const updated = cloneBrandConfig(normalized.brand as BrandingConfig);
@@ -652,8 +687,16 @@ useEffect(() => {
         return;
       }
 
+      const variantAssets = Object.values(variants).filter((variant): variant is BrandAsset => Boolean(variant));
+      const uploadedAssets = mergeAssetsById([], [body.asset, ...variantAssets]);
+
+      setAssets((prev) => mergeAssetsById(prev, uploadedAssets));
+
       showSuccess("Upload successful. Select it from the dropdown to apply.");
-      void fetchAssets(selectedProfile.id).then((list) => setAssets(list));
+
+      void fetchAssets(selectedProfile.id).then((list) => {
+        setAssets((prev) => mergeAssetsById(prev, list));
+      });
     } catch {
       showDanger("Upload failed.");
     }

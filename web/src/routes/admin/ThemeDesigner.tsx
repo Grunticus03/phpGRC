@@ -82,6 +82,8 @@ type ThemeFeature = {
 type ThemeManifestEntry = ThemeManifest["themes"][number] | ThemeManifest["packs"][number];
 type ThemeSelectionState = ReturnType<typeof getCurrentTheme>;
 
+const isCustomPack = (entry: ThemeManifestEntry): entry is CustomThemePack => entry.source === "custom";
+
 const FONT_OPTIONS: SettingOption[] = [
   {
     value: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
@@ -1092,14 +1094,16 @@ export default function ThemeDesigner(): JSX.Element {
     return [...manifest.themes, ...manifest.packs];
   }, [manifest]);
 
-  const customEntries = useMemo(
-    () => themeEntries.filter((entry) => entry.source === "custom"),
-    [themeEntries]
+  const customEntries = useMemo<CustomThemePack[]>(() => themeEntries.filter(isCustomPack), [themeEntries]);
+
+  const deletableCustomEntries = useMemo(
+    () => customEntries.filter((entry) => (entry as { locked?: boolean }).locked !== true),
+    [customEntries]
   );
 
   const hasCustomThemes = useMemo(
-    () => customEntries.length > 0,
-    [customEntries]
+    () => deletableCustomEntries.length > 0,
+    [deletableCustomEntries]
   );
 
   const canManageTheme = themeAccess?.canManage ?? false;
@@ -1121,10 +1125,10 @@ export default function ThemeDesigner(): JSX.Element {
   }, [loadSelection, themeEntries]);
 
   useEffect(() => {
-    if (deleteSelection && !customEntries.some((entry) => entry.slug === deleteSelection)) {
-      setDeleteSelection(customEntries[0]?.slug ?? "");
+    if (deleteSelection && !deletableCustomEntries.some((entry) => entry.slug === deleteSelection)) {
+      setDeleteSelection(deletableCustomEntries[0]?.slug ?? "");
     }
-  }, [customEntries, deleteSelection]);
+  }, [deletableCustomEntries, deleteSelection]);
 
   const findEntryBySlug = useCallback(
     (slug: string | null | undefined): ThemeManifestEntry | null => {
@@ -1264,12 +1268,12 @@ export default function ThemeDesigner(): JSX.Element {
     setPendingOverwriteSlug(null);
     setThemeMenuOpen(false);
     const initial =
-      customEntries.find((entry) => entry.slug === deleteSelection)?.slug ??
-      customEntries[0]?.slug ??
+      deletableCustomEntries.find((entry) => entry.slug === deleteSelection)?.slug ??
+      deletableCustomEntries[0]?.slug ??
       "";
     setDeleteSelection(initial);
     setDeleteModalOpen(true);
-  }, [canManageTheme, customEntries, deleteSelection]);
+  }, [canManageTheme, deletableCustomEntries, deleteSelection]);
 
   const handleCloseLoadModal = useCallback(() => {
     setLoadModalOpen(false);
@@ -1984,7 +1988,7 @@ export default function ThemeDesigner(): JSX.Element {
         disableBackdropClose={deleteBusy}
         confirmDisabled={!canManageThemePacks}
       >
-        {customEntries.length > 0 ? (
+        {deletableCustomEntries.length > 0 ? (
           <>
             <div className="mb-3">
               <label htmlFor={deleteSelectId} className="form-label">
@@ -1997,7 +2001,7 @@ export default function ThemeDesigner(): JSX.Element {
                 onChange={(event) => setDeleteSelection(event.target.value)}
                 disabled={deleteBusy || !canManageThemePacks}
               >
-                {customEntries.map((entry) => (
+                {deletableCustomEntries.map((entry) => (
                   <option key={entry.slug} value={entry.slug}>
                     {entry.name}
                   </option>

@@ -95,6 +95,9 @@ const normalizeCustomPack = (input: Partial<CustomThemePack>): CustomThemePack |
     ...(Object.keys(variants).length > 0 ? { variants } : {}),
     ...(Object.keys(variables).length > 0 ? { variables } : {}),
   };
+  if (input.locked === true) {
+    pack.locked = true;
+  }
   return pack;
 };
 
@@ -890,7 +893,7 @@ export const toggleThemeMode = (): ThemeMode => {
   if (allowOverride) {
     const nextPrefs: ThemeUserPrefs = {
       ...prefsCache,
-      theme: prefsCache.theme ?? selection.slug,
+      theme: prefsCache.theme,
       mode: desiredMode,
       overrides: { ...prefsCache.overrides },
       sidebar: {

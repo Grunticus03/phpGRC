@@ -81,15 +81,22 @@ final class BrandAssetsApiTest extends TestCase
         self::assertIsString($assetId);
         self::assertMatchesRegularExpression('/logo--[a-z0-9]+\\.webp/', $data['asset']['name'] ?? '');
         self::assertSame('logo.webp', $data['asset']['display_name'] ?? null);
+        self::assertSame('image/webp', $data['asset']['mime'] ?? null);
 
         /** @var array<string,mixed>|null $variants */
         $variants = $data['variants'] ?? null;
         self::assertIsArray($variants);
         self::assertArrayHasKey('primary_logo', $variants);
         self::assertSame(5, count($variants));
-        foreach ($variants as $variant) {
+        foreach ($variants as $kind => $variant) {
             self::assertIsArray($variant);
-            self::assertSame('logo.webp', $variant['display_name'] ?? null);
+            if ($kind === 'favicon') {
+                self::assertSame('logo.ico', $variant['display_name'] ?? null);
+                self::assertSame('image/x-icon', $variant['mime'] ?? null);
+            } else {
+                self::assertSame('logo.webp', $variant['display_name'] ?? null);
+                self::assertSame('image/webp', $variant['mime'] ?? null);
+            }
         }
 
         $this->assertDatabaseHas('brand_assets', [
@@ -104,9 +111,17 @@ final class BrandAssetsApiTest extends TestCase
         /** @var BrandAssetStorageService $storage */
         $storage = app(BrandAssetStorageService::class);
 
+        $byKind = [];
         $paths = [];
         foreach ($storedAssets as $stored) {
-            self::assertSame('image/webp', $stored->getAttribute('mime'));
+            /** @var string $kind */
+            $kind = $stored->getAttribute('kind');
+            $byKind[$kind] = $stored;
+            if ($kind === 'favicon') {
+                self::assertSame('image/x-icon', $stored->getAttribute('mime'));
+            } else {
+                self::assertSame('image/webp', $stored->getAttribute('mime'));
+            }
             $path = $storage->assetPath($stored);
             self::assertIsString($path);
             self::assertFileExists($path);
@@ -149,6 +164,45 @@ final class BrandAssetsApiTest extends TestCase
         self::assertNull($config['brand']['header_logo_asset_id']);
         self::assertNull($config['brand']['footer_logo_asset_id']);
         self::assertNull($config['brand']['favicon_asset_id']);
+    }
+
+    public function test_uploads_from_all_profiles_are_listed_globally(): void
+    {
+        $this->actingAsThemeManager();
+
+        $profileA = $this->createEditableProfile(true);
+        $profileB = $this->createEditableProfile();
+
+        $fileA = UploadedFile::fake()->image('first.png', 128, 128);
+        $fileB = UploadedFile::fake()->image('second.png', 128, 128);
+
+        $uploadA = $this->postJson('/settings/ui/brand-assets', [
+            'kind' => 'primary_logo',
+            'profile_id' => $profileA->getAttribute('id'),
+            'file' => $fileA,
+        ]);
+        $uploadA->assertCreated();
+
+        $uploadB = $this->postJson('/settings/ui/brand-assets', [
+            'kind' => 'primary_logo',
+            'profile_id' => $profileB->getAttribute('id'),
+            'file' => $fileB,
+        ]);
+        $uploadB->assertCreated();
+
+        $response = $this->getJson('/settings/ui/brand-assets?profile_id='.$profileB->getAttribute('id'));
+        $response->assertOk();
+
+        $payload = $response->json();
+        self::assertIsArray($payload);
+        /** @var array<int,array<string,mixed>>|null $assets */
+        $assets = $payload['assets'] ?? null;
+        self::assertIsArray($assets);
+
+        $primaryAssets = array_values(array_filter($assets, static fn (array $asset): bool => ($asset['kind'] ?? null) === 'primary_logo'));
+        self::assertCount(2, $primaryAssets);
+
+        self::assertSame(10, BrandAsset::query()->count());
     }
 
     public function test_upload_rejects_unsupported_mime(): void
