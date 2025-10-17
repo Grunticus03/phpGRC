@@ -513,6 +513,8 @@ final class BrandAssetsController extends Controller
                     'mime' => $spec['mime'],
                 ];
             }
+
+            $variants['background_image'] = $this->createBackgroundImage($bytes, $baseSlug, $groupKey);
         } finally {
             imagedestroy($source);
         }

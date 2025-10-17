@@ -87,12 +87,16 @@ final class BrandAssetsApiTest extends TestCase
         $variants = $data['variants'] ?? null;
         self::assertIsArray($variants);
         self::assertArrayHasKey('primary_logo', $variants);
-        self::assertSame(5, count($variants));
+        self::assertArrayHasKey('background_image', $variants);
+        self::assertSame(6, count($variants));
         foreach ($variants as $kind => $variant) {
             self::assertIsArray($variant);
             if ($kind === 'favicon') {
                 self::assertSame('logo.ico', $variant['display_name'] ?? null);
                 self::assertSame('image/x-icon', $variant['mime'] ?? null);
+            } elseif ($kind === 'background_image') {
+                self::assertSame('logo.webp', $variant['display_name'] ?? null);
+                self::assertSame('image/webp', $variant['mime'] ?? null);
             } else {
                 self::assertSame('logo.webp', $variant['display_name'] ?? null);
                 self::assertSame('image/webp', $variant['mime'] ?? null);
@@ -106,7 +110,7 @@ final class BrandAssetsApiTest extends TestCase
         ]);
 
         $storedAssets = BrandAsset::query()->get();
-        self::assertCount(5, $storedAssets);
+        self::assertCount(6, $storedAssets);
 
         /** @var BrandAssetStorageService $storage */
         $storage = app(BrandAssetStorageService::class);
@@ -208,7 +212,7 @@ final class BrandAssetsApiTest extends TestCase
         $primaryAssets = array_values(array_filter($assets, static fn (array $asset): bool => ($asset['kind'] ?? null) === 'primary_logo'));
         self::assertCount(2, $primaryAssets);
 
-        self::assertSame(10, BrandAsset::query()->count());
+        self::assertSame(12, BrandAsset::query()->count());
     }
 
     public function test_upload_rejects_unsupported_mime(): void
