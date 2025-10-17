@@ -456,6 +456,7 @@ export default function Users(): JSX.Element {
 
   return (
     <main className="container py-4">
+      <h1 className="mb-3">User Management</h1>
       <section aria-live="polite" className="mb-3">
       </section>
 
