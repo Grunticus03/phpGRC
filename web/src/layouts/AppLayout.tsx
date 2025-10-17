@@ -23,6 +23,7 @@ import {
 import { seedThemeRequireAuth } from "../lib/themeAccess";
 import {
   bootstrapTheme,
+  getBrandAssetUrl,
   getCachedThemePrefs,
   getCachedThemeSettings,
   getCachedThemeManifest,
@@ -103,9 +104,6 @@ const HIDDEN_DRAG_END_ID = "__hidden_end__";
 const DASHBOARD_TOGGLE_EDIT_MODE_EVENT = "dashboard-toggle-edit-mode";
 const DASHBOARD_EDIT_MODE_STATE_EVENT = "dashboard-edit-mode-state";
 
-const brandAssetUrl = (assetId: string): string =>
-  `/api/settings/ui/brand-assets/${encodeURIComponent(assetId)}/download`;
-
 const ADMIN_NAV_ITEMS: readonly AdminNavItem[] = [
   {
     id: "admin.settings",
@@ -174,11 +172,17 @@ const brandSnapshotsEqual = (a: BrandSnapshot, b: BrandSnapshot): boolean =>
 const resolveLogoSrc = (brand: BrandSnapshot, failed?: Set<string>): string => {
   const headerId = brand.headerLogoId;
   if (headerId && !failed?.has(headerId)) {
-    return `${brandAssetUrl(headerId)}?v=${encodeURIComponent(headerId)}`;
+    const headerUrl = getBrandAssetUrl(headerId);
+    if (headerUrl) {
+      return headerUrl;
+    }
   }
   const primaryId = brand.primaryLogoId;
   if (primaryId && !failed?.has(primaryId)) {
-    return `${brandAssetUrl(primaryId)}?v=${encodeURIComponent(primaryId)}`;
+    const primaryUrl = getBrandAssetUrl(primaryId);
+    if (primaryUrl) {
+      return primaryUrl;
+    }
   }
   return DEFAULT_LOGO_SRC;
 };
@@ -390,7 +394,7 @@ export default function AppLayout(): JSX.Element | null {
         }
         sidebarPrefsRef.current = next;
         if (!options?.silent) {
-          setSidebarNotice({ text: "Sidebar preferences saved.", tone: "info", ephemeral: true });
+          setSidebarNotice(null);
         }
         return next;
       });
@@ -622,9 +626,6 @@ export default function AppLayout(): JSX.Element | null {
           updateSidebarState(() => merged, { silent: options?.silentNotice });
         }
 
-        if (!options?.silentNotice) {
-          setSidebarNotice({ text: "Sidebar preferences saved.", tone: "info", ephemeral: true });
-        }
         return true;
       } catch (err) {
         const message = err instanceof Error ? err.message : "Failed to save sidebar preferences.";

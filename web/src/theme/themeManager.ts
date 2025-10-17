@@ -26,6 +26,8 @@ type ThemeSelection = {
 };
 
 const THEME_LINK_ID = "phpgrc-theme-css";
+const APP_FAVICON_LINK_ID = "phpgrc-favicon-link";
+const BRAND_ASSET_BASE_PATH = "/api/settings/ui/brand-assets";
 const CUSTOM_THEME_STORAGE_KEY = "phpgrc.customThemePacks";
 const THEME_SELECTION_STORAGE_KEY = "phpgrc.theme.selection";
 const THEME_SELECTION_COOKIE = "phpgrc_theme_selection";
@@ -52,6 +54,40 @@ const sanitizeVariables = (input: unknown): Record<string, string> => {
     });
   }
   return result;
+};
+
+const buildBrandAssetUrl = (assetId: string): string =>
+  `${BRAND_ASSET_BASE_PATH}/${encodeURIComponent(assetId)}/download`;
+
+export const getBrandAssetUrl = (assetId: string | null | undefined): string | null => {
+  if (typeof assetId !== "string") {
+    return null;
+  }
+  const trimmed = assetId.trim();
+  if (trimmed === "") {
+    return null;
+  }
+
+  const base = buildBrandAssetUrl(trimmed);
+  return `${base}?v=${encodeURIComponent(trimmed)}`;
+};
+
+export const resolveBrandBackgroundUrl = (
+  settings: ThemeSettings | null | undefined,
+  kind: "login" | "main"
+): string | null => {
+  const brand = settings?.brand ?? DEFAULT_THEME_SETTINGS.brand;
+  const brandData = brand as {
+    background_login_asset_id?: string | null;
+    background_main_asset_id?: string | null;
+  };
+  const login = getBrandAssetUrl(brandData.background_login_asset_id ?? null);
+  const main = getBrandAssetUrl(brandData.background_main_asset_id ?? null);
+  if (kind === "login") {
+    return login ?? main;
+  }
+
+  return main;
 };
 
 const normalizeCustomPack = (input: Partial<CustomThemePack>): CustomThemePack | null => {
@@ -482,6 +518,40 @@ const applyDesignTokens = (): void => {
       appliedCustomVariableKeys.push(variable);
     }
   });
+
+  const mainBackgroundUrl = resolveBrandBackgroundUrl(settingsCache, "main");
+  if (mainBackgroundUrl) {
+    const cssUrl = `url("${mainBackgroundUrl}")`;
+    doc.style.setProperty("--ui-app-background-image", cssUrl);
+    body.style.backgroundImage = cssUrl;
+    body.style.backgroundRepeat = "no-repeat";
+    body.style.backgroundSize = "cover";
+    body.style.backgroundPosition = "center center";
+  } else {
+    doc.style.removeProperty("--ui-app-background-image");
+    body.style.removeProperty("background-image");
+    body.style.removeProperty("background-repeat");
+    body.style.removeProperty("background-size");
+    body.style.removeProperty("background-position");
+  }
+
+  const loginBackgroundUrl = resolveBrandBackgroundUrl(settingsCache, "login");
+  if (loginBackgroundUrl) {
+    doc.style.setProperty("--ui-login-background-image", `url("${loginBackgroundUrl}")`);
+  } else {
+    doc.style.removeProperty("--ui-login-background-image");
+  }
+
+  const brand = settingsCache.brand ?? DEFAULT_THEME_SETTINGS.brand;
+  const brandData = brand as {
+    favicon_asset_id?: string | null;
+    primary_logo_asset_id?: string | null;
+  };
+  const faviconCandidate =
+    getBrandAssetUrl(brandData.favicon_asset_id ?? null) ??
+    getBrandAssetUrl(brandData.primary_logo_asset_id ?? null) ??
+    "/api/favicon.ico";
+  updateFaviconLink(faviconCandidate);
 };
 
 const prefersDark = (): boolean => {
@@ -826,6 +896,34 @@ export const updateThemePrefs = (prefs: ThemeUserPrefs): void => {
   prefsCache = clone(prefs);
   refreshTheme();
   notifyPrefsListeners();
+};
+
+const updateFaviconLink = (href: string | null): void => {
+  if (typeof document === "undefined") return;
+  const head = document.head;
+  if (!head) return;
+
+  const existing = document.getElementById(APP_FAVICON_LINK_ID) as HTMLLinkElement | null;
+  if (!href) {
+    existing?.remove();
+    return;
+  }
+
+  const absoluteHref =
+    typeof window !== "undefined" ? new URL(href, window.location.origin).href : href;
+
+  const link = existing ?? (() => {
+    const el = document.createElement("link");
+    el.id = APP_FAVICON_LINK_ID;
+    el.rel = "icon";
+    el.type = "image/x-icon";
+    head.appendChild(el);
+    return el;
+  })();
+
+  if (link.href !== absoluteHref) {
+    link.href = absoluteHref;
+  }
 };
 
 export const getCurrentTheme = (): ThemeSelection => {

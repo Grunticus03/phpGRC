@@ -366,7 +366,7 @@ describe("BrandingCard", () => {
     );
     await waitFor(() => expect(screen.queryByText("Loading branding settings…")).toBeNull());
 
-    const fileInput = screen.getByLabelText("Upload logo asset") as HTMLInputElement;
+    const fileInput = screen.getByLabelText("Upload asset") as HTMLInputElement;
     const primarySelect = screen.getByLabelText("Primary logo asset selection") as HTMLSelectElement;
     const secondarySelect = screen.getByLabelText("Secondary logo asset selection") as HTMLSelectElement;
     expect(primarySelect.value).toBe("as_primary");

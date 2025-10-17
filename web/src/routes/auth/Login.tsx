@@ -1,19 +1,30 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type SyntheticEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type FormEvent,
+  type SyntheticEvent,
+} from "react";
 import { consumeIntendedPath, authLogin, consumeSessionExpired } from "../../lib/api";
-import { getCachedThemeSettings, onThemeSettingsChange } from "../../theme/themeManager";
+import {
+  getBrandAssetUrl,
+  getCachedThemeSettings,
+  onThemeSettingsChange,
+  resolveBrandBackgroundUrl,
+} from "../../theme/themeManager";
 import { DEFAULT_THEME_SETTINGS, type ThemeSettings } from "../admin/themeData";
 import "./LoginLayout3.css";
 
 const DEFAULT_LOGO_SRC = "/api/images/phpGRC-light-horizontal-trans.webp";
 
-const brandAssetUrl = (assetId: string): string =>
-  `/api/settings/ui/brand-assets/${encodeURIComponent(assetId)}/download`;
-
 const resolvePrimaryLogo = (settings: ThemeSettings | null | undefined): string | null => {
   const brand = settings?.brand ?? DEFAULT_THEME_SETTINGS.brand;
   const primaryId = typeof brand?.primary_logo_asset_id === "string" ? brand.primary_logo_asset_id : null;
   if (!primaryId) return null;
-  return `${brandAssetUrl(primaryId)}?v=${encodeURIComponent(primaryId)}`;
+  return getBrandAssetUrl(primaryId);
 };
 
 const LAYOUT3_EMAIL_ENTER_MS = 1200;
@@ -37,6 +48,9 @@ export default function Login(): JSX.Element {
     const cachedLayout = getCachedThemeSettings().theme.login?.layout;
     return cachedLayout === "layout_2" || cachedLayout === "layout_3" ? cachedLayout : "layout_1";
   });
+  const [loginBackgroundUrl, setLoginBackgroundUrl] = useState<string | null>(() =>
+    resolveBrandBackgroundUrl(getCachedThemeSettings(), "login")
+  );
   const [prefersReducedMotion, setPrefersReducedMotion] = useState<boolean>(() => {
     if (typeof window === "undefined" || typeof window.matchMedia !== "function") return false;
     return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -73,6 +87,7 @@ export default function Login(): JSX.Element {
       setLogoSrc(resolvePrimaryLogo(next));
       const nextLayout = next.theme.login?.layout;
       setLayout(nextLayout === "layout_2" || nextLayout === "layout_3" ? nextLayout : "layout_1");
+      setLoginBackgroundUrl(resolveBrandBackgroundUrl(next, "login"));
     });
     return () => unsubscribe();
   }, []);
@@ -505,8 +520,24 @@ export default function Login(): JSX.Element {
     </div>
   );
 
+  const containerStyle: CSSProperties = useMemo(() => {
+    const style: CSSProperties = {
+      backgroundColor: "var(--bs-body-bg)",
+    };
+    if (loginBackgroundUrl) {
+      style.backgroundImage = `url("${loginBackgroundUrl}")`;
+      style.backgroundSize = "cover";
+      style.backgroundPosition = "center center";
+      style.backgroundRepeat = "no-repeat";
+    }
+    return style;
+  }, [loginBackgroundUrl]);
+
   return (
-    <div className="d-flex flex-column min-vh-100 align-items-center justify-content-center bg-body-secondary px-3">
+    <div
+      className="d-flex flex-column min-vh-100 align-items-center justify-content-center px-3"
+      style={containerStyle}
+    >
       {isLayout3 ? layout3 : isLayout2 ? layout2 : layout1}
     </div>
   );

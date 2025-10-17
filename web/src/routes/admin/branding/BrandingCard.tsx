@@ -191,8 +191,8 @@ export default function BrandingCard(): JSX.Element {
   const [deleteProfileTarget, setDeleteProfileTarget] = useState<BrandProfile | null>(null);
   const [deleteProfileBusy, setDeleteProfileBusy] = useState(false);
   const [deleteProfileError, setDeleteProfileError] = useState<string | null>(null);
-  const primaryUploadInputRef = useRef<HTMLInputElement | null>(null);
-  const backgroundUploadInputRef = useRef<HTMLInputElement | null>(null);
+  const [uploadKind, setUploadKind] = useState<"primary_logo" | "background_image">("primary_logo");
+  const assetUploadInputRef = useRef<HTMLInputElement | null>(null);
 
   const etagRef = useRef<string | null>(null);
   const baselineRef = useRef<BrandingConfig | null>(null);
@@ -927,57 +927,45 @@ export default function BrandingCard(): JSX.Element {
               </div>
 
               <div className="d-flex flex-column align-items-start gap-2 mb-3">
-                <div className="d-flex flex-wrap gap-2">
+                <div className="d-flex flex-wrap align-items-end gap-2">
+                  <div className="d-flex flex-column">
+                    <label htmlFor="brandUploadKind" className="form-label fw-semibold mb-1">
+                      Upload applies to
+                    </label>
+                    <select
+                      id="brandUploadKind"
+                      className="form-select form-select-sm"
+                      value={uploadKind}
+                      onChange={(event) => setUploadKind(event.target.value as typeof uploadKind)}
+                      disabled={disabled}
+                    >
+                      <option value="primary_logo">Logo (generates variants)</option>
+                      <option value="background_image">Background image</option>
+                    </select>
+                  </div>
                   <button
                     type="button"
                     className="btn btn-outline-primary btn-sm"
                     onClick={() => {
                       if (!disabled) {
-                        primaryUploadInputRef.current?.click();
+                        assetUploadInputRef.current?.click();
                       }
                     }}
                     disabled={disabled}
                   >
-                    Upload logo asset
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-outline-secondary btn-sm"
-                    onClick={() => {
-                      if (!disabled) {
-                        backgroundUploadInputRef.current?.click();
-                      }
-                    }}
-                    disabled={disabled}
-                  >
-                    Upload background
+                    Upload asset
                   </button>
                 </div>
                 <input
-                  ref={primaryUploadInputRef}
+                  ref={assetUploadInputRef}
                   type="file"
                   accept={ALLOWED_TYPES.join(",")}
                   className="d-none"
-                  aria-label="Upload logo asset"
+                  aria-label="Upload asset"
                   onChange={(event) => {
                     const file = event.target.files?.[0];
                     if (file) {
-                      void handleUpload("primary_logo", file);
-                    }
-                    event.target.value = "";
-                  }}
-                  disabled={disabled}
-                />
-                <input
-                  ref={backgroundUploadInputRef}
-                  type="file"
-                  accept={ALLOWED_TYPES.join(",")}
-                  className="d-none"
-                  aria-label="Upload background asset"
-                  onChange={(event) => {
-                    const file = event.target.files?.[0];
-                    if (file) {
-                      void handleUpload("background_image", file);
+                      void handleUpload(uploadKind, file);
                     }
                     event.target.value = "";
                   }}
