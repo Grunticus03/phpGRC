@@ -161,8 +161,8 @@ export default function EvidenceTable({
           <FilterableHeaderRow
             headers={headers}
             leadingCell={
-              <th scope="col" className="text-center" style={{ width: "6.5rem" }}>
-                <div className="d-flex justify-content-center align-items-center gap-2">
+              <th scope="col" className="text-start" style={{ width: "6.5rem" }}>
+                <div className="d-flex justify-content-start align-items-center gap-2">
                   <input
                     ref={selectAllRef}
                     type="checkbox"
@@ -193,8 +193,8 @@ export default function EvidenceTable({
 
               return (
                 <tr key={item.id} className={isSelected ? "table-active" : undefined}>
-                  <td className="text-center" style={{ width: "6.5rem" }}>
-                    <div className="d-flex justify-content-center align-items-center gap-2">
+                  <td className="text-start" style={{ width: "6.5rem" }}>
+                    <div className="d-flex justify-content-start align-items-center gap-2">
                       <input
                         type="checkbox"
                         className="form-check-input"

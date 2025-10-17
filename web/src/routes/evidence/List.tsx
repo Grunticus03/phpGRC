@@ -1259,14 +1259,6 @@ export default function EvidenceList(): JSX.Element {
       <div className="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
         <span className="small text-muted">{selectedCount > 0 ? `${selectedCount} selected` : ""}</span>
         <div className="d-flex flex-wrap align-items-center gap-2">
-          <button
-            type="button"
-            className="btn btn-outline-secondary btn-sm"
-            onClick={clearAllFilters}
-            disabled={!hasActiveFilters || state === "loading"}
-          >
-            Clear filters
-          </button>
           <div className="d-flex align-items-center gap-2">
             <label htmlFor="evidence-limit" className="form-label mb-0">Limit</label>
             <input
@@ -1291,6 +1283,14 @@ export default function EvidenceList(): JSX.Element {
               }}
             />
           </div>
+          <button
+            type="button"
+            className="btn btn-outline-secondary btn-sm"
+            onClick={clearAllFilters}
+            disabled={!hasActiveFilters || state === "loading"}
+          >
+            Clear filters
+          </button>
           <button
             type="button"
             className="btn btn-outline-danger btn-sm"
