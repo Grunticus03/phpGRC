@@ -717,7 +717,7 @@ useEffect(() => {
     <>
       <section className="card mb-4" aria-label="branding-card">
       <div className="card-header d-flex justify-content-between align-items-center">
-        <strong>Branding</strong>
+        <h2 className="h5 mb-0">Branding</h2>
         <div className="d-flex gap-2">
           <button
             type="button"

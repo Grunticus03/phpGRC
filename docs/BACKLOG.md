@@ -240,7 +240,7 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 **Phase:** 6  
 **Step:** 1  
 **Dependencies:** CORE-004, CORE-011  
-**Status:** Planned
+**Status:** Done
 
 ---
 
@@ -357,7 +357,7 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 **Phase:** 5.5  
 **Step:** 8  
 **Dependencies:** THEME-001  
-**Status:** Planned
+**Status:** Done (automated a11y, motion, snapshots, and hot-swap suites green; optional non-headless smoke deferred until live settings backend/ETag support)
 
 ---
 

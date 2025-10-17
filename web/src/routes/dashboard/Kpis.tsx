@@ -1144,6 +1144,7 @@ export default function Kpis(): JSX.Element {
 
   return (
     <div className="container py-3">
+      <h1 className="mb-3">Dashboard</h1>
       {isEditing && (
         <div className="dashboard-controls d-flex align-items-center gap-2">
           <button

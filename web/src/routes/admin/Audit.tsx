@@ -1037,8 +1037,8 @@ export default function Audit(): JSX.Element {
   ];
 
   return (
-    <main className="container py-3" aria-busy={state === "loading"}>
-      <h1>Audit Logs</h1>
+    <section className="container py-3" aria-busy={state === "loading"} aria-labelledby="audit-title">
+      <h1 id="audit-title">Audit Logs</h1>
 
       {state === "loading" && <p>Loading.</p>}
       {state === "error" && <p role="alert">Error: {error}</p>}
@@ -1178,6 +1178,6 @@ export default function Audit(): JSX.Element {
           Download CSV
         </a>
       </div>
-    </main>
+    </section>
   );
 }

@@ -1363,7 +1363,7 @@ export default function AppLayout(): JSX.Element | null {
 
       {sidebarNotice && (
         <div
-          className={`shadow alert ${sidebarNotice.tone === "error" ? "alert-danger" : "alert-info"}`}
+          className={`shadow sidebar-notice ${sidebarNotice.tone === "error" ? "sidebar-notice--error" : "sidebar-notice--info"}`}
           role="status"
           style={{
             position: "absolute",

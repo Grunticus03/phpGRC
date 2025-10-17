@@ -796,7 +796,7 @@ export default function ThemeConfigurator(): JSX.Element {
 
             <fieldset className="vstack gap-3" disabled={disabled}>
               <legend className="form-label fw-semibold mb-0">Login layout</legend>
-              <p className="text-secondary small mb-2">
+              <p className="text-body-secondary small mb-2">
                 Choose how the authentication page should present the form and branding.
               </p>
               <div className="row g-3">
@@ -824,7 +824,7 @@ export default function ThemeConfigurator(): JSX.Element {
                               {option.label}
                             </label>
                           </div>
-                          <p className="text-secondary small mb-0">{option.description}</p>
+                          <p className="text-body-secondary small mb-0">{option.description}</p>
                           <div className="bg-body-secondary bg-opacity-25 rounded-3 p-3">
                             {option.preview}
                           </div>

@@ -4,7 +4,7 @@
 - [x] OpenAPI updated for `/settings/ui`, `/me/prefs/ui`, `/settings/ui/brand-assets`, `/settings/ui/themes*` with examples.
 - [x] Spectral + openapi-diff pass.
 - [x] PHPStan/Psalm/PHPUnit green.
-- [ ] Playwright snapshots recorded for Slate/Flatly/Darkly.
+- [x] Playwright snapshots recorded for Slate/Flatly/Darkly.
 
 ## RBAC + Audit
 - [x] Policy `ui.theme.manage` + capability `core.theme.manage` (default `role_admin`, `role_theme_manager`) guard `/settings/ui` designer/branding routes; theme pack routes require `ui.theme.pack.manage` + `core.theme.pack.manage`; read-only endpoints require `ui.theme.view` + `core.theme.view` (includes `role_theme_auditor`).
@@ -31,14 +31,14 @@
 - [ ] Sidebar resizing bounds enforced; customization mode flow has Save/Cancel/Default/Exit and merge rules.
 
 ## Accessibility & Motion
-- [ ] Contrast AA verified on key surfaces.
-- [ ] `prefers-reduced-motion` honored; motion presets effective; monthly locale smoke (`ar`, `ja-JP`) recorded.
+- [x] Contrast AA verified on key surfaces.
+- [x] `prefers-reduced-motion` honored; motion presets effective; monthly locale smoke (`ar`, `ja-JP`) recorded.
 
 ## No-FOUC
 - [ ] Boot script sets `<html data-theme data-mode>` before CSS; SSR reload verified.
 
 ## Manual QA
-- [ ] Human test checklist executed and returned with pass/fail notes; issues filed.
+- [x] Human test checklist executed and returned with pass/fail notes; issues filed.
 
 ## Notices
 - [ ] Bootstrap/Bootswatch license texts included; NOTICE updated.

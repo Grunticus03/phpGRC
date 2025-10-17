@@ -455,10 +455,11 @@ export default function Users(): JSX.Element {
   }, [deleteCandidate]);
 
   return (
-    <main className="container py-4">
-      <h1 className="mb-3">User Management</h1>
-      <section aria-live="polite" className="mb-3">
-      </section>
+    <section className="container py-4" aria-labelledby="users-title">
+      <h1 className="mb-3" id="users-title">
+        User Management
+      </h1>
+      <section aria-live="polite" className="mb-3"></section>
 
       <section className="mb-4">
         <form className="row g-2 align-items-end" onSubmit={handleSearchSubmit}>
@@ -831,6 +832,6 @@ export default function Users(): JSX.Element {
           </div>
         </div>
       </section>
-    </main>
+    </section>
   );
 }

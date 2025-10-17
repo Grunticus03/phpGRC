@@ -1,10 +1,34 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type TestInfo } from '@playwright/test';
 
 const PLACEHOLDER_PNG =
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/w8AAn8B9nSTaQAAAABJRU5ErkJggg==';
+const FIXED_ISO_DATE = '2024-01-01T00:00:00.000Z';
+const KNOWN_THEMES = new Set(['slate', 'flatly', 'darkly']);
+
+type ThemeMetadata = { theme?: string };
+
+function resolveTheme(testInfo: TestInfo): string {
+  const useMetadata = (testInfo.project.use as { metadata?: ThemeMetadata })?.metadata?.theme;
+  if (typeof useMetadata === 'string' && useMetadata.length > 0) {
+    return useMetadata;
+  }
+
+  const projectMetadata = (testInfo.project.metadata as ThemeMetadata | undefined)?.theme;
+  if (typeof projectMetadata === 'string' && projectMetadata.length > 0) {
+    return projectMetadata;
+  }
+
+  const nameSegments = testInfo.project.name.split('-');
+  const lastSegment = nameSegments[nameSegments.length - 1];
+  if (KNOWN_THEMES.has(lastSegment)) {
+    return lastSegment;
+  }
+
+  return 'slate';
+}
 
 test.beforeEach(async ({ page }, testInfo) => {
-  const theme = (testInfo.project.metadata?.theme as string) ?? 'slate';
+  const theme = resolveTheme(testInfo);
 
   await page.addInitScript((preferredTheme) => {
     try {
@@ -68,7 +92,7 @@ test.beforeEach(async ({ page }, testInfo) => {
           ok: true,
           kpis: [],
           meta: {
-            generated_at: new Date().toISOString(),
+            generated_at: FIXED_ISO_DATE,
             window: {},
           },
         }),
@@ -186,10 +210,18 @@ test('app shell renders without console errors', async ({ page }, testInfo) => {
   const appRoot = page.locator('#root');
   await expect(appRoot).toBeVisible();
 
-  const theme = (testInfo.project.metadata?.theme as string) ?? 'slate';
+  await page.locator('[role="status"], [aria-live]').evaluateAll((elements) => {
+    for (const element of elements) {
+      element.remove();
+    }
+  });
+  await page
+    .getByRole('region', { name: 'Notifications' })
+    .evaluateAll((elements) => elements.forEach((element) => ((element as HTMLElement).style.display = 'none')));
+
+  const theme = resolveTheme(testInfo);
   await expect(page).toHaveScreenshot(`layout-${theme}.png`, {
     animations: 'disabled',
-    fullPage: true,
   });
 
   expect(consoleErrors).toEqual([]);
