@@ -27,6 +27,8 @@ final class BrandProfileUpdateRequest extends FormRequest
             'brand.secondary_logo_asset_id' => ['sometimes', 'nullable', 'string', 'max:64'],
             'brand.header_logo_asset_id' => ['sometimes', 'nullable', 'string', 'max:64'],
             'brand.footer_logo_asset_id' => ['sometimes', 'nullable', 'string', 'max:64'],
+            'brand.background_login_asset_id' => ['sometimes', 'nullable', 'string', 'max:64'],
+            'brand.background_main_asset_id' => ['sometimes', 'nullable', 'string', 'max:64'],
             'brand.footer_logo_disabled' => ['sometimes', 'boolean'],
         ];
     }

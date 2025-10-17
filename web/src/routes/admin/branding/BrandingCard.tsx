@@ -29,7 +29,7 @@ type BrandingResponse = {
 type BrandAsset = {
   id: string;
   profile_id: string;
-  kind: "primary_logo" | "secondary_logo" | "header_logo" | "footer_logo" | "favicon";
+  kind: "primary_logo" | "secondary_logo" | "header_logo" | "footer_logo" | "favicon" | "background_image";
   name: string;
   display_name?: string;
   mime: string;
@@ -83,6 +83,7 @@ const assetLabel: Record<BrandAsset["kind"], string> = {
   header_logo: "Header logo",
   footer_logo: "Footer logo",
   favicon: "Favicon",
+  background_image: "Background image",
 };
 
 const assetDownloadUrl = (assetId: string): string =>
@@ -147,6 +148,8 @@ const normalizeBrandConfig = (source?: Partial<BrandingConfig>): BrandingConfig 
     secondary_logo_asset_id: rest?.secondary_logo_asset_id ?? null,
     header_logo_asset_id: rest?.header_logo_asset_id ?? null,
     footer_logo_asset_id: rest?.footer_logo_asset_id ?? null,
+    background_login_asset_id: rest?.background_login_asset_id ?? null,
+    background_main_asset_id: rest?.background_main_asset_id ?? null,
     assets: {
       filesystem_path:
         typeof assets?.filesystem_path === "string" && assets.filesystem_path.trim() !== ""
@@ -189,6 +192,7 @@ export default function BrandingCard(): JSX.Element {
   const [deleteProfileBusy, setDeleteProfileBusy] = useState(false);
   const [deleteProfileError, setDeleteProfileError] = useState<string | null>(null);
   const primaryUploadInputRef = useRef<HTMLInputElement | null>(null);
+  const backgroundUploadInputRef = useRef<HTMLInputElement | null>(null);
 
   const etagRef = useRef<string | null>(null);
   const baselineRef = useRef<BrandingConfig | null>(null);
@@ -645,10 +649,6 @@ export default function BrandingCard(): JSX.Element {
   };
 
   const handleUpload = async (kind: BrandAsset["kind"], file: File): Promise<void> => {
-    if (kind !== "primary_logo") {
-      showInfo("Upload new branding assets using the Upload asset control.");
-      return;
-    }
     if (!selectedProfile) {
       showWarning("Select a branding profile before uploading.");
       return;
@@ -667,7 +667,7 @@ export default function BrandingCard(): JSX.Element {
     }
 
     const formData = new FormData();
-    formData.append("kind", "primary_logo");
+    formData.append("kind", kind);
     formData.append("profile_id", selectedProfile.id);
     formData.append("file", file);
 
@@ -692,7 +692,11 @@ export default function BrandingCard(): JSX.Element {
 
       setAssets((prev) => mergeAssetsById(prev, uploadedAssets));
 
-      showSuccess("Upload successful. Select it from the dropdown to apply.");
+      showSuccess(
+        kind === "background_image"
+          ? "Background uploaded. Select it below to apply."
+          : "Upload successful. Select it from the dropdown to apply."
+      );
 
       void fetchAssets(selectedProfile.id).then((list) => {
         setAssets((prev) => mergeAssetsById(prev, list));
@@ -923,28 +927,57 @@ export default function BrandingCard(): JSX.Element {
               </div>
 
               <div className="d-flex flex-column align-items-start gap-2 mb-3">
-                <button
-                  type="button"
-                  className="btn btn-outline-primary btn-sm"
-                  onClick={() => {
-                    if (!disabled) {
-                      primaryUploadInputRef.current?.click();
-                    }
-                  }}
-                  disabled={disabled}
-                >
-                  Upload asset
-                </button>
+                <div className="d-flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    className="btn btn-outline-primary btn-sm"
+                    onClick={() => {
+                      if (!disabled) {
+                        primaryUploadInputRef.current?.click();
+                      }
+                    }}
+                    disabled={disabled}
+                  >
+                    Upload logo asset
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-outline-secondary btn-sm"
+                    onClick={() => {
+                      if (!disabled) {
+                        backgroundUploadInputRef.current?.click();
+                      }
+                    }}
+                    disabled={disabled}
+                  >
+                    Upload background
+                  </button>
+                </div>
                 <input
                   ref={primaryUploadInputRef}
                   type="file"
                   accept={ALLOWED_TYPES.join(",")}
                   className="d-none"
-                  aria-label="Upload asset"
+                  aria-label="Upload logo asset"
                   onChange={(event) => {
                     const file = event.target.files?.[0];
                     if (file) {
                       void handleUpload("primary_logo", file);
+                    }
+                    event.target.value = "";
+                  }}
+                  disabled={disabled}
+                />
+                <input
+                  ref={backgroundUploadInputRef}
+                  type="file"
+                  accept={ALLOWED_TYPES.join(",")}
+                  className="d-none"
+                  aria-label="Upload background asset"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    if (file) {
+                      void handleUpload("background_image", file);
                     }
                     event.target.value = "";
                   }}
@@ -1025,10 +1058,34 @@ export default function BrandingCard(): JSX.Element {
                 onClear={() => updateField("favicon_asset_id", null)}
                 disabled={disabled}
               />
+
+              <BrandAssetSection
+                label="Login background"
+                description="Displayed on the login screen. Falls back to the default theme background when unset."
+                kind="background_image"
+                asset={findAssetById(brandConfig.background_login_asset_id)}
+                assets={assets}
+                hasCustomValue={brandConfig.background_login_asset_id !== null}
+                onSelect={(assetId) => updateField("background_login_asset_id", assetId)}
+                onClear={() => updateField("background_login_asset_id", null)}
+                disabled={disabled}
+              />
+
+              <BrandAssetSection
+                label="Application background"
+                description="Optional background for the main application pane. Falls back to the theme background when unset."
+                kind="background_image"
+                asset={findAssetById(brandConfig.background_main_asset_id)}
+                assets={assets}
+                hasCustomValue={brandConfig.background_main_asset_id !== null}
+                onSelect={(assetId) => updateField("background_main_asset_id", assetId)}
+                onClear={() => updateField("background_main_asset_id", null)}
+                disabled={disabled}
+              />
             </fieldset>
 
             <BrandAssetTable
-              assets={assets.filter((asset) => asset.kind === "primary_logo")}
+              assets={assets.filter((asset) => asset.kind === "primary_logo" || asset.kind === "background_image")}
               onDelete={requestDeleteAsset}
               disabled={disabled}
             />
@@ -1194,7 +1251,7 @@ function BrandAssetSection({
           </div>
         </div>
         <div className="d-flex flex-column gap-2">
-          {kind !== "primary_logo" && (
+          {kind !== "primary_logo" && kind !== "background_image" && (
             <div className="text-muted small" data-testid={`auto-managed-${kind}`}>
               Managed via asset upload.
             </div>
@@ -1209,7 +1266,7 @@ function BrandAssetSection({
             <option value="">Select existing…</option>
             {filteredAssets.map((item) => (
               <option key={item.id} value={item.id}>
-                {`${assetLabel[item.kind]} • ${item.display_name ?? item.name}`}
+                {item.display_name ?? item.name}
               </option>
             ))}
           </select>
@@ -1283,6 +1340,8 @@ function PlacementIllustration({ kind }: { kind: BrandAsset["kind"] }): JSX.Elem
         return { bottom: 6, left: 54, width: 36, height: 12 };
       case "favicon":
         return { top: 6, right: 8, width: 12, height: 12 };
+      case "background_image":
+        return { top: 18, left: 4, right: 4, bottom: 22 };
       default:
         return { top: 6, left: 8, width: 44, height: 12 };
     }

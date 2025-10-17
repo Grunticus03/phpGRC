@@ -567,6 +567,8 @@ final class UiSettingsApiTest extends TestCase
         self::assertSame('asset-primary-123', $brand['primary_logo_asset_id'] ?? null);
         self::assertSame('asset-primary-123', $brand['favicon_asset_id'] ?? null);
         self::assertSame('asset-primary-123', $brand['footer_logo_asset_id'] ?? null);
+        self::assertNull($brand['background_login_asset_id'] ?? null);
+        self::assertNull($brand['background_main_asset_id'] ?? null);
     }
 
     public function test_footer_logo_stays_null_when_disabled(): void
@@ -606,5 +608,44 @@ final class UiSettingsApiTest extends TestCase
         self::assertSame('asset-primary-456', $brand['favicon_asset_id'] ?? null);
         self::assertNull($brand['footer_logo_asset_id'] ?? null);
         self::assertTrue((bool) ($brand['footer_logo_disabled'] ?? false));
+        self::assertNull($brand['background_login_asset_id'] ?? null);
+        self::assertNull($brand['background_main_asset_id'] ?? null);
+    }
+
+    public function test_brand_background_fields_are_persisted(): void
+    {
+        Config::set('core.rbac.enabled', true);
+        Config::set('core.rbac.mode', 'persist');
+        Config::set('core.rbac.require_auth', true);
+
+        $admin = User::factory()->create();
+        $this->attachNamedRole($admin, 'Admin');
+        Sanctum::actingAs($admin);
+
+        $initial = $this->getJson('/settings/ui');
+        $initial->assertOk();
+        $etag = $initial->headers->get('ETag');
+        self::assertNotNull($etag);
+
+        $payload = [
+            'ui' => [
+                'brand' => [
+                    'background_login_asset_id' => 'asset-background-login',
+                    'background_main_asset_id' => 'asset-background-main',
+                ],
+            ],
+        ];
+
+        $this->withHeaders(['If-Match' => $etag])
+            ->putJson('/settings/ui', $payload)
+            ->assertOk();
+
+        $snapshot = $this->getJson('/settings/ui');
+        $snapshot->assertOk();
+
+        $brand = $snapshot->json('config.ui.brand');
+        self::assertIsArray($brand);
+        self::assertSame('asset-background-login', $brand['background_login_asset_id'] ?? null);
+        self::assertSame('asset-background-main', $brand['background_main_asset_id'] ?? null);
     }
 }

@@ -937,13 +937,22 @@ export default function ThemeDesigner(): JSX.Element {
   const [saveModalOpen, setSaveModalOpen] = useState(false);
   const [loadModalOpen, setLoadModalOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [importModalOpen, setImportModalOpen] = useState(false);
+  const [exportModalOpen, setExportModalOpen] = useState(false);
   const [saveBusy, setSaveBusy] = useState(false);
   const [deleteBusy, setDeleteBusy] = useState(false);
+  const [importBusy, setImportBusy] = useState(false);
+  const [exportBusy, setExportBusy] = useState(false);
   const [loadSelection, setLoadSelection] = useState<string>("");
   const [deleteSelection, setDeleteSelection] = useState<string>("");
   const [saveModalError, setSaveModalError] = useState<string | null>(null);
   const [loadModalError, setLoadModalError] = useState<string | null>(null);
   const [deleteModalError, setDeleteModalError] = useState<string | null>(null);
+  const [importModalError, setImportModalError] = useState<string | null>(null);
+  const [exportModalError, setExportModalError] = useState<string | null>(null);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importSlug, setImportSlug] = useState<string>("");
+  const [exportSelection, setExportSelection] = useState<string>("");
   const [pendingOverwriteSlug, setPendingOverwriteSlug] = useState<string | null>(null);
   const [loadedThemeSlug, setLoadedThemeSlug] = useState<string | null>(null);
   const [themeSelection, setThemeSelection] = useState<ThemeSelectionState>(() => getCurrentTheme());
@@ -957,6 +966,9 @@ export default function ThemeDesigner(): JSX.Element {
   const loadSelectId = useId();
   const saveInputId = useId();
   const deleteSelectId = useId();
+  const importFileInputId = useId();
+  const importSlugInputId = useId();
+  const exportSelectId = useId();
 
   const cancelThemeMenuClose = useCallback(() => {
     if (themeMenuCloseTimeoutRef.current !== null) {
@@ -1106,6 +1118,8 @@ export default function ThemeDesigner(): JSX.Element {
     [deletableCustomEntries]
   );
 
+  const hasAnyCustomThemes = useMemo(() => customEntries.length > 0, [customEntries]);
+
   const canManageTheme = themeAccess?.canManage ?? false;
   const canManageThemePacks = themeAccess?.canManagePacks ?? false;
 
@@ -1129,6 +1143,17 @@ export default function ThemeDesigner(): JSX.Element {
       setDeleteSelection(deletableCustomEntries[0]?.slug ?? "");
     }
   }, [deletableCustomEntries, deleteSelection]);
+
+  useEffect(() => {
+    if (customEntries.length === 0) {
+      setExportSelection("");
+      return;
+    }
+
+    if (!customEntries.some((entry) => entry.slug === exportSelection)) {
+      setExportSelection(customEntries[0]?.slug ?? "");
+    }
+  }, [customEntries, exportSelection]);
 
   const findEntryBySlug = useCallback(
     (slug: string | null | undefined): ThemeManifestEntry | null => {
@@ -1159,6 +1184,7 @@ export default function ThemeDesigner(): JSX.Element {
       packs: [...packs, pack],
     };
     updateThemeManifest(nextManifest);
+    setManifest(nextManifest);
   }, []);
 
   const removePackFromManifest = useCallback((slug: string) => {
@@ -1168,6 +1194,7 @@ export default function ThemeDesigner(): JSX.Element {
       packs: manifestSnapshot.packs.filter((entry) => entry.slug !== slug),
     };
     updateThemeManifest(nextManifest);
+    setManifest(nextManifest);
   }, []);
 
   const previewThemeSelection = useCallback(
@@ -1275,6 +1302,51 @@ export default function ThemeDesigner(): JSX.Element {
     setDeleteModalOpen(true);
   }, [canManageTheme, deletableCustomEntries, deleteSelection]);
 
+  const handleOpenImportModal = useCallback(() => {
+    if (designerConfig.storage !== "filesystem") {
+      setThemeMenuOpen(false);
+      setFeedback({ type: "error", message: "Import requires filesystem storage." });
+      return;
+    }
+    if (!canManageThemePacks) {
+      setThemeMenuOpen(false);
+      setFeedback({ type: "error", message: "You do not have permission to import themes." });
+      return;
+    }
+
+    setThemeMenuOpen(false);
+    setFeedback(null);
+    setImportModalError(null);
+    setImportFile(null);
+    setImportSlug("");
+    setImportModalOpen(true);
+  }, [canManageThemePacks, designerConfig.storage]);
+
+  const handleOpenExportModal = useCallback(() => {
+    if (designerConfig.storage !== "filesystem") {
+      setThemeMenuOpen(false);
+      setFeedback({ type: "error", message: "Export requires filesystem storage." });
+      return;
+    }
+    if (!canManageThemePacks) {
+      setThemeMenuOpen(false);
+      setFeedback({ type: "error", message: "You do not have permission to export themes." });
+      return;
+    }
+    if (!hasAnyCustomThemes) {
+      setThemeMenuOpen(false);
+      setFeedback({ type: "error", message: "No custom themes are available to export." });
+      return;
+    }
+
+    setThemeMenuOpen(false);
+    setFeedback(null);
+    setExportModalError(null);
+    const initial = exportSelection || customEntries[0]?.slug || "";
+    setExportSelection(initial);
+    setExportModalOpen(true);
+  }, [canManageThemePacks, customEntries, designerConfig.storage, exportSelection, hasAnyCustomThemes]);
+
   const handleCloseLoadModal = useCallback(() => {
     setLoadModalOpen(false);
     setLoadModalError(null);
@@ -1285,6 +1357,24 @@ export default function ThemeDesigner(): JSX.Element {
     setSaveModalError(null);
     setPendingOverwriteSlug(null);
   }, []);
+
+  const handleCloseImportModal = useCallback(() => {
+    if (importBusy) {
+      return;
+    }
+    setImportModalOpen(false);
+    setImportModalError(null);
+    setImportFile(null);
+    setImportSlug("");
+  }, [importBusy]);
+
+  const handleCloseExportModal = useCallback(() => {
+    if (exportBusy) {
+      return;
+    }
+    setExportModalOpen(false);
+    setExportModalError(null);
+  }, [exportBusy]);
 
   const handleCloseDeleteModal = useCallback(() => {
     setDeleteModalOpen(false);
@@ -1416,9 +1506,9 @@ export default function ThemeDesigner(): JSX.Element {
       setSaveModalError(message);
       return;
     } finally {
-      setSaveBusy(false);
-    }
-  }, [
+    setSaveBusy(false);
+  }
+}, [
     applyPackToManifest,
     canManageThemePacks,
     computeCustomVariables,
@@ -1427,6 +1517,142 @@ export default function ThemeDesigner(): JSX.Element {
     findEntryBySlug,
     pendingOverwriteSlug,
   ]);
+
+  const handleConfirmImport = useCallback(async () => {
+    if (designerConfig.storage !== "filesystem") {
+      setImportModalError("Import requires filesystem storage.");
+      return;
+    }
+
+    if (!canManageThemePacks) {
+      setImportModalError("You do not have permission to import themes.");
+      return;
+    }
+
+    if (!importFile) {
+      setImportModalError("Select a theme file to import.");
+      return;
+    }
+
+    setImportBusy(true);
+    setImportModalError(null);
+    setFeedback(null);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", importFile);
+      const trimmedSlug = importSlug.trim();
+      if (trimmedSlug !== "") {
+        formData.append("slug", trimmedSlug);
+      }
+
+      const res = await fetch("/api/settings/ui/designer/themes/import", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: baseHeaders(),
+        body: formData,
+      });
+
+      let body: unknown = null;
+      try {
+        body = await res.json();
+      } catch {
+        body = null;
+      }
+
+      if (!res.ok) {
+        const message =
+          typeof (body as { message?: string } | null)?.message === "string"
+            ? (body as { message: string }).message
+            : `Import failed (HTTP ${res.status}).`;
+        throw new Error(message);
+      }
+
+      const pack = (body as { pack?: CustomThemePack } | null)?.pack;
+      if (pack) {
+        applyPackToManifest(pack);
+        setCustomThemeName(pack.name);
+        setLoadedThemeSlug(pack.slug);
+      }
+
+      setImportModalOpen(false);
+      setImportFile(null);
+      setImportSlug("");
+      setFeedback({ type: "success", message: pack ? `Imported “${pack.name}”.` : "Theme imported." });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Import failed.";
+      setImportModalError(message);
+      return;
+    } finally {
+      setImportBusy(false);
+    }
+  }, [applyPackToManifest, canManageThemePacks, designerConfig.storage, importFile, importSlug]);
+
+  const handleConfirmExport = useCallback(async () => {
+    if (designerConfig.storage !== "filesystem") {
+      setExportModalError("Export requires filesystem storage.");
+      return;
+    }
+
+    if (!canManageThemePacks) {
+      setExportModalError("You do not have permission to export themes.");
+      return;
+    }
+
+    if (!exportSelection) {
+      setExportModalError("Select a custom theme to export.");
+      return;
+    }
+
+    setExportBusy(true);
+    setExportModalError(null);
+    setFeedback(null);
+
+    try {
+      const res = await fetch(`/api/settings/ui/designer/themes/${encodeURIComponent(exportSelection)}/export`, {
+        method: "GET",
+        credentials: "same-origin",
+        headers: baseHeaders(),
+      });
+
+      if (!res.ok) {
+        let message = `Export failed (HTTP ${res.status}).`;
+        try {
+          const errorBody = (await res.clone().json()) as { message?: string } | null;
+          if (typeof errorBody?.message === "string") {
+            message = errorBody.message;
+          }
+        } catch {
+          // ignore parse errors
+        }
+        throw new Error(message);
+      }
+
+      const blob = await res.blob();
+      const disposition = res.headers.get("Content-Disposition") ?? "";
+      const match = disposition.match(/filename="?([^";]+)"?/i);
+      const filename = match && match[1] ? match[1] : `${exportSelection}.theme.json`;
+
+      const url = window.URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = filename;
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+      window.URL.revokeObjectURL(url);
+
+      const entry = findEntryBySlug(exportSelection);
+      setFeedback({ type: "success", message: entry ? `Exported “${entry.name}”.` : "Theme exported." });
+      setExportModalOpen(false);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Export failed.";
+      setExportModalError(message);
+      return;
+    } finally {
+      setExportBusy(false);
+    }
+  }, [canManageThemePacks, designerConfig.storage, exportSelection, findEntryBySlug]);
 
   const handleConfirmDelete = useCallback(async () => {
     setDeleteModalError(null);
@@ -1723,6 +1949,26 @@ export default function ThemeDesigner(): JSX.Element {
                           Delete…
                         </button>
                       </li>
+                      <li>
+                        <button
+                          type="button"
+                          className="theme-designer-dropdown-link"
+                          onClick={handleOpenImportModal}
+                          disabled={!canManageThemePacks || designerConfig.storage !== "filesystem"}
+                        >
+                          Import…
+                        </button>
+                      </li>
+                      <li>
+                        <button
+                          type="button"
+                          className="theme-designer-dropdown-link"
+                          onClick={handleOpenExportModal}
+                          disabled={!canManageThemePacks || designerConfig.storage !== "filesystem" || !hasAnyCustomThemes}
+                        >
+                          Export…
+                        </button>
+                      </li>
                     </ul>
                   </div>
                 </div>
@@ -2016,6 +2262,84 @@ export default function ThemeDesigner(): JSX.Element {
           <p className="mb-0 text-muted small">No custom themes are available to delete.</p>
         )}
         {deleteModalError && <div className="text-danger small mt-2">{deleteModalError}</div>}
+      </ConfirmModal>
+
+      <ConfirmModal
+        open={importModalOpen}
+        title="Import Theme"
+        confirmLabel="Import"
+        busy={importBusy}
+        onConfirm={handleConfirmImport}
+        onCancel={handleCloseImportModal}
+        disableBackdropClose={importBusy}
+        confirmDisabled={!canManageThemePacks || designerConfig.storage !== "filesystem"}
+      >
+        <div className="mb-3">
+          <label htmlFor={importFileInputId} className="form-label">
+            Theme file
+          </label>
+          <input
+            id={importFileInputId}
+            type="file"
+            className="form-control"
+            accept=".json,application/json"
+            onChange={(event) => {
+              const nextFile = event.target.files?.[0] ?? null;
+              setImportFile(nextFile);
+            }}
+            disabled={importBusy}
+          />
+        </div>
+        <div className="mb-3">
+          <label htmlFor={importSlugInputId} className="form-label">
+            Slug override (optional)
+          </label>
+          <input
+            id={importSlugInputId}
+            type="text"
+            className="form-control"
+            value={importSlug}
+            onChange={(event) => setImportSlug(event.target.value)}
+            disabled={importBusy}
+            placeholder="Leave blank to use the packaged slug"
+          />
+          <div className="form-text">Slugs may include lowercase letters, numbers, and hyphens.</div>
+        </div>
+        {importModalError && <div className="text-danger small">{importModalError}</div>}
+      </ConfirmModal>
+
+      <ConfirmModal
+        open={exportModalOpen}
+        title="Export Theme"
+        confirmLabel="Export"
+        busy={exportBusy}
+        onConfirm={handleConfirmExport}
+        onCancel={handleCloseExportModal}
+        disableBackdropClose={exportBusy}
+        confirmDisabled={!canManageThemePacks || designerConfig.storage !== "filesystem" || !hasAnyCustomThemes}
+      >
+        <div className="mb-3">
+          <label htmlFor={exportSelectId} className="form-label">
+            Choose a custom theme
+          </label>
+          <select
+            id={exportSelectId}
+            className="form-select"
+            value={exportSelection}
+            onChange={(event) => setExportSelection(event.target.value)}
+            disabled={exportBusy}
+          >
+            {customEntries.map((entry) => (
+              <option key={entry.slug} value={entry.slug}>
+                {entry.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <p className="text-muted small">
+          Exported themes can be imported into other phpGRC installations without additional steps.
+        </p>
+        {exportModalError && <div className="text-danger small">{exportModalError}</div>}
       </ConfirmModal>
 
       <section className="theme-designer-preview container py-4" style={variableStyles}>

@@ -9,6 +9,7 @@ use App\Models\UiSetting;
 use App\Models\User;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -65,6 +66,9 @@ final class DesignerThemesApiTest extends TestCase
 
         $expectedPath = $this->storagePath.'/my-custom-theme.json';
         self::assertFileExists($expectedPath);
+        $stored = json_decode((string) file_get_contents($expectedPath), true);
+        self::assertIsArray($stored);
+        self::assertSame(1, $stored['version'] ?? null);
 
         $manifest = $this->getJson('/settings/ui/themes');
         $manifest->assertOk();
@@ -72,6 +76,83 @@ final class DesignerThemesApiTest extends TestCase
         self::assertIsArray($packs);
         $slugs = array_map(static fn ($item) => $item['slug'] ?? null, $packs);
         self::assertContains('my-custom-theme', $slugs);
+    }
+
+    public function test_export_theme_downloads_payload(): void
+    {
+        $this->actingAsThemeManager();
+
+        $this->postJson('/settings/ui/designer/themes', [
+            'name' => 'Export Theme',
+            'variables' => [
+                '--td-export-background' => '#202020',
+            ],
+        ])->assertCreated();
+
+        $response = $this->get('/settings/ui/designer/themes/export-theme/export');
+        $response->assertOk();
+        $response->assertHeader('Content-Type', 'application/json');
+        $disposition = $response->headers->get('Content-Disposition');
+        self::assertIsString($disposition);
+        self::assertStringContainsString('export-theme.theme.json', $disposition);
+
+        $payload = json_decode((string) $response->getContent(), true);
+
+        self::assertIsArray($payload);
+        self::assertSame('export-theme', $payload['slug'] ?? null);
+        self::assertSame('Export Theme', $payload['name'] ?? null);
+        self::assertSame(1, $payload['version'] ?? null);
+        self::assertIsArray($payload['variables'] ?? null);
+        self::assertSame('#202020', $payload['variables']['--td-export-background'] ?? null);
+        self::assertIsArray($payload['supports'] ?? null);
+        self::assertSame(['light', 'dark'], $payload['supports']['mode'] ?? null);
+        self::assertIsString($payload['exported_at'] ?? null);
+    }
+
+    public function test_import_theme_creates_theme_from_export(): void
+    {
+        $this->actingAsThemeManager();
+
+        $this->postJson('/settings/ui/designer/themes', [
+            'name' => 'Import Source Theme',
+            'variables' => [
+                '--td-import-color' => '#eeeeee',
+            ],
+        ])->assertCreated();
+
+        $export = $this->get('/settings/ui/designer/themes/import-source-theme/export');
+        $export->assertOk();
+
+        $file = UploadedFile::fake()->createWithContent('import-source.theme.json', (string) $export->getContent());
+
+        $response = $this->post('/settings/ui/designer/themes/import', [
+            'slug' => 'imported-theme',
+            'file' => $file,
+        ]);
+
+        $response->assertCreated();
+        $response->assertJson([
+            'ok' => true,
+            'pack' => [
+                'slug' => 'imported-theme',
+                'name' => 'Import Source Theme',
+            ],
+        ]);
+
+        $pack = $response->json('pack');
+        self::assertIsArray($pack);
+        self::assertSame('#eeeeee', $pack['variables']['--td-import-color'] ?? null);
+        self::assertSame(['light', 'dark'], $pack['supports']['mode'] ?? null);
+
+        $expectedPath = $this->storagePath.'/imported-theme.json';
+        self::assertFileExists($expectedPath);
+
+        $manifest = $this->getJson('/settings/ui/themes');
+        $manifest->assertOk();
+        $packs = $manifest->json('packs');
+        self::assertIsArray($packs);
+        $slugs = array_map(static fn ($item) => $item['slug'] ?? null, $packs);
+        self::assertContains('imported-theme', $slugs);
     }
 
     public function test_store_theme_blocks_conflicts_with_builtin_slug(): void

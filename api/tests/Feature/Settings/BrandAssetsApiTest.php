@@ -150,6 +150,10 @@ final class BrandAssetsApiTest extends TestCase
             ],
         ], $user->id);
 
+        $faviconResponse = $this->get('/favicon.ico');
+        $faviconResponse->assertOk();
+        $faviconResponse->assertHeader('Content-Type', 'image/x-icon');
+
         $delete = $this->deleteJson('/settings/ui/brand-assets/'.$assetId);
         $delete->assertOk();
 
@@ -164,6 +168,8 @@ final class BrandAssetsApiTest extends TestCase
         self::assertNull($config['brand']['header_logo_asset_id']);
         self::assertNull($config['brand']['footer_logo_asset_id']);
         self::assertNull($config['brand']['favicon_asset_id']);
+        self::assertNull($config['brand']['background_login_asset_id']);
+        self::assertNull($config['brand']['background_main_asset_id']);
     }
 
     public function test_uploads_from_all_profiles_are_listed_globally(): void
@@ -249,6 +255,76 @@ final class BrandAssetsApiTest extends TestCase
         ]);
 
         self::assertSame(0, BrandAsset::query()->count());
+    }
+
+    public function test_upload_background_image_creates_asset_and_updates_config(): void
+    {
+        $user = $this->actingAsThemeManager();
+
+        $profile = $this->createEditableProfile(true);
+
+        $file = UploadedFile::fake()->image('background.jpg', 2560, 1440);
+
+        $upload = $this->postJson('/settings/ui/brand-assets', [
+            'kind' => 'background_image',
+            'profile_id' => $profile->getAttribute('id'),
+            'file' => $file,
+        ]);
+
+        $upload->assertCreated();
+        $payload = $upload->json();
+        self::assertIsArray($payload);
+        $assetData = $payload['asset'] ?? null;
+        self::assertIsArray($assetData);
+        self::assertSame('background_image', $assetData['kind'] ?? null);
+        self::assertSame('image/webp', $assetData['mime'] ?? null);
+        self::assertMatchesRegularExpression('/background-image\\.webp$/', $assetData['name'] ?? '');
+
+        /** @var array<string,mixed>|null $variants */
+        $variants = $payload['variants'] ?? null;
+        self::assertIsArray($variants);
+        self::assertArrayHasKey('background_image', $variants);
+
+        self::assertSame(1, BrandAsset::query()->count());
+
+        /** @var BrandAsset $asset */
+        $asset = BrandAsset::query()->firstOrFail();
+        self::assertSame('background_image', $asset->getAttribute('kind'));
+        self::assertSame('image/webp', $asset->getAttribute('mime'));
+
+        /** @var BrandAssetStorageService $storage */
+        $storage = app(BrandAssetStorageService::class);
+        $path = $storage->assetPath($asset);
+        self::assertIsString($path);
+        self::assertFileExists($path);
+        self::assertStringEndsWith('.webp', $path);
+
+        /** @var UiSettingsService $settings */
+        $settings = app(UiSettingsService::class);
+        /** @var string $assetId */
+        $assetId = $asset->getAttribute('id');
+
+        $settings->apply([
+            'brand' => [
+                'profile_id' => $profile->getAttribute('id'),
+                'background_login_asset_id' => $assetId,
+                'background_main_asset_id' => $assetId,
+            ],
+        ], $user->id);
+
+        $config = $settings->currentConfig();
+        self::assertSame($assetId, $config['brand']['background_login_asset_id']);
+        self::assertSame($assetId, $config['brand']['background_main_asset_id']);
+
+        $delete = $this->deleteJson('/settings/ui/brand-assets/'.$assetId);
+        $delete->assertOk();
+
+        self::assertSame(0, BrandAsset::query()->count());
+        self::assertFileDoesNotExist($path);
+
+        $configAfter = $settings->currentConfig();
+        self::assertNull($configAfter['brand']['background_login_asset_id']);
+        self::assertNull($configAfter['brand']['background_main_asset_id']);
     }
 
     public function test_upload_fails_when_bytes_cannot_be_read(): void

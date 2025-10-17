@@ -37,6 +37,8 @@ final class UiSettingsController extends Controller
          *         secondary_logo_asset_id: string|null,
          *         header_logo_asset_id: string|null,
          *         footer_logo_asset_id: string|null,
+         *         background_login_asset_id: string|null,
+         *         background_main_asset_id: string|null,
          *         footer_logo_disabled: bool,
          *         assets: array{filesystem_path: string}
          *     }
@@ -81,6 +83,8 @@ final class UiSettingsController extends Controller
          *         secondary_logo_asset_id: string|null,
          *         header_logo_asset_id: string|null,
          *         footer_logo_asset_id: string|null,
+         *         background_login_asset_id: string|null,
+         *         background_main_asset_id: string|null,
          *         footer_logo_disabled: bool,
          *         assets: array{filesystem_path: string}
          *     }
@@ -154,6 +158,8 @@ final class UiSettingsController extends Controller
          *         secondary_logo_asset_id: string|null,
          *         header_logo_asset_id: string|null,
          *         footer_logo_asset_id: string|null,
+         *         background_login_asset_id: string|null,
+         *         background_main_asset_id: string|null,
          *         footer_logo_disabled: bool,
          *         assets: array{filesystem_path: string}
          *     }

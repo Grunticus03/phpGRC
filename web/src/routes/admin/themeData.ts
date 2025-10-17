@@ -146,6 +146,8 @@ export const DEFAULT_THEME_SETTINGS = {
     secondary_logo_asset_id: null,
     header_logo_asset_id: null,
     footer_logo_asset_id: null,
+    background_login_asset_id: null,
+    background_main_asset_id: null,
     footer_logo_disabled: false,
     assets: {
       filesystem_path: "/opt/phpgrc/shared/brands" as string,

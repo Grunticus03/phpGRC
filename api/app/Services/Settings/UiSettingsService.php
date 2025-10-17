@@ -57,6 +57,8 @@ final class UiSettingsService
      *         secondary_logo_asset_id: string|null,
      *         header_logo_asset_id: string|null,
      *         footer_logo_asset_id: string|null,
+     *         background_login_asset_id: string|null,
+     *         background_main_asset_id: string|null,
      *         footer_logo_disabled: bool,
      *         assets: array{filesystem_path: string}
      *     }
@@ -181,6 +183,8 @@ final class UiSettingsService
                 'secondary_logo_asset_id' => $sanitized['secondary_logo_asset_id'],
                 'header_logo_asset_id' => $sanitized['header_logo_asset_id'],
                 'footer_logo_asset_id' => $sanitized['footer_logo_asset_id'],
+                'background_login_asset_id' => $sanitized['background_login_asset_id'],
+                'background_main_asset_id' => $sanitized['background_main_asset_id'],
                 'footer_logo_disabled' => $sanitized['footer_logo_disabled'],
             ]);
 
@@ -219,6 +223,8 @@ final class UiSettingsService
                 'secondary_logo_asset_id' => $sanitized['secondary_logo_asset_id'],
                 'header_logo_asset_id' => $sanitized['header_logo_asset_id'],
                 'footer_logo_asset_id' => $sanitized['footer_logo_asset_id'],
+                'background_login_asset_id' => $sanitized['background_login_asset_id'],
+                'background_main_asset_id' => $sanitized['background_main_asset_id'],
                 'footer_logo_disabled' => $sanitized['footer_logo_disabled'],
             ]);
 
@@ -335,6 +341,8 @@ final class UiSettingsService
             'secondary_logo_asset_id' => $this->sanitizeAssetId($defaults['secondary_logo_asset_id'] ?? null),
             'header_logo_asset_id' => $this->sanitizeAssetId($defaults['header_logo_asset_id'] ?? null),
             'footer_logo_asset_id' => $this->sanitizeAssetId($defaults['footer_logo_asset_id'] ?? null),
+            'background_login_asset_id' => $this->sanitizeAssetId($defaults['background_login_asset_id'] ?? null),
+            'background_main_asset_id' => $this->sanitizeAssetId($defaults['background_main_asset_id'] ?? null),
             'footer_logo_disabled' => $this->toBool($defaults['footer_logo_disabled'] ?? false),
         ]);
 
@@ -351,6 +359,8 @@ final class UiSettingsService
      *     secondary_logo_asset_id:string|null,
      *     header_logo_asset_id:string|null,
      *     footer_logo_asset_id:string|null,
+     *     background_login_asset_id:string|null,
+     *     background_main_asset_id:string|null,
      *     footer_logo_disabled:bool
      * }
      */
@@ -363,6 +373,8 @@ final class UiSettingsService
             'secondary_logo_asset_id' => $this->sanitizeAssetId($profile->getAttribute('secondary_logo_asset_id')),
             'header_logo_asset_id' => $this->sanitizeAssetId($profile->getAttribute('header_logo_asset_id')),
             'footer_logo_asset_id' => $this->sanitizeAssetId($profile->getAttribute('footer_logo_asset_id')),
+            'background_login_asset_id' => $this->sanitizeAssetId($profile->getAttribute('background_login_asset_id')),
+            'background_main_asset_id' => $this->sanitizeAssetId($profile->getAttribute('background_main_asset_id')),
             'footer_logo_disabled' => $this->toBool($profile->getAttribute('footer_logo_disabled')),
         ];
     }
@@ -376,6 +388,8 @@ final class UiSettingsService
      *     secondary_logo_asset_id:string|null,
      *     header_logo_asset_id:string|null,
      *     footer_logo_asset_id:string|null,
+     *     background_login_asset_id:string|null,
+     *     background_main_asset_id:string|null,
      *     footer_logo_disabled:bool
      * }
      */
@@ -391,6 +405,8 @@ final class UiSettingsService
          *     secondary_logo_asset_id:string|null,
          *     header_logo_asset_id:string|null,
          *     footer_logo_asset_id:string|null,
+         *     background_login_asset_id:string|null,
+         *     background_main_asset_id:string|null,
          *     footer_logo_disabled:bool,
          *     assets: array{filesystem_path:string}
          * } $brand
@@ -404,6 +420,8 @@ final class UiSettingsService
             'secondary_logo_asset_id' => $brand['secondary_logo_asset_id'],
             'header_logo_asset_id' => $brand['header_logo_asset_id'],
             'footer_logo_asset_id' => $brand['footer_logo_asset_id'],
+            'background_login_asset_id' => $brand['background_login_asset_id'],
+            'background_main_asset_id' => $brand['background_main_asset_id'],
             'footer_logo_disabled' => $brand['footer_logo_disabled'],
         ];
     }
@@ -430,6 +448,8 @@ final class UiSettingsService
      *     secondary_logo_asset_id:string|null,
      *     header_logo_asset_id:string|null,
      *     footer_logo_asset_id:string|null,
+     *     background_login_asset_id:string|null,
+     *     background_main_asset_id:string|null,
      *     footer_logo_disabled:bool
      * } $before
      * @param array{
@@ -439,6 +459,8 @@ final class UiSettingsService
      *     secondary_logo_asset_id:string|null,
      *     header_logo_asset_id:string|null,
      *     footer_logo_asset_id:string|null,
+     *     background_login_asset_id:string|null,
+     *     background_main_asset_id:string|null,
      *     footer_logo_disabled:bool
      * } $after
      * @return list<array{key:string, old:mixed, new:mixed, action:string}>
@@ -453,6 +475,8 @@ final class UiSettingsService
             'secondary_logo_asset_id',
             'header_logo_asset_id',
             'footer_logo_asset_id',
+            'background_login_asset_id',
+            'background_main_asset_id',
             'footer_logo_disabled',
         ];
 
@@ -501,6 +525,8 @@ final class UiSettingsService
      *             secondary_logo_asset_id: string|null,
      *             header_logo_asset_id: string|null,
      *             footer_logo_asset_id: string|null,
+     *             background_login_asset_id: string|null,
+     *             background_main_asset_id: string|null,
      *             footer_logo_disabled: bool,
      *             assets: array{filesystem_path: string}
      *         }
@@ -698,6 +724,8 @@ final class UiSettingsService
      *         secondary_logo_asset_id: string|null,
      *         header_logo_asset_id: string|null,
      *         footer_logo_asset_id: string|null,
+     *         background_login_asset_id: string|null,
+     *         background_main_asset_id: string|null,
      *         footer_logo_disabled: bool,
      *         assets: array{filesystem_path: string}
      *     }
@@ -723,7 +751,9 @@ final class UiSettingsService
                     ->orWhere('primary_logo_asset_id', $assetId)
                     ->orWhere('secondary_logo_asset_id', $assetId)
                     ->orWhere('header_logo_asset_id', $assetId)
-                    ->orWhere('footer_logo_asset_id', $assetId);
+                    ->orWhere('footer_logo_asset_id', $assetId)
+                    ->orWhere('background_login_asset_id', $assetId)
+                    ->orWhere('background_main_asset_id', $assetId);
             })
             ->get()
             ->each(function (BrandProfile $profile) use ($assetId): void {
@@ -735,6 +765,8 @@ final class UiSettingsService
                     'secondary_logo_asset_id',
                     'header_logo_asset_id',
                     'footer_logo_asset_id',
+                    'background_login_asset_id',
+                    'background_main_asset_id',
                 ] as $column) {
                     if ($profile->getAttribute($column) === $assetId) {
                         $profile->setAttribute($column, null);
@@ -760,6 +792,8 @@ final class UiSettingsService
      *         secondary_logo_asset_id: string|null,
      *         header_logo_asset_id: string|null,
      *         footer_logo_asset_id: string|null,
+     *         background_login_asset_id: string|null,
+     *         background_main_asset_id: string|null,
      *         footer_logo_disabled: bool,
      *         assets: array{filesystem_path: string}
      *     }
@@ -876,6 +910,8 @@ final class UiSettingsService
             'secondary_logo_asset_id' => $this->sanitizeAssetId($brandDefaults['secondary_logo_asset_id'] ?? null),
             'header_logo_asset_id' => $this->sanitizeAssetId($brandDefaults['header_logo_asset_id'] ?? null),
             'footer_logo_asset_id' => $this->sanitizeAssetId($brandDefaults['footer_logo_asset_id'] ?? null),
+            'background_login_asset_id' => $this->sanitizeAssetId($brandDefaults['background_login_asset_id'] ?? null),
+            'background_main_asset_id' => $this->sanitizeAssetId($brandDefaults['background_main_asset_id'] ?? null),
             'footer_logo_disabled' => $this->toBool($brandDefaults['footer_logo_disabled'] ?? false),
             'assets' => $this->sanitizeBrandAssetsConfig($brandAssetsDefaults, []),
         ];
@@ -887,7 +923,7 @@ final class UiSettingsService
                 $brand['title_text'] = $this->sanitizeTitle($brandInput['title_text']);
             }
 
-            foreach (['favicon', 'primary_logo', 'secondary_logo', 'header_logo', 'footer_logo'] as $slot) {
+            foreach (['favicon', 'primary_logo', 'secondary_logo', 'header_logo', 'footer_logo', 'background_login', 'background_main'] as $slot) {
                 $key = $slot.'_asset_id';
                 if (array_key_exists($key, $brandInput)) {
                     $brand[$key] = $this->sanitizeAssetId($brandInput[$key]);
@@ -1415,6 +1451,8 @@ final class UiSettingsService
             'ui.brand.secondary_logo_asset_id' => $brand['secondary_logo_asset_id'] ?? null,
             'ui.brand.header_logo_asset_id' => $brand['header_logo_asset_id'] ?? null,
             'ui.brand.footer_logo_asset_id' => $brand['footer_logo_asset_id'] ?? null,
+            'ui.brand.background_login_asset_id' => $brand['background_login_asset_id'] ?? null,
+            'ui.brand.background_main_asset_id' => $brand['background_main_asset_id'] ?? null,
             'ui.brand.footer_logo_disabled' => $brand['footer_logo_disabled'] ?? null,
             'ui.brand.assets.filesystem_path' => $brandAssets['filesystem_path'],
         ];

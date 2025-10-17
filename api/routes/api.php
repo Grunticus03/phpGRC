@@ -13,6 +13,7 @@ use App\Http\Controllers\Auth\LogoutController;
 use App\Http\Controllers\Auth\MeController;
 use App\Http\Controllers\Auth\TotpController;
 use App\Http\Controllers\Avatar\AvatarController;
+use App\Http\Controllers\Branding\FaviconController;
 use App\Http\Controllers\Evidence\EvidenceController;
 use App\Http\Controllers\Export\ExportController;
 use App\Http\Controllers\Export\StatusController;
@@ -43,6 +44,8 @@ use Illuminate\Support\Facades\Route;
 
 Route::aliasMiddleware('auth.cookie', TokenCookieGuard::class);
 Route::aliasMiddleware('auth.require_sanctum', RequireSanctumWhenRequired::class);
+
+Route::get('/favicon.ico', FaviconController::class);
 
 /*
  |--------------------------------------------------------------------------
@@ -235,6 +238,12 @@ Route::prefix('/settings/ui')
             ->defaults('policy', 'ui.theme.view')
             ->defaults('capability', 'core.theme.view');
         Route::post('/designer/themes', [DesignerThemesController::class, 'store'])
+            ->defaults('policy', 'ui.theme.manage')
+            ->defaults('capability', 'core.theme.manage');
+        Route::post('/designer/themes/import', [DesignerThemesController::class, 'import'])
+            ->defaults('policy', 'ui.theme.manage')
+            ->defaults('capability', 'core.theme.manage');
+        Route::get('/designer/themes/{slug}/export', [DesignerThemesController::class, 'export'])
             ->defaults('policy', 'ui.theme.manage')
             ->defaults('capability', 'core.theme.manage');
         Route::delete('/designer/themes/{slug}', [DesignerThemesController::class, 'destroy'])

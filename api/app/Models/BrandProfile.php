@@ -19,6 +19,8 @@ use Illuminate\Support\Str;
  * @property string|null $secondary_logo_asset_id
  * @property string|null $header_logo_asset_id
  * @property string|null $footer_logo_asset_id
+ * @property string|null $background_login_asset_id
+ * @property string|null $background_main_asset_id
  * @property bool $footer_logo_disabled
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
@@ -43,6 +45,8 @@ final class BrandProfile extends Model
         'secondary_logo_asset_id',
         'header_logo_asset_id',
         'footer_logo_asset_id',
+        'background_login_asset_id',
+        'background_main_asset_id',
         'footer_logo_disabled',
     ];
 

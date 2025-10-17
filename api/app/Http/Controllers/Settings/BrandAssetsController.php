@@ -31,6 +31,10 @@ final class BrandAssetsController extends Controller
         'favicon' => ['width' => 64, 'height' => 64, 'quality' => 95, 'mime' => 'image/x-icon', 'extension' => 'ico'],
     ];
 
+    private const BACKGROUND_MAX_DIMENSION = 3840;
+
+    private const BACKGROUND_WEBP_QUALITY = 88;
+
     public function __construct(
         private readonly UiSettingsService $settings,
         private readonly BrandAssetStorageService $storage
@@ -185,94 +189,172 @@ final class BrandAssetsController extends Controller
             ], 409);
         }
 
-        /** @var mixed $kindInput */
-        $kindInput = $request->input('kind', 'primary_logo');
-        $kind = is_string($kindInput) ? $kindInput : 'primary_logo';
-        if ($kind !== 'primary_logo') {
-            return response()->json([
-                'ok' => false,
-                'code' => 'UNSUPPORTED_KIND',
-                'message' => 'Only primary logo uploads are supported. Variants are generated automatically.',
-            ], 422);
-        }
-
         $baseSlug = $this->baseFileSlug($name);
         $groupKey = Str::lower(Str::ulid()->toBase32());
 
-        try {
-            $variants = $this->createVariantImages($bytes, $baseSlug, $groupKey);
-        } catch (\RuntimeException $exception) {
-            report($exception);
+        /** @var mixed $kindInput */
+        $kindInput = $request->input('kind', 'primary_logo');
+        $kind = is_string($kindInput) ? $kindInput : 'primary_logo';
+
+        if ($kind === 'primary_logo') {
+            try {
+                $variants = $this->createVariantImages($bytes, $baseSlug, $groupKey);
+            } catch (\RuntimeException $exception) {
+                report($exception);
+
+                return response()->json([
+                    'ok' => false,
+                    'code' => 'IMAGE_PROCESSING_FAILED',
+                    'message' => $exception->getMessage(),
+                ], 415);
+            }
+
+            /** @var array<string, BrandAsset> $created */
+            $created = [];
+
+            DB::transaction(function () use (&$created, $variants, $profile, $actorId, $actorName): void {
+                foreach ($variants as $variantKind => $variant) {
+                    $record = new BrandAsset([
+                        'profile_id' => $profile->getAttribute('id'),
+                        'kind' => $variantKind,
+                        'name' => $variant['name'],
+                        'mime' => $variant['mime'],
+                        'size_bytes' => $variant['size_bytes'],
+                        'sha256' => $variant['sha256'],
+                        'bytes' => $variant['bytes'],
+                        'uploaded_by' => $actorId,
+                        'uploaded_by_name' => $actorName,
+                    ]);
+
+                    $record->save();
+                    $created[$variantKind] = $record;
+                }
+            });
+
+            try {
+                foreach ($created as $asset) {
+                    /** @var mixed $rawBytes */
+                    $rawBytes = $asset->getAttribute('bytes');
+                    if (! is_string($rawBytes)) {
+                        throw new \RuntimeException('Missing asset bytes.');
+                    }
+                    $this->storage->writeAsset($asset, $rawBytes);
+                }
+            } catch (\Throwable $exception) {
+                report($exception);
+                DB::transaction(function () use ($created): void {
+                    foreach ($created as $asset) {
+                        /** @var mixed $storedId */
+                        $storedId = $asset->getAttribute('id');
+                        $cleanupId = is_string($storedId) ? $storedId : null;
+                        $asset->delete();
+                        if ($cleanupId !== null) {
+                            $this->settings->clearBrandAssetReference($cleanupId);
+                        }
+                    }
+                });
+
+                return response()->json([
+                    'ok' => false,
+                    'code' => 'STORAGE_ERROR',
+                    'message' => 'Unable to persist brand asset variants to filesystem.',
+                ], 500);
+            }
+
+            $assetsPayload = array_map(
+                fn (BrandAsset $asset): array => $this->transform($asset),
+                $created
+            );
 
             return response()->json([
-                'ok' => false,
-                'code' => 'IMAGE_PROCESSING_FAILED',
-                'message' => $exception->getMessage(),
-            ], 415);
+                'ok' => true,
+                'asset' => $this->transform($created['primary_logo']),
+                'variants' => $assetsPayload,
+            ], 201);
         }
 
-        /** @var array<string, BrandAsset> $created */
-        $created = [];
+        if ($kind === 'background_image') {
+            try {
+                $background = $this->createBackgroundImage($bytes, $baseSlug, $groupKey);
+            } catch (\RuntimeException $exception) {
+                report($exception);
 
-        DB::transaction(function () use (&$created, $variants, $profile, $actorId, $actorName): void {
-            foreach ($variants as $variantKind => $variant) {
+                return response()->json([
+                    'ok' => false,
+                    'code' => 'IMAGE_PROCESSING_FAILED',
+                    'message' => $exception->getMessage(),
+                ], 415);
+            }
+
+            /** @var BrandAsset|null $backgroundAsset */
+            $backgroundAsset = null;
+
+            DB::transaction(function () use (&$backgroundAsset, $background, $profile, $actorId, $actorName): void {
                 $record = new BrandAsset([
                     'profile_id' => $profile->getAttribute('id'),
-                    'kind' => $variantKind,
-                    'name' => $variant['name'],
-                    'mime' => $variant['mime'],
-                    'size_bytes' => $variant['size_bytes'],
-                    'sha256' => $variant['sha256'],
-                    'bytes' => $variant['bytes'],
+                    'kind' => 'background_image',
+                    'name' => $background['name'],
+                    'mime' => $background['mime'],
+                    'size_bytes' => $background['size_bytes'],
+                    'sha256' => $background['sha256'],
+                    'bytes' => $background['bytes'],
                     'uploaded_by' => $actorId,
                     'uploaded_by_name' => $actorName,
                 ]);
 
                 $record->save();
-                $created[$variantKind] = $record;
-            }
-        });
+                $backgroundAsset = $record;
+            });
 
-        try {
-            foreach ($created as $asset) {
+            if (! $backgroundAsset instanceof BrandAsset) {
+                return response()->json([
+                    'ok' => false,
+                    'code' => 'STORAGE_ERROR',
+                    'message' => 'Unable to persist background image.',
+                ], 500);
+            }
+
+            try {
                 /** @var mixed $rawBytes */
-                $rawBytes = $asset->getAttribute('bytes');
+                $rawBytes = $backgroundAsset->getAttribute('bytes');
                 if (! is_string($rawBytes)) {
                     throw new \RuntimeException('Missing asset bytes.');
                 }
-                $this->storage->writeAsset($asset, $rawBytes);
-            }
-        } catch (\Throwable $exception) {
-            report($exception);
-            DB::transaction(function () use ($created): void {
-                foreach ($created as $asset) {
+
+                $this->storage->writeAsset($backgroundAsset, $rawBytes);
+            } catch (\Throwable $exception) {
+                report($exception);
+                DB::transaction(function () use ($backgroundAsset): void {
                     /** @var mixed $storedId */
-                    $storedId = $asset->getAttribute('id');
+                    $storedId = $backgroundAsset->getAttribute('id');
                     $cleanupId = is_string($storedId) ? $storedId : null;
-                    $asset->delete();
+                    $backgroundAsset->delete();
                     if ($cleanupId !== null) {
                         $this->settings->clearBrandAssetReference($cleanupId);
                     }
-                }
-            });
+                });
+
+                return response()->json([
+                    'ok' => false,
+                    'code' => 'STORAGE_ERROR',
+                    'message' => 'Unable to persist brand asset file to filesystem.',
+                ], 500);
+            }
+
+            $payload = $this->transform($backgroundAsset);
 
             return response()->json([
-                'ok' => false,
-                'code' => 'STORAGE_ERROR',
-                'message' => 'Unable to persist brand asset variants to filesystem.',
-            ], 500);
+                'ok' => true,
+                'asset' => $payload,
+                'variants' => ['background_image' => $payload],
+            ], 201);
         }
 
-        $assetsPayload = array_map(
-            fn (BrandAsset $asset): array => $this->transform($asset),
-            $created
-        );
-
         return response()->json([
-            'ok' => true,
-            'asset' => $this->transform($created['primary_logo']),
-            'variants' => $assetsPayload,
-        ], 201);
+            'ok' => false,
+            'code' => 'UNSUPPORTED_KIND',
+            'message' => 'Upload kind is not supported.',
+        ], 422);
     }
 
     public function download(string $assetId): Response
@@ -436,6 +518,44 @@ final class BrandAssetsController extends Controller
         }
 
         return $variants;
+    }
+
+    /**
+     * @return array{name:string,bytes:string,size_bytes:int,sha256:string,mime:string}
+     */
+    private function createBackgroundImage(string $bytes, string $baseSlug, string $groupKey): array
+    {
+        if (! function_exists('imagecreatefromstring') || ! function_exists('imagewebp')) {
+            throw new \RuntimeException('Image conversion to WebP is not available.');
+        }
+
+        $source = @imagecreatefromstring($bytes);
+        if (! $source instanceof \GdImage) {
+            throw new \RuntimeException('Unable to decode uploaded image.');
+        }
+
+        $source = $this->ensureTrueColor($source);
+
+        $resized = null;
+        try {
+            $resized = $this->resizeToFit($source, self::BACKGROUND_MAX_DIMENSION, self::BACKGROUND_MAX_DIMENSION);
+            $encoded = $this->encodeWebp($resized, self::BACKGROUND_WEBP_QUALITY);
+        } finally {
+            imagedestroy($source);
+            if ($resized instanceof \GdImage) {
+                imagedestroy($resized);
+            }
+        }
+
+        $name = $this->variantFileName($baseSlug, $groupKey, 'background_image', 'webp');
+
+        return [
+            'name' => $name,
+            'bytes' => $encoded,
+            'size_bytes' => strlen($encoded),
+            'sha256' => hash('sha256', $encoded),
+            'mime' => 'image/webp',
+        ];
     }
 
     private function ensureTrueColor(\GdImage $image): \GdImage

@@ -19,7 +19,7 @@ final class BrandAssetUploadRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'kind' => ['required', 'string', 'in:primary_logo'],
+            'kind' => ['required', 'string', 'in:primary_logo,background_image'],
             'profile_id' => ['required', 'string', 'max:64', 'exists:brand_profiles,id'],
             'file' => [
                 'required',

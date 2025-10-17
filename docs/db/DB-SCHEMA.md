@@ -105,6 +105,8 @@ Snapshot generated from migrations against **phpgrc_test** as of 2025-10-16 (UTC
 | secondary_logo_asset_id | varchar(64) | ✗ | NULL | — |
 | header_logo_asset_id | varchar(64) | ✗ | NULL | — |
 | footer_logo_asset_id | varchar(64) | ✗ | NULL | — |
+| background_login_asset_id | varchar(64) | ✗ | NULL | — |
+| background_main_asset_id | varchar(64) | ✗ | NULL | — |
 | footer_logo_disabled | tinyint(1) | ✓ | 0 | — |
 | created_at | timestamp | ✗ | NULL | — |
 | updated_at | timestamp | ✗ | NULL | — |

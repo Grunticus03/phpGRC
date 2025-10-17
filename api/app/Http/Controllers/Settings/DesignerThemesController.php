@@ -6,11 +6,14 @@ namespace App\Http\Controllers\Settings;
 
 use App\Events\SettingsUpdated;
 use App\Exceptions\DesignerThemeException;
+use App\Http\Requests\Settings\DesignerThemeImportRequest;
 use App\Http\Requests\Settings\DesignerThemeStoreRequest;
 use App\Services\Settings\DesignerThemeStorageService;
 use App\Services\Settings\ThemePackService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Routing\Controller;
 
 final class DesignerThemesController extends Controller
@@ -83,6 +86,101 @@ final class DesignerThemesController extends Controller
             'ok' => true,
             'pack' => $pack,
         ], $existing === null ? 201 : 200);
+    }
+
+    public function import(DesignerThemeImportRequest $request): JsonResponse
+    {
+        /** @var UploadedFile|null $uploaded */
+        $uploaded = $request->file('file');
+        if (! $uploaded instanceof UploadedFile) {
+            return response()->json([
+                'ok' => false,
+                'code' => 'DESIGNER_THEME_UPLOAD_FAILED',
+                'message' => 'No theme file provided.',
+            ], 400);
+        }
+
+        $bytes = $uploaded->get();
+        if (! is_string($bytes) || $bytes === '') {
+            return response()->json([
+                'ok' => false,
+                'code' => 'DESIGNER_THEME_UPLOAD_FAILED',
+                'message' => 'Unable to read uploaded theme file.',
+            ], 400);
+        }
+
+        /** @var array<string,mixed> $validated */
+        $validated = $request->validated();
+        $slugOverride = null;
+        if (isset($validated['slug']) && is_string($validated['slug']) && trim($validated['slug']) !== '') {
+            $slugOverride = $validated['slug'];
+        }
+
+        try {
+            $parsed = $this->storage->parseImportPayload($bytes, $slugOverride);
+        } catch (DesignerThemeException $e) {
+            return $this->errorResponse($e);
+        }
+
+        $existing = $this->findManifestEntry($parsed['slug']);
+        if ($existing !== null && ($existing['source'] ?? '') !== 'custom') {
+            return response()->json([
+                'ok' => false,
+                'code' => 'DESIGNER_THEME_CONFLICT',
+                'message' => 'Slug conflicts with a built-in or imported theme.',
+            ], 409);
+        }
+
+        [$actorId] = $this->resolveActor($request);
+
+        try {
+            $pack = $this->storage->save(
+                $parsed['name'],
+                $parsed['slug'],
+                $parsed['variables'],
+                $actorId,
+                $parsed['supports']
+            );
+        } catch (DesignerThemeException $e) {
+            return $this->errorResponse($e);
+        }
+
+        $this->emitSettingsEvent($actorId, [
+            [
+                'key' => 'ui.theme.designer.pack',
+                'old' => $existing,
+                'new' => $pack,
+                'action' => $existing === null ? 'set' : 'update',
+            ],
+        ], $request);
+
+        return response()->json([
+            'ok' => true,
+            'pack' => $pack,
+        ], $existing === null ? 201 : 200);
+    }
+
+    public function export(Request $request, string $slug): Response|JsonResponse
+    {
+        try {
+            $result = $this->storage->export($slug);
+        } catch (DesignerThemeException $e) {
+            return $this->errorResponse($e);
+        }
+
+        $contents = $result['contents'];
+        $filename = $result['filename'];
+        $headers = [
+            'Content-Type' => 'application/json',
+            'Content-Disposition' => 'attachment; filename="'.addslashes($filename).'"',
+            'Content-Length' => (string) strlen($contents),
+            'Cache-Control' => 'no-store, private',
+            'Pragma' => 'no-cache',
+            'X-Content-Type-Options' => 'nosniff',
+            'ETag' => sprintf('W/"designer-theme:%s"', hash('sha256', $contents)),
+        ];
+
+        return response($contents, 200, $headers);
     }
 
     public function destroy(Request $request, string $slug): JsonResponse

@@ -18,6 +18,8 @@ final class DesignerThemeStorageService
 
     private const STORAGE_KEY_PATH = 'ui.theme.designer.filesystem_path';
 
+    private const EXPORT_VERSION = 1;
+
     private const FILE_EXTENSION = 'json';
 
     public function __construct(private readonly Filesystem $filesystem) {}
@@ -135,6 +137,7 @@ final class DesignerThemeStorageService
 
     /**
      * @param  array<string,string>  $variables
+     * @param  list<string>|null  $supportsModes
      * @return array{
      *     slug:string,
      *     name:string,
@@ -143,7 +146,7 @@ final class DesignerThemeStorageService
      *     variables:array<string,string>
      * }
      */
-    public function save(string $name, string $slug, array $variables, ?int $actorId = null): array
+    public function save(string $name, string $slug, array $variables, ?int $actorId = null, ?array $supportsModes = null): array
     {
         $config = $this->storageConfig();
         if ($config['storage'] !== 'filesystem') {
@@ -169,6 +172,8 @@ final class DesignerThemeStorageService
             throw new DesignerThemeException('DESIGNER_THEME_INVALID', 'At least one variable must be provided.');
         }
 
+        $modes = $this->sanitizeSupports($supportsModes);
+
         $directory = $config['filesystem_path'];
         if (! $this->filesystem->isDirectory($directory)) {
             if (! $this->filesystem->makeDirectory($directory, 0750, true)) {
@@ -183,10 +188,11 @@ final class DesignerThemeStorageService
         $path = $this->pathForSlug($normalizedSlug, $directory);
         /** @var array<string,mixed> $payload */
         $payload = [
+            'version' => self::EXPORT_VERSION,
             'slug' => $normalizedSlug,
             'name' => $normalizedName,
             'variables' => $sanitizedVariables,
-            'supports' => ['mode' => ['light', 'dark']],
+            'supports' => ['mode' => $modes],
             'source' => 'custom',
             'updated_at' => Carbon::now('UTC')->toIso8601String(),
             'updated_by' => $actorId,
@@ -212,8 +218,155 @@ final class DesignerThemeStorageService
             'slug' => $normalizedSlug,
             'name' => $normalizedName,
             'source' => 'custom',
-            'supports' => ['mode' => ['light', 'dark']],
+            'supports' => ['mode' => $modes],
             'variables' => $sanitizedVariables,
+        ];
+    }
+
+    /**
+     * @return array{filename:string,contents:string,pack:array{
+     *     slug:string,
+     *     name:string,
+     *     source:string,
+     *     supports:array{mode:list<string>},
+     *     variables:array<string,string>
+     * }}
+     */
+    public function export(string $slug): array
+    {
+        $config = $this->storageConfig();
+        if ($config['storage'] !== 'filesystem') {
+            throw new DesignerThemeException(
+                'DESIGNER_STORAGE_DISABLED',
+                'Filesystem storage is not enabled for custom themes.',
+                409
+            );
+        }
+
+        $normalizedSlug = $this->sanitizeSlug($slug);
+        if ($normalizedSlug === '') {
+            throw new DesignerThemeException('DESIGNER_THEME_INVALID', 'Theme slug is invalid.', 422);
+        }
+
+        $path = $this->pathForSlug($normalizedSlug, $config['filesystem_path']);
+        if (! $this->filesystem->exists($path)) {
+            throw new DesignerThemeException('DESIGNER_THEME_NOT_FOUND', 'Theme not found.', 404);
+        }
+
+        $contents = $this->filesystem->get($path);
+        if (trim($contents) === '') {
+            throw new DesignerThemeException(
+                'DESIGNER_THEME_IO_ERROR',
+                sprintf('Theme file is empty: %s', $path),
+                500
+            );
+        }
+
+        /** @var mixed $decodedRaw */
+        $decodedRaw = json_decode($contents, true);
+        if (! is_array($decodedRaw)) {
+            throw new DesignerThemeException(
+                'DESIGNER_THEME_IO_ERROR',
+                sprintf('Unable to decode theme file: %s', $path),
+                500
+            );
+        }
+
+        /** @var array<string,mixed> $decoded */
+        $decoded = $decodedRaw;
+        $pack = $this->transformDecoded($decoded);
+        if ($pack === null) {
+            throw new DesignerThemeException(
+                'DESIGNER_THEME_IO_ERROR',
+                sprintf('Theme file is invalid: %s', $path),
+                500
+            );
+        }
+
+        $exportPayload = $this->buildExportPayload($decoded, $pack);
+
+        $encoded = json_encode($exportPayload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+        if ($encoded === false) {
+            throw new DesignerThemeException('DESIGNER_THEME_IO_ERROR', 'Unable to encode theme export payload.', 500);
+        }
+
+        return [
+            'filename' => sprintf('%s.theme.json', $pack['slug']),
+            'contents' => $encoded,
+            'pack' => $pack,
+        ];
+    }
+
+    /**
+     * @return array{
+     *     slug:string,
+     *     name:string,
+     *     variables:array<string,string>,
+     *     supports:list<string>
+     * }
+     */
+    public function parseImportPayload(string $contents, ?string $slugOverride = null): array
+    {
+        $trimmed = trim($contents);
+        if ($trimmed === '') {
+            throw new DesignerThemeException('DESIGNER_THEME_IMPORT_INVALID', 'Theme file is empty.');
+        }
+
+        /** @var mixed $decodedRaw */
+        $decodedRaw = json_decode($trimmed, true);
+        if (! is_array($decodedRaw)) {
+            throw new DesignerThemeException('DESIGNER_THEME_IMPORT_INVALID', 'Theme file must be valid JSON.');
+        }
+
+        /** @var array<string,mixed> $decoded */
+        $decoded = $decodedRaw;
+
+        if (isset($decoded['theme']) && is_array($decoded['theme'])) {
+            /** @var array<string,mixed> $theme */
+            $theme = $decoded['theme'];
+            $decoded = $theme;
+        }
+
+        $slugCandidate = $slugOverride ?? (is_string($decoded['slug'] ?? null) ? (string) $decoded['slug'] : '');
+        $nameCandidate = is_string($decoded['name'] ?? null) ? (string) $decoded['name'] : '';
+        /** @var mixed $variablesRaw */
+        $variablesRaw = $decoded['variables'] ?? null;
+
+        if (! is_array($variablesRaw)) {
+            throw new DesignerThemeException('DESIGNER_THEME_IMPORT_INVALID', 'Theme variables must be an object.');
+        }
+
+        $variables = $this->normalizeImportVariables($variablesRaw);
+        if ($variables === []) {
+            throw new DesignerThemeException('DESIGNER_THEME_IMPORT_INVALID', 'Theme variables are required.');
+        }
+
+        $normalizedSlug = $this->sanitizeSlug($slugCandidate);
+        if ($normalizedSlug === '') {
+            throw new DesignerThemeException('DESIGNER_THEME_IMPORT_INVALID', 'Theme slug is missing or invalid.');
+        }
+
+        $normalizedName = $this->sanitizeName($nameCandidate);
+        if ($normalizedName === '') {
+            throw new DesignerThemeException('DESIGNER_THEME_IMPORT_INVALID', 'Theme name is required.');
+        }
+
+        $supportsCandidate = null;
+        if (isset($decoded['supports']) && is_array($decoded['supports'])) {
+            /** @var mixed $modeRaw */
+            $modeRaw = $decoded['supports']['mode'] ?? null;
+            if (is_array($modeRaw)) {
+                $supportsCandidate = array_values($modeRaw);
+            }
+        }
+
+        $modes = $this->sanitizeSupports($supportsCandidate);
+
+        return [
+            'slug' => $normalizedSlug,
+            'name' => $normalizedName,
+            'variables' => $variables,
+            'supports' => $modes,
         ];
     }
 
@@ -285,22 +438,16 @@ final class DesignerThemeStorageService
             return null;
         }
 
-        $supports = ['mode' => ['light', 'dark']];
-
+        $supportsCandidate = null;
         if (isset($decoded['supports']) && is_array($decoded['supports'])) {
-            /** @var mixed $supportsCandidate */
-            $supportsCandidate = $decoded['supports']['mode'] ?? null;
-            if (is_array($supportsCandidate)) {
-                $modes = array_values(array_unique(array_filter(array_map(
-                    fn (mixed $mode): ?string => is_string($mode) ? strtolower(trim($mode)) : null,
-                    $supportsCandidate
-                ))));
-                $filtered = array_values(array_intersect($modes, ['light', 'dark']));
-                if ($filtered !== []) {
-                    $supports['mode'] = $filtered;
-                }
+            /** @var mixed $supportsRaw */
+            $supportsRaw = $decoded['supports']['mode'] ?? null;
+            if (is_array($supportsRaw)) {
+                $supportsCandidate = array_values($supportsRaw);
             }
         }
+
+        $supports = ['mode' => $this->sanitizeSupports($supportsCandidate)];
 
         return [
             'slug' => $slug,
@@ -396,6 +543,114 @@ final class DesignerThemeStorageService
         }
 
         return $trimmed;
+    }
+
+    /**
+     * @param  array<string,mixed>  $decoded
+     * @param  array{
+     *     slug:string,
+     *     name:string,
+     *     source:string,
+     *     supports:array{mode:list<string>},
+     *     variables:array<string,string>
+     * } $pack
+     * @return array<string,mixed>
+     */
+    private function buildExportPayload(array $decoded, array $pack): array
+    {
+        /** @var mixed $versionRaw */
+        $versionRaw = $decoded['version'] ?? null;
+        $version = is_int($versionRaw) && $versionRaw >= 1 ? $versionRaw : self::EXPORT_VERSION;
+
+        /** @var array<string,string> $variables */
+        $variables = $pack['variables'];
+        ksort($variables);
+
+        $payload = [
+            'version' => $version,
+            'slug' => $pack['slug'],
+            'name' => $pack['name'],
+            'supports' => $pack['supports'],
+            'variables' => $variables,
+            'source' => 'custom',
+            'exported_at' => Carbon::now('UTC')->toIso8601String(),
+        ];
+
+        if (isset($decoded['updated_at']) && is_string($decoded['updated_at']) && trim($decoded['updated_at']) !== '') {
+            $payload['updated_at'] = $decoded['updated_at'];
+        }
+
+        if (array_key_exists('updated_by', $decoded)) {
+            /** @var mixed $updatedBy */
+            $updatedBy = $decoded['updated_by'] ?? null;
+            if ($updatedBy === null || is_int($updatedBy) || (is_string($updatedBy) && trim($updatedBy) !== '')) {
+                $payload['updated_by'] = $updatedBy;
+            }
+        }
+
+        return $payload;
+    }
+
+    /**
+     * @param  array<array-key,mixed>  $variablesRaw
+     * @return array<string,string>
+     */
+    private function normalizeImportVariables(array $variablesRaw): array
+    {
+        if ($variablesRaw !== [] && array_is_list($variablesRaw)) {
+            /** @var array<string,mixed> $map */
+            $map = [];
+            foreach ($variablesRaw as $entry) {
+                if (! is_array($entry)) {
+                    continue;
+                }
+
+                /** @var array{key?: mixed, value?: mixed} $entry */
+                $key = $entry['key'] ?? null;
+                $value = $entry['value'] ?? null;
+                if (! is_scalar($value) && $value !== null) {
+                    continue;
+                }
+                if (! is_string($key)) {
+                    continue;
+                }
+
+                $map[$key] = $value;
+            }
+
+            return $this->sanitizeVariables($map);
+        }
+
+        /** @var array<string,mixed> $assoc */
+        $assoc = $variablesRaw;
+
+        return $this->sanitizeVariables($assoc);
+    }
+
+    /**
+     * @param  list<mixed>|null  $modes
+     * @return list<string>
+     */
+    private function sanitizeSupports(?array $modes): array
+    {
+        if (! is_array($modes)) {
+            return ['light', 'dark'];
+        }
+
+        $normalized = array_values(array_unique(array_filter(array_map(
+            static function (mixed $value): ?string {
+                if (! is_string($value)) {
+                    return null;
+                }
+
+                $mode = strtolower(trim($value));
+
+                return in_array($mode, ['light', 'dark'], true) ? $mode : null;
+            },
+            $modes
+        ))));
+
+        return $normalized !== [] ? $normalized : ['light', 'dark'];
     }
 
     private function decodeValue(string $value, string $type): mixed
