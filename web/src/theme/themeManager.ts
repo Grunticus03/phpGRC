@@ -527,12 +527,14 @@ const applyDesignTokens = (): void => {
     body.style.backgroundRepeat = "no-repeat";
     body.style.backgroundSize = "cover";
     body.style.backgroundPosition = "center center";
+    body.style.backgroundAttachment = "fixed";
   } else {
     doc.style.removeProperty("--ui-app-background-image");
     body.style.removeProperty("background-image");
     body.style.removeProperty("background-repeat");
     body.style.removeProperty("background-size");
     body.style.removeProperty("background-position");
+    body.style.removeProperty("background-attachment");
   }
 
   const loginBackgroundUrl = resolveBrandBackgroundUrl(settingsCache, "login");

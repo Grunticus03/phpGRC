@@ -545,6 +545,8 @@ export default function BrandingCard(): JSX.Element {
       brandConfig.secondary_logo_asset_id !== baseline.secondary_logo_asset_id ||
       brandConfig.header_logo_asset_id !== baseline.header_logo_asset_id ||
       brandConfig.footer_logo_asset_id !== baseline.footer_logo_asset_id ||
+      brandConfig.background_login_asset_id !== baseline.background_login_asset_id ||
+      brandConfig.background_main_asset_id !== baseline.background_main_asset_id ||
       brandConfig.footer_logo_disabled !== baseline.footer_logo_disabled ||
       brandConfig.assets.filesystem_path !== baseline.assets.filesystem_path
     );

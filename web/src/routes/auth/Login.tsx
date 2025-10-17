@@ -529,6 +529,7 @@ export default function Login(): JSX.Element {
       style.backgroundSize = "cover";
       style.backgroundPosition = "center center";
       style.backgroundRepeat = "no-repeat";
+      style.backgroundAttachment = "fixed";
     }
     return style;
   }, [loginBackgroundUrl]);
