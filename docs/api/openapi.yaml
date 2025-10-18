@@ -3702,28 +3702,21 @@ components:
           type: string
           example: phpGRC
         favicon_asset_id:
-          type: string
-          nullable: true
+          type: ["string", "null"]
           example: asset-favicon
         primary_logo_asset_id:
-          type: string
-          nullable: true
+          type: ["string", "null"]
           example: asset-primary
         secondary_logo_asset_id:
-          type: string
-          nullable: true
+          type: ["string", "null"]
         header_logo_asset_id:
-          type: string
-          nullable: true
+          type: ["string", "null"]
         footer_logo_asset_id:
-          type: string
-          nullable: true
+          type: ["string", "null"]
         background_login_asset_id:
-          type: string
-          nullable: true
+          type: ["string", "null"]
         background_main_asset_id:
-          type: string
-          nullable: true
+          type: ["string", "null"]
         footer_logo_disabled:
           type: boolean
           example: false
