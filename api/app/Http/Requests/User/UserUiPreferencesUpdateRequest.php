@@ -26,7 +26,7 @@ final class UserUiPreferencesUpdateRequest extends FormRequest
             'sidebar' => ['sometimes', 'array'],
             'sidebar.collapsed' => ['sometimes', 'boolean'],
             'sidebar.pinned' => ['sometimes', 'boolean'],
-            'sidebar.width' => ['sometimes', 'numeric', 'min:50', 'max:480'],
+            'sidebar.width' => ['sometimes', 'numeric', 'min:50', 'max:4000'],
             'sidebar.order' => ['sometimes', 'array'],
             'sidebar.order.*' => ['string', 'max:64'],
             'sidebar.hidden' => ['sometimes', 'array'],

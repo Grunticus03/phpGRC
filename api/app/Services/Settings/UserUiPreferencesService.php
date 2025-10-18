@@ -38,7 +38,7 @@ final class UserUiPreferencesService
 {
     private const MIN_SIDEBAR_WIDTH = 50;
 
-    private const MAX_SIDEBAR_WIDTH = 480;
+    private const MAX_SIDEBAR_WIDTH = 4000;
 
     private const GRID_BOUNDARY = 100;
 

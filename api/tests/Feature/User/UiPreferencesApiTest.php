@@ -99,6 +99,35 @@ final class UiPreferencesApiTest extends TestCase
         self::assertSame(['archives', 'reports'], $prefs['sidebar']['hidden']);
     }
 
+    public function test_put_preferences_accepts_wide_sidebar_width(): void
+    {
+        $user = User::factory()->create();
+        Sanctum::actingAs($user);
+
+        $initial = $this->getJson('/me/prefs/ui');
+        $initial->assertOk();
+        $etag = $initial->headers->get('ETag');
+        self::assertNotNull($etag);
+
+        $payload = [
+            'sidebar' => [
+                'width' => 1024,
+            ],
+        ];
+
+        $response = $this->withHeaders(['If-Match' => $etag])
+            ->putJson('/me/prefs/ui', $payload);
+
+        $response->assertOk();
+        $response->assertJsonPath('prefs.sidebar.width', 1024);
+
+        /** @var UserUiPreferencesService $service */
+        $service = app(UserUiPreferencesService::class);
+        $prefs = $service->get($user->id);
+
+        self::assertSame(1024, $prefs['sidebar']['width']);
+    }
+
     public function test_get_preferences_returns_defaults_when_auth_disabled(): void
     {
         config()->set('core.rbac.require_auth', false);

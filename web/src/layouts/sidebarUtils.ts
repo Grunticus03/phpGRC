@@ -1,6 +1,7 @@
 import type { ModuleMeta } from "./modules";
 
 export const MIN_SIDEBAR_WIDTH = 50;
+export const MAX_SIDEBAR_WIDTH = 4000;
 export const MAX_SIDEBAR_WIDTH_RATIO = 0.5;
 
 const round = (value: number): number => Math.round(Number.isFinite(value) ? value : 0);
@@ -12,7 +13,8 @@ export function clampSidebarWidth(width: number, viewportWidth?: number): number
       ? window.innerWidth
       : MIN_SIDEBAR_WIDTH / MAX_SIDEBAR_WIDTH_RATIO;
 
-  const maxWidth = Math.max(MIN_SIDEBAR_WIDTH, Math.floor(baseViewport * MAX_SIDEBAR_WIDTH_RATIO));
+  const maxRatioWidth = Math.max(MIN_SIDEBAR_WIDTH, Math.floor(baseViewport * MAX_SIDEBAR_WIDTH_RATIO));
+  const maxWidth = Math.max(MIN_SIDEBAR_WIDTH, Math.min(maxRatioWidth, MAX_SIDEBAR_WIDTH));
   const rounded = round(width);
   if (!Number.isFinite(rounded)) return MIN_SIDEBAR_WIDTH;
   return Math.min(Math.max(rounded, MIN_SIDEBAR_WIDTH), maxWidth);
@@ -55,4 +57,3 @@ export function mergeSidebarOrder(
 
   return [...persisted, ...defaults, ...remainder];
 }
-
