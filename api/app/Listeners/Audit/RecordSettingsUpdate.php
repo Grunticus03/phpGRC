@@ -8,6 +8,7 @@ use App\Events\SettingsUpdated;
 use App\Models\User;
 use App\Services\Audit\AuditLogger;
 use App\Support\Audit\AuditCategories;
+use App\Support\Audit\AuditValueSanitizer;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Log;
@@ -88,8 +89,8 @@ final class RecordSettingsUpdate implements ShouldQueue
                     'setting_key' => $key,
                     'setting_label' => $this->settingLabel($key),
                     'change_type' => $changeType,
-                    'old_value' => $this->stringifyValue($change['old']),
-                    'new_value' => $this->stringifyValue($change['new']),
+                    'old_value' => AuditValueSanitizer::stringify($change['old']),
+                    'new_value' => AuditValueSanitizer::stringify($change['new']),
                     'changes' => [$change],
                     'context' => Arr::except($event->context, ['ip', 'ua']),
                 ],
@@ -172,8 +173,8 @@ final class RecordSettingsUpdate implements ShouldQueue
 
             $out[] = [
                 'key' => $key,
-                'old' => $old,
-                'new' => $new,
+                'old' => AuditValueSanitizer::scrub($old),
+                'new' => AuditValueSanitizer::scrub($new),
                 'action' => $c['action'],
             ];
         }
@@ -401,33 +402,6 @@ final class RecordSettingsUpdate implements ShouldQueue
         }
 
         return 'setting.modified';
-    }
-
-    private function stringifyValue(mixed $value): string
-    {
-        if (is_string($value)) {
-            return $value;
-        }
-        if (is_bool($value)) {
-            return $value ? 'true' : 'false';
-        }
-        if (is_numeric($value)) {
-            return (string) $value;
-        }
-        if ($value === null) {
-            return 'null';
-        }
-        if (is_array($value)) {
-            try {
-                return json_encode($value, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-            } catch (\Throwable) {
-                return '[unserializable]';
-            }
-        }
-
-        $encoded = json_encode($value, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-
-        return is_string($encoded) ? $encoded : '[unserializable]';
     }
 
     /**

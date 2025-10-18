@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Audit;
 
 use App\Models\AuditEvent;
+use App\Support\Audit\AuditValueSanitizer;
 
 final class AuditMessageFormatter
 {
@@ -450,28 +451,6 @@ final class AuditMessageFormatter
 
     private static function stringifyValue(mixed $value): string
     {
-        if (is_string($value)) {
-            $trim = trim($value);
-
-            return $trim;
-        }
-        if (is_bool($value)) {
-            return $value ? 'true' : 'false';
-        }
-        if (is_numeric($value)) {
-            return (string) $value;
-        }
-        if ($value === null) {
-            return 'null';
-        }
-        if (is_array($value)) {
-            try {
-                return json_encode($value, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-            } catch (\Throwable) {
-                return '[unserializable]';
-            }
-        }
-
-        return '';
+        return AuditValueSanitizer::stringify($value);
     }
 }

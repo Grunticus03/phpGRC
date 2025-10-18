@@ -313,8 +313,8 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 **Phase:** 5.5  
 **Step:** 5  
 **Dependencies:** THEME-001  
-**Status:** In Progress  
-**Notes:** Navbar/sidebar layout and customization shipped (long-press, drag-reorder, resize, theme toggle). QA follow-ups (Playwright snapshots, accessibility review) remain before final sign-off.
+**Status:** Done  
+**Notes:** Navbar/sidebar layout and customization shipped (long-press, drag-reorder, resize, theme toggle) with QA sign-off covering bounds, merge rules, and header brand sizing.
 
 ---
 
@@ -370,7 +370,8 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 **Phase:** 5.5  
 **Step:** 1  
 **Dependencies:** THEME-001  
-**Status:** Planned
+**Status:** Done  
+**Notes:** Inline boot script hydrates `<html data-theme data-mode>` from cookie/localStorage before CSS; SSR-safe fallbacks and login layout attribute applied.
 
 ---
 
