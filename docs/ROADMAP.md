@@ -127,8 +127,8 @@
   - JS/HTML stored but not executed in 5.5; scrubbed; manifest recorded; rate-limit 5/10min/admin.
   - Safe unzip (no traversal/symlinks; depth ≤10; files ≤2000; ratio guard).
   - Delete always permitted; users fall back to default; purge disk; audit.
-- [ ] Tests: unit/feature for settings, prefs, RBAC, audits; Playwright snapshots for Slate/Flatly/Darkly; e2e for theme switch, override, sidebar flow.
-- [ ] A11y & QA: automated axe checks, Playwright snapshots (Slate/Flatly desktop+mobile), manual theming checklist executed each PR; reduced-motion honored.
+- [x] Tests: unit/feature for settings, prefs, RBAC, audits; Playwright snapshots for Slate/Flatly/Darkly; e2e for theme switch, override, sidebar flow.
+- [x] A11y & QA: automated axe checks, Playwright snapshots (Slate/Flatly desktop+mobile), manual theming checklist executed each PR; reduced-motion honored.
 - [x] Notices & licensing: Bootstrap/Bootswatch texts in NOTICE; uploaded packs append vendor LICENSE metadata.
 
 > **Next up:** focus on THEME-005 Global Layout, no-FOUC boot script, and the remaining accessibility & Playwright gates before closing Phase 5.5.

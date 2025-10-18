@@ -210,7 +210,7 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 **Phase:** 5  
 **Step:** 3  
 **Dependencies:** CORE-009  
-**Status:** Planned (low priority)
+**Status:** Done
 
 ---
 
