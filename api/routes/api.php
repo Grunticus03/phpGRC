@@ -29,6 +29,7 @@ use App\Http\Controllers\Settings\BrandAssetsController;
 use App\Http\Controllers\Settings\BrandProfilesController;
 use App\Http\Controllers\Settings\DesignerThemesController;
 use App\Http\Controllers\Settings\ThemePacksController;
+use App\Http\Controllers\Settings\UiPublicSettingsController;
 use App\Http\Controllers\Settings\UiSettingsController as UiSettingsApiController;
 use App\Http\Controllers\Settings\UiThemeManifestController;
 use App\Http\Controllers\User\UiPreferencesController;
@@ -179,6 +180,8 @@ Route::prefix('/admin')
         Route::post('/evidence/purge', EvidencePurgeController::class)
             ->defaults('policy', 'core.evidence.manage');
     });
+
+Route::get('/settings/ui/public', UiPublicSettingsController::class);
 
 Route::prefix('/settings/ui')
     ->middleware($rbacAuthStack)

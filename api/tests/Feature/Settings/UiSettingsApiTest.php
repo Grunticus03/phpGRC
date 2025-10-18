@@ -254,6 +254,52 @@ final class UiSettingsApiTest extends TestCase
         self::assertSame('layout_4', $config['theme']['login']['layout']);
     }
 
+    public function test_get_public_ui_settings_returns_sanitized_data(): void
+    {
+        $user = $this->actingAsThemeManager();
+
+        $initial = $this->getJson('/settings/ui');
+        $initial->assertOk();
+        $etag = $initial->headers->get('ETag');
+        self::assertNotNull($etag);
+
+        $payload = [
+            'ui' => [
+                'theme' => [
+                    'default' => 'cosmo',
+                    'mode' => 'light',
+                    'login' => [
+                        'layout' => 'layout_4',
+                    ],
+                    'overrides' => [
+                        'color.primary' => '#336699',
+                    ],
+                ],
+                'brand' => [
+                    'title_text' => 'Public Company',
+                    'primary_logo_asset_id' => 'brand-logo',
+                ],
+            ],
+        ];
+
+        $this->withHeaders(['If-Match' => $etag])->putJson('/settings/ui', $payload)->assertOk();
+
+        // anonymous fetch
+        $public = $this->getJson('/settings/ui/public');
+        $public->assertOk();
+
+        $public->assertJsonPath('config.theme.default', 'cosmo');
+        $public->assertJsonPath('config.theme.mode', 'light');
+        $public->assertJsonPath('config.theme.login.layout', 'layout_4');
+        $public->assertJsonPath('config.brand.primary_logo_asset_id', 'brand-logo');
+        $public->assertJsonPath('config.brand.title_text', 'Public Company');
+
+        $data = $public->json('config');
+        self::assertIsArray($data);
+        self::assertArrayNotHasKey('designer', $data['theme']);
+        self::assertArrayNotHasKey('assets', $data['brand']);
+    }
+
     public function test_get_ui_settings_honors_if_none_match_with_multiple_values(): void
     {
         $user = $this->actingAsThemeManager();

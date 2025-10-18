@@ -18,8 +18,11 @@
         var DEFAULT_THEME = "slate";
         var DEFAULT_MODE = "dark";
         var DEFAULT_SOURCE = "bootswatch";
-        var STORAGE_KEY = "phpgrc.theme.selection";
-        var COOKIE_NAME = "phpgrc_theme_selection";
+        var THEME_STORAGE_KEY = "phpgrc.theme.selection";
+        var THEME_COOKIE_NAME = "phpgrc_theme_selection";
+        var LOGIN_LAYOUT_STORAGE_KEY = "phpgrc.login.layout";
+        var LOGIN_LAYOUT_COOKIE = "phpgrc_login_layout";
+        var DEFAULT_LOGIN_LAYOUT = "layout_1";
 
         function getStoredSelection() {
           var raw = null;
@@ -27,7 +30,7 @@
             try {
               var store = window.localStorage;
               if (store) {
-                raw = store.getItem(STORAGE_KEY);
+                raw = store.getItem(THEME_STORAGE_KEY);
               }
             } catch (err) {
               raw = null;
@@ -38,8 +41,8 @@
             var cookies = document.cookie ? document.cookie.split(";") : [];
             for (var i = 0; i < cookies.length; i += 1) {
               var entry = cookies[i].trim();
-              if (entry && entry.indexOf(COOKIE_NAME + "=") === 0) {
-                raw = entry.substring(COOKIE_NAME.length + 1);
+              if (entry && entry.indexOf(THEME_COOKIE_NAME + "=") === 0) {
+                raw = entry.substring(THEME_COOKIE_NAME.length + 1);
                 try {
                   raw = decodeURIComponent(raw);
                 } catch (err) {
@@ -67,6 +70,48 @@
           }
         }
 
+        function sanitizeLoginLayout(value) {
+          if (typeof value !== "string") return null;
+          var token = value.trim().toLowerCase();
+          return token === "layout_1" ||
+            token === "layout_2" ||
+            token === "layout_3" ||
+            token === "layout_4"
+            ? token
+            : null;
+        }
+
+        function getStoredLoginLayout() {
+          if (typeof window !== "undefined") {
+            try {
+              var stored = window.localStorage && window.localStorage.getItem(LOGIN_LAYOUT_STORAGE_KEY);
+              var layout = sanitizeLoginLayout(stored);
+              if (layout) return layout;
+            } catch (err) {
+              // ignore storage errors
+            }
+          }
+
+          if (typeof document === "undefined") return null;
+          var cookies = document.cookie ? document.cookie.split(";") : [];
+          for (var i = 0; i < cookies.length; i += 1) {
+            var entry = cookies[i].trim();
+            if (!entry) continue;
+            if (entry.indexOf(LOGIN_LAYOUT_COOKIE + "=") === 0) {
+              var token = entry.substring(LOGIN_LAYOUT_COOKIE.length + 1);
+              try {
+                token = decodeURIComponent(token);
+              } catch (err) {
+                // ignore decode errors; fallback to raw token
+              }
+              var layout = sanitizeLoginLayout(token);
+              if (layout) return layout;
+            }
+          }
+
+          return null;
+        }
+
         try {
           var stored = getStoredSelection();
           var slug = stored && typeof stored.slug === "string" ? stored.slug : DEFAULT_THEME;
@@ -82,6 +127,9 @@
           html.setAttribute("data-bs-theme", mode);
           html.setAttribute("data-theme-variant", variant);
           html.setAttribute("data-theme-source", source);
+
+          var storedLayout = sanitizeLoginLayout(html.getAttribute("data-login-layout")) || getStoredLoginLayout();
+          html.setAttribute("data-login-layout", storedLayout || DEFAULT_LOGIN_LAYOUT);
         } catch (err) {
           var fallbackHtml = document.documentElement;
           fallbackHtml.setAttribute("data-theme", DEFAULT_THEME);
@@ -89,6 +137,7 @@
           fallbackHtml.setAttribute("data-bs-theme", DEFAULT_MODE);
           fallbackHtml.setAttribute("data-theme-variant", DEFAULT_MODE);
           fallbackHtml.setAttribute("data-theme-source", DEFAULT_SOURCE);
+          fallbackHtml.setAttribute("data-login-layout", DEFAULT_LOGIN_LAYOUT);
         }
       })();
     </script>

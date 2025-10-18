@@ -40,8 +40,8 @@
   position: relative;
   width: 100%;
   max-width: 440px;
-  min-height: 280px;
-  margin-top: 1.5rem;
+  min-height: 240px;
+  margin-top: 1.25rem;
   perspective: 1600px;
 }
 
@@ -52,11 +52,11 @@
   color: var(--bs-body-color);
   border-radius: 1.25rem;
   border: 1px solid var(--bs-border-color-translucent);
-  padding: 2.5rem 2.25rem;
+  padding: 2.25rem 2rem 1.75rem;
   box-shadow: 0 1.5rem 2.75rem rgba(15, 23, 42, 0.18);
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
+  gap: 1rem;
   pointer-events: none;
   opacity: 0;
   transform: translate3d(0, 32px, -160px) rotateX(18deg) scale(0.94);
@@ -127,14 +127,14 @@
 .login-layout4__form {
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
+  gap: 1rem;
   text-align: left;
 }
 
 .login-layout4__card-header {
   display: flex;
   flex-direction: column;
-  gap: 0.45rem;
+  gap: 0.35rem;
 }
 
 .login-layout4__title {

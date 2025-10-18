@@ -335,6 +335,23 @@ paths:
         "422":
           $ref: "#/components/responses/ValidationFailed"
 
+  /settings/ui/public:
+    get:
+      operationId: settingsUiPublicGet
+      tags: [Settings]
+      summary: Get public UI settings
+      description: |
+        Returns non-sensitive UI configuration required by unauthenticated pages, such as the selected login layout and public branding assets.
+      responses:
+        "200":
+          description: Public UI settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UiPublicSettingsResponse"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+
   /settings/ui/themes:
     get:
       operationId: settingsUiManifest
@@ -3606,6 +3623,110 @@ components:
           properties:
             ui:
               $ref: "#/components/schemas/UiSettings"
+
+    UiPublicSettingsResponse:
+      type: object
+      additionalProperties: false
+      required: [ok, config]
+      properties:
+        ok:
+          type: boolean
+          const: true
+        config:
+          $ref: "#/components/schemas/UiPublicSettings"
+
+    UiPublicSettings:
+      type: object
+      additionalProperties: false
+      required: [theme, brand]
+      properties:
+        theme:
+          $ref: "#/components/schemas/UiPublicThemeSettings"
+        brand:
+          $ref: "#/components/schemas/UiPublicBrandSettings"
+
+    UiPublicThemeSettings:
+      type: object
+      additionalProperties: false
+      required: [default, mode, allow_user_override, force_global, overrides, login]
+      properties:
+        default:
+          type: string
+          example: slate
+        mode:
+          type: string
+          enum: [light, dark]
+          example: dark
+        allow_user_override:
+          type: boolean
+          example: true
+        force_global:
+          type: boolean
+          example: false
+        overrides:
+          type: object
+          additionalProperties:
+            type: string
+          example:
+            color.primary: "#0d6efd"
+        login:
+          type: object
+          additionalProperties: false
+          required: [layout]
+          properties:
+            layout:
+              type: string
+              enum: [layout_1, layout_2, layout_3, layout_4]
+              example: layout_4
+
+    UiPublicBrandSettings:
+      type: object
+      additionalProperties: false
+      required:
+        - profile_id
+        - title_text
+        - favicon_asset_id
+        - primary_logo_asset_id
+        - secondary_logo_asset_id
+        - header_logo_asset_id
+        - footer_logo_asset_id
+        - background_login_asset_id
+        - background_main_asset_id
+        - footer_logo_disabled
+      properties:
+        profile_id:
+          type: string
+          description: Active branding profile identifier.
+          example: bp_default
+        title_text:
+          type: string
+          example: phpGRC
+        favicon_asset_id:
+          type: string
+          nullable: true
+          example: asset-favicon
+        primary_logo_asset_id:
+          type: string
+          nullable: true
+          example: asset-primary
+        secondary_logo_asset_id:
+          type: string
+          nullable: true
+        header_logo_asset_id:
+          type: string
+          nullable: true
+        footer_logo_asset_id:
+          type: string
+          nullable: true
+        background_login_asset_id:
+          type: string
+          nullable: true
+        background_main_asset_id:
+          type: string
+          nullable: true
+        footer_logo_disabled:
+          type: boolean
+          example: false
 
     UiSettingsUpdateRequest:
       type: object

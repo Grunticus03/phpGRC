@@ -13,16 +13,57 @@ import { BOOTSWATCH_THEME_HREFS, BOOTSWATCH_THEMES, getBootswatchVariant, getBoo
 
 type ThemeMode = "light" | "dark";
 type DesignerStorageMode = "browser" | "filesystem";
+type LoginLayout = "layout_1" | "layout_2" | "layout_3" | "layout_4";
 
 type ManifestEntry = ThemeManifest["themes"][number] | ThemeManifest["packs"][number];
 
 type ThemeVariantSelection = ThemeVariant & { mode: ThemeMode };
+type WidenLiteral<T> = T extends string
+  ? string
+  : T extends number
+  ? number
+  : T extends boolean
+  ? boolean
+  : T;
+
+type Mutable<T> = T extends (...args: infer A) => infer R
+  ? (...args: A) => R
+  : T extends object
+  ? { -readonly [K in keyof T]: Mutable<WidenLiteral<T[K]>> }
+  : WidenLiteral<T>;
+type MutableThemeSettings = Mutable<ThemeSettings["theme"]>;
+type MutableBrandSettings = Mutable<ThemeSettings["brand"]>;
 
 type ThemeSelection = {
   slug: string;
   mode: ThemeMode;
   source: string;
   variant: ThemeVariantSelection | null;
+};
+
+type PublicUiSettings = {
+  theme?: {
+    default?: string | null;
+    mode?: ThemeMode | null;
+    allow_user_override?: boolean;
+    force_global?: boolean;
+    overrides?: Record<string, unknown>;
+    login?: {
+      layout?: string | null;
+    };
+  };
+  brand?: {
+    profile_id?: string | null;
+    title_text?: string | null;
+    favicon_asset_id?: string | null;
+    primary_logo_asset_id?: string | null;
+    secondary_logo_asset_id?: string | null;
+    header_logo_asset_id?: string | null;
+    footer_logo_asset_id?: string | null;
+    background_login_asset_id?: string | null;
+    background_main_asset_id?: string | null;
+    footer_logo_disabled?: boolean | null;
+  };
 };
 
 const THEME_LINK_ID = "phpgrc-theme-css";
@@ -32,6 +73,9 @@ const CUSTOM_THEME_STORAGE_KEY = "phpgrc.customThemePacks";
 const THEME_SELECTION_STORAGE_KEY = "phpgrc.theme.selection";
 const THEME_SELECTION_COOKIE = "phpgrc_theme_selection";
 const THEME_SELECTION_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 30; // 30 days
+const LOGIN_LAYOUT_STORAGE_KEY = "phpgrc.login.layout";
+const LOGIN_LAYOUT_COOKIE = "phpgrc_login_layout";
+const LOGIN_LAYOUT_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 180; // ~6 months
 
 const hasLocalStorage = (): boolean => {
   if (typeof window === "undefined") return false;
@@ -55,6 +99,92 @@ const sanitizeVariables = (input: unknown): Record<string, string> => {
   }
   return result;
 };
+
+const sanitizeLoginLayout = (value: unknown): LoginLayout | null => {
+  if (typeof value !== "string") return null;
+  const token = value.trim().toLowerCase();
+  return token === "layout_1" || token === "layout_2" || token === "layout_3" || token === "layout_4"
+    ? (token as LoginLayout)
+    : null;
+};
+
+const getDatasetLoginLayout = (): LoginLayout | null => {
+  if (typeof document === "undefined") return null;
+  const attr = document.documentElement.getAttribute("data-login-layout");
+  return sanitizeLoginLayout(attr);
+};
+
+const applyLoginLayoutDataset = (layout: LoginLayout | null): void => {
+  if (typeof document === "undefined") return;
+  if (layout) {
+    document.documentElement.setAttribute("data-login-layout", layout);
+  } else {
+    document.documentElement.removeAttribute("data-login-layout");
+  }
+};
+
+const persistLoginLayout = (layout: LoginLayout): void => {
+  if (hasLocalStorage()) {
+    try {
+      window.localStorage.setItem(LOGIN_LAYOUT_STORAGE_KEY, layout);
+    } catch {
+      // ignore storage failures
+    }
+  }
+  if (typeof document !== "undefined") {
+    const attributes = [
+      "path=/",
+      `max-age=${LOGIN_LAYOUT_COOKIE_MAX_AGE_SECONDS}`,
+      "SameSite=Lax",
+    ];
+    if (typeof window !== "undefined" && window.location?.protocol === "https:") {
+      attributes.push("Secure");
+    }
+    document.cookie = `${LOGIN_LAYOUT_COOKIE}=${encodeURIComponent(layout)}; ${attributes.join("; ")}`;
+  }
+
+  applyLoginLayoutDataset(layout);
+};
+
+const loadStoredLoginLayout = (): LoginLayout | null => {
+  if (hasLocalStorage()) {
+    try {
+      const raw = window.localStorage.getItem(LOGIN_LAYOUT_STORAGE_KEY);
+      const stored = sanitizeLoginLayout(raw);
+      if (stored) return stored;
+    } catch {
+      // ignore read failure and fall through to cookies
+    }
+  }
+
+  if (typeof document !== "undefined" && typeof document.cookie === "string") {
+    const entries = document.cookie.split(";");
+    for (const entry of entries) {
+      const trimmed = entry.trim();
+      if (!trimmed) continue;
+      if (trimmed.startsWith(`${LOGIN_LAYOUT_COOKIE}=`)) {
+        const token = trimmed.substring(LOGIN_LAYOUT_COOKIE.length + 1);
+        try {
+          const decoded = decodeURIComponent(token);
+          const stored = sanitizeLoginLayout(decoded);
+          if (stored) return stored;
+        } catch {
+          const stored = sanitizeLoginLayout(token);
+          if (stored) return stored;
+        }
+      }
+    }
+  }
+
+  return null;
+};
+
+const initialDatasetLoginLayout = getDatasetLoginLayout();
+const initialStoredLoginLayout = loadStoredLoginLayout();
+const initialLoginLayout = initialDatasetLoginLayout ?? initialStoredLoginLayout;
+if (initialDatasetLoginLayout && !initialStoredLoginLayout) {
+  persistLoginLayout(initialDatasetLoginLayout);
+}
 
 const buildBrandAssetUrl = (assetId: string): string =>
   `${BRAND_ASSET_BASE_PATH}/${encodeURIComponent(assetId)}/download`;
@@ -201,6 +331,19 @@ const clone = <T>(value: T): T => {
 };
 
 let settingsCache: ThemeSettings = clone(DEFAULT_THEME_SETTINGS);
+if (initialLoginLayout) {
+  settingsCache = {
+    ...settingsCache,
+    theme: {
+      ...settingsCache.theme,
+      login: {
+        ...settingsCache.theme.login,
+        layout: initialLoginLayout,
+      },
+    },
+  };
+  applyLoginLayoutDataset(initialLoginLayout);
+}
 let designerStorageMode: DesignerStorageMode = resolveDesignerStorage(settingsCache);
 let customPackCache: CustomThemePack[] = designerStorageMode === "browser" ? loadCustomThemePacks() : [];
 
@@ -212,6 +355,132 @@ const persistCustomThemePacks = (): void => {
   } catch {
     // ignore storage errors (quota/security)
   }
+};
+
+const sanitizeNonEmptyString = (value: unknown): string | null => {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed === "" ? null : trimmed;
+};
+
+const applyPublicUiSettings = (payload: PublicUiSettings): void => {
+  const nextTheme: MutableThemeSettings = {
+    ...settingsCache.theme,
+    overrides: { ...(settingsCache.theme.overrides ?? {}) },
+    login: { ...(settingsCache.theme.login ?? DEFAULT_THEME_SETTINGS.theme.login) },
+  } as MutableThemeSettings;
+  const nextBrand: MutableBrandSettings = {
+    ...settingsCache.brand,
+    assets: { ...(settingsCache.brand.assets ?? DEFAULT_THEME_SETTINGS.brand.assets) },
+  } as MutableBrandSettings;
+  let changed = false;
+
+  if (payload.theme) {
+    const theme = payload.theme;
+    const defaultSlug = sanitizeNonEmptyString(theme.default);
+    if (defaultSlug && nextTheme.default !== defaultSlug) {
+      nextTheme.default = defaultSlug;
+      changed = true;
+    }
+
+    if (theme.mode && isValidMode(theme.mode) && nextTheme.mode !== theme.mode) {
+      nextTheme.mode = theme.mode;
+      changed = true;
+    }
+
+    if (typeof theme.allow_user_override === "boolean" && nextTheme.allow_user_override !== theme.allow_user_override) {
+      nextTheme.allow_user_override = theme.allow_user_override;
+      changed = true;
+    }
+
+    if (typeof theme.force_global === "boolean" && nextTheme.force_global !== theme.force_global) {
+      nextTheme.force_global = theme.force_global;
+      changed = true;
+    }
+
+    if (theme.overrides && typeof theme.overrides === "object") {
+      if (!nextTheme.overrides) {
+        nextTheme.overrides = {} as MutableThemeSettings["overrides"];
+      }
+      let overridesChanged = false;
+      Object.entries(theme.overrides).forEach(([key, value]) => {
+        if (typeof key === "string" && typeof value === "string") {
+          const current = (nextTheme.overrides as Record<string, string | undefined>)[key];
+          if (current !== value) {
+            (nextTheme.overrides as Record<string, string>)[key] = value;
+            overridesChanged = true;
+          }
+        }
+      });
+      if (overridesChanged) {
+        changed = true;
+      }
+    }
+
+    const nextLayout = sanitizeLoginLayout(theme.login?.layout ?? null);
+    if (nextLayout && nextTheme.login?.layout !== nextLayout) {
+      nextTheme.login = { ...(nextTheme.login ?? DEFAULT_THEME_SETTINGS.theme.login), layout: nextLayout };
+      persistLoginLayout(nextLayout);
+      changed = true;
+    }
+  }
+
+  if (payload.brand) {
+    const brand = payload.brand;
+    if (typeof brand.title_text === "string" && nextBrand.title_text !== brand.title_text) {
+      nextBrand.title_text = brand.title_text;
+      changed = true;
+    }
+
+    type BrandAssetField =
+      | "favicon_asset_id"
+      | "primary_logo_asset_id"
+      | "secondary_logo_asset_id"
+      | "header_logo_asset_id"
+      | "footer_logo_asset_id"
+      | "background_login_asset_id"
+      | "background_main_asset_id";
+
+    const updateBrandAsset = (field: BrandAssetField, value: unknown) => {
+      if (value === null || typeof value === "string") {
+        const normalized = (value ?? null) as MutableBrandSettings[typeof field];
+        if (nextBrand[field] !== normalized) {
+          nextBrand[field] = normalized;
+          changed = true;
+        }
+      }
+    };
+
+    updateBrandAsset("favicon_asset_id", brand.favicon_asset_id);
+    updateBrandAsset("primary_logo_asset_id", brand.primary_logo_asset_id);
+    updateBrandAsset("secondary_logo_asset_id", brand.secondary_logo_asset_id);
+    updateBrandAsset("header_logo_asset_id", brand.header_logo_asset_id);
+    updateBrandAsset("footer_logo_asset_id", brand.footer_logo_asset_id);
+    updateBrandAsset("background_login_asset_id", brand.background_login_asset_id);
+    updateBrandAsset("background_main_asset_id", brand.background_main_asset_id);
+
+    if (typeof brand.footer_logo_disabled === "boolean" && nextBrand.footer_logo_disabled !== brand.footer_logo_disabled) {
+      nextBrand.footer_logo_disabled = brand.footer_logo_disabled;
+      changed = true;
+    }
+  }
+
+  if (!changed) {
+    const layout = sanitizeLoginLayout(payload.theme?.login?.layout ?? null);
+    if (layout) {
+      applyLoginLayoutDataset(layout);
+    }
+    return;
+  }
+
+  settingsCache = {
+    ...settingsCache,
+    theme: nextTheme as ThemeSettings["theme"],
+    brand: nextBrand as ThemeSettings["brand"],
+  } as ThemeSettings;
+
+  refreshTheme();
+  notifySettingsListeners();
 };
 
 const persistSelectionSnapshot = (selection: ThemeSelection): void => {
@@ -832,6 +1101,11 @@ export const bootstrapTheme = async (options?: { fetchUserPrefs?: boolean }): Pr
   }
 
   loadPromise = (async () => {
+    const publicSettingsResponse = await fetchJson<{ config?: PublicUiSettings }>("/api/settings/ui/public");
+    if (publicSettingsResponse?.config) {
+      applyPublicUiSettings(publicSettingsResponse.config);
+    }
+
     const manifest = await fetchJson<ThemeManifest>("/api/settings/ui/themes");
     if (manifest && Array.isArray(manifest.themes)) {
       manifestCache = clone(mergeCustomPacks(manifest, customPackCache));
@@ -841,6 +1115,10 @@ export const bootstrapTheme = async (options?: { fetchUserPrefs?: boolean }): Pr
     const settingsResponse = await fetchJson<{ config?: { ui?: ThemeSettings } }>("/api/settings/ui");
     if (settingsResponse?.config?.ui) {
       settingsCache = settingsResponse.config.ui;
+      const loginLayout = sanitizeLoginLayout(settingsCache.theme?.login?.layout ?? null);
+      if (loginLayout) {
+        persistLoginLayout(loginLayout);
+      }
       designerStorageMode = resolveDesignerStorage(settingsCache);
       customPackCache = designerStorageMode === "browser" ? loadCustomThemePacks() : [];
       manifestCache = clone(mergeCustomPacks(manifestCache, customPackCache));
@@ -886,6 +1164,10 @@ export const updateThemeManifest = (manifest: ThemeManifest): void => {
 
 export const updateThemeSettings = (settings: ThemeSettings): void => {
   settingsCache = clone(settings);
+  const loginLayout = sanitizeLoginLayout(settingsCache.theme?.login?.layout ?? null);
+  if (loginLayout) {
+    persistLoginLayout(loginLayout);
+  }
   designerStorageMode = resolveDesignerStorage(settingsCache);
   customPackCache = designerStorageMode === "browser" ? loadCustomThemePacks() : [];
   manifestCache = clone(mergeCustomPacks(manifestCache, customPackCache));
@@ -899,6 +1181,8 @@ export const updateThemePrefs = (prefs: ThemeUserPrefs): void => {
   refreshTheme();
   notifyPrefsListeners();
 };
+
+export const getStoredLoginLayout = (): LoginLayout | null => loadStoredLoginLayout();
 
 const updateFaviconLink = (href: string | null): void => {
   if (typeof document === "undefined") return;

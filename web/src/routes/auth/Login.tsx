@@ -14,6 +14,8 @@ import {
   getCachedThemeSettings,
   onThemeSettingsChange,
   resolveBrandBackgroundUrl,
+  bootstrapTheme,
+  getStoredLoginLayout,
 } from "../../theme/themeManager";
 import { DEFAULT_THEME_SETTINGS, type ThemeSettings } from "../admin/themeData";
 import "./LoginLayout3.css";
@@ -63,9 +65,17 @@ export default function Login(): JSX.Element {
   const [info, setInfo] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [logoSrc, setLogoSrc] = useState<string | null>(() => resolvePrimaryLogo(getCachedThemeSettings()));
-  const [layout, setLayout] = useState<LoginLayout>(() =>
-    resolveLoginLayout(getCachedThemeSettings().theme.login?.layout)
-  );
+  const [layout, setLayout] = useState<LoginLayout>(() => {
+    if (typeof document !== "undefined") {
+      const attr = document.documentElement.getAttribute("data-login-layout");
+      if (attr !== null) {
+        return resolveLoginLayout(attr);
+      }
+    }
+    const stored = getStoredLoginLayout();
+    if (stored) return stored;
+    return resolveLoginLayout(getCachedThemeSettings().theme.login?.layout);
+  });
   const [loginBackgroundUrl, setLoginBackgroundUrl] = useState<string | null>(() =>
     resolveBrandBackgroundUrl(getCachedThemeSettings(), "login")
   );
@@ -93,6 +103,12 @@ export default function Login(): JSX.Element {
   const isLayout3 = layout === "layout_3";
   const isLayout4 = layout === "layout_4";
 
+  useEffect(() => {
+    if (typeof document !== "undefined") {
+      document.documentElement.setAttribute("data-login-layout", layout);
+    }
+  }, [layout]);
+
   const schedule = useCallback(
     (callback: () => void, delay: number) => {
       if (typeof window === "undefined" || prefersReducedMotion) {
@@ -115,6 +131,10 @@ export default function Login(): JSX.Element {
       setLoginBackgroundUrl(resolveBrandBackgroundUrl(next, "login"));
     });
     return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    void bootstrapTheme({ fetchUserPrefs: false });
   }, []);
 
   useEffect(() => {

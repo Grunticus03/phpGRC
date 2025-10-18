@@ -426,6 +426,108 @@ final class UiSettingsService
         ];
     }
 
+    /**
+     * @return array{
+     *     theme: array{
+     *         default: string,
+     *         mode: string,
+     *         allow_user_override: bool,
+     *         force_global: bool,
+     *         overrides: array<string,string>,
+     *         login: array{layout:string}
+     *     },
+     *     brand: array{
+     *         profile_id: string,
+     *         title_text:string,
+     *         favicon_asset_id:string|null,
+     *         primary_logo_asset_id:string|null,
+     *         secondary_logo_asset_id:string|null,
+     *         header_logo_asset_id:string|null,
+     *         footer_logo_asset_id:string|null,
+     *         background_login_asset_id:string|null,
+     *         background_main_asset_id:string|null,
+     *         footer_logo_disabled:bool
+     *     }
+     * }
+     */
+    public function publicConfig(): array
+    {
+        $config = $this->currentConfig();
+
+        /** @var array<string,mixed> $themeDefaults */
+        $themeDefaults = (array) config('ui.defaults.theme', []);
+        $defaultThemeSlug = is_string($themeDefaults['default'] ?? null) ? (string) $themeDefaults['default'] : 'slate';
+        $defaultThemeMode = in_array($themeDefaults['mode'] ?? null, ['light', 'dark'], true)
+            ? (string) $themeDefaults['mode']
+            : 'dark';
+        $defaultAllowOverride = (bool) ($themeDefaults['allow_user_override'] ?? true);
+        $defaultForceGlobal = (bool) ($themeDefaults['force_global'] ?? false);
+        /** @var string|null $defaultLoginLayoutRaw */
+        $defaultLoginLayoutRaw = data_get($themeDefaults, 'login.layout');
+        $defaultLoginLayout = is_string($defaultLoginLayoutRaw) ? $defaultLoginLayoutRaw : 'layout_1';
+
+        /** @var array<string,mixed> $themeConfig */
+        $themeConfig = $config['theme'];
+        /** @var array<string,mixed> $loginConfig */
+        $loginConfig = (array) ($themeConfig['login'] ?? []);
+
+        $layout = $this->sanitizeLoginLayout(
+            $loginConfig['layout'] ?? null,
+            $defaultLoginLayout
+        );
+
+        $overrides = [];
+        if (isset($themeConfig['overrides']) && is_array($themeConfig['overrides'])) {
+            /** @var array<string,mixed> $rawOverrides */
+            $rawOverrides = $themeConfig['overrides'];
+            foreach ($rawOverrides as $key => $value) {
+                if (! is_string($value)) {
+                    continue;
+                }
+                $overrides[$key] = $value;
+            }
+        }
+
+        $theme = [
+            'default' => is_string($themeConfig['default'] ?? null)
+                ? (string) $themeConfig['default']
+                : $defaultThemeSlug,
+            'mode' => in_array($themeConfig['mode'] ?? null, ['light', 'dark'], true)
+                ? (string) $themeConfig['mode']
+                : $defaultThemeMode,
+            'allow_user_override' => (bool) ($themeConfig['allow_user_override'] ?? $defaultAllowOverride),
+            'force_global' => (bool) ($themeConfig['force_global'] ?? $defaultForceGlobal),
+            'overrides' => $overrides,
+            'login' => [
+                'layout' => $layout,
+            ],
+        ];
+
+        $profile = $this->activeBrandProfile();
+        $brandConfig = $this->brandProfileAsConfig($profile);
+        /** @var string|int|null $profileKey */
+        $profileKey = $profile->getKey();
+        if (is_string($profileKey)) {
+            $profileId = $profileKey;
+        } elseif (is_int($profileKey)) {
+            $profileId = (string) $profileKey;
+        } else {
+            /** @var mixed $fallback */
+            $fallback = $profile->getAttribute($profile->getKeyName());
+            $profileId = is_string($fallback) ? $fallback : $profile->getKeyName();
+        }
+
+        $brand = array_merge(
+            ['profile_id' => $profileId],
+            $brandConfig
+        );
+
+        return [
+            'theme' => $theme,
+            'brand' => $brand,
+        ];
+    }
+
     private function sanitizeProfileName(?string $name): string
     {
         $trimmed = trim((string) $name);
