@@ -19,7 +19,6 @@ import {
 } from "../../theme/themeManager";
 import { DEFAULT_THEME_SETTINGS, type ThemeSettings } from "../admin/themeData";
 import "./LoginLayout3.css";
-import "./LoginLayout4.css";
 
 const DEFAULT_LOGO_SRC = "/api/images/phpGRC-light-horizontal-trans.webp";
 
@@ -30,10 +29,10 @@ const resolvePrimaryLogo = (settings: ThemeSettings | null | undefined): string 
   return getBrandAssetUrl(primaryId);
 };
 
-type LoginLayout = "layout_1" | "layout_2" | "layout_3" | "layout_4";
+type LoginLayout = "layout_1" | "layout_2" | "layout_3";
 
 const resolveLoginLayout = (value: string | null | undefined): LoginLayout => {
-  if (value === "layout_2" || value === "layout_3" || value === "layout_4") {
+  if (value === "layout_2" || value === "layout_3") {
     return value;
   }
   return "layout_1";
@@ -46,17 +45,8 @@ const LAYOUT3_PASSWORD_EXIT_MS = 500;
 const LAYOUT3_PASSWORD_SHAKE_MS = 320;
 const LAYOUT3_PAGE_FADE_MS = 500;
 
-const LAYOUT4_USERNAME_ENTER_MS = 900;
-const LAYOUT4_USERNAME_EXIT_MS = 720;
-const LAYOUT4_PASSWORD_ENTER_MS = 900;
-const LAYOUT4_PASSWORD_EXIT_MS = 780;
-const LAYOUT4_PASSWORD_SHAKE_MS = 360;
-const LAYOUT4_PAGE_FADE_MS = 600;
-
 type Layout3View = "email" | "password";
 type Layout3PanelAnimation = "idle" | "enter" | "exit" | "shake";
-type Layout4View = "username" | "password";
-type Layout4CardAnimation = "idle" | "enter" | "exit" | "shake";
 
 export default function Login(): JSX.Element {
   const [email, setEmail] = useState("");
@@ -89,19 +79,11 @@ export default function Login(): JSX.Element {
   const [passwordAnimation, setPasswordAnimation] = useState<Layout3PanelAnimation>("idle");
   const [pageAnimation, setPageAnimation] = useState<"idle" | "fading">("idle");
   const [layout3Transitioning, setLayout3Transitioning] = useState(false);
-  const [layout4View, setLayout4View] = useState<Layout4View>("username");
-  const [layout4Ready, setLayout4Ready] = useState(false);
-  const [layout4UsernameAnimation, setLayout4UsernameAnimation] = useState<Layout4CardAnimation>("idle");
-  const [layout4PasswordAnimation, setLayout4PasswordAnimation] = useState<Layout4CardAnimation>("idle");
-  const [layout4Transitioning, setLayout4Transitioning] = useState(false);
-  const [layout4UsernameDiscarded, setLayout4UsernameDiscarded] = useState(false);
-  const [layout4PasswordLaunched, setLayout4PasswordLaunched] = useState(false);
   const emailInputRef = useRef<HTMLInputElement | null>(null);
   const passwordInputRef = useRef<HTMLInputElement | null>(null);
   const animationTimers = useRef<number[]>([]);
   const focusFrame = useRef<number | null>(null);
   const isLayout3 = layout === "layout_3";
-  const isLayout4 = layout === "layout_4";
 
   useEffect(() => {
     if (typeof document !== "undefined") {
@@ -181,58 +163,21 @@ export default function Login(): JSX.Element {
   }, [isLayout3, prefersReducedMotion, schedule]);
 
   useEffect(() => {
-    if (!isLayout4) {
-      setLayout4Ready(false);
-      setLayout4View("username");
-      setLayout4UsernameAnimation("idle");
-      setLayout4PasswordAnimation("idle");
-      setLayout4Transitioning(false);
-      setLayout4UsernameDiscarded(false);
-      setLayout4PasswordLaunched(false);
-      return;
-    }
-    setLayout4Ready(true);
-    setLayout4View("username");
-    setLayout4UsernameDiscarded(false);
-    setLayout4PasswordLaunched(false);
-    setLayout4Transitioning(false);
-    setPageAnimation("idle");
-    setLayout4UsernameAnimation(prefersReducedMotion ? "idle" : "enter");
-    setLayout4PasswordAnimation("idle");
-    setErr(null);
-    setPassword("");
-    if (!prefersReducedMotion) {
-      schedule(() => {
-        setLayout4UsernameAnimation((current) => (current === "enter" ? "idle" : current));
-      }, LAYOUT4_USERNAME_ENTER_MS);
-    }
-  }, [isLayout4, prefersReducedMotion, schedule]);
-
-  useEffect(() => {
-    if (!isLayout3 && !isLayout4) return;
+    if (!isLayout3) return;
     if (typeof window === "undefined") return;
-    const target = isLayout3
-      ? layout3View === "email"
-        ? emailInputRef.current
-        : passwordInputRef.current
-      : layout4View === "username"
-      ? emailInputRef.current
-      : passwordInputRef.current;
+    const target = layout3View === "email" ? emailInputRef.current : passwordInputRef.current;
     if (!target) return;
     if (focusFrame.current !== null) {
       window.cancelAnimationFrame(focusFrame.current);
     }
     focusFrame.current = window.requestAnimationFrame(() => {
       target.focus();
-      if (
-        ((isLayout3 && layout3View === "email") || (isLayout4 && layout4View === "username")) &&
-        typeof target.select === "function"
-      ) {
+      if (layout3View === "email" && typeof target.select === "function") {
         target.select();
       }
       focusFrame.current = null;
     });
-  }, [isLayout3, isLayout4, layout3View, layout4View]);
+  }, [isLayout3, layout3View]);
 
   useEffect(() => {
     if (consumeSessionExpired()) {
@@ -271,46 +216,6 @@ export default function Login(): JSX.Element {
     }, LAYOUT3_EMAIL_EXIT_MS);
   }, [isLayout3, layout3View, layout3Transitioning, prefersReducedMotion, schedule]);
 
-  const advanceToLayout4Password = useCallback(() => {
-    if (!isLayout4 || layout4View !== "username" || layout4Transitioning) return;
-    const emailField = emailInputRef.current;
-    if (emailField && !emailField.checkValidity()) {
-      emailField.reportValidity();
-      return;
-    }
-    setErr(null);
-    setPassword("");
-    setLayout4PasswordLaunched(false);
-    if (prefersReducedMotion) {
-      setLayout4UsernameAnimation("idle");
-      setLayout4UsernameDiscarded(true);
-      setLayout4View("password");
-      setLayout4PasswordAnimation("idle");
-      setLayout4Transitioning(false);
-      return;
-    }
-    setLayout4Transitioning(true);
-    setLayout4UsernameAnimation("exit");
-    schedule(() => {
-      setLayout4UsernameDiscarded(true);
-      setLayout4UsernameAnimation((current) => (current === "exit" ? "idle" : current));
-    }, LAYOUT4_USERNAME_EXIT_MS);
-    schedule(() => {
-      setLayout4View("password");
-      setLayout4PasswordAnimation("enter");
-      schedule(() => {
-        setLayout4PasswordAnimation((current) => (current === "enter" ? "idle" : current));
-        setLayout4Transitioning(false);
-      }, LAYOUT4_PASSWORD_ENTER_MS);
-    }, LAYOUT4_USERNAME_EXIT_MS);
-  }, [
-    isLayout4,
-    layout4Transitioning,
-    layout4View,
-    prefersReducedMotion,
-    schedule,
-  ]);
-
   const handleBackToEmail = useCallback(() => {
     if (isLayout3) {
       if (layout3View !== "password" || pageAnimation === "fading" || layout3Transitioning) return;
@@ -339,53 +244,22 @@ export default function Login(): JSX.Element {
       }, LAYOUT3_PASSWORD_EXIT_MS);
       return;
     }
-
-    if (!isLayout4 || layout4View !== "password" || pageAnimation === "fading" || layout4Transitioning) {
-      return;
-    }
-    setErr(null);
-    setBusy(false);
-    setPassword("");
-    setLayout4PasswordAnimation("idle");
-    setLayout4PasswordLaunched(false);
-    setLayout4Transitioning(false);
-    setLayout4View("username");
-    if (prefersReducedMotion) {
-      setLayout4UsernameDiscarded(false);
-      setLayout4UsernameAnimation("idle");
-      return;
-    }
-    setLayout4UsernameDiscarded(false);
-    setLayout4UsernameAnimation("enter");
-    schedule(() => {
-      setLayout4UsernameAnimation((current) => (current === "enter" ? "idle" : current));
-    }, LAYOUT4_USERNAME_ENTER_MS);
   }, [
     isLayout3,
-    isLayout4,
     layout3Transitioning,
     layout3View,
-    layout4Transitioning,
-    layout4View,
     pageAnimation,
     prefersReducedMotion,
     schedule,
   ]);
 
   const triggerPasswordShake = useCallback(() => {
-    if (isLayout3) {
-      setPasswordAnimation("shake");
-      schedule(() => {
-        setPasswordAnimation((current) => (current === "shake" ? "idle" : current));
-      }, LAYOUT3_PASSWORD_SHAKE_MS);
-      return;
-    }
-    if (!isLayout4) return;
-    setLayout4PasswordAnimation("shake");
+    if (!isLayout3) return;
+    setPasswordAnimation("shake");
     schedule(() => {
-      setLayout4PasswordAnimation((current) => (current === "shake" ? "idle" : current));
-    }, LAYOUT4_PASSWORD_SHAKE_MS);
-  }, [isLayout3, isLayout4, schedule]);
+      setPasswordAnimation((current) => (current === "shake" ? "idle" : current));
+    }, LAYOUT3_PASSWORD_SHAKE_MS);
+  }, [isLayout3, schedule]);
 
   const triggerLayout3Success = useCallback(
     (destination: string) => {
@@ -411,52 +285,10 @@ export default function Login(): JSX.Element {
     [isLayout3, schedule]
   );
 
-  const triggerLayout4Success = useCallback(
-    (destination: string) => {
-      if (!isLayout4) {
-        if (typeof window !== "undefined") {
-          window.location.assign(destination);
-        }
-        return;
-      }
-
-      setLayout4Transitioning(false);
-      setLayout4View("password");
-      setLayout4PasswordLaunched(false);
-
-      if (prefersReducedMotion) {
-        setPageAnimation("fading");
-        if (typeof window !== "undefined") {
-          window.location.assign(destination);
-        }
-        return;
-      }
-
-      setLayout4PasswordAnimation("exit");
-      schedule(() => {
-        setLayout4PasswordAnimation((current) => (current === "exit" ? "idle" : current));
-        setLayout4PasswordLaunched(true);
-      }, LAYOUT4_PASSWORD_EXIT_MS);
-      schedule(() => {
-        setPageAnimation("fading");
-      }, LAYOUT4_PASSWORD_EXIT_MS);
-      schedule(() => {
-        if (typeof window !== "undefined") {
-          window.location.assign(destination);
-        }
-      }, LAYOUT4_PASSWORD_EXIT_MS + LAYOUT4_PAGE_FADE_MS);
-    },
-    [isLayout4, prefersReducedMotion, schedule]
-  );
-
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (isLayout3 && layout3View === "email") {
       advanceToPassword();
-      return;
-    }
-    if (isLayout4 && layout4View === "username") {
-      advanceToLayout4Password();
       return;
     }
 
@@ -469,18 +301,16 @@ export default function Login(): JSX.Element {
       const dest = consumeIntendedPath() || "/dashboard";
       if (isLayout3) {
         triggerLayout3Success(dest);
-      } else if (isLayout4) {
-        triggerLayout4Success(dest);
       } else if (typeof window !== "undefined") {
         window.location.assign(dest);
       }
     } catch {
       setErr("Invalid credentials");
-      if (isLayout3 || isLayout4) {
+      if (isLayout3) {
         triggerPasswordShake();
       }
     } finally {
-      if ((isLayout3 || isLayout4) && didSucceed) {
+      if (isLayout3 && didSucceed) {
         // keep progress indicator active until animation completes
       } else {
         setBusy(false);
@@ -536,36 +366,6 @@ export default function Login(): JSX.Element {
     passwordAnimation === "enter" ? "is-entering" : "",
     passwordAnimation === "exit" ? "is-exiting" : "",
     passwordAnimation === "shake" ? "is-shaking" : "",
-  ]
-    .filter(Boolean)
-    .join(" ");
-  const layout4WrapperClassName = [
-    "login-layout4",
-    layout4Ready ? "is-ready" : "",
-    pageAnimation === "fading" ? "is-fading" : "",
-    busy ? "is-busy" : "",
-    layout4Transitioning ? "is-transitioning" : "",
-  ]
-    .filter(Boolean)
-    .join(" ");
-  const layout4UsernameClassName = [
-    "login-layout4__card",
-    "login-layout4__card--username",
-    layout4View === "username" ? "is-active" : "is-inactive",
-    layout4UsernameAnimation === "enter" ? "is-entering" : "",
-    layout4UsernameAnimation === "exit" ? "is-exiting" : "",
-    layout4UsernameDiscarded ? "is-discarded" : "",
-  ]
-    .filter(Boolean)
-    .join(" ");
-  const layout4PasswordClassName = [
-    "login-layout4__card",
-    "login-layout4__card--password",
-    layout4View === "password" ? "is-active" : "is-inactive",
-    layout4PasswordAnimation === "enter" ? "is-entering" : "",
-    layout4PasswordAnimation === "exit" ? "is-exiting" : "",
-    layout4PasswordAnimation === "shake" ? "is-shaking" : "",
-    layout4PasswordLaunched ? "is-launched" : "",
   ]
     .filter(Boolean)
     .join(" ");
@@ -645,109 +445,6 @@ export default function Login(): JSX.Element {
               type="submit"
               className="btn btn-primary btn-lg w-100 login-layout3__primary-btn mt-3"
               disabled={busy || pageAnimation === "fading" || layout3Transitioning}
-            >
-              {busy ? "Signing in..." : "Sign in"}
-            </button>
-          </form>
-        </section>
-      </div>
-    </div>
-  );
-
-  const layout4 = (
-    <div className={layout4WrapperClassName}>
-      <div className="login-layout4__logo-wrapper">
-        <img
-          src={displayLogo}
-          alt="Organization logo"
-          height={72}
-          style={{ width: "auto", maxWidth: "320px" }}
-          onError={handleLogoError}
-        />
-      </div>
-      <div className="login-layout4__stack">
-        <section className={layout4UsernameClassName} aria-hidden={layout4View !== "username"}>
-          <form onSubmit={onSubmit} className="login-layout4__form">
-            <div className="login-layout4__card-header visually-hidden">
-              <span className="login-layout4__step">Step 1 of 2</span>
-              <h2 className="login-layout4__title">Welcome back</h2>
-            </div>
-            {hasFeedback && layout4View === "username" ? (
-              <div className="login-layout4__feedback" aria-live="polite">
-                {feedback}
-              </div>
-            ) : null}
-            <div className="login-layout4__field">
-              <label className="visually-hidden" htmlFor="login-email">
-                Email address
-              </label>
-              <input
-                id="login-email"
-                ref={emailInputRef}
-                type="email"
-                className="form-control form-control-lg text-center"
-                value={email}
-                onChange={(ev) => setEmail(ev.currentTarget.value)}
-                required
-                autoComplete="username"
-                placeholder="Email"
-                aria-label="Email address"
-                disabled={layout4View !== "username" || busy || layout4Transitioning}
-              />
-            </div>
-            <button
-              type="submit"
-              className="btn btn-primary btn-lg w-100 login-layout4__primary-btn"
-              disabled={layout4View !== "username" || busy || layout4Transitioning}
-            >
-              Continue
-            </button>
-          </form>
-        </section>
-        <section className={layout4PasswordClassName} aria-hidden={layout4View !== "password"}>
-          <form onSubmit={onSubmit} className="login-layout4__form">
-            <div className="login-layout4__password-header">
-              <button
-                type="button"
-                className="btn btn-link login-layout4__back"
-                onClick={handleBackToEmail}
-                aria-label="Back to username entry"
-                disabled={busy || pageAnimation === "fading" || layout4Transitioning}
-              >
-                <span aria-hidden="true">{"\u2190"}</span>
-              </button>
-              <div className="login-layout4__password-copy visually-hidden">
-                <span className="login-layout4__step">Step 2 of 2</span>
-                <span className="login-layout4__password-title">Enter your password</span>
-              </div>
-            </div>
-            {hasFeedback && layout4View === "password" ? (
-              <div className="login-layout4__feedback" aria-live="polite">
-                {feedback}
-              </div>
-            ) : null}
-            <div className="login-layout4__field">
-              <label className="visually-hidden" htmlFor="login-password">
-                Password
-              </label>
-              <input
-                id="login-password"
-                ref={passwordInputRef}
-                type="password"
-                className="form-control form-control-lg text-center"
-                value={password}
-                onChange={(ev) => setPassword(ev.currentTarget.value)}
-                required
-                autoComplete="current-password"
-                placeholder="Password"
-                aria-label="Password"
-                disabled={layout4View !== "password" || busy || layout4Transitioning}
-              />
-            </div>
-            <button
-              type="submit"
-              className="btn btn-primary btn-lg w-100 login-layout4__primary-btn"
-              disabled={busy || pageAnimation === "fading" || layout4Transitioning}
             >
               {busy ? "Signing in..." : "Sign in"}
             </button>
@@ -881,7 +578,7 @@ export default function Login(): JSX.Element {
       className="d-flex flex-column min-vh-100 align-items-center justify-content-center px-3"
       style={containerStyle}
     >
-      {isLayout3 ? layout3 : isLayout4 ? layout4 : isLayout2 ? layout2 : layout1}
+      {isLayout3 ? layout3 : isLayout2 ? layout2 : layout1}
     </div>
   );
 }

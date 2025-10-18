@@ -3676,8 +3676,8 @@ components:
           properties:
             layout:
               type: string
-              enum: [layout_1, layout_2, layout_3, layout_4]
-              example: layout_4
+              enum: [layout_1, layout_2, layout_3]
+              example: layout_3
 
     UiPublicBrandSettings:
       type: object

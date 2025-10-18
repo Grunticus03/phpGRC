@@ -31,7 +31,7 @@ final class UiSettingsUpdateRequest extends FormRequest
             'ui.theme.designer.storage' => ['sometimes', 'string', 'in:browser,filesystem'],
             'ui.theme.designer.filesystem_path' => ['sometimes', 'string', 'max:255'],
             'ui.theme.login' => ['sometimes', 'array'],
-            'ui.theme.login.layout' => ['sometimes', 'string', 'in:layout_1,layout_2,layout_3,layout_4'],
+            'ui.theme.login.layout' => ['sometimes', 'string', 'in:layout_1,layout_2,layout_3'],
 
             'ui.nav' => ['sometimes', 'array'],
             'ui.nav.sidebar' => ['sometimes', 'array'],

@@ -13,7 +13,7 @@ import { BOOTSWATCH_THEME_HREFS, BOOTSWATCH_THEMES, getBootswatchVariant, getBoo
 
 type ThemeMode = "light" | "dark";
 type DesignerStorageMode = "browser" | "filesystem";
-type LoginLayout = "layout_1" | "layout_2" | "layout_3" | "layout_4";
+type LoginLayout = "layout_1" | "layout_2" | "layout_3";
 
 type ManifestEntry = ThemeManifest["themes"][number] | ThemeManifest["packs"][number];
 
@@ -103,7 +103,7 @@ const sanitizeVariables = (input: unknown): Record<string, string> => {
 const sanitizeLoginLayout = (value: unknown): LoginLayout | null => {
   if (typeof value !== "string") return null;
   const token = value.trim().toLowerCase();
-  return token === "layout_1" || token === "layout_2" || token === "layout_3" || token === "layout_4"
+  return token === "layout_1" || token === "layout_2" || token === "layout_3"
     ? (token as LoginLayout)
     : null;
 };

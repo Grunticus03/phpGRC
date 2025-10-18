@@ -223,37 +223,6 @@ final class UiSettingsApiTest extends TestCase
         self::assertSame('layout_3', $config['theme']['login']['layout']);
     }
 
-    public function test_put_ui_settings_accepts_layout_4(): void
-    {
-        $user = $this->actingAsThemeManager();
-
-        $initial = $this->getJson('/settings/ui');
-        $initial->assertOk();
-        $etag = $initial->headers->get('ETag');
-        self::assertNotNull($etag);
-
-        $payload = [
-            'ui' => [
-                'theme' => [
-                    'login' => [
-                        'layout' => 'layout_4',
-                    ],
-                ],
-            ],
-        ];
-
-        $response = $this->withHeaders(['If-Match' => $etag])
-            ->putJson('/settings/ui', $payload);
-
-        $response->assertOk();
-        $response->assertJsonPath('config.ui.theme.login.layout', 'layout_4');
-
-        /** @var UiSettingsService $service */
-        $service = app(UiSettingsService::class);
-        $config = $service->currentConfig();
-        self::assertSame('layout_4', $config['theme']['login']['layout']);
-    }
-
     public function test_get_public_ui_settings_returns_sanitized_data(): void
     {
         $user = $this->actingAsThemeManager();
@@ -269,7 +238,7 @@ final class UiSettingsApiTest extends TestCase
                     'default' => 'cosmo',
                     'mode' => 'light',
                     'login' => [
-                        'layout' => 'layout_4',
+                        'layout' => 'layout_3',
                     ],
                     'overrides' => [
                         'color.primary' => '#336699',
@@ -290,7 +259,7 @@ final class UiSettingsApiTest extends TestCase
 
         $public->assertJsonPath('config.theme.default', 'cosmo');
         $public->assertJsonPath('config.theme.mode', 'light');
-        $public->assertJsonPath('config.theme.login.layout', 'layout_4');
+        $public->assertJsonPath('config.theme.login.layout', 'layout_3');
         $public->assertJsonPath('config.brand.primary_logo_asset_id', 'brand-logo');
         $public->assertJsonPath('config.brand.title_text', 'Public Company');
 

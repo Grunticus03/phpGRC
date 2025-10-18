@@ -27,7 +27,7 @@ type FormState = {
     storage: "browser" | "filesystem";
     filesystemPath: string;
   };
-  loginLayout: "layout_1" | "layout_2" | "layout_3" | "layout_4";
+  loginLayout: "layout_1" | "layout_2" | "layout_3";
 };
 
 type ThemeSettingsResponse = {
@@ -89,7 +89,7 @@ function buildInitialForm(settings: ThemeSettings): FormState {
   const mode = mutable.theme.mode === "light" ? "light" : "dark";
   const layoutRaw = mutable.theme.login?.layout;
   const loginLayout: FormState["loginLayout"] =
-    layoutRaw === "layout_2" || layoutRaw === "layout_3" || layoutRaw === "layout_4" ? layoutRaw : "layout_1";
+    layoutRaw === "layout_2" || layoutRaw === "layout_3" ? layoutRaw : "layout_1";
   return {
     theme: String(mutable.theme.default),
     mode,
@@ -157,9 +157,7 @@ export default function ThemeConfigurator(): JSX.Element {
       designer: { ...DEFAULT_THEME_SETTINGS.theme.designer },
       login: {
         layout:
-          defaultLoginLayout === "layout_2" || defaultLoginLayout === "layout_3" || defaultLoginLayout === "layout_4"
-            ? defaultLoginLayout
-            : "layout_1",
+          defaultLoginLayout === "layout_2" || defaultLoginLayout === "layout_3" ? defaultLoginLayout : "layout_1",
       },
     },
   } as ThemeSettings);
@@ -317,48 +315,6 @@ export default function ThemeConfigurator(): JSX.Element {
             </div>
           ),
         },
-        {
-          value: "layout_4" as const,
-          label: "Layout 4",
-          description: "Playing-card inspired two-step flow with animated transitions.",
-          preview: (
-            <div className="vstack align-items-center gap-2" aria-hidden="true">
-              {renderLogo(80, 40, { rounded: false })}
-              <div className="position-relative" style={{ width: "104px", height: "72px" }}>
-                <div
-                  className="position-absolute top-0 start-0 bg-body border border-light-subtle rounded-4 shadow-sm"
-                  style={{
-                    width: "100%",
-                    height: "100%",
-                    transform: "rotate(-6deg) translate(-12px, 8px)",
-                    zIndex: 1,
-                  }}
-                >
-                  <div className="bg-body-secondary rounded-2" style={{ height: "10px", width: "70%", margin: "12px auto" }} />
-                  <div className="bg-body-secondary rounded-2 mx-auto" style={{ height: "8px", width: "50%" }} />
-                </div>
-                <div
-                  className="position-absolute top-0 start-0 bg-primary text-white border border-0 rounded-4 shadow"
-                  style={{
-                    width: "100%",
-                    height: "100%",
-                    transform: "rotate(8deg) translate(12px, -8px)",
-                    display: "flex",
-                    flexDirection: "column",
-                    justifyContent: "center",
-                    gap: "8px",
-                    zIndex: 2,
-                  }}
-                >
-                  <div className="mx-auto bg-white bg-opacity-75 rounded-pill px-2 py-1 small text-uppercase fw-semibold text-primary">
-                    Step 2
-                  </div>
-                  <div className="mx-auto bg-white bg-opacity-25 rounded-pill px-2 py-1 small">Password</div>
-                </div>
-              </div>
-            </div>
-          ),
-        },
       ];
     },
     [primaryLogoSrc]
@@ -382,9 +338,7 @@ export default function ThemeConfigurator(): JSX.Element {
         },
         login: {
           layout:
-            settings.theme.login?.layout === "layout_2" ||
-            settings.theme.login?.layout === "layout_3" ||
-            settings.theme.login?.layout === "layout_4"
+            settings.theme.login?.layout === "layout_2" || settings.theme.login?.layout === "layout_3"
               ? (settings.theme.login?.layout as FormState["loginLayout"])
               : "layout_1",
         },

@@ -73,10 +73,7 @@
         function sanitizeLoginLayout(value) {
           if (typeof value !== "string") return null;
           var token = value.trim().toLowerCase();
-          return token === "layout_1" ||
-            token === "layout_2" ||
-            token === "layout_3" ||
-            token === "layout_4"
+          return token === "layout_1" || token === "layout_2" || token === "layout_3"
             ? token
             : null;
         }

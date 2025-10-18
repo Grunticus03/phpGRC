@@ -202,7 +202,7 @@ describe("ThemeConfigurator", () => {
                 ...DEFAULT_SETTINGS_BODY.config.ui,
                 theme: {
                   ...DEFAULT_SETTINGS_BODY.config.ui.theme,
-                  login: { layout: "layout_4" },
+                  login: { layout: "layout_3" },
                 },
               },
             },
@@ -218,10 +218,10 @@ describe("ThemeConfigurator", () => {
 
     await waitForLoadingToExit();
 
-    const layout4Option = screen.getByLabelText("Layout 4") as HTMLInputElement;
-    expect(layout4Option.checked).toBe(false);
-    fireEvent.click(layout4Option);
-    expect(layout4Option.checked).toBe(true);
+    const layout3Option = screen.getByLabelText("Layout 3") as HTMLInputElement;
+    expect(layout3Option.checked).toBe(false);
+    fireEvent.click(layout3Option);
+    expect(layout3Option.checked).toBe(true);
 
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
@@ -230,7 +230,7 @@ describe("ThemeConfigurator", () => {
     const putCall = calls.find((call) => call.method === "PUT" && call.url === "/api/settings/ui");
     expect(putCall).toBeTruthy();
     const payload = putCall?.init.body ? JSON.parse(String(putCall.init.body)) : null;
-    expect(payload?.ui?.theme?.login).toMatchObject({ layout: "layout_4" });
+    expect(payload?.ui?.theme?.login).toMatchObject({ layout: "layout_3" });
   });
 
   it("allows selecting a default mode", async () => {
