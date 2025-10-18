@@ -27,6 +27,40 @@ type PolicyCopy = {
   description: string;
 };
 
+type PolicyGroupConfig = {
+  title: string;
+  order: number;
+  key?: string;
+};
+
+type PolicyGroupMeta = {
+  key: string;
+  title: string;
+  order: number;
+};
+
+const POLICY_GROUP_CONFIG: Record<string, PolicyGroupConfig> = {
+  "ui.theme": { title: "Theme", order: 10 },
+  "ui.brand": { title: "Branding", order: 20 },
+  "ui.nav.sidebar": { title: "Navigation", order: 30 },
+  ui: { title: "User Interface", order: 40 },
+  "core.settings": { title: "Core Settings", order: 50 },
+  "core.audit": { title: "Audit", order: 60 },
+  "core.metrics": { title: "Metrics", order: 70 },
+  "core.reports": { title: "Reports", order: 80 },
+  "core.users": { title: "User Management", order: 90 },
+  "core.evidence": { title: "Evidence", order: 100 },
+  "core.exports": { title: "Exports", order: 110 },
+  "core.rbac": { title: "Access Control", order: 140, key: "rbac" },
+  core: { title: "Core", order: 130 },
+  "rbac.roles": { title: "Role Management", order: 141 },
+  "rbac.user_roles": { title: "User Assignments", order: 142 },
+  rbac: { title: "Access Control", order: 140 },
+};
+
+const POLICY_GROUP_ACRONYMS = new Set(["ui", "rbac", "api", "mfa"]);
+const DEFAULT_POLICY_GROUP_ORDER = 500;
+
 const THEME_POLICY_COPY: Record<string, PolicyCopy> = {
   "ui.theme.view": {
     label: "View theme settings",
@@ -69,6 +103,54 @@ function getPolicyDisplay(policy: PolicyAssignment): PolicyCopy {
   return {
     label: policy.label ?? policy.policy,
     description: policy.description ?? policy.policy,
+  };
+}
+
+function humanizeGroupTitle(raw: string): string {
+  const normalized = raw.replace(/[._-]+/g, " ").trim();
+  if (normalized === "") return "Other";
+  const parts = normalized.split(" ").filter((part) => part.trim() !== "");
+  if (parts.length === 0) return "Other";
+  return parts
+    .map((part) => {
+      const lower = part.toLowerCase();
+      if (POLICY_GROUP_ACRONYMS.has(lower)) {
+        return lower.toUpperCase();
+      }
+      return lower.charAt(0).toUpperCase() + lower.slice(1);
+    })
+    .join(" ");
+}
+
+function resolvePolicyGroup(policyKey: string): PolicyGroupMeta {
+  const normalized = policyKey.trim().toLowerCase();
+  if (normalized === "") {
+    return { key: "other", title: "Other", order: DEFAULT_POLICY_GROUP_ORDER };
+  }
+
+  const segments = normalized.split(".");
+  const maxDepth = Math.min(3, segments.length);
+
+  for (let depth = maxDepth; depth >= 1; depth -= 1) {
+    const candidate = segments.slice(0, depth).join(".");
+    const config = POLICY_GROUP_CONFIG[candidate];
+    if (config) {
+      return {
+        key: config.key ?? candidate,
+        title: config.title,
+        order: config.order,
+      };
+    }
+  }
+
+  const fallbackSegments = segments.slice(0, Math.min(2, segments.length));
+  const fallbackKey = fallbackSegments.join(".") || "other";
+  const fallbackTitle = humanizeGroupTitle(fallbackSegments.join(" "));
+
+  return {
+    key: fallbackKey,
+    title: fallbackTitle || "Other",
+    order: DEFAULT_POLICY_GROUP_ORDER,
   };
 }
 
@@ -344,32 +426,35 @@ export default function Roles(): JSX.Element {
   type PolicyGroup = {
     key: string;
     title: string;
+    order: number;
     policies: PolicyAssignment[];
   };
 
   const groupedPolicies = useMemo<PolicyGroup[]>(() => {
     if (sortedPolicies.length === 0) return [];
 
-    const themePolicies = sortedPolicies.filter((policy) => policy.policy.startsWith("ui.theme."));
-    const otherPolicies = sortedPolicies.filter((policy) => !policy.policy.startsWith("ui.theme."));
-
-    const groups: PolicyGroup[] = [];
-    if (themePolicies.length > 0) {
-      groups.push({
-        key: "theme",
-        title: "Theme",
-        policies: themePolicies,
-      });
-    }
-    if (otherPolicies.length > 0) {
-      groups.push({
-        key: "general",
-        title: "General",
-        policies: otherPolicies,
-      });
+    const map = new Map<string, PolicyGroup>();
+    for (const policy of sortedPolicies) {
+      const meta = resolvePolicyGroup(policy.policy);
+      const existing = map.get(meta.key);
+      if (existing) {
+        existing.policies.push(policy);
+      } else {
+        map.set(meta.key, {
+          key: meta.key,
+          title: meta.title,
+          order: meta.order,
+          policies: [policy],
+        });
+      }
     }
 
-    return groups;
+    return [...map.values()].sort((a, b) => {
+      if (a.order !== b.order) {
+        return a.order - b.order;
+      }
+      return a.title.localeCompare(b.title, undefined, { sensitivity: "base" });
+    });
   }, [sortedPolicies]);
 
   const hasChanges = useMemo(() => {

@@ -456,7 +456,17 @@ describe("Admin Roles page", () => {
       within(themeSection as HTMLElement).getByText(/Import, update, and delete theme pack archives\./i)
     ).toBeInTheDocument();
 
-    expect(await screen.findByRole("heading", { name: /^General$/i })).toBeInTheDocument();
+    const settingsHeading = await screen.findByRole("heading", { name: /^Core Settings$/i });
+    const settingsSection = settingsHeading.parentElement as HTMLElement | null;
+    expect(settingsSection).not.toBeNull();
+    expect(within(settingsSection as HTMLElement).getByLabelText(/Manage core settings/i)).toBeInTheDocument();
+
+    const auditHeading = await screen.findByRole("heading", { name: /^Audit$/i });
+    const auditSection = auditHeading.parentElement as HTMLElement | null;
+    expect(auditSection).not.toBeNull();
+    expect(within(auditSection as HTMLElement).getByLabelText(/View audit events/i)).toBeInTheDocument();
+
+    expect(screen.queryByRole("heading", { name: /^General$/i })).not.toBeInTheDocument();
   });
 
   test("shows stub notice when policy update is accepted without persistence", async () => {
