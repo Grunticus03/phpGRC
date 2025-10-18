@@ -3,6 +3,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useLayoutEffect,
   useRef,
   useState,
   type CSSProperties,
@@ -104,6 +105,7 @@ const VISIBLE_DRAG_END_ID = "__visible_end__";
 const HIDDEN_DRAG_END_ID = "__hidden_end__";
 const DASHBOARD_TOGGLE_EDIT_MODE_EVENT = "dashboard-toggle-edit-mode";
 const DASHBOARD_EDIT_MODE_STATE_EVENT = "dashboard-edit-mode-state";
+const PAGE_FADE_DURATION_MS = 180;
 
 const ADMIN_NAV_ITEMS: readonly AdminNavItem[] = [
   {
@@ -280,6 +282,7 @@ export default function AppLayout(): JSX.Element | null {
   const sidebarHideTimer = useRef<number | null>(null);
   const sidebarRef = useRef<HTMLElement | null>(null);
   const sidebarHoverZoneRef = useRef<HTMLElement | null>(null);
+  const pageFadeRef = useRef<HTMLElement | null>(null);
   const [sidebarToggleHovering, setSidebarToggleHovering] = useState(false);
 
   const [customizing, setCustomizing] = useState<boolean>(false);
@@ -293,6 +296,20 @@ export default function AppLayout(): JSX.Element | null {
       setSidebarOverflowOpen(false);
     }
   }, [customizing]);
+
+  useLayoutEffect(() => {
+    if (typeof window === "undefined") return;
+    const node = pageFadeRef.current;
+    if (!node) return;
+    node.classList.remove("page-fade-animating");
+    // Force a reflow so the animation can restart when navigating quickly.
+    void node.offsetWidth;
+    node.classList.add("page-fade-animating");
+    const timer = window.setTimeout(() => {
+      node.classList.remove("page-fade-animating");
+    }, PAGE_FADE_DURATION_MS);
+    return () => window.clearTimeout(timer);
+  }, [loc.pathname, loc.search, loc.hash]);
 
   const [sidebarOverflowOpen, setSidebarOverflowOpen] = useState(false);
   const overflowContainerRef = useRef<HTMLDivElement | null>(null);
@@ -2154,7 +2171,8 @@ export default function AppLayout(): JSX.Element | null {
         <main
           id="main"
           role="main"
-          className="flex-grow-1 overflow-auto"
+          ref={pageFadeRef}
+          className="flex-grow-1 overflow-auto page-fade-target"
           onClickCapture={closeFloatingSidebar}
           onFocusCapture={closeFloatingSidebar}
         >
@@ -2165,7 +2183,7 @@ export default function AppLayout(): JSX.Element | null {
   );
 
   const content = hideNav ? (
-    <main id="main" role="main">
+    <main id="main" role="main" ref={pageFadeRef} className="page-fade-target">
       <Outlet />
     </main>
   ) : (

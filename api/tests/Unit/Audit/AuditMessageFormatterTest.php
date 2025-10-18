@@ -18,7 +18,7 @@ final class AuditMessageFormatterTest extends TestCase
             'entity_id' => 'ui.brand.title_text',
             'meta' => [
                 'actor_username' => 'Alice Admin',
-                'setting_label' => 'ui.brand.title_text',
+                'setting_label' => 'title text',
                 'change_type' => 'update',
                 'old_value' => 'Old Title',
                 'new_value' => 'New Title',
@@ -27,7 +27,7 @@ final class AuditMessageFormatterTest extends TestCase
 
         $message = AuditMessageFormatter::format($event);
 
-        self::assertSame('Alice Admin updated ui.brand.title_text; Old: Old Title - New: New Title', $message);
+        self::assertSame('Alice Admin updated title text; Old: Old Title - New: New Title', $message);
     }
 
     public function test_formats_theme_pack_deleted_message(): void
@@ -38,7 +38,7 @@ final class AuditMessageFormatterTest extends TestCase
             'entity_id' => 'ui.theme.pack.custom',
             'meta' => [
                 'actor_username' => 'Alice Admin',
-                'setting_label' => 'ui.theme.pack.custom',
+                'setting_label' => 'custom theme pack',
                 'change_type' => 'delete',
                 'old_value' => 'Custom Pack',
                 'new_value' => null,
@@ -47,7 +47,7 @@ final class AuditMessageFormatterTest extends TestCase
 
         $message = AuditMessageFormatter::format($event);
 
-        self::assertSame('Alice Admin deleted ui.theme.pack.custom; Old: Custom Pack - New: null', $message);
+        self::assertSame('Alice Admin deleted custom theme pack; Old: Custom Pack - New: null', $message);
     }
 
     public function test_formats_sidebar_saved_message(): void
@@ -58,7 +58,7 @@ final class AuditMessageFormatterTest extends TestCase
             'entity_id' => 'ui.nav.sidebar.default_order',
             'meta' => [
                 'actor_username' => 'Alice Admin',
-                'setting_label' => 'ui.nav.sidebar.default_order',
+                'setting_label' => 'sidebar order',
                 'change_type' => 'update',
                 'old_value' => '["dashboard","audit"]',
                 'new_value' => '["dashboard","audit","evidence"]',
@@ -68,7 +68,7 @@ final class AuditMessageFormatterTest extends TestCase
         $message = AuditMessageFormatter::format($event);
 
         self::assertSame(
-            'Alice Admin saved ui.nav.sidebar.default_order; Old: ["dashboard","audit"] - New: ["dashboard","audit","evidence"]',
+            'Alice Admin saved sidebar order; Old: ["dashboard","audit"] - New: ["dashboard","audit","evidence"]',
             $message
         );
     }

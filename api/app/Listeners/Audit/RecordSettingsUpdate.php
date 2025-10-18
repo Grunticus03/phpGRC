@@ -21,6 +21,31 @@ final class RecordSettingsUpdate implements ShouldQueue
      */
     private static array $processed = [];
 
+    /**
+     * @var array<string,string>
+     */
+    private const SETTING_LABEL_OVERRIDES = [
+        'ui.brand.title_text' => 'title text',
+        'ui.brand.favicon_asset_id' => 'favicon',
+        'ui.brand.primary_logo_asset_id' => 'primary logo',
+        'ui.brand.secondary_logo_asset_id' => 'secondary logo',
+        'ui.brand.header_logo_asset_id' => 'header logo',
+        'ui.brand.footer_logo_asset_id' => 'footer logo',
+        'ui.brand.footer_logo_disabled' => 'footer logo disabled',
+        'ui.theme.default' => 'default theme',
+        'ui.theme.mode' => 'theme mode',
+        'ui.theme.allow_user_override' => 'user overrides allowed',
+        'ui.theme.force_global' => 'force global theme',
+        'ui.theme.overrides.color.primary' => 'primary color',
+        'ui.theme.overrides.color.surface' => 'surface color',
+        'ui.theme.overrides.color.text' => 'text color',
+        'ui.theme.overrides.shadow' => 'shadow preset',
+        'ui.theme.overrides.spacing' => 'spacing preset',
+        'ui.theme.overrides.typescale' => 'type scale',
+        'ui.theme.overrides.motion' => 'motion preset',
+        'ui.nav.sidebar.default_order' => 'sidebar order',
+    ];
+
     public function __construct(private readonly AuditLogger $audit) {}
 
     public function handle(SettingsUpdated $event): void
@@ -278,11 +303,68 @@ final class RecordSettingsUpdate implements ShouldQueue
             return 'setting';
         }
 
-        if (str_starts_with($trim, 'core.')) {
+        $normalized = strtolower($trim);
+        if (str_starts_with($normalized, 'core.')) {
+            $normalized = substr($normalized, 5);
             $trim = substr($trim, 5);
         }
 
-        return $trim !== '' ? $trim : 'setting';
+        if (isset(self::SETTING_LABEL_OVERRIDES[$normalized])) {
+            return self::SETTING_LABEL_OVERRIDES[$normalized];
+        }
+
+        if (str_starts_with($normalized, 'ui.theme.pack.')) {
+            $suffix = substr($normalized, strlen('ui.theme.pack.'));
+            $suffixLabel = $this->humanizeTokens($suffix);
+
+            return $suffixLabel !== '' ? sprintf('%s theme pack', $suffixLabel) : 'theme pack';
+        }
+
+        if (str_starts_with($normalized, 'ui.theme.overrides.')) {
+            $suffix = substr($normalized, strlen('ui.theme.overrides.'));
+            $suffixLabel = $this->humanizeTokens($suffix);
+
+            return $suffixLabel !== '' ? sprintf('theme override %s', $suffixLabel) : 'theme override';
+        }
+
+        if (str_starts_with($normalized, 'ui.theme.')) {
+            $suffix = substr($normalized, strlen('ui.theme.'));
+            $suffixLabel = $this->humanizeTokens($suffix);
+
+            return $suffixLabel !== '' ? sprintf('%s theme', $suffixLabel) : 'theme';
+        }
+
+        if (str_starts_with($normalized, 'ui.brand.')) {
+            $suffix = substr($normalized, strlen('ui.brand.'));
+            $suffixLabel = $this->humanizeTokens($suffix);
+
+            return $suffixLabel !== '' ? $suffixLabel : 'brand setting';
+        }
+
+        $stripped = $this->stripPrefixes($normalized);
+        $label = $this->humanizeTokens($stripped);
+
+        return $label !== '' ? $label : 'setting';
+    }
+
+    private function stripPrefixes(string $key): string
+    {
+        foreach (['ui.', 'core.', 'rbac.'] as $prefix) {
+            if (str_starts_with($key, $prefix)) {
+                return substr($key, strlen($prefix));
+            }
+        }
+
+        return $key;
+    }
+
+    private function humanizeTokens(string $value): string
+    {
+        $normalized = str_replace(['.', '_', '-'], ' ', $value);
+        $normalized = preg_replace('/\s+/', ' ', $normalized);
+        $normalized = is_string($normalized) ? trim($normalized) : '';
+
+        return $normalized !== '' ? strtolower($normalized) : '';
     }
 
     /**

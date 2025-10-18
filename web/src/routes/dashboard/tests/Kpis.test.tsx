@@ -34,10 +34,11 @@ vi.mock("react-router-dom", async () => {
 });
 
 vi.mock("react-chartjs-2", () => ({
-  Bar: (props: { options?: { onClick?: (...args: unknown[]) => void } }) => (
+  Bar: (props: { data?: unknown; options?: { onClick?: (...args: unknown[]) => void } }) => (
     <button
       type="button"
       data-testid="bar-chart"
+      data-data={JSON.stringify(props.data)}
       onClick={() => props.options?.onClick?.({}, [{ index: 0 } as never])}
     >
       Bar Chart
@@ -56,6 +57,22 @@ function json(body: unknown, init: ResponseInit = {}) {
     headers: { "Content-Type": "application/json" },
     ...init,
   });
+}
+
+function localDayQuery(source: string): string {
+  const iso = source.includes("T") ? source : `${source}T00:00:00Z`;
+  const parsed = new Date(iso);
+  if (Number.isNaN(parsed.valueOf())) return source;
+  const localDate = new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate());
+  return localDate.toISOString().slice(0, 10);
+}
+
+function localDayLabel(source: string): string {
+  const iso = source.includes("T") ? source : `${source}T00:00:00Z`;
+  const parsed = new Date(iso);
+  if (Number.isNaN(parsed.valueOf())) return source;
+  const localDate = new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate());
+  return new Intl.DateTimeFormat(undefined).format(localDate);
 }
 
 describe("Dashboard", () => {
@@ -257,8 +274,29 @@ describe("Dashboard", () => {
       expect.stringContaining("/admin/audit?category=AUTH")
     );
     const target = mockNavigate.mock.calls[0][0] as string;
-    expect(target).toContain("occurred_from=2025-01-01");
-    expect(target).toContain("occurred_to=2025-01-01");
+    const expectedDay = localDayQuery("2025-01-01");
+    expect(target).toContain(`occurred_from=${expectedDay}`);
+    expect(target).toContain(`occurred_to=${expectedDay}`);
+  });
+
+  it("formats authentication chart labels using local day boundaries", async () => {
+    render(
+      <MemoryRouter future={ROUTER_FUTURE_FLAGS}>
+        <Kpis />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.queryByText("Loading…")).not.toBeInTheDocument();
+    });
+
+    const chart = screen.getByTestId("bar-chart");
+    const dataAttr = chart.getAttribute("data-data");
+    expect(dataAttr).toBeTruthy();
+    const payload = JSON.parse(dataAttr ?? "{}") as { labels?: string[] };
+    expect(Array.isArray(payload.labels)).toBe(true);
+    expect(payload.labels?.[0]).toBe(localDayLabel("2025-01-01"));
+    expect(payload.labels?.[1]).toBe(localDayLabel("2025-01-02"));
   });
 
   it("shows forbidden message on 403", async () => {

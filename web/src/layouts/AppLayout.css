@@ -25,6 +25,26 @@
   max-width: 100%;
 }
 
+.page-fade-target {
+  position: relative;
+  min-height: 0;
+}
+
+.page-fade-target.page-fade-animating {
+  animation: app-page-fade-in 180ms ease-out;
+}
+
+@keyframes app-page-fade-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 0.25rem, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
 .theme-toggle-btn {
   position: relative;
   width: 2.45rem;

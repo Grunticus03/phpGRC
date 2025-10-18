@@ -548,3 +548,8 @@ Each item has: **id, module, title, description, acceptance_criteria, phase, ste
 - **FUT-006 — Integration Bus**  
   Connectors, pipelines, transforms, observability.  
   **Status:** Planned
+
+- **FUT-007 — Modular Login Layout Components**  
+  Break the login page into per-layout components (1–3) with shared hooks for auth, feedback, and theming.  
+  **Status:** Backlog  
+  **Notes:** Include Storybook/visual coverage and document the interface so future layouts can be added or removed safely.

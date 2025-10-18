@@ -175,6 +175,7 @@ type DragState = {
 
 type ChartDataset = {
   labels: string[];
+  queryDates: string[];
   success: number[];
   failed: number[];
 };
@@ -396,16 +397,55 @@ function rectEquals(a: WidgetRect | null, b: WidgetRect | null, tolerance = 0): 
   return diff(a.x, b.x) && diff(a.y, b.y) && diff(a.w, b.w) && diff(a.h, b.h);
 }
 
+function toLocalDayStrings(
+  source: string,
+  formatter: Intl.DateTimeFormat | null
+): { display: string; query: string } {
+  if (typeof source !== "string" || source.trim() === "") {
+    return { display: "", query: "" };
+  }
+
+  const trimmed = source.trim();
+  const isoCandidate = /^\d{4}-\d{2}-\d{2}$/.test(trimmed) ? `${trimmed}T00:00:00Z` : trimmed;
+  const parsed = new Date(isoCandidate);
+  if (Number.isNaN(parsed.valueOf())) {
+    return { display: trimmed, query: trimmed };
+  }
+
+  const localDate = new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate());
+  const display = formatter ? formatter.format(localDate) : localDate.toLocaleDateString();
+  const query = localDate.toISOString().slice(0, 10);
+
+  return { display, query };
+}
+
 function buildAuthDataset(kpis: Kpis | null): ChartDataset {
   if (!kpis) {
-    return { labels: [], success: [], failed: [] };
+    return { labels: [], queryDates: [], success: [], failed: [] };
   }
 
   const daily = kpis.auth_activity.daily;
+  const hasIntl = typeof Intl !== "undefined" && typeof Intl.DateTimeFormat === "function";
+  const formatter = hasIntl ? new Intl.DateTimeFormat(undefined) : null;
+
+  const labels: string[] = [];
+  const queryDates: string[] = [];
+  const success: number[] = [];
+  const failed: number[] = [];
+
+  for (const entry of daily) {
+    const { display, query } = toLocalDayStrings(entry.date, formatter);
+    labels.push(display);
+    queryDates.push(query);
+    success.push(entry.success);
+    failed.push(entry.failed);
+  }
+
   return {
-    labels: daily.map((d) => d.date),
-    success: daily.map((d) => d.success),
-    failed: daily.map((d) => d.failed),
+    labels,
+    queryDates,
+    success,
+    failed,
   };
 }
 
@@ -993,14 +1033,14 @@ export default function Kpis(): JSX.Element {
       responsive: true,
       maintainAspectRatio: false,
       onClick: (_, elements) => {
-        if (!kpis || elements.length === 0) return;
+        if (elements.length === 0) return;
         const index = elements[0].index;
-        const day = kpis.auth_activity.daily[index];
-        if (!day) return;
+        const date = authDataset.queryDates[index];
+        if (!date) return;
         const params = new URLSearchParams({
           category: "AUTH",
-          occurred_from: day.date,
-          occurred_to: day.date,
+          occurred_from: date,
+          occurred_to: date,
         });
         navigate(`/admin/audit?${params.toString()}`);
       },
@@ -1029,12 +1069,12 @@ export default function Kpis(): JSX.Element {
         },
       },
     }),
-    [kpis, navigate, yMax]
+    [authDataset.queryDates, navigate, yMax]
   );
 
   const authBarData = useMemo(
     () => ({
-      labels: authDataset.labels.map((iso) => new Date(iso).toLocaleDateString()),
+      labels: authDataset.labels,
       datasets: [
         {
           label: "Success",
