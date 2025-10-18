@@ -27,7 +27,7 @@ type FormState = {
     storage: "browser" | "filesystem";
     filesystemPath: string;
   };
-  loginLayout: "layout_1" | "layout_2" | "layout_3";
+  loginLayout: "layout_1" | "layout_2" | "layout_3" | "layout_4";
 };
 
 type ThemeSettingsResponse = {
@@ -89,7 +89,7 @@ function buildInitialForm(settings: ThemeSettings): FormState {
   const mode = mutable.theme.mode === "light" ? "light" : "dark";
   const layoutRaw = mutable.theme.login?.layout;
   const loginLayout: FormState["loginLayout"] =
-    layoutRaw === "layout_2" || layoutRaw === "layout_3" ? layoutRaw : "layout_1";
+    layoutRaw === "layout_2" || layoutRaw === "layout_3" || layoutRaw === "layout_4" ? layoutRaw : "layout_1";
   return {
     theme: String(mutable.theme.default),
     mode,
@@ -157,7 +157,7 @@ export default function ThemeConfigurator(): JSX.Element {
       designer: { ...DEFAULT_THEME_SETTINGS.theme.designer },
       login: {
         layout:
-          defaultLoginLayout === "layout_2" || defaultLoginLayout === "layout_3"
+          defaultLoginLayout === "layout_2" || defaultLoginLayout === "layout_3" || defaultLoginLayout === "layout_4"
             ? defaultLoginLayout
             : "layout_1",
       },
@@ -253,70 +253,112 @@ export default function ThemeConfigurator(): JSX.Element {
       };
 
       return [
-      {
-        value: "layout_1" as const,
-        label: "Layout 1",
-        description: "Centered form with logo stacked above the fields.",
-        preview: (
-          <div className="d-flex flex-column align-items-center gap-2" aria-hidden="true">
-            {renderLogo(72, 40)}
-            <div className="w-100 bg-body border border-light-subtle rounded-3 shadow-sm p-3 vstack gap-2">
-              <div className="bg-body-secondary rounded-2" style={{ height: "10px" }} />
-              <div className="bg-body-secondary rounded-2" style={{ height: "10px" }} />
-              <div className="bg-primary text-white fw-semibold rounded-pill px-2 py-1 small text-center">Sign in</div>
-            </div>
-          </div>
-        ),
-      },
-      {
-        value: "layout_2" as const,
-        label: "Layout 2",
-        description: "Compact logo above left-aligned fields with arrow submit.",
-        preview: (
-          <div className="vstack gap-2" aria-hidden="true">
-            <div className="d-flex align-items-center gap-2">
-              {renderLogo(56, 32)}
-              <div className="bg-body-secondary rounded-2 flex-grow-1" style={{ height: "8px", maxWidth: "72px" }} />
-            </div>
-            <div className="d-flex align-items-center gap-3">
-              <div className="flex-grow-1 vstack gap-2">
+        {
+          value: "layout_1" as const,
+          label: "Layout 1",
+          description: "Centered form with logo stacked above the fields.",
+          preview: (
+            <div className="d-flex flex-column align-items-center gap-2" aria-hidden="true">
+              {renderLogo(72, 40)}
+              <div className="w-100 bg-body border border-light-subtle rounded-3 shadow-sm p-3 vstack gap-2">
                 <div className="bg-body-secondary rounded-2" style={{ height: "10px" }} />
                 <div className="bg-body-secondary rounded-2" style={{ height: "10px" }} />
-              </div>
-              <div
-                className="d-flex align-items-center justify-content-center bg-primary text-white rounded-circle"
-                style={{ width: "36px", height: "36px" }}
-              >
-                <span aria-hidden="true">{"\u2192"}</span>
+                <div className="bg-primary text-white fw-semibold rounded-pill px-2 py-1 small text-center">Sign in</div>
               </div>
             </div>
-          </div>
-        ),
-      },
-      {
-        value: "layout_3" as const,
-        label: "Layout 3",
-        description: "Animated two-step sign-in with sequential email and password prompts.",
-        preview: (
-          <div className="vstack gap-2" aria-hidden="true">
-            <div className="bg-body border border-light-subtle rounded-3 shadow-sm p-2 d-flex justify-content-center">
-              {renderLogo(96, 36, { rounded: false })}
-            </div>
-            <div className="bg-body border border-light-subtle rounded-3 shadow-sm p-2 vstack gap-2">
-              <div className="bg-body-secondary rounded-2" style={{ height: "10px", width: "80%" }} />
-              <div className="d-flex align-items-center justify-content-between">
-                <div className="bg-body-secondary rounded-2" style={{ height: "10px", width: "60%" }} />
+          ),
+        },
+        {
+          value: "layout_2" as const,
+          label: "Layout 2",
+          description: "Compact logo above left-aligned fields with arrow submit.",
+          preview: (
+            <div className="vstack gap-2" aria-hidden="true">
+              <div className="d-flex align-items-center gap-2">
+                {renderLogo(56, 32)}
+                <div className="bg-body-secondary rounded-2 flex-grow-1" style={{ height: "8px", maxWidth: "72px" }} />
+              </div>
+              <div className="d-flex align-items-center gap-3">
+                <div className="flex-grow-1 vstack gap-2">
+                  <div className="bg-body-secondary rounded-2" style={{ height: "10px" }} />
+                  <div className="bg-body-secondary rounded-2" style={{ height: "10px" }} />
+                </div>
                 <div
                   className="d-flex align-items-center justify-content-center bg-primary text-white rounded-circle"
-                  style={{ width: "24px", height: "24px" }}
+                  style={{ width: "36px", height: "36px" }}
                 >
                   <span aria-hidden="true">{"\u2192"}</span>
                 </div>
               </div>
             </div>
-          </div>
-        ),
-      },
+          ),
+        },
+        {
+          value: "layout_3" as const,
+          label: "Layout 3",
+          description: "Animated two-step sign-in with sequential email and password prompts.",
+          preview: (
+            <div className="vstack gap-2" aria-hidden="true">
+              <div className="bg-body border border-light-subtle rounded-3 shadow-sm p-2 d-flex justify-content-center">
+                {renderLogo(96, 36, { rounded: false })}
+              </div>
+              <div className="bg-body border border-light-subtle rounded-3 shadow-sm p-2 vstack gap-2">
+                <div className="bg-body-secondary rounded-2" style={{ height: "10px", width: "80%" }} />
+                <div className="d-flex align-items-center justify-content-between">
+                  <div className="bg-body-secondary rounded-2" style={{ height: "10px", width: "60%" }} />
+                  <div
+                    className="d-flex align-items-center justify-content-center bg-primary text-white rounded-circle"
+                    style={{ width: "24px", height: "24px" }}
+                  >
+                    <span aria-hidden="true">{"\u2192"}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ),
+        },
+        {
+          value: "layout_4" as const,
+          label: "Layout 4",
+          description: "Playing-card inspired two-step flow with animated transitions.",
+          preview: (
+            <div className="vstack align-items-center gap-2" aria-hidden="true">
+              {renderLogo(80, 40, { rounded: false })}
+              <div className="position-relative" style={{ width: "104px", height: "72px" }}>
+                <div
+                  className="position-absolute top-0 start-0 bg-body border border-light-subtle rounded-4 shadow-sm"
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    transform: "rotate(-6deg) translate(-12px, 8px)",
+                    zIndex: 1,
+                  }}
+                >
+                  <div className="bg-body-secondary rounded-2" style={{ height: "10px", width: "70%", margin: "12px auto" }} />
+                  <div className="bg-body-secondary rounded-2 mx-auto" style={{ height: "8px", width: "50%" }} />
+                </div>
+                <div
+                  className="position-absolute top-0 start-0 bg-primary text-white border border-0 rounded-4 shadow"
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    transform: "rotate(8deg) translate(12px, -8px)",
+                    display: "flex",
+                    flexDirection: "column",
+                    justifyContent: "center",
+                    gap: "8px",
+                    zIndex: 2,
+                  }}
+                >
+                  <div className="mx-auto bg-white bg-opacity-75 rounded-pill px-2 py-1 small text-uppercase fw-semibold text-primary">
+                    Step 2
+                  </div>
+                  <div className="mx-auto bg-white bg-opacity-25 rounded-pill px-2 py-1 small">Password</div>
+                </div>
+              </div>
+            </div>
+          ),
+        },
       ];
     },
     [primaryLogoSrc]
@@ -340,7 +382,9 @@ export default function ThemeConfigurator(): JSX.Element {
         },
         login: {
           layout:
-            settings.theme.login?.layout === "layout_2" || settings.theme.login?.layout === "layout_3"
+            settings.theme.login?.layout === "layout_2" ||
+            settings.theme.login?.layout === "layout_3" ||
+            settings.theme.login?.layout === "layout_4"
               ? (settings.theme.login?.layout as FormState["loginLayout"])
               : "layout_1",
         },

@@ -41,6 +41,7 @@ import {
   SIDEBAR_MODULES,
   type ModuleMeta,
 } from "./modules";
+import "./AppLayout.css";
 import {
   MIN_SIDEBAR_WIDTH,
   clampSidebarWidth,
@@ -1326,8 +1327,15 @@ export default function AppLayout(): JSX.Element | null {
     display: menuOpen ? "block" : "none",
   };
 
+  const sidebarScrollClassName = [
+    "flex-grow-1 overflow-auto",
+    shouldHidePinButton ? "" : "sidebar-scroll-region",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
   const sidebarContent = (
-    <div className="d-flex flex-column h-100">
+    <div className="d-flex flex-column h-100 position-relative">
       {customizing && (
         <div className="px-3 py-2 border-bottom d-flex justify-content-end gap-2">
           <button
@@ -1380,7 +1388,7 @@ export default function AppLayout(): JSX.Element | null {
         </div>
       )}
 
-      <div className="flex-grow-1 overflow-auto">
+      <div className={sidebarScrollClassName}>
         {customizing ? (
           <div className="px-3 py-3 d-flex flex-column gap-3">
             <section>
@@ -1696,11 +1704,11 @@ export default function AppLayout(): JSX.Element | null {
         )}
       </div>
 
-      <div className="mt-auto px-3 pb-3 pt-2 text-end">
-        {!shouldHidePinButton && (
+      {!shouldHidePinButton ? (
+        <div className="sidebar-pin-floating" data-pinned={sidebarPrefs.pinned ? "true" : "false"}>
           <button
             type="button"
-            className="btn btn-icon"
+            className="btn btn-icon sidebar-pin-floating__button"
             onClick={toggleSidebarPin}
             aria-pressed={sidebarPrefs.pinned}
             title={sidebarPrefs.pinned ? "Unpin sidebar" : "Pin sidebar"}
@@ -1714,8 +1722,8 @@ export default function AppLayout(): JSX.Element | null {
               {sidebarPrefs.pinned ? "Unpin sidebar" : "Pin sidebar"}
             </span>
           </button>
-        )}
-      </div>
+        </div>
+      ) : null}
     </div>
   );
 
@@ -2015,17 +2023,16 @@ export default function AppLayout(): JSX.Element | null {
                   {canToggleTheme ? (
                     <button
                       type="button"
-                      className="btn btn-icon"
+                      className="btn btn-icon theme-toggle-btn"
+                      data-theme-mode={themeMode}
                       aria-label={`Switch to ${themeMode === "dark" ? "light" : "dark"} mode`}
                       title={`Switch to ${themeMode === "dark" ? "light" : "dark"} mode`}
                       onClick={handleThemeToggle}
                     >
-                      <i
-                        className={`bi ${
-                          themeMode === "dark" ? "bi-moon-fill" : "bi-brightness-high-fill"
-                        }`}
-                        aria-hidden="true"
-                      />
+                      <span className="theme-toggle__icons" aria-hidden="true">
+                        <i className="bi bi-brightness-high-fill theme-toggle__icon theme-toggle__icon--sun" />
+                        <i className="bi bi-moon-stars-fill theme-toggle__icon theme-toggle__icon--moon" />
+                      </span>
                     </button>
                   ) : null}
                   <div className="dropdown" ref={menuRef}>

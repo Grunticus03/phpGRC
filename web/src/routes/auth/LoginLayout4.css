@@ -1,0 +1,301 @@
+.login-layout4 {
+  width: 100%;
+  max-width: 460px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  position: relative;
+  perspective: 1400px;
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 280ms ease, transform 360ms ease;
+}
+
+.login-layout4.is-ready {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.login-layout4.is-fading {
+  animation: loginLayout4FadeOut 600ms ease forwards;
+}
+
+.login-layout4.is-busy {
+  cursor: wait;
+}
+
+.login-layout4__logo-wrapper {
+  opacity: 0;
+  transform: translateY(-20px);
+  transition: opacity 360ms ease, transform 380ms ease;
+}
+
+.login-layout4.is-ready .login-layout4__logo-wrapper {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.login-layout4__stack {
+  position: relative;
+  width: 100%;
+  max-width: 440px;
+  min-height: 280px;
+  margin-top: 1.5rem;
+  perspective: 1600px;
+}
+
+.login-layout4__card {
+  position: absolute;
+  inset: 0;
+  background: var(--bs-body-bg);
+  color: var(--bs-body-color);
+  border-radius: 1.25rem;
+  border: 1px solid var(--bs-border-color-translucent);
+  padding: 2.5rem 2.25rem;
+  box-shadow: 0 1.5rem 2.75rem rgba(15, 23, 42, 0.18);
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  pointer-events: none;
+  opacity: 0;
+  transform: translate3d(0, 32px, -160px) rotateX(18deg) scale(0.94);
+  backface-visibility: hidden;
+  transition: box-shadow 200ms ease, filter 200ms ease;
+}
+
+.login-layout4__card::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.2), transparent 46%);
+  opacity: 0;
+  transition: opacity 280ms ease;
+  pointer-events: none;
+}
+
+.login-layout4__card.is-active {
+  pointer-events: auto;
+  opacity: 1;
+  transform: translate3d(0, 0, 0) rotateX(0deg) scale(1);
+  z-index: 4;
+}
+
+.login-layout4__card.is-active::after {
+  opacity: 1;
+}
+
+.login-layout4__card.is-entering {
+  animation: loginLayout4CardEnter 720ms cubic-bezier(0.24, 0.82, 0.25, 1) forwards;
+  z-index: 5;
+}
+
+.login-layout4__card.is-shaking {
+  animation: loginLayout4Shake 360ms ease-in-out;
+}
+
+.login-layout4__card--username.is-exiting {
+  animation: loginLayout4CardTossBehind 780ms cubic-bezier(0.28, 0.71, 0.35, 1) forwards;
+  z-index: 5;
+}
+
+.login-layout4__card--username.is-discarded {
+  opacity: 1;
+  pointer-events: none;
+  z-index: 1;
+  transform: translate3d(-16%, 128%, -360px) rotateX(72deg) rotateZ(-18deg) scale(0.78);
+  filter: saturate(0.85) brightness(0.94);
+  box-shadow: 0 2rem 3rem rgba(15, 23, 42, 0.2);
+}
+
+.login-layout4__card--password.is-entering {
+  animation-duration: 820ms;
+}
+
+.login-layout4__card--password.is-exiting {
+  animation: loginLayout4CardLaunch 760ms cubic-bezier(0.28, 0.71, 0.35, 1) forwards;
+  z-index: 6;
+}
+
+.login-layout4__card--password.is-launched {
+  opacity: 0;
+  pointer-events: none;
+  transform: translate3d(22%, -160%, -320px) rotateX(58deg) rotateZ(16deg) scale(0.82);
+}
+
+.login-layout4__form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  text-align: left;
+}
+
+.login-layout4__card-header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.login-layout4__title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.login-layout4__step {
+  font-size: 0.9rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--bs-secondary-color);
+}
+
+.login-layout4__password-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  justify-content: flex-start;
+}
+
+.login-layout4__password-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.login-layout4__password-title {
+  font-weight: 600;
+  font-size: 1.25rem;
+}
+
+.login-layout4__back {
+  font-size: 1.5rem;
+  line-height: 1;
+  padding: 0.25rem;
+  text-decoration: none;
+}
+
+.login-layout4__back[disabled] {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.login-layout4__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.login-layout4__feedback {
+  margin-top: -0.25rem;
+}
+
+.login-layout4__primary-btn {
+  transition: transform 160ms ease, box-shadow 200ms ease;
+}
+
+.login-layout4__primary-btn:active {
+  transform: translateY(1px);
+}
+
+.login-layout4__primary-btn:focus-visible {
+  box-shadow: 0 0 0 0.25rem rgba(var(--bs-primary-rgb, 13, 110, 253), 0.35);
+}
+
+.login-layout4.is-transitioning .login-layout4__primary-btn {
+  pointer-events: none;
+}
+
+@keyframes loginLayout4CardEnter {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 80px, -180px) rotateX(28deg) scale(0.9);
+  }
+  55% {
+    opacity: 1;
+    transform: translate3d(0, -14px, 32px) rotateX(-10deg) scale(1.03);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) rotateX(0deg) scale(1);
+  }
+}
+
+@keyframes loginLayout4CardTossBehind {
+  0% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) rotateX(0deg) rotateZ(0deg) scale(1);
+  }
+  45% {
+    transform: translate3d(-10%, 40%, -160px) rotateX(30deg) rotateZ(-12deg) scale(0.92);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(-16%, 128%, -360px) rotateX(72deg) rotateZ(-18deg) scale(0.78);
+  }
+}
+
+@keyframes loginLayout4CardLaunch {
+  0% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) rotateX(0deg) rotateZ(0deg) scale(1);
+  }
+  46% {
+    transform: translate3d(6%, -40%, -120px) rotateX(24deg) rotateZ(10deg) scale(0.96);
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(22%, -160%, -320px) rotateX(58deg) rotateZ(16deg) scale(0.82);
+  }
+}
+
+@keyframes loginLayout4Shake {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+  20% {
+    transform: translate3d(-10px, 0, 0) rotateZ(-2deg);
+  }
+  40% {
+    transform: translate3d(10px, 0, 0) rotateZ(2deg);
+  }
+  60% {
+    transform: translate3d(-6px, 0, 0) rotateZ(-1deg);
+  }
+  80% {
+    transform: translate3d(6px, 0, 0) rotateZ(1deg);
+  }
+}
+
+@keyframes loginLayout4FadeOut {
+  0% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+}
+
+@media (max-width: 520px) {
+  .login-layout4__card {
+    padding: 2rem 1.75rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-layout4,
+  .login-layout4__logo-wrapper,
+  .login-layout4__card,
+  .login-layout4.is-fading {
+    animation: none !important;
+    transition-duration: 0.01ms !important;
+    transform: none !important;
+  }
+
+  .login-layout4__card {
+    opacity: 1 !important;
+  }
+}

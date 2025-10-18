@@ -1142,7 +1142,7 @@ final class UiSettingsService
         }
         $token = strtolower(trim($value));
 
-        return in_array($token, ['layout_1', 'layout_2', 'layout_3'], true) ? $token : $fallback;
+        return in_array($token, ['layout_1', 'layout_2', 'layout_3', 'layout_4'], true) ? $token : $fallback;
     }
 
     private function defaultOverride(string $token): ?string

@@ -1,0 +1,121 @@
+.theme-toggle-btn {
+  position: relative;
+  width: 2.45rem;
+  height: 2.45rem;
+  padding: 0;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  transition: background-color 220ms ease, color 220ms ease, box-shadow 220ms ease;
+}
+
+.theme-toggle-btn:focus-visible {
+  outline: 0;
+  box-shadow: 0 0 0 0.25rem rgba(var(--bs-primary-rgb, 13, 110, 253), 0.45);
+}
+
+.theme-toggle__icons {
+  position: relative;
+  width: 1.95rem;
+  height: 1.95rem;
+  left: -2px;
+  display: block;
+}
+
+.theme-toggle__icon {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform-origin: center;
+  font-size: 1.55rem;
+  display: block;
+  opacity: 0;
+  transform: scale(0.6) rotate(-35deg);
+  transition:
+    transform 340ms cubic-bezier(0.32, 0.72, 0, 1),
+    opacity 220ms ease,
+    filter 240ms ease;
+  filter: drop-shadow(0 0 0 transparent);
+}
+
+.theme-toggle-btn[data-theme-mode="light"] .theme-toggle__icon--sun {
+  opacity: 1;
+  transform: scale(1) rotate(0deg);
+  filter: drop-shadow(0 0.05rem 0.15rem rgba(15, 15, 15, 0.38));
+}
+
+.theme-toggle-btn[data-theme-mode="light"] .theme-toggle__icon--moon {
+  opacity: 0;
+  transform: scale(0.6) rotate(-45deg);
+}
+
+.theme-toggle-btn[data-theme-mode="dark"] .theme-toggle__icon--sun {
+  opacity: 0;
+  transform: scale(0.55) rotate(45deg);
+}
+
+.theme-toggle-btn[data-theme-mode="dark"] .theme-toggle__icon--moon {
+  opacity: 1;
+  transform: scale(1) rotate(0deg);
+  filter: drop-shadow(0 0.05rem 0.18rem rgba(0, 0, 0, 0.45));
+}
+
+.sidebar-pin-floating {
+  position: absolute;
+  bottom: 1.25rem;
+  right: 1.1rem;
+  pointer-events: none;
+  z-index: 30;
+}
+
+.sidebar-pin-floating__button {
+  pointer-events: auto;
+  border-radius: 999px;
+  padding: 0.5rem;
+  backdrop-filter: blur(12px);
+  background-color: rgba(var(--bs-body-bg-rgb, 33, 37, 41), 0.92);
+  box-shadow: 0 1.2rem 2.4rem rgba(15, 23, 42, 0.2);
+  transition:
+    transform 140ms ease,
+    box-shadow 200ms ease,
+    background-color 200ms ease,
+    opacity 160ms ease;
+}
+
+.sidebar-pin-floating[data-pinned="true"] .sidebar-pin-floating__button {
+  background-color: rgba(var(--bs-primary-rgb, 13, 110, 253), 0.18);
+}
+
+.sidebar-pin-floating__button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 1.6rem 3rem rgba(15, 23, 42, 0.24);
+}
+
+.sidebar-pin-floating__button:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: 0 1rem 2.1rem rgba(15, 23, 42, 0.18);
+}
+
+.sidebar-pin-floating__button[disabled] {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.sidebar-scroll-region {
+  padding-bottom: 4.75rem;
+}
+
+@media (max-width: 992px) {
+  .sidebar-pin-floating {
+    bottom: 1rem;
+    right: 0.85rem;
+  }
+
+  .sidebar-scroll-region {
+    padding-bottom: 4.25rem;
+  }
+}
