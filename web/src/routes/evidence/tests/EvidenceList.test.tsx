@@ -155,10 +155,10 @@ describe("Evidence List", () => {
 
     await screen.findByText("Evidence");
 
-    const ownerColumnToggle = screen.getByRole("button", { name: "Owner" });
+    const ownerColumnToggle = screen.getByRole("button", { name: "Username" });
     fireEvent.click(ownerColumnToggle);
 
-    const ownerInput = screen.getByLabelText("Filter by owner") as HTMLInputElement;
+    const ownerInput = screen.getByLabelText("Filter by username or email") as HTMLInputElement;
     fireEvent.change(ownerInput, { target: { value: "alice" } });
 
     fireEvent.click(screen.getByRole("button", { name: "Search" }));
@@ -192,6 +192,7 @@ describe("Evidence List", () => {
     await screen.findByText("Evidence");
 
     const table = await screen.findByRole("table", { name: "Evidence results" });
+    expect(within(table).getByRole("button", { name: "Copy SHA-256 for report.pdf" })).toBeInTheDocument();
     const downloadButton = within(table).getByRole("button", { name: "Download report.pdf" });
 
     fireEvent.click(downloadButton);

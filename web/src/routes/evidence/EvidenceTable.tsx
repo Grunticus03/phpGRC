@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Evidence } from "../../lib/api/evidence";
 import { formatBytes, formatDate, type TimeFormat } from "../../lib/format";
 import { getCachedUser, loadUsers, type UserCacheValue } from "../../lib/usersCache";
 import FilterableHeaderRow, { type FilterableHeaderConfig } from "../../components/table/FilterableHeaderRow";
 
 export type HeaderConfig = FilterableHeaderConfig;
-export type EvidenceSortKey = "created" | "owner" | "filename" | "size" | "mime" | "sha256" | "version";
+export type EvidenceSortKey = "created" | "owner" | "filename" | "size" | "mime" | "version";
 
 type Props = {
   headers: HeaderConfig[];
@@ -30,9 +30,9 @@ type OwnerMap = Map<number, UserCacheValue>;
 
 type DecoratedItem = {
   item: Evidence;
-  owner: UserCacheValue | undefined;
-  ownerLabel: string;
-  ownerTitle: string | undefined;
+  ownerName: string;
+  ownerEmail: string;
+  ownerDisplay: string;
   createdLabel: string;
   sizeLabel: string;
   mimeLabel: string;
@@ -65,24 +65,6 @@ function mergeOwners(prev: OwnerMap, incoming: OwnerMap): OwnerMap {
   return changed ? next : prev;
 }
 
-function computeOwnerLabel(id: number, owner: UserCacheValue | undefined): string {
-  if (!owner) return String(id);
-  const name = owner.name?.trim();
-  if (name) return name;
-  const email = owner.email?.trim();
-  if (email) return email;
-  return String(id);
-}
-
-function computeOwnerTitle(id: number, owner: UserCacheValue | undefined): string | undefined {
-  if (!owner) return undefined;
-  const parts: string[] = [];
-  if (owner.name?.trim()) parts.push(owner.name.trim());
-  if (owner.email?.trim()) parts.push(`<${owner.email.trim()}>`);
-  parts.push(`id ${id}`);
-  return parts.join(" ");
-}
-
 function escapeForRegex(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -103,15 +85,18 @@ function buildSearchMatcher(raw: string): ((haystack: string) => boolean) | null
 function decorateItems(items: Evidence[], owners: OwnerMap, timeFormat: TimeFormat): DecoratedItem[] {
   return items.map((item) => {
     const owner = owners.get(item.owner_id);
-    const ownerLabel = computeOwnerLabel(item.owner_id, owner);
-    const ownerTitle = computeOwnerTitle(item.owner_id, owner);
+    const ownerName = owner?.name?.trim() ?? "";
+    const ownerEmail = owner?.email?.trim() ?? "";
+    const ownerDisplay = ownerName !== "" ? ownerName : ownerEmail !== "" ? ownerEmail : String(item.owner_id);
     const createdLabel = formatDate(item.created_at, timeFormat);
     const sizeLabel = formatBytes(item.size);
     const mimeLabel = item.mime_label?.trim() ? item.mime_label : item.mime;
     const haystack = [
       item.id,
       String(item.owner_id),
-      ownerLabel,
+      ownerName,
+      ownerEmail,
+      ownerDisplay,
       owner?.email ?? "",
       owner?.name ?? "",
       item.filename ?? "",
@@ -129,9 +114,9 @@ function decorateItems(items: Evidence[], owners: OwnerMap, timeFormat: TimeForm
 
     return {
       item,
-      owner,
-      ownerLabel,
-      ownerTitle,
+      ownerName,
+      ownerEmail,
+      ownerDisplay,
       createdLabel,
       sizeLabel,
       mimeLabel,
@@ -151,12 +136,12 @@ function compareDecorated(a: DecoratedItem, b: DecoratedItem, key: EvidenceSortK
       return a.item.created_at.localeCompare(b.item.created_at);
     }
     case "owner": {
-      const base = stringCollator.compare(a.ownerLabel, b.ownerLabel);
-      if (base !== 0) return base;
-      if (a.owner?.email && b.owner?.email) {
-        const emailCompare = stringCollator.compare(a.owner.email, b.owner.email);
-        if (emailCompare !== 0) return emailCompare;
-      }
+      const nameCompare = stringCollator.compare(a.ownerName, b.ownerName);
+      if (nameCompare !== 0) return nameCompare;
+      const emailCompare = stringCollator.compare(a.ownerEmail, b.ownerEmail);
+      if (emailCompare !== 0) return emailCompare;
+      const displayCompare = stringCollator.compare(a.ownerDisplay, b.ownerDisplay);
+      if (displayCompare !== 0) return displayCompare;
       return a.item.owner_id - b.item.owner_id;
     }
     case "filename":
@@ -165,8 +150,6 @@ function compareDecorated(a: DecoratedItem, b: DecoratedItem, key: EvidenceSortK
       return a.item.size - b.item.size || a.item.id.localeCompare(b.item.id);
     case "mime":
       return stringCollator.compare(a.mimeLabel, b.mimeLabel) || stringCollator.compare(a.item.mime, b.item.mime);
-    case "sha256":
-      return stringCollator.compare(a.item.sha256, b.item.sha256);
     case "version":
       return a.item.version - b.item.version || a.item.id.localeCompare(b.item.id);
     default:
@@ -256,6 +239,8 @@ export default function EvidenceTable({
   const visibleItems = useMemo(() => sortedItems.map((entry) => entry.item), [sortedItems]);
 
   const selectAllRef = useRef<HTMLInputElement | null>(null);
+  const copyTimerRef = useRef<number | null>(null);
+  const [copiedShaId, setCopiedShaId] = useState<string | null>(null);
 
   const selectedOnPage = useMemo(() => {
     return visibleItems.reduce((count, item) => (selectedIds.has(item.id) ? count + 1 : count), 0);
@@ -269,6 +254,49 @@ export default function EvidenceTable({
       selectAllRef.current.indeterminate = someOnPageSelected;
     }
   }, [someOnPageSelected, allOnPageSelected]);
+
+  useEffect(() => {
+    return () => {
+      if (copyTimerRef.current !== null) {
+        window.clearTimeout(copyTimerRef.current);
+      }
+    };
+  }, []);
+
+  const handleCopySha = useCallback(
+    (id: string, value: string | null | undefined) => {
+      if (!value || value.trim() === "") return;
+      const copy = async (): Promise<void> => {
+        try {
+          if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+            await navigator.clipboard.writeText(value);
+          } else if (typeof document !== "undefined") {
+            const textarea = document.createElement("textarea");
+            textarea.value = value;
+            textarea.style.position = "fixed";
+            textarea.style.opacity = "0";
+            document.body.appendChild(textarea);
+            textarea.focus();
+            textarea.select();
+            document.execCommand("copy");
+            document.body.removeChild(textarea);
+          }
+          setCopiedShaId(id);
+          if (copyTimerRef.current !== null) {
+            window.clearTimeout(copyTimerRef.current);
+          }
+          copyTimerRef.current = window.setTimeout(() => {
+            setCopiedShaId(null);
+            copyTimerRef.current = null;
+          }, 2000);
+        } catch {
+          setCopiedShaId(null);
+        }
+      };
+      void copy();
+    },
+    []
+  );
 
   if (visibleItems.length === 0 && fetchState === "ok") {
     return (
@@ -306,14 +334,21 @@ export default function EvidenceTable({
           />
         </thead>
         <tbody>
-          {sortedItems.map(({ item, ownerLabel, ownerTitle, createdLabel, sizeLabel, mimeLabel }) => {
-            const shaPreview = item.sha256 ? `${item.sha256.slice(0, 12)}…` : "";
+          {sortedItems.map(({ item, ownerName, ownerEmail, ownerDisplay, createdLabel, sizeLabel, mimeLabel }) => {
             const isSelected = selectedIds.has(item.id);
             const isDeletingThis = deletingId === item.id;
 
             const deleteDisabled = bulkDeleting || deletingId !== null;
             const isDownloading = downloadingId === item.id;
             const showDeleteSpinner = isDeletingThis || bulkDeleting;
+            const ownerCell = ownerName !== "" ? ownerName : ownerEmail !== "" ? ownerEmail : ownerDisplay;
+            const ownerTooltipParts = [ownerName, ownerEmail].filter(
+              (part) => typeof part === "string" && part.trim() !== ""
+            );
+            if (ownerTooltipParts.length === 0 && ownerDisplay) {
+              ownerTooltipParts.push(ownerDisplay);
+            }
+            const ownerTooltip = ownerTooltipParts.length > 0 ? ownerTooltipParts.join(" • ") : undefined;
 
             return (
               <tr key={item.id} className={isSelected ? "table-active" : undefined}>
@@ -329,7 +364,7 @@ export default function EvidenceTable({
                     />
                     <button
                       type="button"
-                      className="btn btn-outline-primary btn-sm"
+                      className="btn btn-outline-secondary btn-sm"
                       onClick={() => onDownload(item)}
                       disabled={isDownloading}
                       aria-label={
@@ -344,78 +379,49 @@ export default function EvidenceTable({
                         <i className="bi bi-download" aria-hidden="true" />
                       )}
                     </button>
-                  </div>
-                </td>
-                <td className="text-start">
-                  <div className="d-flex flex-column">
-                    <span>{item.owner_id}</span>
-                    <span>{ownerLabel}</span>
-                    <span className="text-muted small">{ownerTitle}</span>
-                  </div>
-                </td>
-                <td>
-                  <div className="d-flex flex-column">
-                    <span className="fw-semibold text-break">{item.filename || item.id}</span>
-                    <span className="text-muted small">{item.id}</span>
-                    <span className="text-muted small">{createdLabel}</span>
-                  </div>
-                </td>
-                <td>
-                  <div className="d-flex flex-column">
-                    <span>{sizeLabel}</span>
-                    <span className="text-muted small">{item.size.toLocaleString()} bytes</span>
-                  </div>
-                </td>
-                <td>
-                  <div className="d-flex flex-column">
-                    <span>{mimeLabel}</span>
-                    <span className="text-muted small text-break">{item.mime}</span>
-                  </div>
-                </td>
-                <td className="text-break">
-                  <span className="d-inline-flex align-items-center gap-2">
-                    <code>{shaPreview}</code>
-                    {item.sha256 ? (
-                      <span className="text-muted small" aria-hidden="true">
-                        {item.sha256.slice(12)}
-                      </span>
-                    ) : null}
-                  </span>
-                  <span className="visually-hidden">{item.sha256}</span>
-                </td>
-                <td>{item.version}</td>
-                <td className="text-end" style={{ width: "11rem" }}>
-                  <div className="btn-group btn-group-sm" role="group" aria-label={`Actions for ${item.filename || item.id}`}>
                     <button
                       type="button"
-                      className="btn btn-outline-secondary"
-                      onClick={() => onDownload(item)}
-                      disabled={isDownloading}
-                    >
-                      {isDownloading ? (
-                        <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true" />
-                      ) : (
-                        <>
-                          <i className="bi bi-download" aria-hidden="true" /> Download
-                        </>
-                      )}
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-outline-danger"
+                      className="btn btn-outline-danger btn-sm"
                       onClick={() => onDelete(item)}
                       disabled={deleteDisabled}
+                      aria-label={
+                        showDeleteSpinner
+                          ? `Deleting ${item.filename || item.id}`
+                          : `Delete ${item.filename || item.id}`
+                      }
                     >
                       {showDeleteSpinner ? (
                         <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true" />
                       ) : (
-                        <>
-                          <i className="bi bi-trash" aria-hidden="true" /> Delete
-                        </>
+                        <i className="bi bi-trash" aria-hidden="true" />
                       )}
                     </button>
                   </div>
                 </td>
+                <td className="text-nowrap">{createdLabel}</td>
+                <td className="text-break" title={ownerTooltip}>{ownerCell || "—"}</td>
+                <td className="text-break">
+                  <div className="d-inline-flex align-items-center gap-2">
+                    <span className="fw-semibold text-break">{item.filename || item.id}</span>
+                    {item.sha256 ? (
+                      <>
+                        <button
+                          type="button"
+                          className="btn btn-link btn-sm p-0 text-decoration-none"
+                          onClick={() => handleCopySha(item.id, item.sha256)}
+                          title={item.sha256}
+                          aria-label={`Copy SHA-256 for ${item.filename || item.id}`}
+                        >
+                          <i className="bi bi-hash" aria-hidden="true" />
+                        </button>
+                        {copiedShaId === item.id ? <span className="text-success small">Copied!</span> : null}
+                      </>
+                    ) : null}
+                  </div>
+                </td>
+                <td>{sizeLabel}</td>
+                <td className="text-break">{mimeLabel}</td>
+                <td>{item.version}</td>
               </tr>
             );
           })}

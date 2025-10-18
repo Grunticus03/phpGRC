@@ -34,7 +34,7 @@ function chipStyle(): React.CSSProperties {
   };
 }
 
-type FilterKey = "created" | "owner" | "filename" | "mime" | "sha";
+type FilterKey = "created" | "owner" | "filename" | "mime";
 
 const evidenceDisplayName = (item: Evidence): string => {
   const name = item.filename?.trim();
@@ -45,6 +45,7 @@ export default function EvidenceList(): JSX.Element {
   // Filters
   const [ownerInput, setOwnerInput] = useState("");
   const [ownerSelected, setOwnerSelected] = useState<UserSummary | null>(null);
+  const [ownerFilterLabel, setOwnerFilterLabel] = useState("");
   const [createdFrom, setCreatedFrom] = useState("");
   const [createdTo, setCreatedTo] = useState("");
   const [filename, setFilename] = useState("");
@@ -107,9 +108,6 @@ export default function EvidenceList(): JSX.Element {
     } else if (activeFilter === "mime") {
       mimeInputRef.current?.focus();
       mimeInputRef.current?.select();
-    } else if (activeFilter === "sha") {
-      shaInputRef.current?.focus();
-      shaInputRef.current?.select();
     }
   }, [activeFilter]);
 
@@ -205,7 +203,13 @@ export default function EvidenceList(): JSX.Element {
 
   function applyOwnerFilter(user: UserSummary) {
     primeUsers([user]);
+    const trimmedInput = ownerInput.trim();
+    const displayLabel =
+      trimmedInput !== ""
+        ? trimmedInput
+        : user.email?.trim() || user.name?.trim() || String(user.id);
     setOwnerSelected(user);
+    setOwnerFilterLabel(displayLabel);
     setOwnerResults([]);
     setOwnerMeta(null);
     setOwnerInput("");
@@ -218,6 +222,7 @@ export default function EvidenceList(): JSX.Element {
 
   function clearOwnerFilter(apply: boolean = true) {
     setOwnerSelected(null);
+    setOwnerFilterLabel("");
     setOwnerResults([]);
     setOwnerMeta(null);
     setOwnerInput("");
@@ -657,10 +662,9 @@ export default function EvidenceList(): JSX.Element {
           setDateRangeError(null);
         } else if (key === "filename") {
           setFilenameDraft(filename);
+          setShaDraft(sha);
         } else if (key === "mime") {
           setMimeDraft(mime);
-        } else if (key === "sha") {
-          setShaDraft(sha);
         }
       } else if (key === "owner") {
         setOwnerResults([]);
@@ -798,9 +802,9 @@ export default function EvidenceList(): JSX.Element {
   }
 
   const ownerSummaryLabel = ownerSelected
-    ? [ownerSelected.name?.trim() || null, ownerSelected.email?.trim() ? `<${ownerSelected.email.trim()}>` : null, `id ${ownerSelected.id}`]
-        .filter((part): part is string => !!part)
-        .join(" ")
+    ? ownerFilterLabel.trim() !== ""
+      ? ownerFilterLabel.trim()
+      : ownerSelected.email?.trim() || ownerSelected.name?.trim() || String(ownerSelected.id)
     : "";
 
   const ownerSummaryContent = ownerSelected ? (
@@ -821,7 +825,7 @@ export default function EvidenceList(): JSX.Element {
           </div>
         )}
         <label htmlFor="filter-owner" className="visually-hidden">
-          Filter by owner
+          Filter by username or email
         </label>
         <input
           ref={ownerInputRef}
@@ -842,7 +846,7 @@ export default function EvidenceList(): JSX.Element {
           placeholder="Name or email"
           autoComplete="off"
         />
-        <div className="form-text">Supports * wildcards.</div>
+        <div className="form-text">Searches usernames and emails; supports * wildcards.</div>
         <div className="d-flex gap-2 mt-2">
           <button
             type="button"
@@ -924,13 +928,21 @@ export default function EvidenceList(): JSX.Element {
       </div>
     ) : null;
 
-  const filenameSummaryContent = filename ? (
-    <div className="small text-muted mt-1">{filename}</div>
-  ) : null;
+  const shaCleanDisplay = sha.trim().toLowerCase().replace(/[^a-f0-9]/g, "");
+  const shaDisplayShort = shaCleanDisplay.length > 12 ? `${shaCleanDisplay.slice(0, 12)}…` : shaCleanDisplay;
+
+  const filenameSummaryContent = filename || shaCleanDisplay
+    ? (
+        <div className="small text-muted mt-1 d-flex flex-column">
+          {filename ? <span>{filename}</span> : null}
+          {shaCleanDisplay ? <span>SHA: {shaDisplayShort}</span> : null}
+        </div>
+      )
+    : null;
 
   const filenameFilterContent =
     activeFilter === "filename" ? (
-      <div className="mt-2">
+      <div className="mt-2 d-flex flex-column gap-3">
         <label htmlFor="filter-filename" className="visually-hidden">
           Filter by filename
         </label>
@@ -967,6 +979,45 @@ export default function EvidenceList(): JSX.Element {
           >
             Clear
           </button>
+        </div>
+        <div className="border-top pt-3">
+          <label htmlFor="filter-sha" className="visually-hidden">
+            Filter by SHA-256
+          </label>
+          <input
+            ref={shaInputRef}
+            id="filter-sha"
+            className="form-control form-control-sm"
+            value={shaDraft}
+            onChange={(e) => setShaDraft(e.currentTarget.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                applyShaFilter(e.currentTarget.value);
+              } else if (e.key === "Escape") {
+                e.preventDefault();
+                resetActiveFilter();
+              }
+            }}
+            placeholder="e.g. 7f9c2b"
+            autoComplete="off"
+          />
+          <div className="form-text">Partial hashes match by prefix.</div>
+          <div className="d-flex gap-2 mt-2">
+            <button type="button" className="btn btn-primary btn-sm" onClick={() => applyShaFilter(shaDraft)}>
+              Apply
+            </button>
+            <button
+              type="button"
+              className="btn btn-outline-secondary btn-sm"
+              onClick={() => {
+                setShaDraft("");
+                applyShaFilter("");
+              }}
+            >
+              Clear
+            </button>
+          </div>
         </div>
       </div>
     ) : null;
@@ -1010,54 +1061,6 @@ export default function EvidenceList(): JSX.Element {
             onClick={() => {
               setMimeDraft("");
               applyMimeFilter("");
-            }}
-          >
-            Clear
-          </button>
-        </div>
-      </div>
-    ) : null;
-
-  const shaCleanDisplay = sha.trim().toLowerCase().replace(/[^a-f0-9]/g, "");
-  const shaSummaryContent = shaCleanDisplay ? (
-    <div className="small text-muted mt-1">{shaCleanDisplay.length > 12 ? `${shaCleanDisplay.slice(0, 12)}…` : shaCleanDisplay}</div>
-  ) : null;
-
-  const shaFilterContent =
-    activeFilter === "sha" ? (
-      <div className="mt-2">
-        <label htmlFor="filter-sha" className="visually-hidden">
-          Filter by SHA-256
-        </label>
-        <input
-          ref={shaInputRef}
-          id="filter-sha"
-          className="form-control form-control-sm"
-          value={shaDraft}
-          onChange={(e) => setShaDraft(e.currentTarget.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              applyShaFilter(e.currentTarget.value);
-            } else if (e.key === "Escape") {
-              e.preventDefault();
-              resetActiveFilter();
-            }
-          }}
-          placeholder="e.g. 7f9c2b"
-          autoComplete="off"
-        />
-        <div className="form-text">Partial hashes match by prefix.</div>
-        <div className="d-flex gap-2 mt-2">
-          <button type="button" className="btn btn-primary btn-sm" onClick={() => applyShaFilter(shaDraft)}>
-            Apply
-          </button>
-          <button
-            type="button"
-            className="btn btn-outline-secondary btn-sm"
-            onClick={() => {
-              setShaDraft("");
-              applyShaFilter("");
             }}
           >
             Clear
@@ -1126,14 +1129,14 @@ export default function EvidenceList(): JSX.Element {
     },
     {
       key: "owner",
-      label: "Owner",
+      label: "Username",
       onToggle: () => handleToggleFilter("owner"),
       isActive: activeFilter === "owner",
       summaryContent: ownerSummaryContent,
       filterContent: ownerFilterContent,
       sortState: sortState.key === "owner" ? sortState.direction : null,
       onSort: () => handleHeaderSort("owner"),
-      sortAriaLabel: buildSortAriaLabel("Owner", "owner"),
+      sortAriaLabel: buildSortAriaLabel("Username", "owner"),
       sortDisabled,
     },
     {
@@ -1147,6 +1150,7 @@ export default function EvidenceList(): JSX.Element {
       onSort: () => handleHeaderSort("filename"),
       sortAriaLabel: buildSortAriaLabel("Filename", "filename"),
       sortDisabled,
+      sortIconFlip: true,
     },
     {
       key: "size",
@@ -1167,19 +1171,7 @@ export default function EvidenceList(): JSX.Element {
       onSort: () => handleHeaderSort("mime"),
       sortAriaLabel: buildSortAriaLabel("MIME", "mime"),
       sortDisabled,
-    },
-    {
-      key: "sha256",
-      label: "SHA-256",
-      onToggle: () => handleToggleFilter("sha"),
-      isActive: activeFilter === "sha",
-      summaryContent: shaSummaryContent,
-      filterContent: shaFilterContent,
-      className: "text-nowrap",
-      sortState: sortState.key === "sha256" ? sortState.direction : null,
-      onSort: () => handleHeaderSort("sha256"),
-      sortAriaLabel: buildSortAriaLabel("SHA-256", "sha256"),
-      sortDisabled,
+      sortIconFlip: true,
     },
     {
       key: "version",
@@ -1188,6 +1180,7 @@ export default function EvidenceList(): JSX.Element {
       onSort: () => handleHeaderSort("version"),
       sortAriaLabel: buildSortAriaLabel("Version", "version"),
       sortDisabled,
+      sortIconFlip: true,
     },
   ];
 

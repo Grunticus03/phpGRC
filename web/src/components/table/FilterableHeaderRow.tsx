@@ -12,6 +12,7 @@ export type FilterableHeaderConfig = {
   onSort?: () => void;
   sortAriaLabel?: string;
   sortDisabled?: boolean;
+  sortIconFlip?: boolean;
 };
 
 type Props = {
@@ -20,9 +21,13 @@ type Props = {
   trailingCell?: ReactNode;
 };
 
-const iconForSortState = (state: "asc" | "desc" | null | undefined): string => {
-  if (state === "asc") return "bi-arrow-up";
-  if (state === "desc") return "bi-arrow-down";
+const iconForSortState = (state: "asc" | "desc" | null | undefined, flip?: boolean): string => {
+  if (state === "asc") {
+    return flip ? "bi-arrow-down" : "bi-arrow-up";
+  }
+  if (state === "desc") {
+    return flip ? "bi-arrow-up" : "bi-arrow-down";
+  }
   return "bi-arrow-down-up";
 };
 
@@ -31,7 +36,20 @@ export default function FilterableHeaderRow({ headers, leadingCell, trailingCell
     <tr>
       {leadingCell}
       {headers.map(
-        ({ key, label, onToggle, isActive, filterContent, summaryContent, className, sortState, onSort, sortAriaLabel, sortDisabled }) => (
+        ({
+          key,
+          label,
+          onToggle,
+          isActive,
+          filterContent,
+          summaryContent,
+          className,
+          sortState,
+          onSort,
+          sortAriaLabel,
+          sortDisabled,
+          sortIconFlip,
+        }) => (
         <th key={key} scope="col" className={className}>
             <div className="d-inline-flex align-items-center gap-1">
               {onToggle ? (
@@ -53,7 +71,7 @@ export default function FilterableHeaderRow({ headers, leadingCell, trailingCell
                   aria-label={sortAriaLabel ?? `Sort by ${label}`}
                   disabled={sortDisabled}
                 >
-                  <i className={`bi ${iconForSortState(sortState)}`} aria-hidden="true" />
+                  <i className={`bi ${iconForSortState(sortState, sortIconFlip)}`} aria-hidden="true" />
                 </button>
               ) : null}
             </div>
