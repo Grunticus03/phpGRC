@@ -306,7 +306,7 @@ export default function EvidenceTable({
           />
         </thead>
         <tbody>
-          {sortedItems.map(({ item, owner, ownerLabel, ownerTitle, createdLabel, sizeLabel, mimeLabel }) => {
+          {sortedItems.map(({ item, ownerLabel, ownerTitle, createdLabel, sizeLabel, mimeLabel }) => {
             const shaPreview = item.sha256 ? `${item.sha256.slice(0, 12)}…` : "";
             const isSelected = selectedIds.has(item.id);
             const isDeletingThis = deletingId === item.id;
