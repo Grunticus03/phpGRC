@@ -12,7 +12,7 @@ import { searchUsers, type UserSummary, type UserSearchOk, type UserSearchMeta }
 import { DEFAULT_TIME_FORMAT, formatBytes, normalizeTimeFormat, type TimeFormat } from "../../lib/format";
 import { HttpError } from "../../lib/api";
 import { primeUsers } from "../../lib/usersCache";
-import EvidenceTable, { type HeaderConfig } from "./EvidenceTable";
+import EvidenceTable, { type HeaderConfig, type EvidenceSortKey } from "./EvidenceTable";
 import useColumnToggle from "../../components/table/useColumnToggle";
 import DateRangePicker from "../../components/pickers/DateRangePicker";
 import { useToast } from "../../components/toast/ToastProvider";
@@ -51,7 +51,11 @@ export default function EvidenceList(): JSX.Element {
   const [mime, setMime] = useState("");
   const [mimeFilterType, setMimeFilterType] = useState<"label" | "raw" | null>(null);
   const [sha, setSha] = useState("");
-  const [order, setOrder] = useState<"asc" | "desc">("desc");
+  const [tableSearch, setTableSearch] = useState("");
+  const [sortState, setSortState] = useState<{ key: EvidenceSortKey | null; direction: "asc" | "desc" }>({
+    key: null,
+    direction: "desc",
+  });
   const [limit, setLimit] = useState<number>(20);
   const { activeKey: activeFilter, toggle: toggleFilter, reset: resetActiveFilter } = useColumnToggle<FilterKey>();
   const [createdFromDraft, setCreatedFromDraft] = useState("");
@@ -156,13 +160,13 @@ export default function EvidenceList(): JSX.Element {
       mime_label: mimeLabelParam,
       created_from,
       created_to,
-      order,
+      order: "desc" as const,
       limit,
       cursor,
       sha256: shaExact || undefined,
       sha256_prefix: shaPrefix || undefined,
     };
-  }, [ownerSelected, filename, mime, mimeFilterType, created_from, created_to, order, limit, cursor, sha]);
+  }, [ownerSelected, filename, mime, mimeFilterType, created_from, created_to, limit, cursor, sha]);
 
   const isDateOrderValid = useMemo(() => {
     if (!createdFrom || !createdTo) return true;
@@ -639,8 +643,9 @@ export default function EvidenceList(): JSX.Element {
     sha.trim() !== "" ||
     createdFrom.trim() !== "" ||
     createdTo.trim() !== "" ||
-    order !== "desc" ||
-    limit !== 20;
+    limit !== 20 ||
+    tableSearch.trim() !== "" ||
+    sortState.key !== null;
 
   const handleToggleFilter = useCallback(
     (key: FilterKey) => {
@@ -723,13 +728,17 @@ export default function EvidenceList(): JSX.Element {
     }
   }
 
-  function toggleOrderDirection() {
-    const next = order === "asc" ? "desc" : "asc";
-    setOrder(next);
-    setCursor(null);
-    setPrevStack([]);
-    void load(true, { order: next });
-  }
+  const handleHeaderSort = useCallback((key: EvidenceSortKey) => {
+    setSortState((prev) => {
+      if (prev.key !== key) {
+        return { key, direction: "desc" };
+      }
+      if (prev.direction === "desc") {
+        return { key, direction: "asc" };
+      }
+      return { key: null, direction: "desc" };
+    });
+  }, []);
 
   function applyLimitFromDraft() {
     const trimmed = limitDraft.trim();
@@ -769,7 +778,8 @@ export default function EvidenceList(): JSX.Element {
     setCreatedTo("");
     setCreatedFromDraft("");
     setCreatedToDraft("");
-    setOrder("desc");
+    setTableSearch("");
+    setSortState({ key: null, direction: "desc" });
     setLimit(20);
     setLimitDraft("20");
     setCursor(null);
@@ -783,7 +793,6 @@ export default function EvidenceList(): JSX.Element {
       sha256_prefix: undefined,
       created_from: undefined,
       created_to: undefined,
-      order: "desc",
       limit: 20,
     });
   }
@@ -1088,22 +1097,32 @@ export default function EvidenceList(): JSX.Element {
           }}
         />
         {dateRangeError && <div className="text-danger small">{dateRangeError}</div>}
-        <div className="d-flex flex-wrap align-items-center gap-2">
-          <button type="button" className="btn btn-outline-secondary btn-sm" onClick={toggleOrderDirection}>
-            Sort {order === "asc" ? "↑" : "↓"}
-          </button>
-        </div>
       </div>
     ) : null;
+
+  const sortDisabled = state === "loading";
+  const buildSortAriaLabel = (label: string, key: EvidenceSortKey): string => {
+    if (sortState.key !== key) {
+      return `Sort ${label} descending`;
+    }
+    if (sortState.direction === "desc") {
+      return `Sort ${label} ascending`;
+    }
+    return `Remove sorting for ${label}`;
+  };
 
   const tableHeaders: HeaderConfig[] = [
     {
       key: "created",
-      label: `Created ${order === "asc" ? "↑" : "↓"}`,
+      label: "Created",
       onToggle: () => handleToggleFilter("created"),
       isActive: activeFilter === "created",
       summaryContent: createdSummaryContent,
       filterContent: createdFilterContent,
+      sortState: sortState.key === "created" ? sortState.direction : null,
+      onSort: () => handleHeaderSort("created"),
+      sortAriaLabel: buildSortAriaLabel("Created", "created"),
+      sortDisabled,
     },
     {
       key: "owner",
@@ -1112,6 +1131,10 @@ export default function EvidenceList(): JSX.Element {
       isActive: activeFilter === "owner",
       summaryContent: ownerSummaryContent,
       filterContent: ownerFilterContent,
+      sortState: sortState.key === "owner" ? sortState.direction : null,
+      onSort: () => handleHeaderSort("owner"),
+      sortAriaLabel: buildSortAriaLabel("Owner", "owner"),
+      sortDisabled,
     },
     {
       key: "filename",
@@ -1120,10 +1143,18 @@ export default function EvidenceList(): JSX.Element {
       isActive: activeFilter === "filename",
       summaryContent: filenameSummaryContent,
       filterContent: filenameFilterContent,
+      sortState: sortState.key === "filename" ? sortState.direction : null,
+      onSort: () => handleHeaderSort("filename"),
+      sortAriaLabel: buildSortAriaLabel("Filename", "filename"),
+      sortDisabled,
     },
     {
       key: "size",
       label: "Size",
+      sortState: sortState.key === "size" ? sortState.direction : null,
+      onSort: () => handleHeaderSort("size"),
+      sortAriaLabel: buildSortAriaLabel("Size", "size"),
+      sortDisabled,
     },
     {
       key: "mime",
@@ -1132,6 +1163,10 @@ export default function EvidenceList(): JSX.Element {
       isActive: activeFilter === "mime",
       summaryContent: mimeSummaryContent,
       filterContent: mimeFilterContent,
+      sortState: sortState.key === "mime" ? sortState.direction : null,
+      onSort: () => handleHeaderSort("mime"),
+      sortAriaLabel: buildSortAriaLabel("MIME", "mime"),
+      sortDisabled,
     },
     {
       key: "sha256",
@@ -1141,10 +1176,18 @@ export default function EvidenceList(): JSX.Element {
       summaryContent: shaSummaryContent,
       filterContent: shaFilterContent,
       className: "text-nowrap",
+      sortState: sortState.key === "sha256" ? sortState.direction : null,
+      onSort: () => handleHeaderSort("sha256"),
+      sortAriaLabel: buildSortAriaLabel("SHA-256", "sha256"),
+      sortDisabled,
     },
     {
       key: "version",
       label: "Version",
+      sortState: sortState.key === "version" ? sortState.direction : null,
+      onSort: () => handleHeaderSort("version"),
+      sortAriaLabel: buildSortAriaLabel("Version", "version"),
+      sortDisabled,
     },
   ];
 
@@ -1179,12 +1222,12 @@ export default function EvidenceList(): JSX.Element {
   );
 
   const handleToggleSelectAll = useCallback(
-    (checked: boolean) => {
+    (checked: boolean, targetItems: Evidence[]) => {
       setSelectedIds((prev) => {
         const next = new Set(prev);
         if (checked) {
           let changed = false;
-          for (const item of items) {
+          for (const item of targetItems) {
             if (!next.has(item.id)) {
               next.add(item.id);
               changed = true;
@@ -1194,7 +1237,7 @@ export default function EvidenceList(): JSX.Element {
         }
 
         let changed = false;
-        for (const item of items) {
+        for (const item of targetItems) {
           if (next.delete(item.id)) {
             changed = true;
           }
@@ -1202,7 +1245,7 @@ export default function EvidenceList(): JSX.Element {
         return changed ? next : prev;
       });
     },
-    [items]
+    []
   );
 
   return (
@@ -1257,7 +1300,24 @@ export default function EvidenceList(): JSX.Element {
   {state === "error" && <p role="alert" className="text-danger">Error: {error}</p>}
 
       <div className="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
-        <span className="small text-muted">{selectedCount > 0 ? `${selectedCount} selected` : ""}</span>
+        <div className="d-flex flex-wrap align-items-center gap-2 flex-grow-1">
+          <div className="position-relative">
+            <label htmlFor="evidence-search" className="visually-hidden">
+              Search evidence
+            </label>
+            <input
+              id="evidence-search"
+              type="search"
+              className="form-control form-control-sm"
+              placeholder="Search evidence"
+              value={tableSearch}
+              onChange={(event) => setTableSearch(event.currentTarget.value)}
+              autoComplete="off"
+              style={{ minWidth: "14rem" }}
+            />
+          </div>
+          <span className="small text-muted">{selectedCount > 0 ? `${selectedCount} selected` : ""}</span>
+        </div>
         <div className="d-flex flex-wrap align-items-center gap-2">
           <div className="d-flex align-items-center gap-2">
             <label htmlFor="evidence-limit" className="form-label mb-0">Limit</label>
@@ -1316,6 +1376,9 @@ export default function EvidenceList(): JSX.Element {
         onToggleSelect={handleToggleSelect}
         onToggleSelectAll={handleToggleSelectAll}
         selectionDisabled={bulkDeleting || deletingId !== null}
+        searchTerm={tableSearch}
+        sortKey={sortState.key}
+        sortDirection={sortState.direction}
       />
 
       <nav aria-label="Evidence pagination" className="d-flex align-items-center gap-2">

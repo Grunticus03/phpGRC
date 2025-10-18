@@ -97,6 +97,28 @@ describe("Evidence List", () => {
               version: 1,
               created_at: "2025-09-12T00:00:00Z",
             },
+            {
+              id: "ev_02Y",
+              owner_id: 42,
+              filename: "alpha.log",
+              mime: "text/plain",
+              mime_label: "Plain Text",
+              size: 999,
+              sha256: "AA9C2BA4E88F827D616045507605853ED73B8063F4A9A6F5D5B1E5F0E9D5A1C3",
+              version: 2,
+              created_at: "2025-09-10T00:00:00Z",
+            },
+            {
+              id: "ev_03Z",
+              owner_id: 42,
+              filename: "zulu.csv",
+              mime: "text/csv",
+              mime_label: "CSV",
+              size: 2048,
+              sha256: "BB9C2BA4E88F827D616045507605853ED73B8063F4A9A6F5D5B1E5F0E9D5A1C3",
+              version: 1,
+              created_at: "2025-09-11T00:00:00Z",
+            },
           ],
           next_cursor: null,
         });
@@ -150,7 +172,8 @@ describe("Evidence List", () => {
 
     const evidenceTable = await screen.findByRole("table", { name: "Evidence results" });
     await within(evidenceTable).findByText("report.pdf");
-    await within(evidenceTable).findByText("Alice Admin");
+    const ownerCells = await within(evidenceTable).findAllByText("Alice Admin");
+    expect(ownerCells.length).toBeGreaterThan(0);
     await within(evidenceTable).findByText(/1\.21 KB/);
     await within(evidenceTable).findByText(/2025-09-12 00:00:00/);
 
@@ -215,7 +238,7 @@ describe("Evidence List", () => {
 
     await screen.findByText("Evidence");
 
-    await screen.findByRole("cell", { name: "PNG image" });
+    await screen.findAllByRole("cell", { name: /PNG image/i });
 
     await waitFor(() => {
       const hits = calls.filter((u) => u.startsWith("/api/evidence?"));
@@ -251,6 +274,73 @@ describe("Evidence List", () => {
       expect(hits[hits.length - 1]).toContain("mime_label=PDF+document");
     });
 
-    await screen.findByRole("cell", { name: "PDF document" });
+    await screen.findAllByRole("cell", { name: /PDF document/i });
+  });
+
+  it("filters table rows via search input", async () => {
+    render(
+      <MemoryRouter future={ROUTER_FUTURE_FLAGS}>
+        <ToastProvider>
+          <EvidenceList />
+        </ToastProvider>
+      </MemoryRouter>
+    );
+
+    await screen.findByText("Evidence");
+
+    const table = await screen.findByRole("table", { name: "Evidence results" });
+    await within(table).findByText("report.pdf");
+    await waitFor(() => {
+      expect(within(table).getAllByRole("row")).toHaveLength(4); // header + 3 rows
+    });
+
+    const searchInput = screen.getByLabelText("Search evidence") as HTMLInputElement;
+    fireEvent.change(searchInput, { target: { value: "alpha" } });
+
+    await waitFor(() => {
+      const rows = within(table).getAllByRole("row");
+      expect(rows).toHaveLength(2);
+      expect(rows[1]).toHaveTextContent("alpha.log");
+    });
+  });
+
+  it("toggles sorting for each column", async () => {
+    render(
+      <MemoryRouter future={ROUTER_FUTURE_FLAGS}>
+        <ToastProvider>
+          <EvidenceList />
+        </ToastProvider>
+      </MemoryRouter>
+    );
+
+    await screen.findByText("Evidence");
+
+    const table = await screen.findByRole("table", { name: "Evidence results" });
+    await within(table).findByText("report.pdf");
+    const sortFilenameButton = screen.getByRole("button", { name: "Sort Filename descending" });
+
+    // First click -> descending
+    fireEvent.click(sortFilenameButton);
+    await waitFor(() => {
+      const rows = within(table).getAllByRole("row");
+      expect(rows[1]).toHaveTextContent("zulu.csv");
+    });
+
+    const sortFilenameAscButton = screen.getByRole("button", { name: "Sort Filename ascending" });
+    fireEvent.click(sortFilenameAscButton);
+    await waitFor(() => {
+      const rows = within(table).getAllByRole("row");
+      expect(rows[1]).toHaveTextContent("alpha.log");
+    });
+
+    const clearSortButton = screen.getByRole("button", { name: "Remove sorting for Filename" });
+    fireEvent.click(clearSortButton);
+    await waitFor(() => {
+      const rows = within(table).getAllByRole("row");
+      expect(rows[1]).toHaveTextContent("report.pdf");
+    });
+
+    // Button resets to initial label
+    expect(screen.getByRole("button", { name: "Sort Filename descending" })).toBeInTheDocument();
   });
 });
