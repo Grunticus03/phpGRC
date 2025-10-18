@@ -250,6 +250,7 @@ const chunk = <T,>(items: readonly T[], size: number): T[][] => {
 export default function AppLayout(): JSX.Element | null {
   const loc = useLocation();
   const navigate = useNavigate();
+  const locationRef = useRef(loc);
 
   const [loading, setLoading] = useState(true);
   const [requireAuth, setRequireAuth] = useState(false);
@@ -745,9 +746,14 @@ export default function AppLayout(): JSX.Element | null {
   );
 
   useEffect(() => {
+    locationRef.current = loc;
+  }, [loc]);
+
+  useEffect(() => {
     const off = onUnauthorized(() => {
-      if (!loc.pathname.startsWith("/auth/")) {
-        const intended = `${loc.pathname}${loc.search}${loc.hash}`;
+      const current = locationRef.current;
+      if (!current.pathname.startsWith("/auth/")) {
+        const intended = `${current.pathname}${current.search}${current.hash}`;
         rememberIntendedPath(intended);
         markSessionExpired();
         navigate("/auth/login", { replace: true });
@@ -783,8 +789,7 @@ export default function AppLayout(): JSX.Element | null {
 
     void bootstrap();
     return () => off();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loc.pathname]);
+  }, [navigate]);
 
   useEffect(() => {
     void bootstrapTheme({ fetchUserPrefs: authed });
