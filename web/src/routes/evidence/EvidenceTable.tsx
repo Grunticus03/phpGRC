@@ -342,13 +342,15 @@ export default function EvidenceTable({
             const isDownloading = downloadingId === item.id;
             const showDeleteSpinner = isDeletingThis || bulkDeleting;
             const ownerCell = ownerName !== "" ? ownerName : ownerEmail !== "" ? ownerEmail : ownerDisplay;
-            const ownerTooltipParts = [ownerName, ownerEmail].filter(
-              (part) => typeof part === "string" && part.trim() !== ""
-            );
-            if (ownerTooltipParts.length === 0 && ownerDisplay) {
-              ownerTooltipParts.push(ownerDisplay);
-            }
-            const ownerTooltip = ownerTooltipParts.length > 0 ? ownerTooltipParts.join(" • ") : undefined;
+            const ownerTooltip =
+              ownerName && ownerEmail
+                ? `${ownerName}\n${ownerEmail}`
+                : ownerName || ownerEmail
+                  ? ownerName || ownerEmail
+                  : ownerDisplay && ownerDisplay.trim() !== ""
+                    ? ownerDisplay
+                    : undefined;
+            const hasSha = typeof item.sha256 === "string" && item.sha256.trim() !== "";
 
             return (
               <tr key={item.id} className={isSelected ? "table-active" : undefined}>
@@ -402,20 +404,22 @@ export default function EvidenceTable({
                 <td className="text-break" title={ownerTooltip}>{ownerCell || "—"}</td>
                 <td className="text-break">
                   <div className="d-inline-flex align-items-center gap-2">
-                    <span className="fw-semibold text-break">{item.filename || item.id}</span>
-                    {item.sha256 ? (
-                      <>
-                        <button
-                          type="button"
-                          className="btn btn-link btn-sm p-0 text-decoration-none"
-                          onClick={() => handleCopySha(item.id, item.sha256)}
-                          title={item.sha256}
-                          aria-label={`Copy SHA-256 for ${item.filename || item.id}`}
-                        >
-                          <i className="bi bi-hash" aria-hidden="true" />
-                        </button>
-                        {copiedShaId === item.id ? <span className="text-success small">Copied!</span> : null}
-                      </>
+                    {hasSha ? (
+                      <button
+                        type="button"
+                        className="btn btn-link btn-sm p-0 text-start text-break fw-semibold"
+                        style={{ textDecoration: "none" }}
+                        onClick={() => handleCopySha(item.id, item.sha256)}
+                        aria-label={`Copy SHA-256 for ${item.filename || item.id}`}
+                        title={item.sha256 ?? undefined}
+                      >
+                        {item.filename || item.id}
+                      </button>
+                    ) : (
+                      <span className="fw-semibold text-break">{item.filename || item.id}</span>
+                    )}
+                    {hasSha && copiedShaId === item.id ? (
+                      <span className="text-success small">SHA-256 Copied To Clipboard</span>
                     ) : null}
                   </div>
                 </td>
