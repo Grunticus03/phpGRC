@@ -20,3 +20,16 @@
 .role-modal-error {
   margin-bottom: 0;
 }
+
+.role-permission-groups {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1.5rem;
+}
+
+@media (min-width: 768px) {
+  .role-permission-groups {
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    align-items: start;
+  }
+}

@@ -29,37 +29,34 @@ type PolicyCopy = {
 
 type PolicyGroupConfig = {
   title: string;
-  order: number;
   key?: string;
 };
 
 type PolicyGroupMeta = {
   key: string;
   title: string;
-  order: number;
 };
 
 const POLICY_GROUP_CONFIG: Record<string, PolicyGroupConfig> = {
-  "ui.theme": { title: "Theme", order: 10 },
-  "ui.brand": { title: "Branding", order: 20 },
-  "ui.nav.sidebar": { title: "Navigation", order: 30 },
-  ui: { title: "User Interface", order: 40 },
-  "core.settings": { title: "Core Settings", order: 50 },
-  "core.audit": { title: "Audit", order: 60 },
-  "core.metrics": { title: "Metrics", order: 70 },
-  "core.reports": { title: "Reports", order: 80 },
-  "core.users": { title: "User Management", order: 90 },
-  "core.evidence": { title: "Evidence", order: 100 },
-  "core.exports": { title: "Exports", order: 110 },
-  "core.rbac": { title: "Access Control", order: 140, key: "rbac" },
-  core: { title: "Core", order: 130 },
-  "rbac.roles": { title: "Role Management", order: 141 },
-  "rbac.user_roles": { title: "User Assignments", order: 142 },
-  rbac: { title: "Access Control", order: 140 },
+  "core.audit": { title: "Audit" },
+  "core.evidence": { title: "Evidence" },
+  "core.exports": { title: "Exports" },
+  "core.metrics": { title: "Metrics" },
+  "core.reports": { title: "Reports" },
+  "core.rbac": { title: "Access Control", key: "rbac" },
+  "core.settings": { title: "Core Settings" },
+  "core.users": { title: "User Management" },
+  core: { title: "Core" },
+  "rbac.roles": { title: "Role Management" },
+  "rbac.user_roles": { title: "User Assignments" },
+  rbac: { title: "Access Control" },
+  "ui.brand": { title: "Branding" },
+  "ui.nav.sidebar": { title: "Navigation" },
+  "ui.theme": { title: "Theme" },
+  ui: { title: "User Interface" },
 };
 
 const POLICY_GROUP_ACRONYMS = new Set(["ui", "rbac", "api", "mfa"]);
-const DEFAULT_POLICY_GROUP_ORDER = 500;
 
 const THEME_POLICY_COPY: Record<string, PolicyCopy> = {
   "ui.theme.view": {
@@ -125,7 +122,7 @@ function humanizeGroupTitle(raw: string): string {
 function resolvePolicyGroup(policyKey: string): PolicyGroupMeta {
   const normalized = policyKey.trim().toLowerCase();
   if (normalized === "") {
-    return { key: "other", title: "Other", order: DEFAULT_POLICY_GROUP_ORDER };
+    return { key: "other", title: "Other" };
   }
 
   const segments = normalized.split(".");
@@ -138,7 +135,6 @@ function resolvePolicyGroup(policyKey: string): PolicyGroupMeta {
       return {
         key: config.key ?? candidate,
         title: config.title,
-        order: config.order,
       };
     }
   }
@@ -150,7 +146,6 @@ function resolvePolicyGroup(policyKey: string): PolicyGroupMeta {
   return {
     key: fallbackKey,
     title: fallbackTitle || "Other",
-    order: DEFAULT_POLICY_GROUP_ORDER,
   };
 }
 
@@ -426,7 +421,6 @@ export default function Roles(): JSX.Element {
   type PolicyGroup = {
     key: string;
     title: string;
-    order: number;
     policies: PolicyAssignment[];
   };
 
@@ -443,16 +437,12 @@ export default function Roles(): JSX.Element {
         map.set(meta.key, {
           key: meta.key,
           title: meta.title,
-          order: meta.order,
           policies: [policy],
         });
       }
     }
 
     return [...map.values()].sort((a, b) => {
-      if (a.order !== b.order) {
-        return a.order - b.order;
-      }
       return a.title.localeCompare(b.title, undefined, { sensitivity: "base" });
     });
   }, [sortedPolicies]);
@@ -855,7 +845,7 @@ export default function Roles(): JSX.Element {
                 {sortedPolicies.length === 0 && !policyLoading ? (
                   <p className="text-muted mb-0">No policies defined.</p>
                 ) : (
-                  <div className="d-flex flex-column gap-4">
+                  <div className="role-permission-groups">
                     {groupedPolicies.map((group) => (
                       <section
                         key={group.key}
