@@ -12,6 +12,7 @@ use App\Http\Controllers\Auth\IdpProviderController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\LogoutController;
 use App\Http\Controllers\Auth\MeController;
+use App\Http\Controllers\Auth\OidcLoginController;
 use App\Http\Controllers\Auth\TotpController;
 use App\Http\Controllers\Avatar\AvatarController;
 use App\Http\Controllers\Branding\FaviconController;
@@ -141,6 +142,7 @@ HTML;
  |--------------------------------------------------------------------------
 */
 Route::post('/auth/login', [LoginController::class,  'login'])->middleware(BruteForceGuard::class);
+Route::post('/auth/oidc/login', [OidcLoginController::class, 'login']);
 Route::post('/auth/logout', [LogoutController::class, 'logout'])->middleware(['auth.cookie', 'auth:sanctum']);
 Route::get('/auth/me', [MeController::class,     'me'])->middleware(['auth.cookie', 'auth:sanctum']);
 

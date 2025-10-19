@@ -1,0 +1,736 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Services\Auth;
+
+use App\Contracts\Auth\OidcAuthenticatorContract;
+use App\Exceptions\Auth\OidcAuthenticationException;
+use App\Models\IdpProvider;
+use App\Models\Role;
+use App\Models\User;
+use App\Services\Audit\AuditLogger;
+use Firebase\JWT\JWK;
+use Firebase\JWT\JWT;
+use Firebase\JWT\Key;
+use GuzzleHttp\ClientInterface;
+use GuzzleHttp\Exception\GuzzleException;
+use Illuminate\Contracts\Cache\Repository as CacheRepository;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
+use Psr\Log\LoggerInterface;
+use RuntimeException;
+
+final class OidcAuthenticator implements OidcAuthenticatorContract
+{
+    private const int DISCOVERY_CACHE_TTL = 3600;
+
+    private const int JWKS_CACHE_TTL = 900;
+
+    public function __construct(
+        private readonly ClientInterface $http,
+        private readonly CacheRepository $cache,
+        private readonly AuditLogger $audit,
+        private readonly LoggerInterface $logger
+    ) {}
+
+    /**
+     * @param  array<string,mixed>  $input
+     */
+    #[\Override]
+    public function authenticate(IdpProvider $provider, array $input, Request $request): User
+    {
+        /** @var array<string,mixed> $config */
+        $config = $this->readProviderConfig($provider);
+        $driverKey = strtolower($provider->driver);
+
+        if (! in_array($driverKey, ['oidc', 'entra'], true)) {
+            throw ValidationException::withMessages([
+                'provider' => ['Provider driver does not support OIDC flows.'],
+            ])->status(422);
+        }
+
+        $nonce = null;
+        if (isset($input['nonce']) && is_string($input['nonce'])) {
+            $nonceCandidate = trim($input['nonce']);
+            if ($nonceCandidate !== '') {
+                $nonce = $nonceCandidate;
+            }
+        }
+
+        try {
+            $discovery = $this->discover($provider, $config);
+
+            $idToken = $this->resolveIdToken($provider, $config, $discovery, $input);
+            $claims = $this->validateIdToken($provider, $config, $discovery, $idToken, $nonce);
+
+            $user = $this->provisionUser($provider, $config, $claims);
+
+            $entityId = trim($provider->id);
+            if ($entityId === '') {
+                $entityId = trim($provider->key);
+            }
+            if ($entityId === '') {
+                throw new RuntimeException('Provider identifier missing.');
+            }
+
+            $this->audit->log([
+                'actor_id' => $user->id,
+                'action' => 'auth.oidc.login',
+                'category' => 'AUTH',
+                'entity_type' => 'idp.provider',
+                'entity_id' => $entityId,
+                'ip' => $request->ip(),
+                'ua' => $request->userAgent(),
+                'meta' => [
+                    'provider_key' => $provider->key,
+                    'issuer' => $config['issuer'] ?? null,
+                    'subject' => $claims['sub'] ?? null,
+                    'email' => $claims['email'] ?? null,
+                ],
+            ]);
+
+            return $user;
+        } catch (ValidationException $e) {
+            /** @var array<string,mixed> $errors */
+            $errors = $e->errors();
+            $this->logFailure($provider, $request, $config, $errors);
+            throw $e;
+        } catch (OidcAuthenticationException $e) {
+            $this->logFailure($provider, $request, $config, ['message' => [$e->getMessage()]]);
+            throw ValidationException::withMessages([
+                'code' => [$e->getMessage()],
+            ])->status(401);
+        } catch (RuntimeException $e) {
+            $this->logFailure($provider, $request, $config, ['message' => [$e->getMessage()]]);
+            throw ValidationException::withMessages([
+                'code' => ['OIDC authentication failed.'],
+            ])->status(401);
+        }
+    }
+
+    /**
+     * @param  array<string,mixed>  $config
+     * @return array<string,mixed>
+     */
+    private function discover(IdpProvider $provider, array $config): array
+    {
+        $issuer = $config['issuer'] ?? null;
+        if (! is_string($issuer) || trim($issuer) === '') {
+            throw new RuntimeException('Provider issuer is not configured.');
+        }
+
+        $cacheKey = sprintf('idp:%s:oidc:discovery', $provider->id);
+
+        /** @var array<string,mixed>|null $cached */
+        $cached = $this->cache->get($cacheKey);
+        if (is_array($cached) && isset($cached['_cached_at'])) {
+            /** @var array<string,mixed> $document */
+            $document = $cached;
+
+            return $document;
+        }
+
+        $endpoint = rtrim($issuer, '/').'/.well-known/openid-configuration';
+
+        try {
+            $response = $this->http->request('GET', $endpoint, [
+                'headers' => ['Accept' => 'application/json'],
+                'connect_timeout' => 5,
+                'timeout' => 10,
+            ]);
+        } catch (GuzzleException $e) {
+            $this->logger->error('OIDC discovery fetch failed.', ['provider' => $provider->id, 'error' => $e->getMessage()]);
+            throw new RuntimeException('Unable to retrieve discovery document.');
+        }
+
+        $body = (string) $response->getBody();
+        /** @var mixed $decoded */
+        $decoded = json_decode($body, true);
+        if (! is_array($decoded)) {
+            throw new RuntimeException('Discovery document response is invalid.');
+        }
+
+        /** @var array<string,mixed> $document */
+        $document = $decoded;
+        $document['_cached_at'] = time();
+
+        $this->cache->put($cacheKey, $document, self::DISCOVERY_CACHE_TTL);
+
+        return $document;
+    }
+
+    /**
+     * @param  array<string,mixed>  $config
+     * @param  array<string,mixed>  $discovery
+     * @param  array<string,mixed>  $input
+     */
+    private function resolveIdToken(IdpProvider $provider, array $config, array $discovery, array $input): string
+    {
+        if (isset($input['id_token']) && is_string($input['id_token'])) {
+            $idTokenCandidate = trim($input['id_token']);
+            if ($idTokenCandidate !== '') {
+                return $idTokenCandidate;
+            }
+        }
+
+        if (! (isset($input['code']) && is_string($input['code']) && trim($input['code']) !== '')) {
+            throw ValidationException::withMessages([
+                'code' => ['Authorization code is required.'],
+            ])->status(422);
+        }
+        $code = trim($input['code']);
+
+        if (! (isset($input['redirect_uri']) && is_string($input['redirect_uri']) && trim($input['redirect_uri']) !== '')) {
+            throw ValidationException::withMessages([
+                'redirect_uri' => ['Redirect URI is required when exchanging a code.'],
+            ])->status(422);
+        }
+        $redirectUri = trim($input['redirect_uri']);
+
+        $tokenEndpoint = $discovery['token_endpoint'] ?? null;
+        if (! is_string($tokenEndpoint) || trim($tokenEndpoint) === '') {
+            throw new RuntimeException('Discovery document missing token endpoint.');
+        }
+
+        $clientIdRaw = $config['client_id'] ?? null;
+        if (! is_string($clientIdRaw) || trim($clientIdRaw) === '') {
+            throw new RuntimeException('Provider client_id is not configured.');
+        }
+        $clientId = trim($clientIdRaw);
+
+        $clientSecretRaw = $config['client_secret'] ?? null;
+        if (! is_string($clientSecretRaw) || trim($clientSecretRaw) === '') {
+            throw new RuntimeException('Provider client_secret is not configured.');
+        }
+        $clientSecret = trim($clientSecretRaw);
+
+        $form = [
+            'grant_type' => 'authorization_code',
+            'code' => $code,
+            'redirect_uri' => $redirectUri,
+            'client_id' => $clientId,
+            'client_secret' => $clientSecret,
+        ];
+
+        if (isset($input['code_verifier']) && is_string($input['code_verifier'])) {
+            $form['code_verifier'] = trim($input['code_verifier']);
+        }
+
+        try {
+            $response = $this->http->request('POST', $tokenEndpoint, [
+                'headers' => ['Accept' => 'application/json'],
+                'form_params' => $form,
+                'connect_timeout' => 5,
+                'timeout' => 10,
+            ]);
+        } catch (GuzzleException $e) {
+            $this->logger->warning('OIDC token exchange failed.', ['provider' => $provider->id, 'error' => $e->getMessage()]);
+            throw new OidcAuthenticationException('Token exchange failed.');
+        }
+
+        /** @var mixed $decoded */
+        $decoded = json_decode((string) $response->getBody(), true);
+        if (! is_array($decoded)) {
+            throw new OidcAuthenticationException('Token response malformed.');
+        }
+
+        $idTokenResponse = $decoded['id_token'] ?? null;
+        if (! is_string($idTokenResponse) || trim($idTokenResponse) === '') {
+            throw new OidcAuthenticationException('Provider did not return an id_token.');
+        }
+
+        return trim($idTokenResponse);
+    }
+
+    /**
+     * @param  array<string,mixed>  $config
+     * @param  array<string,mixed>  $discovery
+     * @return array<string,mixed>
+     */
+    private function validateIdToken(IdpProvider $provider, array $config, array $discovery, string $idToken, ?string $nonce): array
+    {
+        $jwksUri = $discovery['jwks_uri'] ?? null;
+        if (! is_string($jwksUri) || trim($jwksUri) === '') {
+            throw new RuntimeException('Discovery document missing jwks_uri.');
+        }
+
+        $keys = $this->retrieveJwks($provider, $jwksUri);
+        if ($keys === []) {
+            throw new RuntimeException('Provider JWKS is empty.');
+        }
+
+        try {
+            $decoded = JWT::decode($idToken, $keys);
+        } catch (\Throwable $e) {
+            $this->logger->warning('ID token validation error.', ['provider' => $provider->id, 'error' => $e->getMessage()]);
+            throw new OidcAuthenticationException('Unable to validate ID token.');
+        }
+
+        /** @var array<string,mixed> $claims */
+        $claims = json_decode(json_encode($decoded, JSON_THROW_ON_ERROR), true, 512, JSON_THROW_ON_ERROR);
+
+        $issuer = $config['issuer'] ?? null;
+        if (! is_string($issuer) || trim($issuer) === '') {
+            throw new RuntimeException('Provider issuer is not configured.');
+        }
+
+        $issClaim = $claims['iss'] ?? null;
+        if (! is_string($issClaim) || trim($issClaim) === '' || $issClaim !== $issuer) {
+            throw new OidcAuthenticationException('Issuer mismatch.');
+        }
+
+        $clientId = $config['client_id'] ?? null;
+        if (! is_string($clientId) || trim($clientId) === '') {
+            throw new RuntimeException('Provider client_id is not configured.');
+        }
+        /** @var array<array-key, mixed>|string|null $audClaim */
+        $audClaim = $claims['aud'] ?? null;
+        $audValid = false;
+        if (is_array($audClaim)) {
+            $audValid = in_array($clientId, $audClaim, true);
+        } elseif (is_string($audClaim)) {
+            $audValid = $audClaim === $clientId;
+        }
+        if (! $audValid) {
+            throw new OidcAuthenticationException('Audience mismatch.');
+        }
+
+        $expiresAt = 0;
+        if (isset($claims['exp']) && is_numeric($claims['exp'])) {
+            $expiresAt = (int) $claims['exp'];
+        }
+        if ($expiresAt !== 0 && $expiresAt < (time() - 60)) {
+            throw new OidcAuthenticationException('ID token expired.');
+        }
+
+        if ($nonce !== null && $nonce !== '') {
+            if (! (isset($claims['nonce']) && is_string($claims['nonce']) && $claims['nonce'] === $nonce)) {
+                throw new OidcAuthenticationException('Nonce mismatch.');
+            }
+        }
+
+        return $claims;
+    }
+
+    /**
+     * @param  array<string,mixed>  $config
+     * @param  array<string,mixed>  $claims
+     */
+    private function provisionUser(IdpProvider $provider, array $config, array $claims): User
+    {
+        $jit = $this->resolveJitSettings($config);
+
+        $email = $this->extractEmail($claims);
+        if ($email === '') {
+            throw ValidationException::withMessages([
+                'email' => ['OIDC response missing email claim.'],
+            ])->status(422);
+        }
+
+        $user = User::query()
+            ->whereRaw('LOWER(email) = ?', [mb_strtolower($email)])
+            ->first();
+
+        $createUsers = $jit['create_users'];
+
+        if (! $user instanceof User) {
+            if (! $createUsers) {
+                throw ValidationException::withMessages([
+                    'email' => ['User does not exist and automatic provisioning is disabled.'],
+                ])->status(422);
+            }
+
+            $user = User::create([
+                'name' => $this->resolveName($claims, $email),
+                'email' => $email,
+                'password' => Hash::make(Str::uuid()->toString()),
+            ]);
+        } else {
+            $this->updateUserName($user, $claims);
+        }
+
+        $roles = $this->determineRoles($jit, $claims);
+        if ($roles !== []) {
+            $existingRoleIds = Role::query()
+                ->whereIn('id', $roles)
+                ->pluck('id')
+                ->all();
+
+            if ($existingRoleIds !== []) {
+                /** @var list<string> $existingRoleIds */
+                $user->roles()->syncWithoutDetaching($existingRoleIds);
+            }
+        }
+
+        return $user;
+    }
+
+    /**
+     * @param  array<string,mixed>  $config
+     * @return array{create_users:bool,default_roles:list<string>,role_templates:list<array{claim:string,values:list<string>,roles:list<string>}>}
+     */
+    private function resolveJitSettings(array $config): array
+    {
+        $defaults = [
+            'create_users' => true,
+            'default_roles' => [],
+            'role_templates' => [],
+        ];
+
+        if (! isset($config['jit']) || ! is_array($config['jit'])) {
+            return $defaults;
+        }
+
+        /** @var array<string,mixed> $jit */
+        $jit = $config['jit'];
+
+        $createUsers = $defaults['create_users'];
+        if (array_key_exists('create_users', $jit)) {
+            if (is_bool($jit['create_users'])) {
+                $createUsers = $jit['create_users'];
+            } elseif (is_string($jit['create_users']) || is_int($jit['create_users'])) {
+                $coerced = filter_var($jit['create_users'], FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE);
+                if ($coerced !== null) {
+                    $createUsers = $coerced;
+                }
+            }
+        }
+
+        $defaultRoles = [];
+        if (isset($jit['default_roles']) && is_array($jit['default_roles'])) {
+            /** @var list<mixed> $defaultRolesRaw */
+            $defaultRolesRaw = $jit['default_roles'];
+            foreach ($defaultRolesRaw as $rawRole) {
+                if (! is_string($rawRole)) {
+                    continue;
+                }
+
+                $normalizedRole = strtolower(trim($rawRole));
+                if ($normalizedRole === '') {
+                    continue;
+                }
+
+                $defaultRoles[] = $normalizedRole;
+            }
+            $defaultRoles = array_values(array_unique($defaultRoles));
+        }
+
+        $roleTemplates = [];
+        if (isset($jit['role_templates']) && is_array($jit['role_templates'])) {
+            foreach ($jit['role_templates'] as $template) {
+                /** @var mixed $template */
+                if (! is_array($template)) {
+                    continue;
+                }
+
+                $claimRaw = $template['claim'] ?? null;
+                if (! is_string($claimRaw) || trim($claimRaw) === '') {
+                    continue;
+                }
+                $claim = trim($claimRaw);
+
+                /** @var array<array-key, mixed>|string|null $valuesRaw */
+                $valuesRaw = $template['values'] ?? ($template['value'] ?? null);
+                $values = [];
+                if (is_string($valuesRaw)) {
+                    $values[] = trim($valuesRaw);
+                } elseif (is_array($valuesRaw)) {
+                    /** @var array<array-key, mixed> $valuesRaw */
+                    $normalizedValues = array_values(array_filter(
+                        array_map(
+                            static fn ($candidate): ?string => is_string($candidate) ? trim($candidate) : null,
+                            $valuesRaw
+                        ),
+                        static fn (?string $candidate): bool => $candidate !== null && $candidate !== ''
+                    ));
+
+                    $values = array_merge($values, $normalizedValues);
+                }
+
+                $values = array_values(array_unique(array_filter(
+                    $values,
+                    static fn (string $value): bool => $value !== ''
+                )));
+
+                if ($values === []) {
+                    continue;
+                }
+
+                if (! isset($template['roles']) || ! is_array($template['roles'])) {
+                    continue;
+                }
+
+                $roles = [];
+                /** @var array<array-key, mixed> $rolesRaw */
+                $rolesRaw = $template['roles'];
+                $normalizedRoles = array_values(array_filter(
+                    array_map(
+                        static fn ($candidate): ?string => is_string($candidate) ? strtolower(trim($candidate)) : null,
+                        $rolesRaw
+                    ),
+                    static fn (?string $candidate): bool => $candidate !== null && $candidate !== ''
+                ));
+
+                $roles = array_merge($roles, $normalizedRoles);
+                $roles = array_values(array_unique($roles));
+
+                if ($roles === []) {
+                    continue;
+                }
+
+                $roleTemplates[] = [
+                    'claim' => $claim,
+                    'values' => $values,
+                    'roles' => $roles,
+                ];
+            }
+        }
+
+        return [
+            'create_users' => $createUsers,
+            'default_roles' => $defaultRoles,
+            'role_templates' => $roleTemplates,
+        ];
+    }
+
+    /**
+     * @param  array{create_users:bool,default_roles:list<string>,role_templates:list<array{claim:string,values:list<string>,roles:list<string>}>}  $jit
+     * @param  array<string,mixed>  $claims
+     * @return list<string>
+     */
+    private function determineRoles(array $jit, array $claims): array
+    {
+        $roles = $jit['default_roles'];
+
+        foreach ($jit['role_templates'] as $template) {
+            /** @var mixed $claimValue */
+            $claimValue = $this->extractClaimValue($claims, $template['claim']);
+            if ($claimValue === null) {
+                continue;
+            }
+
+            if ($this->claimMatches($claimValue, $template['values'])) {
+                $roles = array_merge($roles, $template['roles']);
+            }
+        }
+
+        return array_values(array_unique($roles));
+    }
+
+    /**
+     * @param  array<string,mixed>  $claims
+     */
+    private function extractClaimValue(array $claims, string $path): mixed
+    {
+        return data_get($claims, $path);
+    }
+
+    /**
+     * @param  list<string>  $expectedValues
+     */
+    private function claimMatches(mixed $claimValue, array $expectedValues): bool
+    {
+        /** @var list<string> $values */
+        $values = array_values(array_filter($expectedValues, static fn (string $value): bool => trim($value) !== ''));
+
+        /** @var list<string> $expected */
+        $expected = array_map(static fn (string $value): string => mb_strtolower($value), $values);
+
+        if ($expected === []) {
+            return false;
+        }
+
+        if (is_string($claimValue)) {
+            return in_array(mb_strtolower($claimValue), $expected, true);
+        }
+
+        if (is_array($claimValue)) {
+            /** @var array<array-key, mixed> $claimValueArray */
+            $claimValueArray = $claimValue;
+            foreach ($claimValueArray as $rawClaimValue) {
+                if (! is_string($rawClaimValue)) {
+                    continue;
+                }
+
+                if (in_array(mb_strtolower($rawClaimValue), $expected, true)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param  array<string,mixed>  $claims
+     */
+    private function extractEmail(array $claims): string
+    {
+        $email = $claims['email'] ?? $claims['preferred_username'] ?? null;
+        if (! is_string($email) || trim($email) === '') {
+            return '';
+        }
+
+        return mb_strtolower(trim($email));
+    }
+
+    /**
+     * @param  array<string,mixed>  $claims
+     */
+    private function resolveName(array $claims, string $fallbackEmail): string
+    {
+        if (isset($claims['name']) && is_string($claims['name']) && trim($claims['name']) !== '') {
+            return trim($claims['name']);
+        }
+
+        $hasGiven = isset($claims['given_name']) && is_string($claims['given_name']) && trim($claims['given_name']) !== '';
+        $hasFamily = isset($claims['family_name']) && is_string($claims['family_name']) && trim($claims['family_name']) !== '';
+        if ($hasGiven && $hasFamily) {
+            /** @var string $given */
+            $given = $claims['given_name'];
+            /** @var string $family */
+            $family = $claims['family_name'];
+
+            return trim($given).' '.trim($family);
+        }
+
+        return $fallbackEmail;
+    }
+
+    /**
+     * @param  array<string,mixed>  $claims
+     */
+    private function updateUserName(User $user, array $claims): void
+    {
+        $resolved = trim($this->resolveName($claims, $user->email));
+        $currentName = trim($user->name);
+        if ($currentName === $resolved) {
+            return;
+        }
+
+        $user->name = $resolved;
+        $user->save();
+    }
+
+    /**
+     * @return array<string, Key>
+     */
+    private function retrieveJwks(IdpProvider $provider, string $jwksUri): array
+    {
+        $cacheKey = sprintf('idp:%s:oidc:jwks', $provider->id);
+        /** @var array<string,mixed>|null $cached */
+        $cached = $this->cache->get($cacheKey);
+        if (is_array($cached) && $cached !== []) {
+            /** @var array<string, Key> $parsedCached */
+            $parsedCached = JWK::parseKeySet($cached);
+
+            if ($parsedCached === []) {
+                throw new RuntimeException('JWKS response malformed.');
+            }
+
+            return $parsedCached;
+        }
+
+        try {
+            $response = $this->http->request('GET', $jwksUri, [
+                'headers' => ['Accept' => 'application/json'],
+                'connect_timeout' => 5,
+                'timeout' => 10,
+            ]);
+        } catch (GuzzleException $e) {
+            $this->logger->error('Unable to fetch JWKS.', ['provider' => $provider->id, 'error' => $e->getMessage()]);
+            throw new RuntimeException('Unable to fetch JWKS.');
+        }
+
+        /** @var mixed $decoded */
+        $decoded = json_decode((string) $response->getBody(), true);
+        if (! is_array($decoded)) {
+            throw new RuntimeException('JWKS response malformed.');
+        }
+
+        $this->cache->put($cacheKey, $decoded, self::JWKS_CACHE_TTL);
+
+        /** @var array<string, Key> $parsed */
+        $parsed = JWK::parseKeySet($decoded);
+        if ($parsed === []) {
+            throw new RuntimeException('JWKS response malformed.');
+        }
+
+        return $parsed;
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function readProviderConfig(IdpProvider $provider): array
+    {
+        /** @var mixed $configValue */
+        $configValue = $provider->getAttribute('config');
+
+        if ($configValue === null) {
+            return [];
+        }
+
+        if ($configValue instanceof \ArrayObject) {
+            /** @var array<string,mixed> $copy */
+            $copy = $configValue->getArrayCopy();
+
+            return $copy;
+        }
+
+        if ($configValue instanceof \Traversable) {
+            /** @var array<string,mixed> $array */
+            $array = iterator_to_array($configValue);
+
+            return $array;
+        }
+
+        if (is_array($configValue)) {
+            /** @var array<string,mixed> $configValue */
+            return $configValue;
+        }
+
+        /** @var array<string,mixed> $cast */
+        $cast = (array) $configValue;
+
+        return $cast;
+    }
+
+    /**
+     * @param  array<string,mixed>|null  $config
+     * @param  array<string,mixed>|null  $errors
+     */
+    private function logFailure(IdpProvider $provider, Request $request, ?array $config, ?array $errors): void
+    {
+        $meta = [
+            'provider_key' => $provider->key,
+            'issuer' => $config['issuer'] ?? null,
+        ];
+
+        if (is_array($errors)) {
+            $meta['validation'] = $errors;
+        }
+
+        $entityId = trim($provider->id);
+        if ($entityId === '') {
+            $entityId = trim($provider->key);
+        }
+        if ($entityId === '') {
+            $entityId = 'idp';
+        }
+
+        $this->audit->log([
+            'actor_id' => null,
+            'action' => 'auth.oidc.login.failed',
+            'category' => 'AUTH',
+            'entity_type' => 'idp.provider',
+            'entity_id' => $entityId,
+            'ip' => $request->ip(),
+            'ua' => $request->userAgent(),
+            'meta' => $meta,
+        ]);
+    }
+}

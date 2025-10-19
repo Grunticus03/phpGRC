@@ -403,6 +403,49 @@ paths:
         "422":
           $ref: "#/components/responses/ValidationFailed"
 
+  /auth/oidc/login:
+    post:
+      operationId: authOidcLogin
+      tags: [Auth]
+      summary: Login with OIDC provider
+      description: |
+        Exchanges an authorization code or validates an ID token issued by an enabled OIDC Identity Provider. When configured, new users are provisioned automatically with mapped roles and a session token is issued for SPA access.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OidcLoginRequest"
+      responses:
+        "200":
+          description: Authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthTokenResponse"
+        "401":
+          $ref: "#/components/responses/ValidationFailed"
+        "403":
+          description: Provider disabled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IdpProviderDisabled"
+        "404":
+          description: Provider not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IdpProviderNotFound"
+        "409":
+          description: Persistence disabled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IdpPersistenceDisabled"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+
   /rbac/roles:
     get:
       operationId: rbacRolesList
@@ -2803,6 +2846,66 @@ components:
         retry_after:
           type: integer
           minimum: 1
+
+    AuthTokenResponse:
+      type: object
+      required: [ok, token, user]
+      properties:
+        ok:
+          type: boolean
+          const: true
+        token:
+          type: string
+        user:
+          type: object
+          required: [id, email, roles]
+          properties:
+            id:
+              type: integer
+              minimum: 1
+            email:
+              type: string
+              format: email
+            roles:
+              type: array
+              items:
+                type: string
+              example: ["Admin", "User"]
+
+    OidcLoginRequest:
+      type: object
+      required: [provider]
+      properties:
+        provider:
+          type: string
+          minLength: 1
+          maxLength: 160
+        code:
+          type: string
+          minLength: 3
+        redirect_uri:
+          type: string
+          format: uri
+        code_verifier:
+          type: string
+        id_token:
+          type: string
+        nonce:
+          type: string
+      anyOf:
+        - required: [code, redirect_uri]
+        - required: [id_token]
+
+    IdpProviderDisabled:
+      type: object
+      required: [ok, code]
+      properties:
+        ok:
+          type: boolean
+          const: false
+        code:
+          type: string
+          enum: [IDP_PROVIDER_DISABLED]
 
     RoleListResponse:
       type: object

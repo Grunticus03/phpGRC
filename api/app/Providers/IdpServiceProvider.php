@@ -9,8 +9,15 @@ use App\Auth\Idp\Drivers\LdapIdpDriver;
 use App\Auth\Idp\Drivers\OidcIdpDriver;
 use App\Auth\Idp\Drivers\SamlIdpDriver;
 use App\Auth\Idp\IdpDriverRegistry;
+use App\Contracts\Auth\OidcAuthenticatorContract;
+use App\Services\Audit\AuditLogger;
+use App\Services\Auth\OidcAuthenticator;
+use GuzzleHttp\Client;
+use GuzzleHttp\ClientInterface;
+use Illuminate\Contracts\Cache\Repository as CacheRepository;
 use Illuminate\Contracts\Container\Container;
 use Illuminate\Support\ServiceProvider;
+use Psr\Log\LoggerInterface;
 
 final class IdpServiceProvider extends ServiceProvider
 {
@@ -29,5 +36,18 @@ final class IdpServiceProvider extends ServiceProvider
 
             return new IdpDriverRegistry([$oidc, $saml, $ldap, $entra]);
         });
+
+        $this->app->bind(ClientInterface::class, static fn (): ClientInterface => new Client(['http_errors' => false]));
+
+        $this->app->singleton(OidcAuthenticatorContract::class, function (Container $app): OidcAuthenticatorContract {
+            return new OidcAuthenticator(
+                $app->make(ClientInterface::class),
+                $app->make(CacheRepository::class),
+                $app->make(AuditLogger::class),
+                $app->make(LoggerInterface::class),
+            );
+        });
+
+        $this->app->alias(OidcAuthenticatorContract::class, OidcAuthenticator::class);
     }
 }
