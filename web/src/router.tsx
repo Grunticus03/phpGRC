@@ -18,6 +18,7 @@ import ThemingSettings from "./routes/admin/ThemingSettings";
 import ThemeDesigner from "./routes/admin/ThemeDesigner";
 import Roles from "./routes/admin/Roles";
 import Audit from "./routes/admin/Audit";
+import IdpProviders from "./routes/admin/IdpProviders";
 import EvidenceList from "./routes/evidence/List";
 import Users from "./routes/admin/Users";
 import ExportsIndex from "./routes/exports";
@@ -57,6 +58,9 @@ const router = createBrowserRouter(
         <Route path="roles" element={<Roles />} />
         <Route path="users" element={<Users />} />
         <Route path="audit" element={<Audit />} />
+        <Route path="idp">
+          <Route path="providers" element={<IdpProviders />} />
+        </Route>
         <Route path="evidence" element={<EvidenceList />} />
       </Route>
 

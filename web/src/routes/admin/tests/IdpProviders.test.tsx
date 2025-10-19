@@ -1,0 +1,351 @@
+import React from "react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { vi } from "vitest";
+import IdpProviders from "../IdpProviders";
+import { ToastProvider } from "../../../components/toast/ToastProvider";
+
+const ROUTER_FUTURE_FLAGS = { v7_startTransition: true, v7_relativeSplatPath: true } as const;
+
+const originalFetch = globalThis.fetch as typeof fetch;
+
+function jsonResponse(status: number, body?: unknown) {
+  return new Response(body !== undefined ? JSON.stringify(body) : null, {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+function renderPage() {
+  render(
+    <MemoryRouter future={ROUTER_FUTURE_FLAGS} initialEntries={["/admin/idp/providers"]}>
+      <Routes>
+        <Route
+          path="/admin/idp/providers"
+          element={
+            <ToastProvider>
+              <IdpProviders />
+            </ToastProvider>
+          }
+        />
+      </Routes>
+    </MemoryRouter>
+  );
+}
+
+afterEach(() => {
+  globalThis.fetch = originalFetch;
+  vi.restoreAllMocks();
+});
+
+describe("Admin IdP Providers page", () => {
+  test("shows stub mode banner when persistence is disabled", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const method = (init?.method ?? "GET").toUpperCase();
+      const url = typeof input === "string" ? input : ((input as Request).url ?? String(input));
+
+      if (method === "GET" && /\/admin\/idp\/providers$/.test(url)) {
+        return jsonResponse(200, {
+          ok: true,
+          items: [],
+          meta: { total: 0, enabled: 0 },
+          note: "stub-only",
+        });
+      }
+
+      return jsonResponse(404);
+    }) as unknown as typeof fetch;
+
+    globalThis.fetch = fetchMock;
+    renderPage();
+
+    expect(await screen.findByText(/stub mode/i)).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  test("allows toggling provider status", async () => {
+    const user = userEvent.setup();
+    const providers = [
+      {
+        id: "01JP1A4J52",
+        key: "okta-primary",
+        name: "Okta Primary",
+        driver: "oidc",
+        enabled: true,
+        evaluation_order: 1,
+        config: {},
+        meta: null,
+        last_health_at: null,
+        created_at: "2025-02-01T00:00:00Z",
+        updated_at: "2025-02-01T00:00:00Z",
+      },
+      {
+        id: "01JP1A4J5Z",
+        key: "entra-fallback",
+        name: "Entra Fallback",
+        driver: "entra",
+        enabled: false,
+        evaluation_order: 2,
+        config: {},
+        meta: null,
+        last_health_at: null,
+        created_at: "2025-02-01T00:00:00Z",
+        updated_at: "2025-02-01T00:00:00Z",
+      },
+    ];
+
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const method = (init?.method ?? "GET").toUpperCase();
+      const url = typeof input === "string" ? input : ((input as Request).url ?? String(input));
+
+      if (method === "GET" && /\/admin\/idp\/providers$/.test(url)) {
+        const enabledCount = providers.filter((item) => item.enabled).length;
+        return jsonResponse(200, {
+          ok: true,
+          items: providers,
+          meta: { total: providers.length, enabled: enabledCount },
+        });
+      }
+
+      if (method === "PATCH" && /\/admin\/idp\/providers\/01JP1A4J52$/.test(url)) {
+        const body = JSON.parse(String(init?.body ?? "{}"));
+        expect(body).toEqual({ enabled: false });
+        providers[0] = {
+          ...providers[0],
+          enabled: false,
+          updated_at: "2025-02-02T00:00:00Z",
+        };
+        return jsonResponse(200, {
+          ok: true,
+          provider: providers[0],
+        });
+      }
+
+      return jsonResponse(404);
+    }) as unknown as typeof fetch;
+
+    globalThis.fetch = fetchMock;
+    renderPage();
+
+    expect(await screen.findByText("Okta Primary")).toBeInTheDocument();
+
+    const oktaRow = screen.getByText("Okta Primary").closest("tr");
+    expect(oktaRow).not.toBeNull();
+    const disableButton = within(oktaRow!).getByRole("button", { name: /disable/i });
+    await user.click(disableButton);
+
+    await waitFor(() => {
+      const updatedRow = screen.getByText("Okta Primary").closest("tr");
+      expect(updatedRow).not.toBeNull();
+      if (updatedRow) {
+        const enableButton = within(updatedRow).getByRole("button", { name: /^enable$/i });
+        expect(enableButton).toBeInTheDocument();
+      }
+    });
+
+    const finalRow = screen.getByText("Okta Primary").closest("tr");
+    expect(finalRow).not.toBeNull();
+    if (finalRow) {
+      const statusBadge = within(finalRow).getByText(/disabled/i);
+      expect(statusBadge).toBeInTheDocument();
+    }
+  });
+
+  test("reorders providers and deletes an entry", async () => {
+    const user = userEvent.setup();
+    const providers = [
+      {
+        id: "01JORDER01",
+        key: "primary",
+        name: "Primary",
+        driver: "oidc",
+        enabled: true,
+        evaluation_order: 1,
+        config: {},
+        meta: null,
+        last_health_at: null,
+        created_at: "2025-01-01T00:00:00Z",
+        updated_at: "2025-01-01T00:00:00Z",
+      },
+      {
+        id: "01JORDER02",
+        key: "secondary",
+        name: "Secondary",
+        driver: "saml",
+        enabled: true,
+        evaluation_order: 2,
+        config: {},
+        meta: null,
+        last_health_at: null,
+        created_at: "2025-01-02T00:00:00Z",
+        updated_at: "2025-01-02T00:00:00Z",
+      },
+    ];
+
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const method = (init?.method ?? "GET").toUpperCase();
+      const url = typeof input === "string" ? input : ((input as Request).url ?? String(input));
+
+      if (method === "GET" && /\/admin\/idp\/providers$/.test(url)) {
+        return jsonResponse(200, {
+          ok: true,
+          items: providers,
+          meta: { total: providers.length, enabled: providers.filter((item) => item.enabled).length },
+        });
+      }
+
+      if (method === "PATCH" && /\/admin\/idp\/providers\/01JORDER02$/.test(url)) {
+        const body = JSON.parse(String(init?.body ?? "{}"));
+        expect(body).toEqual({ evaluation_order: 1 });
+        providers[0] = { ...providers[0], evaluation_order: 2, updated_at: "2025-01-03T00:00:00Z" };
+        providers[1] = { ...providers[1], evaluation_order: 1, updated_at: "2025-01-03T00:00:00Z" };
+        return jsonResponse(200, {
+          ok: true,
+          provider: providers[1],
+        });
+      }
+
+      if (method === "DELETE" && /\/admin\/idp\/providers\/01JORDER02$/.test(url)) {
+        providers.splice(1, 1);
+        return jsonResponse(200, {
+          ok: true,
+          deleted: "secondary",
+        });
+      }
+
+      return jsonResponse(404);
+    }) as unknown as typeof fetch;
+
+    globalThis.fetch = fetchMock;
+    renderPage();
+
+    expect(await screen.findByText("Primary")).toBeInTheDocument();
+    const moveUpButton = screen.getByRole("button", { name: /move secondary higher/i });
+    await user.click(moveUpButton);
+
+    await waitFor(() => {
+      const rows = screen.getAllByRole("row");
+      const firstDataRow = rows.find((row) => within(row).queryByText("Secondary"));
+      expect(firstDataRow).toBeDefined();
+      if (firstDataRow) {
+        const orderCell = within(firstDataRow).getByText("1");
+        expect(orderCell).toBeInTheDocument();
+      }
+    });
+
+    const secondaryRow = screen.getByText("Secondary").closest("tr");
+    expect(secondaryRow).not.toBeNull();
+    const deleteButton = within(secondaryRow!).getByRole("button", { name: /^delete$/i });
+    await user.click(deleteButton);
+
+    const confirmDialog = await screen.findByRole("dialog");
+    expect(within(confirmDialog).getByText(/remove/i)).toBeInTheDocument();
+
+    const confirmButton = within(confirmDialog).getByRole("button", { name: /^delete$/i });
+    await user.click(confirmButton);
+
+    await waitFor(() => {
+      expect(screen.queryByText("Secondary")).not.toBeInTheDocument();
+    });
+  });
+
+  test("creates a provider through the modal form", async () => {
+    const user = userEvent.setup();
+    const providers: Array<Record<string, unknown>> = [];
+
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const method = (init?.method ?? "GET").toUpperCase();
+      const url = typeof input === "string" ? input : ((input as Request).url ?? String(input));
+
+      if (method === "GET" && /\/admin\/idp\/providers$/.test(url)) {
+        return jsonResponse(200, {
+          ok: true,
+          items: providers,
+          meta: { total: providers.length, enabled: providers.filter((item) => item.enabled).length },
+        });
+      }
+
+      if (method === "POST" && /\/admin\/idp\/providers$/.test(url)) {
+        const body = JSON.parse(String(init?.body ?? "{}"));
+        expect(body).toEqual({
+          key: "new-idp",
+          name: "New IdP",
+          driver: "oidc",
+          enabled: true,
+          config: {
+            issuer: "https://issuer.example",
+            client_id: "client",
+          },
+          meta: {
+            display_region: "us",
+          },
+        });
+
+        const created = {
+          id: "01JCREATE01",
+          key: body.key,
+          name: body.name,
+          driver: body.driver,
+          enabled: body.enabled,
+          evaluation_order: 1,
+          config: body.config,
+          meta: body.meta,
+          last_health_at: null,
+          created_at: "2025-03-01T00:00:00Z",
+          updated_at: "2025-03-01T00:00:00Z",
+        };
+
+        providers.unshift(created);
+        return jsonResponse(201, {
+          ok: true,
+          provider: created,
+        });
+      }
+
+      return jsonResponse(404);
+    }) as unknown as typeof fetch;
+
+    globalThis.fetch = fetchMock;
+    renderPage();
+
+    const addProviderButtons = await screen.findAllByRole("button", { name: /add provider/i });
+    expect(addProviderButtons.length).toBeGreaterThan(0);
+    await user.click(addProviderButtons[0]);
+
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText(/add identity provider/i)).toBeInTheDocument();
+
+    const keyInput = within(dialog).getByLabelText(/provider key/i);
+    await user.clear(keyInput);
+    await user.type(keyInput, "new-idp");
+
+    const nameInput = within(dialog).getByLabelText(/display name/i);
+    await user.clear(nameInput);
+    await user.type(nameInput, "New IdP");
+
+    const driverSelect = within(dialog).getByLabelText(/driver/i);
+    await user.selectOptions(driverSelect, "oidc");
+
+    const configArea = within(dialog).getByLabelText(/provider config/i);
+    await user.clear(configArea);
+    fireEvent.change(configArea, {
+      target: { value: JSON.stringify({ issuer: "https://issuer.example", client_id: "client" }) },
+    });
+
+    const metaArea = within(dialog).getByLabelText(/meta/i);
+    await user.clear(metaArea);
+    fireEvent.change(metaArea, { target: { value: JSON.stringify({ display_region: "us" }) } });
+
+    const submitButton = within(dialog).getByRole("button", { name: /^create$/i });
+    await user.click(submitButton);
+
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText("New IdP")).toBeInTheDocument();
+    });
+  });
+});

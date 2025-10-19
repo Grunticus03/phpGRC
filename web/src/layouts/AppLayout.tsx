@@ -119,6 +119,7 @@ const ADMIN_NAV_ITEMS: readonly AdminNavItem[] = [
     ],
   },
   { id: "admin.roles", label: "Roles", to: "/admin/roles" },
+  { id: "admin.idp", label: "Identity Providers", to: "/admin/idp/providers" },
   { id: "admin.users", label: "Users", to: "/admin/users" },
   { id: "admin.audit", label: "Audit Logs", to: "/admin/audit" },
   { id: "admin.api-docs", label: "API Docs", href: "/api/docs" },
