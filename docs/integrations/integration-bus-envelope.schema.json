@@ -1,0 +1,814 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://phpgrc.internal/docs/integrations/integration-bus-envelope.schema.json",
+  "title": "phpGRC Integration Bus Envelope",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "busVersion",
+    "connectorKey",
+    "connectorVersion",
+    "tenantId",
+    "runId",
+    "kind",
+    "event",
+    "emittedAt",
+    "payload",
+    "provenance"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$",
+      "description": "ULID generated when the job is enqueued."
+    },
+    "busVersion": {
+      "type": "string",
+      "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-[0-9A-Za-z-.]+)?(?:\\+[0-9A-Za-z-.]+)?$",
+      "description": "Semantic version of the Integration Bus contract targeted by the connector."
+    },
+    "connectorKey": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+      "description": "Lowercase slug identifying the connector."
+    },
+    "connectorVersion": {
+      "type": "string",
+      "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-[0-9A-Za-z-.]+)?(?:\\+[0-9A-Za-z-.]+)?$",
+      "description": "Semantic version of the connector release."
+    },
+    "tenantId": {
+      "type": "string",
+      "pattern": "^(core\\.default|[0-9A-HJKMNP-TV-Z]{26})$",
+      "description": "ULID of the phpGRC tenant/instance; use core.default for single-tenant."
+    },
+    "runId": {
+      "type": "string",
+      "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$",
+      "description": "ULID representing the connector execution batch."
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "asset.discovery",
+        "asset.lifecycle",
+        "incident.event",
+        "vendor.profile",
+        "indicator.metric",
+        "cyber.metric",
+        "auth.provider"
+      ]
+    },
+    "event": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[a-z]+(?:\\.[a-z_]+)*$"
+    },
+    "emittedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Timestamp when the connector created the job."
+    },
+    "receivedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Timestamp captured by phpGRC ingestion. Filled by core services."
+    },
+    "priority": {
+      "type": "string",
+      "enum": [
+        "low",
+        "normal",
+        "high"
+      ],
+      "default": "normal"
+    },
+    "payload": {
+      "type": "object",
+      "description": "Business payload; constrained via kind-specific rules."
+    },
+    "provenance": {
+      "$ref": "#/$defs/provenance"
+    },
+    "attachments": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/attachment"
+      }
+    },
+    "meta": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "error": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/error"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "asset.discovery"
+          }
+        },
+        "required": [
+          "kind"
+        ]
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "$ref": "#/$defs/payloadAssetDiscovery"
+          }
+        },
+        "required": [
+          "payload"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "asset.lifecycle"
+          }
+        },
+        "required": [
+          "kind"
+        ]
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "$ref": "#/$defs/payloadAssetLifecycle"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "incident.event"
+          }
+        },
+        "required": [
+          "kind"
+        ]
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "$ref": "#/$defs/payloadIncidentEvent"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "vendor.profile"
+          }
+        },
+        "required": [
+          "kind"
+        ]
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "$ref": "#/$defs/payloadVendorProfile"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "indicator.metric"
+          }
+        },
+        "required": [
+          "kind"
+        ]
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "$ref": "#/$defs/payloadIndicatorMetric"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "cyber.metric"
+          }
+        },
+        "required": [
+          "kind"
+        ]
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "$ref": "#/$defs/payloadCyberMetric"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "auth.provider"
+          }
+        },
+        "required": [
+          "kind"
+        ]
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "$ref": "#/$defs/payloadAuthProvider"
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source",
+        "externalId",
+        "ingestedAt",
+        "schemaRef"
+      ],
+      "properties": {
+        "source": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "sourceRegion": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "sourceAccount": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "externalId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "correlationId": {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F-]{16,36}$"
+        },
+        "ingestedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "checksum": {
+          "type": "string",
+          "pattern": "^(?:[a-f0-9]{64}|[a-f0-9]{128})$"
+        },
+        "schemaRef": {
+          "type": "string",
+          "format": "uri"
+        },
+        "replay": {
+          "type": "boolean",
+          "default": false
+        }
+      }
+    },
+    "attachment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "uri",
+        "contentType"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "evidence",
+            "log",
+            "artifact",
+            "report"
+          ]
+        },
+        "uri": {
+          "type": "string",
+          "format": "uri"
+        },
+        "contentType": {
+          "type": "string",
+          "pattern": "^[\\w.-]+/[\\w.+-]+$"
+        },
+        "size": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "hash": {
+          "type": "string",
+          "pattern": "^(?:[a-f0-9]{64}|[a-f0-9]{128})$"
+        }
+      }
+    },
+    "error": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "code",
+        "message",
+        "occurredAt",
+        "attempt",
+        "maxAttempts"
+      ],
+      "properties": {
+        "code": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "occurredAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "attempt": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "maxAttempts": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "retryAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "traceId": {
+          "type": "string",
+          "pattern": "^[\\w-]{8,64}$"
+        }
+      }
+    },
+    "payloadAssetDiscovery": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "assetId",
+        "name",
+        "type",
+        "environment",
+        "tags",
+        "attributes"
+      ],
+      "properties": {
+        "assetId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "type": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "environment": {
+          "type": "string",
+          "enum": [
+            "production",
+            "staging",
+            "development",
+            "test",
+            "sandbox",
+            "unknown"
+          ]
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "uniqueItems": true
+        },
+        "attributes": {
+          "type": "object",
+          "additionalProperties": {
+            "type": [
+              "string",
+              "number",
+              "boolean",
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": [
+                "string",
+                "number",
+                "boolean",
+                "null"
+              ]
+            }
+          }
+        },
+        "relationships": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "type",
+              "target"
+            ],
+            "properties": {
+              "type": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64
+              },
+              "target": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              }
+            }
+          }
+        }
+      }
+    },
+    "payloadAssetLifecycle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "assetId",
+        "status",
+        "effectiveAt"
+      ],
+      "properties": {
+        "assetId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "commissioned",
+            "active",
+            "maintenance",
+            "retired",
+            "decommissioned"
+          ]
+        },
+        "effectiveAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "reason": {
+          "type": "string",
+          "maxLength": 512
+        },
+        "details": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      }
+    },
+    "payloadIncidentEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "incidentId",
+        "status",
+        "severity",
+        "summary"
+      ],
+      "properties": {
+        "incidentId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "NEW",
+            "TRIAGE",
+            "CONTAINED",
+            "ERADICATED",
+            "RECOVERED",
+            "CLOSED"
+          ]
+        },
+        "severity": {
+          "type": "string",
+          "enum": [
+            "LOW",
+            "MEDIUM",
+            "HIGH",
+            "CRITICAL"
+          ]
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "details": {
+          "type": "string",
+          "maxLength": 4000
+        },
+        "links": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "type",
+              "target"
+            ],
+            "properties": {
+              "type": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 32
+              },
+              "target": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              }
+            }
+          }
+        }
+      }
+    },
+    "payloadVendorProfile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "vendorId",
+        "name",
+        "category",
+        "contacts",
+        "services"
+      ],
+      "properties": {
+        "vendorId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "category": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "contacts": {
+          "type": "array",
+          "minItems": 0,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "name",
+              "email",
+              "role"
+            ],
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "email": {
+                "type": "string",
+                "format": "email"
+              },
+              "role": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64
+              },
+              "phone": {
+                "type": "string",
+                "maxLength": 32
+              }
+            }
+          }
+        },
+        "services": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "name",
+              "description"
+            ],
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "description": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512
+              },
+              "criticality": {
+                "type": "string",
+                "enum": [
+                  "LOW",
+                  "MEDIUM",
+                  "HIGH",
+                  "CRITICAL"
+                ]
+              }
+            }
+          }
+        },
+        "attributes": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "riskScore": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        }
+      }
+    },
+    "payloadIndicatorMetric": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "indicatorKey",
+        "window",
+        "value",
+        "unit",
+        "context"
+      ],
+      "properties": {
+        "indicatorKey": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_.-]{2,63}$"
+        },
+        "window": {
+          "type": "string",
+          "pattern": "^P(\\d+Y)?(\\d+M)?(\\d+W)?(\\d+D)?(T(\\d+H)?(\\d+M)?(\\d+S)?)?$"
+        },
+        "value": {
+          "type": "number"
+        },
+        "unit": {
+          "type": "string",
+          "maxLength": 32
+        },
+        "context": {
+          "type": "object",
+          "additionalProperties": {
+            "type": [
+              "string",
+              "number",
+              "boolean"
+            ]
+          }
+        },
+        "threshold": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "direction": {
+              "type": "string",
+              "enum": [
+                "above",
+                "below"
+              ]
+            },
+            "value": {
+              "type": "number"
+            }
+          }
+        }
+      }
+    },
+    "payloadCyberMetric": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sourceType",
+        "assetKey",
+        "observedAt",
+        "metrics"
+      ],
+      "properties": {
+        "sourceType": {
+          "type": "string",
+          "enum": [
+            "vulnerability_scanner",
+            "siem"
+          ]
+        },
+        "assetKey": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "observedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "metrics": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "number"
+          }
+        },
+        "residualRisk": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    },
+    "payloadAuthProvider": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "providerKey",
+        "status",
+        "checkedAt"
+      ],
+      "properties": {
+        "providerKey": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_.-]{2,63}$"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "healthy",
+            "degraded",
+            "failed"
+          ]
+        },
+        "checkedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "details": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      }
+    }
+  }
+}
