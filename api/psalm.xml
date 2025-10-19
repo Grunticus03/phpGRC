@@ -25,5 +25,6 @@
 
   <stubs>
     <file name="stubs/laravel-sanctum-polyfill.php"/>
+    <file name="stubs/ldap-polyfill.php"/>
   </stubs>
 </psalm>

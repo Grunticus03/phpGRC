@@ -113,19 +113,21 @@ final class NativeLdapClient implements LdapClientInterface
      */
     private function applyConnectionOptions(\LDAP\Connection $connection, array $config): void
     {
-        if (defined('LDAP_OPT_PROTOCOL_VERSION')) {
-            $protocolOption = (int) constant('LDAP_OPT_PROTOCOL_VERSION');
+        $protocolOption = $this->intConstant('LDAP_OPT_PROTOCOL_VERSION');
+        if ($protocolOption !== null) {
             $this->setOption($connection, $protocolOption, 3);
         }
 
-        if (defined('LDAP_OPT_REFERRALS')) {
-            $referralOption = (int) constant('LDAP_OPT_REFERRALS');
+        $referralOption = $this->intConstant('LDAP_OPT_REFERRALS');
+        if ($referralOption !== null) {
             $this->setOption($connection, $referralOption, 0);
         }
 
-        if (isset($config['timeout']) && is_int($config['timeout']) && defined('LDAP_OPT_NETWORK_TIMEOUT')) {
-            $timeoutOption = (int) constant('LDAP_OPT_NETWORK_TIMEOUT');
-            $this->setOption($connection, $timeoutOption, $config['timeout']);
+        if (isset($config['timeout']) && is_int($config['timeout'])) {
+            $timeoutOption = $this->intConstant('LDAP_OPT_NETWORK_TIMEOUT');
+            if ($timeoutOption !== null) {
+                $this->setOption($connection, $timeoutOption, $config['timeout']);
+            }
         }
     }
 
@@ -357,7 +359,7 @@ final class NativeLdapClient implements LdapClientInterface
     private function escapeForFilter(string $value): string
     {
         if (function_exists('ldap_escape')) {
-            $flag = defined('LDAP_ESCAPE_FILTER') ? (int) constant('LDAP_ESCAPE_FILTER') : 0;
+            $flag = $this->intConstant('LDAP_ESCAPE_FILTER') ?? 0;
 
             return ldap_escape($value, '', $flag);
         }
@@ -372,7 +374,7 @@ final class NativeLdapClient implements LdapClientInterface
     private function escapeForDn(string $value): string
     {
         if (function_exists('ldap_escape')) {
-            $flag = defined('LDAP_ESCAPE_DN') ? (int) constant('LDAP_ESCAPE_DN') : 0;
+            $flag = $this->intConstant('LDAP_ESCAPE_DN') ?? 0;
 
             return ldap_escape($value, '', $flag);
         }
@@ -382,6 +384,18 @@ final class NativeLdapClient implements LdapClientInterface
             ['\\5c', '\\2c', '\\2b', '\\22', '\\3c', '\\3e', '\\3b', '\\3d', '\\23'],
             $value
         );
+    }
+
+    private function intConstant(string $name): ?int
+    {
+        if (! defined($name)) {
+            return null;
+        }
+
+        /** @var mixed $value */
+        $value = constant($name);
+
+        return is_int($value) ? $value : null;
     }
 
     private function withSuppressedWarnings(callable $operation): mixed
