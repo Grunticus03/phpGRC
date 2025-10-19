@@ -16,17 +16,19 @@ abstract class TestCase extends BaseTestCase
     {
         $this->ensureWritableStoragePaths();
 
-        putenv('DB_CONNECTION=sqlite');
-        putenv('DB_DATABASE=:memory:');
-        $_ENV['DB_CONNECTION'] = 'sqlite';
-        $_ENV['DB_DATABASE'] = ':memory:';
-        $_SERVER['DB_CONNECTION'] = 'sqlite';
-        $_SERVER['DB_DATABASE'] = ':memory:';
+        $connection = $this->resolveTestConnection();
+        $useSqlite = $connection === 'sqlite';
+
+        if ($useSqlite) {
+            $this->configureInMemorySqlite();
+        }
 
         parent::setUp();
 
-        config()->set('database.default', 'sqlite');
-        config()->set('database.connections.sqlite.database', ':memory:');
+        if ($useSqlite) {
+            config()->set('database.default', 'sqlite');
+            config()->set('database.connections.sqlite.database', ':memory:');
+        }
 
         // No global middleware tweaks yet.
     }
@@ -86,5 +88,36 @@ abstract class TestCase extends BaseTestCase
         $app->make(Kernel::class)->bootstrap();
 
         return $app;
+    }
+
+    private function resolveTestConnection(): string
+    {
+        $candidates = [
+            getenv('DB_CONNECTION') ?: null,
+            $_SERVER['DB_CONNECTION'] ?? null,
+            $_ENV['DB_CONNECTION'] ?? null,
+        ];
+
+        foreach ($candidates as $candidate) {
+            if (is_string($candidate) && $candidate !== '') {
+                return strtolower($candidate);
+            }
+        }
+
+        return 'sqlite';
+    }
+
+    private function configureInMemorySqlite(): void
+    {
+        $settings = [
+            'DB_CONNECTION' => 'sqlite',
+            'DB_DATABASE' => ':memory:',
+        ];
+
+        foreach ($settings as $key => $value) {
+            putenv($key.'='.$value);
+            $_ENV[$key] = $value;
+            $_SERVER[$key] = $value;
+        }
     }
 }

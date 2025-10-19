@@ -235,6 +235,7 @@ jobs:
           DB_USERNAME=phpgrc
           DB_PASSWORD=secret
           CACHE_DRIVER=array
+          CACHE_STORE=array
           SESSION_DRIVER=array
           QUEUE_CONNECTION=sync
           FILESYSTEM_DISK=local
