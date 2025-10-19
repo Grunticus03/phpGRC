@@ -29,3 +29,4 @@ Consumers must degrade gracefully if providers are absent.
 | indicators.manage        | Future: Indicators | Reporting, Risks, Compliance| Future                                                                                          |
 | cases.manage             | Future: Cases      | Compliance, HR, Legal      | Future                                                                                          |
 | integrations.bus         | Future: Bus        | Assets, Indicators, Cyber  | Future                                                                                          |
+| integrations.connectors  | Integration Bus    | Admin, Integrations        | Phase 6 target (encrypted secrets storage + CRUD)                                               |

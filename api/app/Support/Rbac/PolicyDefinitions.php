@@ -64,6 +64,10 @@ final class PolicyDefinitions
                 'label' => 'Manage user roles',
                 'description' => 'Allows assigning roles to users.',
             ],
+            'integrations.connectors.manage' => [
+                'label' => 'Manage integration connectors',
+                'description' => 'Allows administrators to configure Integration Bus connectors and secrets.',
+            ],
         ];
     }
 }

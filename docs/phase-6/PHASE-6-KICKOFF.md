@@ -62,11 +62,13 @@ Phase 6 unlocks external connectivity and continuity workflows across the phpGRC
 | Date | Item | Owners/Sign-off | Notes |
 | --- | --- | --- | --- |
 | 2026-01-12 | Integration Bus contract v1.0 approved | Architecture (you), Security (Codex) | Contract documented in `docs/integrations/INTEGRATION-BUS-CONTRACT.md`; JSON Schema published alongside. Checklist item 0.1 ready to close. |
+| 2026-01-12 | Connector registry & secrets storage | Architecture (you), Engineering (Codex) | `/api/integrations/connectors*` endpoints with encrypted config storage shipped; policy `integrations.connectors.manage` mapped to `role_admin`. |
 
 ## 🔗 Dependencies & Interfaces
 - Relies on existing Core modules: RBAC (CORE-004), Audit (CORE-006), Evidence (CORE-007), Settings APIs.
 - Integration Bus contract underpins Asset, Cyber, Indicator workloads; connectors must honor queue payload schema and provenance headers.
-- Canonical contract draft tracked at `docs/integrations/INTEGRATION-BUS-CONTRACT.md` (`integration-bus-envelope.schema.json`). Developer guide + diagrams live at `docs/integrations/INTEGRATION-BUS-DEVELOPER-GUIDE.md`.
+- Canonical contract draft tracked at `docs/integrations/INTEGRATION-BUS-CONTRACT.md` (`integration-bus-envelope.schema.json`). Developer guide + diagrams live at `docs/integrations/INTEGRATION-BUS-DEVELOPER-GUIDE.md`. Runbook + sizing captured in `docs/ops/INTEGRATION-BUS-QUEUE.md`.
+- Connector registry and secret storage exposed via `/api/integrations/connectors*` (policy `integrations.connectors.manage`).
 - Web UI updates required for IdP management, new module navigation, and reporting surfaces.
 - Shared audit/logging infrastructure must ingest Bus metrics and IdP events.
 

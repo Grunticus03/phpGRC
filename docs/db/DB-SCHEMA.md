@@ -1,6 +1,6 @@
 # phpGRC Database Schema
 
-Snapshot generated from migrations against **phpgrc_test** as of 2025-10-16 (UTC).
+Snapshot generated from migrations against **phpgrc_test** as of 2026-01-12 (UTC).
 
 - SQL dialect: MySQL 8.0+
 - All times UTC.
@@ -216,6 +216,27 @@ Snapshot generated from migrations against **phpgrc_test** as of 2025-10-16 (UTC
 
 - `FOREIGN KEY policy_role_assignments_policy_foreign (policy) REFERENCES policy_roles(policy) ON UPDATE NO ACTION ON DELETE CASCADE`
 - `FOREIGN KEY policy_role_assignments_role_id_foreign (role_id) REFERENCES roles(id) ON UPDATE NO ACTION ON DELETE CASCADE`
+
+---
+
+### `integration_connectors`
+
+| Column | Type | Null | Default | Extra |
+|-------:|------|------|---------|-------|
+| id | varchar(26) | ✗ | NULL | — |
+| key | varchar(64) | ✗ | NULL | — |
+| name | varchar(120) | ✗ | NULL | — |
+| kind | varchar(60) | ✗ | NULL | — |
+| enabled | tinyint(1) | ✓ | 0 | — |
+| config | text | ✗ | NULL | — |
+| meta | json | ✓ | NULL | — |
+| last_health_at | timestamp | ✓ | NULL | — |
+| created_at | timestamp | ✓ | NULL | — |
+| updated_at | timestamp | ✓ | NULL | — |
+
+**Indexes & Constraints**
+- `PRIMARY KEY (id)`
+- `UNIQUE INDEX integration_connectors_key_unique (key)`
 
 ---
 

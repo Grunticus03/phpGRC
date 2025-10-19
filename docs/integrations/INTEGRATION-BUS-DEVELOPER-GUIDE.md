@@ -2,7 +2,8 @@
 
 This guide supplements the Integration Bus contract by showing how connector authors wire jobs into
 phpGRC. It includes a high-level architecture view and SDK-style snippets that enforce the contract
-found in `integration-bus-envelope.schema.json`.
+found in `integration-bus-envelope.schema.json`. Operational sizing and worker guidance lives in
+`docs/ops/INTEGRATION-BUS-QUEUE.md`.
 
 ## Architecture Overview
 
@@ -42,6 +43,13 @@ flowchart LR
 4. phpGRC workers pick up jobs, verify headers/body, and route to module handlers.
 5. Handlers persist data, emit domain events, and clear the `error` field on success.
 6. Failures annotate the envelope with an `error` object; repeated failures route to DLQ.
+
+### Connector Registry & Secrets
+
+- `POST /api/integrations/connectors` stores connector configuration with Laravel's encrypted JSON cast so secrets remain at rest. Only callers holding the `integrations.connectors.manage` policy receive decrypted responses.
+- `GET /api/integrations/connectors` (and `/api/integrations/connectors/{connector}`) accepts either the connector ULID or slug, enabling SDKs to resolve configuration by friendly key.
+- `PATCH /api/integrations/connectors/{connector}` toggles `enabled`, updates metadata, and refreshes health timestamps without re-submitting the entire configuration.
+- Refer to `docs/api/openapi.yaml` for full request/response examples and validation rules.
 
 ## SDK Snippet — Node/TypeScript
 

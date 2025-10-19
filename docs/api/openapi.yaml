@@ -32,6 +32,8 @@ tags:
     description: Evidence storage and retrieval.
   - name: Exports
     description: Export job creation, status, and downloads.
+  - name: Integrations
+    description: Integration Bus connectors and configuration.
   - name: Avatars
     description: User avatar upload and retrieval.
   - name: Setup
@@ -1608,6 +1610,216 @@ paths:
         "429":
           $ref: "#/components/responses/RateLimited"
 
+  /integrations/connectors:
+    get:
+      operationId: integrationsListConnectors
+      tags: [Integrations]
+      summary: List Integration Bus connectors
+      description: Returns the current Integration Bus connectors, including decrypted configuration for authorized administrators.
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+          description: 1-based page number. Defaults to 1.
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+          description: Items per page (1-100). Defaults to 25.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IntegrationConnectorListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      operationId: integrationsCreateConnector
+      tags: [Integrations]
+      summary: Create Integration Bus connector
+      description: Creates a new connector definition with encrypted configuration storage.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IntegrationConnectorRequest"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IntegrationConnectorResponse"
+        "202":
+          description: Stub-only (persistence disabled)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IntegrationConnectorStubResponse"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+
+  /integrations/connectors/{connector}:
+    get:
+      operationId: integrationsGetConnector
+      tags: [Integrations]
+      summary: Get Integration Bus connector
+      description: Retrieves a single connector by ULID or key.
+      parameters:
+        - name: connector
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IntegrationConnectorResponse"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: Connector not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IntegrationConnectorNotFound"
+    put:
+      operationId: integrationsUpdateConnector
+      tags: [Integrations]
+      summary: Replace Integration Bus connector
+      description: Updates a connector, replacing provided fields (same schema as PATCH).
+      parameters:
+        - name: connector
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IntegrationConnectorUpdateRequest"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IntegrationConnectorResponse"
+        "202":
+          description: Stub-only (persistence disabled)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IntegrationConnectorStubResponse"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: Connector not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IntegrationConnectorNotFound"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+    patch:
+      operationId: integrationsPatchConnector
+      tags: [Integrations]
+      summary: Patch Integration Bus connector
+      description: Partially updates a connector configuration.
+      parameters:
+        - name: connector
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IntegrationConnectorUpdateRequest"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IntegrationConnectorResponse"
+        "202":
+          description: Stub-only (persistence disabled)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IntegrationConnectorStubResponse"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: Connector not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IntegrationConnectorNotFound"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+    delete:
+      operationId: integrationsDeleteConnector
+      tags: [Integrations]
+      summary: Delete Integration Bus connector
+      description: Deletes a connector by ULID or friendly key.
+      parameters:
+        - name: connector
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IntegrationConnectorDeleteResponse"
+        "202":
+          description: Stub-only (persistence disabled)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IntegrationConnectorStubResponse"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: Connector not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IntegrationConnectorNotFound"
+
   /exports:
     post:
       operationId: exportsCreateLegacy
@@ -2400,8 +2612,220 @@ components:
           type: array
           items:
             type: string
-            minLength: 2
-            maxLength: 64
+
+    IntegrationConnector:
+      type: object
+      required:
+        - id
+        - key
+        - name
+        - kind
+        - enabled
+        - config
+        - meta
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          description: ULID identifier
+        key:
+          type: string
+          description: Connector slug (lowercase)
+          pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        name:
+          type: string
+          minLength: 3
+          maxLength: 120
+        kind:
+          type: string
+          enum:
+            - asset.discovery
+            - asset.lifecycle
+            - incident.event
+            - vendor.profile
+            - indicator.metric
+            - cyber.metric
+            - auth.provider
+        enabled:
+          type: boolean
+        config:
+          type: object
+          additionalProperties: true
+          description: Decrypted configuration payload.
+        meta:
+          type: object
+          additionalProperties: true
+          description: Optional metadata shared with connector tooling.
+        last_health_at:
+          oneOf:
+            - type: string
+              format: date-time
+            - type: "null"
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    IntegrationConnectorListResponse:
+      type: object
+      required: [ok, items, meta]
+      properties:
+        ok:
+          type: boolean
+          const: true
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/IntegrationConnector"
+        meta:
+          type: object
+          required: [page, per_page, total, total_pages]
+          properties:
+            page:
+              type: integer
+              minimum: 1
+            per_page:
+              type: integer
+              minimum: 1
+            total:
+              type: integer
+              minimum: 0
+            total_pages:
+              type: integer
+              minimum: 0
+        note:
+          type: string
+          enum: [stub-only]
+          description: Present when persistence is disabled.
+
+    IntegrationConnectorResponse:
+      type: object
+      required: [ok, connector]
+      properties:
+        ok:
+          type: boolean
+          const: true
+        connector:
+          $ref: "#/components/schemas/IntegrationConnector"
+
+    IntegrationConnectorDeleteResponse:
+      type: object
+      required: [ok, deleted]
+      properties:
+        ok:
+          type: boolean
+          const: true
+        deleted:
+          type: string
+
+    IntegrationConnectorStubResponse:
+      type: object
+      required: [ok, note]
+      properties:
+        ok:
+          type: boolean
+          const: true
+        note:
+          type: string
+          enum: [stub-only]
+        connector:
+          type: object
+          additionalProperties: true
+        deleted:
+          oneOf:
+            - type: string
+            - type: "null"
+
+    IntegrationConnectorNotFound:
+      type: object
+      required: [ok, code, connector]
+      properties:
+        ok:
+          type: boolean
+          const: false
+        code:
+          type: string
+          enum: [CONNECTOR_NOT_FOUND]
+        connector:
+          type: string
+
+    IntegrationConnectorRequest:
+      type: object
+      required: [key, name, kind, config]
+      properties:
+        key:
+          type: string
+          pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        name:
+          type: string
+          minLength: 3
+          maxLength: 120
+        kind:
+          type: string
+          enum:
+            - asset.discovery
+            - asset.lifecycle
+            - incident.event
+            - vendor.profile
+            - indicator.metric
+            - cyber.metric
+            - auth.provider
+        enabled:
+          type: boolean
+          default: false
+        config:
+          type: object
+          additionalProperties: true
+        meta:
+          oneOf:
+            - type: object
+              additionalProperties: true
+            - type: "null"
+        last_health_at:
+          oneOf:
+            - type: string
+              format: date-time
+            - type: "null"
+
+    IntegrationConnectorUpdateRequest:
+      type: object
+      minProperties: 1
+      properties:
+        key:
+          type: string
+          pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        name:
+          type: string
+          minLength: 3
+          maxLength: 120
+        kind:
+          type: string
+          enum:
+            - asset.discovery
+            - asset.lifecycle
+            - incident.event
+            - vendor.profile
+            - indicator.metric
+            - cyber.metric
+            - auth.provider
+        enabled:
+          type: boolean
+        config:
+          type: object
+          additionalProperties: true
+        meta:
+          oneOf:
+            - type: object
+              additionalProperties: true
+            - type: "null"
+        last_health_at:
+          oneOf:
+            - type: string
+              format: date-time
+            - type: "null"
 
     RoleCreateRequest:
       type: object

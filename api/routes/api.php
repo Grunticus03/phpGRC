@@ -17,6 +17,7 @@ use App\Http\Controllers\Branding\FaviconController;
 use App\Http\Controllers\Evidence\EvidenceController;
 use App\Http\Controllers\Export\ExportController;
 use App\Http\Controllers\Export\StatusController;
+use App\Http\Controllers\IntegrationBus\ConnectorController;
 use App\Http\Controllers\Metrics\MetricsController;
 use App\Http\Controllers\OpenApiController;
 use App\Http\Controllers\Rbac\PolicyController;
@@ -252,6 +253,27 @@ Route::prefix('/settings/ui')
         Route::delete('/designer/themes/{slug}', [DesignerThemesController::class, 'destroy'])
             ->defaults('policy', 'ui.theme.manage')
             ->defaults('capability', 'core.theme.manage');
+    });
+
+Route::prefix('/integrations')
+    ->middleware($rbacAuthStack)
+    ->group(function (): void {
+        Route::prefix('/connectors')->group(function (): void {
+            Route::match(['GET', 'HEAD'], '/', [ConnectorController::class, 'index'])
+                ->defaults('policy', 'integrations.connectors.manage');
+
+            Route::post('/', [ConnectorController::class, 'store'])
+                ->defaults('policy', 'integrations.connectors.manage');
+
+            Route::match(['GET', 'HEAD'], '/{connector}', [ConnectorController::class, 'show'])
+                ->defaults('policy', 'integrations.connectors.manage');
+
+            Route::match(['PUT', 'PATCH'], '/{connector}', [ConnectorController::class, 'update'])
+                ->defaults('policy', 'integrations.connectors.manage');
+
+            Route::delete('/{connector}', [ConnectorController::class, 'destroy'])
+                ->defaults('policy', 'integrations.connectors.manage');
+        });
     });
 
 Route::prefix('/me')
