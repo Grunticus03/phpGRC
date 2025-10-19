@@ -8,6 +8,7 @@
   threads="16"
   cacheDirectory="build/psalm"
   findUnusedCode="false"
+  hideExternalErrors="true"
 >
   <projectFiles>
     <directory name="app"/>
