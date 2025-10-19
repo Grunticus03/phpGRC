@@ -17,7 +17,7 @@ Trackable tasks for the Phase 6 Integrations program. Keep items unchecked until
 - [x] Ship Bus-focused PHPUnit/Psalm coverage and integration smoke tests.
 
 ## 2. External Authentication Expansion
-- [ ] Build admin UI for IdP provider management (enable/disable, evaluation order).
+- [ ] Build admin UI for IdP provider management (enable/disable, evaluation order). _API management endpoints shipped; SPA work still open._
 - [ ] Implement IdP abstraction with audit logging + health checks.
 - [ ] Deliver OIDC provider support (token validation, JIT provisioning with role templates).
 - [ ] Add SAML support with metadata import/export.

@@ -1,6 +1,6 @@
 # phpGRC Database Schema
 
-Snapshot generated from migrations against **phpgrc_test** as of 2026-01-12 (UTC).
+Snapshot generated from migrations against **phpgrc_test** as of 2026-02-15 (UTC).
 
 - SQL dialect: MySQL 8.0+
 - All times UTC.
@@ -237,6 +237,29 @@ Snapshot generated from migrations against **phpgrc_test** as of 2026-01-12 (UTC
 **Indexes & Constraints**
 - `PRIMARY KEY (id)`
 - `UNIQUE INDEX integration_connectors_key_unique (key)`
+
+---
+
+### `idp_providers`
+
+| Column | Type | Null | Default | Extra |
+|-------:|------|------|---------|-------|
+| id | char(26) | ✓ | NULL | — |
+| key | varchar(64) | ✓ | NULL | — |
+| name | varchar(120) | ✓ | NULL | — |
+| driver | varchar(40) | ✓ | NULL | — |
+| enabled | tinyint(1) | ✓ | 0 | — |
+| evaluation_order | int unsigned | ✓ | 1 | — |
+| config | text | ✓ | NULL | — |
+| meta | json | ✗ | NULL | — |
+| last_health_at | timestamp | ✗ | NULL | — |
+| created_at | timestamp | ✗ | NULL | — |
+| updated_at | timestamp | ✗ | NULL | — |
+
+**Indexes & Constraints**
+- `PRIMARY KEY (id)`
+- `UNIQUE INDEX idp_providers_key_unique (key)`
+- `UNIQUE INDEX idp_providers_evaluation_order_unique (evaluation_order)`
 
 ---
 

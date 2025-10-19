@@ -96,6 +96,7 @@ return [
             'ui.theme.manage' => ['role_admin', 'role_theme_manager'],
             'ui.theme.pack.manage' => ['role_admin', 'role_theme_manager'],
             'integrations.connectors.manage' => ['role_admin'],
+            'auth.idp.manage' => ['role_admin'],
         ],
     ],
 

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Setup;
 
 use App\Models\User;
+use App\Services\Auth\IdpProviderService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Config;
@@ -50,7 +51,10 @@ final class SetupStatusController extends Controller
         $adminMfaVerified = false; // Phase-2/4: tracked later in DB; stub false until implemented.
 
         $smtpConfigured = false;   // Phase-4: settings-backed later.
-        $idpConfigured = false;   // Phase-6: external IdP later.
+
+        /** @var IdpProviderService $idpService */
+        $idpService = app(IdpProviderService::class);
+        $idpConfigured = $idpService->hasConfiguredProvider();
         $brandingDone = false;   // Phase-4: settings-backed later.
 
         $checks = [

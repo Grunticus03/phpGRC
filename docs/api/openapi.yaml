@@ -200,6 +200,168 @@ paths:
         "429":
           $ref: "#/components/responses/RateLimited"
 
+  /admin/idp/providers:
+    get:
+      operationId: authListIdpProviders
+      tags: [Auth]
+      summary: List Identity Providers
+      description: Returns the configured external Identity Providers in evaluation order.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IdpProviderListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      operationId: authCreateIdpProvider
+      tags: [Auth]
+      summary: Create Identity Provider
+      description: Creates a new external Identity Provider entry with encrypted configuration storage.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IdpProviderRequest"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IdpProviderResponse"
+        "202":
+          description: Stub-only (persistence disabled)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IdpProviderStubResponse"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+
+  /admin/idp/providers/{provider}:
+    get:
+      operationId: authGetIdpProvider
+      tags: [Auth]
+      summary: Get Identity Provider
+      description: Retrieves a single Identity Provider by ULID or key.
+      parameters:
+        - name: provider
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IdpProviderResponse"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: Provider not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IdpProviderNotFound"
+        "409":
+          description: Persistence disabled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IdpPersistenceDisabled"
+    patch: &IdpUpdateOp
+      operationId: authUpdateIdpProvider
+      tags: [Auth]
+      summary: Update Identity Provider
+      description: Updates an Identity Provider configuration, including evaluation order.
+      parameters:
+        - name: provider
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IdpProviderUpdateRequest"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IdpProviderResponse"
+        "202":
+          description: Stub-only (persistence disabled)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IdpProviderStubResponse"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: Provider not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IdpProviderNotFound"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+    put:
+      <<: *IdpUpdateOp
+      operationId: authReplaceIdpProvider
+    delete:
+      operationId: authDeleteIdpProvider
+      tags: [Auth]
+      summary: Delete Identity Provider
+      parameters:
+        - name: provider
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IdpProviderDeleteResponse"
+        "202":
+          description: Stub-only (persistence disabled)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IdpProviderStubResponse"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: Provider not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IdpProviderNotFound"
+
   /rbac/roles:
     get:
       operationId: rbacRolesList
@@ -2751,6 +2913,205 @@ components:
           enum: [CONNECTOR_NOT_FOUND]
         connector:
           type: string
+
+    IdpProvider:
+      type: object
+      required:
+        - id
+        - key
+        - name
+        - driver
+        - enabled
+        - evaluation_order
+        - config
+        - meta
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          description: ULID identifier
+        key:
+          type: string
+          description: Provider slug (lowercase)
+          pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        name:
+          type: string
+          minLength: 3
+          maxLength: 160
+        driver:
+          type: string
+          description: Provider type (oidc, saml, ldap, entra)
+        enabled:
+          type: boolean
+        evaluation_order:
+          type: integer
+          minimum: 1
+          description: Evaluation order (1 = highest priority)
+        config:
+          type: object
+          additionalProperties: true
+          description: Decrypted provider configuration.
+        meta:
+          oneOf:
+            - type: object
+              additionalProperties: true
+            - type: "null"
+          description: Optional metadata for management UIs.
+        last_health_at:
+          oneOf:
+            - type: string
+              format: date-time
+            - type: "null"
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    IdpProviderListResponse:
+      type: object
+      required: [ok, items, meta]
+      properties:
+        ok:
+          type: boolean
+          const: true
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/IdpProvider"
+        meta:
+          type: object
+          required: [total, enabled]
+          properties:
+            total:
+              type: integer
+              minimum: 0
+            enabled:
+              type: integer
+              minimum: 0
+        note:
+          type: string
+          enum: [stub-only]
+          description: Present when persistence is disabled.
+
+    IdpProviderResponse:
+      type: object
+      required: [ok, provider]
+      properties:
+        ok:
+          type: boolean
+          const: true
+        provider:
+          $ref: "#/components/schemas/IdpProvider"
+
+    IdpProviderDeleteResponse:
+      type: object
+      required: [ok, deleted]
+      properties:
+        ok:
+          type: boolean
+          const: true
+        deleted:
+          type: string
+
+    IdpProviderStubResponse:
+      type: object
+      required: [ok, note]
+      properties:
+        ok:
+          type: boolean
+          const: true
+        note:
+          type: string
+          enum: [stub-only]
+        provider:
+          type: object
+          additionalProperties: true
+        deleted:
+          oneOf:
+            - type: string
+            - type: "null"
+
+    IdpProviderRequest:
+      type: object
+      required: [key, name, driver, config]
+      properties:
+        key:
+          type: string
+          pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        name:
+          type: string
+          minLength: 3
+          maxLength: 160
+        driver:
+          type: string
+          enum: [oidc, saml, ldap, entra]
+        enabled:
+          type: boolean
+        evaluation_order:
+          type: integer
+          minimum: 1
+        config:
+          type: object
+          additionalProperties: true
+        meta:
+          oneOf:
+            - type: object
+              additionalProperties: true
+            - type: "null"
+
+    IdpProviderUpdateRequest:
+      type: object
+      properties:
+        key:
+          type: string
+          pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        name:
+          type: string
+          minLength: 3
+          maxLength: 160
+        driver:
+          type: string
+          enum: [oidc, saml, ldap, entra]
+        enabled:
+          type: boolean
+        evaluation_order:
+          type: integer
+          minimum: 1
+        config:
+          type: object
+          additionalProperties: true
+        meta:
+          oneOf:
+            - type: object
+              additionalProperties: true
+            - type: "null"
+
+    IdpProviderNotFound:
+      type: object
+      required: [ok, code, provider]
+      properties:
+        ok:
+          type: boolean
+          const: false
+        code:
+          type: string
+          enum: [IDP_PROVIDER_NOT_FOUND]
+        provider:
+          type: string
+
+    IdpPersistenceDisabled:
+      type: object
+      required: [ok, code]
+      properties:
+        ok:
+          type: boolean
+          const: false
+        code:
+          type: string
+          enum: [IDP_PERSISTENCE_DISABLED]
 
     IntegrationConnectorRequest:
       type: object

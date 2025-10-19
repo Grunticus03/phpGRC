@@ -8,6 +8,7 @@ use App\Http\Controllers\Admin\UsersController;
 use App\Http\Controllers\Audit\AuditController;
 use App\Http\Controllers\Audit\AuditExportController;
 use App\Http\Controllers\Auth\BreakGlassController;
+use App\Http\Controllers\Auth\IdpProviderController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\LogoutController;
 use App\Http\Controllers\Auth\MeController;
@@ -180,6 +181,23 @@ Route::prefix('/admin')
 
         Route::post('/evidence/purge', EvidencePurgeController::class)
             ->defaults('policy', 'core.evidence.manage');
+
+        Route::prefix('/idp/providers')->group(function (): void {
+            Route::match(['GET', 'HEAD'], '/', [IdpProviderController::class, 'index'])
+                ->defaults('policy', 'auth.idp.manage');
+
+            Route::post('/', [IdpProviderController::class, 'store'])
+                ->defaults('policy', 'auth.idp.manage');
+
+            Route::match(['GET', 'HEAD'], '/{provider}', [IdpProviderController::class, 'show'])
+                ->defaults('policy', 'auth.idp.manage');
+
+            Route::match(['PUT', 'PATCH'], '/{provider}', [IdpProviderController::class, 'update'])
+                ->defaults('policy', 'auth.idp.manage');
+
+            Route::delete('/{provider}', [IdpProviderController::class, 'destroy'])
+                ->defaults('policy', 'auth.idp.manage');
+        });
     });
 
 Route::get('/settings/ui/public', UiPublicSettingsController::class);
