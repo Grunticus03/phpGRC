@@ -5,10 +5,16 @@ declare(strict_types=1);
 namespace App\Auth\Idp\Drivers;
 
 use App\Auth\Idp\DTO\IdpHealthCheckResult;
+use App\Exceptions\Auth\SamlMetadataException;
+use App\Services\Auth\SamlMetadataService;
 use Illuminate\Validation\ValidationException;
 
 final class SamlIdpDriver extends AbstractIdpDriver
 {
+    public function __construct(
+        private readonly SamlMetadataService $metadata
+    ) {}
+
     #[\Override]
     public function key(): string
     {
@@ -26,6 +32,17 @@ final class SamlIdpDriver extends AbstractIdpDriver
     {
         $errors = [];
 
+        /** @var string|null $metadataXml */
+        $metadataXml = $config['metadata'] ?? $config['metadata_xml'] ?? null;
+        if (is_string($metadataXml) && trim($metadataXml) !== '') {
+            try {
+                $parsed = $this->metadata->parse($metadataXml);
+                $config = array_merge($config, $parsed);
+            } catch (SamlMetadataException $e) {
+                $this->addError($errors, 'config.metadata', $e->getMessage());
+            }
+        }
+
         $entityId = $this->requireString($config, 'entity_id', $errors, 'Entity ID is required.');
         $ssoUrl = $this->requireUrl($config, 'sso_url', $errors, false, 'SSO URL must be a valid URL.');
         $certificate = $this->requireString($config, 'certificate', $errors, 'Signing certificate is required.');
@@ -39,6 +56,7 @@ final class SamlIdpDriver extends AbstractIdpDriver
         $config['entity_id'] = $entityId;
         $config['sso_url'] = $ssoUrl;
         $config['certificate'] = $certificate;
+        unset($config['metadata'], $config['metadata_xml']);
 
         return $config;
     }

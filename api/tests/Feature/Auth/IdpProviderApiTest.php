@@ -9,7 +9,9 @@ use App\Models\AuditEvent;
 use App\Models\IdpProvider;
 use App\Models\Role;
 use App\Models\User;
+use App\Services\Auth\SamlMetadataService;
 use App\Support\Rbac\PolicyMap;
+use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Schema;
@@ -221,6 +223,99 @@ final class IdpProviderApiTest extends TestCase
     }
 
     #[Test]
+    public function preview_saml_metadata_parses_configuration(): void
+    {
+        $this->actingAsAdmin();
+
+        $metadata = $this->sampleMetadataXml();
+
+        $this->postJson('/admin/idp/providers/saml/metadata/preview', [
+            'metadata' => $metadata,
+        ])
+            ->assertStatus(200)
+            ->assertJsonPath('ok', true)
+            ->assertJsonPath('config.entity_id', 'https://sso.example.test/entity')
+            ->assertJsonPath('config.sso_url', 'https://sso.example.test/login');
+    }
+
+    #[Test]
+    public function import_saml_metadata_updates_provider_config(): void
+    {
+        $this->actingAsAdmin();
+
+        /** @var IdpProvider $provider */
+        $provider = IdpProvider::query()->create([
+            'key' => 'saml-primary',
+            'name' => 'SAML Primary',
+            'driver' => 'saml',
+            'enabled' => true,
+            'evaluation_order' => 1,
+            'config' => [
+                'entity_id' => 'https://old.example.test',
+                'sso_url' => 'https://old.example.test/login',
+                'certificate' => $this->sampleCertificate(),
+            ],
+        ]);
+
+        $metadata = $this->sampleMetadataXml();
+
+        $this->postJson("/admin/idp/providers/{$provider->id}/saml/metadata", [
+            'metadata' => $metadata,
+        ])
+            ->assertStatus(200)
+            ->assertJsonPath('ok', true)
+            ->assertJsonPath('provider.config.entity_id', 'https://sso.example.test/entity');
+
+        $provider->refresh();
+
+        self::assertSame('https://sso.example.test/entity', $provider->config['entity_id'] ?? null);
+        self::assertSame('https://sso.example.test/login', $provider->config['sso_url'] ?? null);
+        self::assertStringContainsString('BEGIN CERTIFICATE', $provider->config['certificate'] ?? '');
+
+        $meta = $provider->meta ?? [];
+        self::assertIsArray($meta);
+        self::assertArrayHasKey('saml', $meta);
+        self::assertArrayHasKey('metadata_imported_at', $meta['saml']);
+        self::assertSame(hash('sha256', trim($metadata)), $meta['saml']['metadata_sha256'] ?? null);
+    }
+
+    #[Test]
+    public function export_saml_metadata_returns_xml_document(): void
+    {
+        $this->actingAsAdmin();
+
+        /** @var IdpProvider $provider */
+        $provider = IdpProvider::query()->create([
+            'key' => 'saml-export',
+            'name' => 'SAML Export',
+            'driver' => 'saml',
+            'enabled' => true,
+            'evaluation_order' => 1,
+            'config' => [
+                'entity_id' => 'https://sso.example.test/entity',
+                'sso_url' => 'https://sso.example.test/login',
+                'certificate' => $this->sampleCertificate(),
+            ],
+        ]);
+
+        $response = $this->get("/admin/idp/providers/{$provider->id}/saml/metadata");
+
+        $response->assertStatus(200);
+        self::assertSame('application/samlmetadata+xml; charset=UTF-8', $response->headers->get('Content-Type'));
+
+        $xml = $response->getContent();
+        self::assertIsString($xml);
+
+        $document = simplexml_load_string($xml);
+        self::assertInstanceOf(\SimpleXMLElement::class, $document);
+        $document->registerXPathNamespace('md', 'urn:oasis:names:tc:SAML:2.0:metadata');
+        $descriptor = $document->xpath('/md:EntityDescriptor');
+        self::assertNotFalse($descriptor);
+        self::assertNotEmpty($descriptor);
+        self::assertSame('https://sso.example.test/entity', (string) ($descriptor[0]['entityID'] ?? ''));
+    }
+
+    #[Test]
     public function destroy_removes_provider_and_collapse_order(): void
     {
         $this->actingAsAdmin();
@@ -321,5 +416,42 @@ final class IdpProviderApiTest extends TestCase
 
         $this->getJson('/admin/idp/providers')
             ->assertStatus(403);
+    }
+
+    private function sampleMetadataXml(): string
+    {
+        /** @var SamlMetadataService $service */
+        $service = app(SamlMetadataService::class);
+
+        return $service->generate([
+            'entity_id' => 'https://sso.example.test/entity',
+            'sso_url' => 'https://sso.example.test/login',
+            'certificate' => $this->sampleCertificate(),
+        ], CarbonImmutable::create(2030, 1, 1, 0, 0, 0, 'UTC'));
+    }
+
+    private function sampleCertificate(): string
+    {
+        return <<<'PEM'
+-----BEGIN CERTIFICATE-----
+MIICxjCCAa6gAwIBAgIUJ7X7YvXy5whhtjfiPgk41IrT9NAwDQYJKoZIhvcNAQEL
+BQAwFTETMBEGA1UEAwwKc2FtbC10ZXN0MB4XDTI0MDEwMTAwMDAwMFoXDTM0MDEw
+MTAwMDAwMFowFTETMBEGA1UEAwwKc2FtbC10ZXN0MIIBIjANBgkqhkiG9w0BAQEF
+AAOCAQ8AMIIBCgKCAQEAr0pWQw0Hnq2ZlzfFbY3ybCmqa7e9DbKoTz3RvqFAn0Zf
+IyO6jz5Dm48uoTWMukmMZ0P6E4ha3YJ4bLBPOfSmf/C4C5Qw9p+S5o5MWHbJkI7j
+eWrjqh5ws8wX9AtUKgLw9SL98QtZVFBO3T8kA9OVdQ04cw/9ezEr6QO034QXkdpZ
+5PGlTma63bplVOwUhbeGdnPL4489VJ5SACoQwQkn1vmpj6m7pKOGDWUy4KfUU8cX
+nBASezPK5ghI1lpMUgUo/lhjggrB4/9lgYQtImHXQImiXoAhlmlpiG8Wp3xfpqgs
+iY0QMhVNfy/7xKQXIDYiJlEUpP2Zjz4/v7K6HbqTMwIDAQABo1MwUTAdBgNVHQ4E
+FgQUJDYw7w7wPwhjNzHNxog8Ppytg9kwHwYDVR0jBBgwFoAUJDYw7w7wPwhjNzHN
+xog8Ppytg9kwDwYDVR0TAQH/BAUwAwEB/zANBgkqhkiG9w0BAQsFAAOCAQEAOYxQ
+Gk4J4Pp8sVhQOWtmZ6vhj71R1z70dr50xj43Xj1H0w4WW+0lDuzHggzYM4G52g6l
+2kBfnVBCcm/jRkDj1qGi6pQsKEd+bcfWZH7LvXsKTRZLdxDGjszT+2Xl9V7mWVPf
+b0q8zKk0qJWQGFucvQKig9wAbHR0GmP2oRlOiuAIs61hp7d2kIs2cUJEsARQdILQ
+efvHgTQgqYwZvh7gApS9Vz90suDWJ3+YkNPv6L+s7PJlIQMXM63iXU1BYf1YsKaA
+X3h5xUEwsDPN9/5lCq3QxvxZ2O8xbrv6iH98sX8j5dhPj6l3SeSYyYqO6xbyicWG
+ECdAPOTwv0u62Y8JEA==
+-----END CERTIFICATE-----
+PEM;
     }
 }

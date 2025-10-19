@@ -248,6 +248,112 @@ paths:
         "422":
           $ref: "#/components/responses/ValidationFailed"
 
+  /admin/idp/providers/saml/metadata/preview:
+    post:
+      operationId: authPreviewSamlMetadata
+      tags: [Auth]
+      summary: Preview SAML metadata
+      description: Parses a SAML metadata XML document and returns the normalized configuration values without saving them.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SamlMetadataRequest"
+      responses:
+        "200":
+          description: Parsed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SamlMetadataPreviewResponse"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+
+  /admin/idp/providers/{provider}/saml/metadata:
+    post:
+      operationId: authImportSamlMetadata
+      tags: [Auth]
+      summary: Import SAML metadata
+      description: Updates a SAML Identity Provider configuration using an uploaded metadata XML document.
+      parameters:
+        - name: provider
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SamlMetadataRequest"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IdpProviderResponse"
+        "202":
+          description: Stub-only (persistence disabled)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IdpProviderStubResponse"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: Provider not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IdpProviderNotFound"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+    get:
+      operationId: authExportSamlMetadata
+      tags: [Auth]
+      summary: Export SAML metadata
+      description: Generates a SAML metadata XML document based on the provider configuration.
+      parameters:
+        - name: provider
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Metadata document
+          content:
+            application/samlmetadata+xml:
+              schema:
+                type: string
+        "202":
+          description: Stub-only (persistence disabled)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IdpProviderStubResponse"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: Provider not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IdpProviderNotFound"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+
   /admin/idp/providers/{provider}:
     get:
       operationId: authGetIdpProvider
@@ -3276,6 +3382,36 @@ components:
         code:
           type: string
           enum: [IDP_PERSISTENCE_DISABLED]
+
+    SamlMetadataRequest:
+      type: object
+      required: [metadata]
+      properties:
+        metadata:
+          type: string
+          minLength: 20
+
+    SamlMetadataPreviewResponse:
+      type: object
+      required: [ok, config]
+      properties:
+        ok:
+          type: boolean
+          const: true
+        config:
+          $ref: "#/components/schemas/SamlMetadataConfig"
+
+    SamlMetadataConfig:
+      type: object
+      required: [entity_id, sso_url, certificate]
+      properties:
+        entity_id:
+          type: string
+        sso_url:
+          type: string
+          format: uri
+        certificate:
+          type: string
 
     IntegrationConnectorRequest:
       type: object

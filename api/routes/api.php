@@ -191,6 +191,15 @@ Route::prefix('/admin')
             Route::post('/', [IdpProviderController::class, 'store'])
                 ->defaults('policy', 'auth.idp.manage');
 
+            Route::post('/saml/metadata/preview', [IdpProviderController::class, 'previewSamlMetadata'])
+                ->defaults('policy', 'auth.idp.manage');
+
+            Route::post('/{provider}/saml/metadata', [IdpProviderController::class, 'importSamlMetadata'])
+                ->defaults('policy', 'auth.idp.manage');
+
+            Route::get('/{provider}/saml/metadata', [IdpProviderController::class, 'exportSamlMetadata'])
+                ->defaults('policy', 'auth.idp.manage');
+
             Route::match(['GET', 'HEAD'], '/{provider}', [IdpProviderController::class, 'show'])
                 ->defaults('policy', 'auth.idp.manage');
 
