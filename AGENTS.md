@@ -3,5 +3,6 @@ Principles: follow Charter.md and STYLEGUIDE.md. Never change OpenAPI responses 
 Tasks allowed: add/modify PHP controllers, Laravel routes, tests; TS client regen from OpenAPI; React pages.
 Commands: (cd api && composer install); (cd api && vendor/bin/phpunit --testdox); (cd web && npm ci); (cd web && npm run typecheck); (cd web && npm run build); (cd web && npm run test)
 Env: PHP 8.3, Node 20, SQLite for tests; PHP files must pass PHPStan L10, Psalm, and PHPUnit.
+When you modify a PHP file, run PHPMD on that file (e.g. `(cd api && php vendor/bin/phpmd path/to/File.php ansi phpmd.xml)`) and resolve any violations before finishing.
 PR rules: small diffs; conventional commits; CI green required.
 Consult guides in docs/ai after file changes to ensure additional changes are not required.

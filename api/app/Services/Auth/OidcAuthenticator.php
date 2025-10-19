@@ -10,6 +10,7 @@ use App\Models\IdpProvider;
 use App\Models\Role;
 use App\Models\User;
 use App\Services\Audit\AuditLogger;
+use App\Services\Auth\Concerns\ResolvesJitAssignments;
 use Firebase\JWT\JWK;
 use Firebase\JWT\JWT;
 use Firebase\JWT\Key;
@@ -25,6 +26,8 @@ use RuntimeException;
 
 final class OidcAuthenticator implements OidcAuthenticatorContract
 {
+    use ResolvesJitAssignments;
+
     private const int DISCOVERY_CACHE_TTL = 3600;
 
     private const int JWKS_CACHE_TTL = 900;
@@ -352,7 +355,7 @@ final class OidcAuthenticator implements OidcAuthenticatorContract
             $this->updateUserName($user, $claims);
         }
 
-        $roles = $this->determineRoles($jit, $claims);
+        $roles = $this->resolveRoles($jit, fn (string $claim): mixed => $this->extractClaimValue($claims, $claim));
         if ($roles !== []) {
             $existingRoleIds = Role::query()
                 ->whereIn('id', $roles)
@@ -372,154 +375,6 @@ final class OidcAuthenticator implements OidcAuthenticatorContract
      * @param  array<string,mixed>  $config
      * @return array{create_users:bool,default_roles:list<string>,role_templates:list<array{claim:string,values:list<string>,roles:list<string>}>}
      */
-    private function resolveJitSettings(array $config): array
-    {
-        $defaults = [
-            'create_users' => true,
-            'default_roles' => [],
-            'role_templates' => [],
-        ];
-
-        if (! isset($config['jit']) || ! is_array($config['jit'])) {
-            return $defaults;
-        }
-
-        /** @var array<string,mixed> $jit */
-        $jit = $config['jit'];
-
-        $createUsers = $defaults['create_users'];
-        if (array_key_exists('create_users', $jit)) {
-            if (is_bool($jit['create_users'])) {
-                $createUsers = $jit['create_users'];
-            } elseif (is_string($jit['create_users']) || is_int($jit['create_users'])) {
-                $coerced = filter_var($jit['create_users'], FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE);
-                if ($coerced !== null) {
-                    $createUsers = $coerced;
-                }
-            }
-        }
-
-        $defaultRoles = [];
-        if (isset($jit['default_roles']) && is_array($jit['default_roles'])) {
-            /** @var list<mixed> $defaultRolesRaw */
-            $defaultRolesRaw = $jit['default_roles'];
-            foreach ($defaultRolesRaw as $rawRole) {
-                if (! is_string($rawRole)) {
-                    continue;
-                }
-
-                $normalizedRole = strtolower(trim($rawRole));
-                if ($normalizedRole === '') {
-                    continue;
-                }
-
-                $defaultRoles[] = $normalizedRole;
-            }
-            $defaultRoles = array_values(array_unique($defaultRoles));
-        }
-
-        $roleTemplates = [];
-        if (isset($jit['role_templates']) && is_array($jit['role_templates'])) {
-            foreach ($jit['role_templates'] as $template) {
-                /** @var mixed $template */
-                if (! is_array($template)) {
-                    continue;
-                }
-
-                $claimRaw = $template['claim'] ?? null;
-                if (! is_string($claimRaw) || trim($claimRaw) === '') {
-                    continue;
-                }
-                $claim = trim($claimRaw);
-
-                /** @var array<array-key, mixed>|string|null $valuesRaw */
-                $valuesRaw = $template['values'] ?? ($template['value'] ?? null);
-                $values = [];
-                if (is_string($valuesRaw)) {
-                    $values[] = trim($valuesRaw);
-                } elseif (is_array($valuesRaw)) {
-                    /** @var array<array-key, mixed> $valuesRaw */
-                    $normalizedValues = array_values(array_filter(
-                        array_map(
-                            static fn ($candidate): ?string => is_string($candidate) ? trim($candidate) : null,
-                            $valuesRaw
-                        ),
-                        static fn (?string $candidate): bool => $candidate !== null && $candidate !== ''
-                    ));
-
-                    $values = array_merge($values, $normalizedValues);
-                }
-
-                $values = array_values(array_unique(array_filter(
-                    $values,
-                    static fn (string $value): bool => $value !== ''
-                )));
-
-                if ($values === []) {
-                    continue;
-                }
-
-                if (! isset($template['roles']) || ! is_array($template['roles'])) {
-                    continue;
-                }
-
-                $roles = [];
-                /** @var array<array-key, mixed> $rolesRaw */
-                $rolesRaw = $template['roles'];
-                $normalizedRoles = array_values(array_filter(
-                    array_map(
-                        static fn ($candidate): ?string => is_string($candidate) ? strtolower(trim($candidate)) : null,
-                        $rolesRaw
-                    ),
-                    static fn (?string $candidate): bool => $candidate !== null && $candidate !== ''
-                ));
-
-                $roles = array_merge($roles, $normalizedRoles);
-                $roles = array_values(array_unique($roles));
-
-                if ($roles === []) {
-                    continue;
-                }
-
-                $roleTemplates[] = [
-                    'claim' => $claim,
-                    'values' => $values,
-                    'roles' => $roles,
-                ];
-            }
-        }
-
-        return [
-            'create_users' => $createUsers,
-            'default_roles' => $defaultRoles,
-            'role_templates' => $roleTemplates,
-        ];
-    }
-
-    /**
-     * @param  array{create_users:bool,default_roles:list<string>,role_templates:list<array{claim:string,values:list<string>,roles:list<string>}>}  $jit
-     * @param  array<string,mixed>  $claims
-     * @return list<string>
-     */
-    private function determineRoles(array $jit, array $claims): array
-    {
-        $roles = $jit['default_roles'];
-
-        foreach ($jit['role_templates'] as $template) {
-            /** @var mixed $claimValue */
-            $claimValue = $this->extractClaimValue($claims, $template['claim']);
-            if ($claimValue === null) {
-                continue;
-            }
-
-            if ($this->claimMatches($claimValue, $template['values'])) {
-                $roles = array_merge($roles, $template['roles']);
-            }
-        }
-
-        return array_values(array_unique($roles));
-    }
-
     /**
      * @param  array<string,mixed>  $claims
      */
@@ -531,39 +386,6 @@ final class OidcAuthenticator implements OidcAuthenticatorContract
     /**
      * @param  list<string>  $expectedValues
      */
-    private function claimMatches(mixed $claimValue, array $expectedValues): bool
-    {
-        /** @var list<string> $values */
-        $values = array_values(array_filter($expectedValues, static fn (string $value): bool => trim($value) !== ''));
-
-        /** @var list<string> $expected */
-        $expected = array_map(static fn (string $value): string => mb_strtolower($value), $values);
-
-        if ($expected === []) {
-            return false;
-        }
-
-        if (is_string($claimValue)) {
-            return in_array(mb_strtolower($claimValue), $expected, true);
-        }
-
-        if (is_array($claimValue)) {
-            /** @var array<array-key, mixed> $claimValueArray */
-            $claimValueArray = $claimValue;
-            foreach ($claimValueArray as $rawClaimValue) {
-                if (! is_string($rawClaimValue)) {
-                    continue;
-                }
-
-                if (in_array(mb_strtolower($rawClaimValue), $expected, true)) {
-                    return true;
-                }
-            }
-        }
-
-        return false;
-    }
-
     /**
      * @param  array<string,mixed>  $claims
      */

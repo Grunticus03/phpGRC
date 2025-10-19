@@ -9,8 +9,12 @@ use App\Auth\Idp\Drivers\LdapIdpDriver;
 use App\Auth\Idp\Drivers\OidcIdpDriver;
 use App\Auth\Idp\Drivers\SamlIdpDriver;
 use App\Auth\Idp\IdpDriverRegistry;
+use App\Contracts\Auth\LdapAuthenticatorContract;
 use App\Contracts\Auth\OidcAuthenticatorContract;
 use App\Services\Audit\AuditLogger;
+use App\Services\Auth\Ldap\LdapClientInterface;
+use App\Services\Auth\Ldap\NativeLdapClient;
+use App\Services\Auth\LdapAuthenticator;
 use App\Services\Auth\OidcAuthenticator;
 use GuzzleHttp\Client;
 use GuzzleHttp\ClientInterface;
@@ -38,6 +42,7 @@ final class IdpServiceProvider extends ServiceProvider
         });
 
         $this->app->bind(ClientInterface::class, static fn (): ClientInterface => new Client(['http_errors' => false]));
+        $this->app->singleton(LdapClientInterface::class, NativeLdapClient::class);
 
         $this->app->singleton(OidcAuthenticatorContract::class, function (Container $app): OidcAuthenticatorContract {
             return new OidcAuthenticator(
@@ -49,5 +54,15 @@ final class IdpServiceProvider extends ServiceProvider
         });
 
         $this->app->alias(OidcAuthenticatorContract::class, OidcAuthenticator::class);
+
+        $this->app->singleton(LdapAuthenticatorContract::class, function (Container $app): LdapAuthenticatorContract {
+            return new LdapAuthenticator(
+                $app->make(LdapClientInterface::class),
+                $app->make(AuditLogger::class),
+                $app->make(LoggerInterface::class),
+            );
+        });
+
+        $this->app->alias(LdapAuthenticatorContract::class, LdapAuthenticator::class);
     }
 }

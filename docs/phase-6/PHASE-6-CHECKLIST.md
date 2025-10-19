@@ -21,7 +21,7 @@ Trackable tasks for the Phase 6 Integrations program. Keep items unchecked until
 - [x] Implement IdP abstraction with audit logging + health checks. _Drivers encapsulate validation/health, audits logged for create/update/delete/health._
 - [x] Deliver OIDC provider support (token validation, JIT provisioning with role templates).
 - [x] Add SAML support with metadata import/export.
-- [ ] Add LDAP support (bind strategy, search filters, TLS requirements).
+- [x] Add LDAP support (bind strategy, search filters, TLS requirements).
 - [ ] Add Entra ID support leveraging OIDC implementation.
 - [ ] Validate MFA interplay (IdP-asserted claims + local TOTP fallback).
 - [ ] Update API docs and Admin guides with configuration steps.

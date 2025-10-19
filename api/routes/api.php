@@ -9,6 +9,7 @@ use App\Http\Controllers\Audit\AuditController;
 use App\Http\Controllers\Audit\AuditExportController;
 use App\Http\Controllers\Auth\BreakGlassController;
 use App\Http\Controllers\Auth\IdpProviderController;
+use App\Http\Controllers\Auth\LdapLoginController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\LogoutController;
 use App\Http\Controllers\Auth\MeController;
@@ -143,6 +144,7 @@ HTML;
 */
 Route::post('/auth/login', [LoginController::class,  'login'])->middleware(BruteForceGuard::class);
 Route::post('/auth/oidc/login', [OidcLoginController::class, 'login']);
+Route::post('/auth/ldap/login', [LdapLoginController::class, 'login'])->middleware(BruteForceGuard::class);
 Route::post('/auth/logout', [LogoutController::class, 'logout'])->middleware(['auth.cookie', 'auth:sanctum']);
 Route::get('/auth/me', [MeController::class,     'me'])->middleware(['auth.cookie', 'auth:sanctum']);
 

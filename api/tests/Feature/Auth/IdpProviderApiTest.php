@@ -121,6 +121,35 @@ final class IdpProviderApiTest extends TestCase
     }
 
     #[Test]
+    public function store_accepts_ldap_configuration(): void
+    {
+        $this->actingAsAdmin();
+
+        $payload = [
+            'key' => 'ldap-primary',
+            'name' => 'LDAP Primary',
+            'driver' => 'ldap',
+            'enabled' => true,
+            'config' => [
+                'host' => 'ldap.example.test',
+                'base_dn' => 'dc=example,dc=test',
+                'bind_dn' => 'cn=service,dc=example,dc=test',
+                'bind_password' => 'secret',
+                'user_filter' => '(uid={{username}})',
+                'require_tls' => false,
+            ],
+        ];
+
+        $response = $this->postJson('/admin/idp/providers', $payload);
+
+        $response->assertStatus(201)
+            ->assertJsonPath('ok', true)
+            ->assertJsonPath('provider.driver', 'ldap')
+            ->assertJsonPath('provider.config.bind_strategy', 'service')
+            ->assertJsonPath('provider.config.user_filter', '(uid={{username}})');
+    }
+
+    #[Test]
     public function show_returns_provider_by_key(): void
     {
         $this->actingAsAdmin();
