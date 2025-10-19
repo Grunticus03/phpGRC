@@ -223,16 +223,16 @@ Snapshot generated from migrations against **phpgrc_test** as of 2026-01-12 (UTC
 
 | Column | Type | Null | Default | Extra |
 |-------:|------|------|---------|-------|
-| id | varchar(26) | ✗ | NULL | — |
-| key | varchar(64) | ✗ | NULL | — |
-| name | varchar(120) | ✗ | NULL | — |
-| kind | varchar(60) | ✗ | NULL | — |
+| id | char(26) | ✓ | NULL | — |
+| key | varchar(64) | ✓ | NULL | — |
+| name | varchar(120) | ✓ | NULL | — |
+| kind | varchar(60) | ✓ | NULL | — |
 | enabled | tinyint(1) | ✓ | 0 | — |
-| config | text | ✗ | NULL | — |
-| meta | json | ✓ | NULL | — |
-| last_health_at | timestamp | ✓ | NULL | — |
-| created_at | timestamp | ✓ | NULL | — |
-| updated_at | timestamp | ✓ | NULL | — |
+| config | text | ✓ | NULL | — |
+| meta | json | ✗ | NULL | — |
+| last_health_at | timestamp | ✗ | NULL | — |
+| created_at | timestamp | ✗ | NULL | — |
+| updated_at | timestamp | ✗ | NULL | — |
 
 **Indexes & Constraints**
 - `PRIMARY KEY (id)`

@@ -63,6 +63,9 @@ final class ActionLabels
 
         // Setup
         'setup.finished' => ['label' => 'Setup finished', 'category' => 'SETUP'],
+
+        // Integration Bus
+        'integration.bus.message.received' => ['label' => 'Integration Bus message received', 'category' => 'INTEGRATION_BUS'],
     ];
 
     /**

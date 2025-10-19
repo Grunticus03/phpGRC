@@ -6,8 +6,8 @@ Trackable tasks for the Phase 6 Integrations program. Keep items unchecked until
 - [x] Confirm Integration Bus contract schema approved and published (`docs/integrations/INTEGRATION-BUS-CONTRACT.md`).
 - [x] Update architecture diagrams + SDK snippets for connector developers (`docs/integrations/INTEGRATION-BUS-DEVELOPER-GUIDE.md`).
 - [x] Ensure queue infrastructure sized (worker pools, retry policies, dead-letter strategy) (`docs/ops/INTEGRATION-BUS-QUEUE.md`).
-- [ ] Extend observability pipeline for Bus metrics/log aggregation.
-- [ ] Refresh ROADMAP.md and CAPABILITIES.md entries when milestones close.
+- [x] Extend observability pipeline for Bus metrics/log aggregation.
+- [x] Refresh ROADMAP.md and CAPABILITIES.md entries when milestones close.
 
 ## 1. Integration Bus MVP
 - [x] Implement queue jobs and event dispatchers per connector type (`App\Jobs\IntegrationBus\ProcessIntegrationBusMessage`, `App\Services\IntegrationBus\IntegrationBusDispatcher`, events under `App\Events\IntegrationBus\*`).

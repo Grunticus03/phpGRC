@@ -89,6 +89,22 @@ Store representative failed envelopes for testing; ensure secrets are redacted b
   - Failure rate > 2% over 15-minute window.
   - DLQ size > 100.
 
+## Observability Pipeline
+
+- Every processed envelope emits an `integration.bus.message.received` audit under the `INTEGRATION_BUS`
+  category. Metadata includes connector key, run ID, payload key summary, provenance snapshot, and
+  retry/error hints for DLQ investigations.
+- Connector telemetry is persisted in `integration_connectors.meta.observability` with:
+  - `total_received`, `status_counts.{processed,errored}`, and per-kind counters.
+  - Last envelope identifiers: `last_envelope_id`, `last_kind`, `last_event`, `last_run_id`,
+    `last_priority`, `last_status`.
+  - Source snapshot: `last_source.{source,external_id,ingested_at,correlation_id,replay}` plus
+    attachment summary and the most recent `meta` keys supplied by connectors.
+  - `last_received_at` doubles as a heartbeat for the admin UI; it updates alongside
+    `integration_connectors.last_health_at`.
+- Audit/telemetry writes honor the `core.audit.enabled` toggle and fall back gracefully when the
+  audit table or connectors table is unavailable (e.g., during migrations).
+
 ## Operational Checklist
 
 1. Apply environment values and reload queue workers.

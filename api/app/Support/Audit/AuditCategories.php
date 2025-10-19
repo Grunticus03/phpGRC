@@ -22,6 +22,8 @@ final class AuditCategories
 
     public const AUDIT = 'AUDIT';
 
+    public const INTEGRATION_BUS = 'INTEGRATION_BUS';
+
     /** @var array<int,string> */
     public const ALL = [
         self::SYSTEM,
@@ -32,5 +34,6 @@ final class AuditCategories
         self::EVIDENCE,
         self::AVATARS,
         self::AUDIT,
+        self::INTEGRATION_BUS,
     ];
 }

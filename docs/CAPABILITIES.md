@@ -28,5 +28,5 @@ Consumers must degrade gracefully if providers are absent.
 | assets.registry          | Future: Assets     | Risks, Incidents, KRIs     | Future                                                                                          |
 | indicators.manage        | Future: Indicators | Reporting, Risks, Compliance| Future                                                                                          |
 | cases.manage             | Future: Cases      | Compliance, HR, Legal      | Future                                                                                          |
-| integrations.bus         | Future: Bus        | Assets, Indicators, Cyber  | Future                                                                                          |
-| integrations.connectors  | Integration Bus    | Admin, Integrations        | Phase 6 target (encrypted secrets storage + CRUD)                                               |
+| integrations.bus         | Integration Bus    | Assets, Indicators, Cyber  | Phase 6 in progress — queue workers emit observability audits + connector telemetry; handlers next |
+| integrations.connectors  | Integration Bus    | Admin, Integrations        | **Phase 6 implemented** (encrypted secrets storage + CRUD, policy `integrations.connectors.manage`) |
