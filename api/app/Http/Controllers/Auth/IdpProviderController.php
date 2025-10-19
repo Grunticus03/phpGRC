@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Auth;
 
+use App\Auth\Idp\DTO\IdpHealthCheckResult;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\IdpProviderStoreRequest;
 use App\Http\Requests\Auth\IdpProviderUpdateRequest;
@@ -13,10 +14,12 @@ use Carbon\CarbonInterface;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
+use Illuminate\Validation\ValidationException;
+use InvalidArgumentException;
 
 final class IdpProviderController extends Controller
 {
-    public function __construct(private readonly IdpProviderService $service = new IdpProviderService) {}
+    public function __construct(private readonly IdpProviderService $service) {}
 
     public function index(Request $request): JsonResponse
     {
@@ -59,7 +62,13 @@ final class IdpProviderController extends Controller
 
         /** @var array<string,mixed> $payload */
         $payload = $request->validated();
-        $provider = $this->service->create($payload);
+        try {
+            $provider = $this->service->create($payload);
+        } catch (ValidationException $e) {
+            throw $e;
+        } catch (InvalidArgumentException $e) {
+            return $this->invalidArgumentResponse($e->getMessage());
+        }
 
         return response()->json([
             'ok' => true,
@@ -104,7 +113,13 @@ final class IdpProviderController extends Controller
 
         /** @var array<string,mixed> $payload */
         $payload = $request->validated();
-        $updated = $this->service->update($model, $payload);
+        try {
+            $updated = $this->service->update($model, $payload);
+        } catch (ValidationException $e) {
+            throw $e;
+        } catch (InvalidArgumentException $e) {
+            return $this->invalidArgumentResponse($e->getMessage());
+        }
 
         return response()->json([
             'ok' => true,
@@ -127,12 +142,57 @@ final class IdpProviderController extends Controller
             return $this->notFoundResponse($provider);
         }
 
-        $this->service->delete($model);
+        try {
+            $this->service->delete($model);
+        } catch (InvalidArgumentException $e) {
+            return $this->invalidArgumentResponse($e->getMessage());
+        }
 
         return response()->json([
             'ok' => true,
             'deleted' => $model->key,
         ], 200);
+    }
+
+    public function health(string $provider): JsonResponse
+    {
+        if (! $this->service->persistenceAvailable()) {
+            return response()->json([
+                'ok' => true,
+                'note' => 'stub-only',
+            ], 202);
+        }
+
+        $model = $this->service->findByIdOrKey($provider);
+        if ($model === null) {
+            return $this->notFoundResponse($provider);
+        }
+
+        try {
+            $result = $this->service->checkHealth($model);
+        } catch (ValidationException $e) {
+            throw $e;
+        } catch (InvalidArgumentException $e) {
+            return $this->invalidArgumentResponse($e->getMessage());
+        }
+
+        return response()->json([
+            'ok' => $result->status === IdpHealthCheckResult::STATUS_OK,
+            'status' => $result->status,
+            'message' => $result->message,
+            'checked_at' => $result->checkedAt->toIso8601String(),
+            'details' => $result->details,
+            'provider' => $this->formatProvider($model),
+        ], 200);
+    }
+
+    private function invalidArgumentResponse(string $message): JsonResponse
+    {
+        return response()->json([
+            'ok' => false,
+            'code' => 'IDP_PROVIDER_INVALID',
+            'message' => $message,
+        ], 422);
     }
 
     private function notFoundResponse(string $provider): JsonResponse

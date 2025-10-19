@@ -332,6 +332,7 @@ paths:
       operationId: authDeleteIdpProvider
       tags: [Auth]
       summary: Delete Identity Provider
+      description: Deletes an Identity Provider by ULID or key and collapses evaluation order.
       parameters:
         - name: provider
           in: path
@@ -361,6 +362,46 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/IdpProviderNotFound"
+
+  /admin/idp/providers/{provider}/health:
+    post:
+      operationId: authCheckIdpProviderHealth
+      tags: [Auth]
+      summary: Check Identity Provider health
+      description: Runs a configuration validation and records the latest health status for an Identity Provider.
+      parameters:
+        - name: provider
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Health status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IdpProviderHealthResponse"
+        "202":
+          description: Stub-only (persistence disabled)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IdpProviderStubResponse"
+        "404":
+          description: Provider not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IdpProviderNotFound"
+        "409":
+          description: Persistence disabled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IdpPersistenceDisabled"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
 
   /rbac/roles:
     get:
@@ -3015,6 +3056,26 @@ components:
           const: true
         deleted:
           type: string
+
+    IdpProviderHealthResponse:
+      type: object
+      required: [ok, status, message, checked_at, provider]
+      properties:
+        ok:
+          type: boolean
+        status:
+          type: string
+          enum: [ok, warning, error]
+        message:
+          type: string
+        checked_at:
+          type: string
+          format: date-time
+        details:
+          type: object
+          additionalProperties: true
+        provider:
+          $ref: "#/components/schemas/IdpProvider"
 
     IdpProviderStubResponse:
       type: object

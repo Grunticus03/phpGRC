@@ -18,7 +18,7 @@ Trackable tasks for the Phase 6 Integrations program. Keep items unchecked until
 
 ## 2. External Authentication Expansion
 - [x] Build admin UI for IdP provider management (enable/disable, evaluation order). _SPA now supports listing, toggles, ordering, create/delete._
-- [ ] Implement IdP abstraction with audit logging + health checks.
+- [x] Implement IdP abstraction with audit logging + health checks. _Drivers encapsulate validation/health, audits logged for create/update/delete/health._
 - [ ] Deliver OIDC provider support (token validation, JIT provisioning with role templates).
 - [ ] Add SAML support with metadata import/export.
 - [ ] Add LDAP support (bind strategy, search filters, TLS requirements).

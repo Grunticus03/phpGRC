@@ -195,6 +195,9 @@ Route::prefix('/admin')
             Route::match(['PUT', 'PATCH'], '/{provider}', [IdpProviderController::class, 'update'])
                 ->defaults('policy', 'auth.idp.manage');
 
+            Route::post('/{provider}/health', [IdpProviderController::class, 'health'])
+                ->defaults('policy', 'auth.idp.manage');
+
             Route::delete('/{provider}', [IdpProviderController::class, 'destroy'])
                 ->defaults('policy', 'auth.idp.manage');
         });

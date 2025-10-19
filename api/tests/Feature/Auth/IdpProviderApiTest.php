@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Auth;
 
+use App\Auth\Idp\DTO\IdpHealthCheckResult;
+use App\Models\AuditEvent;
 use App\Models\IdpProvider;
 use App\Models\Role;
 use App\Models\User;
 use App\Support\Rbac\PolicyMap;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Schema;
 use Laravel\Sanctum\Sanctum;
 use PHPUnit\Framework\Attributes\Test;
@@ -108,6 +111,11 @@ final class IdpProviderApiTest extends TestCase
         self::assertIsString($raw);
         self::assertNotSame('', $raw);
         self::assertStringNotContainsString('super-secret', $raw);
+
+        /** @var AuditEvent|null $audit */
+        $audit = AuditEvent::query()->where('action', 'idp.provider.created')->first();
+        self::assertNotNull($audit);
+        self::assertSame($provider->id, $audit->entity_id);
     }
 
     #[Test]
@@ -133,6 +141,29 @@ final class IdpProviderApiTest extends TestCase
             ->assertJsonPath('ok', true)
             ->assertJsonPath('provider.id', $provider->id)
             ->assertJsonPath('provider.config.issuer', 'https://login.microsoftonline.com/tenant/v2.0');
+    }
+
+    #[Test]
+    public function saml_validation_requires_mandatory_fields(): void
+    {
+        $this->actingAsAdmin();
+
+        $response = $this->postJson('/admin/idp/providers', [
+            'key' => 'saml-primary',
+            'name' => 'SAML Primary',
+            'driver' => 'saml',
+            'config' => [
+                'entity_id' => 'https://sso.example.test/entity',
+            ],
+        ]);
+
+        $response->assertStatus(422);
+        $errors = $response->json('errors');
+        self::assertIsArray($errors);
+        self::assertArrayHasKey('config.sso_url', $errors);
+        self::assertArrayHasKey('config.certificate', $errors);
+        self::assertSame('SSO URL must be a valid URL.', $errors['config.sso_url'][0] ?? null);
+        self::assertSame('Signing certificate is required.', $errors['config.certificate'][0] ?? null);
     }
 
     #[Test]
@@ -179,6 +210,14 @@ final class IdpProviderApiTest extends TestCase
 
         self::assertSame(2, $first->evaluation_order);
         self::assertSame(1, $second->evaluation_order);
+
+        /** @var AuditEvent|null $audit */
+        $audit = AuditEvent::query()
+            ->where('action', 'idp.provider.updated')
+            ->where('entity_id', $second->id)
+            ->latest('occurred_at')
+            ->first();
+        self::assertNotNull($audit);
     }
 
     #[Test]
@@ -219,6 +258,52 @@ final class IdpProviderApiTest extends TestCase
         self::assertDatabaseMissing('idp_providers', ['id' => $provider->id]);
         $other->refresh();
         self::assertSame(1, $other->evaluation_order);
+
+        /** @var AuditEvent|null $audit */
+        $audit = AuditEvent::query()
+            ->where('action', 'idp.provider.deleted')
+            ->where('entity_id', $provider->id)
+            ->first();
+        self::assertNotNull($audit);
+    }
+
+    #[Test]
+    public function health_endpoint_updates_provider_metadata(): void
+    {
+        $this->actingAsAdmin();
+
+        /** @var IdpProvider $provider */
+        $provider = IdpProvider::query()->create([
+            'key' => 'check-me',
+            'name' => 'Check Me',
+            'driver' => 'oidc',
+            'enabled' => true,
+            'evaluation_order' => 1,
+            'config' => [
+                'issuer' => 'https://health.example.test',
+                'client_id' => 'client-health',
+                'client_secret' => 'secret-health',
+                'scopes' => ['openid', 'profile'],
+            ],
+        ]);
+
+        $this->postJson("/admin/idp/providers/{$provider->id}/health")
+            ->assertStatus(200)
+            ->assertJsonPath('status', IdpHealthCheckResult::STATUS_OK)
+            ->assertJsonPath('provider.id', $provider->id);
+
+        $provider->refresh();
+        self::assertNotNull($provider->last_health_at);
+        $healthMeta = Arr::get($provider->meta, 'health');
+        self::assertIsArray($healthMeta);
+        self::assertSame('ok', $healthMeta['status'] ?? null);
+
+        /** @var AuditEvent|null $audit */
+        $audit = AuditEvent::query()
+            ->where('action', 'idp.provider.health_checked')
+            ->where('entity_id', $provider->id)
+            ->first();
+        self::assertNotNull($audit);
     }
 
     #[Test]
