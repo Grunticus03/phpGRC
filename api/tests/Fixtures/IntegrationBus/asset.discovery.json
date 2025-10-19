@@ -1,0 +1,61 @@
+{
+  "description": "Asset discovery envelope with attachments and correlation header.",
+  "envelope": {
+    "id": "01JBTZ4DWP7V3F1SKZ7HRX4ZQM",
+    "busVersion": "1.0.0",
+    "connectorKey": "aws-config",
+    "connectorVersion": "2026.10.0",
+    "tenantId": "01JBTZ4W6R6M6B5G8M0N4Q1V9C",
+    "runId": "01JBTZ5S3VNFN1N75J3CKFJ9QA",
+    "kind": "asset.discovery",
+    "event": "asset.upserted",
+    "emittedAt": "2026-02-02T12:30:45Z",
+    "priority": "high",
+    "payload": {
+      "assetId": "i-0f123456789abcd0",
+      "name": "prod-api-1",
+      "type": "ec2.instance",
+      "environment": "production",
+      "tags": [
+        "app:phpgrc",
+        "tier:web"
+      ],
+      "attributes": {
+        "account": "123456789012",
+        "region": "us-east-1",
+        "owner": "platform"
+      }
+    },
+    "provenance": {
+      "source": "aws-config",
+      "externalId": "i-0f123456789abcd0",
+      "ingestedAt": "2026-02-02T12:30:40Z",
+      "schemaRef": "https://phpgrc.internal/docs/integrations/integration-bus-envelope.schema.json#/$defs/payloadAssetDiscovery",
+      "sourceRegion": "us-east-1",
+      "sourceAccount": "123456789012",
+      "correlationId": "ab12cd34-ef56-7890-ab12-cd34ef56ab78",
+      "checksum": "1b8cf3f59d4a6ae6a9f95ae3cf8c9b2d1f8730d8a8a4fbdc3e2f1a0b5c4d3e25",
+      "replay": false
+    },
+    "attachments": [
+      {
+        "type": "log",
+        "uri": "s3://phpgrc-logs/prod/api1.log",
+        "contentType": "text/plain",
+        "size": 2048
+      }
+    ],
+    "meta": {
+      "window": "PT15M",
+      "feature": "inventory"
+    }
+  },
+  "headers": {
+    "x-phpgrc-bus-version": "1.0.0",
+    "x-phpgrc-connector": "aws-config",
+    "x-phpgrc-kind": "asset.discovery",
+    "x-phpgrc-run-id": "01JBTZ5S3VNFN1N75J3CKFJ9QA",
+    "x-phpgrc-priority": "high",
+    "x-phpgrc-correlation": "ab12cd34-ef56-7890-ab12-cd34ef56ab78"
+  }
+}

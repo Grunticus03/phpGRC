@@ -1,0 +1,53 @@
+{
+  "description": "Incident event envelope with error context for retry tracking.",
+  "envelope": {
+    "id": "01JBTZ8XHB5X5X0W4C8M9D7KJE",
+    "busVersion": "1.0.0",
+    "connectorKey": "pagerduty",
+    "connectorVersion": "2026.2.1",
+    "tenantId": "01JBTZ9K8M8X1PG7R89D5SRH2F",
+    "runId": "01JBTZB7T9QQZ1W47V7M6T1F6Y",
+    "kind": "incident.event",
+    "event": "incident.updated",
+    "emittedAt": "2026-02-02T15:45:12Z",
+    "priority": "high",
+    "payload": {
+      "incidentId": "INC0012345",
+      "status": "TRIAGE",
+      "severity": "HIGH",
+      "summary": "Customer-facing outage acknowledged",
+      "timeline": [
+        {
+          "at": "2026-02-02T15:30:00Z",
+          "type": "acknowledged"
+        }
+      ]
+    },
+    "provenance": {
+      "source": "pagerduty",
+      "externalId": "INC0012345",
+      "ingestedAt": "2026-02-02T15:44:30Z",
+      "schemaRef": "https://phpgrc.internal/docs/integrations/integration-bus-envelope.schema.json#/$defs/payloadIncidentEvent",
+      "correlationId": "f0ab12cd-3456-7890-ab12-cd34567890ab",
+      "sourceRegion": "us",
+      "replay": true
+    },
+    "error": {
+      "code": "CONNECTOR_TIMEOUT",
+      "message": "PagerDuty API timed out after 5s",
+      "occurredAt": "2026-02-02T15:45:30Z",
+      "attempt": 2,
+      "maxAttempts": 5,
+      "retryAt": "2026-02-02T15:50:30Z",
+      "traceId": "trace-pd-001"
+    }
+  },
+  "headers": {
+    "x-phpgrc-bus-version": "1.0.0",
+    "x-phpgrc-connector": "pagerduty",
+    "x-phpgrc-kind": "incident.event",
+    "x-phpgrc-run-id": "01JBTZB7T9QQZ1W47V7M6T1F6Y",
+    "x-phpgrc-priority": "high",
+    "x-phpgrc-correlation": "f0ab12cd-3456-7890-ab12-cd34567890ab"
+  }
+}

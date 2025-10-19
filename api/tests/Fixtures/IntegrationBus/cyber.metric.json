@@ -1,0 +1,47 @@
+{
+  "description": "Cyber metric envelope with attachment summary.",
+  "envelope": {
+    "id": "01JBTZHXF76JX9M1TBH7B7Z01R",
+    "busVersion": "1.0.0",
+    "connectorKey": "qualys",
+    "connectorVersion": "2026.4.2",
+    "tenantId": "01JBTZJ59G8JV6MW0GBV52JFH9",
+    "runId": "01JBTZKAZ5QY2DYQYK9QYY3NQF",
+    "kind": "cyber.metric",
+    "event": "cyber.summary",
+    "emittedAt": "2026-02-02T18:05:00Z",
+    "priority": "high",
+    "payload": {
+      "sourceType": "vulnerability_scanner",
+      "assetKey": "asset-prod-001",
+      "observedAt": "2026-02-02T18:00:00Z",
+      "metrics": {
+        "criticalFindings": 3,
+        "highFindings": 12
+      }
+    },
+    "provenance": {
+      "source": "qualys",
+      "externalId": "asset-prod-001",
+      "ingestedAt": "2026-02-02T18:04:00Z",
+      "schemaRef": "https://phpgrc.internal/docs/integrations/integration-bus-envelope.schema.json#/$defs/payloadCyberMetric",
+      "correlationId": "1234abcd-5678-90ef-1234-567890abcdef"
+    },
+    "attachments": [
+      {
+        "type": "report",
+        "uri": "s3://phpgrc-cyber/asset-prod-001/report.csv",
+        "contentType": "text/csv",
+        "hash": "f5b9c742a4cc8bae0ffc5f6f7900ba54d2ebf0adf5b9c742a4cc8bae0ffc5f6f"
+      }
+    ]
+  },
+  "headers": {
+    "x-phpgrc-bus-version": "1.0.0",
+    "x-phpgrc-connector": "qualys",
+    "x-phpgrc-kind": "cyber.metric",
+    "x-phpgrc-run-id": "01JBTZKAZ5QY2DYQYK9QYY3NQF",
+    "x-phpgrc-priority": "high",
+    "x-phpgrc-correlation": "1234abcd-5678-90ef-1234-567890abcdef"
+  }
+}

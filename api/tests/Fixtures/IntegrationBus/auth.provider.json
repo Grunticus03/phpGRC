@@ -1,0 +1,40 @@
+{
+  "description": "Auth provider health envelope to validate status propagation.",
+  "envelope": {
+    "id": "01JBTZMAPQ3QJE4WR4KAPRT9QW",
+    "busVersion": "1.0.0",
+    "connectorKey": "okta-health",
+    "connectorVersion": "2026.2.0",
+    "tenantId": "01JBTZNK7E5CQFGWB9MB1X7Y2S",
+    "runId": "01JBTZP2D1XYDW6F8G6KRAP5Z6",
+    "kind": "auth.provider",
+    "event": "auth.health",
+    "emittedAt": "2026-02-02T19:15:00Z",
+    "priority": "normal",
+    "payload": {
+      "providerKey": "okta-primary",
+      "status": "healthy",
+      "checkedAt": "2026-02-02T19:14:50Z",
+      "details": {
+        "latencyMs": 220,
+        "region": "us-east-1"
+      }
+    },
+    "provenance": {
+      "source": "okta-health",
+      "externalId": "okta-primary",
+      "ingestedAt": "2026-02-02T19:14:55Z",
+      "schemaRef": "https://phpgrc.internal/docs/integrations/integration-bus-envelope.schema.json#/$defs/payloadAuthProvider"
+    },
+    "meta": {
+      "cluster": "prod"
+    }
+  },
+  "headers": {
+    "x-phpgrc-bus-version": "1.0.0",
+    "x-phpgrc-connector": "okta-health",
+    "x-phpgrc-kind": "auth.provider",
+    "x-phpgrc-run-id": "01JBTZP2D1XYDW6F8G6KRAP5Z6",
+    "x-phpgrc-priority": "normal"
+  }
+}

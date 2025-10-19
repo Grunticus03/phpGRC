@@ -1,0 +1,41 @@
+{
+  "description": "Indicator metric envelope with context payload.",
+  "envelope": {
+    "id": "01JBTZEKCH2J89E716MZE3G2T7",
+    "busVersion": "1.0.0",
+    "connectorKey": "risk-indicators",
+    "connectorVersion": "2026.1.5",
+    "tenantId": "01JBTZFJYQ48N5FRAFD1K86MND",
+    "runId": "01JBTZGQ4V3CT3VMZ2B5N5QP4B",
+    "kind": "indicator.metric",
+    "event": "indicator.calculated",
+    "emittedAt": "2026-02-02T17:20:30Z",
+    "receivedAt": "2026-02-02T17:20:45Z",
+    "priority": "normal",
+    "payload": {
+      "indicatorKey": "risk.score",
+      "window": "P1D",
+      "value": 0.82,
+      "unit": "ratio",
+      "context": {
+        "module": "risks",
+        "segment": "critical"
+      }
+    },
+    "provenance": {
+      "source": "risk-indicators",
+      "externalId": "risk.score:critical",
+      "ingestedAt": "2026-02-02T17:20:25Z",
+      "schemaRef": "https://phpgrc.internal/docs/integrations/integration-bus-envelope.schema.json#/$defs/payloadIndicatorMetric",
+      "correlationId": "aa11bb22-cc33-44dd-ee55-66778899aabb"
+    }
+  },
+  "headers": {
+    "x-phpgrc-bus-version": "1.0.0",
+    "x-phpgrc-connector": "risk-indicators",
+    "x-phpgrc-kind": "indicator.metric",
+    "x-phpgrc-run-id": "01JBTZGQ4V3CT3VMZ2B5N5QP4B",
+    "x-phpgrc-priority": "normal",
+    "x-phpgrc-correlation": "aa11bb22-cc33-44dd-ee55-66778899aabb"
+  }
+}

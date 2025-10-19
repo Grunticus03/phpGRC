@@ -12,6 +12,7 @@
   },
   "require-dev": {
     "fakerphp/faker": "^1.23",
+    "justinrainbow/json-schema": "^5.2",
     "larastan/larastan": "^3.7",
     "laravel/pint": "^1.25",
     "mockery/mockery": "^1.6",

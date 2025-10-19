@@ -11,6 +11,7 @@ use App\Support\Audit\AuditCategories;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\DatabaseManager;
 use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
@@ -25,12 +26,14 @@ final class IntegrationBusObservability
     public function recordReceived(IntegrationBusEnvelope $envelope): void
     {
         $receivedAt = CarbonImmutable::now('UTC');
+        $status = $this->statusFromEnvelope($envelope);
 
-        $this->recordAuditEvent($envelope, $receivedAt);
-        $this->updateConnectorObservability($envelope, $receivedAt);
+        $this->logStructuredEvent($envelope, $status, $receivedAt);
+        $this->recordAuditEvent($envelope, $status, $receivedAt);
+        $this->updateConnectorObservability($envelope, $status, $receivedAt);
     }
 
-    private function recordAuditEvent(IntegrationBusEnvelope $envelope, CarbonImmutable $receivedAt): void
+    private function recordAuditEvent(IntegrationBusEnvelope $envelope, string $status, CarbonImmutable $receivedAt): void
     {
         if (! Config::get('core.audit.enabled', true)) {
             return;
@@ -49,18 +52,18 @@ final class IntegrationBusObservability
             'entity_id' => $envelope->connectorKey,
             'ip' => null,
             'ua' => null,
-            'meta' => $this->buildAuditMeta($envelope, $receivedAt),
+            'meta' => $this->buildAuditMeta($envelope, $status, $receivedAt),
             'created_at' => $receivedAt,
         ]);
     }
 
-    private function updateConnectorObservability(IntegrationBusEnvelope $envelope, CarbonImmutable $receivedAt): void
+    private function updateConnectorObservability(IntegrationBusEnvelope $envelope, string $status, CarbonImmutable $receivedAt): void
     {
         if (! Schema::hasTable('integration_connectors')) {
             return;
         }
 
-        $this->db->transaction(function () use ($envelope, $receivedAt): void {
+        $this->db->transaction(function () use ($envelope, $receivedAt, $status): void {
             /** @var IntegrationConnector|null $connector */
             $connector = IntegrationConnector::query()
                 ->where('integration_connectors.key', '=', $envelope->connectorKey)
@@ -82,7 +85,6 @@ final class IntegrationBusObservability
 
             $perKind[$envelope->kind] = ($perKind[$envelope->kind] ?? 0) + 1;
 
-            $status = $envelope->error === null ? 'processed' : 'errored';
             $statusCounts[$status] = ($statusCounts[$status] ?? 0) + 1;
 
             $observability = [
@@ -172,6 +174,45 @@ final class IntegrationBusObservability
         }
 
         return [];
+    }
+
+    private function statusFromEnvelope(IntegrationBusEnvelope $envelope): string
+    {
+        return $envelope->error === null ? 'processed' : 'errored';
+    }
+
+    private function logStructuredEvent(IntegrationBusEnvelope $envelope, string $status, CarbonImmutable $receivedAt): void
+    {
+        $context = [
+            'status' => $status,
+            'envelope_id' => $envelope->id,
+            'connector' => [
+                'key' => $envelope->connectorKey,
+                'version' => $envelope->connectorVersion,
+            ],
+            'tenant_id' => $envelope->tenantId,
+            'run_id' => $envelope->runId,
+            'kind' => $envelope->kind,
+            'event' => $envelope->event,
+            'priority' => $envelope->priority,
+            'received_at' => $receivedAt->toIso8601String(),
+            'emitted_at' => $envelope->emittedAt,
+            'provenance' => [
+                'source' => $envelope->provenance['source'],
+                'external_id' => $envelope->provenance['externalId'],
+                'correlation_id' => $envelope->provenance['correlationId'] ?? null,
+                'replay' => $this->boolValue($envelope->provenance['replay'] ?? false),
+            ],
+            'payload_keys' => array_slice(array_keys($envelope->payload), 0, 15),
+            'meta_keys' => $this->summarizeKeys($envelope->meta),
+            'attachments' => [
+                'count' => count($envelope->attachments),
+                'types' => $this->collectAttachmentTypes($envelope->attachments),
+            ],
+            'error' => $this->summarizeError($envelope->error),
+        ];
+
+        Log::info('integration.bus.message', $context);
     }
 
     /**
@@ -279,7 +320,7 @@ final class IntegrationBusObservability
     /**
      * @return array<string, mixed>
      */
-    private function buildAuditMeta(IntegrationBusEnvelope $envelope, CarbonImmutable $receivedAt): array
+    private function buildAuditMeta(IntegrationBusEnvelope $envelope, string $status, CarbonImmutable $receivedAt): array
     {
         $payloadKeys = array_slice(array_keys($envelope->payload), 0, 15);
 
@@ -294,6 +335,7 @@ final class IntegrationBusObservability
             'priority' => $envelope->priority,
             'emitted_at' => $envelope->emittedAt,
             'received_at' => $receivedAt->toIso8601String(),
+            'status' => $status,
             'payload_keys' => $payloadKeys,
             'payload_size' => count($envelope->payload),
             'meta_keys' => $this->summarizeKeys($envelope->meta),

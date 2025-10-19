@@ -138,8 +138,9 @@
 ## Phase 6 — Integrations
 - [ ] Integration Bus MVP (connectors, pipelines, transforms, observability)
   - [x] Connector contract + encrypted secrets registry APIs delivered (Phase 6 foundation).
-  - [x] Observability pipeline wired into Bus workers (audit `integration.bus.message.received` + connector telemetry counters).
-  - [ ] Structured logging & domain handlers (Assets, Incidents, Vendors, Indicators, Cyber).
+  - [x] Observability pipeline wired into Bus workers (audit `integration.bus.message.received`, structured `integration.bus.message` logs, connector telemetry counters).
+  - [x] Connector validation harness available (`integration-bus:validate` command) enforcing schema payload + provenance headers.
+  - [ ] Domain handlers (Assets, Incidents, Vendors, Indicators, Cyber) — structured logging now lands via audit/log pipeline.
   - [ ] Connector validation harness (schema validation + provenance headers).
   - [ ] Bus-focused PHPUnit/Psalm coverage and integration smoke tests.
 - [ ] External Auth providers (OIDC/SAML/LDAP/Entra)

@@ -1,0 +1,37 @@
+{
+  "description": "Asset lifecycle envelope with low priority and received timestamp.",
+  "envelope": {
+    "id": "01JBTZ6G0V5H71T5VCEH3JQZP5",
+    "busVersion": "1.0.0",
+    "connectorKey": "aws-config",
+    "connectorVersion": "2026.10.0",
+    "tenantId": "01JBTZ4W6R6M6B5G8M0N4Q1V9C",
+    "runId": "01JBTZ7Q0Z94AH2NQ0YGNEG2TT",
+    "kind": "asset.lifecycle",
+    "event": "asset.retired",
+    "emittedAt": "2026-02-02T14:00:00Z",
+    "receivedAt": "2026-02-02T14:00:05Z",
+    "priority": "low",
+    "payload": {
+      "assetId": "i-0f123456789abcd0",
+      "status": "retired",
+      "effectiveAt": "2026-02-02T13:50:00Z"
+    },
+    "provenance": {
+      "source": "aws-config",
+      "externalId": "i-0f123456789abcd0",
+      "ingestedAt": "2026-02-02T13:55:00Z",
+      "schemaRef": "https://phpgrc.internal/docs/integrations/integration-bus-envelope.schema.json#/$defs/payloadAssetLifecycle"
+    },
+    "meta": {
+      "reason": "Decommissioned instance"
+    }
+  },
+  "headers": {
+    "x-phpgrc-bus-version": "1.0.0",
+    "x-phpgrc-connector": "aws-config",
+    "x-phpgrc-kind": "asset.lifecycle",
+    "x-phpgrc-run-id": "01JBTZ7Q0Z94AH2NQ0YGNEG2TT",
+    "x-phpgrc-priority": "low"
+  }
+}

@@ -12,9 +12,9 @@ Trackable tasks for the Phase 6 Integrations program. Keep items unchecked until
 ## 1. Integration Bus MVP
 - [x] Implement queue jobs and event dispatchers per connector type (`App\Jobs\IntegrationBus\ProcessIntegrationBusMessage`, `App\Services\IntegrationBus\IntegrationBusDispatcher`, events under `App\Events\IntegrationBus\*`).
 - [x] Create encrypted configuration storage + CRUD UI/API for connector secrets (`api/app/Models/IntegrationConnector.php`, `/api/integrations/connectors*`).
-- [ ] Add structured logging + audit events for connector activity.
-- [ ] Provide connector validation harness (payload schema + provenance headers).
-- [ ] Ship Bus-focused PHPUnit/Psalm coverage and integration smoke tests.
+- [x] Add structured logging + audit events for connector activity.
+- [x] Provide connector validation harness (payload schema + provenance headers).
+- [x] Ship Bus-focused PHPUnit/Psalm coverage and integration smoke tests.
 
 ## 2. External Authentication Expansion
 - [ ] Build admin UI for IdP provider management (enable/disable, evaluation order).

@@ -1,0 +1,48 @@
+{
+  "description": "Vendor profile envelope without explicit priority to exercise defaults.",
+  "envelope": {
+    "id": "01JBTZC6X2FJXX7B3Q3N7XZVK8",
+    "busVersion": "1.0.0",
+    "connectorKey": "coupa",
+    "connectorVersion": "2026.3.0",
+    "tenantId": "core.default",
+    "runId": "01JBTZDBF9KS7W9RRBG8MKVG1M",
+    "kind": "vendor.profile",
+    "event": "vendor.synced",
+    "emittedAt": "2026-02-02T16:10:00Z",
+    "payload": {
+      "vendorId": "VEN-1001",
+      "name": "Coupa Hosting",
+      "category": "hosting",
+      "contacts": [
+        {
+          "name": "Alex Doe",
+          "email": "alex.doe@example.test",
+          "role": "account_manager"
+        }
+      ],
+      "services": [
+        {
+          "name": "Managed Hosting",
+          "description": "Primary production environment",
+          "criticality": "HIGH"
+        }
+      ]
+    },
+    "provenance": {
+      "source": "coupa",
+      "externalId": "VEN-1001",
+      "ingestedAt": "2026-02-02T16:05:00Z",
+      "schemaRef": "https://phpgrc.internal/docs/integrations/integration-bus-envelope.schema.json#/$defs/payloadVendorProfile"
+    },
+    "meta": {
+      "tier": "strategic"
+    }
+  },
+  "headers": {
+    "x-phpgrc-bus-version": "1.0.0",
+    "x-phpgrc-connector": "coupa",
+    "x-phpgrc-kind": "vendor.profile",
+    "x-phpgrc-run-id": "01JBTZDBF9KS7W9RRBG8MKVG1M"
+  }
+}

@@ -51,6 +51,24 @@ flowchart LR
 - `PATCH /api/integrations/connectors/{connector}` toggles `enabled`, updates metadata, and refreshes health timestamps without re-submitting the entire configuration.
 - Refer to `docs/api/openapi.yaml` for full request/response examples and validation rules.
 
+### Observability & Logs
+
+- Every envelope generates an `integration.bus.message.received` audit with connector key, run ID, payload/meta key summaries, provenance, and retry metadata.
+- Workers also emit an `integration.bus.message` **structured INFO log** once processing completes. Context includes:
+  - `status` (`processed` or `errored`) plus error code/attempt counts when present.
+  - Connector metadata (`connector.key`, `connector.version`, `tenant_id`, `run_id`, `priority`).
+  - Provenance snapshot (source, externalId, correlationId, replay flag) and attachment summary.
+  - The first 15 payload and meta keys to aid debugging without serializing entire payloads.
+- Log pipelines can alert on `status=errored` while observability counters live in `integration_connectors.meta.observability`. See `docs/ops/INTEGRATION-BUS-QUEUE.md` for operational runbooks.
+
+### Validation Harness
+
+- Use `php artisan integration-bus:validate <envelope.json> --headers=<headers.json>` to verify sample payloads before shipping connectors.
+  - The command loads the JSON envelope, reuses the contract validator, and enforces provenance/header alignment.
+  - Required headers (`x-phpgrc-bus-version`, `x-phpgrc-connector`, `x-phpgrc-kind`, `x-phpgrc-run-id`) must match the envelope body; optional correlation headers are checked when supplied.
+  - Per-kind payload checks ensure required fields exist (`assetId`, `incidentId`, etc.) and that connector schema references resolve to the expected `$defs` entry in `integration-bus-envelope.schema.json`.
+- Integrate the command into CI for connector repositories so pull requests fail when payloads drift from the published contract.
+
 ## SDK Snippet — Node/TypeScript
 
 ```ts

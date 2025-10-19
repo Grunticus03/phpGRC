@@ -104,6 +104,12 @@ Store representative failed envelopes for testing; ensure secrets are redacted b
     `integration_connectors.last_health_at`.
 - Audit/telemetry writes honor the `core.audit.enabled` toggle and fall back gracefully when the
   audit table or connectors table is unavailable (e.g., during migrations).
+- Every envelope also emits an `integration.bus.message` **structured INFO log** containing status
+  (`processed`/`errored`), connector key/version, provenance snapshot, attachment summary, and the
+  first 15 payload/meta keys. Downstream log pipelines can filter on `status=errored` for alerting.
+- Connector teams can dry-run payloads locally with `php artisan integration-bus:validate`: point to
+  a JSON envelope (and optional headers JSON) to catch missing keys, schemaRef drift, or header/body
+  mismatches before publishing jobs into the queue.
 
 ## Operational Checklist
 

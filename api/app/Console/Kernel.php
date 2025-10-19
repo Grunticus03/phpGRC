@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Console;
 
 use App\Console\Commands\AuditRetentionPurge;
+use App\Console\Commands\ValidateIntegrationBusEnvelope;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Console\Kernel as ConsoleKernel;
 
@@ -15,6 +16,7 @@ final class Kernel extends ConsoleKernel
      */
     protected $commands = [
         AuditRetentionPurge::class,
+        ValidateIntegrationBusEnvelope::class,
     ];
 
     #[\Override]
