@@ -394,9 +394,24 @@ export default function IdpProviders(): JSX.Element {
   const [ldapBrowserBusy, setLdapBrowserBusy] = useState(false);
   const [ldapBrowserError, setLdapBrowserError] = useState<string | null>(null);
   const [ldapBrowserDetail, setLdapBrowserDetail] = useState<Record<string, unknown> | null>(null);
+  const [ldapBrowserDiagnostics, setLdapBrowserDiagnostics] = useState<Record<string, unknown> | null>(null);
   const [ldapBrowserEntries, setLdapBrowserEntries] = useState<LdapBrowseEntry[]>([]);
   const [ldapBrowserPath, setLdapBrowserPath] = useState<string[]>([]);
   const [ldapBrowserBaseDn, setLdapBrowserBaseDn] = useState<string | null>(null);
+  const ldapDiagnosticsBlock = useMemo(() => {
+    if (!ldapBrowserDiagnostics) {
+      return null;
+    }
+
+    return (
+      <div className="alert alert-info mt-3 mb-0" role="status">
+        <div className="fw-semibold mb-1">LDAP diagnostics</div>
+        <pre className="mb-0 bg-body-secondary border rounded p-2 small overflow-auto">
+          {JSON.stringify(ldapBrowserDiagnostics, null, 2)}
+        </pre>
+      </div>
+    );
+  }, [ldapBrowserDiagnostics]);
   const normalizedTestStatus = typeof testResult?.status === "string" ? testResult.status : null;
   const testStatusBadgeLabel = (normalizedTestStatus ?? "error").toUpperCase();
   const testCheckedAtLabel = useMemo(() => {
@@ -593,6 +608,7 @@ export default function IdpProviders(): JSX.Element {
     setLdapBrowserBaseDn(null);
     setLdapBrowserError(null);
     setLdapBrowserDetail(null);
+    setLdapBrowserDiagnostics(null);
   }, [clearTestFeedback]);
 
   const openCreateModal = useCallback(() => {
@@ -1311,12 +1327,14 @@ export default function IdpProviders(): JSX.Element {
           requestedBaseDn: targetBaseDn,
           path: nextPath,
         });
+        setLdapBrowserDiagnostics(null);
         return;
       }
 
       setLdapBrowserBusy(true);
       setLdapBrowserError(null);
       setLdapBrowserDetail(null);
+      setLdapBrowserDiagnostics(null);
 
       try {
         const response = await browseLdapDirectory({
@@ -1342,6 +1360,7 @@ export default function IdpProviders(): JSX.Element {
         setLdapBrowserBaseDn(resolvedBaseDn);
         setLdapBrowserPath(nextPath);
         setLdapBrowserDetail(summary);
+        setLdapBrowserDiagnostics(diagnostics ?? null);
 
         if (entries.length === 0) {
           if (response.root) {
@@ -1368,6 +1387,7 @@ export default function IdpProviders(): JSX.Element {
             requestedBaseDn: targetBaseDn,
             path: nextPath,
           });
+          setLdapBrowserDiagnostics(normalizedDetail ?? null);
         } else {
           const message = formatUnknownError(error, fallback);
           setLdapBrowserError(message);
@@ -1377,6 +1397,7 @@ export default function IdpProviders(): JSX.Element {
             path: nextPath,
             checkedAt: new Date().toISOString(),
           });
+          setLdapBrowserDiagnostics({ detail: message });
         }
         setLdapBrowserEntries([]);
       } finally {
@@ -1395,6 +1416,7 @@ export default function IdpProviders(): JSX.Element {
     setLdapBrowserPath(initialBaseDn ? [initialBaseDn] : []);
     setLdapBrowserBaseDn(initialBaseDn);
     setLdapBrowserDetail(null);
+    setLdapBrowserDiagnostics(null);
     setLdapBrowserOpen(true);
     void loadLdapDirectory(initialBaseDn, initialBaseDn ? [initialBaseDn] : []);
   }, [form.ldap.baseDn, loadLdapDirectory]);
@@ -1407,6 +1429,7 @@ export default function IdpProviders(): JSX.Element {
     setLdapBrowserOpen(false);
     setLdapBrowserError(null);
     setLdapBrowserDetail(null);
+    setLdapBrowserDiagnostics(null);
   }, [ldapBrowserBusy]);
 
   const handleLdapNavigateTo = useCallback(
@@ -2700,6 +2723,7 @@ export default function IdpProviders(): JSX.Element {
             </pre>
           </div>
         ) : null}
+        {ldapDiagnosticsBlock}
         {ldapBrowserBusy ? (
           <div className="d-flex justify-content-center py-4" role="status" aria-live="polite">
             <div className="spinner-border text-primary" role="presentation" aria-hidden="true" />
