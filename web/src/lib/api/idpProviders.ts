@@ -118,3 +118,57 @@ export function previewSamlMetadata(metadata: string, signal?: AbortSignal): Pro
     signal
   );
 }
+
+export type IdpProviderPreviewPayload = {
+  driver: IdpProviderDriver;
+  config: Record<string, unknown>;
+  meta?: Record<string, unknown> | null;
+};
+
+export type IdpProviderPreviewHealthResult = {
+  ok: boolean;
+  status: "ok" | "warning" | "error";
+  message: string;
+  checked_at: string;
+  details: Record<string, unknown>;
+};
+
+export function previewIdpHealth(
+  payload: IdpProviderPreviewPayload,
+  signal?: AbortSignal
+): Promise<IdpProviderPreviewHealthResult> {
+  return apiPost<IdpProviderPreviewHealthResult, IdpProviderPreviewPayload>(
+    "/admin/idp/providers/preview-health",
+    payload,
+    signal
+  );
+}
+
+export type LdapBrowseRequestPayload = {
+  driver: "ldap";
+  config: Record<string, unknown>;
+  base_dn?: string | null;
+};
+
+export type LdapBrowseEntry = {
+  dn: string;
+  rdn: string;
+  name: string;
+  type: string;
+  object_class: string[];
+  has_children: boolean;
+};
+
+export type LdapBrowseResponse = {
+  ok: true;
+  root: boolean;
+  base_dn: string | null;
+  entries: LdapBrowseEntry[];
+};
+
+export function browseLdapDirectory(
+  payload: LdapBrowseRequestPayload,
+  signal?: AbortSignal
+): Promise<LdapBrowseResponse> {
+  return apiPost<LdapBrowseResponse, LdapBrowseRequestPayload>("/admin/idp/providers/ldap/browse", payload, signal);
+}

@@ -10,6 +10,7 @@ namespace App\Services\Auth\Ldap;
  *
  * @SuppressWarnings("PMD.CyclomaticComplexity")
  * @SuppressWarnings("PMD.ExcessiveClassComplexity")
+ * @SuppressWarnings("PMD.TooManyMethods")
  */
 final class NativeLdapClient implements LdapClientInterface
 {
@@ -59,6 +60,40 @@ final class NativeLdapClient implements LdapClientInterface
             return ($config['bind_strategy'] ?? 'service') === 'service'
                 ? $this->authenticateWithServiceAccount($connection, $config, $username, $password)
                 : $this->authenticateWithDirectBind($connection, $config, $username, $password);
+        } finally {
+            $this->close($connection);
+        }
+    }
+
+    /**
+     * @param  array<string,mixed>  $config
+     * @return array<string,mixed>
+     */
+    #[\Override]
+    public function browse(array $config, ?string $baseDn = null): array
+    {
+        $connection = $this->connect($config);
+
+        try {
+            $strategy = $config['bind_strategy'] ?? 'service';
+            if ($strategy !== 'service') {
+                throw new LdapException('Directory browsing requires a service bind strategy.');
+            }
+
+            $bindDn = $config['bind_dn'] ?? null;
+            $bindPassword = $config['bind_password'] ?? null;
+
+            if (! is_string($bindDn) || ! is_string($bindPassword)) {
+                throw new LdapException('Service bind credentials must be configured for directory browsing.');
+            }
+
+            $this->bindService($connection, $bindDn, $bindPassword);
+
+            if ($baseDn === null || trim($baseDn) === '') {
+                return $this->readRootDseContexts($connection);
+            }
+
+            return $this->listChildEntries($connection, $baseDn);
         } finally {
             $this->close($connection);
         }
@@ -174,6 +209,125 @@ final class NativeLdapClient implements LdapClientInterface
         return [
             'dn' => $userDn,
             'attributes' => $entry['attributes'],
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function readRootDseContexts(\LDAP\Connection $connection): array
+    {
+        /** @var mixed $result */
+        $result = $this->withSuppressedWarnings(static fn () => ldap_read(
+            $connection,
+            '',
+            '(objectClass=*)',
+            ['namingContexts'],
+            0,
+            0
+        ));
+
+        if ($result === false || ! $result instanceof \LDAP\Result) {
+            throw new LdapException('Failed to query LDAP root DSE: '.$this->lastError($connection));
+        }
+
+        /** @var mixed $entries */
+        $entries = $this->withSuppressedWarnings(static fn () => ldap_get_entries($connection, $result));
+        if (! is_array($entries) || ($entries['count'] ?? 0) < 1) {
+            throw new LdapException('LDAP server did not return any naming contexts.');
+        }
+
+        /** @var array<string,mixed>|null $entry */
+        $entry = $entries[0] ?? null;
+        $contexts = $this->extractAttributeValues($entry, 'namingcontexts');
+
+        if ($contexts === []) {
+            throw new LdapException('LDAP server did not return any naming contexts.');
+        }
+
+        $items = array_map(function (string $context): array {
+            $rdn = $this->extractRdn($context);
+
+            return [
+                'dn' => $context,
+                'rdn' => $rdn,
+                'name' => $rdn,
+                'type' => 'context',
+                'object_class' => [],
+                'has_children' => true,
+            ];
+        }, $contexts);
+
+        return [
+            'root' => true,
+            'base_dn' => null,
+            'entries' => $items,
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function listChildEntries(\LDAP\Connection $connection, string $baseDn): array
+    {
+        /** @var mixed $result */
+        $result = $this->withSuppressedWarnings(static fn () => ldap_list(
+            $connection,
+            $baseDn,
+            '(objectClass=*)',
+            ['ou', 'cn', 'dc', 'objectClass'],
+            0,
+            0,
+            30,
+            0
+        ));
+
+        if ($result === false || ! $result instanceof \LDAP\Result) {
+            throw new LdapException('Failed to browse LDAP directory: '.$this->lastError($connection));
+        }
+
+        /** @var mixed $entries */
+        $entries = $this->withSuppressedWarnings(static fn () => ldap_get_entries($connection, $result));
+        if (! is_array($entries)) {
+            throw new LdapException('LDAP browse request returned an unexpected result.');
+        }
+
+        $count = isset($entries['count']) && is_int($entries['count']) ? $entries['count'] : 0;
+        $items = [];
+
+        for ($i = 0; $i < $count; $i++) {
+            /** @var mixed $current */
+            $current = $entries[$i] ?? null;
+            if (! is_array($current)) {
+                continue;
+            }
+
+            /** @var array<string,mixed> $entry */
+            $entry = $current;
+
+            $dnRaw = $entry['dn'] ?? null;
+            if (! is_string($dnRaw) || trim($dnRaw) === '') {
+                continue;
+            }
+
+            $objectClasses = $this->extractAttributeValues($entry, 'objectclass');
+            $rdn = $this->extractRdn($dnRaw);
+            $name = $this->resolveDisplayName($entry, $rdn);
+
+            $items[] = [
+                'dn' => $dnRaw,
+                'rdn' => $rdn,
+                'name' => $name,
+                'type' => $this->classifyEntryType($objectClasses),
+                'object_class' => $objectClasses,
+                'has_children' => $this->hasChildHint($objectClasses),
+            ];
+        }
+
+        return [
+            'root' => false,
+            'base_dn' => $baseDn,
+            'entries' => $items,
         ];
     }
 
@@ -384,6 +538,95 @@ final class NativeLdapClient implements LdapClientInterface
             ['\\5c', '\\2c', '\\2b', '\\22', '\\3c', '\\3e', '\\3b', '\\3d', '\\23'],
             $value
         );
+    }
+
+    /**
+     * @param  array<string,mixed>|null  $entry
+     * @return array<int,string>
+     */
+    private function extractAttributeValues(?array $entry, string $attribute): array
+    {
+        if ($entry === null) {
+            return [];
+        }
+
+        /** @var mixed $values */
+        $values = $entry[$attribute] ?? null;
+        if (! is_array($values)) {
+            return [];
+        }
+
+        $count = isset($values['count']) && is_int($values['count']) ? $values['count'] : 0;
+        $result = [];
+        for ($i = 0; $i < $count; $i++) {
+            /** @var mixed $value */
+            $value = $values[$i] ?? null;
+            if (is_string($value) && $value !== '') {
+                $result[] = $value;
+            }
+        }
+
+        return $result;
+    }
+
+    private function extractRdn(string $dn): string
+    {
+        $parts = explode(',', $dn, 2);
+        $rdn = $parts[0];
+        if ($rdn === '') {
+            return trim($dn);
+        }
+
+        return trim($rdn);
+    }
+
+    /**
+     * @param  array<string,mixed>  $entry
+     */
+    private function resolveDisplayName(array $entry, string $fallback): string
+    {
+        foreach (['ou', 'cn', 'dc'] as $attribute) {
+            $values = $this->extractAttributeValues($entry, $attribute);
+            if ($values !== []) {
+                return $values[0];
+            }
+        }
+
+        return $fallback;
+    }
+
+    /**
+     * @param  array<int,string>  $objectClasses
+     */
+    private function classifyEntryType(array $objectClasses): string
+    {
+        $lower = array_map(static fn (string $value): string => strtolower($value), $objectClasses);
+
+        foreach (['organizationalunit' => 'organizationalUnit', 'container' => 'container', 'domain' => 'domain', 'dcobject' => 'domainComponent'] as $needle => $label) {
+            if (in_array($needle, $lower, true)) {
+                return $label;
+            }
+        }
+
+        if (in_array('person', $lower, true) || in_array('inetorgperson', $lower, true)) {
+            return 'person';
+        }
+
+        if ($objectClasses === []) {
+            return 'entry';
+        }
+
+        return $objectClasses[0];
+    }
+
+    /**
+     * @param  array<int,string>  $objectClasses
+     */
+    private function hasChildHint(array $objectClasses): bool
+    {
+        $lower = array_map(static fn (string $value): string => strtolower($value), $objectClasses);
+
+        return array_intersect($lower, ['organizationalunit', 'container', 'domain', 'ou', 'dcobject', 'organization']) !== [];
     }
 
     private function intConstant(string $name): ?int

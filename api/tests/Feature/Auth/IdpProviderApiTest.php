@@ -9,6 +9,7 @@ use App\Models\AuditEvent;
 use App\Models\IdpProvider;
 use App\Models\Role;
 use App\Models\User;
+use App\Services\Auth\Ldap\LdapClientInterface;
 use App\Services\Auth\SamlMetadataService;
 use App\Support\Rbac\PolicyMap;
 use Carbon\CarbonImmutable;
@@ -16,6 +17,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Schema;
 use Laravel\Sanctum\Sanctum;
+use Mockery;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
@@ -24,6 +26,13 @@ final class IdpProviderApiTest extends TestCase
     use RefreshDatabase;
 
     private ?User $admin = null;
+
+    protected function tearDown(): void
+    {
+        Mockery::close();
+
+        parent::tearDown();
+    }
 
     protected function setUp(): void
     {
@@ -498,6 +507,80 @@ final class IdpProviderApiTest extends TestCase
             ->where('entity_id', $provider->id)
             ->first();
         self::assertNotNull($audit);
+    }
+
+    #[Test]
+    public function preview_health_endpoint_validates_configuration(): void
+    {
+        $this->actingAsAdmin();
+
+        $this->postJson('/admin/idp/providers/preview-health', [
+            'driver' => 'oidc',
+            'config' => [
+                'issuer' => 'https://issuer.example/',
+                'client_id' => 'client-preview',
+                'client_secret' => 'secret-preview',
+            ],
+        ])
+            ->assertStatus(200)
+            ->assertJsonPath('status', IdpHealthCheckResult::STATUS_OK)
+            ->assertJsonStructure(['ok', 'status', 'message', 'checked_at', 'details']);
+    }
+
+    #[Test]
+    public function preview_health_endpoint_returns_validation_errors(): void
+    {
+        $this->actingAsAdmin();
+
+        $this->postJson('/admin/idp/providers/preview-health', [
+            'driver' => 'oidc',
+            'config' => [
+                'client_id' => 'client-invalid',
+            ],
+        ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['config.issuer', 'config.client_secret']);
+    }
+
+    #[Test]
+    public function browse_ldap_endpoint_returns_directory_entries(): void
+    {
+        $this->actingAsAdmin();
+
+        /** @var LdapClientInterface&Mockery\MockInterface $ldap */
+        $ldap = Mockery::mock(LdapClientInterface::class);
+        $ldap->shouldReceive('browse')
+            ->once()
+            ->andReturn([
+                'root' => true,
+                'base_dn' => null,
+                'entries' => [
+                    [
+                        'dn' => 'dc=example,dc=test',
+                        'rdn' => 'dc=example',
+                        'name' => 'example',
+                        'type' => 'context',
+                        'object_class' => [],
+                        'has_children' => true,
+                    ],
+                ],
+            ]);
+
+        app()->instance(LdapClientInterface::class, $ldap);
+
+        $this->postJson('/admin/idp/providers/ldap/browse', [
+            'driver' => 'ldap',
+            'config' => [
+                'host' => 'ldap.example.test',
+                'base_dn' => 'dc=example,dc=test',
+                'bind_strategy' => 'service',
+                'bind_dn' => 'cn=svc,dc=example,dc=test',
+                'bind_password' => 'secret',
+            ],
+        ])
+            ->assertStatus(200)
+            ->assertJsonPath('entries.0.dn', 'dc=example,dc=test')
+            ->assertJsonPath('entries.0.has_children', true);
     }
 
     #[Test]

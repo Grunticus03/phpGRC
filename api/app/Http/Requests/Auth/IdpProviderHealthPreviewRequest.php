@@ -7,11 +7,10 @@ namespace App\Http\Requests\Auth;
 use App\Http\Requests\Auth\Concerns\ValidatesOidcIdpConfig;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rules\In;
-use Illuminate\Validation\Rules\Unique;
 use Illuminate\Validation\Validator;
 use InvalidArgumentException;
 
-final class IdpProviderUpdateRequest extends FormRequest
+final class IdpProviderHealthPreviewRequest extends FormRequest
 {
     use ValidatesOidcIdpConfig;
 
@@ -25,27 +24,10 @@ final class IdpProviderUpdateRequest extends FormRequest
      */
     public function rules(): array
     {
-        /** @var string|null $providerIdentifier */
-        $providerIdentifier = $this->route('provider');
-        $ignoreColumn = is_string($providerIdentifier) && $this->isUlid($providerIdentifier) ? 'id' : 'key';
-
         return [
-            'key' => [
-                'sometimes',
-                'required',
-                'string',
-                'min:3',
-                'max:64',
-                'regex:/^[a-z0-9]+(?:-[a-z0-9]+)*$/',
-                (new Unique('idp_providers', 'key'))->ignore($providerIdentifier, $ignoreColumn),
-            ],
-            'name' => ['sometimes', 'required', 'string', 'min:3', 'max:160'],
-            'driver' => ['sometimes', 'required', 'string', new In(IdpProviderStoreRequest::SUPPORTED_DRIVERS)],
-            'enabled' => ['sometimes', 'boolean'],
-            'evaluation_order' => ['sometimes', 'integer', 'min:1'],
-            'config' => ['sometimes', 'required', 'array'],
+            'driver' => ['required', 'string', new In(IdpProviderStoreRequest::SUPPORTED_DRIVERS)],
+            'config' => ['required', 'array'],
             'meta' => ['sometimes', 'nullable', 'array'],
-            'last_health_at' => ['sometimes', 'nullable', 'date'],
         ];
     }
 
@@ -61,11 +43,7 @@ final class IdpProviderUpdateRequest extends FormRequest
             }
 
             /** @var mixed $configInput */
-            $configInput = $this->input('config', null);
-            if ($configInput === null) {
-                return;
-            }
-
+            $configInput = $this->input('config', []);
             $objectMessage = $driver === 'entra'
                 ? 'OIDC/Entra configuration must be an object.'
                 : 'OIDC configuration must be an object.';
@@ -103,10 +81,6 @@ final class IdpProviderUpdateRequest extends FormRequest
         /** @var array<string,mixed> $data */
         $data = parent::validated($key, $default);
 
-        if (array_key_exists('enabled', $data)) {
-            $data['enabled'] = (bool) $data['enabled'];
-        }
-
         if (array_key_exists('meta', $data)) {
             /** @var mixed $meta */
             $meta = $data['meta'];
@@ -114,14 +88,5 @@ final class IdpProviderUpdateRequest extends FormRequest
         }
 
         return $data;
-    }
-
-    private function isUlid(string $value): bool
-    {
-        if (strlen($value) !== 26) {
-            return false;
-        }
-
-        return preg_match('/^[0-7][0-9A-HJKMNP-TV-Z]{25}$/', $value) === 1;
     }
 }

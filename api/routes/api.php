@@ -10,6 +10,7 @@ use App\Http\Controllers\Audit\AuditExportController;
 use App\Http\Controllers\Auth\AuthOptionsController;
 use App\Http\Controllers\Auth\BreakGlassController;
 use App\Http\Controllers\Auth\IdpProviderController;
+use App\Http\Controllers\Auth\IdpProviderToolsController;
 use App\Http\Controllers\Auth\LdapLoginController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\LogoutController;
@@ -197,6 +198,10 @@ Route::prefix('/admin')
                 ->defaults('policy', 'auth.idp.manage');
 
             Route::post('/saml/metadata/preview', [IdpProviderController::class, 'previewSamlMetadata'])
+                ->defaults('policy', 'auth.idp.manage');
+            Route::post('/preview-health', [IdpProviderToolsController::class, 'previewHealth'])
+                ->defaults('policy', 'auth.idp.manage');
+            Route::post('/ldap/browse', [IdpProviderToolsController::class, 'browseLdap'])
                 ->defaults('policy', 'auth.idp.manage');
 
             Route::post('/{provider}/saml/metadata', [IdpProviderController::class, 'importSamlMetadata'])

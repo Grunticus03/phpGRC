@@ -16,12 +16,14 @@ use App\Services\Auth\SamlMetadataService;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
-use Illuminate\Support\Arr;
 use Illuminate\Validation\ValidationException;
 use InvalidArgumentException;
+use stdClass;
 use Symfony\Component\HttpFoundation\Response;
 
+/**
+ * @SuppressWarnings("PMD.ExcessiveClassComplexity")
+ */
 final class IdpProviderController extends Controller
 {
     public function __construct(
@@ -29,7 +31,7 @@ final class IdpProviderController extends Controller
         private readonly SamlMetadataService $samlMetadata
     ) {}
 
-    public function index(Request $request): JsonResponse
+    public function index(): JsonResponse
     {
         if (! $this->service->persistenceAvailable()) {
             return response()->json([
@@ -194,6 +196,9 @@ final class IdpProviderController extends Controller
         ], 200);
     }
 
+    /**
+     * @SuppressWarnings("PMD.StaticAccess")
+     */
     public function previewSamlMetadata(SamlMetadataRequest $request): JsonResponse
     {
         /** @var array{metadata:string} $payload */
@@ -213,6 +218,9 @@ final class IdpProviderController extends Controller
         ], 200);
     }
 
+    /**
+     * @SuppressWarnings("PMD.StaticAccess")
+     */
     public function importSamlMetadata(SamlMetadataRequest $request, string $provider): JsonResponse
     {
         if (! $this->service->persistenceAvailable()) {
@@ -342,7 +350,7 @@ final class IdpProviderController extends Controller
             'enabled' => $provider->enabled,
             'evaluation_order' => $provider->evaluation_order,
             'config' => $config,
-            'meta' => $meta === [] ? new \stdClass : $meta,
+            'meta' => $meta === [] ? new stdClass : $meta,
             'last_health_at' => $lastHealth instanceof CarbonInterface ? $lastHealth->toAtomString() : null,
             'created_at' => $createdAt instanceof CarbonInterface ? $createdAt->toAtomString() : null,
             'updated_at' => $updatedAt instanceof CarbonInterface ? $updatedAt->toAtomString() : null,
@@ -359,7 +367,6 @@ final class IdpProviderController extends Controller
         }
 
         if (is_array($value)) {
-            /** @var array<string,mixed> $value */
             return $value;
         }
 
@@ -384,7 +391,7 @@ final class IdpProviderController extends Controller
             return $converted;
         }
 
-        return Arr::wrap($value);
+        return [$value];
     }
 
     /**

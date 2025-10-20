@@ -14,6 +14,10 @@ type ConfirmModalProps = {
   confirmDisabled?: boolean;
   initialFocus?: "confirm" | "none";
   hideCancelButton?: boolean;
+  dialogClassName?: string;
+  contentClassName?: string;
+  bodyClassName?: string;
+  footerClassName?: string;
 };
 
 export default function ConfirmModal({
@@ -30,6 +34,10 @@ export default function ConfirmModal({
   confirmDisabled = false,
   initialFocus = "confirm",
   hideCancelButton = false,
+  dialogClassName,
+  contentClassName,
+  bodyClassName,
+  footerClassName,
 }: ConfirmModalProps): JSX.Element | null {
   const confirmButtonRef = useRef<HTMLButtonElement | null>(null);
   const titleId = useId();
@@ -80,8 +88,8 @@ export default function ConfirmModal({
           }
         }}
       >
-        <div className="modal-dialog modal-dialog-centered">
-          <div className="modal-content shadow">
+        <div className={dialogClassName ?? "modal-dialog modal-dialog-centered"}>
+          <div className={contentClassName ?? "modal-content shadow"}>
             <div className="modal-header">
               <h2 className="modal-title fs-5" id={titleId}>
                 {title}
@@ -94,10 +102,10 @@ export default function ConfirmModal({
                 disabled={busy}
               />
             </div>
-            <div className="modal-body" id={children ? bodyId : undefined}>
+            <div className={bodyClassName ?? "modal-body"} id={children ? bodyId : undefined}>
               {children}
             </div>
-            <div className="modal-footer">
+            <div className={footerClassName ?? "modal-footer"}>
               {!hideCancelButton && (
                 <button type="button" className="btn btn-outline-secondary" onClick={onCancel} disabled={busy}>
                   {cancelLabel}

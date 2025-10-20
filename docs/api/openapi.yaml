@@ -274,6 +274,58 @@ paths:
         "422":
           $ref: "#/components/responses/ValidationFailed"
 
+  /admin/idp/providers/preview-health:
+    post:
+      operationId: authPreviewIdpProviderHealth
+      tags: [Auth]
+      summary: Preview Identity Provider health
+      description: Validates Identity Provider configuration without persisting it and returns the health check outcome.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IdpProviderPreviewRequest"
+      responses:
+        "200":
+          description: Health status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IdpProviderHealthResponse"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+
+  /admin/idp/providers/ldap/browse:
+    post:
+      operationId: authBrowseLdapDirectory
+      tags: [Auth]
+      summary: Browse LDAP directory
+      description: Lists naming contexts or direct descendants under the supplied base DN using the provided LDAP configuration.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LdapBrowseRequest"
+      responses:
+        "200":
+          description: Directory entries
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LdapBrowseResponse"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+
   /admin/idp/providers/{provider}/saml/metadata:
     post:
       operationId: authImportSamlMetadata
@@ -3332,6 +3384,22 @@ components:
               additionalProperties: true
             - type: "null"
 
+    IdpProviderPreviewRequest:
+      type: object
+      required: [driver, config]
+      properties:
+        driver:
+          type: string
+          enum: [oidc, saml, ldap, entra]
+        config:
+          type: object
+          additionalProperties: true
+        meta:
+          oneOf:
+            - type: object
+              additionalProperties: true
+            - type: "null"
+
     IdpProviderUpdateRequest:
       type: object
       properties:
@@ -3382,6 +3450,58 @@ components:
         code:
           type: string
           enum: [IDP_PERSISTENCE_DISABLED]
+
+    LdapBrowseRequest:
+      type: object
+      required: [driver, config]
+      properties:
+        driver:
+          type: string
+          enum: [ldap]
+        config:
+          type: object
+          additionalProperties: true
+        base_dn:
+          oneOf:
+            - type: string
+            - type: "null"
+
+    LdapBrowseEntry:
+      type: object
+      required: [dn, rdn, name, type, object_class, has_children]
+      properties:
+        dn:
+          type: string
+        rdn:
+          type: string
+        name:
+          type: string
+        type:
+          type: string
+        object_class:
+          type: array
+          items:
+            type: string
+        has_children:
+          type: boolean
+
+    LdapBrowseResponse:
+      type: object
+      required: [ok, root, entries]
+      properties:
+        ok:
+          type: boolean
+          const: true
+        root:
+          type: boolean
+        base_dn:
+          oneOf:
+            - type: string
+            - type: "null"
+        entries:
+          type: array
+          items:
+            $ref: "#/components/schemas/LdapBrowseEntry"
 
     SamlMetadataRequest:
       type: object
