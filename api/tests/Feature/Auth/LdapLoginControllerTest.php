@@ -19,6 +19,8 @@ final class LdapLoginControllerTest extends TestCase
 
     public function test_ldap_login_issues_token_and_replaces_existing_tokens(): void
     {
+        config()->set('core.auth.bruteforce.enabled', false);
+
         $provider = IdpProvider::query()->create([
             'id' => (string) Str::ulid(),
             'key' => 'ldap-primary',
@@ -90,6 +92,8 @@ final class LdapLoginControllerTest extends TestCase
 
     public function test_ldap_login_returns_forbidden_when_provider_disabled(): void
     {
+        config()->set('core.auth.bruteforce.enabled', false);
+
         IdpProvider::query()->create([
             'id' => (string) Str::ulid(),
             'key' => 'ldap-disabled',
@@ -122,6 +126,8 @@ final class LdapLoginControllerTest extends TestCase
 
     public function test_ldap_login_validates_required_fields(): void
     {
+        config()->set('core.auth.bruteforce.enabled', false);
+
         $response = $this->postJson('/auth/ldap/login', [
             'provider' => 'missing-provider',
             'username' => '',

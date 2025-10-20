@@ -17,6 +17,8 @@ final class AuthAuditTest extends TestCase
 
     public function test_login_logout_totp_emit_audit_events(): void
     {
+        config()->set('core.auth.bruteforce.enabled', false);
+
         $user = User::factory()->create([
             'email' => 'tester@example.com',
             'password' => Hash::make('secret123'),

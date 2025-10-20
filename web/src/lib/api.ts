@@ -302,6 +302,44 @@ export function consumeSessionExpired(): boolean {
 
 export type AuthUser = { id: number; email: string; roles: string[] };
 
+export type AuthOptionsIdpProvider = {
+  id: string;
+  key: string;
+  name: string;
+  driver: string;
+  links?: {
+    authorize?: string | null;
+  };
+};
+
+export type AuthOptionsAutoRedirect = {
+  provider: string;
+  key: string;
+  driver: string;
+  authorize?: string | null;
+};
+
+export type AuthOptions = {
+  ok: boolean;
+  mode: "none" | "local_only" | "idp_only" | "mixed";
+  local: {
+    enabled: boolean;
+    mfa: {
+      totp: {
+        required_for_admin: boolean;
+      };
+    };
+  };
+  idp: {
+    providers: AuthOptionsIdpProvider[];
+  };
+  auto_redirect: AuthOptionsAutoRedirect | null;
+};
+
+export async function fetchAuthOptions(signal?: AbortSignal): Promise<AuthOptions> {
+  return apiGet<AuthOptions>("/api/auth/options", undefined, signal);
+}
+
 type LoginResponse = { ok: boolean; token?: string | null; user?: AuthUser | null };
 type MeResponse = { ok: boolean; user?: AuthUser | null };
 

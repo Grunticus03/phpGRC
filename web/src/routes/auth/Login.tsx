@@ -8,7 +8,14 @@ import {
   type FormEvent,
   type SyntheticEvent,
 } from "react";
-import { consumeIntendedPath, authLogin, consumeSessionExpired } from "../../lib/api";
+import {
+  consumeIntendedPath,
+  authLogin,
+  consumeSessionExpired,
+  fetchAuthOptions,
+  type AuthOptions,
+  type AuthOptionsIdpProvider,
+} from "../../lib/api";
 import {
   getBrandAssetUrl,
   getCachedThemeSettings,
@@ -48,6 +55,38 @@ const LAYOUT3_PAGE_FADE_MS = 500;
 type Layout3View = "email" | "password";
 type Layout3PanelAnimation = "idle" | "enter" | "exit" | "shake";
 
+const SSO_DRIVERS = new Set<string>(["oidc", "entra", "saml"]);
+
+const providerLabel = (provider: AuthOptionsIdpProvider): string => {
+  const name = typeof provider.name === "string" ? provider.name.trim() : "";
+  if (name) return name;
+  return provider.key;
+};
+
+const isSsoProvider = (provider: AuthOptionsIdpProvider): boolean => {
+  if (!provider || typeof provider.driver !== "string") {
+    return false;
+  }
+  return SSO_DRIVERS.has(provider.driver.toLowerCase());
+};
+
+const resolveAuthorizeUrl = (provider: AuthOptionsIdpProvider): string | null => {
+  const driver = typeof provider.driver === "string" ? provider.driver.toLowerCase() : "";
+  const identifier = provider.id || provider.key;
+  if (!identifier) return null;
+  const encoded = encodeURIComponent(identifier);
+
+  switch (driver) {
+    case "oidc":
+    case "entra":
+      return `/api/auth/oidc/authorize?provider=${encoded}`;
+    case "saml":
+      return `/api/auth/saml/redirect?provider=${encoded}`;
+    default:
+      return null;
+  }
+};
+
 export default function Login(): JSX.Element {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -66,6 +105,9 @@ export default function Login(): JSX.Element {
     if (stored) return stored;
     return resolveLoginLayout(getCachedThemeSettings().theme.login?.layout);
   });
+  const [optionsState, setOptionsState] = useState<"loading" | "success" | "error">("loading");
+  const [authOptions, setAuthOptions] = useState<AuthOptions | null>(null);
+  const [optionsError, setOptionsError] = useState<string | null>(null);
   const [loginBackgroundUrl, setLoginBackgroundUrl] = useState<string | null>(() =>
     resolveBrandBackgroundUrl(getCachedThemeSettings(), "login")
   );
@@ -83,7 +125,23 @@ export default function Login(): JSX.Element {
   const passwordInputRef = useRef<HTMLInputElement | null>(null);
   const animationTimers = useRef<number[]>([]);
   const focusFrame = useRef<number | null>(null);
-  const isLayout3 = layout === "layout_3";
+  const autoRedirectRef = useRef(false);
+
+  const authMode = authOptions?.mode ?? "local_only";
+  const allowLocal = authOptions ? authOptions.local.enabled : true;
+  const ssoProviders = useMemo(
+    () => (authOptions?.idp.providers ?? []).filter((provider) => isSsoProvider(provider)),
+    [authOptions]
+  );
+  const showExternalProviders =
+    ssoProviders.length > 0 && (authMode === "mixed" || authMode === "idp_only");
+  const showLocal = allowLocal && authMode !== "idp_only" && authMode !== "none";
+  const signInUnavailable = authMode === "none";
+  const idpOnlyUnsupported = authMode === "idp_only" && !showExternalProviders;
+
+  const layoutIs3 = layout === "layout_3";
+  const isLayout3 = layoutIs3 && showLocal;
+  const isLayout2 = layout === "layout_2" && showLocal;
 
   useEffect(() => {
     if (typeof document !== "undefined") {
@@ -118,6 +176,86 @@ export default function Login(): JSX.Element {
   useEffect(() => {
     void bootstrapTheme({ fetchUserPrefs: false });
   }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setOptionsState("loading");
+    fetchAuthOptions(controller.signal)
+      .then((res) => {
+        setAuthOptions(res);
+        setOptionsState("success");
+        setOptionsError(null);
+      })
+      .catch(() => {
+        if (controller.signal.aborted) return;
+        setOptionsState("error");
+        setOptionsError("Unable to load sign-in options.");
+      });
+
+    return () => controller.abort();
+  }, []);
+
+  const startIdpFlow = useCallback(
+    (provider: AuthOptionsIdpProvider, auto = false) => {
+      const authorizeUrl = provider.links?.authorize ?? resolveAuthorizeUrl(provider);
+      const label = providerLabel(provider);
+
+      if (!authorizeUrl) {
+        setInfo(null);
+        setErr(`Sign-in via ${label} is not available yet.`);
+        return;
+      }
+
+      setErr(null);
+      setInfo(`Redirecting to ${label}...`);
+      setBusy(true);
+      if (auto) {
+        autoRedirectRef.current = true;
+      }
+
+      if (typeof window !== "undefined") {
+        window.location.assign(authorizeUrl);
+      }
+    },
+    []
+  );
+
+  useEffect(() => {
+    if (!authOptions || autoRedirectRef.current) {
+      return;
+    }
+
+    const hint = authOptions.auto_redirect;
+    if (!hint) {
+      return;
+    }
+
+    const fallbackProvider: AuthOptionsIdpProvider = {
+      id: hint.provider,
+      key: hint.key,
+      name: hint.key,
+      driver: hint.driver,
+      links: { authorize: hint.authorize ?? null },
+    };
+
+    const targetProvider =
+      ssoProviders.find((candidate) => candidate.id === hint.provider || candidate.key === hint.key) ??
+      fallbackProvider;
+
+    if (!isSsoProvider(targetProvider)) {
+      return;
+    }
+
+    const mergedProvider: AuthOptionsIdpProvider = {
+      ...targetProvider,
+      links: {
+        ...targetProvider.links,
+        authorize: targetProvider.links?.authorize ?? hint.authorize ?? null,
+      },
+    };
+
+    startIdpFlow(mergedProvider, true);
+  }, [authOptions, ssoProviders, startIdpFlow]);
 
   useEffect(() => {
     if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
@@ -186,7 +324,7 @@ export default function Login(): JSX.Element {
   }, []);
 
   const advanceToPassword = useCallback(() => {
-    if (!isLayout3 || layout3View !== "email" || layout3Transitioning) return;
+    if (!showLocal || !isLayout3 || layout3View !== "email" || layout3Transitioning) return;
     const emailField = emailInputRef.current;
     if (emailField && !emailField.checkValidity()) {
       emailField.reportValidity();
@@ -214,37 +352,45 @@ export default function Login(): JSX.Element {
       }, LAYOUT3_PASSWORD_ENTER_MS);
       setLayout3Transitioning(false);
     }, LAYOUT3_EMAIL_EXIT_MS);
-  }, [isLayout3, layout3View, layout3Transitioning, prefersReducedMotion, schedule]);
+  }, [
+    showLocal,
+    isLayout3,
+    layout3View,
+    layout3Transitioning,
+    prefersReducedMotion,
+    schedule,
+  ]);
 
   const handleBackToEmail = useCallback(() => {
-    if (isLayout3) {
-      if (layout3View !== "password" || pageAnimation === "fading" || layout3Transitioning) return;
-      setErr(null);
-      setBusy(false);
-      setPassword("");
-      if (prefersReducedMotion) {
-        setPasswordAnimation("idle");
-        setLayout3View("email");
-        setEmailAnimation("idle");
-        setLayout3Transitioning(false);
-        return;
-      }
-      setLayout3Transitioning(true);
-      setPasswordAnimation("exit");
-      schedule(() => {
-        setPasswordAnimation((current) => (current === "exit" ? "idle" : current));
-      }, LAYOUT3_PASSWORD_EXIT_MS);
-      schedule(() => {
-        setLayout3View("email");
-        setEmailAnimation("enter");
-        schedule(() => {
-          setEmailAnimation((current) => (current === "enter" ? "idle" : current));
-        }, LAYOUT3_EMAIL_ENTER_MS);
-        setLayout3Transitioning(false);
-      }, LAYOUT3_PASSWORD_EXIT_MS);
+    if (!showLocal || !isLayout3) {
       return;
     }
+    if (layout3View !== "password" || pageAnimation === "fading" || layout3Transitioning) return;
+    setErr(null);
+    setBusy(false);
+    setPassword("");
+    if (prefersReducedMotion) {
+      setPasswordAnimation("idle");
+      setLayout3View("email");
+      setEmailAnimation("idle");
+      setLayout3Transitioning(false);
+      return;
+    }
+    setLayout3Transitioning(true);
+    setPasswordAnimation("exit");
+    schedule(() => {
+      setPasswordAnimation((current) => (current === "exit" ? "idle" : current));
+    }, LAYOUT3_PASSWORD_EXIT_MS);
+    schedule(() => {
+      setLayout3View("email");
+      setEmailAnimation("enter");
+      schedule(() => {
+        setEmailAnimation((current) => (current === "enter" ? "idle" : current));
+      }, LAYOUT3_EMAIL_ENTER_MS);
+      setLayout3Transitioning(false);
+    }, LAYOUT3_PASSWORD_EXIT_MS);
   }, [
+    showLocal,
     isLayout3,
     layout3Transitioning,
     layout3View,
@@ -254,16 +400,16 @@ export default function Login(): JSX.Element {
   ]);
 
   const triggerPasswordShake = useCallback(() => {
-    if (!isLayout3) return;
+    if (!showLocal || !isLayout3) return;
     setPasswordAnimation("shake");
     schedule(() => {
       setPasswordAnimation((current) => (current === "shake" ? "idle" : current));
     }, LAYOUT3_PASSWORD_SHAKE_MS);
-  }, [isLayout3, schedule]);
+  }, [showLocal, isLayout3, schedule]);
 
   const triggerLayout3Success = useCallback(
     (destination: string) => {
-      if (!isLayout3) {
+      if (!showLocal || !isLayout3) {
         if (typeof window !== "undefined") {
           window.location.assign(destination);
         }
@@ -282,11 +428,15 @@ export default function Login(): JSX.Element {
         }
       }, LAYOUT3_PAGE_FADE_MS);
     },
-    [isLayout3, schedule]
+    [showLocal, isLayout3, schedule]
   );
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!showLocal) {
+      return;
+    }
+
     if (isLayout3 && layout3View === "email") {
       advanceToPassword();
       return;
@@ -309,6 +459,7 @@ export default function Login(): JSX.Element {
       if (isLayout3) {
         triggerPasswordShake();
       }
+      setInfo(null);
     } finally {
       if (isLayout3 && didSucceed) {
         // keep progress indicator active until animation completes
@@ -319,7 +470,6 @@ export default function Login(): JSX.Element {
   }
 
   const displayLogo = useMemo(() => logoSrc ?? DEFAULT_LOGO_SRC, [logoSrc]);
-  const isLayout2 = layout === "layout_2";
   const handleLogoError = (event: SyntheticEvent<HTMLImageElement>) => {
     event.currentTarget.onerror = null;
     event.currentTarget.src = DEFAULT_LOGO_SRC;
@@ -559,6 +709,51 @@ export default function Login(): JSX.Element {
     </div>
   );
 
+  const externalProviders = showExternalProviders ? (
+    <div
+      className="mt-4 w-100"
+      style={{ maxWidth: showLocal && !isLayout3 ? (isLayout2 ? "520px" : "420px") : "420px" }}
+    >
+      {!showLocal && hasFeedback ? <div className="mb-3">{feedback}</div> : null}
+      <div className="text-center text-muted small mb-2">
+        {showLocal ? "Or continue with" : "Sign in with"}
+      </div>
+      <div className="d-flex flex-column gap-2">
+        {ssoProviders.map((provider) => (
+          <button
+            key={provider.id}
+            type="button"
+            className="btn btn-outline-primary btn-lg"
+            onClick={() => startIdpFlow(provider)}
+            disabled={busy}
+          >
+            {providerLabel(provider)}
+          </button>
+        ))}
+      </div>
+    </div>
+  ) : null;
+
+  const localContent = showLocal ? (isLayout3 ? layout3 : isLayout2 ? layout2 : layout1) : null;
+
+  const optionsErrorNotice = optionsState === "error" && optionsError ? (
+    <div className="alert alert-warning text-center py-2 w-100" style={{ maxWidth: "420px" }} role="status">
+      {optionsError}
+    </div>
+  ) : null;
+
+  const unavailableNotice = signInUnavailable ? (
+    <div className="alert alert-warning text-center py-3 w-100" style={{ maxWidth: "420px" }} role="alert">
+      Sign-in is temporarily disabled. Please contact your administrator.
+    </div>
+  ) : null;
+
+  const unsupportedNotice = idpOnlyUnsupported ? (
+    <div className="alert alert-info text-center py-3 w-100" style={{ maxWidth: "420px" }} role="alert">
+      External provider sign-in is not yet available in this build.
+    </div>
+  ) : null;
+
   const containerStyle: CSSProperties = useMemo(() => {
     const style: CSSProperties = {
       backgroundColor: "var(--bs-body-bg)",
@@ -578,7 +773,11 @@ export default function Login(): JSX.Element {
       className="d-flex flex-column min-vh-100 align-items-center justify-content-center px-3"
       style={containerStyle}
     >
-      {isLayout3 ? layout3 : isLayout2 ? layout2 : layout1}
+      {optionsErrorNotice}
+      {unavailableNotice}
+      {localContent}
+      {!showLocal && !signInUnavailable ? unsupportedNotice : null}
+      {externalProviders}
     </div>
   );
 }

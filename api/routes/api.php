@@ -7,6 +7,7 @@ use App\Http\Controllers\Admin\SettingsController;
 use App\Http\Controllers\Admin\UsersController;
 use App\Http\Controllers\Audit\AuditController;
 use App\Http\Controllers\Audit\AuditExportController;
+use App\Http\Controllers\Auth\AuthOptionsController;
 use App\Http\Controllers\Auth\BreakGlassController;
 use App\Http\Controllers\Auth\IdpProviderController;
 use App\Http\Controllers\Auth\LdapLoginController;
@@ -38,6 +39,7 @@ use App\Http\Controllers\Settings\UiSettingsController as UiSettingsApiControlle
 use App\Http\Controllers\Settings\UiThemeManifestController;
 use App\Http\Controllers\User\UiPreferencesController;
 use App\Http\Middleware\Auth\BruteForceGuard;
+use App\Http\Middleware\Auth\LocalAuthEnabled;
 use App\Http\Middleware\Auth\RequireSanctumWhenRequired;
 use App\Http\Middleware\Auth\TokenCookieGuard;
 use App\Http\Middleware\BreakGlassGuard;
@@ -142,11 +144,12 @@ HTML;
  | Auth (token)
  |--------------------------------------------------------------------------
 */
-Route::post('/auth/login', [LoginController::class,  'login'])->middleware(BruteForceGuard::class);
+Route::post('/auth/login', [LoginController::class,  'login'])->middleware([LocalAuthEnabled::class, BruteForceGuard::class]);
 Route::post('/auth/oidc/login', [OidcLoginController::class, 'login']);
 Route::post('/auth/ldap/login', [LdapLoginController::class, 'login'])->middleware(BruteForceGuard::class);
 Route::post('/auth/logout', [LogoutController::class, 'logout'])->middleware(['auth.cookie', 'auth:sanctum']);
 Route::get('/auth/me', [MeController::class,     'me'])->middleware(['auth.cookie', 'auth:sanctum']);
+Route::get('/auth/options', [AuthOptionsController::class, 'show']);
 
 Route::post('/auth/totp/enroll', [TotpController::class, 'enroll']);
 Route::post('/auth/totp/verify', [TotpController::class, 'verify']);
