@@ -150,6 +150,76 @@ final class IdpProviderApiTest extends TestCase
     }
 
     #[Test]
+    public function store_accepts_entra_configuration_and_infers_issuer(): void
+    {
+        $this->actingAsAdmin();
+
+        $payload = [
+            'key' => 'entra-primary',
+            'name' => 'Entra Primary',
+            'driver' => 'entra',
+            'enabled' => true,
+            'config' => [
+                'tenant_id' => '12345678-90ab-cdef-1234-567890abcdef',
+                'client_id' => 'client-entra',
+                'client_secret' => 'super-secret',
+            ],
+        ];
+
+        $this->postJson('/admin/idp/providers', $payload)
+            ->assertStatus(201)
+            ->assertJsonPath('ok', true)
+            ->assertJsonPath('provider.driver', 'entra')
+            ->assertJsonPath('provider.config.tenant_id', '12345678-90ab-cdef-1234-567890abcdef');
+
+        /** @var IdpProvider $provider */
+        $provider = IdpProvider::query()->firstWhere('key', 'entra-primary');
+        self::assertNotNull($provider);
+        self::assertSame('entra', $provider->driver);
+
+        $config = $provider->config;
+        self::assertSame('12345678-90ab-cdef-1234-567890abcdef', $config['tenant_id'] ?? null);
+        self::assertSame(
+            'https://login.microsoftonline.com/12345678-90ab-cdef-1234-567890abcdef/v2.0',
+            $config['issuer'] ?? null
+        );
+        self::assertSame('client-entra', $config['client_id'] ?? null);
+        self::assertSame('super-secret', $config['client_secret'] ?? null);
+
+        $raw = $provider->getRawOriginal('config');
+        self::assertIsString($raw);
+        self::assertStringNotContainsString('super-secret', $raw);
+    }
+
+    #[Test]
+    public function store_requires_tenant_id_for_entra_providers(): void
+    {
+        $this->actingAsAdmin();
+
+        $payload = [
+            'key' => 'entra-missing',
+            'name' => 'Entra Missing Tenant',
+            'driver' => 'entra',
+            'enabled' => true,
+            'config' => [
+                'client_id' => 'client-entra',
+                'client_secret' => 'super-secret',
+            ],
+        ];
+
+        $response = $this->postJson('/admin/idp/providers', $payload)
+            ->assertStatus(422);
+
+        $response->assertJsonValidationErrorFor('config.tenant_id');
+        /** @var array<string,list<string>> $errors */
+        $errors = $response->json('errors') ?? [];
+        self::assertSame(
+            'Tenant ID is required for Entra providers.',
+            $errors['config.tenant_id'][0] ?? null
+        );
+    }
+
+    #[Test]
     public function show_returns_provider_by_key(): void
     {
         $this->actingAsAdmin();

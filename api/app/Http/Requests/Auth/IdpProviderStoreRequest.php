@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace App\Http\Requests\Auth;
 
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\In;
+use Illuminate\Validation\Rules\Unique;
 use Illuminate\Validation\Validator;
+use InvalidArgumentException;
 
 final class IdpProviderStoreRequest extends FormRequest
 {
@@ -34,10 +36,10 @@ final class IdpProviderStoreRequest extends FormRequest
                 'min:3',
                 'max:64',
                 'regex:/^[a-z0-9]+(?:-[a-z0-9]+)*$/',
-                Rule::unique('idp_providers', 'key'),
+                new Unique('idp_providers', 'key'),
             ],
             'name' => ['required', 'string', 'min:3', 'max:160'],
-            'driver' => ['required', 'string', Rule::in(self::SUPPORTED_DRIVERS)],
+            'driver' => ['required', 'string', new In(self::SUPPORTED_DRIVERS)],
             'enabled' => ['sometimes', 'boolean'],
             'evaluation_order' => ['sometimes', 'integer', 'min:1'],
             'config' => ['required', 'array'],
@@ -52,28 +54,25 @@ final class IdpProviderStoreRequest extends FormRequest
             /** @var mixed $driverInput */
             $driverInput = $this->input('driver');
             $driver = is_string($driverInput) ? $driverInput : '';
-            if ($driver === 'oidc') {
-                /** @var mixed $configInput */
-                $configInput = $this->input('config', []);
-                if (! is_array($configInput)) {
-                    $validator->errors()->add('config', 'OIDC configuration must be an object.');
 
-                    return;
-                }
-
-                /** @var array<string,mixed> $configArray */
-                $configArray = $configInput;
-
-                foreach (['issuer', 'client_id', 'client_secret'] as $field) {
-                    if (
-                        ! array_key_exists($field, $configArray)
-                        || ! is_string($configArray[$field])
-                        || trim($configArray[$field]) === ''
-                    ) {
-                        $validator->errors()->add("config.$field", 'This field is required for OIDC providers.');
-                    }
-                }
+            if (! in_array($driver, ['oidc', 'entra'], true)) {
+                return;
             }
+
+            /** @var mixed $configInput */
+            $configInput = $this->input('config', []);
+            $objectMessage = $driver === 'entra'
+                ? 'OIDC/Entra configuration must be an object.'
+                : 'OIDC configuration must be an object.';
+            if (! is_array($configInput)) {
+                $validator->errors()->add('config', $objectMessage);
+
+                return;
+            }
+
+            /** @var array<string,mixed> $config */
+            $config = $configInput;
+            $this->validateOidcConfig($validator, $config, $driver);
         });
     }
 
@@ -89,7 +88,7 @@ final class IdpProviderStoreRequest extends FormRequest
             /** @var list<string> $key */
             $key = array_map(static function (mixed $value): string {
                 if (! is_string($value) && ! is_int($value)) {
-                    throw new \InvalidArgumentException('Validation key must be string or int.');
+                    throw new InvalidArgumentException('Validation key must be string or int.');
                 }
 
                 return (string) $value;
@@ -110,5 +109,80 @@ final class IdpProviderStoreRequest extends FormRequest
         }
 
         return $data;
+    }
+
+    /**
+     * @param  array<string,mixed>  $config
+     */
+    private function validateOidcConfig(Validator $validator, array $config, string $driver): void
+    {
+        $contextLabel = $driver === 'entra' ? 'OIDC/Entra' : 'OIDC';
+        $this->validateOidcIssuer($validator, $config, $driver, $contextLabel);
+        $this->validateConfigStringField($validator, $config, 'client_id', $contextLabel);
+        $this->validateConfigStringField($validator, $config, 'client_secret', $contextLabel);
+
+        if ($driver === 'entra') {
+            $this->validateTenantId($validator, $config);
+        }
+    }
+
+    /**
+     * @param  array<string,mixed>  $config
+     */
+    private function validateOidcIssuer(Validator $validator, array $config, string $driver, string $contextLabel): void
+    {
+        if ($driver === 'entra' && ! array_key_exists('issuer', $config)) {
+            return;
+        }
+
+        $this->validateConfigStringField($validator, $config, 'issuer', $contextLabel);
+    }
+
+    /**
+     * @param  array<string,mixed>  $config
+     */
+    private function validateConfigStringField(Validator $validator, array $config, string $field, string $contextLabel): void
+    {
+        if (! array_key_exists($field, $config)) {
+            $validator->errors()->add("config.$field", "This field is required for {$contextLabel} providers.");
+
+            return;
+        }
+
+        /** @var mixed $raw */
+        $raw = $config[$field];
+        if (! is_string($raw)) {
+            $validator->errors()->add("config.$field", "This field is required for {$contextLabel} providers.");
+
+            return;
+        }
+
+        if (trim($raw) === '') {
+            $validator->errors()->add("config.$field", "This field is required for {$contextLabel} providers.");
+        }
+    }
+
+    /**
+     * @param  array<string,mixed>  $config
+     */
+    private function validateTenantId(Validator $validator, array $config): void
+    {
+        if (! array_key_exists('tenant_id', $config)) {
+            $validator->errors()->add('config.tenant_id', 'Tenant ID is required for Entra providers.');
+
+            return;
+        }
+
+        /** @var mixed $raw */
+        $raw = $config['tenant_id'];
+        if (! is_string($raw)) {
+            $validator->errors()->add('config.tenant_id', 'Tenant ID is required for Entra providers.');
+
+            return;
+        }
+
+        if (trim($raw) === '') {
+            $validator->errors()->add('config.tenant_id', 'Tenant ID is required for Entra providers.');
+        }
     }
 }

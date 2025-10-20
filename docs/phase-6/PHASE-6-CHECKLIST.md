@@ -22,7 +22,7 @@ Trackable tasks for the Phase 6 Integrations program. Keep items unchecked until
 - [x] Deliver OIDC provider support (token validation, JIT provisioning with role templates).
 - [x] Add SAML support with metadata import/export.
 - [x] Add LDAP support (bind strategy, search filters, TLS requirements).
-- [ ] Add Entra ID support leveraging OIDC implementation.
+- [x] Add Entra ID support leveraging OIDC implementation.
 - [ ] Validate MFA interplay (IdP-asserted claims + local TOTP fallback).
 - [ ] Update API docs and Admin guides with configuration steps.
 
