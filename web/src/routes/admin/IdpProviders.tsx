@@ -230,17 +230,21 @@ function firstErrorMessage(candidate: unknown): string | undefined {
 function parseHttpError(error: HttpError<unknown>, fallback: string): {
   message: string;
   fieldErrors: Record<string, string>;
+  detail?: unknown;
 } {
   const fieldErrors: Record<string, string> = {};
-  const defaultMessage = (error.message ?? fallback).trim() || fallback;
-  let message = defaultMessage;
+  const messageCandidates: string[] = [];
+  let detail: unknown;
 
   const body = error.body;
   if (body && typeof body === "object" && !Array.isArray(body)) {
     const bodyRecord = body as Record<string, unknown>;
     const explicitMessage = bodyRecord.message;
-    if (typeof explicitMessage === "string" && explicitMessage.trim() !== "") {
-      message = explicitMessage.trim();
+    if (typeof explicitMessage === "string") {
+      const trimmed = explicitMessage.trim();
+      if (trimmed !== "") {
+        messageCandidates.push(trimmed);
+      }
     }
 
     const errors = bodyRecord.errors;
@@ -251,9 +255,7 @@ function parseHttpError(error: HttpError<unknown>, fallback: string): {
 
         const targets = mapApiErrorKey(key);
         if (targets.length === 0) {
-          if (message === defaultMessage) {
-            message = text;
-          }
+          messageCandidates.push(text);
           continue;
         }
 
@@ -264,13 +266,82 @@ function parseHttpError(error: HttpError<unknown>, fallback: string): {
         });
       }
     }
+
+    detail = bodyRecord.details ?? bodyRecord.detail ?? bodyRecord.error ?? body;
+    const detailMessage = extractDetailMessage(detail);
+    if (detailMessage) {
+      messageCandidates.push(detailMessage);
+    }
+  } else if (typeof body === "string") {
+    const trimmed = body.trim();
+    if (trimmed !== "") {
+      messageCandidates.push(trimmed);
+    }
   }
 
+  Object.values(fieldErrors)
+    .map((value) => value?.trim())
+    .filter((value): value is string => Boolean(value))
+    .forEach((value) => messageCandidates.push(value));
+
+  const defaultMessage = (error.message ?? "").trim();
+  if (defaultMessage !== "") {
+    messageCandidates.push(defaultMessage);
+  }
+
+  let message = messageCandidates.find((candidate) => candidate && candidate.trim() !== "") ?? fallback;
   if (!message || message.trim() === "") {
     message = fallback;
   }
 
-  return { message, fieldErrors };
+  return { message, fieldErrors, detail };
+}
+
+function extractDetailMessage(value: unknown): string | undefined {
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    return trimmed === "" ? undefined : trimmed;
+  }
+
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const candidate = extractDetailMessage(item);
+      if (candidate) {
+        return candidate;
+      }
+    }
+
+    return undefined;
+  }
+
+  if (value && typeof value === "object") {
+    for (const entry of Object.values(value as Record<string, unknown>)) {
+      const candidate = extractDetailMessage(entry);
+      if (candidate) {
+        return candidate;
+      }
+    }
+  }
+
+  return undefined;
+}
+
+function formatUnknownError(reason: unknown, fallback: string): string {
+  if (reason instanceof Error) {
+    const trimmed = reason.message?.trim();
+    if (trimmed) {
+      return trimmed;
+    }
+  }
+
+  if (typeof reason === "string") {
+    const trimmed = reason.trim();
+    if (trimmed !== "") {
+      return trimmed;
+    }
+  }
+
+  return fallback;
 }
 
 export default function IdpProviders(): JSX.Element {
@@ -306,6 +377,32 @@ export default function IdpProviders(): JSX.Element {
   const [ldapBrowserBaseDn, setLdapBrowserBaseDn] = useState<string | null>(null);
   const normalizedTestStatus = typeof testResult?.status === "string" ? testResult.status : null;
   const testStatusBadgeLabel = (normalizedTestStatus ?? "error").toUpperCase();
+  const testCheckedAtLabel = useMemo(() => {
+    if (!testResult?.checked_at) {
+      return null;
+    }
+    const parsed = new Date(testResult.checked_at);
+    if (Number.isNaN(parsed.getTime())) {
+      return null;
+    }
+    return parsed.toLocaleString(undefined, { hour12: false });
+  }, [testResult]);
+  const resolvedTestMessage = useMemo(() => {
+    if (!testResult) {
+      return null;
+    }
+    const raw = typeof testResult.message === "string" ? testResult.message.trim() : "";
+    if (raw !== "") {
+      return raw;
+    }
+    if (testResult.status === "ok") {
+      return "Health check completed.";
+    }
+    if (testResult.status === "warning") {
+      return "Health check completed with warnings.";
+    }
+    return "Health check failed.";
+  }, [testResult]);
 
   const clearTestFeedback = useCallback(() => {
     setTestResult(null);
@@ -902,8 +999,9 @@ export default function IdpProviders(): JSX.Element {
 
         applyOidcMetadata(driver, parsed as Record<string, unknown>, { url: trimmedUrl });
         toast.success("Metadata loaded. Review and complete any required secrets.");
-      } catch {
-        toast.danger("Failed to fetch metadata. Enter the details manually.");
+      } catch (error) {
+        const fallback = "Failed to fetch metadata. Enter the details manually.";
+        toast.danger(formatUnknownError(error, fallback));
       } finally {
         setMetadataLoading((prev) => ({ ...prev, [driver]: false }));
       }
@@ -983,11 +1081,12 @@ export default function IdpProviders(): JSX.Element {
         toast.success("Metadata parsed. Review the pre-filled fields.");
         return true;
       } catch (error) {
+        const fallback = "Failed to parse metadata. Ensure the document is valid XML.";
         if (error instanceof HttpError) {
-          const { message } = parseHttpError(error, "Failed to parse metadata. Ensure the document is valid XML.");
+          const { message } = parseHttpError(error, fallback);
           toast.danger(message);
         } else {
-          toast.danger("Failed to parse metadata. Ensure the document is valid XML.");
+          toast.danger(formatUnknownError(error, fallback));
         }
         return false;
       }
@@ -1015,15 +1114,13 @@ export default function IdpProviders(): JSX.Element {
       updateFieldError("saml.metadataUrl");
       toast.success("Metadata parsed. Review the pre-filled fields.");
     } catch (error) {
+      const fallback = "Failed to download metadata. Verify the URL and CORS settings.";
       if (error instanceof HttpError) {
-        const { message, fieldErrors } = parseHttpError(
-          error,
-          "Failed to download metadata. Verify the URL and CORS settings."
-        );
+        const { message, fieldErrors } = parseHttpError(error, fallback);
         Object.entries(fieldErrors).forEach(([field, msg]) => updateFieldError(field, msg));
         toast.danger(message);
       } else {
-        toast.danger("Failed to download metadata. Verify the URL and CORS settings.");
+        toast.danger(formatUnknownError(error, fallback));
       }
     } finally {
       setMetadataLoading((prev) => ({ ...prev, saml: false }));
@@ -1090,17 +1187,22 @@ export default function IdpProviders(): JSX.Element {
       setTestError(null);
     } catch (error) {
       if (error instanceof HttpError) {
-        const { message, fieldErrors } = parseHttpError(
+        const fallback = "Failed to run health check. Please try again.";
+        const { message, fieldErrors, detail } = parseHttpError(
           error,
-          "Failed to run health check. Please try again."
+          fallback
         );
         Object.entries(fieldErrors).forEach(([field, msg]) => updateFieldError(field, msg));
 
         const body = error.body;
-        const details: Record<string, unknown> =
-          body && typeof body === "object" && !Array.isArray(body)
-            ? (body as Record<string, unknown>)
-            : { raw: body };
+        let details: Record<string, unknown>;
+        if (body && typeof body === "object" && !Array.isArray(body)) {
+          details = body as Record<string, unknown>;
+        } else if (detail && typeof detail === "object" && !Array.isArray(detail)) {
+          details = detail as Record<string, unknown>;
+        } else {
+          details = { raw: detail ?? body };
+        }
 
         setTestResult({
           ok: false,
@@ -1109,10 +1211,18 @@ export default function IdpProviders(): JSX.Element {
           checked_at: new Date().toISOString(),
           details,
         });
-        setTestError(message);
+        setTestError(null);
       } else {
-        setTestResult(null);
-        setTestError("Failed to run health check. Please try again.");
+        const fallback = "Failed to run health check. Please try again.";
+        const message = formatUnknownError(error, fallback);
+        setTestResult({
+          ok: false,
+          status: "error",
+          message,
+          checked_at: new Date().toISOString(),
+          details: { error: message },
+        });
+        setTestError(null);
       }
     } finally {
       setTestBusy(false);
@@ -1169,19 +1279,28 @@ export default function IdpProviders(): JSX.Element {
           base_dn: targetBaseDn ?? null,
         });
 
-        setLdapBrowserEntries(Array.isArray(response.entries) ? response.entries : []);
-        setLdapBrowserBaseDn(response.base_dn ?? targetBaseDn);
+        const entries = Array.isArray(response.entries) ? response.entries : [];
+        const resolvedBaseDn = response.base_dn ?? targetBaseDn ?? null;
+
+        setLdapBrowserEntries(entries);
+        setLdapBrowserBaseDn(resolvedBaseDn);
         setLdapBrowserPath(nextPath);
+
+        if (entries.length === 0) {
+          if (response.root) {
+            setLdapBrowserError("The server did not return any naming contexts. Provide the Base DN manually or verify browse permissions.");
+          } else {
+            setLdapBrowserError("No entries were returned for this branch. Confirm the Base DN and account permissions.");
+          }
+        }
       } catch (error) {
+        const fallback = "Unable to browse the directory. Check connection details and try again.";
         if (error instanceof HttpError) {
-          const { message, fieldErrors } = parseHttpError(
-            error,
-            "Unable to browse the directory. Check connection details and try again."
-          );
+          const { message, fieldErrors } = parseHttpError(error, fallback);
           Object.entries(fieldErrors).forEach(([field, msg]) => updateFieldError(field, msg));
           setLdapBrowserError(message);
         } else {
-          setLdapBrowserError("Unable to browse the directory. Check connection details and try again.");
+          setLdapBrowserError(formatUnknownError(error, fallback));
         }
         setLdapBrowserEntries([]);
       } finally {
@@ -1192,13 +1311,16 @@ export default function IdpProviders(): JSX.Element {
   );
 
   const openLdapBrowser = useCallback(() => {
+    const configuredBase = form.ldap.baseDn.trim();
+    const initialBaseDn = configuredBase !== "" ? configuredBase : null;
+
     setLdapBrowserError(null);
     setLdapBrowserEntries([]);
-    setLdapBrowserPath([]);
-    setLdapBrowserBaseDn(null);
+    setLdapBrowserPath(initialBaseDn ? [initialBaseDn] : []);
+    setLdapBrowserBaseDn(initialBaseDn);
     setLdapBrowserOpen(true);
-    void loadLdapDirectory(null, []);
-  }, [loadLdapDirectory]);
+    void loadLdapDirectory(initialBaseDn, initialBaseDn ? [initialBaseDn] : []);
+  }, [form.ldap.baseDn, loadLdapDirectory]);
 
   const closeLdapBrowser = useCallback(() => {
     if (ldapBrowserBusy) {
@@ -2389,11 +2511,11 @@ export default function IdpProviders(): JSX.Element {
               ) : null}
               {testResult ? (
                 <span className="text-muted small">
-                  Checked {new Date(testResult.checked_at).toLocaleString(undefined, { hour12: false })}
+                  {testCheckedAtLabel ? `Checked ${testCheckedAtLabel}` : "Checked moments ago"}
                 </span>
               ) : null}
             </div>
-            {testError ? (
+            {testError && !testResult ? (
               <div className="alert alert-danger mt-3 mb-0" role="alert">
                 {testError}
               </div>
@@ -2409,7 +2531,7 @@ export default function IdpProviders(): JSX.Element {
                 }`}
                 role="status"
               >
-                <div className="fw-semibold mb-1">{testResult.message}</div>
+                <div className="fw-semibold mb-1">{resolvedTestMessage}</div>
                 {Object.keys(testResult.details ?? {}).length > 0 ? (
                   <pre className="mt-2 mb-0 bg-body-secondary border rounded p-2 small overflow-auto">
                     {JSON.stringify(testResult.details, null, 2)}
