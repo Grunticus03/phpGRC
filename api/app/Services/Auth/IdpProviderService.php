@@ -24,6 +24,14 @@ use function ctype_digit;
 
 /**
  * Application service for managing external Identity Providers.
+ *
+ * @SuppressWarnings("PMD.ExcessiveClassComplexity")
+ * @SuppressWarnings("PMD.CyclomaticComplexity")
+ * @SuppressWarnings("PMD.NPathComplexity")
+ * @SuppressWarnings("PMD.TooManyMethods")
+ * @SuppressWarnings("PMD.StaticAccess")
+ * @SuppressWarnings("PMD.BooleanFlagArgument")
+ * @SuppressWarnings("PMD.ElseExpression")
  */
 final class IdpProviderService
 {
@@ -61,6 +69,7 @@ final class IdpProviderService
 
         /** @var IdpProvider $provider */
         $provider = DB::transaction(function () use ($payload): IdpProvider {
+            $prepared = $this->prepareCreatePayload($payload);
             $requestedOrder = array_key_exists('evaluation_order', $payload) && is_int($payload['evaluation_order'])
                 ? $payload['evaluation_order']
                 : null;
@@ -69,7 +78,7 @@ final class IdpProviderService
 
             $provider = new IdpProvider;
             $provider->id = (string) Str::ulid();
-            $provider->fill(array_merge($payload, ['evaluation_order' => $order]));
+            $provider->fill(array_merge($prepared, ['evaluation_order' => $order]));
             $provider->save();
 
             return $provider->refresh();
@@ -240,6 +249,9 @@ final class IdpProviderService
     /**
      * @param  array<string,mixed>  $attributes
      * @return array<string,mixed>
+     *
+     * @SuppressWarnings("PMD.BooleanFlagArgument")
+     * @SuppressWarnings("PMD.ExcessiveMethodLength")
      */
     private function sanitizeAttributes(array $attributes, bool $isUpdate = false, ?string $currentDriver = null): array
     {
@@ -254,10 +266,6 @@ final class IdpProviderService
             'meta',
             'last_health_at',
         ]);
-
-        if (! $isUpdate && ! array_key_exists('key', $payload)) {
-            throw new InvalidArgumentException('Provider key is required.');
-        }
 
         if (! $isUpdate && ! array_key_exists('driver', $payload)) {
             throw new InvalidArgumentException('Provider driver is required.');
@@ -634,6 +642,66 @@ final class IdpProviderService
         return $normalized;
     }
 
+    /**
+     * @param  array<string,mixed>  $payload
+     * @return array<string,mixed>
+     */
+    private function prepareCreatePayload(array $payload): array
+    {
+        $prepared = $payload;
+
+        /** @var mixed $rawKey */
+        $rawKey = $prepared['key'] ?? null;
+        $key = is_string($rawKey) ? $rawKey : null;
+        if (! is_string($key) || trim($key) === '') {
+            $key = $this->generateKey();
+        }
+
+        $prepared['key'] = $this->normalizeKey($key);
+
+        /** @var mixed $rawMeta */
+        $rawMeta = $prepared['meta'] ?? [];
+        $meta = is_array($rawMeta) ? $rawMeta : [];
+        $meta['reference'] = $this->nextReference();
+
+        $prepared['meta'] = $meta;
+
+        return $prepared;
+    }
+
+    private function generateKey(): string
+    {
+        return Str::lower((string) Str::ulid());
+    }
+
+    private function nextReference(): int
+    {
+        $max = 0;
+
+        $existing = IdpProvider::query()->lockForUpdate()->get(['meta']);
+        foreach ($existing as $provider) {
+            /** @var mixed $meta */
+            $meta = $provider->getAttribute('meta');
+            if (! is_array($meta)) {
+                continue;
+            }
+
+            /** @var mixed $reference */
+            $reference = $meta['reference'] ?? null;
+            if (is_int($reference)) {
+                $max = max($max, $reference);
+
+                continue;
+            }
+
+            if (is_numeric($reference)) {
+                $max = max($max, (int) $reference);
+            }
+        }
+
+        return $max + 1;
+    }
+
     private function normalizeDriver(string $driver): string
     {
         $normalized = Str::of($driver)
@@ -718,6 +786,9 @@ final class IdpProviderService
         }
     }
 
+    /**
+     * @SuppressWarnings("PMD.BooleanFlagArgument")
+     */
     private function shiftRangeDown(int $start, ?int $end, ?string $excludeId = null, bool $collapse = false): void
     {
         if ($end !== null && $end < $start) {

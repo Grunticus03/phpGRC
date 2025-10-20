@@ -76,6 +76,7 @@ describe("Admin IdP Providers page", () => {
         evaluation_order: 1,
         config: {},
         meta: null,
+        reference: 1,
         last_health_at: null,
         created_at: "2025-02-01T00:00:00Z",
         updated_at: "2025-02-01T00:00:00Z",
@@ -89,6 +90,7 @@ describe("Admin IdP Providers page", () => {
         evaluation_order: 2,
         config: {},
         meta: null,
+        reference: 2,
         last_health_at: null,
         created_at: "2025-02-01T00:00:00Z",
         updated_at: "2025-02-01T00:00:00Z",
@@ -164,6 +166,7 @@ describe("Admin IdP Providers page", () => {
         evaluation_order: 1,
         config: {},
         meta: null,
+        reference: 1,
         last_health_at: null,
         created_at: "2025-01-01T00:00:00Z",
         updated_at: "2025-01-01T00:00:00Z",
@@ -177,6 +180,7 @@ describe("Admin IdP Providers page", () => {
         evaluation_order: 2,
         config: {},
         meta: null,
+        reference: 2,
         last_health_at: null,
         created_at: "2025-01-02T00:00:00Z",
         updated_at: "2025-01-02T00:00:00Z",
@@ -269,7 +273,6 @@ describe("Admin IdP Providers page", () => {
       if (method === "POST" && /\/admin\/idp\/providers$/.test(url)) {
         const body = JSON.parse(String(init?.body ?? "{}"));
         expect(body).toEqual({
-          key: "new-idp",
           name: "New IdP",
           driver: "oidc",
           enabled: true,
@@ -285,15 +288,20 @@ describe("Admin IdP Providers page", () => {
           },
         });
 
+        const generatedKey = "01J7ZF2YB4N9M1X5V6Q8R0S2TU";
         const created = {
           id: "01JCREATE01",
-          key: body.key,
+          key: generatedKey,
           name: body.name,
           driver: body.driver,
           enabled: body.enabled,
           evaluation_order: 1,
           config: body.config,
-          meta: body.meta,
+          meta: {
+            ...body.meta,
+            reference: 1,
+          },
+          reference: 1,
           last_health_at: null,
           created_at: "2025-03-01T00:00:00Z",
           updated_at: "2025-03-01T00:00:00Z",
@@ -318,10 +326,6 @@ describe("Admin IdP Providers page", () => {
 
     const dialog = await screen.findByRole("dialog");
     expect(within(dialog).getByText(/add identity provider/i)).toBeInTheDocument();
-
-    const keyInput = within(dialog).getByLabelText(/provider key/i);
-    await user.clear(keyInput);
-    await user.type(keyInput, "new-idp");
 
     const nameInput = within(dialog).getByLabelText(/display name/i);
     await user.clear(nameInput);

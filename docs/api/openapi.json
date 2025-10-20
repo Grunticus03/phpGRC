@@ -5334,6 +5334,7 @@
           "driver",
           "enabled",
           "evaluation_order",
+          "reference",
           "config",
           "meta",
           "created_at",
@@ -5365,6 +5366,11 @@
             "type": "integer",
             "minimum": 1,
             "description": "Evaluation order (1 = highest priority)"
+          },
+          "reference": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Stable numeric reference assigned on creation"
           },
           "config": {
             "type": "object",
@@ -5553,7 +5559,6 @@
       "IdpProviderRequest": {
         "type": "object",
         "required": [
-          "key",
           "name",
           "driver",
           "config"
@@ -5561,7 +5566,8 @@
         "properties": {
           "key": {
             "type": "string",
-            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+            "description": "Optional override for the generated provider key"
           },
           "name": {
             "type": "string",

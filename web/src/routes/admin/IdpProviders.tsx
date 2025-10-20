@@ -61,7 +61,6 @@ type LdapFormState = {
 };
 
 type FormState = {
-  key: string;
   name: string;
   driver: IdpProviderDriver;
   enabled: boolean;
@@ -88,7 +87,6 @@ const DRIVER_OPTIONS: Array<{ value: IdpProviderDriver; label: string }> = [
 
 function createDefaultFormState(): FormState {
   return {
-    key: "",
     name: "",
     driver: "oidc",
     enabled: true,
@@ -366,16 +364,6 @@ export default function IdpProviders(): JSX.Element {
       const fieldErrors: Record<string, string> = {};
       const skipIdentity = options?.skipIdentityFields ?? false;
 
-      const trimmedKey = state.key.trim();
-      if (!skipIdentity) {
-        if (trimmedKey.length < 3) {
-          fieldErrors.key = "Key must be at least 3 characters.";
-        }
-        if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(trimmedKey)) {
-          fieldErrors.key = "Key may only include lowercase letters, numbers, and hyphens.";
-        }
-      }
-
       const trimmedName = state.name.trim();
       if (!skipIdentity && trimmedName.length < 3) {
         fieldErrors.name = "Name must be at least 3 characters.";
@@ -648,7 +636,6 @@ export default function IdpProviders(): JSX.Element {
       }
 
       const payload: IdpProviderRequestPayload = {
-        key: trimmedKey,
         name: trimmedName,
         driver,
         enabled: state.enabled,
@@ -2018,12 +2005,13 @@ export default function IdpProviders(): JSX.Element {
                 return (
                   <tr key={identifier}>
                     <td className="text-center fw-semibold">{provider.evaluation_order}</td>
-                    <td>
-                      <div className="fw-semibold">{provider.name}</div>
-                      <div className="small text-muted">
-                        Added {new Date(provider.created_at).toLocaleString(undefined, { hour12: false })}
-                      </div>
-                    </td>
+                <td>
+                  <div className="fw-semibold">{provider.name}</div>
+                  <div className="small text-muted">
+                    Added {new Date(provider.created_at).toLocaleString(undefined, { hour12: false })}
+                  </div>
+                  <div className="small text-muted">Reference #{provider.reference}</div>
+                </td>
                     <td className="text-uppercase fw-semibold small">{provider.driver}</td>
                     <td>
                       <code>{provider.key}</code>
@@ -2128,25 +2116,6 @@ export default function IdpProviders(): JSX.Element {
             </p>
           ) : null}
           <div className="row g-3">
-            <div className="col-12 col-md-6">
-              <label htmlFor="idp-key" className="form-label">
-                Provider key
-              </label>
-              <input
-                id="idp-key"
-                name="key"
-                type="text"
-                className={`form-control${fieldError("key") ? " is-invalid" : ""}`}
-                value={form.key}
-                onChange={(event) => applyFormUpdate((prev) => ({ ...prev, key: event.target.value }))}
-                placeholder="azure-entraid"
-                disabled={createBusy}
-                autoComplete="off"
-                required
-              />
-              {fieldError("key") ? <div className="invalid-feedback">{fieldError("key")}</div> : null}
-              <div className="form-text">Lowercase slug used in API responses and audit logs.</div>
-            </div>
             <div className="col-12 col-md-6">
               <label htmlFor="idp-name" className="form-label">
                 Display name

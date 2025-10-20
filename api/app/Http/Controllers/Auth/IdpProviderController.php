@@ -351,6 +351,7 @@ final class IdpProviderController extends Controller
             'evaluation_order' => $provider->evaluation_order,
             'config' => $config,
             'meta' => $meta === [] ? new stdClass : $meta,
+            'reference' => $this->extractReference($meta, $provider->evaluation_order),
             'last_health_at' => $lastHealth instanceof CarbonInterface ? $lastHealth->toAtomString() : null,
             'created_at' => $createdAt instanceof CarbonInterface ? $createdAt->toAtomString() : null,
             'updated_at' => $updatedAt instanceof CarbonInterface ? $updatedAt->toAtomString() : null,
@@ -418,5 +419,23 @@ final class IdpProviderController extends Controller
         $meta['saml'] = $current;
 
         return $meta;
+    }
+
+    /**
+     * @param  array<int|string,mixed>  $meta
+     */
+    private function extractReference(array $meta, int $fallback): int
+    {
+        /** @var mixed $raw */
+        $raw = $meta['reference'] ?? null;
+        if (is_int($raw)) {
+            return $raw;
+        }
+
+        if (is_numeric($raw)) {
+            return (int) $raw;
+        }
+
+        return max(1, $fallback);
     }
 }

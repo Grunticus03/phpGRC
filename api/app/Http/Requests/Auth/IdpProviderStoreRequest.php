@@ -34,7 +34,7 @@ final class IdpProviderStoreRequest extends FormRequest
     {
         return [
             'key' => [
-                'required',
+                'sometimes',
                 'string',
                 'min:3',
                 'max:64',

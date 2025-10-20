@@ -88,7 +88,6 @@ final class IdpProviderApiTest extends TestCase
         $this->actingAsAdmin();
 
         $payload = [
-            'key' => 'okta-primary',
             'name' => 'Okta Primary',
             'driver' => 'oidc',
             'enabled' => true,
@@ -102,21 +101,28 @@ final class IdpProviderApiTest extends TestCase
             ],
         ];
 
-        $this->postJson('/admin/idp/providers', $payload)
+        $response = $this->postJson('/admin/idp/providers', $payload)
             ->assertStatus(201)
             ->assertJsonPath('ok', true)
-            ->assertJsonPath('provider.key', 'okta-primary')
+            ->assertJsonPath('provider.name', 'Okta Primary')
             ->assertJsonPath('provider.config.client_id', 'client-123')
             ->assertJsonPath('provider.enabled', true)
-            ->assertJsonPath('provider.evaluation_order', 1);
+            ->assertJsonPath('provider.evaluation_order', 1)
+            ->assertJsonPath('provider.reference', 1);
+
+        $generatedKey = $response->json('provider.key');
+        self::assertIsString($generatedKey);
+        self::assertMatchesRegularExpression('/^[0-9a-z]{26}$/', $generatedKey);
 
         /** @var IdpProvider $provider */
         $provider = IdpProvider::query()->firstOrFail();
-        self::assertSame('okta-primary', $provider->key);
+        self::assertSame($generatedKey, $provider->key);
         self::assertSame('Okta Primary', $provider->name);
         self::assertSame('oidc', $provider->driver);
         self::assertTrue($provider->enabled);
         self::assertSame('super-secret', $provider->config['client_secret'] ?? null);
+        self::assertSame(1, Arr::get($provider->meta, 'reference'));
+        self::assertSame('us', Arr::get($provider->meta, 'region'));
 
         $raw = $provider->getRawOriginal('config');
         self::assertIsString($raw);
@@ -135,7 +141,6 @@ final class IdpProviderApiTest extends TestCase
         $this->actingAsAdmin();
 
         $payload = [
-            'key' => 'ldap-primary',
             'name' => 'LDAP Primary',
             'driver' => 'ldap',
             'enabled' => true,
@@ -149,13 +154,26 @@ final class IdpProviderApiTest extends TestCase
             ],
         ];
 
-        $response = $this->postJson('/admin/idp/providers', $payload);
-
-        $response->assertStatus(201)
+        $response = $this->postJson('/admin/idp/providers', $payload)
+            ->assertStatus(201)
             ->assertJsonPath('ok', true)
             ->assertJsonPath('provider.driver', 'ldap')
             ->assertJsonPath('provider.config.bind_strategy', 'service')
-            ->assertJsonPath('provider.config.user_filter', '(uid={{username}})');
+            ->assertJsonPath('provider.config.user_filter', '(uid={{username}})')
+            ->assertJsonPath('provider.reference', 1);
+
+        $generatedKey = $response->json('provider.key');
+        self::assertIsString($generatedKey);
+        self::assertMatchesRegularExpression('/^[0-9a-z]{26}$/', $generatedKey);
+
+        /** @var IdpProvider $provider */
+        $provider = IdpProvider::query()->firstOrFail();
+        self::assertSame($generatedKey, $provider->key);
+        self::assertSame('LDAP Primary', $provider->name);
+        self::assertSame('ldap', $provider->driver);
+        self::assertFalse($provider->config['require_tls']);
+        self::assertSame('service', $provider->config['bind_strategy']);
+        self::assertSame(1, Arr::get($provider->meta, 'reference'));
     }
 
     #[Test]
@@ -179,7 +197,8 @@ final class IdpProviderApiTest extends TestCase
             ->assertStatus(201)
             ->assertJsonPath('ok', true)
             ->assertJsonPath('provider.driver', 'entra')
-            ->assertJsonPath('provider.config.tenant_id', '12345678-90ab-cdef-1234-567890abcdef');
+            ->assertJsonPath('provider.config.tenant_id', '12345678-90ab-cdef-1234-567890abcdef')
+            ->assertJsonPath('provider.reference', 1);
 
         /** @var IdpProvider $provider */
         $provider = IdpProvider::query()->firstWhere('key', 'entra-primary');
@@ -194,6 +213,7 @@ final class IdpProviderApiTest extends TestCase
         );
         self::assertSame('client-entra', $config['client_id'] ?? null);
         self::assertSame('super-secret', $config['client_secret'] ?? null);
+        self::assertSame(1, Arr::get($provider->meta, 'reference'));
 
         $raw = $provider->getRawOriginal('config');
         self::assertIsString($raw);

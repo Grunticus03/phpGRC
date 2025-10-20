@@ -5,6 +5,7 @@ export type IdpProviderDriver = "oidc" | "saml" | "ldap" | "entra";
 export type IdpProvider = {
   id: string;
   key: string;
+  reference: number;
   name: string;
   driver: IdpProviderDriver | string;
   enabled: boolean;
@@ -48,7 +49,7 @@ export type IdpProviderDeleteResponse = {
 export type IdpProviderActionResult = IdpProviderSuccessResponse | IdpProviderStubResponse;
 
 export type IdpProviderRequestPayload = {
-  key: string;
+  key?: string;
   name: string;
   driver: IdpProviderDriver;
   enabled?: boolean;
