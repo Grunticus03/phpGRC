@@ -5,20 +5,31 @@
 <IfModule mod_rewrite.c>
     RewriteEngine On
 
+    # Short-circuit asset requests so hashed bundles bypass rewrites
+    RewriteRule ^assets/ - [L,END]
+
     # Serve existing files/directories as-is (except the document root itself)
     RewriteCond %{REQUEST_FILENAME} -f [OR]
     RewriteCond %{REQUEST_FILENAME} -d
     RewriteCond %{REQUEST_URI} !^/$
-    RewriteRule ^ - [L]
+    RewriteRule ^ - [L,END]
 
     # Route framework endpoints and non-GET/HEAD verbs to Laravel
     RewriteCond %{REQUEST_METHOD} !^(GET|HEAD)$ [OR]
     RewriteCond %{REQUEST_URI} ^/(api|sanctum|broadcasting|oauth|_ignition|inertia|telescope) [NC]
     RewriteRule ^ index.php [L,END,QSA]
 
-    # Fallback to the SPA entrypoint for all other requests
-    RewriteCond %{REQUEST_URI} !^/index\.html$
-    RewriteRule ^ index.html [L,END]
+    # Prefer SPA entrypoint when available (but leave assets/alone)
+    RewriteCond %{DOCUMENT_ROOT}/index.html -f
+    RewriteRule ^$ /index.html [L,END]
+
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{DOCUMENT_ROOT}/index.html -f
+    RewriteRule ^ /index.html [L,END]
+
+    # Final fallback to Laravel front controller
+    RewriteRule ^ index.php [L,END,QSA]
 </IfModule>
 
 DirectoryIndex index.html index.php
