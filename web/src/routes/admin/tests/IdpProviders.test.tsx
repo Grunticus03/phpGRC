@@ -274,8 +274,11 @@ describe("Admin IdP Providers page", () => {
           driver: "oidc",
           enabled: true,
           config: {
-            issuer: "https://issuer.example",
+            issuer: "https://issuer.example/",
             client_id: "client",
+            client_secret: "super-secret",
+            scopes: ["openid", "profile", "email"],
+            redirect_uris: ["https://app.example.com/auth/callback"],
           },
           meta: {
             display_region: "us",
@@ -324,18 +327,23 @@ describe("Admin IdP Providers page", () => {
     await user.clear(nameInput);
     await user.type(nameInput, "New IdP");
 
-    const driverSelect = within(dialog).getByLabelText(/driver/i);
+    const driverSelect = within(dialog).getByLabelText(/idp type/i);
     await user.selectOptions(driverSelect, "oidc");
 
-    const configArea = within(dialog).getByLabelText(/provider config/i);
-    await user.clear(configArea);
-    fireEvent.change(configArea, {
-      target: { value: JSON.stringify({ issuer: "https://issuer.example", client_id: "client" }) },
-    });
+    const issuerInput = within(dialog).getByLabelText(/issuer url/i);
+    await user.type(issuerInput, "https://issuer.example");
 
-    const metaArea = within(dialog).getByLabelText(/meta/i);
-    await user.clear(metaArea);
-    fireEvent.change(metaArea, { target: { value: JSON.stringify({ display_region: "us" }) } });
+    const clientIdInput = within(dialog).getByLabelText(/client id/i);
+    await user.type(clientIdInput, "client");
+
+    const clientSecretInput = within(dialog).getByLabelText(/client secret/i);
+    await user.type(clientSecretInput, "super-secret");
+
+    const redirectUrisArea = within(dialog).getByLabelText(/redirect uris/i);
+    await user.type(redirectUrisArea, "https://app.example.com/auth/callback");
+
+    const metaArea = within(dialog).getByLabelText(/additional metadata/i);
+    fireEvent.change(metaArea, { target: { value: '{"display_region":"us"}' } });
 
     const submitButton = within(dialog).getByRole("button", { name: /^create$/i });
     await user.click(submitButton);

@@ -99,3 +99,22 @@ export function isStubResponse(result: unknown): result is IdpProviderStubRespon
     (result as { note?: unknown }).note === "stub-only"
   );
 }
+
+export type SamlMetadataConfig = {
+  entity_id: string;
+  sso_url: string;
+  certificate: string;
+};
+
+export type SamlMetadataPreviewResponse = {
+  ok: true;
+  config: SamlMetadataConfig;
+};
+
+export function previewSamlMetadata(metadata: string, signal?: AbortSignal): Promise<SamlMetadataPreviewResponse> {
+  return apiPost<SamlMetadataPreviewResponse, { metadata: string }>(
+    "/admin/idp/providers/saml/metadata/preview",
+    { metadata },
+    signal
+  );
+}

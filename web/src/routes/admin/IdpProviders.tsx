@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { ChangeEvent, useCallback, useEffect, useMemo, useState } from "react";
 import ConfirmModal from "../../components/modal/ConfirmModal";
 import { useToast } from "../../components/toast/ToastProvider";
 import {
@@ -7,33 +7,147 @@ import {
   isStubResponse,
   listIdpProviders,
   updateIdpProvider,
+  previewSamlMetadata,
   type IdpProvider,
+  type IdpProviderDriver,
   type IdpProviderListMeta,
   type IdpProviderRequestPayload,
   type IdpProviderUpdatePayload,
+  type SamlMetadataConfig,
 } from "../../lib/api/idpProviders";
+
+type OidcFormState = {
+  issuer: string;
+  clientId: string;
+  clientSecret: string;
+  scopes: string;
+  redirectUris: string;
+  metadataUrl: string;
+};
+
+type EntraFormState = OidcFormState & {
+  tenantId: string;
+};
+
+type SamlFormState = {
+  entityId: string;
+  ssoUrl: string;
+  certificate: string;
+  metadataUrl: string;
+  metadataFileName: string | null;
+};
+
+type LdapFormState = {
+  host: string;
+  port: string;
+  baseDn: string;
+  bindStrategy: "service" | "direct";
+  bindDn: string;
+  bindPassword: string;
+  userDnTemplate: string;
+  userFilter: string;
+  timeout: string;
+  emailAttribute: string;
+  nameAttribute: string;
+  usernameAttribute: string;
+  useSsl: boolean;
+  startTls: boolean;
+  requireTls: boolean;
+};
 
 type FormState = {
   key: string;
   name: string;
-  driver: string;
+  driver: IdpProviderDriver;
   enabled: boolean;
-  config: string;
   meta: string;
+  oidc: OidcFormState;
+  entra: EntraFormState;
+  saml: SamlFormState;
+  ldap: LdapFormState;
 };
 
-type FormErrors = Partial<Record<keyof FormState, string>> & { general?: string };
+type FormErrors = {
+  general?: string;
+  fields: Record<string, string>;
+};
 
 type PendingAction = { type: "toggle" | "reorder" | "delete" | "create"; id: string | null };
 
-const DEFAULT_FORM_STATE: FormState = {
-  key: "",
-  name: "",
-  driver: "oidc",
-  enabled: true,
-  config: "{\n  \"issuer\": \"\",\n  \"client_id\": \"\",\n  \"client_secret\": \"\"\n}",
-  meta: "{\n  \"display_region\": \"\"\n}",
-};
+const DRIVER_OPTIONS: Array<{ value: IdpProviderDriver; label: string }> = [
+  { value: "entra", label: "Entra ID" },
+  { value: "ldap", label: "LDAP" },
+  { value: "oidc", label: "OIDC" },
+  { value: "saml", label: "SAML" },
+];
+
+function createDefaultFormState(): FormState {
+  return {
+    key: "",
+    name: "",
+    driver: "oidc",
+    enabled: true,
+    meta: "",
+    oidc: {
+      issuer: "",
+      clientId: "",
+      clientSecret: "",
+      scopes: "openid profile email",
+      redirectUris: "",
+      metadataUrl: "",
+    },
+    entra: {
+      issuer: "",
+      clientId: "",
+      clientSecret: "",
+      scopes: "openid profile email",
+      redirectUris: "",
+      metadataUrl: "",
+      tenantId: "",
+    },
+    saml: {
+      entityId: "",
+      ssoUrl: "",
+      certificate: "",
+      metadataUrl: "",
+      metadataFileName: null,
+    },
+    ldap: {
+      host: "",
+      port: "",
+      baseDn: "",
+      bindStrategy: "service",
+      bindDn: "",
+      bindPassword: "",
+      userDnTemplate: "uid={{username}},ou=people,dc=example,dc=com",
+      userFilter: "(&(objectClass=person)(uid={{username}}))",
+      timeout: "",
+      emailAttribute: "mail",
+      nameAttribute: "cn",
+      usernameAttribute: "uid",
+      useSsl: false,
+      startTls: false,
+      requireTls: false,
+    },
+  };
+}
+
+function parseUrlValue(candidate: string, secureOnly = false): string | null {
+  if (candidate === "") {
+    return null;
+  }
+
+  try {
+    const url = new URL(candidate);
+    if (secureOnly && url.protocol !== "https:") {
+      return null;
+    }
+
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
 
 function providerIdentifier(provider: IdpProvider): string {
   return provider.id || provider.key;
@@ -60,8 +174,14 @@ export default function IdpProviders(): JSX.Element {
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [createBusy, setCreateBusy] = useState(false);
-  const [form, setForm] = useState<FormState>(DEFAULT_FORM_STATE);
-  const [formErrors, setFormErrors] = useState<FormErrors>({});
+  const [form, setForm] = useState<FormState>(() => createDefaultFormState());
+  const [formErrors, setFormErrors] = useState<FormErrors>({ fields: {} });
+  const [metadataLoading, setMetadataLoading] = useState<Record<IdpProviderDriver, boolean>>({
+    entra: false,
+    ldap: false,
+    oidc: false,
+    saml: false,
+  });
 
   const orderedProviders = useMemo(() => sortByEvaluationOrder(providers), [providers]);
 
@@ -191,14 +311,14 @@ export default function IdpProviders(): JSX.Element {
   }, [deleteTarget, loadProviders, toast]);
 
   const resetForm = useCallback(() => {
-    setForm(DEFAULT_FORM_STATE);
-    setFormErrors({});
+    setForm(createDefaultFormState());
+    setFormErrors({ fields: {} });
+    setMetadataLoading({ entra: false, ldap: false, oidc: false, saml: false });
   }, []);
 
   const openCreateModal = useCallback(() => {
     resetForm();
     setCreateOpen(true);
-    setFormErrors({});
   }, [resetForm]);
 
   const closeCreateModal = useCallback(() => {
@@ -208,31 +328,261 @@ export default function IdpProviders(): JSX.Element {
 
   const validateForm = useCallback(
     (state: FormState): { valid: boolean; payload?: IdpProviderRequestPayload } => {
-      const errors: FormErrors = {};
+      const fieldErrors: Record<string, string> = {};
+
       const trimmedKey = state.key.trim();
       if (trimmedKey.length < 3) {
-        errors.key = "Key must be at least 3 characters.";
+        fieldErrors.key = "Key must be at least 3 characters.";
       }
       if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(trimmedKey)) {
-        errors.key = "Key may only include lowercase letters, numbers, and hyphens.";
-      }
-      const trimmedName = state.name.trim();
-      if (trimmedName.length < 3) {
-        errors.name = "Name must be at least 3 characters.";
-      }
-      const driver = state.driver.trim();
-      if (!driver) {
-        errors.driver = "Driver is required.";
+        fieldErrors.key = "Key may only include lowercase letters, numbers, and hyphens.";
       }
 
-      let config: Record<string, unknown> | null = null;
-      try {
-        config = JSON.parse(state.config) as Record<string, unknown>;
-        if (config === null || typeof config !== "object" || Array.isArray(config)) {
-          throw new Error("invalid");
+      const trimmedName = state.name.trim();
+      if (trimmedName.length < 3) {
+        fieldErrors.name = "Name must be at least 3 characters.";
+      }
+
+      const driver = state.driver;
+      if (!driver) {
+        fieldErrors.driver = "Idp Type is required.";
+      }
+
+      let config: Record<string, unknown> | undefined;
+
+      if (driver === "oidc") {
+        const issuer = state.oidc.issuer.trim();
+        const normalizedIssuer = parseUrlValue(issuer, true);
+        if (!normalizedIssuer) {
+          fieldErrors["oidc.issuer"] = "Issuer must be a valid https:// URL.";
         }
-      } catch {
-        errors.config = "Config must be valid JSON object.";
+
+        const clientId = state.oidc.clientId.trim();
+        if (clientId === "") {
+          fieldErrors["oidc.clientId"] = "Client ID is required.";
+        }
+
+        const clientSecret = state.oidc.clientSecret.trim();
+        if (clientSecret === "") {
+          fieldErrors["oidc.clientSecret"] = "Client secret is required.";
+        }
+
+        const scopesRaw = state.oidc.scopes.trim();
+        const scopes = scopesRaw === "" ? [] : scopesRaw.split(/\s+/).map((scope) => scope.trim()).filter(Boolean);
+
+        const redirectUrisRaw = state.oidc.redirectUris;
+        const redirectUris = redirectUrisRaw
+          .split(/[\n,]/)
+          .map((entry) => entry.trim())
+          .filter((entry) => entry !== "");
+
+        const invalidRedirect = redirectUris.find((uri) => parseUrlValue(uri) === null);
+        if (invalidRedirect) {
+          fieldErrors["oidc.redirectUris"] = "Each redirect URI must be a valid URL.";
+        }
+
+        if (Object.keys(fieldErrors).length === 0) {
+          config = {
+            issuer: normalizedIssuer ?? issuer,
+            client_id: clientId,
+            client_secret: clientSecret,
+          };
+          if (scopes.length > 0) {
+            config.scopes = scopes;
+          }
+          if (!invalidRedirect && redirectUris.length > 0) {
+            config.redirect_uris = redirectUris;
+          }
+        }
+      } else if (driver === "entra") {
+        const issuer = state.entra.issuer.trim();
+        const normalizedIssuer = issuer === "" ? null : parseUrlValue(issuer, true);
+
+        const tenantId = state.entra.tenantId.trim();
+        if (tenantId === "") {
+          fieldErrors["entra.tenantId"] = "Tenant ID is required.";
+        } else if (!/^[0-9a-f-]{8,}$/i.test(tenantId)) {
+          fieldErrors["entra.tenantId"] = "Tenant ID must look like a GUID.";
+        }
+
+        if (issuer !== "" && !normalizedIssuer) {
+          fieldErrors["entra.issuer"] = "Issuer must be a valid https:// URL.";
+        }
+
+        const clientId = state.entra.clientId.trim();
+        if (clientId === "") {
+          fieldErrors["entra.clientId"] = "Client ID is required.";
+        }
+
+        const clientSecret = state.entra.clientSecret.trim();
+        if (clientSecret === "") {
+          fieldErrors["entra.clientSecret"] = "Client secret is required.";
+        }
+
+        const scopesRaw = state.entra.scopes.trim();
+        const scopes = scopesRaw === "" ? [] : scopesRaw.split(/\s+/).map((scope) => scope.trim()).filter(Boolean);
+
+        const redirectUrisRaw = state.entra.redirectUris;
+        const redirectUris = redirectUrisRaw
+          .split(/[\n,]/)
+          .map((entry) => entry.trim())
+          .filter((entry) => entry !== "");
+
+        const invalidRedirect = redirectUris.find((uri) => parseUrlValue(uri) === null);
+        if (invalidRedirect) {
+          fieldErrors["entra.redirectUris"] = "Each redirect URI must be a valid URL.";
+        }
+
+        if (Object.keys(fieldErrors).length === 0) {
+          config = {
+            tenant_id: tenantId,
+            client_id: clientId,
+            client_secret: clientSecret,
+          };
+
+          if (normalizedIssuer) {
+            config.issuer = normalizedIssuer;
+          }
+
+          if (scopes.length > 0) {
+            config.scopes = scopes;
+          }
+
+          if (!invalidRedirect && redirectUris.length > 0) {
+            config.redirect_uris = redirectUris;
+          }
+        }
+      } else if (driver === "saml") {
+        const entityId = state.saml.entityId.trim();
+        if (entityId === "") {
+          fieldErrors["saml.entityId"] = "Entity ID is required.";
+        }
+
+        const ssoUrlRaw = state.saml.ssoUrl.trim();
+        const normalizedSsoUrl = parseUrlValue(ssoUrlRaw);
+        if (!normalizedSsoUrl) {
+          fieldErrors["saml.ssoUrl"] = "SSO URL must be a valid URL.";
+        }
+
+        const certificate = state.saml.certificate.trim();
+        if (certificate === "") {
+          fieldErrors["saml.certificate"] = "Signing certificate is required.";
+        }
+
+        if (Object.keys(fieldErrors).length === 0) {
+          config = {
+            entity_id: entityId,
+            sso_url: normalizedSsoUrl ?? ssoUrlRaw,
+            certificate,
+          };
+        }
+      } else if (driver === "ldap") {
+        const host = state.ldap.host.trim();
+        if (host === "") {
+          fieldErrors["ldap.host"] = "Server host is required.";
+        }
+
+        const portRaw = state.ldap.port.trim();
+        let port: number | undefined;
+        if (portRaw !== "") {
+          const portCandidate = Number(portRaw);
+          if (!Number.isInteger(portCandidate) || portCandidate < 1 || portCandidate > 65535) {
+            fieldErrors["ldap.port"] = "Port must be an integer between 1 and 65535.";
+          } else {
+            port = portCandidate;
+          }
+        }
+
+        const baseDn = state.ldap.baseDn.trim();
+        if (baseDn === "") {
+          fieldErrors["ldap.baseDn"] = "Base DN is required.";
+        }
+
+        const bindStrategy = state.ldap.bindStrategy;
+        if (!["service", "direct"].includes(bindStrategy)) {
+          fieldErrors["ldap.bindStrategy"] = "Select a bind strategy.";
+        }
+
+        const bindDn = state.ldap.bindDn.trim();
+        const bindPassword = state.ldap.bindPassword.trim();
+        const userDnTemplate = state.ldap.userDnTemplate.trim();
+
+        if (bindStrategy === "service") {
+          if (bindDn === "") {
+            fieldErrors["ldap.bindDn"] = "Bind DN is required when using a service account.";
+          }
+          if (bindPassword === "") {
+            fieldErrors["ldap.bindPassword"] = "Bind password is required when using a service account.";
+          }
+        } else if (bindStrategy === "direct") {
+          if (userDnTemplate === "") {
+            fieldErrors["ldap.userDnTemplate"] = "User DN template is required.";
+          } else if (!userDnTemplate.includes("{{username}}")) {
+            fieldErrors["ldap.userDnTemplate"] = 'Template must include the placeholder "{{username}}".';
+          }
+        }
+
+        const userFilter = state.ldap.userFilter.trim();
+        if (userFilter === "") {
+          fieldErrors["ldap.userFilter"] = "User search filter is required.";
+        } else if (!userFilter.includes("{{username}}")) {
+          fieldErrors["ldap.userFilter"] = 'Filter must include the placeholder "{{username}}".';
+        }
+
+        const timeoutRaw = state.ldap.timeout.trim();
+        let timeout: number | undefined;
+        if (timeoutRaw !== "") {
+          const timeoutCandidate = Number(timeoutRaw);
+          if (!Number.isInteger(timeoutCandidate) || timeoutCandidate < 1 || timeoutCandidate > 120) {
+            fieldErrors["ldap.timeout"] = "Timeout must be between 1 and 120 seconds.";
+          } else {
+            timeout = timeoutCandidate;
+          }
+        }
+
+        const emailAttribute = state.ldap.emailAttribute.trim();
+        if (emailAttribute === "") {
+          fieldErrors["ldap.emailAttribute"] = "Email attribute is required.";
+        }
+
+        const nameAttribute = state.ldap.nameAttribute.trim();
+        if (nameAttribute === "") {
+          fieldErrors["ldap.nameAttribute"] = "Display name attribute is required.";
+        }
+
+        const usernameAttribute = state.ldap.usernameAttribute.trim();
+        if (usernameAttribute === "") {
+          fieldErrors["ldap.usernameAttribute"] = "Username attribute is required.";
+        }
+
+        if (Object.keys(fieldErrors).length === 0) {
+          config = {
+            host,
+            base_dn: baseDn,
+            bind_strategy: bindStrategy,
+            use_ssl: state.ldap.useSsl,
+            start_tls: state.ldap.startTls,
+            require_tls: state.ldap.requireTls,
+            user_filter: userFilter,
+            email_attribute: emailAttribute,
+            name_attribute: nameAttribute,
+            username_attribute: usernameAttribute,
+          };
+
+          if (port !== undefined) {
+            config.port = port;
+          }
+          if (timeout !== undefined) {
+            config.timeout = timeout;
+          }
+
+          if (bindStrategy === "service") {
+            config.bind_dn = bindDn;
+            config.bind_password = bindPassword;
+          } else {
+            config.user_dn_template = userDnTemplate;
+          }
+        }
       }
 
       let meta: Record<string, unknown> | null = null;
@@ -243,26 +593,28 @@ export default function IdpProviders(): JSX.Element {
           if (parsed !== null && typeof parsed === "object" && !Array.isArray(parsed)) {
             meta = parsed as Record<string, unknown>;
           } else {
-            throw new Error("invalid meta");
+            fieldErrors.meta = "Meta must be a JSON object.";
           }
         } catch {
-          errors.meta = "Meta must be valid JSON object or left blank.";
+          fieldErrors.meta = "Meta must be valid JSON.";
         }
       }
 
-      if (Object.keys(errors).length > 0) {
-        setFormErrors(errors);
+      if (Object.keys(fieldErrors).length > 0) {
+        setFormErrors({ fields: fieldErrors });
         return { valid: false };
       }
 
-      setFormErrors({});
+      setFormErrors({ fields: {} });
+
       const payload: IdpProviderRequestPayload = {
         key: trimmedKey,
         name: trimmedName,
-        driver: driver as IdpProviderRequestPayload["driver"],
+        driver,
         enabled: state.enabled,
         config: config ?? {},
       };
+
       if (meta) {
         payload.meta = meta;
       }
@@ -289,7 +641,7 @@ export default function IdpProviders(): JSX.Element {
       resetForm();
       void loadProviders({ silent: true });
     } catch {
-      setFormErrors({ general: "Failed to create provider. Check inputs and try again." });
+      setFormErrors({ general: "Failed to create provider. Check inputs and try again.", fields: {} });
     } finally {
       setPending(null);
       setCreateBusy(false);
@@ -306,6 +658,980 @@ export default function IdpProviders(): JSX.Element {
   }, [pending]);
 
   const busy = pending !== null;
+  const fieldError = (path: string): string | undefined => formErrors.fields[path];
+  const updateFieldError = useCallback((path: string, message?: string) => {
+    setFormErrors((prev) => {
+      const nextFields = { ...prev.fields };
+      if (message) {
+        nextFields[path] = message;
+      } else {
+        delete nextFields[path];
+      }
+
+      return {
+        ...prev,
+        fields: nextFields,
+      };
+    });
+  }, []);
+
+  const applyOidcMetadata = useCallback(
+    (driver: "oidc" | "entra", metadata: Record<string, unknown>, source?: { url?: string }) => {
+      const issuer = typeof metadata.issuer === "string" ? metadata.issuer : "";
+      const scopesSupported = Array.isArray(metadata.scopes_supported)
+        ? (metadata.scopes_supported as unknown[]).filter((entry): entry is string => typeof entry === "string")
+        : [];
+
+      setForm((prev) => {
+        if (driver === "oidc") {
+          return {
+            ...prev,
+            oidc: {
+              ...prev.oidc,
+              metadataUrl: source?.url ?? prev.oidc.metadataUrl,
+              issuer: issuer !== "" ? issuer : prev.oidc.issuer,
+              scopes:
+                scopesSupported.length > 0
+                  ? scopesSupported.join(" ")
+                  : prev.oidc.scopes,
+            },
+          };
+        }
+
+        let tenantId = prev.entra.tenantId;
+        if (tenantId.trim() === "" && issuer.includes("login.microsoftonline.com/")) {
+          const match = issuer.match(/login\.microsoftonline\.com\/([^/]+)\//i);
+          if (match?.[1]) {
+            tenantId = match[1];
+          }
+        }
+
+        return {
+          ...prev,
+          entra: {
+            ...prev.entra,
+            metadataUrl: source?.url ?? prev.entra.metadataUrl,
+            issuer: issuer !== "" ? issuer : prev.entra.issuer,
+            scopes:
+              scopesSupported.length > 0
+                ? scopesSupported.join(" ")
+                : prev.entra.scopes,
+            tenantId,
+          },
+        };
+      });
+    },
+    []
+  );
+
+  const handleOidcMetadataFetch = useCallback(
+    async (driver: "oidc" | "entra") => {
+      const currentUrl = driver === "oidc" ? form.oidc.metadataUrl : form.entra.metadataUrl;
+      const trimmedUrl = currentUrl.trim();
+      if (trimmedUrl === "") {
+        updateFieldError(`${driver}.metadataUrl`, "Enter a metadata URL first.");
+        return;
+      }
+
+      updateFieldError(`${driver}.metadataUrl`);
+      setMetadataLoading((prev) => ({ ...prev, [driver]: true }));
+
+      try {
+        const response = await fetch(trimmedUrl);
+        if (!response.ok) {
+          throw new Error(`Metadata request failed (${response.status})`);
+        }
+
+        const raw = await response.text();
+        const parsed = JSON.parse(raw) as unknown;
+        if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+          throw new Error("Metadata response was not a JSON object.");
+        }
+
+        applyOidcMetadata(driver, parsed as Record<string, unknown>, { url: trimmedUrl });
+        toast.success("Metadata loaded. Review and complete any required secrets.");
+      } catch {
+        toast.danger("Failed to fetch metadata. Enter the details manually.");
+      } finally {
+        setMetadataLoading((prev) => ({ ...prev, [driver]: false }));
+      }
+    },
+    [applyOidcMetadata, form.entra.metadataUrl, form.oidc.metadataUrl, toast, updateFieldError]
+  );
+
+  const handleOidcMetadataFileChange = useCallback(
+    (driver: "oidc" | "entra", event: ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      setMetadataLoading((prev) => ({ ...prev, [driver]: true }));
+
+      reader.onload = () => {
+        try {
+          const text = typeof reader.result === "string" ? reader.result : "";
+          if (text.trim() === "") {
+            throw new Error("Metadata file was empty.");
+          }
+
+          const parsed = JSON.parse(text) as unknown;
+          if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+            throw new Error("Metadata file must contain a JSON object.");
+          }
+
+          applyOidcMetadata(driver, parsed as Record<string, unknown>);
+          updateFieldError(`${driver}.metadataUrl`);
+          toast.success("Metadata file loaded. Review the populated fields.");
+        } catch {
+          toast.danger("Could not read that metadata file. Ensure it is JSON.");
+        } finally {
+          setMetadataLoading((prev) => ({ ...prev, [driver]: false }));
+        }
+      };
+
+      reader.onerror = () => {
+        toast.danger("Could not read that metadata file. Please try again.");
+        setMetadataLoading((prev) => ({ ...prev, [driver]: false }));
+      };
+
+      reader.readAsText(file);
+      event.target.value = "";
+    },
+    [applyOidcMetadata, toast, updateFieldError]
+  );
+
+  const applySamlMetadata = useCallback((config: SamlMetadataConfig, source?: { url?: string; fileName?: string }) => {
+    setForm((prev) => ({
+      ...prev,
+      saml: {
+        ...prev.saml,
+        entityId: config.entity_id ?? prev.saml.entityId,
+        ssoUrl: config.sso_url ?? prev.saml.ssoUrl,
+        certificate: config.certificate ?? prev.saml.certificate,
+        metadataUrl: source?.url ?? prev.saml.metadataUrl,
+        metadataFileName: source?.fileName ?? prev.saml.metadataFileName,
+      },
+    }));
+  }, []);
+
+  const previewSamlMetadataXml = useCallback(
+    async (metadataXml: string, source?: { url?: string; fileName?: string }) => {
+      if (metadataXml.trim().length < 20) {
+        toast.danger("Metadata file looks too small. Check the content and try again.");
+        return false;
+      }
+
+      try {
+        const response = await previewSamlMetadata(metadataXml);
+        applySamlMetadata(response.config, source);
+        toast.success("Metadata parsed. Review the pre-filled fields.");
+        return true;
+      } catch {
+        toast.danger("Failed to parse metadata. Ensure the document is valid XML.");
+        return false;
+      }
+    },
+    [applySamlMetadata, toast]
+  );
+
+  const handleSamlMetadataFetch = useCallback(async () => {
+    const trimmedUrl = form.saml.metadataUrl.trim();
+    if (trimmedUrl === "") {
+      updateFieldError("saml.metadataUrl", "Enter a metadata URL first.");
+      return;
+    }
+
+    updateFieldError("saml.metadataUrl");
+    setMetadataLoading((prev) => ({ ...prev, saml: true }));
+
+    try {
+      const response = await fetch(trimmedUrl);
+      if (!response.ok) {
+        throw new Error(`Metadata request failed (${response.status})`);
+      }
+
+      const xml = await response.text();
+      await previewSamlMetadataXml(xml, { url: trimmedUrl });
+    } catch {
+      toast.danger("Failed to download metadata. Verify the URL and CORS settings.");
+    } finally {
+      setMetadataLoading((prev) => ({ ...prev, saml: false }));
+    }
+  }, [form.saml.metadataUrl, previewSamlMetadataXml, toast, updateFieldError]);
+
+  const handleSamlMetadataFileChange = useCallback(
+    (event: ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      setMetadataLoading((prev) => ({ ...prev, saml: true }));
+
+      reader.onload = async () => {
+        const text = typeof reader.result === "string" ? reader.result : "";
+        if (text.trim() === "") {
+          toast.danger("Metadata file was empty.");
+          setMetadataLoading((prev) => ({ ...prev, saml: false }));
+          return;
+        }
+
+        try {
+          const success = await previewSamlMetadataXml(text, { fileName: file.name });
+          if (success) {
+            updateFieldError("saml.metadataUrl");
+          }
+        } finally {
+          setMetadataLoading((prev) => ({ ...prev, saml: false }));
+        }
+      };
+
+      reader.onerror = () => {
+        toast.danger("Could not read that metadata file. Please try again.");
+        setMetadataLoading((prev) => ({ ...prev, saml: false }));
+      };
+
+      reader.readAsText(file);
+      event.target.value = "";
+    },
+    [previewSamlMetadataXml, toast, updateFieldError]
+  );
+
+  const renderOidcLikeFields = (driver: "oidc" | "entra"): JSX.Element => {
+    const state = driver === "oidc" ? form.oidc : form.entra;
+    const loading = metadataLoading[driver];
+    const baseId = driver === "oidc" ? "oidc" : "entra";
+    const displayName = driver === "entra" ? "Microsoft Entra ID" : "OIDC";
+    const metadataPlaceholder =
+      driver === "entra"
+        ? "https://login.microsoftonline.com/<tenant>/v2.0/.well-known/openid-configuration"
+        : "https://example.okta.com/oauth2/default/.well-known/openid-configuration";
+
+    return (
+      <div>
+        <h2 className="h6 mb-2">{displayName} configuration</h2>
+        <p className="text-muted small mb-3">
+          Capture the discovery details and credentials required for {displayName} sign-in.
+        </p>
+        <div className="row g-3">
+          <div className="col-12">
+            <label htmlFor={`${baseId}-issuer`} className="form-label">
+              Issuer URL
+            </label>
+            <input
+              id={`${baseId}-issuer`}
+              type="url"
+              className={`form-control${fieldError(`${driver}.issuer`) ? " is-invalid" : ""}`}
+              value={state.issuer}
+              onChange={(event) =>
+                setForm((prev) =>
+                  driver === "oidc"
+                    ? { ...prev, oidc: { ...prev.oidc, issuer: event.target.value } }
+                    : { ...prev, entra: { ...prev.entra, issuer: event.target.value } }
+                )
+              }
+              disabled={createBusy}
+              placeholder={
+                driver === "entra"
+                  ? "https://login.microsoftonline.com/<tenant>/v2.0"
+                  : "https://example.okta.com/oauth2/default"
+              }
+              inputMode="url"
+              autoComplete="off"
+            />
+            {fieldError(`${driver}.issuer`) ? (
+              <div className="invalid-feedback">{fieldError(`${driver}.issuer`)}</div>
+            ) : null}
+            <div className="form-text">Use the issuer value reported by the discovery document.</div>
+          </div>
+
+          {driver === "entra" ? (
+            <div className="col-12 col-md-6">
+              <label htmlFor="entra-tenant-id" className="form-label">
+                Tenant ID
+              </label>
+              <input
+                id="entra-tenant-id"
+                type="text"
+                className={`form-control${fieldError("entra.tenantId") ? " is-invalid" : ""}`}
+                value={form.entra.tenantId}
+                onChange={(event) =>
+                  setForm((prev) => ({
+                    ...prev,
+                    entra: { ...prev.entra, tenantId: event.target.value },
+                  }))
+                }
+                disabled={createBusy}
+                placeholder="11111111-2222-3333-4444-555555555555"
+                autoComplete="off"
+              />
+              {fieldError("entra.tenantId") ? (
+                <div className="invalid-feedback">{fieldError("entra.tenantId")}</div>
+              ) : null}
+              <div className="form-text">Azure tenant identifier (GUID or domain).</div>
+            </div>
+          ) : null}
+
+          <div className="col-12 col-md-6">
+            <label htmlFor={`${baseId}-client-id`} className="form-label">
+              Client ID
+            </label>
+            <input
+              id={`${baseId}-client-id`}
+              type="text"
+              className={`form-control${fieldError(`${driver}.clientId`) ? " is-invalid" : ""}`}
+              value={state.clientId}
+              onChange={(event) =>
+                setForm((prev) =>
+                  driver === "oidc"
+                    ? { ...prev, oidc: { ...prev.oidc, clientId: event.target.value } }
+                    : { ...prev, entra: { ...prev.entra, clientId: event.target.value } }
+                )
+              }
+              disabled={createBusy}
+              placeholder="0oa1example123"
+              autoComplete="off"
+            />
+            {fieldError(`${driver}.clientId`) ? (
+              <div className="invalid-feedback">{fieldError(`${driver}.clientId`)}</div>
+            ) : null}
+            <div className="form-text">Application identifier issued by the provider.</div>
+          </div>
+
+          <div className="col-12 col-md-6">
+            <label htmlFor={`${baseId}-client-secret`} className="form-label">
+              Client secret
+            </label>
+            <input
+              id={`${baseId}-client-secret`}
+              type="password"
+              className={`form-control${fieldError(`${driver}.clientSecret`) ? " is-invalid" : ""}`}
+              value={state.clientSecret}
+              onChange={(event) =>
+                setForm((prev) =>
+                  driver === "oidc"
+                    ? { ...prev, oidc: { ...prev.oidc, clientSecret: event.target.value } }
+                    : { ...prev, entra: { ...prev.entra, clientSecret: event.target.value } }
+                )
+              }
+              disabled={createBusy}
+              placeholder="••••••••••••"
+              autoComplete="off"
+            />
+            {fieldError(`${driver}.clientSecret`) ? (
+              <div className="invalid-feedback">{fieldError(`${driver}.clientSecret`)}</div>
+            ) : null}
+            <div className="form-text">Copy the client secret exactly as issued.</div>
+          </div>
+
+          <div className="col-12 col-md-6">
+            <label htmlFor={`${baseId}-scopes`} className="form-label">
+              Scopes
+            </label>
+            <input
+              id={`${baseId}-scopes`}
+              type="text"
+              className="form-control"
+              value={state.scopes}
+              onChange={(event) =>
+                setForm((prev) =>
+                  driver === "oidc"
+                    ? { ...prev, oidc: { ...prev.oidc, scopes: event.target.value } }
+                    : { ...prev, entra: { ...prev.entra, scopes: event.target.value } }
+                )
+              }
+              disabled={createBusy}
+              placeholder="openid profile email"
+              autoComplete="off"
+            />
+            <div className="form-text">Space separated list. Leave blank to use the defaults.</div>
+          </div>
+
+          <div className="col-12">
+            <label htmlFor={`${baseId}-redirect-uris`} className="form-label">
+              Redirect URIs
+            </label>
+            <textarea
+              id={`${baseId}-redirect-uris`}
+              className={`form-control font-monospace${fieldError(`${driver}.redirectUris`) ? " is-invalid" : ""}`}
+              rows={3}
+              value={state.redirectUris}
+              onChange={(event) =>
+                setForm((prev) =>
+                  driver === "oidc"
+                    ? { ...prev, oidc: { ...prev.oidc, redirectUris: event.target.value } }
+                    : { ...prev, entra: { ...prev.entra, redirectUris: event.target.value } }
+                )
+              }
+              disabled={createBusy}
+              placeholder="https://app.example.com/auth/callback"
+            />
+            {fieldError(`${driver}.redirectUris`) ? (
+              <div className="invalid-feedback">{fieldError(`${driver}.redirectUris`)}</div>
+            ) : null}
+            <div className="form-text">One URL per line or separate with commas.</div>
+          </div>
+
+          <div className="col-12">
+            <label htmlFor={`${baseId}-metadata-url`} className="form-label">
+              Metadata URL
+            </label>
+            <div className="input-group">
+              <input
+                id={`${baseId}-metadata-url`}
+                type="url"
+                className={`form-control${fieldError(`${driver}.metadataUrl`) ? " is-invalid" : ""}`}
+                value={state.metadataUrl}
+                onChange={(event) =>
+                  setForm((prev) =>
+                    driver === "oidc"
+                      ? { ...prev, oidc: { ...prev.oidc, metadataUrl: event.target.value } }
+                      : { ...prev, entra: { ...prev.entra, metadataUrl: event.target.value } }
+                  )
+                }
+                placeholder={metadataPlaceholder}
+                disabled={createBusy || loading}
+                inputMode="url"
+                autoComplete="off"
+              />
+              <button
+                type="button"
+                className="btn btn-outline-secondary"
+                onClick={() => void handleOidcMetadataFetch(driver)}
+                disabled={createBusy || loading}
+              >
+                {loading ? (
+                  <>
+                    <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true" />
+                    Fetching...
+                  </>
+                ) : (
+                  "Fetch & Autofill"
+                )}
+              </button>
+            </div>
+            {fieldError(`${driver}.metadataUrl`) ? (
+              <div className="invalid-feedback d-block">{fieldError(`${driver}.metadataUrl`)}</div>
+            ) : null}
+            <div className="form-text">
+              Pull the discovery document directly (if CORS allows) to pre-fill issuer details.
+            </div>
+          </div>
+
+          <div className="col-12">
+            <label htmlFor={`${baseId}-metadata-file`} className="form-label">
+              Metadata file
+            </label>
+            <input
+              id={`${baseId}-metadata-file`}
+              type="file"
+              className="form-control"
+              accept=".json,application/json,.txt"
+              onChange={(event) => handleOidcMetadataFileChange(driver, event)}
+              disabled={createBusy || loading}
+            />
+            <div className="form-text">
+              Upload a saved discovery document if downloading from the provider is blocked.
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderSamlFields = (): JSX.Element => {
+    const loading = metadataLoading.saml;
+
+    return (
+      <div>
+        <h2 className="h6 mb-2">SAML configuration</h2>
+        <p className="text-muted small mb-3">
+          Provide the entity ID, SSO endpoint, and signing certificate from your IdP metadata.
+        </p>
+        <div className="row g-3">
+          <div className="col-12">
+            <label htmlFor="saml-entity-id" className="form-label">
+              Entity ID
+            </label>
+            <input
+              id="saml-entity-id"
+              type="text"
+              className={`form-control${fieldError("saml.entityId") ? " is-invalid" : ""}`}
+              value={form.saml.entityId}
+              onChange={(event) =>
+                setForm((prev) => ({ ...prev, saml: { ...prev.saml, entityId: event.target.value } }))
+              }
+              disabled={createBusy}
+              placeholder="urn:example:idp"
+              autoComplete="off"
+            />
+            {fieldError("saml.entityId") ? (
+              <div className="invalid-feedback">{fieldError("saml.entityId")}</div>
+            ) : null}
+            <div className="form-text">The IdP entity identifier (sometimes called audience or issuer).</div>
+          </div>
+
+          <div className="col-12">
+            <label htmlFor="saml-sso-url" className="form-label">
+              SSO URL
+            </label>
+            <input
+              id="saml-sso-url"
+              type="url"
+              className={`form-control${fieldError("saml.ssoUrl") ? " is-invalid" : ""}`}
+              value={form.saml.ssoUrl}
+              onChange={(event) =>
+                setForm((prev) => ({ ...prev, saml: { ...prev.saml, ssoUrl: event.target.value } }))
+              }
+              disabled={createBusy}
+              placeholder="https://idp.example.com/saml2"
+              inputMode="url"
+              autoComplete="off"
+            />
+            {fieldError("saml.ssoUrl") ? (
+              <div className="invalid-feedback">{fieldError("saml.ssoUrl")}</div>
+            ) : null}
+            <div className="form-text">HTTP-Redirect endpoint for authentication requests.</div>
+          </div>
+
+          <div className="col-12">
+            <label htmlFor="saml-certificate" className="form-label">
+              Signing certificate
+            </label>
+            <textarea
+              id="saml-certificate"
+              className={`form-control font-monospace${fieldError("saml.certificate") ? " is-invalid" : ""}`}
+              rows={5}
+              value={form.saml.certificate}
+              onChange={(event) =>
+                setForm((prev) => ({ ...prev, saml: { ...prev.saml, certificate: event.target.value } }))
+              }
+              disabled={createBusy}
+              placeholder="-----BEGIN CERTIFICATE-----"
+            />
+            {fieldError("saml.certificate") ? (
+              <div className="invalid-feedback">{fieldError("saml.certificate")}</div>
+            ) : null}
+            <div className="form-text">Paste the full PEM encoded signing certificate from your IdP.</div>
+          </div>
+
+          <div className="col-12">
+            <label htmlFor="saml-metadata-url" className="form-label">
+              Metadata URL
+            </label>
+            <div className="input-group">
+              <input
+                id="saml-metadata-url"
+                type="url"
+                className={`form-control${fieldError("saml.metadataUrl") ? " is-invalid" : ""}`}
+                value={form.saml.metadataUrl}
+                onChange={(event) =>
+                  setForm((prev) => ({ ...prev, saml: { ...prev.saml, metadataUrl: event.target.value } }))
+                }
+                placeholder="https://idp.example.com/federationmetadata.xml"
+                disabled={createBusy || loading}
+                inputMode="url"
+                autoComplete="off"
+              />
+              <button
+                type="button"
+                className="btn btn-outline-secondary"
+                onClick={() => void handleSamlMetadataFetch()}
+                disabled={createBusy || loading}
+              >
+                {loading ? (
+                  <>
+                    <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true" />
+                    Fetching...
+                  </>
+                ) : (
+                  "Fetch & Autofill"
+                )}
+              </button>
+            </div>
+            {fieldError("saml.metadataUrl") ? (
+              <div className="invalid-feedback d-block">{fieldError("saml.metadataUrl")}</div>
+            ) : null}
+            <div className="form-text">
+              Provide the federation metadata URL to import values automatically (subject to CORS).
+            </div>
+          </div>
+
+          <div className="col-12">
+            <label htmlFor="saml-metadata-file" className="form-label">
+              Metadata file
+            </label>
+            <input
+              id="saml-metadata-file"
+              type="file"
+              className="form-control"
+              accept=".xml,application/xml,text/xml"
+              onChange={handleSamlMetadataFileChange}
+              disabled={createBusy || loading}
+            />
+            <div className="form-text">
+              Upload an XML metadata file to parse entity ID, SSO URL, and certificate automatically.
+              {form.saml.metadataFileName ? ` Last uploaded: ${form.saml.metadataFileName}` : ""}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderLdapFields = (): JSX.Element => {
+    const bindStrategy = form.ldap.bindStrategy;
+
+    return (
+      <div>
+        <h2 className="h6 mb-2">LDAP configuration</h2>
+        <p className="text-muted small mb-3">
+          Define how we connect, bind, and map attributes from your directory server.
+        </p>
+        <div className="row g-3">
+          <div className="col-12 col-md-6">
+            <label htmlFor="ldap-host" className="form-label">
+              Server host
+            </label>
+            <input
+              id="ldap-host"
+              type="text"
+              className={`form-control${fieldError("ldap.host") ? " is-invalid" : ""}`}
+              value={form.ldap.host}
+              onChange={(event) =>
+                setForm((prev) => ({ ...prev, ldap: { ...prev.ldap, host: event.target.value } }))
+              }
+              disabled={createBusy}
+              placeholder="ldap.example.com"
+              autoComplete="off"
+            />
+            {fieldError("ldap.host") ? <div className="invalid-feedback">{fieldError("ldap.host")}</div> : null}
+            <div className="form-text">Hostname or IP address of the LDAP server.</div>
+          </div>
+
+          <div className="col-6 col-md-3">
+            <label htmlFor="ldap-port" className="form-label">
+              Port
+            </label>
+            <input
+              id="ldap-port"
+              type="number"
+              min={1}
+              max={65535}
+              className={`form-control${fieldError("ldap.port") ? " is-invalid" : ""}`}
+              value={form.ldap.port}
+              onChange={(event) =>
+                setForm((prev) => ({ ...prev, ldap: { ...prev.ldap, port: event.target.value } }))
+              }
+              disabled={createBusy}
+              placeholder="389"
+            />
+            {fieldError("ldap.port") ? <div className="invalid-feedback">{fieldError("ldap.port")}</div> : null}
+            <div className="form-text">Leave blank to use 389 or 636 with SSL.</div>
+          </div>
+
+          <div className="col-6 col-md-3">
+            <label htmlFor="ldap-timeout" className="form-label">
+              Timeout (s)
+            </label>
+            <input
+              id="ldap-timeout"
+              type="number"
+              min={1}
+              max={120}
+              className={`form-control${fieldError("ldap.timeout") ? " is-invalid" : ""}`}
+              value={form.ldap.timeout}
+              onChange={(event) =>
+                setForm((prev) => ({ ...prev, ldap: { ...prev.ldap, timeout: event.target.value } }))
+              }
+              disabled={createBusy}
+              placeholder="15"
+            />
+            {fieldError("ldap.timeout") ? <div className="invalid-feedback">{fieldError("ldap.timeout")}</div> : null}
+            <div className="form-text">Optional network timeout in seconds.</div>
+          </div>
+
+          <div className="col-12">
+            <label htmlFor="ldap-base-dn" className="form-label">
+              Base DN
+            </label>
+            <input
+              id="ldap-base-dn"
+              type="text"
+              className={`form-control${fieldError("ldap.baseDn") ? " is-invalid" : ""}`}
+              value={form.ldap.baseDn}
+              onChange={(event) =>
+                setForm((prev) => ({ ...prev, ldap: { ...prev.ldap, baseDn: event.target.value } }))
+              }
+              disabled={createBusy}
+              placeholder="dc=example,dc=com"
+              autoComplete="off"
+            />
+            {fieldError("ldap.baseDn") ? <div className="invalid-feedback">{fieldError("ldap.baseDn")}</div> : null}
+            <div className="form-text">Search base used for users and lookups.</div>
+          </div>
+
+          <div className="col-12 col-md-4">
+            <div className="form-check form-switch pt-2">
+              <input
+                id="ldap-use-ssl"
+                className="form-check-input"
+                type="checkbox"
+                role="switch"
+                checked={form.ldap.useSsl}
+                onChange={(event) =>
+                  setForm((prev) => ({ ...prev, ldap: { ...prev.ldap, useSsl: event.target.checked } }))
+                }
+                disabled={createBusy}
+              />
+              <label className="form-check-label" htmlFor="ldap-use-ssl">
+                Use LDAPS (SSL)
+              </label>
+            </div>
+            <div className="form-text">Connect over LDAPS on port 636.</div>
+          </div>
+
+          <div className="col-12 col-md-4">
+            <div className="form-check form-switch pt-2">
+              <input
+                id="ldap-start-tls"
+                className="form-check-input"
+                type="checkbox"
+                role="switch"
+                checked={form.ldap.startTls}
+                onChange={(event) =>
+                  setForm((prev) => ({ ...prev, ldap: { ...prev.ldap, startTls: event.target.checked } }))
+                }
+                disabled={createBusy}
+              />
+              <label className="form-check-label" htmlFor="ldap-start-tls">
+                StartTLS
+              </label>
+            </div>
+            <div className="form-text">Start TLS after connecting on the standard port.</div>
+          </div>
+
+          <div className="col-12 col-md-4">
+            <div className="form-check form-switch pt-2">
+              <input
+                id="ldap-require-tls"
+                className="form-check-input"
+                type="checkbox"
+                role="switch"
+                checked={form.ldap.requireTls}
+                onChange={(event) =>
+                  setForm((prev) => ({ ...prev, ldap: { ...prev.ldap, requireTls: event.target.checked } }))
+                }
+                disabled={createBusy}
+              />
+              <label className="form-check-label" htmlFor="ldap-require-tls">
+                Require TLS
+              </label>
+            </div>
+            <div className="form-text">Prevent binds unless SSL or StartTLS is enabled.</div>
+          </div>
+
+          <div className="col-12 col-md-6">
+            <label htmlFor="ldap-bind-strategy" className="form-label">
+              Bind strategy
+            </label>
+            <select
+              id="ldap-bind-strategy"
+              className={`form-select${fieldError("ldap.bindStrategy") ? " is-invalid" : ""}`}
+              value={bindStrategy}
+              onChange={(event) =>
+                setForm((prev) => ({
+                  ...prev,
+                  ldap: { ...prev.ldap, bindStrategy: event.target.value as LdapFormState["bindStrategy"] },
+                }))
+              }
+              disabled={createBusy}
+            >
+              <option value="service">Service account (search + rebind)</option>
+              <option value="direct">Direct user DN bind</option>
+            </select>
+            {fieldError("ldap.bindStrategy") ? (
+              <div className="invalid-feedback">{fieldError("ldap.bindStrategy")}</div>
+            ) : null}
+            <div className="form-text">Choose how user credentials are verified.</div>
+          </div>
+
+          {bindStrategy === "service" ? (
+            <>
+              <div className="col-12 col-md-6">
+                <label htmlFor="ldap-bind-dn" className="form-label">
+                  Bind DN
+                </label>
+                <input
+                  id="ldap-bind-dn"
+                  type="text"
+                  className={`form-control${fieldError("ldap.bindDn") ? " is-invalid" : ""}`}
+                  value={form.ldap.bindDn}
+                  onChange={(event) =>
+                    setForm((prev) => ({ ...prev, ldap: { ...prev.ldap, bindDn: event.target.value } }))
+                  }
+                  disabled={createBusy}
+                  placeholder="cn=service,ou=accounts,dc=example,dc=com"
+                  autoComplete="off"
+                />
+                {fieldError("ldap.bindDn") ? (
+                  <div className="invalid-feedback">{fieldError("ldap.bindDn")}</div>
+                ) : null}
+                <div className="form-text">Service account used to search for user entries.</div>
+              </div>
+
+              <div className="col-12 col-md-6">
+                <label htmlFor="ldap-bind-password" className="form-label">
+                  Bind password
+                </label>
+                <input
+                  id="ldap-bind-password"
+                  type="password"
+                  className={`form-control${fieldError("ldap.bindPassword") ? " is-invalid" : ""}`}
+                  value={form.ldap.bindPassword}
+                  onChange={(event) =>
+                    setForm((prev) => ({ ...prev, ldap: { ...prev.ldap, bindPassword: event.target.value } }))
+                  }
+                  disabled={createBusy}
+                  placeholder="••••••••"
+                  autoComplete="off"
+                />
+                {fieldError("ldap.bindPassword") ? (
+                  <div className="invalid-feedback">{fieldError("ldap.bindPassword")}</div>
+                ) : null}
+                <div className="form-text">Credentials for the service account above.</div>
+              </div>
+            </>
+          ) : (
+            <div className="col-12">
+              <label htmlFor="ldap-user-dn-template" className="form-label">
+                User DN template
+              </label>
+              <input
+                id="ldap-user-dn-template"
+                type="text"
+                className={`form-control${fieldError("ldap.userDnTemplate") ? " is-invalid" : ""}`}
+                value={form.ldap.userDnTemplate}
+                onChange={(event) =>
+                  setForm((prev) => ({ ...prev, ldap: { ...prev.ldap, userDnTemplate: event.target.value } }))
+                }
+                disabled={createBusy}
+                placeholder="uid={{username}},ou=people,dc=example,dc=com"
+                autoComplete="off"
+              />
+              {fieldError("ldap.userDnTemplate") ? (
+                <div className="invalid-feedback">{fieldError("ldap.userDnTemplate")}</div>
+              ) : null}
+              <div className="form-text">{"Must include the placeholder {{username}}."}</div>
+            </div>
+          )}
+
+          <div className="col-12">
+            <label htmlFor="ldap-user-filter" className="form-label">
+              User search filter
+            </label>
+            <input
+              id="ldap-user-filter"
+              type="text"
+              className={`form-control${fieldError("ldap.userFilter") ? " is-invalid" : ""}`}
+              value={form.ldap.userFilter}
+              onChange={(event) =>
+                setForm((prev) => ({ ...prev, ldap: { ...prev.ldap, userFilter: event.target.value } }))
+              }
+              disabled={createBusy}
+              placeholder="(&(objectClass=person)(uid={{username}}))"
+              autoComplete="off"
+            />
+            {fieldError("ldap.userFilter") ? (
+              <div className="invalid-feedback">{fieldError("ldap.userFilter")}</div>
+            ) : null}
+            <div className="form-text">{"Include the {{username}} placeholder for the authenticating user."}</div>
+          </div>
+
+          <div className="col-12 col-md-4">
+            <label htmlFor="ldap-email-attribute" className="form-label">
+              Email attribute
+            </label>
+            <input
+              id="ldap-email-attribute"
+              type="text"
+              className={`form-control${fieldError("ldap.emailAttribute") ? " is-invalid" : ""}`}
+              value={form.ldap.emailAttribute}
+              onChange={(event) =>
+                setForm((prev) => ({ ...prev, ldap: { ...prev.ldap, emailAttribute: event.target.value } }))
+              }
+              disabled={createBusy}
+              placeholder="mail"
+              autoComplete="off"
+            />
+            {fieldError("ldap.emailAttribute") ? (
+              <div className="invalid-feedback">{fieldError("ldap.emailAttribute")}</div>
+            ) : null}
+            <div className="form-text">Attribute containing the user&apos;s email address.</div>
+          </div>
+
+          <div className="col-12 col-md-4">
+            <label htmlFor="ldap-name-attribute" className="form-label">
+              Display name attribute
+            </label>
+            <input
+              id="ldap-name-attribute"
+              type="text"
+              className={`form-control${fieldError("ldap.nameAttribute") ? " is-invalid" : ""}`}
+              value={form.ldap.nameAttribute}
+              onChange={(event) =>
+                setForm((prev) => ({ ...prev, ldap: { ...prev.ldap, nameAttribute: event.target.value } }))
+              }
+              disabled={createBusy}
+              placeholder="cn"
+              autoComplete="off"
+            />
+            {fieldError("ldap.nameAttribute") ? (
+              <div className="invalid-feedback">{fieldError("ldap.nameAttribute")}</div>
+            ) : null}
+            <div className="form-text">Attribute used for the user&apos;s display name.</div>
+          </div>
+
+          <div className="col-12 col-md-4">
+            <label htmlFor="ldap-username-attribute" className="form-label">
+              Username attribute
+            </label>
+            <input
+              id="ldap-username-attribute"
+              type="text"
+              className={`form-control${fieldError("ldap.usernameAttribute") ? " is-invalid" : ""}`}
+              value={form.ldap.usernameAttribute}
+              onChange={(event) =>
+                setForm((prev) => ({ ...prev, ldap: { ...prev.ldap, usernameAttribute: event.target.value } }))
+              }
+              disabled={createBusy}
+              placeholder="uid"
+              autoComplete="off"
+            />
+            {fieldError("ldap.usernameAttribute") ? (
+              <div className="invalid-feedback">{fieldError("ldap.usernameAttribute")}</div>
+            ) : null}
+            <div className="form-text">Attribute used to match usernames during login.</div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderDriverFields = (): JSX.Element | null => {
+    if (form.driver === "oidc" || form.driver === "entra") {
+      return renderOidcLikeFields(form.driver);
+    }
+
+    if (form.driver === "saml") {
+      return renderSamlFields();
+    }
+
+    if (form.driver === "ldap") {
+      return renderLdapFields();
+    }
+
+    return null;
+  };
 
   return (
     <section className="container py-3">
@@ -403,7 +1729,7 @@ export default function IdpProviders(): JSX.Element {
                   #
                 </th>
                 <th scope="col">Provider</th>
-                <th scope="col">Driver</th>
+                <th scope="col">Idp Type</th>
                 <th scope="col">Key</th>
                 <th scope="col">Status</th>
                 <th scope="col" style={{ width: "12rem" }} className="text-end">
@@ -517,7 +1843,7 @@ export default function IdpProviders(): JSX.Element {
         confirmDisabled={createBusy}
       >
         <form
-          className="d-flex flex-column gap-3"
+          className="d-flex flex-column gap-4"
           onSubmit={(event) => {
             event.preventDefault();
             void submitCreate();
@@ -528,106 +1854,110 @@ export default function IdpProviders(): JSX.Element {
               {formErrors.general}
             </p>
           ) : null}
-          <div>
-            <label htmlFor="idp-key" className="form-label">
-              Provider key
-            </label>
-            <input
-              id="idp-key"
-              name="key"
-              type="text"
-              className={`form-control${formErrors.key ? " is-invalid" : ""}`}
-              value={form.key}
-              onChange={(event) => setForm((prev) => ({ ...prev, key: event.target.value }))}
-              placeholder="okta-primary"
-              disabled={createBusy}
-              required
-            />
-            {formErrors.key ? <div className="invalid-feedback">{formErrors.key}</div> : null}
+          <div className="row g-3">
+            <div className="col-12 col-md-6">
+              <label htmlFor="idp-key" className="form-label">
+                Provider key
+              </label>
+              <input
+                id="idp-key"
+                name="key"
+                type="text"
+                className={`form-control${fieldError("key") ? " is-invalid" : ""}`}
+                value={form.key}
+                onChange={(event) => setForm((prev) => ({ ...prev, key: event.target.value }))}
+                placeholder="azure-entraid"
+                disabled={createBusy}
+                autoComplete="off"
+                required
+              />
+              {fieldError("key") ? <div className="invalid-feedback">{fieldError("key")}</div> : null}
+              <div className="form-text">Lowercase slug used in API responses and audit logs.</div>
+            </div>
+            <div className="col-12 col-md-6">
+              <label htmlFor="idp-name" className="form-label">
+                Display name
+              </label>
+              <input
+                id="idp-name"
+                name="name"
+                type="text"
+                className={`form-control${fieldError("name") ? " is-invalid" : ""}`}
+                value={form.name}
+                onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
+                placeholder="Microsoft Entra - Primary"
+                disabled={createBusy}
+                autoComplete="off"
+                required
+              />
+              {fieldError("name") ? <div className="invalid-feedback">{fieldError("name")}</div> : null}
+              <div className="form-text">Shown to users on the login screen.</div>
+            </div>
+            <div className="col-12 col-md-6">
+              <label htmlFor="idp-driver" className="form-label">
+                Idp Type
+              </label>
+              <select
+                id="idp-driver"
+                name="driver"
+                className={`form-select${fieldError("driver") ? " is-invalid" : ""}`}
+                value={form.driver}
+                onChange={(event) =>
+                  setForm((prev) => ({
+                    ...prev,
+                    driver: event.target.value as IdpProviderDriver,
+                  }))
+                }
+                disabled={createBusy}
+                required
+              >
+                {DRIVER_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              {fieldError("driver") ? <div className="invalid-feedback">{fieldError("driver")}</div> : null}
+              <div className="form-text">Choose the integration style for this provider.</div>
+            </div>
+            <div className="col-12 col-md-6">
+              <div className="form-check form-switch pt-2">
+                <input
+                  id="idp-enabled"
+                  name="enabled"
+                  type="checkbox"
+                  className="form-check-input"
+                  role="switch"
+                  checked={form.enabled}
+                  onChange={(event) => setForm((prev) => ({ ...prev, enabled: event.target.checked }))}
+                  disabled={createBusy}
+                />
+                <label className="form-check-label" htmlFor="idp-enabled">
+                  Enable immediately
+                </label>
+              </div>
+              <div className="form-text">You can toggle availability later from the overview.</div>
+            </div>
           </div>
-          <div>
-            <label htmlFor="idp-name" className="form-label">
-              Display name
-            </label>
-            <input
-              id="idp-name"
-              name="name"
-              type="text"
-              className={`form-control${formErrors.name ? " is-invalid" : ""}`}
-              value={form.name}
-              onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
-              placeholder="Okta Primary"
-              disabled={createBusy}
-              required
-            />
-            {formErrors.name ? <div className="invalid-feedback">{formErrors.name}</div> : null}
-          </div>
-          <div>
-            <label htmlFor="idp-driver" className="form-label">
-              Driver
-            </label>
-            <select
-              id="idp-driver"
-              name="driver"
-              className={`form-select${formErrors.driver ? " is-invalid" : ""}`}
-              value={form.driver}
-              onChange={(event) => setForm((prev) => ({ ...prev, driver: event.target.value }))}
-              disabled={createBusy}
-              required
-            >
-              <option value="oidc">OIDC</option>
-              <option value="saml">SAML</option>
-              <option value="ldap">LDAP</option>
-              <option value="entra">Entra ID</option>
-            </select>
-            {formErrors.driver ? <div className="invalid-feedback">{formErrors.driver}</div> : null}
-          </div>
-          <div className="form-check form-switch">
-            <input
-              id="idp-enabled"
-              name="enabled"
-              type="checkbox"
-              className="form-check-input"
-              role="switch"
-              checked={form.enabled}
-              onChange={(event) => setForm((prev) => ({ ...prev, enabled: event.target.checked }))}
-              disabled={createBusy}
-            />
-            <label className="form-check-label" htmlFor="idp-enabled">
-              Enable immediately
-            </label>
-          </div>
-          <div>
-            <label htmlFor="idp-config" className="form-label">
-              Provider config (JSON)
-            </label>
-            <textarea
-              id="idp-config"
-              name="config"
-              className={`form-control font-monospace${formErrors.config ? " is-invalid" : ""}`}
-              rows={6}
-              value={form.config}
-              onChange={(event) => setForm((prev) => ({ ...prev, config: event.target.value }))}
-              disabled={createBusy}
-              required
-            />
-            {formErrors.config ? <div className="invalid-feedback">{formErrors.config}</div> : null}
-          </div>
-          <div>
+
+          <div className="border-top pt-3">{renderDriverFields()}</div>
+
+          <div className="border-top pt-3">
             <label htmlFor="idp-meta" className="form-label">
-              Meta (JSON, optional)
+              Additional metadata (JSON, optional)
             </label>
             <textarea
               id="idp-meta"
               name="meta"
-              className={`form-control font-monospace${formErrors.meta ? " is-invalid" : ""}`}
+              className={`form-control font-monospace${fieldError("meta") ? " is-invalid" : ""}`}
               rows={3}
               value={form.meta}
               onChange={(event) => setForm((prev) => ({ ...prev, meta: event.target.value }))}
               disabled={createBusy}
-              placeholder='{"region": "us-east"}'
+              placeholder='{"display_region": "us-east"}'
             />
-            {formErrors.meta ? <div className="invalid-feedback">{formErrors.meta}</div> : null}
+            {fieldError("meta") ? <div className="invalid-feedback">{fieldError("meta")}</div> : null}
+            <div className="form-text">Optional structured notes for automation or UI hints.</div>
           </div>
         </form>
       </ConfirmModal>
