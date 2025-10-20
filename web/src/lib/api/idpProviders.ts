@@ -176,7 +176,9 @@ export type LdapBrowseResponse = {
   ok: true;
   root: boolean;
   base_dn: string | null;
+  requested_base_dn?: string | null;
   entries: LdapBrowseEntry[];
+  diagnostics?: Record<string, unknown> | null;
 };
 
 export function browseLdapDirectory(

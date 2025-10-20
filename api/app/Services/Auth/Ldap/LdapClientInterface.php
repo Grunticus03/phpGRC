@@ -33,7 +33,19 @@ interface LdapClientInterface
      * Browse the directory tree to assist with configuration.
      *
      * @param  array<string,mixed>  $config  Normalized provider configuration.
-     * @return array<string,mixed>
+     * @return array{
+     *   root: bool,
+     *   base_dn: string|null,
+     *   entries: list<array{
+     *     dn: string,
+     *     rdn: string,
+     *     name: string,
+     *     type: string,
+     *     object_class: array<int,string>,
+     *     has_children: bool
+     *   }>,
+     *   diagnostics?: array<string,mixed>
+     * }
      *
      * @throws LdapException when the browse operation fails
      */

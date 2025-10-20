@@ -71,6 +71,8 @@ final class IdpProviderToolsController extends Controller
             'root' => (bool) ($result['root'] ?? false),
             'base_dn' => $result['base_dn'] ?? $baseDn,
             'entries' => $result['entries'] ?? [],
+            'requested_base_dn' => $baseDn,
+            'diagnostics' => $result['diagnostics'] ?? null,
         ], 200);
     }
 

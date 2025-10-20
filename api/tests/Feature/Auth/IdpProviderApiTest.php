@@ -611,6 +611,18 @@ final class IdpProviderApiTest extends TestCase
                         'has_children' => true,
                     ],
                 ],
+                'diagnostics' => [
+                    'search' => [
+                        'requested_dn' => null,
+                        'filter' => '(objectClass=*)',
+                        'scope' => 'base',
+                        'attributes' => ['namingContexts'],
+                        'returned' => 1,
+                    ],
+                    'connection' => [
+                        'code' => 0,
+                    ],
+                ],
             ]);
 
         app()->instance(LdapClientInterface::class, $ldap);
@@ -627,7 +639,9 @@ final class IdpProviderApiTest extends TestCase
         ])
             ->assertStatus(200)
             ->assertJsonPath('entries.0.dn', 'dc=example,dc=test')
-            ->assertJsonPath('entries.0.has_children', true);
+            ->assertJsonPath('entries.0.has_children', true)
+            ->assertJsonPath('diagnostics.connection.code', 0)
+            ->assertJsonPath('diagnostics.search.filter', '(objectClass=*)');
     }
 
     #[Test]

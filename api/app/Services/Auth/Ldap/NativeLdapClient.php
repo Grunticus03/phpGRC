@@ -16,6 +16,13 @@ final class NativeLdapClient implements LdapClientInterface
 {
     private const USERNAME_PLACEHOLDER = '{{username}}';
 
+    private const DIRECTORY_BROWSE_FILTER = '(objectClass=*)';
+
+    /**
+     * Subset of attributes requested during directory browsing to keep responses lightweight.
+     */
+    private const DIRECTORY_BROWSE_ATTRIBUTES = ['ou', 'cn', 'dc', 'objectClass'];
+
     private readonly LdapEntryNormalizer $normalizer;
 
     public function __construct(?LdapEntryNormalizer $normalizer = null)
@@ -67,7 +74,19 @@ final class NativeLdapClient implements LdapClientInterface
 
     /**
      * @param  array<string,mixed>  $config
-     * @return array<string,mixed>
+     * @return array{
+     *   root: bool,
+     *   base_dn: string|null,
+     *   entries: list<array{
+     *     dn: string,
+     *     rdn: string,
+     *     name: string,
+     *     type: string,
+     *     object_class: array<int,string>,
+     *     has_children: bool
+     *   }>,
+     *   diagnostics?: array<string,mixed>
+     * }
      */
     #[\Override]
     public function browse(array $config, ?string $baseDn = null): array
@@ -89,11 +108,33 @@ final class NativeLdapClient implements LdapClientInterface
 
             $this->bindService($connection, $bindDn, $bindPassword);
 
-            if ($baseDn === null || trim($baseDn) === '') {
-                return $this->readRootDseContexts($connection);
+            $trimmedBaseDn = $baseDn === null ? null : trim($baseDn);
+            $shouldReadRoot = $trimmedBaseDn === null || $trimmedBaseDn === '';
+
+            /** @var array{
+             *   root: bool,
+             *   base_dn: string|null,
+             *   entries: list<array{
+             *     dn: string,
+             *     rdn: string,
+             *     name: string,
+             *     type: string,
+             *     object_class: array<int,string>,
+             *     has_children: bool
+             *   }>,
+             *   diagnostics: array<string,mixed>
+             * } $result
+             */
+            $result = $shouldReadRoot
+                ? $this->readRootDseContexts($connection)
+                : $this->listChildEntries($connection, $this->requireBrowseBaseDn($trimmedBaseDn));
+
+            $connectionDiag = $this->connectionDiagnostics($connection);
+            if ($connectionDiag !== []) {
+                $result['diagnostics']['connection'] = $connectionDiag;
             }
 
-            return $this->listChildEntries($connection, $baseDn);
+            return $result;
         } finally {
             $this->close($connection);
         }
@@ -213,7 +254,19 @@ final class NativeLdapClient implements LdapClientInterface
     }
 
     /**
-     * @return array<string,mixed>
+     * @return array{
+     *   root: true,
+     *   base_dn: null,
+     *   entries: list<array{
+     *     dn: string,
+     *     rdn: string,
+     *     name: string,
+     *     type: string,
+     *     object_class: array<int,string>,
+     *     has_children: bool
+     *   }>,
+     *   diagnostics: array<string,mixed>
+     * }
      */
     private function readRootDseContexts(\LDAP\Connection $connection): array
     {
@@ -221,7 +274,7 @@ final class NativeLdapClient implements LdapClientInterface
         $result = $this->withSuppressedWarnings(static fn () => ldap_read(
             $connection,
             '',
-            '(objectClass=*)',
+            self::DIRECTORY_BROWSE_FILTER,
             ['namingContexts'],
             0,
             0
@@ -245,89 +298,71 @@ final class NativeLdapClient implements LdapClientInterface
             throw new LdapException('LDAP server did not return any naming contexts.');
         }
 
-        $items = array_map(function (string $context): array {
+        $items = array_values(array_map(function (string $context): array {
             $rdn = $this->extractRdn($context);
+            /** @var array<int,string> $emptyClasses */
+            $emptyClasses = [];
 
             return [
                 'dn' => $context,
                 'rdn' => $rdn,
                 'name' => $rdn,
                 'type' => 'context',
-                'object_class' => [],
+                'object_class' => $emptyClasses,
                 'has_children' => true,
             ];
-        }, $contexts);
+        }, $contexts));
+
+        $diagnostics = [
+            'search' => [
+                'requested_dn' => null,
+                'filter' => self::DIRECTORY_BROWSE_FILTER,
+                'scope' => 'base',
+                'attributes' => ['namingContexts'],
+                'returned' => count($items),
+            ],
+        ];
+
+        $diagnosticMessage = $this->diagnosticMessage($connection);
+        if ($diagnosticMessage !== null) {
+            $diagnostics['diagnostic_message'] = $diagnosticMessage;
+        }
 
         return [
             'root' => true,
             'base_dn' => null,
             'entries' => $items,
+            'diagnostics' => $diagnostics,
         ];
     }
 
     /**
-     * @return array<string,mixed>
+     * @return array{
+     *   root: false,
+     *   base_dn: string,
+     *   entries: list<array{
+     *     dn: string,
+     *     rdn: string,
+     *     name: string,
+     *     type: string,
+     *     object_class: array<int,string>,
+     *     has_children: bool
+     *   }>,
+     *   diagnostics: array<string,mixed>
+     * }
      */
     private function listChildEntries(\LDAP\Connection $connection, string $baseDn): array
     {
-        /** @var mixed $result */
-        $result = $this->withSuppressedWarnings(static fn () => ldap_list(
-            $connection,
-            $baseDn,
-            '(objectClass=*)',
-            ['ou', 'cn', 'dc', 'objectClass'],
-            0,
-            0,
-            30,
-            0
-        ));
-
-        if ($result === false || ! $result instanceof \LDAP\Result) {
-            throw new LdapException('Failed to browse LDAP directory: '.$this->lastError($connection));
-        }
-
-        /** @var mixed $entries */
-        $entries = $this->withSuppressedWarnings(static fn () => ldap_get_entries($connection, $result));
-        if (! is_array($entries)) {
-            throw new LdapException('LDAP browse request returned an unexpected result.');
-        }
-
-        $count = isset($entries['count']) && is_int($entries['count']) ? $entries['count'] : 0;
-        $items = [];
-
-        for ($i = 0; $i < $count; $i++) {
-            /** @var mixed $current */
-            $current = $entries[$i] ?? null;
-            if (! is_array($current)) {
-                continue;
-            }
-
-            /** @var array<string,mixed> $entry */
-            $entry = $current;
-
-            $dnRaw = $entry['dn'] ?? null;
-            if (! is_string($dnRaw) || trim($dnRaw) === '') {
-                continue;
-            }
-
-            $objectClasses = $this->extractAttributeValues($entry, 'objectclass');
-            $rdn = $this->extractRdn($dnRaw);
-            $name = $this->resolveDisplayName($entry, $rdn);
-
-            $items[] = [
-                'dn' => $dnRaw,
-                'rdn' => $rdn,
-                'name' => $name,
-                'type' => $this->classifyEntryType($objectClasses),
-                'object_class' => $objectClasses,
-                'has_children' => $this->hasChildHint($objectClasses),
-            ];
-        }
+        $result = $this->executeBrowseQuery($connection, $baseDn);
+        $entries = $this->hydrateBrowseEntries($connection, $result);
+        $items = $this->mapBrowseEntries($entries);
+        $diagnostics = $this->buildBrowseDiagnostics($connection, $baseDn, count($items));
 
         return [
             'root' => false,
             'base_dn' => $baseDn,
             'entries' => $items,
+            'diagnostics' => $diagnostics,
         ];
     }
 
@@ -448,12 +483,31 @@ final class NativeLdapClient implements LdapClientInterface
             return $baseMessage;
         }
 
-        $detail = $this->lastError($connection);
-        if ($detail === '') {
-            return $baseMessage;
+        $diagnostics = $this->connectionDiagnostics($connection);
+        /** @var array{code?: int, error?: string, diagnostic_message?: string} $diagnostics */
+        /** @var array{code?: int, error?: string, diagnostic_message?: string} $diagnostics */
+        /** @var list<string> $segments */
+        $segments = [rtrim($baseMessage, '.')];
+
+        $code = $diagnostics['code'] ?? null;
+        if (is_int($code) && $code !== 0) {
+            $segments[0] .= sprintf(' (code %d)', $code);
         }
 
-        return sprintf('%s %s', rtrim($baseMessage, '.'), $detail);
+        $detail = $diagnostics['error'] ?? null;
+        if ($detail === null || $detail === '') {
+            $detail = $this->lastError($connection);
+        }
+        if ($detail !== '') {
+            $segments[] = $detail;
+        }
+
+        $diagMessage = $diagnostics['diagnostic_message'] ?? null;
+        if (is_string($diagMessage) && $diagMessage !== '') {
+            $segments[] = '['.$diagMessage.']';
+        }
+
+        return implode(' ', $segments);
     }
 
     private function setOption(\LDAP\Connection $connection, int $option, int $value): void
@@ -629,6 +683,211 @@ final class NativeLdapClient implements LdapClientInterface
         return array_intersect($lower, ['organizationalunit', 'container', 'domain', 'ou', 'dcobject', 'organization']) !== [];
     }
 
+    /**
+     * @param  array<string,mixed>  $entry
+     */
+    /**
+     * @param  array<string,mixed>  $entry
+     * @return array{
+     *   dn: string,
+     *   rdn: string,
+     *   name: string,
+     *   type: string,
+     *   object_class: array<int,string>,
+     *   has_children: bool
+     * }|null
+     */
+    private function mapBrowseEntry(array $entry): ?array
+    {
+        $dnRaw = $entry['dn'] ?? null;
+        if (! is_string($dnRaw)) {
+            return null;
+        }
+
+        $dnTrimmed = trim($dnRaw);
+        if ($dnTrimmed === '') {
+            return null;
+        }
+
+        $objectClasses = array_values($this->extractAttributeValues($entry, 'objectclass'));
+        /** @var array<int,string> $objectClasses */
+        $rdn = $this->extractRdn($dnTrimmed);
+        $name = $this->resolveDisplayName($entry, $rdn);
+
+        return [
+            'dn' => $dnTrimmed,
+            'rdn' => $rdn,
+            'name' => $name,
+            'type' => $this->classifyEntryType($objectClasses),
+            'object_class' => $objectClasses,
+            'has_children' => $this->hasChildHint($objectClasses),
+        ];
+    }
+
+    private function executeBrowseQuery(\LDAP\Connection $connection, string $baseDn): \LDAP\Result
+    {
+        /** @var mixed $result */
+        $result = $this->withSuppressedWarnings(static fn () => ldap_list(
+            $connection,
+            $baseDn,
+            self::DIRECTORY_BROWSE_FILTER,
+            self::DIRECTORY_BROWSE_ATTRIBUTES,
+            0,
+            0,
+            30,
+            0
+        ));
+
+        if ($result instanceof \LDAP\Result) {
+            return $result;
+        }
+
+        $diagnostics = $this->connectionDiagnostics($connection);
+        $failure = $this->buildBrowseFailure($connection, $diagnostics);
+
+        throw new LdapException($failure['message'], $failure['code']);
+    }
+
+    /**
+     * @param  array{code?: int, error?: string, diagnostic_message?: string}  $diagnostics
+     * @return array{message: string, code: int}
+     */
+    private function buildBrowseFailure(
+        \LDAP\Connection $connection,
+        array $diagnostics
+    ): array {
+        $message = 'Failed to browse LDAP directory';
+        $codeValue = $diagnostics['code'] ?? null;
+        $code = is_int($codeValue) ? $codeValue : 0;
+
+        if ($code !== 0) {
+            $message .= sprintf(' (code %d)', $code);
+        }
+
+        $errorText = $diagnostics['error'] ?? null;
+        if ($errorText === null || $errorText === '') {
+            $errorText = $this->lastError($connection);
+        }
+        if ($errorText !== '') {
+            $message .= ': '.$errorText;
+        }
+
+        $diagMessage = $diagnostics['diagnostic_message'] ?? null;
+        if (is_string($diagMessage) && $diagMessage !== '') {
+            $message .= ' ['.$diagMessage.']';
+        }
+
+        return [
+            'message' => $message,
+            'code' => $code,
+        ];
+    }
+
+    /**
+     * @return non-empty-string
+     */
+    private function requireBrowseBaseDn(?string $baseDn): string
+    {
+        if ($baseDn === null) {
+            throw new LdapException('Base DN must be provided when browsing child entries.');
+        }
+
+        $trimmed = trim($baseDn);
+        if ($trimmed === '') {
+            throw new LdapException('Base DN must be provided when browsing child entries.');
+        }
+
+        return $trimmed;
+    }
+
+    /**
+     * @return array<int|string,mixed>
+     */
+    private function hydrateBrowseEntries(\LDAP\Connection $connection, \LDAP\Result $result): array
+    {
+        /** @var mixed $entries */
+        $entries = $this->withSuppressedWarnings(static fn () => ldap_get_entries($connection, $result));
+        if (! is_array($entries)) {
+            throw new LdapException('LDAP browse request returned an unexpected result.');
+        }
+
+        return $entries;
+    }
+
+    /**
+     * @param  array<int|string,mixed>  $entries
+     * @return list<array{
+     *   dn: string,
+     *   rdn: string,
+     *   name: string,
+     *   type: string,
+     *   object_class: array<int,string>,
+     *   has_children: bool
+     * }>
+     */
+    private function mapBrowseEntries(array $entries): array
+    {
+        $count = isset($entries['count']) && is_int($entries['count']) ? $entries['count'] : 0;
+        $items = [];
+
+        for ($i = 0; $i < $count; $i++) {
+            /** @var mixed $current */
+            $current = $entries[$i] ?? null;
+            if (! is_array($current)) {
+                continue;
+            }
+
+            /** @var array<string,mixed> $currentEntry */
+            $currentEntry = $current;
+            $mapped = $this->mapBrowseEntry($currentEntry);
+            if ($mapped !== null) {
+                $items[] = $mapped;
+            }
+        }
+
+        return $items;
+    }
+
+    /**
+     * @return array{
+     *   search: array{
+     *     requested_dn: string,
+     *     filter: string,
+     *     scope: string,
+     *     attributes: list<string>,
+     *     returned: int
+     *   },
+     *   base_entry: array{
+     *     dn: string,
+     *     attributes: array<string,list<string>>,
+     *     attribute_count: int,
+     *     error?: string
+     *   },
+     *   diagnostic_message?: string
+     * }
+     */
+    private function buildBrowseDiagnostics(\LDAP\Connection $connection, string $baseDn, int $count): array
+    {
+        $diagnostics = [
+            'search' => [
+                'requested_dn' => $baseDn,
+                'filter' => self::DIRECTORY_BROWSE_FILTER,
+                'scope' => 'onelevel',
+                'attributes' => self::DIRECTORY_BROWSE_ATTRIBUTES,
+                'returned' => $count,
+            ],
+        ];
+
+        $diagnostics['base_entry'] = $this->summarizeBaseEntry($connection, $baseDn);
+
+        $diagnosticMessage = $this->diagnosticMessage($connection);
+        if ($diagnosticMessage !== null) {
+            $diagnostics['diagnostic_message'] = $diagnosticMessage;
+        }
+
+        return $diagnostics;
+    }
+
     private function intConstant(string $name): ?int
     {
         if (! defined($name)) {
@@ -662,5 +921,92 @@ final class NativeLdapClient implements LdapClientInterface
         }
 
         return trim($error);
+    }
+
+    private function diagnosticMessage(\LDAP\Connection $connection): ?string
+    {
+        $option = $this->intConstant('LDAP_OPT_DIAGNOSTIC_MESSAGE');
+        if ($option === null || ! function_exists('ldap_get_option')) {
+            return null;
+        }
+
+        /** @var string|null $diagnostic */
+        $diagnostic = null;
+        $result = $this->withSuppressedWarnings(static fn (): bool => ldap_get_option($connection, $option, $diagnostic));
+        if ($result !== true) {
+            return null;
+        }
+
+        if (! is_string($diagnostic)) {
+            return null;
+        }
+
+        $diagnostic = trim($diagnostic);
+
+        return $diagnostic === '' ? null : $diagnostic;
+    }
+
+    /**
+     * @return array{code?: int, error?: string, diagnostic_message?: string}
+     */
+    private function connectionDiagnostics(\LDAP\Connection $connection): array
+    {
+        $details = [];
+
+        if (function_exists('ldap_errno')) {
+            /** @var int|false $errno */
+            $errno = $this->withSuppressedWarnings(static fn () => ldap_errno($connection));
+            if (is_int($errno)) {
+                $details['code'] = $errno;
+            }
+        }
+
+        $error = $this->lastError($connection);
+        if ($error !== '') {
+            $details['error'] = $error;
+        }
+
+        $diagnostic = $this->diagnosticMessage($connection);
+        if ($diagnostic !== null && $diagnostic !== '') {
+            $details['diagnostic_message'] = $diagnostic;
+        }
+
+        return $details;
+    }
+
+    /**
+     * @return array{
+     *   dn: string,
+     *   attributes: array<string,list<string>>,
+     *   attribute_count: int,
+     *   error?: string
+     * }
+     */
+    private function summarizeBaseEntry(\LDAP\Connection $connection, string $baseDn): array
+    {
+        try {
+            $entry = $this->readEntry($connection, $baseDn);
+        } catch (LdapException $e) {
+            return [
+                'dn' => $baseDn,
+                'attributes' => [],
+                'attribute_count' => 0,
+                'error' => $e->getMessage(),
+            ];
+        }
+
+        $attributes = [];
+        foreach (self::DIRECTORY_BROWSE_ATTRIBUTES as $attribute) {
+            $values = $entry['attributes'][$attribute] ?? null;
+            if (is_array($values) && $values !== []) {
+                $attributes[$attribute] = $values;
+            }
+        }
+
+        return [
+            'dn' => $entry['dn'],
+            'attributes' => $attributes,
+            'attribute_count' => count($entry['attributes']),
+        ];
     }
 }

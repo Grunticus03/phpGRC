@@ -71,24 +71,48 @@ final class LdapIdpDriver extends AbstractIdpDriver
             ]);
         }
 
+        $connectionSummary = $this->summarizeConnection($normalized);
+
         try {
             $this->client->checkConnection($normalized);
         } catch (LdapException $e) {
-            return IdpHealthCheckResult::failed('LDAP connection failed.', [
+            $details = [
                 'error' => $e->getMessage(),
+                'connection' => $connectionSummary,
+            ];
+
+            if ($e->getCode() !== 0) {
+                $details['diagnostics'] = [
+                    'code' => $e->getCode(),
+                ];
+            }
+
+            return IdpHealthCheckResult::failed('LDAP connection failed.', [
+                ...$details,
             ]);
         }
 
-        return IdpHealthCheckResult::healthy('LDAP connection succeeded.', [
-            'host' => $normalized['host'] ?? null,
-            'port' => $normalized['port'] ?? null,
-            'bind_strategy' => $normalized['bind_strategy'] ?? null,
+        return IdpHealthCheckResult::healthy('LDAP connection succeeded.', $connectionSummary);
+    }
+
+    /**
+     * @param  array<string,mixed>  $config
+     * @return array<string,mixed>
+     */
+    private function summarizeConnection(array $config): array
+    {
+        return [
+            'host' => $config['host'] ?? null,
+            'port' => $config['port'] ?? null,
+            'base_dn' => $config['base_dn'] ?? null,
+            'bind_strategy' => $config['bind_strategy'] ?? null,
+            'timeout' => $config['timeout'] ?? null,
             'tls' => [
-                'use_ssl' => $normalized['use_ssl'] ?? false,
-                'start_tls' => $normalized['start_tls'] ?? false,
-                'require_tls' => $normalized['require_tls'] ?? false,
+                'use_ssl' => $config['use_ssl'] ?? false,
+                'start_tls' => $config['start_tls'] ?? false,
+                'require_tls' => $config['require_tls'] ?? false,
             ],
-        ]);
+        ];
     }
 
     /**

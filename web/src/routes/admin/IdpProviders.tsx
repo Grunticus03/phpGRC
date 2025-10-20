@@ -344,6 +344,27 @@ function formatUnknownError(reason: unknown, fallback: string): string {
   return fallback;
 }
 
+function normalizeDetail(value: unknown): Record<string, unknown> | null {
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  if (Array.isArray(value)) {
+    return { detail: value };
+  }
+
+  if (typeof value === "object") {
+    return value as Record<string, unknown>;
+  }
+
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    return trimmed === "" ? null : { detail: trimmed };
+  }
+
+  return { detail: value };
+}
+
 export default function IdpProviders(): JSX.Element {
   const toast = useToast();
   const [loading, setLoading] = useState(true);
@@ -372,6 +393,7 @@ export default function IdpProviders(): JSX.Element {
   const [ldapBrowserOpen, setLdapBrowserOpen] = useState(false);
   const [ldapBrowserBusy, setLdapBrowserBusy] = useState(false);
   const [ldapBrowserError, setLdapBrowserError] = useState<string | null>(null);
+  const [ldapBrowserDetail, setLdapBrowserDetail] = useState<Record<string, unknown> | null>(null);
   const [ldapBrowserEntries, setLdapBrowserEntries] = useState<LdapBrowseEntry[]>([]);
   const [ldapBrowserPath, setLdapBrowserPath] = useState<string[]>([]);
   const [ldapBrowserBaseDn, setLdapBrowserBaseDn] = useState<string | null>(null);
@@ -387,21 +409,38 @@ export default function IdpProviders(): JSX.Element {
     }
     return parsed.toLocaleString(undefined, { hour12: false });
   }, [testResult]);
-  const resolvedTestMessage = useMemo(() => {
+  const { resolvedTestMessage, resolvedTestDetailMessage } = useMemo((): {
+    resolvedTestMessage: string | null;
+    resolvedTestDetailMessage: string | null;
+  } => {
     if (!testResult) {
-      return null;
+      return { resolvedTestMessage: null, resolvedTestDetailMessage: null };
     }
+
     const raw = typeof testResult.message === "string" ? testResult.message.trim() : "";
-    if (raw !== "") {
-      return raw;
+    const detailMessage = extractDetailMessage(testResult.details);
+
+    let primary = raw;
+    if (primary === "" && detailMessage) {
+      primary = detailMessage;
     }
-    if (testResult.status === "ok") {
-      return "Health check completed.";
+
+    if (primary === "") {
+      if (testResult.status === "ok") {
+        primary = "Health check completed.";
+      } else if (testResult.status === "warning") {
+        primary = "Health check completed with warnings.";
+      } else {
+        primary = "Health check failed.";
+      }
     }
-    if (testResult.status === "warning") {
-      return "Health check completed with warnings.";
-    }
-    return "Health check failed.";
+
+    const secondary = detailMessage && detailMessage !== primary ? detailMessage : null;
+
+    return {
+      resolvedTestMessage: primary,
+      resolvedTestDetailMessage: secondary,
+    };
   }, [testResult]);
 
   const clearTestFeedback = useCallback(() => {
@@ -553,6 +592,7 @@ export default function IdpProviders(): JSX.Element {
     setLdapBrowserPath([]);
     setLdapBrowserBaseDn(null);
     setLdapBrowserError(null);
+    setLdapBrowserDetail(null);
   }, [clearTestFeedback]);
 
   const openCreateModal = useCallback(() => {
@@ -1266,11 +1306,17 @@ export default function IdpProviders(): JSX.Element {
       if (!valid || !payload || payload.driver !== "ldap") {
         setLdapBrowserError("Provide a valid LDAP configuration before browsing.");
         setLdapBrowserEntries([]);
+        setLdapBrowserDetail({
+          issue: "invalid_configuration",
+          requestedBaseDn: targetBaseDn,
+          path: nextPath,
+        });
         return;
       }
 
       setLdapBrowserBusy(true);
       setLdapBrowserError(null);
+      setLdapBrowserDetail(null);
 
       try {
         const response = await browseLdapDirectory({
@@ -1281,26 +1327,56 @@ export default function IdpProviders(): JSX.Element {
 
         const entries = Array.isArray(response.entries) ? response.entries : [];
         const resolvedBaseDn = response.base_dn ?? targetBaseDn ?? null;
+        const diagnostics = (response.diagnostics && typeof response.diagnostics === "object") ? response.diagnostics : null;
+        const summary: Record<string, unknown> = {
+          requestedBaseDn: response.requested_base_dn ?? targetBaseDn,
+          effectiveBaseDn: resolvedBaseDn,
+          entryCount: entries.length,
+          path: nextPath,
+          rootResponse: response.root === true,
+          checkedAt: new Date().toISOString(),
+          ...(diagnostics ? { diagnostics } : {}),
+        };
 
         setLdapBrowserEntries(entries);
         setLdapBrowserBaseDn(resolvedBaseDn);
         setLdapBrowserPath(nextPath);
+        setLdapBrowserDetail(summary);
 
         if (entries.length === 0) {
           if (response.root) {
             setLdapBrowserError("The server did not return any naming contexts. Provide the Base DN manually or verify browse permissions.");
           } else {
-            setLdapBrowserError("No entries were returned for this branch. Confirm the Base DN and account permissions.");
+            const targetLabel = resolvedBaseDn ? `"${resolvedBaseDn}"` : "the directory root";
+            setLdapBrowserError(`No entries were returned for ${targetLabel}. Confirm the Base DN and account permissions.`);
           }
         }
       } catch (error) {
         const fallback = "Unable to browse the directory. Check connection details and try again.";
         if (error instanceof HttpError) {
-          const { message, fieldErrors } = parseHttpError(error, fallback);
+          const { message, fieldErrors, detail } = parseHttpError(error, fallback);
           Object.entries(fieldErrors).forEach(([field, msg]) => updateFieldError(field, msg));
           setLdapBrowserError(message);
+          const normalizedDetail =
+            normalizeDetail(detail) ??
+            (error.body && typeof error.body === "object" && !Array.isArray(error.body)
+              ? (error.body as Record<string, unknown>)
+              : { detail: message });
+          setLdapBrowserDetail({
+            ...normalizedDetail,
+            checkedAt: new Date().toISOString(),
+            requestedBaseDn: targetBaseDn,
+            path: nextPath,
+          });
         } else {
-          setLdapBrowserError(formatUnknownError(error, fallback));
+          const message = formatUnknownError(error, fallback);
+          setLdapBrowserError(message);
+          setLdapBrowserDetail({
+            detail: message,
+            requestedBaseDn: targetBaseDn,
+            path: nextPath,
+            checkedAt: new Date().toISOString(),
+          });
         }
         setLdapBrowserEntries([]);
       } finally {
@@ -1318,6 +1394,7 @@ export default function IdpProviders(): JSX.Element {
     setLdapBrowserEntries([]);
     setLdapBrowserPath(initialBaseDn ? [initialBaseDn] : []);
     setLdapBrowserBaseDn(initialBaseDn);
+    setLdapBrowserDetail(null);
     setLdapBrowserOpen(true);
     void loadLdapDirectory(initialBaseDn, initialBaseDn ? [initialBaseDn] : []);
   }, [form.ldap.baseDn, loadLdapDirectory]);
@@ -1329,6 +1406,7 @@ export default function IdpProviders(): JSX.Element {
 
     setLdapBrowserOpen(false);
     setLdapBrowserError(null);
+    setLdapBrowserDetail(null);
   }, [ldapBrowserBusy]);
 
   const handleLdapNavigateTo = useCallback(
@@ -2532,6 +2610,9 @@ export default function IdpProviders(): JSX.Element {
                 role="status"
               >
                 <div className="fw-semibold mb-1">{resolvedTestMessage}</div>
+                {resolvedTestDetailMessage ? (
+                  <div className="small mb-1">{resolvedTestDetailMessage}</div>
+                ) : null}
                 {Object.keys(testResult.details ?? {}).length > 0 ? (
                   <pre className="mt-2 mb-0 bg-body-secondary border rounded p-2 small overflow-auto">
                     {JSON.stringify(testResult.details, null, 2)}
@@ -2604,7 +2685,19 @@ export default function IdpProviders(): JSX.Element {
         </div>
         {ldapBrowserError ? (
           <div className="alert alert-danger" role="alert">
-            {ldapBrowserError}
+            <div className="fw-semibold">{ldapBrowserError}</div>
+            {ldapBrowserDetail ? (
+              <pre className="mt-2 mb-0 bg-body-secondary border rounded p-2 small overflow-auto">
+                {JSON.stringify(ldapBrowserDetail, null, 2)}
+              </pre>
+            ) : null}
+          </div>
+        ) : ldapBrowserDetail ? (
+          <div className="alert alert-secondary" role="status">
+            <div className="fw-semibold mb-1">Last directory response</div>
+            <pre className="mb-0 bg-body-secondary border rounded p-2 small overflow-auto">
+              {JSON.stringify(ldapBrowserDetail, null, 2)}
+            </pre>
           </div>
         ) : null}
         {ldapBrowserBusy ? (
@@ -2612,9 +2705,11 @@ export default function IdpProviders(): JSX.Element {
             <div className="spinner-border text-primary" role="presentation" aria-hidden="true" />
             <span className="visually-hidden">Browsing directory...</span>
           </div>
-        ) : ldapBrowserEntries.length === 0 ? (
+        ) : !ldapBrowserError && ldapBrowserEntries.length === 0 ? (
           <p className="text-muted mb-0">
-            {ldapBrowserBaseDn ? "No entries returned for this branch." : "No naming contexts returned. Provide the Base DN manually."}
+            {ldapBrowserBaseDn
+              ? `No entries returned for "${ldapBrowserBaseDn}".`
+              : "No naming contexts returned. Provide the Base DN manually."}
           </p>
         ) : (
           <div className="list-group">
