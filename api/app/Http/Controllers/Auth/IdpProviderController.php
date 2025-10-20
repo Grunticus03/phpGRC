@@ -9,13 +9,17 @@ use App\Exceptions\Auth\SamlMetadataException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\IdpProviderStoreRequest;
 use App\Http\Requests\Auth\IdpProviderUpdateRequest;
+use App\Http\Requests\Auth\SamlMetadataPreviewRequest;
 use App\Http\Requests\Auth\SamlMetadataRequest;
 use App\Models\IdpProvider;
 use App\Services\Auth\IdpProviderService;
 use App\Services\Auth\SamlMetadataService;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
+use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Validation\ValidationException;
 use InvalidArgumentException;
 use stdClass;
@@ -199,13 +203,25 @@ final class IdpProviderController extends Controller
     /**
      * @SuppressWarnings("PMD.StaticAccess")
      */
-    public function previewSamlMetadata(SamlMetadataRequest $request): JsonResponse
+    public function previewSamlMetadata(SamlMetadataPreviewRequest $request): JsonResponse
     {
-        /** @var array{metadata:string} $payload */
+        /** @var array{metadata?:string,url?:string} $payload */
         $payload = $request->validated();
 
+        $metadata = $payload['metadata'] ?? null;
+        if ($metadata === null) {
+            $url = $payload['url'] ?? null;
+            if (! is_string($url) || trim($url) === '') {
+                throw ValidationException::withMessages([
+                    'metadata' => ['SAML metadata is required.'],
+                ]);
+            }
+
+            $metadata = $this->downloadSamlMetadata($url);
+        }
+
         try {
-            $config = $this->samlMetadata->parse($payload['metadata']);
+            $config = $this->samlMetadata->parse($metadata);
         } catch (SamlMetadataException $e) {
             throw ValidationException::withMessages([
                 'metadata' => [$e->getMessage()],
@@ -216,6 +232,68 @@ final class IdpProviderController extends Controller
             'ok' => true,
             'config' => $config,
         ], 200);
+    }
+
+    /**
+     * @SuppressWarnings("PMD.StaticAccess")
+     */
+    private function downloadSamlMetadata(string $url): string
+    {
+        $trimmed = trim($url);
+        if ($trimmed === '') {
+            throw ValidationException::withMessages([
+                'url' => ['Provide a metadata URL to download.'],
+            ]);
+        }
+
+        $scheme = strtolower((string) parse_url($trimmed, PHP_URL_SCHEME));
+        if (! in_array($scheme, ['http', 'https'], true)) {
+            throw ValidationException::withMessages([
+                'url' => ['Metadata URL must use http:// or https://.'],
+            ]);
+        }
+
+        try {
+            $response = Http::accept('application/samlmetadata+xml, application/xml, text/xml, */*')
+                ->timeout(10)
+                ->withHeaders([
+                    'User-Agent' => 'phpGRC Metadata Preview/1.0',
+                ])
+                ->get($trimmed);
+        } catch (ConnectionException|RequestException $e) {
+            throw ValidationException::withMessages([
+                'url' => [$this->formatMetadataDownloadError($e->getMessage())],
+            ]);
+        } catch (\Throwable $e) {
+            throw ValidationException::withMessages([
+                'url' => [$this->formatMetadataDownloadError($e->getMessage())],
+            ]);
+        }
+
+        if (! $response->successful()) {
+            throw ValidationException::withMessages([
+                'url' => [sprintf('Failed to download metadata. HTTP %d.', $response->status())],
+            ]);
+        }
+
+        $body = trim($response->body());
+        if ($body === '') {
+            throw ValidationException::withMessages([
+                'url' => ['The downloaded metadata document was empty.'],
+            ]);
+        }
+
+        return $body;
+    }
+
+    private function formatMetadataDownloadError(string $detail): string
+    {
+        $normalized = trim($detail);
+        if ($normalized === '') {
+            return 'Failed to download metadata. Verify the URL and connectivity.';
+        }
+
+        return sprintf('Failed to download metadata. %s', $normalized);
     }
 
     /**

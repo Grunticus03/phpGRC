@@ -497,7 +497,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/SamlMetadataRequest"
+                "$ref": "#/components/schemas/SamlMetadataPreviewRequest"
               }
             }
           }
@@ -5822,6 +5822,36 @@
             }
           }
         }
+      },
+      "SamlMetadataPreviewRequest": {
+        "type": "object",
+        "description": "Provide raw metadata or a URL that the server can download.",
+        "properties": {
+          "metadata": {
+            "type": "string",
+            "minLength": 20,
+            "description": "Raw SAML metadata XML document."
+          },
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "maxLength": 2048,
+            "pattern": "^https?://",
+            "description": "HTTPS URL where the metadata can be downloaded."
+          }
+        },
+        "anyOf": [
+          {
+            "required": [
+              "metadata"
+            ]
+          },
+          {
+            "required": [
+              "url"
+            ]
+          }
+        ]
       },
       "SamlMetadataRequest": {
         "type": "object",

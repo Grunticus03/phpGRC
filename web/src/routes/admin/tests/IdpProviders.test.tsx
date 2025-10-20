@@ -360,4 +360,107 @@ describe("Admin IdP Providers page", () => {
       expect(screen.getByText("New IdP")).toBeInTheDocument();
     });
   });
+
+  test("Active Directory preset prepopulates the thumbnail photo attribute", async () => {
+    const user = userEvent.setup();
+
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const method = (init?.method ?? "GET").toUpperCase();
+      const url = typeof input === "string" ? input : ((input as Request).url ?? String(input));
+
+      if (method === "GET" && /\/admin\/idp\/providers$/.test(url)) {
+        return jsonResponse(200, {
+          ok: true,
+          items: [],
+          meta: { total: 0, enabled: 0 },
+        });
+      }
+
+      return jsonResponse(404);
+    }) as unknown as typeof fetch;
+
+    globalThis.fetch = fetchMock;
+    renderPage();
+
+    const addProviderButtons = await screen.findAllByRole("button", { name: /add provider/i });
+    await user.click(addProviderButtons[0]);
+
+    const dialog = await screen.findByRole("dialog");
+    const driverSelect = within(dialog).getByLabelText(/idp type/i);
+    await user.selectOptions(driverSelect, "ldap");
+
+    const adPresetButton = within(dialog).getByRole("button", { name: /active directory preset/i });
+    await user.click(adPresetButton);
+
+    const photoAttributeInput = within(dialog).getByLabelText(/thumbnail photo attribute/i) as HTMLInputElement;
+    expect(photoAttributeInput.value).toBe("thumbnailPhoto");
+  });
+
+  test("surfaces server validation errors near the create button and affected fields", async () => {
+    const user = userEvent.setup();
+
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const method = (init?.method ?? "GET").toUpperCase();
+      const url = typeof input === "string" ? input : ((input as Request).url ?? String(input));
+
+      if (method === "GET" && /\/admin\/idp\/providers$/.test(url)) {
+        return jsonResponse(200, {
+          ok: true,
+          items: [],
+          meta: { total: 0, enabled: 0 },
+        });
+      }
+
+      if (method === "POST" && /\/admin\/idp\/providers$/.test(url)) {
+        return jsonResponse(422, {
+          message: "Validation failed.",
+          errors: {
+            "config.bind_dn": ["Bind DN is invalid."],
+          },
+        });
+      }
+
+      return jsonResponse(404);
+    }) as unknown as typeof fetch;
+
+    globalThis.fetch = fetchMock;
+    renderPage();
+
+    const addProviderButtons = await screen.findAllByRole("button", { name: /add provider/i });
+    await user.click(addProviderButtons[0]);
+
+    const dialog = await screen.findByRole("dialog");
+    const nameInput = within(dialog).getByLabelText(/display name/i);
+    await user.clear(nameInput);
+    await user.type(nameInput, "LDAP Provider");
+
+    const driverSelect = within(dialog).getByLabelText(/idp type/i);
+    await user.selectOptions(driverSelect, "ldap");
+
+    const hostInput = within(dialog).getByLabelText(/server host/i);
+    await user.clear(hostInput);
+    await user.type(hostInput, "ldap.example.com");
+
+    const baseDnInput = within(dialog).getByLabelText(/base dn/i);
+    await user.clear(baseDnInput);
+    await user.type(baseDnInput, "dc=example,dc=com");
+
+    const bindDnInput = within(dialog).getByLabelText(/bind dn/i);
+    await user.clear(bindDnInput);
+    await user.type(bindDnInput, "cn=service,dc=example,dc=com");
+
+    const bindPasswordInput = within(dialog).getByLabelText(/bind password/i);
+    await user.clear(bindPasswordInput);
+    await user.type(bindPasswordInput, "secret123");
+
+    const submitButton = within(dialog).getByRole("button", { name: /^create$/i });
+    await user.click(submitButton);
+
+    const generalError = await within(dialog).findByText(/validation failed\./i);
+    expect(generalError.closest(".modal-footer")).not.toBeNull();
+
+    const bindDnFeedback = await within(dialog).findByText(/bind dn is invalid\./i);
+    expect(bindDnFeedback).toBeInTheDocument();
+    expect(bindDnInput).toHaveClass("is-invalid");
+  });
 });

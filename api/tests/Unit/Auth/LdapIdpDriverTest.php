@@ -126,4 +126,23 @@ final class LdapIdpDriverTest extends TestCase
         $this->assertSame(IdpHealthCheckResult::STATUS_OK, $result->status);
         $this->assertSame('ldap', $driver->key());
     }
+
+    public function test_normalize_config_handles_optional_photo_attribute(): void
+    {
+        /** @var LdapClientInterface&Mockery\MockInterface $client */
+        $client = Mockery::mock(LdapClientInterface::class);
+        $driver = new LdapIdpDriver($client);
+
+        $config = [
+            'host' => 'ldap.example.test',
+            'base_dn' => 'dc=example,dc=test',
+            'bind_dn' => 'cn=service,dc=example,dc=test',
+            'bind_password' => 'secret',
+            'photo_attribute' => 'thumbnailPhoto',
+        ];
+
+        $normalized = $driver->normalizeConfig($config);
+
+        $this->assertSame('thumbnailphoto', $normalized['photo_attribute'] ?? null);
+    }
 }

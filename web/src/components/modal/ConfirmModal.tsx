@@ -18,6 +18,7 @@ type ConfirmModalProps = {
   contentClassName?: string;
   bodyClassName?: string;
   footerClassName?: string;
+  footerStart?: ReactNode;
 };
 
 export default function ConfirmModal({
@@ -38,6 +39,7 @@ export default function ConfirmModal({
   contentClassName,
   bodyClassName,
   footerClassName,
+  footerStart,
 }: ConfirmModalProps): JSX.Element | null {
   const confirmButtonRef = useRef<HTMLButtonElement | null>(null);
   const titleId = useId();
@@ -106,6 +108,7 @@ export default function ConfirmModal({
               {children}
             </div>
             <div className={footerClassName ?? "modal-footer"}>
+              {footerStart ? <div className="me-auto">{footerStart}</div> : null}
               {!hideCancelButton && (
                 <button type="button" className="btn btn-outline-secondary" onClick={onCancel} disabled={busy}>
                   {cancelLabel}

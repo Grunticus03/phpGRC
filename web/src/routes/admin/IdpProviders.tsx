@@ -8,6 +8,7 @@ import {
   listIdpProviders,
   updateIdpProvider,
   previewSamlMetadata,
+  previewSamlMetadataFromUrl,
   previewIdpHealth,
   browseLdapDirectory,
   type IdpProvider,
@@ -55,6 +56,7 @@ type LdapFormState = {
   emailAttribute: string;
   nameAttribute: string;
   usernameAttribute: string;
+  photoAttribute: string;
   useSsl: boolean;
   startTls: boolean;
   requireTls: boolean;
@@ -128,6 +130,7 @@ function createDefaultFormState(): FormState {
       emailAttribute: "mail",
       nameAttribute: "cn",
       usernameAttribute: "uid",
+      photoAttribute: "",
       useSsl: false,
       startTls: false,
       requireTls: false,
@@ -163,6 +166,113 @@ function sortByEvaluationOrder(items: IdpProvider[]): IdpProvider[] {
   });
 }
 
+const API_ERROR_FIELD_MAP: Record<string, string | string[]> = {
+  name: "name",
+  driver: "driver",
+  meta: "meta",
+  metadata: "saml.metadataUrl",
+  url: "saml.metadataUrl",
+  "config.host": "ldap.host",
+  "config.port": "ldap.port",
+  "config.base_dn": "ldap.baseDn",
+  "config.bind_strategy": "ldap.bindStrategy",
+  "config.bind_dn": "ldap.bindDn",
+  "config.bind_password": "ldap.bindPassword",
+  "config.user_dn_template": "ldap.userDnTemplate",
+  "config.user_filter": "ldap.userFilter",
+  "config.timeout": "ldap.timeout",
+  "config.email_attribute": "ldap.emailAttribute",
+  "config.name_attribute": "ldap.nameAttribute",
+  "config.username_attribute": "ldap.usernameAttribute",
+  "config.photo_attribute": "ldap.photoAttribute",
+  "config.use_ssl": "ldap.useSsl",
+  "config.start_tls": "ldap.startTls",
+  "config.require_tls": "ldap.requireTls",
+  "config.issuer": ["oidc.issuer", "entra.issuer"],
+  "config.client_id": ["oidc.clientId", "entra.clientId"],
+  "config.client_secret": ["oidc.clientSecret", "entra.clientSecret"],
+  "config.redirect_uris": ["oidc.redirectUris", "entra.redirectUris"],
+  "config.scopes": ["oidc.scopes", "entra.scopes"],
+  "config.metadata_url": ["oidc.metadataUrl", "entra.metadataUrl", "saml.metadataUrl"],
+  "config.tenant_id": "entra.tenantId",
+  "config.entity_id": "saml.entityId",
+  "config.sso_url": "saml.ssoUrl",
+  "config.certificate": "saml.certificate",
+};
+
+function mapApiErrorKey(key: string): string[] {
+  const mapped = API_ERROR_FIELD_MAP[key];
+  if (!mapped) return [];
+  return Array.isArray(mapped) ? mapped : [mapped];
+}
+
+function firstErrorMessage(candidate: unknown): string | undefined {
+  if (Array.isArray(candidate)) {
+    for (const entry of candidate) {
+      if (typeof entry === "string") {
+        const trimmed = entry.trim();
+        if (trimmed !== "") {
+          return trimmed;
+        }
+      }
+    }
+    return undefined;
+  }
+
+  if (typeof candidate === "string") {
+    const trimmed = candidate.trim();
+    return trimmed !== "" ? trimmed : undefined;
+  }
+
+  return undefined;
+}
+
+function parseHttpError(error: HttpError<unknown>, fallback: string): {
+  message: string;
+  fieldErrors: Record<string, string>;
+} {
+  const fieldErrors: Record<string, string> = {};
+  const defaultMessage = (error.message ?? fallback).trim() || fallback;
+  let message = defaultMessage;
+
+  const body = error.body;
+  if (body && typeof body === "object" && !Array.isArray(body)) {
+    const bodyRecord = body as Record<string, unknown>;
+    const explicitMessage = bodyRecord.message;
+    if (typeof explicitMessage === "string" && explicitMessage.trim() !== "") {
+      message = explicitMessage.trim();
+    }
+
+    const errors = bodyRecord.errors;
+    if (errors && typeof errors === "object" && !Array.isArray(errors)) {
+      for (const [key, raw] of Object.entries(errors as Record<string, unknown>)) {
+        const text = firstErrorMessage(raw);
+        if (!text) continue;
+
+        const targets = mapApiErrorKey(key);
+        if (targets.length === 0) {
+          if (message === defaultMessage) {
+            message = text;
+          }
+          continue;
+        }
+
+        targets.forEach((target) => {
+          if (!(target in fieldErrors)) {
+            fieldErrors[target] = text;
+          }
+        });
+      }
+    }
+  }
+
+  if (!message || message.trim() === "") {
+    message = fallback;
+  }
+
+  return { message, fieldErrors };
+}
+
 export default function IdpProviders(): JSX.Element {
   const toast = useToast();
   const [loading, setLoading] = useState(true);
@@ -194,6 +304,8 @@ export default function IdpProviders(): JSX.Element {
   const [ldapBrowserEntries, setLdapBrowserEntries] = useState<LdapBrowseEntry[]>([]);
   const [ldapBrowserPath, setLdapBrowserPath] = useState<string[]>([]);
   const [ldapBrowserBaseDn, setLdapBrowserBaseDn] = useState<string | null>(null);
+  const normalizedTestStatus = typeof testResult?.status === "string" ? testResult.status : null;
+  const testStatusBadgeLabel = (normalizedTestStatus ?? "error").toUpperCase();
 
   const clearTestFeedback = useCallback(() => {
     setTestResult(null);
@@ -581,6 +693,8 @@ export default function IdpProviders(): JSX.Element {
           fieldErrors["ldap.usernameAttribute"] = "Username attribute is required.";
         }
 
+        const photoAttribute = state.ldap.photoAttribute.trim();
+
         if (Object.keys(fieldErrors).length === 0) {
           config = {
             host,
@@ -600,6 +714,9 @@ export default function IdpProviders(): JSX.Element {
           }
           if (timeout !== undefined) {
             config.timeout = timeout;
+          }
+          if (photoAttribute !== "") {
+            config.photo_attribute = photoAttribute;
           }
 
           if (bindStrategy === "service") {
@@ -667,8 +784,16 @@ export default function IdpProviders(): JSX.Element {
       setCreateOpen(false);
       resetForm();
       void loadProviders({ silent: true });
-    } catch {
-      setFormErrors({ general: "Failed to create provider. Check inputs and try again.", fields: {} });
+    } catch (error) {
+      if (error instanceof HttpError) {
+        const { message, fieldErrors } = parseHttpError(
+          error,
+          "Failed to create provider. Check inputs and try again."
+        );
+        setFormErrors({ general: message, fields: fieldErrors });
+      } else {
+        setFormErrors({ general: "Failed to create provider. Check inputs and try again.", fields: {} });
+      }
     } finally {
       setPending(null);
       setCreateBusy(false);
@@ -849,12 +974,21 @@ export default function IdpProviders(): JSX.Element {
       }
 
       try {
-        const response = await previewSamlMetadata(metadataXml);
+        const response = await previewSamlMetadata({ metadata: metadataXml });
+        if (!response || typeof response !== "object" || !response.config) {
+          throw new Error("Invalid metadata preview response.");
+        }
+
         applySamlMetadata(response.config, source);
         toast.success("Metadata parsed. Review the pre-filled fields.");
         return true;
-      } catch {
-        toast.danger("Failed to parse metadata. Ensure the document is valid XML.");
+      } catch (error) {
+        if (error instanceof HttpError) {
+          const { message } = parseHttpError(error, "Failed to parse metadata. Ensure the document is valid XML.");
+          toast.danger(message);
+        } else {
+          toast.danger("Failed to parse metadata. Ensure the document is valid XML.");
+        }
         return false;
       }
     },
@@ -872,19 +1006,29 @@ export default function IdpProviders(): JSX.Element {
     setMetadataLoading((prev) => ({ ...prev, saml: true }));
 
     try {
-      const response = await fetch(trimmedUrl);
-      if (!response.ok) {
-        throw new Error(`Metadata request failed (${response.status})`);
+      const response = await previewSamlMetadataFromUrl(trimmedUrl);
+      if (!response || typeof response !== "object" || !response.config) {
+        throw new Error("Invalid metadata preview response.");
       }
 
-      const xml = await response.text();
-      await previewSamlMetadataXml(xml, { url: trimmedUrl });
-    } catch {
-      toast.danger("Failed to download metadata. Verify the URL and CORS settings.");
+      applySamlMetadata(response.config, { url: trimmedUrl });
+      updateFieldError("saml.metadataUrl");
+      toast.success("Metadata parsed. Review the pre-filled fields.");
+    } catch (error) {
+      if (error instanceof HttpError) {
+        const { message, fieldErrors } = parseHttpError(
+          error,
+          "Failed to download metadata. Verify the URL and CORS settings."
+        );
+        Object.entries(fieldErrors).forEach(([field, msg]) => updateFieldError(field, msg));
+        toast.danger(message);
+      } else {
+        toast.danger("Failed to download metadata. Verify the URL and CORS settings.");
+      }
     } finally {
       setMetadataLoading((prev) => ({ ...prev, saml: false }));
     }
-  }, [form.saml.metadataUrl, previewSamlMetadataXml, toast, updateFieldError]);
+  }, [applySamlMetadata, form.saml.metadataUrl, toast, updateFieldError]);
 
   const handleSamlMetadataFileChange = useCallback(
     (event: ChangeEvent<HTMLInputElement>) => {
@@ -946,12 +1090,13 @@ export default function IdpProviders(): JSX.Element {
       setTestError(null);
     } catch (error) {
       if (error instanceof HttpError) {
-        const body = error.body;
-        let message = error.message;
-        if (body && typeof body === "object" && !Array.isArray(body) && "message" in body && body.message) {
-          message = String((body as { message?: unknown }).message);
-        }
+        const { message, fieldErrors } = parseHttpError(
+          error,
+          "Failed to run health check. Please try again."
+        );
+        Object.entries(fieldErrors).forEach(([field, msg]) => updateFieldError(field, msg));
 
+        const body = error.body;
         const details: Record<string, unknown> =
           body && typeof body === "object" && !Array.isArray(body)
             ? (body as Record<string, unknown>)
@@ -972,7 +1117,7 @@ export default function IdpProviders(): JSX.Element {
     } finally {
       setTestBusy(false);
     }
-  }, [form, validateForm]);
+  }, [form, updateFieldError, validateForm]);
 
   const applyLdapPreset = useCallback(
     (preset: "ad" | "generic") => {
@@ -995,6 +1140,7 @@ export default function IdpProviders(): JSX.Element {
           emailAttribute: "mail",
           nameAttribute: preset === "ad" ? "displayName" : "cn",
           usernameAttribute: preset === "ad" ? "sAMAccountName" : "uid",
+          photoAttribute: preset === "ad" ? "thumbnailPhoto" : prev.ldap.photoAttribute,
           useSsl: false,
           startTls: false,
           requireTls: preset === "ad",
@@ -1023,16 +1169,16 @@ export default function IdpProviders(): JSX.Element {
           base_dn: targetBaseDn ?? null,
         });
 
-        setLdapBrowserEntries(response.entries);
+        setLdapBrowserEntries(Array.isArray(response.entries) ? response.entries : []);
         setLdapBrowserBaseDn(response.base_dn ?? targetBaseDn);
         setLdapBrowserPath(nextPath);
       } catch (error) {
         if (error instanceof HttpError) {
-          const body = error.body;
-          const message =
-            body && typeof body === "object" && !Array.isArray(body) && "message" in body && body.message
-              ? String((body as { message?: unknown }).message)
-              : error.message;
+          const { message, fieldErrors } = parseHttpError(
+            error,
+            "Unable to browse the directory. Check connection details and try again."
+          );
+          Object.entries(fieldErrors).forEach(([field, msg]) => updateFieldError(field, msg));
           setLdapBrowserError(message);
         } else {
           setLdapBrowserError("Unable to browse the directory. Check connection details and try again.");
@@ -1042,7 +1188,7 @@ export default function IdpProviders(): JSX.Element {
         setLdapBrowserBusy(false);
       }
     },
-    [form, validateForm]
+    [form, updateFieldError, validateForm]
   );
 
   const openLdapBrowser = useCallback(() => {
@@ -1802,10 +1948,12 @@ export default function IdpProviders(): JSX.Element {
             {fieldError("ldap.userFilter") ? (
               <div className="invalid-feedback">{fieldError("ldap.userFilter")}</div>
             ) : null}
-            <div className="form-text">{"Include the {{username}} placeholder for the authenticating user."}</div>
+            <div className="form-text">
+              {"This LDAP filter is used to locate the authenticating user. The placeholder {{username}} is automatically replaced with the submitted login."}
+            </div>
           </div>
 
-          <div className="col-12 col-md-4">
+          <div className="col-12 col-lg-6 col-xl-3">
             <label htmlFor="ldap-email-attribute" className="form-label">
               Email attribute
             </label>
@@ -1827,7 +1975,7 @@ export default function IdpProviders(): JSX.Element {
             <div className="form-text">Attribute containing the user&apos;s email address.</div>
           </div>
 
-          <div className="col-12 col-md-4">
+          <div className="col-12 col-lg-6 col-xl-3">
             <label htmlFor="ldap-name-attribute" className="form-label">
               Display name attribute
             </label>
@@ -1849,7 +1997,7 @@ export default function IdpProviders(): JSX.Element {
             <div className="form-text">Attribute used for the user&apos;s display name.</div>
           </div>
 
-          <div className="col-12 col-md-4">
+          <div className="col-12 col-lg-6 col-xl-3">
             <label htmlFor="ldap-username-attribute" className="form-label">
               Username attribute
             </label>
@@ -1869,6 +2017,28 @@ export default function IdpProviders(): JSX.Element {
               <div className="invalid-feedback">{fieldError("ldap.usernameAttribute")}</div>
             ) : null}
             <div className="form-text">Attribute used to match usernames during login.</div>
+          </div>
+
+          <div className="col-12 col-lg-6 col-xl-3">
+            <label htmlFor="ldap-photo-attribute" className="form-label">
+              Thumbnail photo attribute
+            </label>
+            <input
+              id="ldap-photo-attribute"
+              type="text"
+              className={`form-control${fieldError("ldap.photoAttribute") ? " is-invalid" : ""}`}
+              value={form.ldap.photoAttribute}
+              onChange={(event) =>
+                applyFormUpdate((prev) => ({ ...prev, ldap: { ...prev.ldap, photoAttribute: event.target.value } }))
+              }
+              disabled={createBusy}
+              placeholder="thumbnailPhoto"
+              autoComplete="off"
+            />
+            {fieldError("ldap.photoAttribute") ? (
+              <div className="invalid-feedback">{fieldError("ldap.photoAttribute")}</div>
+            ) : null}
+            <div className="form-text">Optional attribute containing a user thumbnail image.</div>
           </div>
         </div>
       </div>
@@ -2102,19 +2272,22 @@ export default function IdpProviders(): JSX.Element {
         confirmDisabled={createBusy}
         dialogClassName="modal-dialog modal-dialog-centered modal-xl"
         bodyClassName="modal-body pt-0"
-      >
-        <form
-          className="d-flex flex-column gap-4"
-          onSubmit={(event) => {
-            event.preventDefault();
-            void submitCreate();
-          }}
-        >
-          {formErrors.general ? (
+        footerClassName="modal-footer flex-column flex-md-row align-items-start gap-3"
+        footerStart={
+          formErrors.general ? (
             <p className="text-danger small mb-0" role="alert">
               {formErrors.general}
             </p>
-          ) : null}
+          ) : null
+        }
+      >
+        <form
+          className="d-flex flex-column gap-4"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void submitCreate();
+        }}
+      >
           <div className="row g-3">
             <div className="col-12 col-md-6">
               <label htmlFor="idp-name" className="form-label">
@@ -2204,14 +2377,14 @@ export default function IdpProviders(): JSX.Element {
               {testResult ? (
                 <span
                   className={`badge rounded-pill ${
-                    testResult.status === "ok"
+                    normalizedTestStatus === "ok"
                       ? "text-bg-success"
-                      : testResult.status === "warning"
+                      : normalizedTestStatus === "warning"
                       ? "text-bg-warning"
                       : "text-bg-danger"
                   }`}
                 >
-                  {testResult.status.toUpperCase()}
+                  {testStatusBadgeLabel}
                 </span>
               ) : null}
               {testResult ? (

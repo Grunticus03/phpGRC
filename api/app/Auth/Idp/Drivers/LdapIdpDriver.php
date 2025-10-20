@@ -9,6 +9,9 @@ use App\Services\Auth\Ldap\LdapClientInterface;
 use App\Services\Auth\Ldap\LdapException;
 use Illuminate\Validation\ValidationException;
 
+/**
+ * @SuppressWarnings("PMD.ExcessiveClassComplexity")
+ */
 final class LdapIdpDriver extends AbstractIdpDriver
 {
     private const USERNAME_PLACEHOLDER = '{{username}}';
@@ -251,6 +254,14 @@ final class LdapIdpDriver extends AbstractIdpDriver
             $errors
         );
 
+        $photoAttribute = $this->normalizeOptionalAttributeKey($config, 'photo_attribute');
+        if ($photoAttribute === null) {
+            unset($config['photo_attribute']);
+        }
+        if ($photoAttribute !== null) {
+            $config['photo_attribute'] = $photoAttribute;
+        }
+
         return $config;
     }
 
@@ -316,6 +327,28 @@ final class LdapIdpDriver extends AbstractIdpDriver
         }
 
         return strtolower(trim($value));
+    }
+
+    /**
+     * @param  array<string,mixed>  $config
+     */
+    private function normalizeOptionalAttributeKey(array $config, string $key): ?string
+    {
+        if (! array_key_exists($key, $config)) {
+            return null;
+        }
+
+        $value = $config[$key];
+        if (! is_string($value)) {
+            return null;
+        }
+
+        $trimmed = trim($value);
+        if ($trimmed === '') {
+            return null;
+        }
+
+        return strtolower($trimmed);
     }
 
     private function coerceBoolean(mixed $value): ?bool

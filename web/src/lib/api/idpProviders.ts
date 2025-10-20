@@ -112,12 +112,24 @@ export type SamlMetadataPreviewResponse = {
   config: SamlMetadataConfig;
 };
 
-export function previewSamlMetadata(metadata: string, signal?: AbortSignal): Promise<SamlMetadataPreviewResponse> {
-  return apiPost<SamlMetadataPreviewResponse, { metadata: string }>(
+export type SamlMetadataPreviewRequestPayload = {
+  metadata?: string;
+  url?: string;
+};
+
+export function previewSamlMetadata(
+  payload: SamlMetadataPreviewRequestPayload,
+  signal?: AbortSignal
+): Promise<SamlMetadataPreviewResponse> {
+  return apiPost<SamlMetadataPreviewResponse, SamlMetadataPreviewRequestPayload>(
     "/admin/idp/providers/saml/metadata/preview",
-    { metadata },
+    payload,
     signal
   );
+}
+
+export function previewSamlMetadataFromUrl(url: string, signal?: AbortSignal): Promise<SamlMetadataPreviewResponse> {
+  return previewSamlMetadata({ url }, signal);
 }
 
 export type IdpProviderPreviewPayload = {

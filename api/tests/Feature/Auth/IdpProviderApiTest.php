@@ -15,6 +15,7 @@ use App\Support\Rbac\PolicyMap;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
 use Laravel\Sanctum\Sanctum;
 use Mockery;
@@ -364,6 +365,32 @@ final class IdpProviderApiTest extends TestCase
             ->assertJsonPath('ok', true)
             ->assertJsonPath('config.entity_id', 'https://sso.example.test/entity')
             ->assertJsonPath('config.sso_url', 'https://sso.example.test/login');
+    }
+
+    #[Test]
+    public function preview_saml_metadata_downloads_from_url(): void
+    {
+        $this->actingAsAdmin();
+
+        $metadata = $this->sampleMetadataXml();
+
+        Http::fake([
+            'https://idp.example.test/federationmetadata.xml' => Http::response($metadata, 200, [
+                'Content-Type' => 'application/xml',
+            ]),
+        ]);
+
+        $this->postJson('/admin/idp/providers/saml/metadata/preview', [
+            'url' => 'https://idp.example.test/federationmetadata.xml',
+        ])
+            ->assertStatus(200)
+            ->assertJsonPath('ok', true)
+            ->assertJsonPath('config.entity_id', 'https://sso.example.test/entity')
+            ->assertJsonPath('config.sso_url', 'https://sso.example.test/login');
+
+        Http::assertSent(static function ($request) {
+            return $request->url() === 'https://idp.example.test/federationmetadata.xml';
+        });
     }
 
     #[Test]
