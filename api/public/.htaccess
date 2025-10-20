@@ -4,9 +4,21 @@
 
 <IfModule mod_rewrite.c>
     RewriteEngine On
-    RewriteCond %{REQUEST_FILENAME} !-d
-    RewriteCond %{REQUEST_FILENAME} !-f
-    RewriteRule ^ index.php [L]
+
+    # Serve existing files/directories as-is (except the document root itself)
+    RewriteCond %{REQUEST_FILENAME} -f [OR]
+    RewriteCond %{REQUEST_FILENAME} -d
+    RewriteCond %{REQUEST_URI} !^/$
+    RewriteRule ^ - [L]
+
+    # Route framework endpoints and non-GET/HEAD verbs to Laravel
+    RewriteCond %{REQUEST_METHOD} !^(GET|HEAD)$ [OR]
+    RewriteCond %{REQUEST_URI} ^/(api|sanctum|broadcasting|oauth|_ignition|inertia|telescope) [NC]
+    RewriteRule ^ index.php [L,END,QSA]
+
+    # Fallback to the SPA entrypoint for all other requests
+    RewriteCond %{REQUEST_URI} !^/index\.html$
+    RewriteRule ^ index.html [L,END]
 </IfModule>
 
-DirectoryIndex index.php
+DirectoryIndex index.html index.php

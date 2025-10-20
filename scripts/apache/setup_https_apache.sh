@@ -7,14 +7,14 @@ set -euo pipefail
 
 SERVER_NAME="${SERVER_NAME:-phpgrc.gruntlabs.net}"
 DEPLOY_PATH="${DEPLOY_PATH:-/var/www/phpgrc}"
-DOCROOT="${DOCROOT:-${DEPLOY_PATH}/current/web}"
+DOCROOT="${DOCROOT:-${DEPLOY_PATH}/current/api/public}"
 SITE_NAME="${SITE_NAME:-phpgrc-https.conf}"
 
 # 1) Install Apache + SSL + headers if not present
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -y
 apt-get install -y apache2 ssl-cert
-a2enmod ssl headers
+a2enmod ssl headers rewrite
 
 # 2) Ensure deploy path exists (does NOT create app files; just directories)
 install -d -m 755 "${DEPLOY_PATH}"
@@ -37,9 +37,9 @@ cat >/etc/apache2/sites-available/${SITE_NAME} <<'EOF'
     DocumentRoot __DOCROOT__
     <Directory __DOCROOT__>
         Options -Indexes +FollowSymLinks
-        AllowOverride None
+        AllowOverride FileInfo
         Require all granted
-        DirectoryIndex index.html
+        DirectoryIndex index.html index.php
     </Directory>
 
     # Security headers (baseline)

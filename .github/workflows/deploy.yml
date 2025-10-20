@@ -60,11 +60,6 @@ jobs:
             -e "ssh -p ${{ secrets.SSH_PORT }}" \
             ./ "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${RELEASE_DIR}/"
 
-          if [ -d web/dist ]; then
-            rsync -az -e "ssh -p ${{ secrets.SSH_PORT }}" \
-              web/dist/ "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${RELEASE_DIR}/web/public/"
-          fi
-
       - name: Prepare Laravel & link shared (server)
         env:
           TS: ${{ github.run_id }}-${{ github.run_attempt }}
@@ -141,19 +136,39 @@ jobs:
           rm -rf "$RELEASE_DIR/api/storage"
           ln -sfn "$ROOT/shared/storage"  "$RELEASE_DIR/api/storage"
 
-          if [ ! -d "$RELEASE_DIR/web/public" ]; then
-            mkdir -p "$RELEASE_DIR/web/public"
-            cat > "$RELEASE_DIR/web/public/index.html" <<HTML
-          <!doctype html><meta charset="utf-8"><title>phpgrc</title>
-          <h1>phpgrc</h1><p>Web UI not built; API at <code>/api</code></p>
+          SPA_DIST="$RELEASE_DIR/web/dist"
+          PUBLIC_DIR="$RELEASE_DIR/api/public"
+
+          if [ -d "$SPA_DIST" ]; then
+            if [ ! -f "$SPA_DIST/index.html" ]; then
+              echo "SPA build missing index.html in $SPA_DIST" >&2
+              exit 1
+            fi
+            install -Dm0644 "$SPA_DIST/index.html" "$PUBLIC_DIR/index.html"
+
+            if [ -d "$SPA_DIST/assets" ]; then
+              rm -rf "$PUBLIC_DIR/assets"
+              cp -a "$SPA_DIST/assets" "$PUBLIC_DIR/"
+            fi
+
+            find "$SPA_DIST" -maxdepth 1 -mindepth 1 -type f ! -name 'index.html' -print0 | \
+              while IFS= read -r -d '' file; do
+                base="$(basename "$file")"
+                install -Dm0644 "$file" "$PUBLIC_DIR/$base"
+              done
+
+            find "$SPA_DIST" -maxdepth 1 -mindepth 1 -type d ! -name 'assets' -print0 | \
+              while IFS= read -r -d '' dir; do
+                base="$(basename "$dir")"
+                rm -rf "$PUBLIC_DIR/$base"
+                cp -a "$dir" "$PUBLIC_DIR/$base"
+              done
+          else
+            cat > "$PUBLIC_DIR/index.html" <<'HTML'
+          <!doctype html><meta charset="utf-8"><title>phpGRC</title>
+          <h1>phpGRC</h1><p>SPA build missing in this release. JSON API available at <code>/api</code>.</p>
           HTML
           fi
-
-          cat > "$RELEASE_DIR/web/public/.htaccess" <<'HT'
-          RewriteEngine On
-          RewriteCond %{REQUEST_FILENAME} !-f
-          RewriteRule ^ index.html [L]
-          HT
           REMOTE
 
       - name: Install PHP deps & warm caches (server)
