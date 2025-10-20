@@ -26,7 +26,7 @@ jobs:
     runs-on: self-hosted
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v6
         with: { node-version: "20" }
       - run: npx -y @stoplight/spectral-cli@6 lint docs/api/openapi.yaml -r .spectral.yaml
 
@@ -36,7 +36,7 @@ jobs:
     needs: [spectral]
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v6
         with: { node-version: "20" }
       - run: npx -y @redocly/cli@1.29.0 lint docs/api/openapi.yaml
 
@@ -293,7 +293,7 @@ jobs:
     defaults: { run: { working-directory: web } }
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v6
         with:
           node-version: "20"
           cache: npm
