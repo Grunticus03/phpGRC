@@ -1,4 +1,4 @@
-import { ChangeEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { ChangeEvent, ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import ConfirmModal from "../../components/modal/ConfirmModal";
 import { useToast } from "../../components/toast/ToastProvider";
 import {
@@ -21,6 +21,7 @@ import {
   type LdapBrowseEntry,
 } from "../../lib/api/idpProviders";
 import { HttpError } from "../../lib/api";
+import "./IdpProviders.css";
 
 type OidcFormState = {
   issuer: string;
@@ -86,6 +87,83 @@ const DRIVER_OPTIONS: Array<{ value: IdpProviderDriver; label: string }> = [
   { value: "oidc", label: "OIDC" },
   { value: "saml", label: "SAML" },
 ];
+
+type HoverHelpLabelProps = {
+  htmlFor?: string;
+  className?: string;
+  helpText?: string;
+  helpId?: string;
+  children: ReactNode;
+};
+
+function HoverHelpLabel({ htmlFor, className, helpText, helpId, children }: HoverHelpLabelProps): JSX.Element {
+  const hasHelp = Boolean(helpText && helpId);
+  const classes = [className, hasHelp ? "hover-help-label" : null].filter(Boolean).join(" ").trim();
+
+  return (
+    <label htmlFor={htmlFor} className={classes || undefined}>
+      {children}
+      {hasHelp ? (
+        <>
+          <span className="visually-hidden" id={helpId}>
+            {helpText}
+          </span>
+          <span className="hover-help-popover" aria-hidden="true">
+            {helpText}
+          </span>
+        </>
+      ) : null}
+    </label>
+  );
+}
+
+type ParsedLdapHost = {
+  host: string;
+  useSsl: boolean;
+  port?: number;
+};
+
+function parseLdapConnectionUri(input: string): ParsedLdapHost | null {
+  const trimmed = input.trim();
+  if (trimmed === "") {
+    return null;
+  }
+
+  let url: URL;
+  try {
+    url = new URL(trimmed);
+  } catch {
+    return null;
+  }
+
+  const protocol = url.protocol.toLowerCase();
+  if (protocol !== "ldap:" && protocol !== "ldaps:") {
+    return null;
+  }
+
+  if (!url.hostname) {
+    return null;
+  }
+
+  if (url.pathname !== "/" || url.search || url.hash) {
+    return null;
+  }
+
+  let port: number | undefined;
+  if (url.port) {
+    const parsed = Number(url.port);
+    if (!Number.isInteger(parsed) || parsed < 1 || parsed > 65535) {
+      return null;
+    }
+    port = parsed;
+  }
+
+  return {
+    host: url.hostname,
+    useSsl: protocol === "ldaps:",
+    ...(port !== undefined ? { port } : {}),
+  };
+}
 
 function createDefaultFormState(): FormState {
   return {
@@ -185,7 +263,7 @@ const API_ERROR_FIELD_MAP: Record<string, string | string[]> = {
   "config.name_attribute": "ldap.nameAttribute",
   "config.username_attribute": "ldap.usernameAttribute",
   "config.photo_attribute": "ldap.photoAttribute",
-  "config.use_ssl": "ldap.useSsl",
+  "config.use_ssl": "ldap.host",
   "config.start_tls": "ldap.startTls",
   "config.require_tls": "ldap.requireTls",
   "config.issuer": ["oidc.issuer", "entra.issuer"],
@@ -390,6 +468,7 @@ export default function IdpProviders(): JSX.Element {
   const [testBusy, setTestBusy] = useState(false);
   const [testResult, setTestResult] = useState<IdpProviderPreviewHealthResult | null>(null);
   const [testError, setTestError] = useState<string | null>(null);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
   const [ldapBrowserOpen, setLdapBrowserOpen] = useState(false);
   const [ldapBrowserBusy, setLdapBrowserBusy] = useState(false);
   const [ldapBrowserError, setLdapBrowserError] = useState<string | null>(null);
@@ -603,6 +682,7 @@ export default function IdpProviders(): JSX.Element {
     clearTestFeedback();
     setFormErrors({ fields: {} });
     setMetadataLoading({ entra: false, ldap: false, oidc: false, saml: false });
+    setAdvancedOpen(false);
     setLdapBrowserEntries([]);
     setLdapBrowserPath([]);
     setLdapBrowserBaseDn(null);
@@ -768,9 +848,11 @@ export default function IdpProviders(): JSX.Element {
           };
         }
       } else if (driver === "ldap") {
-        const host = state.ldap.host.trim();
-        if (host === "") {
-          fieldErrors["ldap.host"] = "Server host is required.";
+        const hostRaw = state.ldap.host.trim();
+        const parsedHost = hostRaw === "" ? null : parseLdapConnectionUri(hostRaw);
+        if (hostRaw === "" || !parsedHost) {
+          fieldErrors["ldap.host"] =
+            "Server host must start with ldap:// or ldaps:// and include a hostname.";
         }
 
         const portRaw = state.ldap.port.trim();
@@ -848,12 +930,12 @@ export default function IdpProviders(): JSX.Element {
 
         const photoAttribute = state.ldap.photoAttribute.trim();
 
-        if (Object.keys(fieldErrors).length === 0) {
+        if (Object.keys(fieldErrors).length === 0 && parsedHost) {
           config = {
-            host,
+            host: parsedHost.host,
             base_dn: baseDn,
             bind_strategy: bindStrategy,
-            use_ssl: state.ldap.useSsl,
+            use_ssl: parsedHost.useSsl,
             start_tls: state.ldap.startTls,
             require_tls: state.ldap.requireTls,
             user_filter: userFilter,
@@ -862,8 +944,9 @@ export default function IdpProviders(): JSX.Element {
             username_attribute: usernameAttribute,
           };
 
-          if (port !== undefined) {
-            config.port = port;
+          const resolvedPort = port ?? parsedHost.port;
+          if (resolvedPort !== undefined) {
+            config.port = resolvedPort;
           }
           if (timeout !== undefined) {
             config.timeout = timeout;
@@ -979,6 +1062,12 @@ export default function IdpProviders(): JSX.Element {
       };
     });
   }, []);
+
+  useEffect(() => {
+    if (!advancedOpen && (form.meta.trim() !== "" || Boolean(formErrors.fields.meta))) {
+      setAdvancedOpen(true);
+    }
+  }, [advancedOpen, form.meta, formErrors.fields.meta]);
 
   const applyOidcMetadata = useCallback(
     (driver: "oidc" | "entra", metadata: Record<string, unknown>, source?: { url?: string }) => {
@@ -1287,12 +1376,21 @@ export default function IdpProviders(): JSX.Element {
 
   const applyLdapPreset = useCallback(
     (preset: "ad" | "generic") => {
+      const defaultHost = preset === "ad" ? "ldap://ad.example.com" : "ldap://ldap.example.com";
+      const parsedDefaultHost = parseLdapConnectionUri(defaultHost);
+      const defaultUseSsl = parsedDefaultHost?.useSsl ?? false;
+      const defaultPort = parsedDefaultHost?.port
+        ? String(parsedDefaultHost.port)
+        : defaultUseSsl
+        ? "636"
+        : "389";
+
       applyFormUpdate((prev) => ({
         ...prev,
         ldap: {
           ...prev.ldap,
-          host: prev.ldap.host || (preset === "ad" ? "ad.example.com" : "ldap.example.com"),
-          port: prev.ldap.port || (preset === "ad" ? "389" : prev.ldap.port),
+          host: prev.ldap.host || defaultHost,
+          port: prev.ldap.port || defaultPort,
           baseDn: prev.ldap.baseDn || "dc=example,dc=com",
           bindStrategy: "service",
           bindDn:
@@ -1307,7 +1405,7 @@ export default function IdpProviders(): JSX.Element {
           nameAttribute: preset === "ad" ? "displayName" : "cn",
           usernameAttribute: preset === "ad" ? "sAMAccountName" : "uid",
           photoAttribute: preset === "ad" ? "thumbnailPhoto" : prev.ldap.photoAttribute,
-          useSsl: false,
+          useSsl: defaultUseSsl,
           startTls: false,
           requireTls: preset === "ad",
         },
@@ -1488,6 +1586,43 @@ export default function IdpProviders(): JSX.Element {
     [applyFormUpdate]
   );
 
+  const handleLdapHostChange = useCallback(
+    (event: ChangeEvent<HTMLInputElement>) => {
+      const value = event.target.value;
+      const parsed = parseLdapConnectionUri(value);
+
+      applyFormUpdate((prev) => {
+        if (!parsed) {
+          return {
+            ...prev,
+            ldap: {
+              ...prev.ldap,
+              host: value,
+            },
+          };
+        }
+
+        let nextPort = prev.ldap.port;
+        if (parsed.port !== undefined) {
+          nextPort = String(parsed.port);
+        } else if (prev.ldap.port === "" || prev.ldap.port === "389" || prev.ldap.port === "636") {
+          nextPort = parsed.useSsl ? "636" : "389";
+        }
+
+        return {
+          ...prev,
+          ldap: {
+            ...prev.ldap,
+            host: value,
+            port: nextPort,
+            useSsl: parsed.useSsl,
+          },
+        };
+      });
+    },
+    [applyFormUpdate]
+  );
+
   const renderOidcLikeFields = (driver: "oidc" | "entra"): JSX.Element => {
     const state = driver === "oidc" ? form.oidc : form.entra;
     const loading = metadataLoading[driver];
@@ -1506,9 +1641,14 @@ export default function IdpProviders(): JSX.Element {
         </p>
         <div className="row g-3">
           <div className="col-12">
-            <label htmlFor={`${baseId}-issuer`} className="form-label">
+            <HoverHelpLabel
+              htmlFor={`${baseId}-issuer`}
+              className="form-label"
+              helpText="Use the issuer value reported by the discovery document."
+              helpId={`${baseId}-issuer-help`}
+            >
               Issuer URL
-            </label>
+            </HoverHelpLabel>
             <input
               id={`${baseId}-issuer`}
               type="url"
@@ -1529,18 +1669,23 @@ export default function IdpProviders(): JSX.Element {
               }
               inputMode="url"
               autoComplete="off"
+              aria-describedby={`${baseId}-issuer-help`}
             />
             {fieldError(`${driver}.issuer`) ? (
               <div className="invalid-feedback">{fieldError(`${driver}.issuer`)}</div>
             ) : null}
-            <div className="form-text">Use the issuer value reported by the discovery document.</div>
           </div>
 
           {driver === "entra" ? (
             <div className="col-12 col-md-6">
-              <label htmlFor="entra-tenant-id" className="form-label">
+              <HoverHelpLabel
+                htmlFor="entra-tenant-id"
+                className="form-label"
+                helpText="Azure tenant identifier (GUID or domain)."
+                helpId="entra-tenant-id-help"
+              >
                 Tenant ID
-              </label>
+              </HoverHelpLabel>
               <input
                 id="entra-tenant-id"
                 type="text"
@@ -1555,18 +1700,23 @@ export default function IdpProviders(): JSX.Element {
                 disabled={createBusy}
                 placeholder="11111111-2222-3333-4444-555555555555"
                 autoComplete="off"
+                aria-describedby="entra-tenant-id-help"
               />
               {fieldError("entra.tenantId") ? (
                 <div className="invalid-feedback">{fieldError("entra.tenantId")}</div>
               ) : null}
-              <div className="form-text">Azure tenant identifier (GUID or domain).</div>
             </div>
           ) : null}
 
           <div className="col-12 col-md-6">
-            <label htmlFor={`${baseId}-client-id`} className="form-label">
+            <HoverHelpLabel
+              htmlFor={`${baseId}-client-id`}
+              className="form-label"
+              helpText="Application identifier issued by the provider."
+              helpId={`${baseId}-client-id-help`}
+            >
               Client ID
-            </label>
+            </HoverHelpLabel>
             <input
               id={`${baseId}-client-id`}
               type="text"
@@ -1582,17 +1732,22 @@ export default function IdpProviders(): JSX.Element {
               disabled={createBusy}
               placeholder="0oa1example123"
               autoComplete="off"
+              aria-describedby={`${baseId}-client-id-help`}
             />
             {fieldError(`${driver}.clientId`) ? (
               <div className="invalid-feedback">{fieldError(`${driver}.clientId`)}</div>
             ) : null}
-            <div className="form-text">Application identifier issued by the provider.</div>
           </div>
 
           <div className="col-12 col-md-6">
-            <label htmlFor={`${baseId}-client-secret`} className="form-label">
+            <HoverHelpLabel
+              htmlFor={`${baseId}-client-secret`}
+              className="form-label"
+              helpText="Copy the client secret exactly as issued."
+              helpId={`${baseId}-client-secret-help`}
+            >
               Client secret
-            </label>
+            </HoverHelpLabel>
             <input
               id={`${baseId}-client-secret`}
               type="password"
@@ -1608,17 +1763,22 @@ export default function IdpProviders(): JSX.Element {
               disabled={createBusy}
               placeholder="••••••••••••"
               autoComplete="off"
+              aria-describedby={`${baseId}-client-secret-help`}
             />
             {fieldError(`${driver}.clientSecret`) ? (
               <div className="invalid-feedback">{fieldError(`${driver}.clientSecret`)}</div>
             ) : null}
-            <div className="form-text">Copy the client secret exactly as issued.</div>
           </div>
 
           <div className="col-12 col-md-6">
-            <label htmlFor={`${baseId}-scopes`} className="form-label">
+            <HoverHelpLabel
+              htmlFor={`${baseId}-scopes`}
+              className="form-label"
+              helpText="Space separated list. Leave blank to use the defaults."
+              helpId={`${baseId}-scopes-help`}
+            >
               Scopes
-            </label>
+            </HoverHelpLabel>
             <input
               id={`${baseId}-scopes`}
               type="text"
@@ -1634,14 +1794,19 @@ export default function IdpProviders(): JSX.Element {
               disabled={createBusy}
               placeholder="openid profile email"
               autoComplete="off"
+              aria-describedby={`${baseId}-scopes-help`}
             />
-            <div className="form-text">Space separated list. Leave blank to use the defaults.</div>
           </div>
 
           <div className="col-12">
-            <label htmlFor={`${baseId}-redirect-uris`} className="form-label">
+            <HoverHelpLabel
+              htmlFor={`${baseId}-redirect-uris`}
+              className="form-label"
+              helpText="One URL per line or separate with commas."
+              helpId={`${baseId}-redirect-uris-help`}
+            >
               Redirect URIs
-            </label>
+            </HoverHelpLabel>
             <textarea
               id={`${baseId}-redirect-uris`}
               className={`form-control font-monospace${fieldError(`${driver}.redirectUris`) ? " is-invalid" : ""}`}
@@ -1656,17 +1821,22 @@ export default function IdpProviders(): JSX.Element {
               }
               disabled={createBusy}
               placeholder="https://app.example.com/auth/callback"
+              aria-describedby={`${baseId}-redirect-uris-help`}
             />
             {fieldError(`${driver}.redirectUris`) ? (
               <div className="invalid-feedback">{fieldError(`${driver}.redirectUris`)}</div>
             ) : null}
-            <div className="form-text">One URL per line or separate with commas.</div>
           </div>
 
           <div className="col-12">
-            <label htmlFor={`${baseId}-metadata-url`} className="form-label">
+            <HoverHelpLabel
+              htmlFor={`${baseId}-metadata-url`}
+              className="form-label"
+              helpText="Pull the discovery document directly (if CORS allows) to pre-fill issuer details."
+              helpId={`${baseId}-metadata-url-help`}
+            >
               Metadata URL
-            </label>
+            </HoverHelpLabel>
             <div className="input-group">
               <input
                 id={`${baseId}-metadata-url`}
@@ -1684,6 +1854,7 @@ export default function IdpProviders(): JSX.Element {
                 disabled={createBusy || loading}
                 inputMode="url"
                 autoComplete="off"
+                aria-describedby={`${baseId}-metadata-url-help`}
               />
               <button
                 type="button"
@@ -1704,15 +1875,17 @@ export default function IdpProviders(): JSX.Element {
             {fieldError(`${driver}.metadataUrl`) ? (
               <div className="invalid-feedback d-block">{fieldError(`${driver}.metadataUrl`)}</div>
             ) : null}
-            <div className="form-text">
-              Pull the discovery document directly (if CORS allows) to pre-fill issuer details.
-            </div>
           </div>
 
           <div className="col-12">
-            <label htmlFor={`${baseId}-metadata-file`} className="form-label">
+            <HoverHelpLabel
+              htmlFor={`${baseId}-metadata-file`}
+              className="form-label"
+              helpText="Upload a saved discovery document if downloading from the provider is blocked."
+              helpId={`${baseId}-metadata-file-help`}
+            >
               Metadata file
-            </label>
+            </HoverHelpLabel>
             <input
               id={`${baseId}-metadata-file`}
               type="file"
@@ -1720,10 +1893,8 @@ export default function IdpProviders(): JSX.Element {
               accept=".json,application/json,.txt"
               onChange={(event) => handleOidcMetadataFileChange(driver, event)}
               disabled={createBusy || loading}
+              aria-describedby={`${baseId}-metadata-file-help`}
             />
-            <div className="form-text">
-              Upload a saved discovery document if downloading from the provider is blocked.
-            </div>
           </div>
         </div>
       </div>
@@ -1741,9 +1912,14 @@ export default function IdpProviders(): JSX.Element {
         </p>
         <div className="row g-3">
           <div className="col-12">
-            <label htmlFor="saml-entity-id" className="form-label">
+            <HoverHelpLabel
+              htmlFor="saml-entity-id"
+              className="form-label"
+              helpText="The IdP entity identifier (sometimes called audience or issuer)."
+              helpId="saml-entity-id-help"
+            >
               Entity ID
-            </label>
+            </HoverHelpLabel>
             <input
               id="saml-entity-id"
               type="text"
@@ -1755,17 +1931,22 @@ export default function IdpProviders(): JSX.Element {
               disabled={createBusy}
               placeholder="urn:example:idp"
               autoComplete="off"
+              aria-describedby="saml-entity-id-help"
             />
             {fieldError("saml.entityId") ? (
               <div className="invalid-feedback">{fieldError("saml.entityId")}</div>
             ) : null}
-            <div className="form-text">The IdP entity identifier (sometimes called audience or issuer).</div>
           </div>
 
           <div className="col-12">
-            <label htmlFor="saml-sso-url" className="form-label">
+            <HoverHelpLabel
+              htmlFor="saml-sso-url"
+              className="form-label"
+              helpText="HTTP-Redirect endpoint for authentication requests."
+              helpId="saml-sso-url-help"
+            >
               SSO URL
-            </label>
+            </HoverHelpLabel>
             <input
               id="saml-sso-url"
               type="url"
@@ -1778,17 +1959,22 @@ export default function IdpProviders(): JSX.Element {
               placeholder="https://idp.example.com/saml2"
               inputMode="url"
               autoComplete="off"
+              aria-describedby="saml-sso-url-help"
             />
             {fieldError("saml.ssoUrl") ? (
               <div className="invalid-feedback">{fieldError("saml.ssoUrl")}</div>
             ) : null}
-            <div className="form-text">HTTP-Redirect endpoint for authentication requests.</div>
           </div>
 
           <div className="col-12">
-            <label htmlFor="saml-certificate" className="form-label">
+            <HoverHelpLabel
+              htmlFor="saml-certificate"
+              className="form-label"
+              helpText="Paste the full PEM encoded signing certificate from your IdP."
+              helpId="saml-certificate-help"
+            >
               Signing certificate
-            </label>
+            </HoverHelpLabel>
             <textarea
               id="saml-certificate"
               className={`form-control font-monospace${fieldError("saml.certificate") ? " is-invalid" : ""}`}
@@ -1799,17 +1985,22 @@ export default function IdpProviders(): JSX.Element {
               }
               disabled={createBusy}
               placeholder="-----BEGIN CERTIFICATE-----"
+              aria-describedby="saml-certificate-help"
             />
             {fieldError("saml.certificate") ? (
               <div className="invalid-feedback">{fieldError("saml.certificate")}</div>
             ) : null}
-            <div className="form-text">Paste the full PEM encoded signing certificate from your IdP.</div>
           </div>
 
           <div className="col-12">
-            <label htmlFor="saml-metadata-url" className="form-label">
+            <HoverHelpLabel
+              htmlFor="saml-metadata-url"
+              className="form-label"
+              helpText="Provide the federation metadata URL to import values automatically (subject to CORS)."
+              helpId="saml-metadata-url-help"
+            >
               Metadata URL
-            </label>
+            </HoverHelpLabel>
             <div className="input-group">
               <input
                 id="saml-metadata-url"
@@ -1823,6 +2014,7 @@ export default function IdpProviders(): JSX.Element {
                 disabled={createBusy || loading}
                 inputMode="url"
                 autoComplete="off"
+                aria-describedby="saml-metadata-url-help"
               />
               <button
                 type="button"
@@ -1843,15 +2035,19 @@ export default function IdpProviders(): JSX.Element {
             {fieldError("saml.metadataUrl") ? (
               <div className="invalid-feedback d-block">{fieldError("saml.metadataUrl")}</div>
             ) : null}
-            <div className="form-text">
-              Provide the federation metadata URL to import values automatically (subject to CORS).
-            </div>
           </div>
 
           <div className="col-12">
-            <label htmlFor="saml-metadata-file" className="form-label">
+            <HoverHelpLabel
+              htmlFor="saml-metadata-file"
+              className="form-label"
+              helpText={`Upload an XML metadata file to parse entity ID, SSO URL, and certificate automatically${
+                form.saml.metadataFileName ? `. Last uploaded: ${form.saml.metadataFileName}` : "."
+              }`}
+              helpId="saml-metadata-file-help"
+            >
               Metadata file
-            </label>
+            </HoverHelpLabel>
             <input
               id="saml-metadata-file"
               type="file"
@@ -1859,16 +2055,14 @@ export default function IdpProviders(): JSX.Element {
               accept=".xml,application/xml,text/xml"
               onChange={handleSamlMetadataFileChange}
               disabled={createBusy || loading}
+              aria-describedby="saml-metadata-file-help"
             />
-            <div className="form-text">
-              Upload an XML metadata file to parse entity ID, SSO URL, and certificate automatically.
-              {form.saml.metadataFileName ? ` Last uploaded: ${form.saml.metadataFileName}` : ""}
-            </div>
           </div>
         </div>
       </div>
     );
   };
+
 
   const renderLdapFields = (): JSX.Element => {
     const bindStrategy = form.ldap.bindStrategy;
@@ -1887,7 +2081,7 @@ export default function IdpProviders(): JSX.Element {
               onClick={() => applyLdapPreset("ad")}
               disabled={createBusy}
             >
-              Active Directory preset
+              Active Directory
             </button>
             <button
               type="button"
@@ -1895,50 +2089,43 @@ export default function IdpProviders(): JSX.Element {
               onClick={() => applyLdapPreset("generic")}
               disabled={createBusy}
             >
-              Generic LDAP preset
+              Generic LDAP
             </button>
           </div>
-          <button
-            type="button"
-            className="btn btn-outline-primary btn-sm ms-auto"
-            onClick={openLdapBrowser}
-            disabled={createBusy || ldapBrowserBusy}
-          >
-            {ldapBrowserBusy ? (
-              <>
-                <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true" />
-                Loading...
-              </>
-            ) : (
-              "Browse directory"
-            )}
-          </button>
         </div>
         <div className="row g-3">
           <div className="col-12 col-md-6">
-            <label htmlFor="ldap-host" className="form-label">
+            <HoverHelpLabel
+              htmlFor="ldap-host"
+              className="form-label"
+              helpText="Include ldap:// or ldaps:// to control secure transport automatically."
+              helpId="ldap-host-help"
+            >
               Server host
-            </label>
+            </HoverHelpLabel>
             <input
               id="ldap-host"
               type="text"
               className={`form-control${fieldError("ldap.host") ? " is-invalid" : ""}`}
               value={form.ldap.host}
-              onChange={(event) =>
-                applyFormUpdate((prev) => ({ ...prev, ldap: { ...prev.ldap, host: event.target.value } }))
-              }
+              onChange={handleLdapHostChange}
               disabled={createBusy}
-              placeholder="ldap.example.com"
+              placeholder="ldaps://ldap.example.com"
               autoComplete="off"
+              aria-describedby="ldap-host-help"
             />
             {fieldError("ldap.host") ? <div className="invalid-feedback">{fieldError("ldap.host")}</div> : null}
-            <div className="form-text">Hostname or IP address of the LDAP server.</div>
           </div>
 
           <div className="col-6 col-md-3">
-            <label htmlFor="ldap-port" className="form-label">
+            <HoverHelpLabel
+              htmlFor="ldap-port"
+              className="form-label"
+              helpText="Optional. Defaults to 389 or 636 based on the host URI."
+              helpId="ldap-port-help"
+            >
               Port
-            </label>
+            </HoverHelpLabel>
             <input
               id="ldap-port"
               type="number"
@@ -1951,15 +2138,20 @@ export default function IdpProviders(): JSX.Element {
               }
               disabled={createBusy}
               placeholder="389"
+              aria-describedby="ldap-port-help"
             />
             {fieldError("ldap.port") ? <div className="invalid-feedback">{fieldError("ldap.port")}</div> : null}
-            <div className="form-text">Leave blank to use 389 or 636 with SSL.</div>
           </div>
 
           <div className="col-6 col-md-3">
-            <label htmlFor="ldap-timeout" className="form-label">
+            <HoverHelpLabel
+              htmlFor="ldap-timeout"
+              className="form-label"
+              helpText="Optional network timeout in seconds."
+              helpId="ldap-timeout-help"
+            >
               Timeout (s)
-            </label>
+            </HoverHelpLabel>
             <input
               id="ldap-timeout"
               type="number"
@@ -1972,15 +2164,20 @@ export default function IdpProviders(): JSX.Element {
               }
               disabled={createBusy}
               placeholder="15"
+              aria-describedby="ldap-timeout-help"
             />
             {fieldError("ldap.timeout") ? <div className="invalid-feedback">{fieldError("ldap.timeout")}</div> : null}
-            <div className="form-text">Optional network timeout in seconds.</div>
           </div>
 
           <div className="col-12">
-            <label htmlFor="ldap-base-dn" className="form-label">
+            <HoverHelpLabel
+              htmlFor="ldap-base-dn"
+              className="form-label"
+              helpText="Search base used for users and lookups."
+              helpId="ldap-base-dn-help"
+            >
               Base DN
-            </label>
+            </HoverHelpLabel>
             <input
               id="ldap-base-dn"
               type="text"
@@ -1992,32 +2189,12 @@ export default function IdpProviders(): JSX.Element {
               disabled={createBusy}
               placeholder="dc=example,dc=com"
               autoComplete="off"
+              aria-describedby="ldap-base-dn-help"
             />
             {fieldError("ldap.baseDn") ? <div className="invalid-feedback">{fieldError("ldap.baseDn")}</div> : null}
-            <div className="form-text">Search base used for users and lookups.</div>
           </div>
 
-          <div className="col-12 col-md-4">
-            <div className="form-check form-switch pt-2">
-              <input
-                id="ldap-use-ssl"
-                className="form-check-input"
-                type="checkbox"
-                role="switch"
-                checked={form.ldap.useSsl}
-                onChange={(event) =>
-                  applyFormUpdate((prev) => ({ ...prev, ldap: { ...prev.ldap, useSsl: event.target.checked } }))
-                }
-                disabled={createBusy}
-              />
-              <label className="form-check-label" htmlFor="ldap-use-ssl">
-                Use LDAPS (SSL)
-              </label>
-            </div>
-            <div className="form-text">Connect over LDAPS on port 636.</div>
-          </div>
-
-          <div className="col-12 col-md-4">
+          <div className="col-12 col-md-6 col-xl-4">
             <div className="form-check form-switch pt-2">
               <input
                 id="ldap-start-tls"
@@ -2029,15 +2206,20 @@ export default function IdpProviders(): JSX.Element {
                   applyFormUpdate((prev) => ({ ...prev, ldap: { ...prev.ldap, startTls: event.target.checked } }))
                 }
                 disabled={createBusy}
+                aria-describedby="ldap-start-tls-help"
               />
-              <label className="form-check-label" htmlFor="ldap-start-tls">
+              <HoverHelpLabel
+                className="form-check-label"
+                htmlFor="ldap-start-tls"
+                helpText="Start TLS after connecting on the standard port."
+                helpId="ldap-start-tls-help"
+              >
                 StartTLS
-              </label>
+              </HoverHelpLabel>
             </div>
-            <div className="form-text">Start TLS after connecting on the standard port.</div>
           </div>
 
-          <div className="col-12 col-md-4">
+          <div className="col-12 col-md-6 col-xl-4">
             <div className="form-check form-switch pt-2">
               <input
                 id="ldap-require-tls"
@@ -2049,18 +2231,28 @@ export default function IdpProviders(): JSX.Element {
                   applyFormUpdate((prev) => ({ ...prev, ldap: { ...prev.ldap, requireTls: event.target.checked } }))
                 }
                 disabled={createBusy}
+                aria-describedby="ldap-require-tls-help"
               />
-              <label className="form-check-label" htmlFor="ldap-require-tls">
+              <HoverHelpLabel
+                className="form-check-label"
+                htmlFor="ldap-require-tls"
+                helpText="Prevent binds unless SSL or StartTLS is enabled."
+                helpId="ldap-require-tls-help"
+              >
                 Require TLS
-              </label>
+              </HoverHelpLabel>
             </div>
-            <div className="form-text">Prevent binds unless SSL or StartTLS is enabled.</div>
           </div>
 
           <div className="col-12 col-md-6">
-            <label htmlFor="ldap-bind-strategy" className="form-label">
+            <HoverHelpLabel
+              htmlFor="ldap-bind-strategy"
+              className="form-label"
+              helpText="Choose how user credentials are verified."
+              helpId="ldap-bind-strategy-help"
+            >
               Bind strategy
-            </label>
+            </HoverHelpLabel>
             <select
               id="ldap-bind-strategy"
               className={`form-select${fieldError("ldap.bindStrategy") ? " is-invalid" : ""}`}
@@ -2072,22 +2264,27 @@ export default function IdpProviders(): JSX.Element {
                 }))
               }
               disabled={createBusy}
+              aria-describedby="ldap-bind-strategy-help"
             >
-              <option value="service">Service account (search + rebind)</option>
+              <option value="service">Service Account</option>
               <option value="direct">Direct user DN bind</option>
             </select>
             {fieldError("ldap.bindStrategy") ? (
               <div className="invalid-feedback">{fieldError("ldap.bindStrategy")}</div>
             ) : null}
-            <div className="form-text">Choose how user credentials are verified.</div>
           </div>
 
           {bindStrategy === "service" ? (
             <>
               <div className="col-12 col-md-6">
-                <label htmlFor="ldap-bind-dn" className="form-label">
+                <HoverHelpLabel
+                  htmlFor="ldap-bind-dn"
+                  className="form-label"
+                  helpText="Service account used to search for user entries."
+                  helpId="ldap-bind-dn-help"
+                >
                   Bind DN
-                </label>
+                </HoverHelpLabel>
                 <input
                   id="ldap-bind-dn"
                   type="text"
@@ -2099,17 +2296,22 @@ export default function IdpProviders(): JSX.Element {
                   disabled={createBusy}
                   placeholder="cn=service,ou=accounts,dc=example,dc=com"
                   autoComplete="off"
+                  aria-describedby="ldap-bind-dn-help"
                 />
                 {fieldError("ldap.bindDn") ? (
                   <div className="invalid-feedback">{fieldError("ldap.bindDn")}</div>
                 ) : null}
-                <div className="form-text">Service account used to search for user entries.</div>
               </div>
 
               <div className="col-12 col-md-6">
-                <label htmlFor="ldap-bind-password" className="form-label">
+                <HoverHelpLabel
+                  htmlFor="ldap-bind-password"
+                  className="form-label"
+                  helpText="Credentials for the service account above."
+                  helpId="ldap-bind-password-help"
+                >
                   Bind password
-                </label>
+                </HoverHelpLabel>
                 <input
                   id="ldap-bind-password"
                   type="password"
@@ -2121,18 +2323,23 @@ export default function IdpProviders(): JSX.Element {
                   disabled={createBusy}
                   placeholder="••••••••"
                   autoComplete="off"
+                  aria-describedby="ldap-bind-password-help"
                 />
                 {fieldError("ldap.bindPassword") ? (
                   <div className="invalid-feedback">{fieldError("ldap.bindPassword")}</div>
                 ) : null}
-                <div className="form-text">Credentials for the service account above.</div>
               </div>
             </>
           ) : (
             <div className="col-12">
-              <label htmlFor="ldap-user-dn-template" className="form-label">
+              <HoverHelpLabel
+                htmlFor="ldap-user-dn-template"
+                className="form-label"
+                helpText='Use a standard DN pattern. Replace the username with the placeholder {{username}}.'
+                helpId="ldap-user-dn-template-help"
+              >
                 User DN template
-              </label>
+              </HoverHelpLabel>
               <input
                 id="ldap-user-dn-template"
                 type="text"
@@ -2144,18 +2351,23 @@ export default function IdpProviders(): JSX.Element {
                 disabled={createBusy}
                 placeholder="uid={{username}},ou=people,dc=example,dc=com"
                 autoComplete="off"
+                aria-describedby="ldap-user-dn-template-help"
               />
               {fieldError("ldap.userDnTemplate") ? (
                 <div className="invalid-feedback">{fieldError("ldap.userDnTemplate")}</div>
               ) : null}
-              <div className="form-text">{"Must include the placeholder {{username}}."}</div>
             </div>
           )}
 
           <div className="col-12">
-            <label htmlFor="ldap-user-filter" className="form-label">
+            <HoverHelpLabel
+              htmlFor="ldap-user-filter"
+              className="form-label"
+              helpText="Standard LDAP filter expression. The placeholder {{username}} is replaced with the submitted username."
+              helpId="ldap-user-filter-help"
+            >
               User search filter
-            </label>
+            </HoverHelpLabel>
             <input
               id="ldap-user-filter"
               type="text"
@@ -2167,19 +2379,22 @@ export default function IdpProviders(): JSX.Element {
               disabled={createBusy}
               placeholder="(&(objectClass=person)(uid={{username}}))"
               autoComplete="off"
+              aria-describedby="ldap-user-filter-help"
             />
             {fieldError("ldap.userFilter") ? (
               <div className="invalid-feedback">{fieldError("ldap.userFilter")}</div>
             ) : null}
-            <div className="form-text">
-              {"This LDAP filter is used to locate the authenticating user. The placeholder {{username}} is automatically replaced with the submitted login."}
-            </div>
           </div>
 
           <div className="col-12 col-lg-6 col-xl-3">
-            <label htmlFor="ldap-email-attribute" className="form-label">
+            <HoverHelpLabel
+              htmlFor="ldap-email-attribute"
+              className="form-label"
+              helpText="Attribute containing the user's email address."
+              helpId="ldap-email-attribute-help"
+            >
               Email attribute
-            </label>
+            </HoverHelpLabel>
             <input
               id="ldap-email-attribute"
               type="text"
@@ -2191,17 +2406,22 @@ export default function IdpProviders(): JSX.Element {
               disabled={createBusy}
               placeholder="mail"
               autoComplete="off"
+              aria-describedby="ldap-email-attribute-help"
             />
             {fieldError("ldap.emailAttribute") ? (
               <div className="invalid-feedback">{fieldError("ldap.emailAttribute")}</div>
             ) : null}
-            <div className="form-text">Attribute containing the user&apos;s email address.</div>
           </div>
 
           <div className="col-12 col-lg-6 col-xl-3">
-            <label htmlFor="ldap-name-attribute" className="form-label">
+            <HoverHelpLabel
+              htmlFor="ldap-name-attribute"
+              className="form-label"
+              helpText="Attribute used for the user's display name."
+              helpId="ldap-name-attribute-help"
+            >
               Display name attribute
-            </label>
+            </HoverHelpLabel>
             <input
               id="ldap-name-attribute"
               type="text"
@@ -2213,17 +2433,22 @@ export default function IdpProviders(): JSX.Element {
               disabled={createBusy}
               placeholder="cn"
               autoComplete="off"
+              aria-describedby="ldap-name-attribute-help"
             />
             {fieldError("ldap.nameAttribute") ? (
               <div className="invalid-feedback">{fieldError("ldap.nameAttribute")}</div>
             ) : null}
-            <div className="form-text">Attribute used for the user&apos;s display name.</div>
           </div>
 
           <div className="col-12 col-lg-6 col-xl-3">
-            <label htmlFor="ldap-username-attribute" className="form-label">
+            <HoverHelpLabel
+              htmlFor="ldap-username-attribute"
+              className="form-label"
+              helpText="Attribute used to match usernames during login."
+              helpId="ldap-username-attribute-help"
+            >
               Username attribute
-            </label>
+            </HoverHelpLabel>
             <input
               id="ldap-username-attribute"
               type="text"
@@ -2235,17 +2460,22 @@ export default function IdpProviders(): JSX.Element {
               disabled={createBusy}
               placeholder="uid"
               autoComplete="off"
+              aria-describedby="ldap-username-attribute-help"
             />
             {fieldError("ldap.usernameAttribute") ? (
               <div className="invalid-feedback">{fieldError("ldap.usernameAttribute")}</div>
             ) : null}
-            <div className="form-text">Attribute used to match usernames during login.</div>
           </div>
 
           <div className="col-12 col-lg-6 col-xl-3">
-            <label htmlFor="ldap-photo-attribute" className="form-label">
+            <HoverHelpLabel
+              htmlFor="ldap-photo-attribute"
+              className="form-label"
+              helpText="Optional attribute containing a user thumbnail image."
+              helpId="ldap-photo-attribute-help"
+            >
               Thumbnail photo attribute
-            </label>
+            </HoverHelpLabel>
             <input
               id="ldap-photo-attribute"
               type="text"
@@ -2257,17 +2487,16 @@ export default function IdpProviders(): JSX.Element {
               disabled={createBusy}
               placeholder="thumbnailPhoto"
               autoComplete="off"
+              aria-describedby="ldap-photo-attribute-help"
             />
             {fieldError("ldap.photoAttribute") ? (
               <div className="invalid-feedback">{fieldError("ldap.photoAttribute")}</div>
             ) : null}
-            <div className="form-text">Optional attribute containing a user thumbnail image.</div>
           </div>
         </div>
       </div>
     );
   };
-
   const renderDriverFields = (): JSX.Element | null => {
     if (form.driver === "oidc" || form.driver === "entra") {
       return renderOidcLikeFields(form.driver);
@@ -2513,9 +2742,14 @@ export default function IdpProviders(): JSX.Element {
       >
           <div className="row g-3">
             <div className="col-12 col-md-6">
-              <label htmlFor="idp-name" className="form-label">
+              <HoverHelpLabel
+                htmlFor="idp-name"
+                className="form-label"
+                helpText="Shown to users on the login screen."
+                helpId="idp-name-help"
+              >
                 Display name
-              </label>
+              </HoverHelpLabel>
               <input
                 id="idp-name"
                 name="name"
@@ -2526,15 +2760,20 @@ export default function IdpProviders(): JSX.Element {
                 placeholder="Microsoft Entra - Primary"
                 disabled={createBusy}
                 autoComplete="off"
+                aria-describedby="idp-name-help"
                 required
               />
               {fieldError("name") ? <div className="invalid-feedback">{fieldError("name")}</div> : null}
-              <div className="form-text">Shown to users on the login screen.</div>
             </div>
             <div className="col-12 col-md-6">
-              <label htmlFor="idp-driver" className="form-label">
+              <HoverHelpLabel
+                htmlFor="idp-driver"
+                className="form-label"
+                helpText="Choose the integration style for this provider."
+                helpId="idp-driver-help"
+              >
                 Idp Type
-              </label>
+              </HoverHelpLabel>
               <select
                 id="idp-driver"
                 name="driver"
@@ -2547,6 +2786,7 @@ export default function IdpProviders(): JSX.Element {
                   }))
                 }
                 disabled={createBusy}
+                aria-describedby="idp-driver-help"
                 required
               >
                 {DRIVER_OPTIONS.map((option) => (
@@ -2556,7 +2796,6 @@ export default function IdpProviders(): JSX.Element {
                 ))}
               </select>
               {fieldError("driver") ? <div className="invalid-feedback">{fieldError("driver")}</div> : null}
-              <div className="form-text">Choose the integration style for this provider.</div>
             </div>
             <div className="col-12 col-md-6">
               <div className="form-check form-switch pt-2">
@@ -2568,13 +2807,18 @@ export default function IdpProviders(): JSX.Element {
                   role="switch"
                   checked={form.enabled}
                   onChange={(event) => applyFormUpdate((prev) => ({ ...prev, enabled: event.target.checked }))}
+                  aria-describedby="idp-enabled-help"
                   disabled={createBusy}
                 />
-                <label className="form-check-label" htmlFor="idp-enabled">
-                  Enable immediately
-                </label>
+                <HoverHelpLabel
+                  className="form-check-label"
+                  htmlFor="idp-enabled"
+                  helpText="You can toggle availability later from the overview."
+                  helpId="idp-enabled-help"
+                >
+                  Enable
+                </HoverHelpLabel>
               </div>
-              <div className="form-text">You can toggle availability later from the overview.</div>
             </div>
           </div>
 
@@ -2597,6 +2841,23 @@ export default function IdpProviders(): JSX.Element {
                   "Test configuration"
                 )}
               </button>
+              {form.driver === "ldap" ? (
+                <button
+                  type="button"
+                  className="btn btn-outline-primary"
+                  onClick={openLdapBrowser}
+                  disabled={createBusy || ldapBrowserBusy}
+                >
+                  {ldapBrowserBusy ? (
+                    <>
+                      <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true" />
+                      Loading...
+                    </>
+                  ) : (
+                    "Browse directory"
+                  )}
+                </button>
+              ) : null}
               {testResult ? (
                 <span
                   className={`badge rounded-pill ${
@@ -2646,21 +2907,42 @@ export default function IdpProviders(): JSX.Element {
           </div>
 
           <div className="border-top pt-3">
-            <label htmlFor="idp-meta" className="form-label">
-              Additional metadata (JSON, optional)
-            </label>
-            <textarea
-              id="idp-meta"
-              name="meta"
-              className={`form-control font-monospace${fieldError("meta") ? " is-invalid" : ""}`}
-              rows={3}
-              value={form.meta}
-              onChange={(event) => applyFormUpdate((prev) => ({ ...prev, meta: event.target.value }))}
-              disabled={createBusy}
-              placeholder='{"display_region": "us-east"}'
-            />
-            {fieldError("meta") ? <div className="invalid-feedback">{fieldError("meta")}</div> : null}
-            <div className="form-text">Optional structured notes for automation or UI hints.</div>
+            <div className="d-flex align-items-center gap-2">
+              <button
+                type="button"
+                className="btn btn-link p-0"
+                onClick={() => setAdvancedOpen((prev) => !prev)}
+                aria-expanded={advancedOpen}
+                aria-controls="idp-meta-panel"
+              >
+                Advanced
+              </button>
+              {!advancedOpen ? <span className="text-muted small">Optional JSON configuration</span> : null}
+            </div>
+            {advancedOpen ? (
+              <div id="idp-meta-panel" className="mt-3">
+                <HoverHelpLabel
+                  htmlFor="idp-meta"
+                  className="form-label"
+                  helpText="Optional structured notes for automation or UI hints."
+                  helpId="idp-meta-help"
+                >
+                  Advanced
+                </HoverHelpLabel>
+                <textarea
+                  id="idp-meta"
+                  name="meta"
+                  className={`form-control font-monospace${fieldError("meta") ? " is-invalid" : ""}`}
+                  rows={3}
+                  value={form.meta}
+                  onChange={(event) => applyFormUpdate((prev) => ({ ...prev, meta: event.target.value }))}
+                  disabled={createBusy}
+                  placeholder='{"display_region": "us-east"}'
+                  aria-describedby="idp-meta-help"
+                />
+                {fieldError("meta") ? <div className="invalid-feedback">{fieldError("meta")}</div> : null}
+              </div>
+            ) : null}
           </div>
         </form>
       </ConfirmModal>

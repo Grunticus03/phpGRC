@@ -346,7 +346,10 @@ describe("Admin IdP Providers page", () => {
     const redirectUrisArea = within(dialog).getByLabelText(/redirect uris/i);
     await user.type(redirectUrisArea, "https://app.example.com/auth/callback");
 
-    const metaArea = within(dialog).getByLabelText(/additional metadata/i);
+    const advancedToggle = within(dialog).getByRole("button", { name: /^advanced$/i });
+    await user.click(advancedToggle);
+
+    const metaArea = within(dialog).getByPlaceholderText('{"display_region": "us-east"}');
     fireEvent.change(metaArea, { target: { value: '{"display_region":"us"}' } });
 
     const submitButton = within(dialog).getByRole("button", { name: /^create$/i });
@@ -389,7 +392,7 @@ describe("Admin IdP Providers page", () => {
     const driverSelect = within(dialog).getByLabelText(/idp type/i);
     await user.selectOptions(driverSelect, "ldap");
 
-    const adPresetButton = within(dialog).getByRole("button", { name: /active directory preset/i });
+    const adPresetButton = within(dialog).getByRole("button", { name: /active directory/i });
     await user.click(adPresetButton);
 
     const photoAttributeInput = within(dialog).getByLabelText(/thumbnail photo attribute/i) as HTMLInputElement;
@@ -398,6 +401,9 @@ describe("Admin IdP Providers page", () => {
 
   test("surfaces server validation errors near the create button and affected fields", async () => {
     const user = userEvent.setup();
+
+    let postCount = 0;
+    let lastPostInit: RequestInit | undefined;
 
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const method = (init?.method ?? "GET").toUpperCase();
@@ -412,6 +418,8 @@ describe("Admin IdP Providers page", () => {
       }
 
       if (method === "POST" && /\/admin\/idp\/providers$/.test(url)) {
+        postCount += 1;
+        lastPostInit = init;
         return jsonResponse(422, {
           message: "Validation failed.",
           errors: {
@@ -439,7 +447,7 @@ describe("Admin IdP Providers page", () => {
 
     const hostInput = within(dialog).getByLabelText(/server host/i);
     await user.clear(hostInput);
-    await user.type(hostInput, "ldap.example.com");
+    await user.type(hostInput, "ldaps://ldap.example.com/");
 
     const baseDnInput = within(dialog).getByLabelText(/base dn/i);
     await user.clear(baseDnInput);
@@ -456,10 +464,13 @@ describe("Admin IdP Providers page", () => {
     const submitButton = within(dialog).getByRole("button", { name: /^create$/i });
     await user.click(submitButton);
 
-    const generalError = await within(dialog).findByText(/validation failed\./i);
-    expect(generalError.closest(".modal-footer")).not.toBeNull();
+    await waitFor(() => expect(postCount).toBeGreaterThan(0));
+    const payload = JSON.parse(String(lastPostInit?.body ?? "{}"));
 
     const bindDnFeedback = await within(dialog).findByText(/bind dn is invalid\./i);
+    const generalError = await within(dialog).findByText(/validation failed\./i);
+    expect(generalError.closest(".modal-footer")).not.toBeNull();
+    expect(payload).toMatchObject({ driver: "ldap" });
     expect(bindDnFeedback).toBeInTheDocument();
     expect(bindDnInput).toHaveClass("is-invalid");
   });
