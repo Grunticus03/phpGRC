@@ -64,7 +64,7 @@ export const persistThemeModePreference = async (
 
   let res: Response;
   try {
-    res = await fetcher("/api/me/prefs/ui", {
+    res = await fetcher("/me/prefs/ui", {
       method: "PUT",
       credentials: "same-origin",
       headers: baseHeaders({

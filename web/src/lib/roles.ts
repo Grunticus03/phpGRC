@@ -72,14 +72,20 @@ export function roleOptionsFromList(source: RoleOptionInput[] | undefined | null
       continue;
     }
 
-    const id = canonicalRoleId(idSource);
-    if (id === "" || seen.has(id)) {
+    const canonicalId = canonicalRoleId(idSource);
+    if (canonicalId === "" || seen.has(canonicalId)) {
       continue;
     }
-    seen.add(id);
+    seen.add(canonicalId);
+
     const labelCandidate = labelSource ?? idSource;
-    const label = roleLabelFromId(labelCandidate) || roleLabelFromId(id) || labelCandidate;
-    options.push({ id, name: label });
+    const labelCanonical = canonicalRoleId(labelCandidate);
+    const label =
+      roleLabelFromId(labelCanonical !== "" ? labelCanonical : canonicalId) ||
+      roleLabelFromId(canonicalId) ||
+      labelCandidate;
+
+    options.push({ id: canonicalId, name: label });
   }
 
   return options.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
@@ -93,12 +99,12 @@ export function roleIdsFromNames(input: Array<string | number> | undefined | nul
   for (const value of input) {
     const candidate = coerceRoleString(value);
     if (!candidate) continue;
-    const id = canonicalRoleId(candidate);
-    if (id === "" || seen.has(id)) {
+    const canonicalId = canonicalRoleId(candidate);
+    if (canonicalId === "" || seen.has(canonicalId)) {
       continue;
     }
-    seen.add(id);
-    ids.push(id);
+    seen.add(canonicalId);
+    ids.push(canonicalId);
   }
 
   return ids;
@@ -108,6 +114,6 @@ export function roleLabelsFromIds(ids: string[] | undefined | null): string[] {
   if (!Array.isArray(ids)) return [];
   return ids
     .filter((value): value is string => typeof value === "string" && value.trim() !== "")
-    .map((value) => roleLabelFromId(value))
+    .map((value) => roleLabelFromId(canonicalRoleId(value)))
     .filter((label) => label !== "");
 }

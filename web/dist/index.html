@@ -4,6 +4,7 @@
     <meta charset="utf-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
     <title>phpGRC</title>
     <style>
       html,
@@ -14,47 +15,39 @@
     </style>
     <script>
       (function () {
-        var DEFAULT_THEME = "slate";
-        var DEFAULT_MODE = "dark";
-        var DEFAULT_SOURCE = "bootswatch";
-        var STORAGE_KEY = "phpgrc.theme.selection";
-        var COOKIE_NAME = "phpgrc_theme_selection";
+        var doc = typeof document === "undefined" ? null : document;
+        if (!doc || !doc.documentElement) return;
 
-        function getStoredSelection() {
-          var raw = null;
-          if (typeof window !== "undefined") {
-            try {
-              var store = window.localStorage;
-              if (store) {
-                raw = store.getItem(STORAGE_KEY);
-              }
-            } catch (err) {
-              raw = null;
-            }
-          }
+        var html = doc.documentElement;
 
-          if (!raw && typeof document !== "undefined") {
-            var cookies = document.cookie ? document.cookie.split(";") : [];
-            for (var i = 0; i < cookies.length; i += 1) {
-              var entry = cookies[i].trim();
-              if (entry && entry.indexOf(COOKIE_NAME + "=") === 0) {
-                raw = entry.substring(COOKIE_NAME.length + 1);
-                try {
-                  raw = decodeURIComponent(raw);
-                } catch (err) {
-                  // ignore decode errors; raw remains encoded
-                }
-                break;
-              }
-            }
-          }
+        var THEME_STORAGE_KEY = "phpgrc.theme.selection";
+        var THEME_COOKIE_NAME = "phpgrc_theme_selection";
+        var LOGIN_LAYOUT_STORAGE_KEY = "phpgrc.login.layout";
+        var LOGIN_LAYOUT_COOKIE = "phpgrc_login_layout";
 
-          if (!raw) return null;
-          try {
-            return JSON.parse(raw);
-          } catch (err) {
-            return null;
-          }
+        function sanitizeSlug(value) {
+          if (typeof value !== "string") return null;
+          var trimmed = value.trim();
+          if (trimmed === "") return null;
+          return /^[a-z0-9._:-]+$/i.test(trimmed) ? trimmed : null;
+        }
+
+        function sanitizeMode(value) {
+          if (typeof value !== "string") return null;
+          var token = value.trim().toLowerCase();
+          return token === "light" || token === "dark" ? token : null;
+        }
+
+        function sanitizeSource(value) {
+          if (typeof value !== "string") return null;
+          var token = value.trim().toLowerCase();
+          return token === "bootswatch" || token === "pack" || token === "custom" ? token : null;
+        }
+
+        function sanitizeLoginLayout(value) {
+          if (typeof value !== "string") return null;
+          var token = value.trim().toLowerCase();
+          return token === "layout_1" || token === "layout_2" || token === "layout_3" ? token : null;
         }
 
         function prefersDark() {
@@ -66,33 +59,126 @@
           }
         }
 
-        try {
-          var stored = getStoredSelection();
-          var slug = stored && typeof stored.slug === "string" ? stored.slug : DEFAULT_THEME;
-          var modeCandidate = stored && (stored.mode === "light" || stored.mode === "dark") ? stored.mode : null;
-          var mode = modeCandidate || (prefersDark() ? "dark" : DEFAULT_MODE);
-          var variant =
-            stored && typeof stored.variant === "string" && stored.variant !== "" ? stored.variant : mode;
-          var source = stored && typeof stored.source === "string" ? stored.source : DEFAULT_SOURCE;
+        function readCookie(name) {
+          if (!doc.cookie) return null;
+          var cookies = doc.cookie.split(";");
+          for (var i = 0; i < cookies.length; i += 1) {
+            var entry = cookies[i].trim();
+            if (!entry || entry.indexOf(name + "=") !== 0) continue;
+            var raw = entry.substring(name.length + 1);
+            try {
+              return decodeURIComponent(raw);
+            } catch (err) {
+              return raw;
+            }
+          }
+          return null;
+        }
 
-          var html = document.documentElement;
-          html.setAttribute("data-theme", slug);
-          html.setAttribute("data-mode", mode);
-          html.setAttribute("data-bs-theme", mode);
-          html.setAttribute("data-theme-variant", variant);
-          html.setAttribute("data-theme-source", source);
+        var FALLBACK_THEME = sanitizeSlug(html.getAttribute("data-theme")) || "slate";
+        var fallbackModeAttr =
+          sanitizeMode(html.getAttribute("data-mode")) || sanitizeMode(html.getAttribute("data-bs-theme"));
+        var FALLBACK_MODE = fallbackModeAttr || (prefersDark() ? "dark" : "light");
+        if (FALLBACK_MODE !== "light" && FALLBACK_MODE !== "dark") {
+          FALLBACK_MODE = "dark";
+        }
+        var FALLBACK_SOURCE = sanitizeSource(html.getAttribute("data-theme-source")) || "bootswatch";
+        var FALLBACK_VARIANT = sanitizeSlug(html.getAttribute("data-theme-variant")) || FALLBACK_MODE;
+        var FALLBACK_LOGIN_LAYOUT = sanitizeLoginLayout(html.getAttribute("data-login-layout")) || "layout_1";
+
+        function parseStoredSelection(raw) {
+          if (!raw) return null;
+          try {
+            return JSON.parse(raw);
+          } catch (err) {
+            return null;
+          }
+        }
+
+        function getStoredSelection() {
+          var raw = null;
+          if (typeof window !== "undefined") {
+            try {
+              var store = window.localStorage;
+              if (store) {
+                raw = store.getItem(THEME_STORAGE_KEY);
+              }
+            } catch (err) {
+              raw = null;
+            }
+          }
+
+          if (!raw) {
+            raw = readCookie(THEME_COOKIE_NAME);
+          }
+
+          return parseStoredSelection(raw);
+        }
+
+        function resolveSelection() {
+          var stored = getStoredSelection();
+          var slug = sanitizeSlug(stored && stored.slug) || FALLBACK_THEME;
+          var mode = sanitizeMode(stored && stored.mode) || FALLBACK_MODE;
+          if (!mode) {
+            mode = prefersDark() ? "dark" : "light";
+            if (mode !== "light" && mode !== "dark") {
+              mode = "dark";
+            }
+          }
+
+          var variant =
+            sanitizeSlug(stored && stored.variant) ||
+            sanitizeMode(stored && stored.variant) ||
+            FALLBACK_VARIANT ||
+            mode;
+
+          var source = sanitizeSource(stored && stored.source) || FALLBACK_SOURCE;
+
+          return {
+            slug: slug,
+            mode: mode,
+            variant: variant || mode,
+            source: source,
+          };
+        }
+
+        function readStoredLoginLayout() {
+          if (typeof window !== "undefined") {
+            try {
+              var layout = window.localStorage && window.localStorage.getItem(LOGIN_LAYOUT_STORAGE_KEY);
+              var sanitized = sanitizeLoginLayout(layout);
+              if (sanitized) return sanitized;
+            } catch (err) {
+              // ignore storage errors
+            }
+          }
+
+          var fromCookie = sanitizeLoginLayout(readCookie(LOGIN_LAYOUT_COOKIE));
+          if (fromCookie) return fromCookie;
+
+          return FALLBACK_LOGIN_LAYOUT;
+        }
+
+        try {
+          var selection = resolveSelection();
+          html.setAttribute("data-theme", selection.slug);
+          html.setAttribute("data-mode", selection.mode);
+          html.setAttribute("data-bs-theme", selection.mode);
+          html.setAttribute("data-theme-variant", selection.variant);
+          html.setAttribute("data-theme-source", selection.source);
+          html.setAttribute("data-login-layout", readStoredLoginLayout());
         } catch (err) {
-          var fallbackHtml = document.documentElement;
-          fallbackHtml.setAttribute("data-theme", DEFAULT_THEME);
-          fallbackHtml.setAttribute("data-mode", DEFAULT_MODE);
-          fallbackHtml.setAttribute("data-bs-theme", DEFAULT_MODE);
-          fallbackHtml.setAttribute("data-theme-variant", DEFAULT_MODE);
-          fallbackHtml.setAttribute("data-theme-source", DEFAULT_SOURCE);
+          html.setAttribute("data-theme", FALLBACK_THEME);
+          html.setAttribute("data-mode", FALLBACK_MODE);
+          html.setAttribute("data-bs-theme", FALLBACK_MODE);
+          html.setAttribute("data-theme-variant", FALLBACK_VARIANT || FALLBACK_MODE);
+          html.setAttribute("data-theme-source", FALLBACK_SOURCE);
+          html.setAttribute("data-login-layout", FALLBACK_LOGIN_LAYOUT);
         }
       })();
     </script>
-    <script type="module" crossorigin src="/assets/index-DzdrTbIV.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-CKiNvk3U.css">
+    <script type="module" crossorigin src="/assets/index-DI5mlJdM.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-C5DjG9E0.css">
   </head>
   <body>
     <div id="root"></div>

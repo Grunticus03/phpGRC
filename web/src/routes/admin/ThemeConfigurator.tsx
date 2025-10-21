@@ -66,10 +66,10 @@ const toStoredOverrides = (source: Record<string, string>): ThemeSettings["theme
   return base as ThemeSettings["theme"]["overrides"];
 };
 
-const DEFAULT_LOGO_SRC = "/api/images/phpGRC-light-horizontal-trans.webp";
+const DEFAULT_LOGO_SRC = "/images/phpGRC-light-horizontal-trans.webp";
 
 const brandAssetUrl = (assetId: string): string =>
-  `/api/settings/ui/brand-assets/${encodeURIComponent(assetId)}/download`;
+  `/settings/ui/brand-assets/${encodeURIComponent(assetId)}/download`;
 
 const resolvePrimaryLogoSrc = (settings: ThemeSettings): string | null => {
   const raw = ((settings.brand ?? null) as { primary_logo_asset_id?: unknown } | null)?.primary_logo_asset_id;
@@ -376,7 +376,7 @@ export default function ThemeConfigurator(): JSX.Element {
 
   const loadManifest = useCallback(async () => {
     try {
-      const res = await fetch("/api/settings/ui/themes", {
+      const res = await fetch("/settings/ui/themes", {
         method: "GET",
         credentials: "same-origin",
         headers: baseHeaders(),
@@ -401,7 +401,7 @@ export default function ThemeConfigurator(): JSX.Element {
     try {
       await loadManifest();
 
-      const res = await fetch("/api/settings/ui", {
+      const res = await fetch("/settings/ui", {
         method: "GET",
         credentials: "same-origin",
         headers: baseHeaders(),
@@ -589,7 +589,7 @@ export default function ThemeConfigurator(): JSX.Element {
         },
       };
 
-      const res = await fetch("/api/settings/ui", {
+      const res = await fetch("/settings/ui", {
         method: "PUT",
         credentials: "same-origin",
         headers: baseHeaders({

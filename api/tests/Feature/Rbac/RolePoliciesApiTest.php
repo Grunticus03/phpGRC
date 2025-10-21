@@ -30,7 +30,7 @@ final class RolePoliciesApiTest extends TestCase
 
         Role::query()->updateOrCreate(['id' => 'role_admin'], ['name' => 'Admin']);
         Role::query()->updateOrCreate(['id' => 'role_auditor'], ['name' => 'Auditor']);
-        Role::query()->updateOrCreate(['id' => 'role_theme_manager'], ['name' => 'theme_manager']);
+        Role::query()->updateOrCreate(['id' => 'role_theme_manager'], ['name' => 'Theme Manager']);
 
         DB::table('policy_role_assignments')->truncate();
         PolicyMap::clearCache();

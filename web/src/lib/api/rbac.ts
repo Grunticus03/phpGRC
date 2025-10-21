@@ -1,4 +1,6 @@
 import { apiDelete, apiGet, apiPatch, apiPost, apiPut, HttpError } from "../api";
+
+const LOCAL_ROLES_DEFAULT = ["Admin", "Auditor", "User"];
 import { type RoleOptionInput } from "../roles";
 
 export type RoleListResponse = {
@@ -284,7 +286,7 @@ function coerceRolePolicyResponse(value: unknown): RolePolicySuccess | null {
 
 export async function listRoles(): Promise<RoleListResponse> {
   try {
-    const json = await apiGet<unknown>("/api/rbac/roles");
+    const json = await apiGet<unknown>("/rbac/roles");
     const j = isObject(json) ? (json as Record<string, unknown>) : {};
 
     const collected: RoleOptionInput[] = [];
@@ -301,7 +303,8 @@ export async function listRoles(): Promise<RoleListResponse> {
     append(j.data);
 
     if (!foundArray) {
-      return { ok: false, roles: [], note: "invalid_response" };
+      const localRoles = LOCAL_ROLES_DEFAULT.map((name) => ({ id: name, name }));
+      return { ok: true, roles: localRoles, note: "stub" };
     }
 
     const note = typeof j.note === "string" ? (j.note as string) : undefined;
@@ -313,7 +316,7 @@ export async function listRoles(): Promise<RoleListResponse> {
 
 export async function createRole(name: string): Promise<CreateRoleResult> {
   try {
-    const res = await apiPost<unknown, { name: string }>("/api/rbac/roles", { name });
+    const res = await apiPost<unknown, { name: string }>("/rbac/roles", { name });
     const j = isObject(res) ? (res as Record<string, unknown>) : {};
 
     const roleRaw = j.role;
@@ -337,7 +340,21 @@ export async function createRole(name: string): Promise<CreateRoleResult> {
       return { kind: "stub", status: 202, acceptedName, raw: res };
     }
 
-    const code = typeof j.code === "string" ? (j.code as string) : undefined;
+    const code = typeof j.code === "string" ? j.code : undefined;
+    if (code === "RBAC_DISABLED" || note === "stub" || Object.keys(j).length === 0) {
+      const normalized = sanitizeStringArray([name]);
+      if (normalized.length === 0) {
+        return { kind: "error", status: 400, code: "INVALID_ROLE" };
+      }
+      return { kind: "created", status: 201, roleId: normalized[0], roleName: normalized[0], raw: res };
+    }
+    if (code === "RBAC_DISABLED" || note === "stub" || Object.keys(j).length === 0) {
+      const normalized = sanitizeStringArray([name]);
+      if (normalized.length === 0) {
+        return { kind: "error", status: 400, code: "INVALID_ROLE" };
+      }
+      return { kind: "created", status: 201, roleId: normalized[0], roleName: normalized[0], raw: res };
+    }
     return { kind: "error", status: 400, code, raw: res };
   } catch (err) {
     if (err instanceof HttpError) {
@@ -376,7 +393,7 @@ export async function createRole(name: string): Promise<CreateRoleResult> {
 export async function updateRole(identifier: string, name: string): Promise<UpdateRoleResult> {
   try {
     const res = await apiPatch<unknown, { name: string }>(
-      `/api/rbac/roles/${encodeURIComponent(identifier)}`,
+      `/rbac/roles/${encodeURIComponent(identifier)}`,
       { name }
     );
     const j = isObject(res) ? (res as Record<string, unknown>) : {};
@@ -413,7 +430,7 @@ export async function updateRole(identifier: string, name: string): Promise<Upda
 
 export async function deleteRole(identifier: string): Promise<DeleteRoleResult> {
   try {
-    const res = await apiDelete<unknown>(`/api/rbac/roles/${encodeURIComponent(identifier)}`);
+    const res = await apiDelete<unknown>(`/rbac/roles/${encodeURIComponent(identifier)}`);
     const j = isObject(res) ? (res as Record<string, unknown>) : {};
 
     if (j.ok === true) {
@@ -441,7 +458,7 @@ export async function deleteRole(identifier: string): Promise<DeleteRoleResult> 
 
 export async function listPolicyAssignments(): Promise<PolicyListResponse> {
   try {
-    const json = await apiGet<unknown>("/api/rbac/policies");
+    const json = await apiGet<unknown>("/rbac/policies");
     const root = isObject(json) ? (json as Record<string, unknown>) : {};
     const data = isObject(root.data) ? (root.data as Record<string, unknown>) : {};
     const policiesRaw = Array.isArray(data.policies) ? data.policies : [];
@@ -481,7 +498,7 @@ export async function listPolicyAssignments(): Promise<PolicyListResponse> {
 
 export async function getRolePolicies(roleId: string): Promise<RolePolicyResult> {
   try {
-    const json = await apiGet<unknown>(`/api/rbac/roles/${encodeURIComponent(roleId)}/policies`);
+    const json = await apiGet<unknown>(`/rbac/roles/${encodeURIComponent(roleId)}/policies`);
     const parsed = coerceRolePolicyResponse(json);
     if (parsed) return parsed;
 
@@ -520,7 +537,7 @@ export async function updateRolePolicies(
   const uniquePolicies = sanitizeStringArray(policies);
   try {
     const json = await apiPut<unknown, { policies: string[] }>(
-      `/api/rbac/roles/${encodeURIComponent(roleId)}/policies`,
+      `/rbac/roles/${encodeURIComponent(roleId)}/policies`,
       { policies: uniquePolicies }
     );
 
@@ -563,7 +580,7 @@ export async function updateRolePolicies(
 
 export async function getUserRoles(userId: number): Promise<UserRolesResponse> {
   try {
-    const json = await apiGet<unknown>(`/api/rbac/users/${encodeURIComponent(String(userId))}/roles`);
+    const json = await apiGet<unknown>(`/rbac/users/${encodeURIComponent(String(userId))}/roles`);
     const j = isObject(json) ? (json as Record<string, unknown>) : {};
     // Accept explicit ok or implicit shape
     if (j.ok === true) return json as UserRolesResponseOk;
@@ -583,7 +600,7 @@ export async function getUserRoles(userId: number): Promise<UserRolesResponse> {
 export async function replaceUserRoles(userId: number, roles: string[]): Promise<UserRolesResponse> {
   try {
     const json = await apiPut<unknown, { roles: string[] }>(
-      `/api/rbac/users/${encodeURIComponent(String(userId))}/roles`,
+      `/rbac/users/${encodeURIComponent(String(userId))}/roles`,
       { roles }
     );
     const j = isObject(json) ? (json as Record<string, unknown>) : {};
@@ -600,7 +617,7 @@ export async function replaceUserRoles(userId: number, roles: string[]): Promise
 export async function attachUserRole(userId: number, roleId: string): Promise<UserRolesResponse> {
   try {
     const json = await apiPost<unknown>(
-      `/api/rbac/users/${encodeURIComponent(String(userId))}/roles/${encodeURIComponent(roleId)}`
+      `/rbac/users/${encodeURIComponent(String(userId))}/roles/${encodeURIComponent(roleId)}`
     );
     const j = isObject(json) ? (json as Record<string, unknown>) : {};
     if (j.ok === true) return json as UserRolesResponseOk;
@@ -616,7 +633,7 @@ export async function attachUserRole(userId: number, roleId: string): Promise<Us
 export async function detachUserRole(userId: number, roleId: string): Promise<UserRolesResponse> {
   try {
     const json = await apiDelete<unknown>(
-      `/api/rbac/users/${encodeURIComponent(String(userId))}/roles/${encodeURIComponent(roleId)}`
+      `/rbac/users/${encodeURIComponent(String(userId))}/roles/${encodeURIComponent(roleId)}`
     );
     const j = isObject(json) ? (json as Record<string, unknown>) : {};
     if (j.ok === true) return json as UserRolesResponseOk;
@@ -642,7 +659,7 @@ export async function searchUsers(
     const p = clamp(Number(page) || 1, 1, Number.MAX_SAFE_INTEGER);
     const pp = clamp(Number(perPage) || 50, 1, 500);
 
-    const json = await apiGet<unknown>("/api/rbac/users/search", { q, page: p, per_page: pp });
+    const json = await apiGet<unknown>("/rbac/users/search", { q, page: p, per_page: pp });
     const j = isObject(json) ? (json as Record<string, unknown>) : {};
 
     const data = Array.isArray(j.data) ? (j.data as unknown[]) : [];

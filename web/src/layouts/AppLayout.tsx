@@ -97,7 +97,7 @@ type UserPrefsResponse = {
   message?: string;
 };
 
-const DEFAULT_LOGO_SRC = "/api/images/phpGRC-light-horizontal-trans.webp";
+const DEFAULT_LOGO_SRC = "/images/phpGRC-light-horizontal-trans.webp";
 const LONG_PRESS_DURATION_MS = 600;
 const MAX_PRIMARY_MODULES = 19;
 const OVERFLOW_CHUNK_SIZE = 20;
@@ -122,7 +122,7 @@ const ADMIN_NAV_ITEMS: readonly AdminNavItem[] = [
   { id: "admin.idp", label: "Identity Providers", to: "/admin/idp/providers" },
   { id: "admin.users", label: "Users", to: "/admin/users" },
   { id: "admin.audit", label: "Audit Logs", to: "/admin/audit" },
-  { id: "admin.api-docs", label: "API Docs", href: "/api/docs" },
+  { id: "admin.api-docs", label: "API Docs", href: "/api-docs/" },
 ];
 
 type SidebarPrefs = {
@@ -475,7 +475,7 @@ export default function AppLayout(): JSX.Element | null {
     }
 
     try {
-      const res = await fetch("/api/settings/ui", {
+      const res = await fetch("/settings/ui", {
         method: "GET",
         credentials: "same-origin",
         headers: baseHeaders(),
@@ -520,7 +520,7 @@ export default function AppLayout(): JSX.Element | null {
     }
 
     try {
-      const res = await fetch("/api/me/prefs/ui", {
+      const res = await fetch("/me/prefs/ui", {
         method: "GET",
         credentials: "same-origin",
         headers: baseHeaders(),
@@ -602,7 +602,7 @@ export default function AppLayout(): JSX.Element | null {
       }
 
       try {
-        const res = await fetch("/api/me/prefs/ui", {
+        const res = await fetch("/me/prefs/ui", {
           method: "PUT",
           credentials: "same-origin",
           headers: baseHeaders({
@@ -689,7 +689,7 @@ export default function AppLayout(): JSX.Element | null {
       };
 
       try {
-        const res = await fetch("/api/settings/ui", {
+        const res = await fetch("/settings/ui", {
           method: "PUT",
           credentials: "same-origin",
           headers: baseHeaders({
@@ -764,7 +764,7 @@ export default function AppLayout(): JSX.Element | null {
     async function bootstrap(): Promise<void> {
       setLoading(true);
       try {
-        const fp = await apiGet<Fingerprint>("/api/health/fingerprint");
+        const fp = await apiGet<Fingerprint>("/health/fingerprint");
         const req = Boolean(fp?.summary?.rbac?.require_auth);
         seedThemeRequireAuth(req);
         setRequireAuth(req);
@@ -1944,10 +1944,8 @@ export default function AppLayout(): JSX.Element | null {
                                             href={child.href}
                                             className="dropdown-item"
                                             role="menuitem"
-                                            onClick={() => {
-                                              setAdminMenuOpen(false);
-                                              setActiveAdminSubmenu(null);
-                                            }}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
                                           >
                                             {child.label}
                                           </a>
@@ -1988,10 +1986,8 @@ export default function AppLayout(): JSX.Element | null {
                                   href={item.href}
                                   className="dropdown-item"
                                   role="menuitem"
-                                  onClick={() => {
-                                    setAdminMenuOpen(false);
-                                    setActiveAdminSubmenu(null);
-                                  }}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
                                   onMouseEnter={() => setActiveAdminSubmenu(null)}
                                   onFocus={() => setActiveAdminSubmenu(null)}
                                 >

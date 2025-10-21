@@ -8,6 +8,9 @@ use App\Services\Audit\AuditLogger;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
+/**
+ * @SuppressWarnings("PHPMD.ExcessiveClassComplexity")
+ */
 final class PolicyMap
 {
     /**
@@ -70,6 +73,11 @@ final class PolicyMap
 
     /**
      * @return array<string, list<string>>
+     */
+    /**
+     * @return array<string, list<string>>
+     *
+     * @SuppressWarnings("PHPMD.NPathComplexity")
      */
     public static function effective(): array
     {
@@ -156,6 +164,11 @@ final class PolicyMap
 
     /**
      * @return list<string>
+     */
+    /**
+     * @return list<string>
+     *
+     * @SuppressWarnings("PHPMD.NPathComplexity")
      */
     public static function roleCatalog(): array
     {
@@ -352,6 +365,11 @@ final class PolicyMap
     /**
      * @return array<string, list<string>>|null
      */
+    /**
+     * @return array<string, list<string>>|null
+     *
+     * @SuppressWarnings("PHPMD.NPathComplexity")
+     */
     private static function databaseAssignments(): ?array
     {
         if (! self::hasTable('policy_role_assignments') || ! self::hasTable('policy_roles')) {
@@ -418,7 +436,13 @@ final class PolicyMap
         }
 
         foreach ($map as $policy => $tokens) {
-            $map[$policy] = array_values(array_unique($tokens));
+            $unique = array_values(array_unique($tokens));
+            if ($unique === [] && self::shouldFallbackToDefaults($policy)) {
+                unset($map[$policy]);
+
+                continue;
+            }
+            $map[$policy] = $unique;
         }
 
         return $map;
@@ -434,6 +458,15 @@ final class PolicyMap
         return self::databaseAssignments();
     }
 
+    private static function shouldFallbackToDefaults(string $policy): bool
+    {
+        return str_starts_with($policy, 'ui.theme.')
+            || str_starts_with($policy, 'auth.idp.');
+    }
+
+    /**
+     * @SuppressWarnings("PHPMD.StaticAccess")
+     */
     private static function hasTable(string $table): bool
     {
         try {

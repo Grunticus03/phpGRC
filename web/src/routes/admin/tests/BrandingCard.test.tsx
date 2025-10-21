@@ -212,15 +212,15 @@ describe("BrandingCard", () => {
       const init = (args[1] ?? {}) as RequestInit;
       const method = (init.method ?? "GET").toUpperCase();
 
-      if (url === "/api/settings/ui" && method === "GET") {
+      if (url === "/settings/ui" && method === "GET") {
         return jsonResponse(SETTINGS_BODY, { headers: { ETag: 'W/"branding:1"' } });
       }
 
-      if (url === "/api/settings/ui/brand-profiles" && method === "GET") {
+      if (url === "/settings/ui/brand-profiles" && method === "GET") {
         return jsonResponse({ ok: true, profiles: profileList });
       }
 
-      if (url === "/api/settings/ui/brand-profiles" && method === "POST") {
+      if (url === "/settings/ui/brand-profiles" && method === "POST") {
         const parsed = JSON.parse(String(init.body ?? "{}")) as { name?: string };
         const name = typeof parsed.name === "string" ? parsed.name : "";
         createdProfileName = name;
@@ -238,7 +238,7 @@ describe("BrandingCard", () => {
         return jsonResponse({ ok: true, profile: newProfile });
       }
 
-      if (url.startsWith("/api/settings/ui/brand-assets") && method === "GET") {
+      if (url.startsWith("/settings/ui/brand-assets") && method === "GET") {
         const parsedUrl = new URL(url, "http://localhost");
         const requestedProfile = parsedUrl.searchParams.get("profile_id");
         if (requestedProfile && requestedProfile !== "bp_custom") {
@@ -247,19 +247,19 @@ describe("BrandingCard", () => {
         return jsonResponse(ASSETS_BODY);
       }
 
-      if (url === "/api/settings/ui" && method === "PUT") {
+      if (url === "/settings/ui" && method === "PUT") {
         saveBody = JSON.parse(String(init.body ?? "{}"));
         const headers = new Headers(init.headers ?? {});
         lastIfMatch = headers.get("If-Match");
         return jsonResponse(SETTINGS_BODY, { headers: { ETag: 'W/"branding:2"' } });
       }
 
-      if (url === "/api/settings/ui/brand-assets" && method === "POST") {
+      if (url === "/settings/ui/brand-assets" && method === "POST") {
         uploadBody = init.body as FormData;
         return jsonResponse({ ok: true, asset: VARIANT_MAP.primary_logo, variants: VARIANT_MAP });
       }
 
-      if (url.startsWith("/api/settings/ui/brand-assets/") && method === "DELETE") {
+      if (url.startsWith("/settings/ui/brand-assets/") && method === "DELETE") {
         return jsonResponse({ ok: true });
       }
 
@@ -392,16 +392,16 @@ describe("BrandingCard", () => {
       const init = (args[1] ?? {}) as RequestInit;
       const method = (init.method ?? "GET").toUpperCase();
 
-      if (url === "/api/settings/ui" && method === "GET") {
+      if (url === "/settings/ui" && method === "GET") {
         return jsonResponse(SETTINGS_BODY, { headers: { ETag: 'W/"branding:1"' } });
       }
-      if (url === "/api/settings/ui/brand-profiles" && method === "GET") {
+      if (url === "/settings/ui/brand-profiles" && method === "GET") {
         return jsonResponse(PROFILES_BODY);
       }
-      if (url.startsWith("/api/settings/ui/brand-assets") && method === "GET") {
+      if (url.startsWith("/settings/ui/brand-assets") && method === "GET") {
         return jsonResponse(ASSETS_BODY);
       }
-      if (url === "/api/settings/ui" && method === "PUT") {
+      if (url === "/settings/ui" && method === "PUT") {
         const headers = new Headers(init.headers ?? {});
         lastIfMatch = headers.get("If-Match");
         if (conflict) {
@@ -437,13 +437,13 @@ describe("BrandingCard", () => {
       const init = (args[1] ?? {}) as RequestInit;
       const method = (init.method ?? "GET").toUpperCase();
 
-      if (url === "/api/settings/ui" && method === "GET") {
+      if (url === "/settings/ui" && method === "GET") {
         return jsonResponse({}, { status: 403 });
       }
-      if (url === "/api/settings/ui/brand-profiles" && method === "GET") {
+      if (url === "/settings/ui/brand-profiles" && method === "GET") {
         return jsonResponse({ ok: true, profiles: [] });
       }
-      if (url.startsWith("/api/settings/ui/brand-assets") && method === "GET") {
+      if (url.startsWith("/settings/ui/brand-assets") && method === "GET") {
         return jsonResponse({ ok: true, assets: [] });
       }
       return jsonResponse({ ok: true });

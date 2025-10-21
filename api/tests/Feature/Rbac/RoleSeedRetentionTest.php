@@ -34,7 +34,7 @@ final class RoleSeedRetentionTest extends TestCase
         $this->assertContains('Auditor', $roles);
         $this->assertContains('Risk Manager', $roles);
         $this->assertContains('User', $roles);
-        $this->assertContains('compliance_lead', $roles);
+        $this->assertContains('Compliance Lead', $roles);
 
         $response = $this->getJson('/rbac/roles')
             ->assertStatus(200)

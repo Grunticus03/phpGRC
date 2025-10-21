@@ -73,7 +73,7 @@ async function resolveRequireAuth(): Promise<boolean> {
   }
 
   if (requireAuthInflight === null) {
-    requireAuthInflight = apiGet<Fingerprint>("/api/health/fingerprint")
+    requireAuthInflight = apiGet<Fingerprint>("/health/fingerprint")
       .then((fp) => {
         const requireAuth = Boolean(fp?.summary?.rbac?.require_auth);
         requireAuthFlag = requireAuth;

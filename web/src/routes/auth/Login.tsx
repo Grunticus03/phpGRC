@@ -27,7 +27,7 @@ import {
 import { DEFAULT_THEME_SETTINGS, type ThemeSettings } from "../admin/themeData";
 import "./LoginLayout3.css";
 
-const DEFAULT_LOGO_SRC = "/api/images/phpGRC-light-horizontal-trans.webp";
+const DEFAULT_LOGO_SRC = "/images/phpGRC-light-horizontal-trans.webp";
 
 const resolvePrimaryLogo = (settings: ThemeSettings | null | undefined): string | null => {
   const brand = settings?.brand ?? DEFAULT_THEME_SETTINGS.brand;
@@ -79,9 +79,9 @@ const resolveAuthorizeUrl = (provider: AuthOptionsIdpProvider): string | null =>
   switch (driver) {
     case "oidc":
     case "entra":
-      return `/api/auth/oidc/authorize?provider=${encoded}`;
+      return `/auth/oidc/authorize?provider=${encoded}`;
     case "saml":
-      return `/api/auth/saml/redirect?provider=${encoded}`;
+      return `/auth/saml/redirect?provider=${encoded}`;
     default:
       return null;
   }

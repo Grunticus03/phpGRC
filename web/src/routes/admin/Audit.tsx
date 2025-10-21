@@ -373,7 +373,7 @@ export default function Audit(): JSX.Element {
 
       const effectiveParams = resetCursor ? { ...params, cursor: null } : params;
 
-      const data = await apiGet<unknown>("/api/audit", effectiveParams, ctrl.current.signal);
+      const data = await apiGet<unknown>("/audit", effectiveParams, ctrl.current.signal);
       let list: AuditItem[] = [];
       let nextTimeFormat: TimeFormat | null = null;
       if (Array.isArray(data)) {
@@ -455,7 +455,7 @@ export default function Audit(): JSX.Element {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.search]);
 
-  const csvHref = useMemo(() => `/api/audit/export.csv?${query}`, [query]);
+  const csvHref = useMemo(() => `/audit/export.csv?${query}`, [query]);
 
   async function runActorSearch(targetPage?: number) {
     setActorSearching(true);

@@ -5,30 +5,51 @@
 <IfModule mod_rewrite.c>
     RewriteEngine On
 
+    # Redirect documentation requests to the API docs handler
+    RewriteRule ^docs/?$ /api-docs/ [R=302,L]
+
+    # Serve fingerprinted static assets directly
+    RewriteCond %{REQUEST_URI} \.(?:css|js|map|woff2?|woff|svg|png|jpe?g|webp|ico)$ [NC]
+    RewriteRule .* - [L,END]
+
     # Short-circuit asset requests so hashed bundles bypass rewrites
     RewriteRule ^assets/ - [L,END]
 
     # Serve existing files/directories as-is (except the document root itself)
     RewriteCond %{REQUEST_FILENAME} -f [OR]
     RewriteCond %{REQUEST_FILENAME} -d
-    RewriteCond %{REQUEST_URI} !^/$
     RewriteRule ^ - [L,END]
+
+    # Serve SPA shell for browser navigation (HTML Accept) when no file exists
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{HTTP_ACCEPT} (text/html|application/xhtml\+xml) [NC]
+    RewriteCond %{DOCUMENT_ROOT}/index.html -f
+    RewriteRule ^ /index.html [L,END]
 
     # Route framework endpoints and non-GET/HEAD verbs to Laravel
     RewriteCond %{REQUEST_METHOD} !^(GET|HEAD)$ [OR]
-    RewriteCond %{REQUEST_URI} ^/(api|sanctum|broadcasting|oauth|_ignition|inertia|telescope) [NC]
-    RewriteRule ^ index.php [L,END,QSA]
+    RewriteCond %{HTTP_X_REQUESTED_WITH} XMLHttpRequest [NC,OR]
+    RewriteCond %{HTTP_ACCEPT} !(text/html|application/xhtml\+xml) [NC]
+    RewriteCond %{REQUEST_URI} ^/(admin|audit|auth|avatar|broadcasting|dashboard|evidence|exports|favicon\.ico|health|integrations|me|metrics|oauth|openapi\.json|openapi\.yaml|rbac|reports|sanctum|settings|setup|telescope|up|users|_ignition|inertia) [NC]
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^ index.php [L,QSA]
 
     # Prefer SPA entrypoint when available (but leave assets/alone)
+    RewriteCond %{REQUEST_URI} !^/(admin|audit|auth|avatar|broadcasting|dashboard|evidence|exports|favicon\.ico|health|integrations|me|metrics|oauth|openapi\.json|openapi\.yaml|rbac|reports|sanctum|settings|setup|telescope|up|users|_ignition|inertia) [NC]
     RewriteCond %{DOCUMENT_ROOT}/index.html -f
     RewriteRule ^$ /index.html [L,END]
 
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{REQUEST_URI} !^/(admin|audit|auth|avatar|broadcasting|dashboard|evidence|exports|favicon\.ico|health|integrations|me|metrics|oauth|openapi\.json|openapi\.yaml|rbac|reports|sanctum|settings|setup|telescope|up|users|_ignition|inertia) [NC]
     RewriteCond %{DOCUMENT_ROOT}/index.html -f
     RewriteRule ^ /index.html [L,END]
 
     # Final fallback to Laravel front controller
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
     RewriteRule ^ index.php [L,END,QSA]
 </IfModule>
 

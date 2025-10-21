@@ -118,7 +118,7 @@ export default function CoreSettings(): JSX.Element {
   const loadSettings = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/admin/settings", {
+      const res = await fetch("/admin/settings", {
         method: "GET",
         credentials: "same-origin",
         headers: baseHeaders(),
@@ -259,7 +259,7 @@ export default function CoreSettings(): JSX.Element {
         return;
       }
 
-      const res = await fetch("/api/admin/settings", {
+      const res = await fetch("/admin/settings", {
         method: "POST",
         credentials: "same-origin",
         headers: baseHeaders({
@@ -335,7 +335,7 @@ export default function CoreSettings(): JSX.Element {
     setMsg(null);
     try {
       const res = await apiPost<EvidencePurgeResponse, { confirm: true }>(
-        "/api/admin/evidence/purge",
+        "/admin/evidence/purge",
         { confirm: true }
       );
 

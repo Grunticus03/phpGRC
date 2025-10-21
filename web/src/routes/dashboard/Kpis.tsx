@@ -541,7 +541,7 @@ export default function Kpis(): JSX.Element {
       const apply = options.apply ?? true;
       let res: Response;
       try {
-        res = await fetch("/api/me/prefs/ui", {
+        res = await fetch("/me/prefs/ui", {
           method: "GET",
           credentials: "same-origin",
           headers: baseHeaders(),
@@ -758,7 +758,7 @@ export default function Kpis(): JSX.Element {
 
     try {
       await ensureEtag();
-      const res = await fetch("/api/me/prefs/ui", {
+      const res = await fetch("/me/prefs/ui", {
         method: "PUT",
         credentials: "same-origin",
         headers: baseHeaders({

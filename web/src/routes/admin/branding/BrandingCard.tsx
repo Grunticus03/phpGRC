@@ -87,7 +87,7 @@ const assetLabel: Record<BrandAsset["kind"], string> = {
 };
 
 const assetDownloadUrl = (assetId: string): string =>
-  `/api/settings/ui/brand-assets/${encodeURIComponent(assetId)}/download`;
+  `/settings/ui/brand-assets/${encodeURIComponent(assetId)}/download`;
 
 const mergeAssetsById = (current: BrandAsset[], incoming: BrandAsset[]): BrandAsset[] => {
   if (incoming.length === 0) return current;
@@ -228,7 +228,7 @@ export default function BrandingCard(): JSX.Element {
   const fetchAssets = useCallback(async (profileId: string): Promise<BrandAsset[]> => {
     if (!profileId) return [];
     try {
-      const res = await fetch(`/api/settings/ui/brand-assets?profile_id=${encodeURIComponent(profileId)}`, {
+      const res = await fetch(`/settings/ui/brand-assets?profile_id=${encodeURIComponent(profileId)}`, {
         method: "GET",
         credentials: "same-origin",
         headers: baseHeaders(),
@@ -250,7 +250,7 @@ export default function BrandingCard(): JSX.Element {
 
   const fetchProfiles = useCallback(async (): Promise<BrandProfile[]> => {
     try {
-      const res = await fetch("/api/settings/ui/brand-profiles", {
+      const res = await fetch("/settings/ui/brand-profiles", {
         method: "GET",
         credentials: "same-origin",
         headers: baseHeaders(),
@@ -271,7 +271,7 @@ export default function BrandingCard(): JSX.Element {
       const shouldNotify = !options?.preserveMessage;
 
       try {
-        const settingsRes = await fetch("/api/settings/ui", {
+        const settingsRes = await fetch("/settings/ui", {
           method: "GET",
           credentials: "same-origin",
           headers: baseHeaders(),
@@ -421,7 +421,7 @@ export default function BrandingCard(): JSX.Element {
 
     setProfileSaving(true);
     try {
-      const res = await fetch("/api/settings/ui/brand-profiles", {
+      const res = await fetch("/settings/ui/brand-profiles", {
         method: "POST",
         credentials: "same-origin",
         headers: baseHeaders({ "Content-Type": "application/json" }),
@@ -453,7 +453,7 @@ export default function BrandingCard(): JSX.Element {
   const handleActivateProfile = async (profileId: string) => {
     setProfileSaving(true);
     try {
-      const res = await fetch(`/api/settings/ui/brand-profiles/${encodeURIComponent(profileId)}/activate`, {
+      const res = await fetch(`/settings/ui/brand-profiles/${encodeURIComponent(profileId)}/activate`, {
         method: "POST",
         credentials: "same-origin",
         headers: baseHeaders({ "Content-Type": "application/json" }),
@@ -481,7 +481,7 @@ export default function BrandingCard(): JSX.Element {
 
     setDeleteProfileBusy(true);
     try {
-      const res = await fetch(`/api/settings/ui/brand-profiles/${encodeURIComponent(deleteProfileTarget.id)}`, {
+      const res = await fetch(`/settings/ui/brand-profiles/${encodeURIComponent(deleteProfileTarget.id)}`, {
         method: "DELETE",
         credentials: "same-origin",
         headers: baseHeaders(),
@@ -590,7 +590,7 @@ export default function BrandingCard(): JSX.Element {
       };
 
       const performSave = async (ifMatch: string) => {
-        const response = await fetch("/api/settings/ui", {
+        const response = await fetch("/settings/ui", {
           method: "PUT",
           credentials: "same-origin",
           headers: baseHeaders({
@@ -673,7 +673,7 @@ export default function BrandingCard(): JSX.Element {
     formData.append("file", file);
 
     try {
-      const res = await fetch("/api/settings/ui/brand-assets", {
+      const res = await fetch("/settings/ui/brand-assets", {
         method: "POST",
         credentials: "same-origin",
         headers: baseHeaders(),
@@ -726,7 +726,7 @@ export default function BrandingCard(): JSX.Element {
     }
     setDeleteAssetBusy(true);
     try {
-      const res = await fetch(`/api/settings/ui/brand-assets/${encodeURIComponent(deleteAssetTarget.id)}`, {
+      const res = await fetch(`/settings/ui/brand-assets/${encodeURIComponent(deleteAssetTarget.id)}`, {
         method: "DELETE",
         credentials: "same-origin",
         headers: baseHeaders(),

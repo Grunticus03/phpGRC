@@ -207,17 +207,17 @@ export default function ThemePreferences(): JSX.Element {
 
     try {
       const [manifestRes, globalRes, prefsRes] = await Promise.all([
-        fetch("/api/settings/ui/themes", {
+        fetch("/settings/ui/themes", {
           method: "GET",
           credentials: "same-origin",
           headers: baseHeaders(),
         }),
-        fetch("/api/settings/ui", {
+        fetch("/settings/ui", {
           method: "GET",
           credentials: "same-origin",
           headers: baseHeaders(),
         }),
-        fetch("/api/me/prefs/ui", {
+        fetch("/me/prefs/ui", {
           method: "GET",
           credentials: "same-origin",
           headers: baseHeaders(),
@@ -395,7 +395,7 @@ export default function ThemePreferences(): JSX.Element {
           bodyPayload.overrides = {};
         }
 
-        const res = await fetch("/api/me/prefs/ui", {
+        const res = await fetch("/me/prefs/ui", {
           method: "PUT",
           credentials: "same-origin",
           headers: baseHeaders({

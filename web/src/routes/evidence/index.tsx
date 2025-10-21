@@ -36,7 +36,7 @@ export default function EvidenceUpload(): JSX.Element {
     const fd = new FormData();
     fd.append("file", file);
     try {
-      const json = await apiPostFormData<EvidenceUploadResponse>("/api/evidence", fd);
+      const json = await apiPostFormData<EvidenceUploadResponse>("/evidence", fd);
       if (isDisabled(json)) {
         setMsg("Evidence feature disabled (stub).");
         return;

@@ -92,17 +92,17 @@ describe("ThemePreferences", () => {
       const init = (args[1] ?? {}) as RequestInit;
       const method = (init.method ?? "GET").toUpperCase();
 
-      if (url === "/api/settings/ui/themes" && method === "GET") {
+      if (url === "/settings/ui/themes" && method === "GET") {
         return jsonResponse(MANIFEST_BODY, { headers: { ETag: 'W/"manifest:1"' } });
       }
-      if (url === "/api/settings/ui" && method === "GET") {
+      if (url === "/settings/ui" && method === "GET") {
         return jsonResponse(GLOBAL_SETTINGS_BODY, { headers: { ETag: 'W/"settings:global1"' } });
       }
-      if (url === "/api/me/prefs/ui" && method === "GET") {
+      if (url === "/me/prefs/ui" && method === "GET") {
         return jsonResponse(USER_PREFS_BODY, { headers: { ETag: 'W/"prefs:abc"' } });
       }
 
-      if (url === "/api/me/prefs/ui" && method === "PUT") {
+      if (url === "/me/prefs/ui" && method === "PUT") {
         recordedBody = JSON.parse(String(init.body ?? "{}"));
         const headers = new Headers(init.headers ?? {});
         recordedIfMatch = headers.get("If-Match");
@@ -184,10 +184,10 @@ describe("ThemePreferences", () => {
       const init = (args[1] ?? {}) as RequestInit;
       const method = (init.method ?? "GET").toUpperCase();
 
-      if (url === "/api/settings/ui/themes" && method === "GET") {
+      if (url === "/settings/ui/themes" && method === "GET") {
         return jsonResponse(MANIFEST_BODY, { headers: { ETag: 'W/"manifest:1"' } });
       }
-      if (url === "/api/settings/ui" && method === "GET") {
+      if (url === "/settings/ui" && method === "GET") {
         return jsonResponse(
           {
             ok: true,
@@ -205,10 +205,10 @@ describe("ThemePreferences", () => {
           { headers: { ETag: 'W/"settings:global2"' } }
         );
       }
-      if (url === "/api/me/prefs/ui" && method === "GET") {
+      if (url === "/me/prefs/ui" && method === "GET") {
         return jsonResponse(USER_PREFS_BODY, { headers: { ETag: 'W/"prefs:abc"' } });
       }
-      if (url === "/api/me/prefs/ui" && method === "PUT") {
+      if (url === "/me/prefs/ui" && method === "PUT") {
         recordedBody = JSON.parse(String((args[1] as RequestInit).body ?? "{}"));
         return jsonResponse({ ok: true }, { headers: { ETag: 'W/"prefs:def"' } });
       }
@@ -244,16 +244,16 @@ describe("ThemePreferences", () => {
       const init = (args[1] ?? {}) as RequestInit;
       const method = (init.method ?? "GET").toUpperCase();
 
-      if (url === "/api/settings/ui/themes" && method === "GET") {
+      if (url === "/settings/ui/themes" && method === "GET") {
         return jsonResponse(MANIFEST_BODY, { headers: { ETag: 'W/"manifest:1"' } });
       }
-      if (url === "/api/settings/ui" && method === "GET") {
+      if (url === "/settings/ui" && method === "GET") {
         return jsonResponse(GLOBAL_SETTINGS_BODY, { headers: { ETag: 'W/"settings:global1"' } });
       }
-      if (url === "/api/me/prefs/ui" && method === "GET") {
+      if (url === "/me/prefs/ui" && method === "GET") {
         return jsonResponse(USER_PREFS_BODY, { headers: { ETag: 'W/"prefs:abc"' } });
       }
-      if (url === "/api/me/prefs/ui" && method === "PUT") {
+      if (url === "/me/prefs/ui" && method === "PUT") {
         if (conflict) {
           conflict = false;
           return jsonResponse(
@@ -286,13 +286,13 @@ describe("ThemePreferences", () => {
       const url = String(args[0]);
       const init = (args[1] ?? {}) as RequestInit;
       const method = (init.method ?? "GET").toUpperCase();
-      if (url === "/api/settings/ui/themes" && method === "GET") {
+      if (url === "/settings/ui/themes" && method === "GET") {
         return jsonResponse(MANIFEST_BODY);
       }
-      if (url === "/api/settings/ui" && method === "GET") {
+      if (url === "/settings/ui" && method === "GET") {
         return jsonResponse(GLOBAL_SETTINGS_BODY);
       }
-      if (url === "/api/me/prefs/ui" && method === "GET") {
+      if (url === "/me/prefs/ui" && method === "GET") {
         return jsonResponse({}, { status: 403 });
       }
       return jsonResponse({ ok: true });

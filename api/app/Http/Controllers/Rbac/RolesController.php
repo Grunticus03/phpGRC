@@ -14,9 +14,15 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Schema;
+use LogicException;
+use Normalizer;
+use Throwable;
 
 use function array_key_exists;
 
+/**
+ * @SuppressWarnings("PHPMD.ExcessiveClassComplexity")
+ */
 final class RolesController extends Controller
 {
     private bool $seedDefaultsEnsured = false;
@@ -34,6 +40,9 @@ final class RolesController extends Controller
         return $flag || $mode === 'persist' || $mode === 'db';
     }
 
+    /**
+     * @SuppressWarnings("PHPMD.StaticAccess")
+     */
     private function ensureSeedDefaults(): void
     {
         if ($this->seedDefaultsEnsured) {
@@ -61,6 +70,9 @@ final class RolesController extends Controller
         $this->seedDefaultsEnsured = true;
     }
 
+    /**
+     * @SuppressWarnings("PHPMD.StaticAccess")
+     */
     public function index(): JsonResponse
     {
         if (! $this->persistenceEnabled()) {
@@ -99,6 +111,9 @@ final class RolesController extends Controller
         return response()->json(['ok' => true, 'roles' => $names], 200);
     }
 
+    /**
+     * @SuppressWarnings("PHPMD.StaticAccess")
+     */
     public function store(RoleCreateRequest $request): JsonResponse
     {
         if (! $this->persistenceEnabled() || ! Schema::hasTable('roles')) {
@@ -133,7 +148,7 @@ final class RolesController extends Controller
             $id = $baseId.'_'.$suffix;
         }
 
-        $role = Role::query()->create(['id' => $id, 'name' => $canonical]);
+        $role = Role::query()->create(['id' => $id, 'name' => $display]);
 
         $this->logRoleAudit($request, 'rbac.role.created', $role, [
             'role' => $canonical,
@@ -148,6 +163,9 @@ final class RolesController extends Controller
         ], 201);
     }
 
+    /**
+     * @SuppressWarnings("PHPMD.StaticAccess")
+     */
     public function update(Request $request, string $role): JsonResponse
     {
         if (! $this->persistenceEnabled() || ! Schema::hasTable('roles')) {
@@ -201,7 +219,7 @@ final class RolesController extends Controller
             ], 200);
         }
 
-        $target->name = $canonical;
+        $target->name = $display;
         $target->save();
 
         $this->logRoleAudit($request, 'rbac.role.updated', $target, [
@@ -218,6 +236,9 @@ final class RolesController extends Controller
         ], 200);
     }
 
+    /**
+     * @SuppressWarnings("PHPMD.StaticAccess")
+     */
     public function destroy(Request $request, string $role): JsonResponse
     {
         if (! $this->persistenceEnabled() || ! Schema::hasTable('roles')) {
@@ -236,12 +257,14 @@ final class RolesController extends Controller
             ], 404);
         }
 
+        $canonical = $this->canonicalRoleKey($target->name);
+
         $meta = [
-            'role' => $target->name,
-            'name' => $target->name,
+            'role' => $canonical,
+            'name' => $canonical,
             'role_id' => $target->id,
-            'name_normalized' => $target->name,
-            'role_label' => $this->humanizeRole($target->name),
+            'name_normalized' => $canonical,
+            'role_label' => $this->humanizeRole($canonical),
         ];
 
         $this->logRoleAudit($request, 'rbac.role.deleted', $target, $meta);
@@ -257,7 +280,7 @@ final class RolesController extends Controller
     private function nes(string $s): string
     {
         if ($s === '') {
-            throw new \LogicException('Expected non-empty string');
+            throw new LogicException('Expected non-empty string');
         }
 
         return $s;
@@ -278,6 +301,8 @@ final class RolesController extends Controller
 
     /**
      * @return array{display:string, canonical:string}|JsonResponse
+     *
+     * @SuppressWarnings("PHPMD.NPathComplexity")
      */
     private function normalizeRoleNameInput(string $raw, ?Role $ignore = null): array|JsonResponse
     {
@@ -296,7 +321,7 @@ final class RolesController extends Controller
             return $this->validationFailed(['name' => ['Role name must normalize to between 2 and 64 characters.']]);
         }
 
-        $query = Role::query()->whereRaw('LOWER(name) = ?', [$canonical]);
+        $query = Role::query()->select(['id', 'name']);
         if ($ignore instanceof Role) {
             /** @var mixed $ignoreId */
             $ignoreId = $ignore->getAttribute('id');
@@ -305,13 +330,25 @@ final class RolesController extends Controller
             }
         }
 
-        if ($query->exists()) {
-            $label = $this->humanizeRole($canonical);
+        $display = $this->humanizeRole($canonical);
 
-            return $this->validationFailed(['name' => [sprintf('Role "%s" already exists.', $label)]]);
+        $conflict = $query
+            ->get()
+            ->first(function (Role $role) use ($canonical): bool {
+                /** @var mixed $nameAttr */
+                $nameAttr = $role->getAttribute('name');
+                if (! is_string($nameAttr) || $nameAttr === '') {
+                    return false;
+                }
+
+                return $this->canonicalRoleKey($nameAttr) === $canonical;
+            });
+
+        if ($conflict instanceof Role) {
+            return $this->validationFailed(['name' => [sprintf('Role "%s" already exists.', $display)]]);
         }
 
-        return ['display' => $this->humanizeRole($canonical), 'canonical' => $canonical];
+        return ['display' => $display, 'canonical' => $canonical];
     }
 
     private function normalizeRoleName(string $value): string
@@ -357,6 +394,9 @@ final class RolesController extends Controller
         return ucwords($withSpaces);
     }
 
+    /**
+     * @SuppressWarnings("PHPMD.StaticAccess")
+     */
     private function canonicalRoleKey(string $value): string
     {
         $value = trim($value);
@@ -364,8 +404,8 @@ final class RolesController extends Controller
             return '';
         }
 
-        if (class_exists('\\Normalizer')) {
-            $normalized = \Normalizer::normalize($value, \Normalizer::FORM_D);
+        if (class_exists(Normalizer::class)) {
+            $normalized = Normalizer::normalize($value, Normalizer::FORM_D);
             if (is_string($normalized)) {
                 $value = $normalized;
             }
@@ -384,6 +424,9 @@ final class RolesController extends Controller
         return mb_strtolower($value, 'UTF-8');
     }
 
+    /**
+     * @SuppressWarnings("PHPMD.NPathComplexity")
+     */
     private function resolveRoleModel(string $value): ?Role
     {
         $trimmed = trim($value);
@@ -436,6 +479,9 @@ final class RolesController extends Controller
     /**
      * @param  non-empty-string  $action
      * @param  array<string, mixed>  $meta
+     *
+     * @SuppressWarnings("PHPMD.NPathComplexity")
+     * @SuppressWarnings("PHPMD.StaticAccess")
      */
     private function logRoleAudit(Request $request, string $action, Role $role, array $meta = []): void
     {
@@ -458,7 +504,7 @@ final class RolesController extends Controller
 
             $roleId = $role->getAttribute('id');
             if (! is_string($roleId) || $roleId === '') {
-                throw new \LogicException('Role id must be a non-empty string.');
+                throw new LogicException('Role id must be a non-empty string.');
             }
 
             $logger->log([
@@ -471,7 +517,7 @@ final class RolesController extends Controller
                 'ua' => $request->userAgent(),
                 'meta' => $metaWithActor,
             ]);
-        } catch (\Throwable) {
+        } catch (Throwable) {
             // ignore audit errors
         }
     }

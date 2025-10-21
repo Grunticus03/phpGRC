@@ -25,7 +25,7 @@ export default function AuditIndex(): JSX.Element {
       setLoading(true);
       setMsg(null);
       try {
-        const json = await apiGet<{ ok: boolean; items?: AuditEvent[] }>("/api/audit", { limit: 20 });
+        const json = await apiGet<{ ok: boolean; items?: AuditEvent[] }>("/audit", { limit: 20 });
         if (json?.ok && Array.isArray(json.items)) setEvents(json.items);
         else setMsg("Failed to load audit events.");
       } catch {

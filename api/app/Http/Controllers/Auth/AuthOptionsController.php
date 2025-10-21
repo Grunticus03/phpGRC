@@ -93,8 +93,8 @@ final class AuthOptionsController extends Controller
         $encoded = rawurlencode($identifier);
 
         return match ($driver) {
-            'oidc', 'entra' => "/api/auth/oidc/authorize?provider={$encoded}",
-            'saml' => "/api/auth/saml/redirect?provider={$encoded}",
+            'oidc', 'entra' => "/auth/oidc/authorize?provider={$encoded}",
+            'saml' => "/auth/saml/redirect?provider={$encoded}",
             default => null,
         };
     }

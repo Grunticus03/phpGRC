@@ -37,7 +37,7 @@ const ADMIN_TREE: AdminTreeNode[] = [
   { id: "auth-idp", label: "Identity Providers", to: "/admin/idp/providers" },
   { id: "users", label: "Users", to: "/admin/users" },
   { id: "audit", label: "Audit Logs", to: "/admin/audit" },
-  { id: "api-docs", label: "API Documentation", href: "/api/docs" },
+  { id: "api-docs", label: "API Documentation", href: "/api-docs/" },
 ];
 
 export default function AdminIndex(): JSX.Element {
@@ -84,7 +84,12 @@ function TreeItem({ node, level, isLast }: TreeItemProps): JSX.Element {
       {node.label}
     </Link>
   ) : node.href ? (
-    <a className="link-body-emphasis admin-tree-link" href={node.href}>
+    <a
+      className="link-body-emphasis admin-tree-link"
+      href={node.href}
+      target="_blank"
+      rel="noopener noreferrer"
+    >
       {node.label}
     </a>
   ) : (

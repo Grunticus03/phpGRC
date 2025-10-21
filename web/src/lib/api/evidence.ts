@@ -1,4 +1,4 @@
-import { API_BASE, apiDelete, apiGet, apiPostFormData, baseHeaders, HttpError, qs } from "../api";
+import { apiDelete, apiGet, apiPostFormData, baseHeaders, HttpError, qs } from "../api";
 import { normalizeTimeFormat, type TimeFormat } from "../formatters";
 
 export type Evidence = {
@@ -85,7 +85,7 @@ export type EvidenceDownloadResult = {
 function buildEvidenceUrl(id: string, sha256?: string): string {
   const encoded = encodeURIComponent(id);
   const q = qs(sha256 ? { sha256 } : undefined);
-  return `${API_BASE}/api/evidence/${encoded}${q}`;
+  return `/evidence/${encoded}${q}`;
 }
 
 export async function fetchEvidenceFile(id: string, sha256?: string): Promise<EvidenceDownloadResult> {
@@ -149,7 +149,7 @@ export async function downloadEvidenceFile(
 
 export async function listEvidence(params: EvidenceListParams = {}): Promise<EvidenceListResult> {
   try {
-    const json = await apiGet<unknown>("/api/evidence", params);
+    const json = await apiGet<unknown>("/evidence", params);
     const j = isObject(json) ? (json as Record<string, unknown>) : {};
 
     if (j.ok === true && Array.isArray(j.data)) {
@@ -251,7 +251,7 @@ function normalizeEvidenceUploadResponse(json: unknown): EvidenceUploadResponse 
 function uploadEvidenceViaFetch(file: File, signal?: AbortSignal): Promise<EvidenceUploadResponse> {
   const form = new FormData();
   form.append("file", file);
-  return apiPostFormData<unknown>("/api/evidence", form, signal).then(normalizeEvidenceUploadResponse);
+  return apiPostFormData<unknown>("/evidence", form, signal).then(normalizeEvidenceUploadResponse);
 }
 
 function createAbortError(): Error {
@@ -276,7 +276,7 @@ function uploadEvidenceViaXhr(file: File, options: EvidenceUploadOptions): Promi
 
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
-    xhr.open("POST", `${API_BASE}/api/evidence`);
+    xhr.open("POST", `/evidence`);
 
     const headers = baseHeaders();
     Object.entries(headers).forEach(([key, value]) => {
@@ -380,7 +380,7 @@ export type EvidenceDeleteResponse = {
 };
 
 export async function deleteEvidence(id: string, signal?: AbortSignal): Promise<EvidenceDeleteResponse> {
-  const json = await apiDelete<unknown>(`/api/evidence/${encodeURIComponent(id)}`, signal);
+  const json = await apiDelete<unknown>(`/evidence/${encodeURIComponent(id)}`, signal);
   if (!isObject(json) || json.ok !== true) {
     throw new Error("Invalid response from delete endpoint");
   }

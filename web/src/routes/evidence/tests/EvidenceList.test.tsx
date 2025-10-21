@@ -53,10 +53,10 @@ describe("Evidence List", () => {
       const url = typeof args[0] === "string" ? args[0] : args[0].toString();
       calls.push(url);
 
-      if (url.startsWith("/api/evidence/")) {
+      if (url.startsWith("/evidence/")) {
         return downloadResponse;
       }
-      if (url.startsWith("/api/rbac/users/search")) {
+      if (url.startsWith("/rbac/users/search")) {
         return jsonResponse({
           ok: true,
           data: [{ id: 42, name: "Alice Admin", email: "alice@example.test" }],
@@ -64,7 +64,7 @@ describe("Evidence List", () => {
         });
       }
 
-      if (url.startsWith("/api/rbac/users/42/roles")) {
+      if (url.startsWith("/rbac/users/42/roles")) {
         return jsonResponse({
           ok: true,
           user: { id: 42, name: "Alice Admin", email: "alice@example.test" },
@@ -72,7 +72,7 @@ describe("Evidence List", () => {
         });
       }
 
-      if (url.startsWith("/api/evidence")) {
+      if (url.startsWith("/evidence")) {
         const urlObj = new URL(url, "http://localhost");
         const mimeFilter = urlObj.searchParams.get("mime");
         const mimeLabelFilter = urlObj.searchParams.get("mime_label");
@@ -164,7 +164,7 @@ describe("Evidence List", () => {
     fireEvent.click(screen.getByRole("button", { name: "Search" }));
 
     await waitFor(() => {
-      const hits = calls.filter((u) => u.startsWith("/api/evidence?"));
+      const hits = calls.filter((u) => u.startsWith("/evidence?"));
       expect(hits.length).toBeGreaterThan(0);
       const last = hits[hits.length - 1];
       expect(String(last)).toContain("owner_id=42");
@@ -177,7 +177,7 @@ describe("Evidence List", () => {
     await within(evidenceTable).findByText(/1\.21 KB/);
     await within(evidenceTable).findByText(/2025-09-12 00:00:00/);
 
-    expect(calls.some((u) => u.startsWith("/api/rbac/users/42/roles"))).toBe(true);
+    expect(calls.some((u) => u.startsWith("/rbac/users/42/roles"))).toBe(true);
   });
 
   it("downloads evidence file when user clicks Download", async () => {
@@ -199,7 +199,7 @@ describe("Evidence List", () => {
 
     await waitFor(() => {
       expect(mockCreateObjectURL).toHaveBeenCalledTimes(1);
-      expect(calls.some((u) => u.startsWith("/api/evidence/ev_01X"))).toBe(true);
+      expect(calls.some((u) => u.startsWith("/evidence/ev_01X"))).toBe(true);
     });
   });
 
@@ -242,7 +242,7 @@ describe("Evidence List", () => {
     await screen.findAllByRole("cell", { name: /PNG image/i });
 
     await waitFor(() => {
-      const hits = calls.filter((u) => u.startsWith("/api/evidence?"));
+      const hits = calls.filter((u) => u.startsWith("/evidence?"));
       expect(hits.length).toBeGreaterThan(0);
       const last = hits[hits.length - 1];
       expect(last).toContain("mime_label=PNG+image");
@@ -270,7 +270,7 @@ describe("Evidence List", () => {
     fireEvent.click(applyButton);
 
     await waitFor(() => {
-      const hits = calls.filter((u) => u.startsWith("/api/evidence?"));
+      const hits = calls.filter((u) => u.startsWith("/evidence?"));
       expect(hits.length).toBeGreaterThan(1);
       expect(hits[hits.length - 1]).toContain("mime_label=PDF+document");
     });

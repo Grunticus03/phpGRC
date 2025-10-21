@@ -92,4 +92,41 @@ final class UsersControllerTest extends TestCase
         self::assertCount(1, $data);
         self::assertSame('Charlie Reviewer', $data[0]['name'] ?? null);
     }
+
+    public function test_update_accepts_slugged_role_names(): void
+    {
+        $admin = $this->makeAdmin();
+        $this->actingAs($admin, 'sanctum');
+
+        Role::query()->updateOrCreate(
+            ['id' => 'role_theme_manager'],
+            ['name' => 'Theme Manager']
+        );
+        Role::query()->updateOrCreate(
+            ['id' => 'role_theme_auditor'],
+            ['name' => 'Theme Auditor']
+        );
+
+        $user = UserFactory::new()->create();
+
+        $response = $this->putJson('/users/'.$user->id, [
+            'roles' => ['theme_manager', 'Theme Auditor'],
+        ]);
+        $response->assertOk();
+
+        $payload = $response->json();
+        self::assertIsArray($payload);
+        self::assertTrue($payload['ok'] ?? false);
+
+        $user->refresh();
+        /** @var list<string> $assignedNames */
+        $assignedNames = $user->roles()
+            ->pluck('name')
+            ->filter(static fn ($name): bool => is_string($name))
+            ->values()
+            ->all();
+
+        self::assertContains('Theme Manager', $assignedNames);
+        self::assertContains('Theme Auditor', $assignedNames);
+    }
 }

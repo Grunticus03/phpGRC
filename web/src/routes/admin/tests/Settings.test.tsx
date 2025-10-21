@@ -38,7 +38,7 @@ describe("Core Settings page", () => {
       const init = (args[1] ?? {}) as RequestInit;
       const method = (init.method ?? "GET").toUpperCase();
 
-      if (url === "/api/admin/settings" && method === "GET") {
+      if (url === "/admin/settings" && method === "GET") {
         return jsonResponse(
           {
             ok: true,
@@ -66,7 +66,7 @@ describe("Core Settings page", () => {
         );
       }
 
-      if (url === "/api/admin/settings" && method === "POST") {
+      if (url === "/admin/settings" && method === "POST") {
         try {
           postBody = JSON.parse(String(init.body ?? "{}"));
         } catch {

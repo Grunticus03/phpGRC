@@ -48,11 +48,11 @@ describe("Admin Users page", () => {
       const url = typeof input === "string" ? input : ((input as Request).url ?? String(input));
       const method = (init?.method ?? "GET").toUpperCase();
 
-      if (method === "GET" && /\/api\/rbac\/roles\b/.test(url)) {
+      if (method === "GET" && /\/rbac\/roles\b/.test(url)) {
         return jsonResponse(200, { ok: true, roles: ["Admin", "User"] });
       }
 
-      if (method === "GET" && /\/api\/users\b/.test(url)) {
+      if (method === "GET" && /\/users\b/.test(url)) {
         if (!updateCalled) {
           return jsonResponse(200, {
             ok: true,
@@ -81,7 +81,7 @@ describe("Admin Users page", () => {
         });
       }
 
-      if (method === "PUT" && /\/api\/users\/1\b/.test(url)) {
+      if (method === "PUT" && /\/users\/1\b/.test(url)) {
         updateCalled = true;
         const body = JSON.parse(String(init?.body ?? "{}"));
         expect(body).toEqual({
@@ -144,11 +144,11 @@ describe("Admin Users page", () => {
       const url = typeof input === "string" ? input : ((input as Request).url ?? String(input));
       const method = (init?.method ?? "GET").toUpperCase();
 
-      if (method === "GET" && /\/api\/rbac\/roles\b/.test(url)) {
+      if (method === "GET" && /\/rbac\/roles\b/.test(url)) {
         return jsonResponse(200, { ok: true, roles: ["Admin"] });
       }
 
-      if (method === "GET" && /\/api\/users\b/.test(url)) {
+      if (method === "GET" && /\/users\b/.test(url)) {
         if (deleted) {
           return jsonResponse(200, {
             ok: true,
@@ -184,7 +184,7 @@ describe("Admin Users page", () => {
         });
       }
 
-      if (method === "POST" && /\/api\/users\b/.test(url)) {
+      if (method === "POST" && /\/users\b/.test(url)) {
         const body = JSON.parse(String(init?.body ?? "{}"));
         expect(body).toEqual({
           name: "Bob User",
@@ -204,7 +204,7 @@ describe("Admin Users page", () => {
         });
       }
 
-      if (method === "DELETE" && /\/api\/users\/2\b/.test(url)) {
+      if (method === "DELETE" && /\/users\/2\b/.test(url)) {
         deleted = true;
         return jsonResponse(200, { ok: true });
       }

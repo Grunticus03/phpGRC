@@ -24,7 +24,7 @@ final class RolesPersistenceTest extends TestCase
 
         $create = $this->postJson('/rbac/roles', ['name' => 'Compliance-Lead']);
         $create->assertStatus(201)
-            ->assertJsonPath('role.name', 'compliance_lead');
+            ->assertJsonPath('role.name', 'Compliance Lead');
 
         $response = $this->getJson('/rbac/roles')
             ->assertStatus(200)
@@ -49,12 +49,12 @@ final class RolesPersistenceTest extends TestCase
 
         $response = $this->postJson('/rbac/roles', ['name' => '  Risk Analyst Lead  '])
             ->assertStatus(201)
-            ->assertJsonPath('role.name', 'risk_analyst_lead')
+            ->assertJsonPath('role.name', 'Risk Analyst Lead')
             ->json();
 
         $roleId = $response['role']['id'] ?? null;
         $this->assertIsString($roleId);
-        $this->assertDatabaseHas('roles', ['id' => $roleId, 'name' => 'risk_analyst_lead']);
+        $this->assertDatabaseHas('roles', ['id' => $roleId, 'name' => 'Risk Analyst Lead']);
     }
 
     public function test_update_allows_renaming_existing_role(): void
@@ -70,9 +70,9 @@ final class RolesPersistenceTest extends TestCase
 
         $this->patchJson('/rbac/roles/role_admin', ['name' => 'Admin_Primary'])
             ->assertStatus(200)
-            ->assertJsonPath('role.name', 'admin_primary');
+            ->assertJsonPath('role.name', 'Admin Primary');
 
-        $this->assertDatabaseHas('roles', ['id' => 'role_admin', 'name' => 'admin_primary']);
+        $this->assertDatabaseHas('roles', ['id' => 'role_admin', 'name' => 'Admin Primary']);
     }
 
     public function test_update_rejects_duplicate_normalized_name(): void

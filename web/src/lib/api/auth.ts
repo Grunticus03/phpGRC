@@ -6,21 +6,21 @@ export type TotpEnrollResponse = { otpauthUri: string; secret: string };
 export type TotpVerifyResponse = { ok: boolean };
 
 export async function login(email: string, password: string): Promise<LoginResponse> {
-  return apiPost<LoginResponse, { email: string; password: string }>("/api/auth/login", { email, password });
+  return apiPost<LoginResponse, { email: string; password: string }>("/auth/login", { email, password });
 }
 
 export async function logout(): Promise<void> {
-  await apiPost<unknown, Record<string, never>>("/api/auth/logout", {});
+  await apiPost<unknown, Record<string, never>>("/auth/logout", {});
 }
 
 export async function me(): Promise<MeResponse> {
-  return apiGet<MeResponse>("/api/auth/me");
+  return apiGet<MeResponse>("/auth/me");
 }
 
 export async function totpEnroll(): Promise<TotpEnrollResponse> {
-  return apiPost<TotpEnrollResponse, Record<string, never>>("/api/auth/totp/enroll", {});
+  return apiPost<TotpEnrollResponse, Record<string, never>>("/auth/totp/enroll", {});
 }
 
 export async function totpVerify(code: string): Promise<TotpVerifyResponse> {
-  return apiPost<TotpVerifyResponse, { code: string }>("/api/auth/totp/verify", { code });
+  return apiPost<TotpVerifyResponse, { code: string }>("/auth/totp/verify", { code });
 }

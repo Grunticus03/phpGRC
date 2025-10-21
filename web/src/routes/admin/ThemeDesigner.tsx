@@ -1453,7 +1453,7 @@ export default function ThemeDesigner(): JSX.Element {
 
     try {
       if (designerConfig.storage === "filesystem") {
-        const res = await fetch("/api/settings/ui/designer/themes", {
+        const res = await fetch("/settings/ui/designer/themes", {
           method: "POST",
           credentials: "same-origin",
           headers: baseHeaders({ "Content-Type": "application/json" }),
@@ -1546,7 +1546,7 @@ export default function ThemeDesigner(): JSX.Element {
         formData.append("slug", trimmedSlug);
       }
 
-      const res = await fetch("/api/settings/ui/designer/themes/import", {
+      const res = await fetch("/settings/ui/designer/themes/import", {
         method: "POST",
         credentials: "same-origin",
         headers: baseHeaders(),
@@ -1609,7 +1609,7 @@ export default function ThemeDesigner(): JSX.Element {
     setFeedback(null);
 
     try {
-      const res = await fetch(`/api/settings/ui/designer/themes/${encodeURIComponent(exportSelection)}/export`, {
+      const res = await fetch(`/settings/ui/designer/themes/${encodeURIComponent(exportSelection)}/export`, {
         method: "GET",
         credentials: "same-origin",
         headers: baseHeaders(),
@@ -1686,7 +1686,7 @@ export default function ThemeDesigner(): JSX.Element {
 
     try {
       if (designerConfig.storage === "filesystem") {
-        const res = await fetch(`/api/settings/ui/designer/themes/${slug}`, {
+        const res = await fetch(`/settings/ui/designer/themes/${slug}`, {
           method: "DELETE",
           credentials: "same-origin",
           headers: baseHeaders(),

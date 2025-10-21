@@ -28,7 +28,7 @@ export default function ExportsIndex(): JSX.Element {
     e.preventDefault();
     setMsg(null);
     try {
-      const json = await apiPost<CreateExportResponse, { type: ExportType }>("/api/exports", { type });
+      const json = await apiPost<CreateExportResponse, { type: ExportType }>("/exports", { type });
       if (isCreateOk(json)) {
         const t: ExportType = json.type ?? type;
         setJobs((prev) => [...prev, { jobId: json.jobId, type: t, status: "pending", progress: 0 }]);
@@ -46,7 +46,7 @@ export default function ExportsIndex(): JSX.Element {
   async function refresh(jobId: string) {
     setMsg(null);
     try {
-      const json = await apiGet<StatusResponse>(`/api/exports/${encodeURIComponent(jobId)}/status`);
+      const json = await apiGet<StatusResponse>(`/exports/${encodeURIComponent(jobId)}/status`);
       if (isStatusOk(json)) {
         setJobs((prev) =>
           prev.map((job) =>

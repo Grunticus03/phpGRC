@@ -24,7 +24,16 @@ final class RbacRoleCreateAuditTest extends TestCase
             'core.audit.enabled' => true,
         ]);
 
-        $this->postJson('/rbac/roles', ['name' => 'Compliance-Lead'])->assertStatus(201);
+        $response = $this->postJson('/rbac/roles', ['name' => 'Compliance-Lead'])
+            ->assertStatus(201)
+            ->assertJsonPath('role.name', 'Compliance Lead');
+
+        $roleId = $response->json('role.id');
+        self::assertIsString($roleId);
+
+        /** @var Role $stored */
+        $stored = Role::query()->findOrFail($roleId);
+        self::assertSame('Compliance Lead', $stored->name);
 
         $row = DB::table('audit_events')->where('action', 'rbac.role.created')->orderByDesc('id')->first();
         $this->assertNotNull($row);
@@ -48,7 +57,12 @@ final class RbacRoleCreateAuditTest extends TestCase
 
         $this->seed(RolesSeeder::class);
 
-        $this->patchJson('/rbac/roles/role_admin', ['name' => 'Admin_Primary'])->assertStatus(200);
+        $this->patchJson('/rbac/roles/role_admin', ['name' => 'Admin_Primary'])
+            ->assertStatus(200)
+            ->assertJsonPath('role.name', 'Admin Primary');
+
+        $updated = Role::query()->findOrFail('role_admin');
+        self::assertSame('Admin Primary', $updated->name);
 
         $row = DB::table('audit_events')->where('action', 'rbac.role.updated')->orderByDesc('id')->first();
         $this->assertNotNull($row);

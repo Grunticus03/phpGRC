@@ -14,7 +14,7 @@ export async function listCategories(signal?: AbortSignal): Promise<string[]> {
   }
 
   try {
-    const json = await apiGet<unknown>("/api/audit/categories", undefined, signal);
+    const json = await apiGet<unknown>("/audit/categories", undefined, signal);
 
     const arr =
       (Array.isArray(json) ? (json as unknown[]) : null) ??

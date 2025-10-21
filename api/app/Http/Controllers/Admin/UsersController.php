@@ -18,7 +18,13 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
+use LogicException;
+use Throwable;
 
+/**
+ * @SuppressWarnings("PHPMD.ExcessiveClassComplexity")
+ */
 final class UsersController extends Controller
 {
     public function index(Request $request): JsonResponse
@@ -95,6 +101,9 @@ final class UsersController extends Controller
         ], 200);
     }
 
+    /**
+     * @SuppressWarnings("PHPMD.StaticAccess")
+     */
     public function store(UserStoreRequest $request, AuditLogger $audit): JsonResponse
     {
         /** @var array{name:string,email:string,password:string,roles?:list<string>} $payload */
@@ -135,6 +144,9 @@ final class UsersController extends Controller
         ], 201);
     }
 
+    /**
+     * @SuppressWarnings("PHPMD.StaticAccess")
+     */
     public function update(UserUpdateRequest $request, int $user): JsonResponse
     {
         /** @var User $u */
@@ -202,53 +214,117 @@ final class UsersController extends Controller
      */
     private function resolveRoleIds(array $values): array
     {
-        /** @var list<string> $ids */
-        $ids = [];
+        if ($values === []) {
+            return [];
+        }
+
+        [$idLookup, $aliasLookup] = $this->buildRoleLookup();
+
+        /** @var list<string> $resolved */
+        $resolved = [];
 
         foreach ($values as $raw) {
-            $v = trim($raw);
-            if ($v === '') {
-                continue;
-            }
-
-            /** @var null|string $byId */
-            $byId = Role::query()->whereKey($v)->value('id');
-            if (is_string($byId) && $byId !== '') {
-                $ids[] = $byId;
-
-                continue;
-            }
-
-            /** @var null|string $byName */
-            $byName = Role::query()->where('name', $v)->value('id');
-            if (is_string($byName) && $byName !== '') {
-                $ids[] = $byName;
-
-                continue;
-            }
-
-            $target = mb_strtolower($v, 'UTF-8');
-            foreach (Role::query()->get(['id', 'name']) as $r) {
-                $nameAttr = $r->getAttribute('name');
-                $idAttr = $r->getAttribute('id');
-                if (! is_string($nameAttr) || ! is_string($idAttr)) {
-                    continue;
-                }
-                if (mb_strtolower($nameAttr, 'UTF-8') === $target) {
-                    $ids[] = $idAttr;
-                    break;
-                }
+            $roleId = $this->resolveRoleId($raw, $idLookup, $aliasLookup);
+            if ($roleId !== null) {
+                $resolved[] = $roleId;
             }
         }
 
-        /** @var list<string> $unique */
-        $unique = array_values(array_unique($ids));
+        return array_values(array_unique($resolved));
+    }
 
-        return $unique;
+    /**
+     * @return array{0: array<string,string>, 1: array<string,string>}
+     */
+    private function buildRoleLookup(): array
+    {
+        /** @var array<string, string> $idLookup */
+        $idLookup = [];
+        /** @var array<string, string> $aliasLookup */
+        $aliasLookup = [];
+
+        foreach (Role::query()->get(['id', 'name']) as $role) {
+            /** @var mixed $idAttr */
+            $idAttr = $role->getAttribute('id');
+            if (! is_string($idAttr) || $idAttr === '') {
+                continue;
+            }
+
+            $idLookup[$idAttr] = $idAttr;
+
+            /** @var mixed $nameAttr */
+            $nameAttr = $role->getAttribute('name');
+            if (! is_string($nameAttr) || $nameAttr === '') {
+                continue;
+            }
+
+            foreach ($this->buildRoleAliases($nameAttr) as $alias) {
+                $aliasLookup[$alias] = $idAttr;
+            }
+        }
+
+        return [$idLookup, $aliasLookup];
+    }
+
+    /**
+     * @param  array<string,string>  $idLookup
+     * @param  array<string,string>  $aliasLookup
+     */
+    private function resolveRoleId(string $raw, array $idLookup, array $aliasLookup): ?string
+    {
+        $candidate = trim($raw);
+        if ($candidate === '') {
+            return null;
+        }
+
+        if (isset($idLookup[$candidate])) {
+            return $idLookup[$candidate];
+        }
+
+        foreach ($this->buildRoleAliases($candidate) as $alias) {
+            if (isset($aliasLookup[$alias])) {
+                return $aliasLookup[$alias];
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @return list<string>
+     *
+     * @SuppressWarnings("PHPMD.StaticAccess")
+     */
+    private function buildRoleAliases(string $value): array
+    {
+        $trimmed = trim($value);
+        if ($trimmed === '') {
+            return [];
+        }
+
+        /** @var list<string> $aliases */
+        $aliases = [];
+
+        $aliases[] = mb_strtolower($trimmed, 'UTF-8');
+
+        $aliases[] = Str::slug($trimmed, '_');
+        $aliases[] = Str::slug($trimmed, '-');
+        $aliases[] = Str::slug($trimmed, '');
+
+        $filtered = array_filter(
+            $aliases,
+            static fn (string $alias): bool => $alias !== ''
+        );
+
+        return array_values(array_unique($filtered));
     }
 
     /**
      * @param  array<string,mixed>  $meta
+     *
+     * @SuppressWarnings("PHPMD.NPathComplexity")
+     * @SuppressWarnings("PHPMD.StaticAccess")
+     * @SuppressWarnings("PHPMD.ElseExpression")
      */
     private function logUserAudit(Request $request, AuditLogger $audit, string $action, User $target, array $meta = []): void
     {
@@ -309,14 +385,14 @@ final class UsersController extends Controller
             } elseif (is_string($entityIdRaw)) {
                 $entityId = trim($entityIdRaw);
             } else {
-                throw new \LogicException('User primary key must be scalar.');
+                throw new LogicException('User primary key must be scalar.');
             }
             if ($entityId === '') {
-                throw new \LogicException('User primary key must be a non-empty string.');
+                throw new LogicException('User primary key must be a non-empty string.');
             }
 
             if ($action === '') {
-                throw new \LogicException('Audit action must be non-empty.');
+                throw new LogicException('Audit action must be non-empty.');
             }
 
             $ipRaw = $request->ip();
@@ -334,7 +410,7 @@ final class UsersController extends Controller
                 'ua' => $ua,
                 'meta' => $actorMeta,
             ]);
-        } catch (\Throwable) {
+        } catch (Throwable) {
             // ignore audit failures
         }
     }

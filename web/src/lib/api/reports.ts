@@ -32,7 +32,7 @@ function parseFilename(contentDisposition: string | null): string | null {
 }
 
 function buildAdminActivityUrl(): string {
-  return `${API_BASE}/api/reports/admin-activity?format=csv`;
+  return `${API_BASE}/reports/admin-activity?format=csv`;
 }
 
 async function fetchAdminActivityCsv(): Promise<DownloadResult> {
@@ -100,4 +100,3 @@ export async function downloadAdminActivityCsv(): Promise<void> {
 
   window.location.assign(buildAdminActivityUrl());
 }
-

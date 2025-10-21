@@ -337,7 +337,7 @@ export type AuthOptions = {
 };
 
 export async function fetchAuthOptions(signal?: AbortSignal): Promise<AuthOptions> {
-  return apiGet<AuthOptions>("/api/auth/options", undefined, signal);
+  return apiGet<AuthOptions>("/auth/options", undefined, signal);
 }
 
 type LoginResponse = { ok: boolean; token?: string | null; user?: AuthUser | null };
@@ -345,7 +345,7 @@ type MeResponse = { ok: boolean; user?: AuthUser | null };
 
 /** Login helper; persists returned token for subsequent API calls. */
 export async function authLogin(creds: { email: string; password: string }): Promise<AuthUser> {
-  const res = await apiPost<LoginResponse, typeof creds>("/api/auth/login", creds);
+  const res = await apiPost<LoginResponse, typeof creds>("/auth/login", creds);
   const token = res?.token;
   const user = res?.user;
 
@@ -365,7 +365,7 @@ export async function authLogin(creds: { email: string; password: string }): Pro
 /** Logout helper: server best-effort then local clear. */
 export async function authLogout(): Promise<void> {
   try {
-    await apiPost<unknown, Record<string, never>>("/api/auth/logout", {});
+    await apiPost<unknown, Record<string, never>>("/auth/logout", {});
   } catch {
     // ignore network/401 during logout
   }
@@ -381,7 +381,7 @@ export async function authLogout(): Promise<void> {
 
 /** Current-user helper. Throws on non-OK (401 will trigger onUnauthorized handlers). */
 export async function authMe(): Promise<AuthUser> {
-  const res = await apiGet<MeResponse>("/api/auth/me");
+  const res = await apiGet<MeResponse>("/auth/me");
   const user = res?.user;
   if (!user || typeof user.id === "undefined") {
     throw new Error("Missing user payload in auth/me response");

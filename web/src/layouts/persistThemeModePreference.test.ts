@@ -103,7 +103,7 @@ describe("persistThemeModePreference", () => {
 
     expect(fetchImpl).toHaveBeenCalledTimes(1);
     const [url, rawInit] = fetchImpl.mock.calls[0] ?? [];
-    expect(url).toBe("/api/me/prefs/ui");
+    expect(url).toBe("/me/prefs/ui");
     const init = (rawInit ?? {}) as RequestInit;
     const headers = headersFrom(init.headers);
     expect(init.method).toBe("PUT");

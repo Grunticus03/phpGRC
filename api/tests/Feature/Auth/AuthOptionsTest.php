@@ -59,10 +59,10 @@ final class AuthOptionsTest extends TestCase
             ->assertJsonPath('mode', 'idp_only')
             ->assertJsonPath('local.enabled', false)
             ->assertJsonPath('idp.providers.0.key', 'primary-oidc')
-            ->assertJsonPath('idp.providers.0.links.authorize', '/api/auth/oidc/authorize?provider='.$provider->id)
+            ->assertJsonPath('idp.providers.0.links.authorize', '/auth/oidc/authorize?provider='.$provider->id)
             ->assertJsonPath('auto_redirect.key', 'primary-oidc')
             ->assertJsonPath('auto_redirect.driver', 'oidc')
-            ->assertJsonPath('auto_redirect.authorize', '/api/auth/oidc/authorize?provider='.$provider->id);
+            ->assertJsonPath('auto_redirect.authorize', '/auth/oidc/authorize?provider='.$provider->id);
 
         /** @var array{auto_redirect:array{provider:string}} $payload */
         $payload = $response->json();
@@ -91,7 +91,7 @@ final class AuthOptionsTest extends TestCase
             ->assertJsonPath('mode', 'mixed')
             ->assertJsonPath('local.enabled', true)
             ->assertJsonPath('auto_redirect', null)
-            ->assertJsonPath('idp.providers.0.links.authorize', '/api/auth/oidc/authorize?provider='.$provider->id)
+            ->assertJsonPath('idp.providers.0.links.authorize', '/auth/oidc/authorize?provider='.$provider->id)
             ->assertJsonPath('idp.providers.0.driver', 'entra');
     }
 }

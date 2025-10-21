@@ -113,15 +113,15 @@ describe("ThemeConfigurator", () => {
       const method = (init?.method ?? "GET").toUpperCase();
       const url = typeof _input === "string" ? _input : _input.toString();
 
-      if (url === "/api/settings/ui/themes" && method === "GET") {
+      if (url === "/settings/ui/themes" && method === "GET") {
         return jsonResponse(DEFAULT_MANIFEST_BODY, { headers: { ETag: 'W/"manifest:1"' } });
       }
 
-      if (url === "/api/settings/ui" && method === "GET") {
+      if (url === "/settings/ui" && method === "GET") {
         return jsonResponse(DEFAULT_SETTINGS_BODY, { headers: { ETag: 'W/"settings:etag1"' } });
       }
 
-      if (url === "/api/settings/ui" && method === "PUT") {
+      if (url === "/settings/ui" && method === "PUT") {
         return jsonResponse(
           {
             ok: true,
@@ -160,7 +160,7 @@ describe("ThemeConfigurator", () => {
 
     await screen.findByText(SUCCESS_TOAST, {}, { timeout: 4000 });
 
-    const putCall = calls.find((call) => call.method === "PUT" && call.url === "/api/settings/ui");
+    const putCall = calls.find((call) => call.method === "PUT" && call.url === "/settings/ui");
     expect(putCall).toBeTruthy();
     expect(putCall?.init.headers instanceof Headers ? putCall.init.headers.get("If-Match") : new Headers(putCall?.init.headers ?? {}).get("If-Match")).toBe('W/"settings:etag1"');
 
@@ -185,15 +185,15 @@ describe("ThemeConfigurator", () => {
       const method = (init?.method ?? "GET").toUpperCase();
       const url = typeof _input === "string" ? _input : _input.toString();
 
-      if (url === "/api/settings/ui/themes" && method === "GET") {
+      if (url === "/settings/ui/themes" && method === "GET") {
         return jsonResponse(DEFAULT_MANIFEST_BODY, { headers: { ETag: 'W/"manifest:login"' } });
       }
 
-      if (url === "/api/settings/ui" && method === "GET") {
+      if (url === "/settings/ui" && method === "GET") {
         return jsonResponse(DEFAULT_SETTINGS_BODY, { headers: { ETag: 'W/"settings:login1"' } });
       }
 
-      if (url === "/api/settings/ui" && method === "PUT") {
+      if (url === "/settings/ui" && method === "PUT") {
         return jsonResponse(
           {
             ok: true,
@@ -227,7 +227,7 @@ describe("ThemeConfigurator", () => {
 
     await screen.findByText(SUCCESS_TOAST, {}, { timeout: 4000 });
 
-    const putCall = calls.find((call) => call.method === "PUT" && call.url === "/api/settings/ui");
+    const putCall = calls.find((call) => call.method === "PUT" && call.url === "/settings/ui");
     expect(putCall).toBeTruthy();
     const payload = putCall?.init.body ? JSON.parse(String(putCall.init.body)) : null;
     expect(payload?.ui?.theme?.login).toMatchObject({ layout: "layout_3" });
@@ -238,15 +238,15 @@ describe("ThemeConfigurator", () => {
       const method = (init?.method ?? "GET").toUpperCase();
       const url = typeof _input === "string" ? _input : _input.toString();
 
-      if (url === "/api/settings/ui/themes" && method === "GET") {
+      if (url === "/settings/ui/themes" && method === "GET") {
         return jsonResponse(DEFAULT_MANIFEST_BODY, { headers: { ETag: 'W/"manifest:2"' } });
       }
 
-      if (url === "/api/settings/ui" && method === "GET") {
+      if (url === "/settings/ui" && method === "GET") {
         return jsonResponse(DEFAULT_SETTINGS_BODY, { headers: { ETag: 'W/"settings:etag-light"' } });
       }
 
-      if (url === "/api/settings/ui" && method === "PUT") {
+      if (url === "/settings/ui" && method === "PUT") {
         return jsonResponse(
           {
             ok: true,
@@ -283,7 +283,7 @@ describe("ThemeConfigurator", () => {
 
     await screen.findByText(SUCCESS_TOAST, {}, { timeout: 4000 });
 
-    const putCall = calls.find((call) => call.method === "PUT" && call.url === "/api/settings/ui");
+    const putCall = calls.find((call) => call.method === "PUT" && call.url === "/settings/ui");
     const payload = putCall?.init.body ? JSON.parse(String(putCall.init.body)) : null;
     expect(payload).toMatchObject({
       ui: {
@@ -305,15 +305,15 @@ describe("ThemeConfigurator", () => {
       const method = (init?.method ?? "GET").toUpperCase();
       const url = typeof _input === "string" ? _input : _input.toString();
 
-      if (url === "/api/settings/ui/themes" && method === "GET") {
+      if (url === "/settings/ui/themes" && method === "GET") {
         return jsonResponse(DEFAULT_MANIFEST_BODY);
       }
 
-      if (url === "/api/settings/ui" && method === "GET") {
+      if (url === "/settings/ui" && method === "GET") {
         return jsonResponse(DEFAULT_SETTINGS_BODY, { headers: { ETag: conflict ? 'W/"settings:etag1"' : 'W/"settings:etag2"' } });
       }
 
-      if (url === "/api/settings/ui" && method === "PUT") {
+      if (url === "/settings/ui" && method === "PUT") {
         if (conflict) {
           conflict = false;
           return jsonResponse(
@@ -339,9 +339,9 @@ describe("ThemeConfigurator", () => {
 
     await screen.findByText(CONFLICT_TOAST, {}, { timeout: 4000 });
 
-    const putCalls = calls.filter((call) => call.method === "PUT" && call.url === "/api/settings/ui");
+    const putCalls = calls.filter((call) => call.method === "PUT" && call.url === "/settings/ui");
     expect(putCalls.length).toBeGreaterThanOrEqual(1);
-    const followUpGet = calls.filter((call) => call.method === "GET" && call.url === "/api/settings/ui");
+    const followUpGet = calls.filter((call) => call.method === "GET" && call.url === "/settings/ui");
     expect(followUpGet.length).toBeGreaterThanOrEqual(2);
   });
 
@@ -350,11 +350,11 @@ describe("ThemeConfigurator", () => {
       const method = (init?.method ?? "GET").toUpperCase();
       const url = typeof _input === "string" ? _input : _input.toString();
 
-      if (url === "/api/settings/ui/themes" && method === "GET") {
+      if (url === "/settings/ui/themes" && method === "GET") {
         return jsonResponse(DEFAULT_MANIFEST_BODY);
       }
 
-      if (url === "/api/settings/ui" && method === "GET") {
+      if (url === "/settings/ui" && method === "GET") {
         return jsonResponse({}, { status: 403 });
       }
 
@@ -385,11 +385,11 @@ describe("ThemeConfigurator", () => {
       const method = (init?.method ?? "GET").toUpperCase();
       const url = typeof _input === "string" ? _input : _input.toString();
 
-      if (url === "/api/settings/ui/themes" && method === "GET") {
+      if (url === "/settings/ui/themes" && method === "GET") {
         return jsonResponse(DEFAULT_MANIFEST_BODY, { headers: { ETag: 'W/"manifest:1"' } });
       }
 
-      if (url === "/api/settings/ui" && method === "GET") {
+      if (url === "/settings/ui" && method === "GET") {
         return jsonResponse(DEFAULT_SETTINGS_BODY, { headers: { ETag: 'W/"settings:etag1"' } });
       }
 

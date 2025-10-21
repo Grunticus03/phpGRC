@@ -68,7 +68,7 @@ type PublicUiSettings = {
 
 const THEME_LINK_ID = "phpgrc-theme-css";
 const APP_FAVICON_LINK_ID = "phpgrc-favicon-link";
-const BRAND_ASSET_BASE_PATH = "/api/settings/ui/brand-assets";
+const BRAND_ASSET_BASE_PATH = "/settings/ui/brand-assets";
 const CUSTOM_THEME_STORAGE_KEY = "phpgrc.customThemePacks";
 const THEME_SELECTION_STORAGE_KEY = "phpgrc.theme.selection";
 const THEME_SELECTION_COOKIE = "phpgrc_theme_selection";
@@ -821,7 +821,7 @@ const applyDesignTokens = (): void => {
   const faviconCandidate =
     getBrandAssetUrl(brandData.favicon_asset_id ?? null) ??
     getBrandAssetUrl(brandData.primary_logo_asset_id ?? null) ??
-    "/api/favicon.ico";
+    "/favicon.ico";
   updateFaviconLink(faviconCandidate);
 };
 
@@ -1101,18 +1101,18 @@ export const bootstrapTheme = async (options?: { fetchUserPrefs?: boolean }): Pr
   }
 
   loadPromise = (async () => {
-    const publicSettingsResponse = await fetchJson<{ config?: PublicUiSettings }>("/api/settings/ui/public");
+    const publicSettingsResponse = await fetchJson<{ config?: PublicUiSettings }>("/settings/ui/public");
     if (publicSettingsResponse?.config) {
       applyPublicUiSettings(publicSettingsResponse.config);
     }
 
-    const manifest = await fetchJson<ThemeManifest>("/api/settings/ui/themes");
+    const manifest = await fetchJson<ThemeManifest>("/settings/ui/themes");
     if (manifest && Array.isArray(manifest.themes)) {
       manifestCache = clone(mergeCustomPacks(manifest, customPackCache));
       notifyManifestListeners();
     }
 
-    const settingsResponse = await fetchJson<{ config?: { ui?: ThemeSettings } }>("/api/settings/ui");
+    const settingsResponse = await fetchJson<{ config?: { ui?: ThemeSettings } }>("/settings/ui");
     if (settingsResponse?.config?.ui) {
       settingsCache = settingsResponse.config.ui;
       const loginLayout = sanitizeLoginLayout(settingsCache.theme?.login?.layout ?? null);
@@ -1130,7 +1130,7 @@ export const bootstrapTheme = async (options?: { fetchUserPrefs?: boolean }): Pr
       options?.fetchUserPrefs ?? (settingsCache.theme.allow_user_override && !settingsCache.theme.force_global);
 
     if (shouldFetchPrefs) {
-      const prefsResponse = await fetchJson<{ prefs?: ThemeUserPrefs }>("/api/me/prefs/ui");
+      const prefsResponse = await fetchJson<{ prefs?: ThemeUserPrefs }>("/me/prefs/ui");
       if (prefsResponse?.prefs) {
         prefsCache = prefsResponse.prefs;
         notifyPrefsListeners();

@@ -219,7 +219,7 @@ export default function Users(): JSX.Element {
         page,
         per_page: perPage,
       };
-      const res = await apiGet<unknown>("/api/users", params);
+      const res = await apiGet<unknown>("/users", params);
       if (isPagedUsers(res)) {
         setItems(res.data);
         setMeta(res.meta);
@@ -303,7 +303,7 @@ export default function Users(): JSX.Element {
     setCreateError(null);
 
     try {
-      await apiPost<UserResponse, typeof payload>("/api/users", payload);
+      await apiPost<UserResponse, typeof payload>("/users", payload);
       formEl.reset();
       setCreateRoles([]);
       setCreateFieldErrors({});
@@ -392,7 +392,7 @@ export default function Users(): JSX.Element {
     setEditFieldErrors({});
 
     try {
-      const res = await apiPut<UserResponse, typeof payload>(`/api/users/${selectedUser.id}`, payload);
+      const res = await apiPut<UserResponse, typeof payload>(`/users/${selectedUser.id}`, payload);
       setSelectedUser(res.user);
       showSuccess("User updated.");
       await load();
@@ -421,7 +421,7 @@ export default function Users(): JSX.Element {
     setDeleteBusy(true);
 
     try {
-      await apiDelete<{ ok: true }>(`/api/users/${deleteCandidate.id}`);
+      await apiDelete<{ ok: true }>(`/users/${deleteCandidate.id}`);
       if (selectedUser && selectedUser.id === deleteCandidate.id) {
         setSelectedUser(null);
       }

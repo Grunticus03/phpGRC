@@ -6,9 +6,9 @@ import { MemoryRouter } from "react-router-dom";
 
 import Kpis, { DASHBOARD_TOGGLE_EDIT_MODE_EVENT } from "../Kpis";
 
-const KPIS_URL = "/api/dashboard/kpis";
-const REPORT_URL = "/api/reports/admin-activity";
-const UI_PREFS_URL = "/api/me/prefs/ui";
+const KPIS_URL = "/dashboard/kpis";
+const REPORT_URL = "/reports/admin-activity";
+const UI_PREFS_URL = "/me/prefs/ui";
 
 type StoredWidget = {
   id?: string | null;

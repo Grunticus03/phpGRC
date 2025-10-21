@@ -61,7 +61,7 @@ export default function ProfileAvatar(): JSX.Element {
     const fd = new FormData();
     fd.append("file", file);
     try {
-      const json = await apiPostFormData<AvatarResponse>("/api/avatar", fd);
+      const json = await apiPostFormData<AvatarResponse>("/avatar", fd);
       if (isDisabled(json)) {
         setMsg("Avatars feature disabled (stub).");
         return;

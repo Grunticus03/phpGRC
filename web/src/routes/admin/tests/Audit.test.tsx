@@ -25,11 +25,11 @@ describe("Admin Audit page", () => {
       const url = String(args[0]);
       calls.push(url);
 
-      if (url.includes("/api/audit/categories")) {
+      if (url.includes("/audit/categories")) {
         return jsonResponse(["RBAC", "AUTH", "SYSTEM"]);
       }
 
-      if (url.startsWith("/api/rbac/users/search")) {
+      if (url.startsWith("/rbac/users/search")) {
         return jsonResponse({
           ok: true,
           data: [{ id: 7, name: "Alpha 01", email: "alpha01@example.test" }],
@@ -37,7 +37,7 @@ describe("Admin Audit page", () => {
         });
       }
 
-      if (url.startsWith("/api/audit?")) {
+      if (url.startsWith("/audit?")) {
         return jsonResponse({
           ok: true,
           time_format: "ISO_8601",
@@ -102,7 +102,7 @@ describe("Admin Audit page", () => {
     fireEvent.click(refreshButton);
 
     await waitFor(() => {
-      const hits = calls.filter((u) => u.startsWith("/api/audit?"));
+      const hits = calls.filter((u) => u.startsWith("/audit?"));
       expect(hits.length).toBeGreaterThan(0);
       const hit = hits[hits.length - 1];
       expect(hit).toContain("category=RBAC");
@@ -137,7 +137,7 @@ describe("Admin Audit page", () => {
     fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
 
     await waitFor(() => {
-      const hits = calls.filter((u) => u.startsWith("/api/audit?"));
+      const hits = calls.filter((u) => u.startsWith("/audit?"));
       expect(hits.length).toBeGreaterThan(0);
       const hit = hits[hits.length - 1];
       expect(hit).toContain("actor_id=7");
@@ -167,7 +167,7 @@ describe("Admin Audit page", () => {
     renderAudit(["/admin/audit?category=AUTH&occurred_from=2025-01-10&occurred_to=2025-01-10"]);
 
     await waitFor(() => {
-      const hits = calls.filter((u) => u.startsWith("/api/audit?"));
+      const hits = calls.filter((u) => u.startsWith("/audit?"));
       expect(hits.length).toBeGreaterThan(0);
       const hit = hits[hits.length - 1];
       expect(hit).toContain("category=AUTH");
@@ -181,11 +181,11 @@ describe("Admin Audit page", () => {
       const url = String(args[0]);
       calls.push(url);
 
-      if (url.includes("/api/audit/categories")) {
+      if (url.includes("/audit/categories")) {
         return jsonResponse(["AUTH"]);
       }
 
-      if (url.startsWith("/api/audit?")) {
+      if (url.startsWith("/audit?")) {
         return jsonResponse({
           ok: true,
           time_format: "ISO_8601",

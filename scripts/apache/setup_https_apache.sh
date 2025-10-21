@@ -37,9 +37,28 @@ cat >/etc/apache2/sites-available/${SITE_NAME} <<'EOF'
     DocumentRoot __DOCROOT__
     <Directory __DOCROOT__>
         Options -Indexes +FollowSymLinks
-        AllowOverride FileInfo
+        AllowOverride All
         Require all granted
         DirectoryIndex index.html index.php
+
+        <Files "index.html">
+            Header set Cache-Control "no-store, max-age=0"
+        </Files>
+
+        SetEnvIfNoCase Authorization "^(.*)" HTTP_AUTHORIZATION=$1
+        RequestHeader set Authorization "%{HTTP_AUTHORIZATION}e" env=HTTP_AUTHORIZATION
+    </Directory>
+
+    <FilesMatch "\.php$">
+        SetHandler "proxy:unix:/run/php/php8.3-fpm.sock|fcgi://localhost"
+    </FilesMatch>
+
+    Alias /assets/ ${DOCROOT}/assets/
+    <Directory ${DOCROOT}/assets>
+        Options -Indexes
+        AllowOverride None
+        Require all granted
+        Header set Cache-Control "public, max-age=31536000, immutable"
     </Directory>
 
     # Security headers (baseline)
@@ -47,13 +66,51 @@ cat >/etc/apache2/sites-available/${SITE_NAME} <<'EOF'
     Header always set X-Frame-Options "SAMEORIGIN"
     Header always set X-XSS-Protection "0"
     Header always set Referrer-Policy "no-referrer-when-downgrade"
-    Header always set Content-Security-Policy "default-src 'self'; frame-ancestors 'self'; base-uri 'self'"
+    Header always set Content-Security-Policy "default-src 'self'; connect-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data:; frame-ancestors 'self'; base-uri 'self'"
 
     # HSTS (HTTPS-only requirement)
     Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
 
     ErrorLog  /var/log/apache2/phpgrc_error.log
     CustomLog /var/log/apache2/phpgrc_access.log combined
+
+    RewriteEngine On
+
+    RewriteCond %{REQUEST_URI} \.(?:css|js|map|woff2?|woff|svg|png|jpe?g|webp|ico)$ [NC]
+    RewriteRule .* - [L,END]
+
+    # Serve built SPA assets and other static files directly
+    RewriteRule ^assets/ - [L]
+
+    RewriteCond %{REQUEST_FILENAME} -f [OR]
+    RewriteCond %{REQUEST_FILENAME} -d
+    RewriteRule ^ - [L]
+
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{HTTP_ACCEPT} (text/html|application/xhtml\+xml) [NC]
+    RewriteCond %{DOCUMENT_ROOT}/index.html -f
+    RewriteRule ^ index.html [L,END]
+
+    # Laravel API and JSON endpoints
+    RewriteCond %{REQUEST_METHOD} !^(GET|HEAD)$ [OR]
+    RewriteCond %{HTTP_X_REQUESTED_WITH} XMLHttpRequest [NC,OR]
+    RewriteCond %{HTTP_ACCEPT} !(text/html|application/xhtml\+xml) [NC]
+    RewriteCond %{REQUEST_URI} ^/(admin|audit|auth|avatar|broadcasting|dashboard|docs|evidence|exports|favicon\.ico|health|integrations|me|metrics|oauth|openapi\.json|openapi\.yaml|rbac|reports|sanctum|settings|setup|telescope|up|users|_ignition|inertia) [NC]
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^ index.php [QSA,L]
+
+    # SPA history-mode fallback
+    RewriteCond %{REQUEST_URI} !^/(admin|audit|auth|avatar|broadcasting|dashboard|docs|evidence|exports|favicon\.ico|health|integrations|me|metrics|oauth|openapi\.json|openapi\.yaml|rbac|reports|sanctum|settings|setup|telescope|up|users|_ignition|inertia) [NC]
+    RewriteCond %{DOCUMENT_ROOT}/index.html -f
+    RewriteRule ^$ index.html [L]
+
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{REQUEST_URI} !^/(admin|audit|auth|avatar|broadcasting|dashboard|docs|evidence|exports|favicon\.ico|health|integrations|me|metrics|oauth|openapi\.json|openapi\.yaml|rbac|reports|sanctum|settings|setup|telescope|up|users|_ignition|inertia) [NC]
+    RewriteCond %{DOCUMENT_ROOT}/index.html -f
+    RewriteRule ^ index.html [L]
 </VirtualHost>
 EOF
 

@@ -136,7 +136,7 @@ export type FetchKpisOptions = {
 };
 
 /**
- * Fetch KPI snapshot from /api/dashboard/kpis.
+ * Fetch KPI snapshot from /dashboard/kpis.
  * Throws Error('forbidden') on 403.
  */
 export async function fetchKpis(signal?: AbortSignal, opts?: FetchKpisOptions): Promise<Kpis> {
@@ -145,7 +145,7 @@ export async function fetchKpis(signal?: AbortSignal, opts?: FetchKpisOptions): 
 
   const params = clampedAuthDays !== undefined ? { auth_days: clampedAuthDays } : undefined;
 
-  const json = await apiGet<unknown>('/api/dashboard/kpis', params, signal);
+  const json = await apiGet<unknown>("/dashboard/kpis", params, signal);
 
   const data =
     json && typeof json === "object" && "data" in (json as Record<string, unknown>)
