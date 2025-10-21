@@ -445,7 +445,7 @@ describe("Admin IdP Providers page", () => {
     const driverSelect = within(dialog).getByLabelText(/idp type/i);
     await user.selectOptions(driverSelect, "ldap");
 
-    const hostInput = within(dialog).getByLabelText(/server host/i);
+    const hostInput = within(dialog).getByLabelText(/server/i);
     await user.clear(hostInput);
     await user.type(hostInput, "ldaps://ldap.example.com/");
 
@@ -473,5 +473,140 @@ describe("Admin IdP Providers page", () => {
     expect(payload).toMatchObject({ driver: "ldap" });
     expect(bindDnFeedback).toBeInTheDocument();
     expect(bindDnInput).toHaveClass("is-invalid");
+  });
+
+  test("allows selecting an LDAP base DN from the browser tree", async () => {
+    const user = userEvent.setup();
+    const browseRequests: Array<string | null> = [];
+
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const method = (init?.method ?? "GET").toUpperCase();
+      const url = typeof input === "string" ? input : ((input as Request).url ?? String(input));
+
+      if (method === "GET" && /\/admin\/idp\/providers$/.test(url)) {
+        return jsonResponse(200, {
+          ok: true,
+          items: [],
+          meta: { total: 0, enabled: 0 },
+        });
+      }
+
+      if (method === "POST" && /\/admin\/idp\/providers\/ldap\/browse$/.test(url)) {
+        const body = JSON.parse(String(init?.body ?? "{}")) as { base_dn?: string | null };
+        const baseDn = body.base_dn ?? null;
+        browseRequests.push(baseDn);
+
+        if (!baseDn) {
+          return jsonResponse(200, {
+            ok: true,
+            root: true,
+            base_dn: null,
+            entries: [
+              {
+                dn: "dc=example,dc=com",
+                rdn: "dc=example",
+                name: "example",
+                type: "organizationalUnit",
+                object_class: ["top", "domain"],
+                has_children: true,
+              },
+              {
+                dn: "cn=Alice,dc=example,dc=com",
+                rdn: "cn=Alice",
+                name: "Alice",
+                type: "person",
+                object_class: ["person"],
+                has_children: false,
+              },
+            ],
+            diagnostics: { stage: "root" },
+          });
+        }
+
+        if (baseDn === "dc=example,dc=com") {
+          return jsonResponse(200, {
+            ok: true,
+            root: false,
+            base_dn: baseDn,
+            entries: [
+              {
+                dn: "ou=Users,dc=example,dc=com",
+                rdn: "ou=Users",
+                name: "Users",
+                type: "group",
+                object_class: ["group"],
+                has_children: false,
+              },
+            ],
+            diagnostics: { stage: "users" },
+          });
+        }
+
+        return jsonResponse(200, {
+          ok: true,
+          root: false,
+          base_dn: baseDn,
+          entries: [],
+        });
+      }
+
+      return jsonResponse(404);
+    }) as unknown as typeof fetch;
+
+    globalThis.fetch = fetchMock;
+    renderPage();
+
+    const addProviderButtons = await screen.findAllByRole("button", { name: /add provider/i });
+    await user.click(addProviderButtons[0]);
+
+    const createModal = await screen.findByRole("dialog", { name: /add identity provider/i });
+    const nameInput = within(createModal).getByLabelText(/display name/i);
+    await user.clear(nameInput);
+    await user.type(nameInput, "LDAP Provider");
+
+    const driverSelect = within(createModal).getByLabelText(/idp type/i);
+    await user.selectOptions(driverSelect, "ldap");
+
+    const hostInput = within(createModal).getByLabelText(/server/i);
+    await user.clear(hostInput);
+    await user.type(hostInput, "ldaps://ldap.example.com");
+
+    const baseDnInput = within(createModal).getByLabelText(/base dn/i);
+    await user.clear(baseDnInput);
+    await user.type(baseDnInput, "dc=example,dc=com");
+
+    const bindDnInput = within(createModal).getByLabelText(/bind dn/i);
+    await user.clear(bindDnInput);
+    await user.type(bindDnInput, "cn=service,dc=example,dc=com");
+
+    const bindPasswordInput = within(createModal).getByLabelText(/bind password/i);
+    await user.clear(bindPasswordInput);
+    await user.type(bindPasswordInput, "super-secret");
+
+    const browseButton = within(createModal).getByRole("button", { name: /^browse$/i });
+    await user.click(browseButton);
+
+    const browserModal = await screen.findByRole("dialog", { name: /ldap browser/i });
+    const namingContextsButton = within(browserModal).getByRole("button", { name: /naming contexts/i });
+    await user.click(namingContextsButton);
+
+    let exampleToggle = await within(browserModal).findByRole("button", { name: /(expand|collapse) example/i });
+    const toggleLabel = exampleToggle.getAttribute("aria-label") ?? exampleToggle.textContent ?? "";
+    if (/collapse/i.test(toggleLabel)) {
+      await user.click(exampleToggle);
+      exampleToggle = await within(browserModal).findByRole("button", { name: /expand example/i });
+    }
+    await user.click(exampleToggle);
+
+    const usersButton = await within(browserModal).findByRole("button", { name: /^users$/i });
+    await user.click(usersButton);
+
+    await waitFor(() => expect(baseDnInput).toHaveValue("ou=Users,dc=example,dc=com"));
+    const updatedUsersButton = within(browserModal).getByRole("button", { name: /^users$/i });
+    expect(updatedUsersButton.querySelector(".bi-forward-fill")).not.toBeNull();
+
+    expect(await within(browserModal).findByRole("button", { name: /last directory response/i })).toBeInTheDocument();
+    expect(await within(browserModal).findByRole("button", { name: /ldap diagnostics/i })).toBeInTheDocument();
+    await waitFor(() => expect(browseRequests).toEqual(["dc=example,dc=com", null, "dc=example,dc=com"]));
   });
 });

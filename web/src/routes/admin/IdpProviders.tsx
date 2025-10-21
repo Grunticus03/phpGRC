@@ -88,6 +88,8 @@ const DRIVER_OPTIONS: Array<{ value: IdpProviderDriver; label: string }> = [
   { value: "saml", label: "SAML" },
 ];
 
+const LDAP_ROOT_KEY = "__ldap_root__";
+
 type HoverHelpLabelProps = {
   htmlFor?: string;
   className?: string;
@@ -145,7 +147,8 @@ function parseLdapConnectionUri(input: string): ParsedLdapHost | null {
     return null;
   }
 
-  if (url.pathname !== "/" || url.search || url.hash) {
+  const path = url.pathname ?? "";
+  if ((path !== "" && path !== "/") || url.search || url.hash) {
     return null;
   }
 
@@ -474,23 +477,12 @@ export default function IdpProviders(): JSX.Element {
   const [ldapBrowserError, setLdapBrowserError] = useState<string | null>(null);
   const [ldapBrowserDetail, setLdapBrowserDetail] = useState<Record<string, unknown> | null>(null);
   const [ldapBrowserDiagnostics, setLdapBrowserDiagnostics] = useState<Record<string, unknown> | null>(null);
-  const [ldapBrowserEntries, setLdapBrowserEntries] = useState<LdapBrowseEntry[]>([]);
   const [ldapBrowserPath, setLdapBrowserPath] = useState<string[]>([]);
   const [ldapBrowserBaseDn, setLdapBrowserBaseDn] = useState<string | null>(null);
-  const ldapDiagnosticsBlock = useMemo(() => {
-    if (!ldapBrowserDiagnostics) {
-      return null;
-    }
-
-    return (
-      <div className="alert alert-info mt-3 mb-0" role="status">
-        <div className="fw-semibold mb-1">LDAP diagnostics</div>
-        <pre className="mb-0 bg-body-secondary border rounded p-2 small overflow-auto">
-          {JSON.stringify(ldapBrowserDiagnostics, null, 2)}
-        </pre>
-      </div>
-    );
-  }, [ldapBrowserDiagnostics]);
+  const [ldapBrowserTree, setLdapBrowserTree] = useState<Record<string, LdapBrowseEntry[]>>({});
+  const [ldapBrowserExpanded, setLdapBrowserExpanded] = useState<Record<string, boolean>>({});
+  const [ldapBrowserDetailOpen, setLdapBrowserDetailOpen] = useState(false);
+  const [ldapBrowserDiagnosticsOpen, setLdapBrowserDiagnosticsOpen] = useState(false);
   const normalizedTestStatus = typeof testResult?.status === "string" ? testResult.status : null;
   const testStatusBadgeLabel = (normalizedTestStatus ?? "error").toUpperCase();
   const testCheckedAtLabel = useMemo(() => {
@@ -683,12 +675,15 @@ export default function IdpProviders(): JSX.Element {
     setFormErrors({ fields: {} });
     setMetadataLoading({ entra: false, ldap: false, oidc: false, saml: false });
     setAdvancedOpen(false);
-    setLdapBrowserEntries([]);
+    setLdapBrowserTree({});
+    setLdapBrowserExpanded({});
     setLdapBrowserPath([]);
     setLdapBrowserBaseDn(null);
     setLdapBrowserError(null);
     setLdapBrowserDetail(null);
     setLdapBrowserDiagnostics(null);
+    setLdapBrowserDetailOpen(false);
+    setLdapBrowserDiagnosticsOpen(false);
   }, [clearTestFeedback]);
 
   const openCreateModal = useCallback(() => {
@@ -1389,14 +1384,8 @@ export default function IdpProviders(): JSX.Element {
         ...prev,
         ldap: {
           ...prev.ldap,
-          host: prev.ldap.host || defaultHost,
           port: prev.ldap.port || defaultPort,
-          baseDn: prev.ldap.baseDn || "dc=example,dc=com",
           bindStrategy: "service",
-          bindDn:
-            preset === "ad"
-              ? "CN=Service Account,OU=Users,DC=example,DC=com"
-              : prev.ldap.bindDn || "cn=service,dc=example,dc=com",
           userFilter:
             preset === "ad"
               ? "(&(objectClass=user)(sAMAccountName={{username}}))"
@@ -1407,7 +1396,7 @@ export default function IdpProviders(): JSX.Element {
           photoAttribute: preset === "ad" ? "thumbnailPhoto" : prev.ldap.photoAttribute,
           useSsl: defaultUseSsl,
           startTls: false,
-          requireTls: preset === "ad",
+          requireTls: prev.ldap.requireTls,
         },
       }));
     },
@@ -1419,7 +1408,8 @@ export default function IdpProviders(): JSX.Element {
       const { valid, payload } = validateForm(form, { skipIdentityFields: true });
       if (!valid || !payload || payload.driver !== "ldap") {
         setLdapBrowserError("Provide a valid LDAP configuration before browsing.");
-        setLdapBrowserEntries([]);
+        setLdapBrowserTree({});
+        setLdapBrowserExpanded({});
         setLdapBrowserDetail({
           issue: "invalid_configuration",
           requestedBaseDn: targetBaseDn,
@@ -1443,7 +1433,10 @@ export default function IdpProviders(): JSX.Element {
 
         const entries = Array.isArray(response.entries) ? response.entries : [];
         const resolvedBaseDn = response.base_dn ?? targetBaseDn ?? null;
-        const diagnostics = (response.diagnostics && typeof response.diagnostics === "object") ? response.diagnostics : null;
+        const diagnostics =
+          response.diagnostics && typeof response.diagnostics === "object" ? response.diagnostics : null;
+        const trimmedTarget = targetBaseDn?.trim() ?? "";
+        const treeKey = trimmedTarget !== "" ? trimmedTarget : LDAP_ROOT_KEY;
         const summary: Record<string, unknown> = {
           requestedBaseDn: response.requested_base_dn ?? targetBaseDn,
           effectiveBaseDn: resolvedBaseDn,
@@ -1454,15 +1447,32 @@ export default function IdpProviders(): JSX.Element {
           ...(diagnostics ? { diagnostics } : {}),
         };
 
-        setLdapBrowserEntries(entries);
+        setLdapBrowserTree((prev) => ({ ...prev, [treeKey]: entries }));
         setLdapBrowserBaseDn(resolvedBaseDn);
         setLdapBrowserPath(nextPath);
         setLdapBrowserDetail(summary);
         setLdapBrowserDiagnostics(diagnostics ?? null);
+        setLdapBrowserExpanded((prev) => {
+          const next = { ...prev };
+          next[treeKey] = true;
+          nextPath.forEach((dn) => {
+            if (dn) {
+              next[dn] = true;
+            }
+          });
+          if (!next[LDAP_ROOT_KEY]) {
+            next[LDAP_ROOT_KEY] = true;
+          }
+          return next;
+        });
+        setLdapBrowserDetailOpen(false);
+        setLdapBrowserDiagnosticsOpen(false);
 
         if (entries.length === 0) {
           if (response.root) {
-            setLdapBrowserError("The server did not return any naming contexts. Provide the Base DN manually or verify browse permissions.");
+            setLdapBrowserError(
+              "The server did not return any naming contexts. Provide the Base DN manually or verify browse permissions."
+            );
           } else {
             const targetLabel = resolvedBaseDn ? `"${resolvedBaseDn}"` : "the directory root";
             setLdapBrowserError(`No entries were returned for ${targetLabel}. Confirm the Base DN and account permissions.`);
@@ -1497,7 +1507,6 @@ export default function IdpProviders(): JSX.Element {
           });
           setLdapBrowserDiagnostics({ detail: message });
         }
-        setLdapBrowserEntries([]);
       } finally {
         setLdapBrowserBusy(false);
       }
@@ -1510,11 +1519,14 @@ export default function IdpProviders(): JSX.Element {
     const initialBaseDn = configuredBase !== "" ? configuredBase : null;
 
     setLdapBrowserError(null);
-    setLdapBrowserEntries([]);
+    setLdapBrowserTree({});
+    setLdapBrowserExpanded({});
     setLdapBrowserPath(initialBaseDn ? [initialBaseDn] : []);
     setLdapBrowserBaseDn(initialBaseDn);
     setLdapBrowserDetail(null);
     setLdapBrowserDiagnostics(null);
+    setLdapBrowserDetailOpen(false);
+    setLdapBrowserDiagnosticsOpen(false);
     setLdapBrowserOpen(true);
     void loadLdapDirectory(initialBaseDn, initialBaseDn ? [initialBaseDn] : []);
   }, [form.ldap.baseDn, loadLdapDirectory]);
@@ -1538,11 +1550,25 @@ export default function IdpProviders(): JSX.Element {
     [ldapBrowserPath, loadLdapDirectory]
   );
 
-  const handleLdapOpenChild = useCallback(
-    (entry: LdapBrowseEntry) => {
-      void loadLdapDirectory(entry.dn, [...ldapBrowserPath, entry.dn]);
+  const handleLdapToggleNode = useCallback(
+    (entry: LdapBrowseEntry, parentPath: string[]) => {
+      if (ldapBrowserBusy) {
+        return;
+      }
+
+      if (ldapBrowserExpanded[entry.dn]) {
+        setLdapBrowserExpanded((prev) => {
+          const next = { ...prev };
+          delete next[entry.dn];
+          return next;
+        });
+        return;
+      }
+
+      const nextPath = [...parentPath, entry.dn];
+      void loadLdapDirectory(entry.dn, nextPath);
     },
-    [ldapBrowserPath, loadLdapDirectory]
+    [ldapBrowserBusy, ldapBrowserExpanded, loadLdapDirectory]
   );
 
   const handleLdapUseBaseDn = useCallback(
@@ -1554,7 +1580,7 @@ export default function IdpProviders(): JSX.Element {
           baseDn: dn,
         },
       }));
-      setLdapBrowserOpen(false);
+      setLdapBrowserBaseDn(dn);
     },
     [applyFormUpdate]
   );
@@ -1622,6 +1648,107 @@ export default function IdpProviders(): JSX.Element {
     },
     [applyFormUpdate]
   );
+
+  const resolveLeafIcon = (type: string): string => {
+    const normalized = typeof type === "string" ? type.toLowerCase() : "";
+    if (normalized === "person") {
+      return "person";
+    }
+    if (normalized === "group") {
+      return "people";
+    }
+    if (normalized === "computer") {
+      return "laptop";
+    }
+    return "file-earmark";
+  };
+
+  const getRootEntries = (): LdapBrowseEntry[] => {
+    const root = ldapBrowserTree[LDAP_ROOT_KEY];
+    if (Array.isArray(root) && root.length > 0) {
+      return root;
+    }
+    if (ldapBrowserBaseDn) {
+      const baseEntries = ldapBrowserTree[ldapBrowserBaseDn];
+      if (Array.isArray(baseEntries) && baseEntries.length > 0) {
+        return baseEntries;
+      }
+    }
+    return [];
+  };
+
+  const renderLdapTree = (entries: LdapBrowseEntry[], parentPath: string[] = []): JSX.Element | null => {
+    if (!entries || entries.length === 0) {
+      return null;
+    }
+
+    const selectedBaseDn = form.ldap.baseDn.trim();
+
+    return (
+      <ul className="list-unstyled mb-0">
+        {entries.map((entry) => {
+          const hasChildren = entry.has_children;
+          const expanded = hasChildren ? Boolean(ldapBrowserExpanded[entry.dn]) : false;
+          const childEntries = hasChildren ? ldapBrowserTree[entry.dn] ?? [] : [];
+          const entryPath = parentPath;
+          const selected = selectedBaseDn !== "" && selectedBaseDn === entry.dn;
+          const leafIcon = resolveLeafIcon(entry.type);
+
+          return (
+            <li key={entry.dn} className="mb-2">
+              <div className="d-flex align-items-center gap-2">
+                {hasChildren ? (
+                  <button
+                    type="button"
+                    className="btn btn-link btn-sm p-0 d-flex align-items-center"
+                    onClick={() => handleLdapToggleNode(entry, entryPath)}
+                    aria-expanded={expanded}
+                    aria-label={`${expanded ? "Collapse" : "Expand"} ${entry.name}`}
+                  >
+                    <i className={`bi bi-${expanded ? "folder-minus" : "folder-plus"}`} aria-hidden="true" />
+                  </button>
+                ) : (
+                  <span className="text-muted d-inline-flex align-items-center">
+                    <i className={`bi bi-${leafIcon}`} aria-hidden="true" />
+                  </span>
+                )}
+                <button
+                  type="button"
+                  className={`btn btn-link btn-sm text-start flex-grow-1 p-0${selected ? " fw-semibold" : ""}`}
+                  onClick={() => handleLdapUseBaseDn(entry.dn)}
+                  disabled={ldapBrowserBusy}
+                >
+                  <span className="d-inline-flex align-items-center gap-2">
+                    {selected ? <i className="bi bi-forward-fill text-success" aria-hidden="true" /> : null}
+                    <span>{entry.name}</span>
+                  </span>
+                </button>
+                {entry.type === "person" ? (
+                  <button
+                    type="button"
+                    className="btn btn-outline-secondary btn-sm"
+                    onClick={() => handleLdapUseFilter(entry)}
+                    disabled={ldapBrowserBusy}
+                  >
+                    Use for filter
+                  </button>
+                ) : null}
+              </div>
+              <div className="ps-4 ms-2 text-muted small">
+                <div>{entry.dn}</div>
+                <div className="text-uppercase">{entry.type}</div>
+              </div>
+              {hasChildren && expanded ? (
+                <div className="ps-4 ms-2 border-start border-2">
+                  {renderLdapTree(childEntries, [...parentPath, entry.dn])}
+                </div>
+              ) : null}
+            </li>
+          );
+        })}
+      </ul>
+    );
+  };
 
   const renderOidcLikeFields = (driver: "oidc" | "entra"): JSX.Element => {
     const state = driver === "oidc" ? form.oidc : form.entra;
@@ -2069,10 +2196,7 @@ export default function IdpProviders(): JSX.Element {
 
     return (
       <div>
-        <h2 className="h6 mb-2">LDAP configuration</h2>
-        <p className="text-muted small mb-3">
-          Define how we connect, bind, and map attributes from your directory server.
-        </p>
+        <h2 className="h6 mb-3">LDAP configuration</h2>
         <div className="d-flex flex-wrap align-items-center gap-2 mb-3">
           <div className="btn-group" role="group" aria-label="LDAP presets">
             <button
@@ -2089,7 +2213,7 @@ export default function IdpProviders(): JSX.Element {
               onClick={() => applyLdapPreset("generic")}
               disabled={createBusy}
             >
-              Generic LDAP
+              LDAP
             </button>
           </div>
         </div>
@@ -2098,10 +2222,10 @@ export default function IdpProviders(): JSX.Element {
             <HoverHelpLabel
               htmlFor="ldap-host"
               className="form-label"
-              helpText="Include ldap:// or ldaps:// to control secure transport automatically."
+              helpText="Use ldaps:// to enable LDAPS"
               helpId="ldap-host-help"
             >
-              Server host
+              Server
             </HoverHelpLabel>
             <input
               id="ldap-host"
@@ -2121,7 +2245,7 @@ export default function IdpProviders(): JSX.Element {
             <HoverHelpLabel
               htmlFor="ldap-port"
               className="form-label"
-              helpText="Optional. Defaults to 389 or 636 based on the host URI."
+              helpText="default 389 on ldap:// - 636 on ldaps://"
               helpId="ldap-port-help"
             >
               Port
@@ -2147,10 +2271,10 @@ export default function IdpProviders(): JSX.Element {
             <HoverHelpLabel
               htmlFor="ldap-timeout"
               className="form-label"
-              helpText="Optional network timeout in seconds."
+              helpText="Connection timeout, in seconds"
               helpId="ldap-timeout-help"
             >
-              Timeout (s)
+              Timeout
             </HoverHelpLabel>
             <input
               id="ldap-timeout"
@@ -2513,6 +2637,14 @@ export default function IdpProviders(): JSX.Element {
     return null;
   };
 
+  const rootEntries = getRootEntries();
+  const hasRootEntries = rootEntries.length > 0;
+  const showTreeEmptyState = !ldapBrowserBusy && !ldapBrowserError && !hasRootEntries;
+  const emptyTreeMessage = ldapBrowserBaseDn
+    ? `No entries returned for "${ldapBrowserBaseDn}".`
+    : "No naming contexts returned. Provide the Base DN manually.";
+  const showAccordions = Boolean(ldapBrowserDetail || ldapBrowserDiagnostics);
+
   return (
     <section className="container py-3">
       <header className="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3 mb-4">
@@ -2838,7 +2970,7 @@ export default function IdpProviders(): JSX.Element {
                     Testing...
                   </>
                 ) : (
-                  "Test configuration"
+                  "Test"
                 )}
               </button>
               {form.driver === "ldap" ? (
@@ -2854,7 +2986,7 @@ export default function IdpProviders(): JSX.Element {
                       Loading...
                     </>
                   ) : (
-                    "Browse directory"
+                    "Browse"
                   )}
                 </button>
               ) : null}
@@ -2917,17 +3049,17 @@ export default function IdpProviders(): JSX.Element {
               >
                 Advanced
               </button>
-              {!advancedOpen ? <span className="text-muted small">Optional JSON configuration</span> : null}
             </div>
             {advancedOpen ? (
               <div id="idp-meta-panel" className="mt-3">
+                <p className="text-muted small mb-2">Optional JSON configuration</p>
                 <HoverHelpLabel
                   htmlFor="idp-meta"
                   className="form-label"
                   helpText="Optional structured notes for automation or UI hints."
                   helpId="idp-meta-help"
                 >
-                  Advanced
+                  Optional JSON configuration
                 </HoverHelpLabel>
                 <textarea
                   id="idp-meta"
@@ -2949,7 +3081,7 @@ export default function IdpProviders(): JSX.Element {
 
       <ConfirmModal
         open={ldapBrowserOpen}
-        title="Browse LDAP Directory"
+        title="LDAP Browser"
         onCancel={closeLdapBrowser}
         onConfirm={closeLdapBrowser}
         confirmLabel="Close"
@@ -2960,10 +3092,6 @@ export default function IdpProviders(): JSX.Element {
         dialogClassName="modal-dialog modal-dialog-centered modal-lg"
         bodyClassName="modal-body pt-0"
       >
-        <p className="text-muted small mb-3">
-          Drill into the directory to select a Base DN or to sample entries for your search filter. Directory browsing requires a
-          service bind account.
-        </p>
         <div className="d-flex flex-wrap align-items-center gap-2 mb-3">
           <span className="fw-semibold small text-uppercase text-muted">Path:</span>
           <button
@@ -2997,71 +3125,75 @@ export default function IdpProviders(): JSX.Element {
               </pre>
             ) : null}
           </div>
-        ) : ldapBrowserDetail ? (
-          <div className="alert alert-secondary" role="status">
-            <div className="fw-semibold mb-1">Last directory response</div>
-            <pre className="mb-0 bg-body-secondary border rounded p-2 small overflow-auto">
-              {JSON.stringify(ldapBrowserDetail, null, 2)}
-            </pre>
-          </div>
         ) : null}
-        {ldapDiagnosticsBlock}
         {ldapBrowserBusy ? (
-          <div className="d-flex justify-content-center py-4" role="status" aria-live="polite">
+          <div className="d-flex justify-content-center py-3" role="status" aria-live="polite">
             <div className="spinner-border text-primary" role="presentation" aria-hidden="true" />
             <span className="visually-hidden">Browsing directory...</span>
           </div>
-        ) : !ldapBrowserError && ldapBrowserEntries.length === 0 ? (
-          <p className="text-muted mb-0">
-            {ldapBrowserBaseDn
-              ? `No entries returned for "${ldapBrowserBaseDn}".`
-              : "No naming contexts returned. Provide the Base DN manually."}
-          </p>
-        ) : (
-          <div className="list-group">
-            {ldapBrowserEntries.map((entry) => (
-              <div key={entry.dn} className="list-group-item">
-                <div className="d-flex flex-column flex-lg-row justify-content-between gap-2">
-                  <div>
-                    <div className="fw-semibold">{entry.name}</div>
-                    <div className="text-muted small">{entry.dn}</div>
-                    <div className="text-muted small text-uppercase">{entry.type}</div>
-                  </div>
-                  <div className="d-flex flex-wrap gap-2">
-                    {entry.has_children ? (
-                      <button
-                        type="button"
-                        className="btn btn-outline-primary btn-sm"
-                        onClick={() => handleLdapOpenChild(entry)}
-                        disabled={ldapBrowserBusy}
-                      >
-                        Open
-                      </button>
-                    ) : null}
-                    <button
-                      type="button"
-                      className="btn btn-outline-success btn-sm"
-                      onClick={() => handleLdapUseBaseDn(entry.dn)}
-                      disabled={ldapBrowserBusy}
-                    >
-                      Set as Base DN
-                    </button>
-                    {entry.type === "person" ? (
-                      <button
-                        type="button"
-                        className="btn btn-outline-secondary btn-sm"
-                        onClick={() => handleLdapUseFilter(entry)}
-                        disabled={ldapBrowserBusy}
-                      >
-                        Use for filter
-                      </button>
-                    ) : null}
+        ) : null}
+        {!ldapBrowserError && hasRootEntries ? (
+          <div className="border rounded p-3 bg-body-tertiary">
+            {renderLdapTree(rootEntries)}
+          </div>
+        ) : null}
+        {showTreeEmptyState ? <p className="text-muted mb-0">{emptyTreeMessage}</p> : null}
+        {showAccordions ? (
+          <div className="accordion mt-4" id="ldap-browser-info">
+            {ldapBrowserDetail ? (
+              <div className="accordion-item">
+                <h2 className="accordion-header" id="ldap-browser-detail-heading">
+                  <button
+                    className={`accordion-button${ldapBrowserDetailOpen ? "" : " collapsed"}`}
+                    type="button"
+                    onClick={() => setLdapBrowserDetailOpen((prev) => !prev)}
+                    aria-expanded={ldapBrowserDetailOpen}
+                    aria-controls="ldap-browser-detail"
+                  >
+                    Last Directory Response
+                  </button>
+                </h2>
+                <div
+                  id="ldap-browser-detail"
+                  className={`accordion-collapse collapse${ldapBrowserDetailOpen ? " show" : ""}`}
+                  aria-labelledby="ldap-browser-detail-heading"
+                >
+                  <div className="accordion-body">
+                    <pre className="mb-0 bg-body-secondary border rounded p-2 small overflow-auto">
+                      {JSON.stringify(ldapBrowserDetail, null, 2)}
+                    </pre>
                   </div>
                 </div>
               </div>
-            ))}
+            ) : null}
+            {ldapBrowserDiagnostics ? (
+              <div className="accordion-item mt-2">
+                <h2 className="accordion-header" id="ldap-browser-diagnostics-heading">
+                  <button
+                    className={`accordion-button${ldapBrowserDiagnosticsOpen ? "" : " collapsed"}`}
+                    type="button"
+                    onClick={() => setLdapBrowserDiagnosticsOpen((prev) => !prev)}
+                    aria-expanded={ldapBrowserDiagnosticsOpen}
+                    aria-controls="ldap-browser-diagnostics"
+                  >
+                    LDAP Diagnostics
+                  </button>
+                </h2>
+                <div
+                  id="ldap-browser-diagnostics"
+                  className={`accordion-collapse collapse${ldapBrowserDiagnosticsOpen ? " show" : ""}`}
+                  aria-labelledby="ldap-browser-diagnostics-heading"
+                >
+                  <div className="accordion-body">
+                    <pre className="mb-0 bg-body-secondary border rounded p-2 small overflow-auto">
+                      {JSON.stringify(ldapBrowserDiagnostics, null, 2)}
+                    </pre>
+                  </div>
+                </div>
+              </div>
+            ) : null}
           </div>
-        )}
+        ) : null}
       </ConfirmModal>
     </section>
   );
