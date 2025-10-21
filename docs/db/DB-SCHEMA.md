@@ -275,10 +275,7 @@ Snapshot generated from migrations against **phpgrc_test** as of 2026-02-15 (UTC
 **Indexes & Constraints**
 - `PRIMARY KEY (policy)`
 
-**Default Entries**
-- `ui.theme.view` → “View theme settings”
-- `ui.theme.manage` → “Manage theme settings”
-- `ui.theme.pack.manage` → “Manage theme packs”
+<!-- Seeded defaults recorded in migration 2025_10_20_000510_add_theme_policy_roles.php. -->
 
 ---
 
