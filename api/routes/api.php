@@ -132,13 +132,6 @@ Route::get('/health/fingerprint', function (SettingsService $settings) {
 */
 Route::get('/openapi.yaml', [OpenApiController::class, 'yaml']);
 Route::get('/openapi.json', [OpenApiController::class, 'json']);
-Route::get('/docs', function () {
-    $html = <<<'HTML'
-<!doctype html><html lang="en"><head><meta charset="utf-8"><title>phpGRC API</title><meta name="viewport" content="width=device-width,initial-scale=1"><style>html,body,redoc{height:100%}body{margin:0}</style></head><body><redoc spec-url="/openapi.json"></redoc><script src="https://cdn.redoc.ly/redoc/latest/bundles/redoc.standalone.js"></script></body></html>
-HTML;
-
-    return response($html, 200, ['Content-Type' => 'text/html; charset=UTF-8']);
-});
 
 /*
  |--------------------------------------------------------------------------

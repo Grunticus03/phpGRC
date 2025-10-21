@@ -57,6 +57,7 @@ import {
 } from "../routes/admin/themeData";
 import { ToastProvider } from "../components/toast/ToastProvider";
 import { persistThemeModePreference } from "./persistThemeModePreference";
+import { API_DOCS_URL } from "../lib/externalLinks";
 
 type Fingerprint = {
   summary?: { rbac?: { require_auth?: boolean } };
@@ -122,7 +123,7 @@ const ADMIN_NAV_ITEMS: readonly AdminNavItem[] = [
   { id: "admin.idp", label: "Identity Providers", to: "/admin/idp/providers" },
   { id: "admin.users", label: "Users", to: "/admin/users" },
   { id: "admin.audit", label: "Audit Logs", to: "/admin/audit" },
-  { id: "admin.api-docs", label: "API Docs", href: "/api-docs/" },
+  { id: "admin.api-docs", label: "API Docs", href: API_DOCS_URL },
 ];
 
 type SidebarPrefs = {

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import { API_DOCS_URL } from "../../lib/externalLinks";
 import "./AdminTree.css";
 
 type AdminTreeNode = {
@@ -37,7 +38,7 @@ const ADMIN_TREE: AdminTreeNode[] = [
   { id: "auth-idp", label: "Identity Providers", to: "/admin/idp/providers" },
   { id: "users", label: "Users", to: "/admin/users" },
   { id: "audit", label: "Audit Logs", to: "/admin/audit" },
-  { id: "api-docs", label: "API Documentation", href: "/api-docs/" },
+  { id: "api-docs", label: "API Documentation", href: API_DOCS_URL },
 ];
 
 export default function AdminIndex(): JSX.Element {
