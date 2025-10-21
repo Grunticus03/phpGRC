@@ -32,3 +32,79 @@
   opacity: 1;
   transform: translateY(0.45rem);
 }
+
+.ldap-tree {
+  font-size: 0.875rem;
+}
+
+.ldap-tree__item {
+  position: relative;
+  padding-left: 1.5rem;
+}
+
+.ldap-tree__item::before {
+  content: "";
+  position: absolute;
+  top: 0.8rem;
+  left: 0.6rem;
+  width: 0.75rem;
+  height: 1px;
+  background-color: var(--bs-border-color);
+}
+
+.ldap-tree__row {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.25rem 0.25rem 0;
+}
+
+.ldap-tree__row.is-selected .ldap-tree__label {
+  font-weight: 600;
+  color: var(--bs-body-color);
+}
+
+.ldap-tree__toggle {
+  color: inherit;
+}
+
+.ldap-tree__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  color: var(--bs-tertiary-color);
+}
+
+.ldap-tree__label {
+  color: inherit;
+  text-decoration: none;
+}
+
+.ldap-tree__label:hover,
+.ldap-tree__label:focus-visible {
+  text-decoration: none;
+}
+
+.ldap-tree__children {
+  margin-left: 1.25rem;
+  border-left: 1px solid var(--bs-border-color);
+  padding-left: 0.75rem;
+}
+
+.idp-status-toggle {
+  cursor: pointer;
+}
+
+.idp-status-toggle:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.idp-dnd-handle {
+  cursor: grab;
+}
+
+.idp-dnd-handle:active {
+  cursor: grabbing;
+}

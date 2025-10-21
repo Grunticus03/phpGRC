@@ -134,14 +134,14 @@ describe("Admin IdP Providers page", () => {
 
     const oktaRow = screen.getByText("Okta Primary").closest("tr");
     expect(oktaRow).not.toBeNull();
-    const disableButton = within(oktaRow!).getByRole("button", { name: /disable/i });
+    const disableButton = within(oktaRow!).getByRole("button", { name: /disable okta primary/i });
     await user.click(disableButton);
 
     await waitFor(() => {
       const updatedRow = screen.getByText("Okta Primary").closest("tr");
       expect(updatedRow).not.toBeNull();
       if (updatedRow) {
-        const enableButton = within(updatedRow).getByRole("button", { name: /^enable$/i });
+        const enableButton = within(updatedRow).getByRole("button", { name: /enable okta primary/i });
         expect(enableButton).toBeInTheDocument();
       }
     });
@@ -225,8 +225,32 @@ describe("Admin IdP Providers page", () => {
     renderPage();
 
     expect(await screen.findByText("Primary")).toBeInTheDocument();
-    const moveUpButton = screen.getByRole("button", { name: /move secondary higher/i });
-    await user.click(moveUpButton);
+    const primaryRow = screen.getByText("Primary").closest("tr");
+    const secondaryRowBefore = screen.getByText("Secondary").closest("tr");
+    expect(primaryRow).not.toBeNull();
+    expect(secondaryRowBefore).not.toBeNull();
+
+    const dragHandle = within(secondaryRowBefore!).getByRole("button", { name: /drag to reorder secondary/i });
+    const dataTransfer = (() => {
+      const store: Record<string, string> = {};
+      return {
+        setData: (key: string, value: string) => {
+          store[key] = value;
+        },
+        getData: (key: string) => store[key] ?? "",
+        clearData: () => {
+          Object.keys(store).forEach((key) => delete store[key]);
+        },
+        dropEffect: "move",
+        effectAllowed: "move",
+        setDragImage: vi.fn(),
+      } as unknown as DataTransfer;
+    })();
+
+    fireEvent.dragStart(dragHandle, { dataTransfer });
+    fireEvent.dragOver(primaryRow!, { dataTransfer });
+    fireEvent.drop(primaryRow!, { dataTransfer });
+    fireEvent.dragEnd(dragHandle, { dataTransfer });
 
     await waitFor(() => {
       const rows = screen.getAllByRole("row");
@@ -238,9 +262,9 @@ describe("Admin IdP Providers page", () => {
       }
     });
 
-    const secondaryRow = screen.getByText("Secondary").closest("tr");
-    expect(secondaryRow).not.toBeNull();
-    const deleteButton = within(secondaryRow!).getByRole("button", { name: /^delete$/i });
+    const secondaryRowAfter = screen.getByText("Secondary").closest("tr");
+    expect(secondaryRowAfter).not.toBeNull();
+    const deleteButton = within(secondaryRowAfter!).getByRole("button", { name: /delete secondary/i });
     await user.click(deleteButton);
 
     const confirmDialog = await screen.findByRole("dialog");
@@ -252,6 +276,64 @@ describe("Admin IdP Providers page", () => {
     await waitFor(() => {
       expect(screen.queryByText("Secondary")).not.toBeInTheDocument();
     });
+  });
+
+  test("opens edit modal with provider details pre-filled", async () => {
+    const user = userEvent.setup();
+    const providers = [
+      {
+        id: "01JEDIT01",
+        key: "primary",
+        name: "Primary",
+        driver: "oidc",
+        enabled: true,
+        evaluation_order: 1,
+        config: {
+          issuer: "https://issuer.example/",
+          client_id: "client-id",
+          client_secret: "client-secret",
+          redirect_uris: ["https://app.example.com/callback"],
+          scopes: ["openid", "profile"],
+        },
+        meta: { region: "us" },
+        reference: 1,
+        last_health_at: null,
+        created_at: "2025-01-01T00:00:00Z",
+        updated_at: "2025-01-01T00:00:00Z",
+      },
+    ];
+
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const method = (init?.method ?? "GET").toUpperCase();
+      const url = typeof input === "string" ? input : ((input as Request).url ?? String(input));
+
+      if (method === "GET" && /\/admin\/idp\/providers$/.test(url)) {
+        return jsonResponse(200, {
+          ok: true,
+          items: providers,
+          meta: { total: providers.length, enabled: providers.filter((item) => item.enabled).length },
+        });
+      }
+
+      return jsonResponse(404);
+    }) as unknown as typeof fetch;
+
+    globalThis.fetch = fetchMock;
+    renderPage();
+
+    const editButton = await screen.findByRole("button", { name: /edit primary/i });
+    await user.click(editButton);
+
+    const editModal = await screen.findByRole("dialog", { name: /edit identity provider/i });
+    expect(within(editModal).getByDisplayValue("Primary")).toBeInTheDocument();
+    const driverSelect = within(editModal).getByLabelText(/idp type/i) as HTMLSelectElement;
+    expect(driverSelect).toHaveValue("oidc");
+    expect(driverSelect).toBeDisabled();
+
+    const clientIdInput = within(editModal).getByLabelText(/client id/i) as HTMLInputElement;
+    expect(clientIdInput.value).toBe("client-id");
+    const clientSecretInput = within(editModal).getByLabelText(/client secret/i) as HTMLInputElement;
+    expect(clientSecretInput.value).toBe("client-secret");
   });
 
   test("creates a provider through the modal form", async () => {

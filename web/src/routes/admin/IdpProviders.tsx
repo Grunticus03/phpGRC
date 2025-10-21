@@ -1,4 +1,4 @@
-import { ChangeEvent, ReactNode, useCallback, useEffect, useMemo, useState } from "react";
+import { ChangeEvent, DragEvent, ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import ConfirmModal from "../../components/modal/ConfirmModal";
 import { useToast } from "../../components/toast/ToastProvider";
 import {
@@ -79,7 +79,7 @@ type FormErrors = {
   fields: Record<string, string>;
 };
 
-type PendingAction = { type: "toggle" | "reorder" | "delete" | "create"; id: string | null };
+type PendingAction = { type: "toggle" | "reorder" | "delete" | "create" | "update"; id: string | null };
 
 const DRIVER_OPTIONS: Array<{ value: IdpProviderDriver; label: string }> = [
   { value: "entra", label: "Entra ID" },
@@ -217,6 +217,108 @@ function createDefaultFormState(): FormState {
       requireTls: false,
     },
   };
+}
+
+function isIdpProviderDriver(value: unknown): value is IdpProviderDriver {
+  return value === "oidc" || value === "saml" || value === "ldap" || value === "entra";
+}
+
+function createFormStateFromProvider(provider: IdpProvider): FormState {
+  const base = createDefaultFormState();
+  base.name = provider.name ?? "";
+  base.enabled = provider.enabled ?? true;
+  base.meta =
+    provider.meta && typeof provider.meta === "object" && Object.keys(provider.meta).length > 0
+      ? JSON.stringify(provider.meta, null, 2)
+      : "";
+
+  if (isIdpProviderDriver(provider.driver)) {
+    base.driver = provider.driver;
+  }
+
+  const config = provider.config ?? {};
+
+  if (base.driver === "oidc") {
+    const scopes =
+      Array.isArray(config.scopes) && config.scopes.every((entry) => typeof entry === "string")
+        ? (config.scopes as string[]).join(" ")
+        : typeof config.scopes === "string"
+        ? config.scopes
+        : base.oidc.scopes;
+    const redirectUris =
+      Array.isArray(config.redirect_uris) && config.redirect_uris.every((entry) => typeof entry === "string")
+        ? (config.redirect_uris as string[]).join("\n")
+        : typeof config.redirect_uris === "string"
+        ? config.redirect_uris
+        : "";
+    base.oidc = {
+      issuer: typeof config.issuer === "string" ? config.issuer : "",
+      clientId: typeof config.client_id === "string" ? config.client_id : "",
+      clientSecret: typeof config.client_secret === "string" ? config.client_secret : "",
+      scopes,
+      redirectUris,
+      metadataUrl: typeof config.metadata_url === "string" ? config.metadata_url : "",
+    };
+  } else if (base.driver === "entra") {
+    const scopes =
+      Array.isArray(config.scopes) && config.scopes.every((entry) => typeof entry === "string")
+        ? (config.scopes as string[]).join(" ")
+        : typeof config.scopes === "string"
+        ? config.scopes
+        : base.entra.scopes;
+    const redirectUris =
+      Array.isArray(config.redirect_uris) && config.redirect_uris.every((entry) => typeof entry === "string")
+        ? (config.redirect_uris as string[]).join("\n")
+        : typeof config.redirect_uris === "string"
+        ? config.redirect_uris
+        : "";
+    base.entra = {
+      issuer: typeof config.issuer === "string" ? config.issuer : "",
+      clientId: typeof config.client_id === "string" ? config.client_id : "",
+      clientSecret: typeof config.client_secret === "string" ? config.client_secret : "",
+      tenantId: typeof config.tenant_id === "string" ? config.tenant_id : "",
+      scopes,
+      redirectUris,
+      metadataUrl: typeof config.metadata_url === "string" ? config.metadata_url : "",
+    };
+  } else if (base.driver === "saml") {
+    base.saml = {
+      entityId: typeof config.entity_id === "string" ? config.entity_id : "",
+      ssoUrl: typeof config.sso_url === "string" ? config.sso_url : "",
+      certificate: typeof config.certificate === "string" ? config.certificate : "",
+      metadataUrl: typeof config.metadata_url === "string" ? config.metadata_url : "",
+      metadataFileName: null,
+    };
+  } else if (base.driver === "ldap") {
+    const host = typeof config.host === "string" ? config.host : "";
+    const useSsl = config.use_ssl === true;
+    const port =
+      typeof config.port === "number" && Number.isFinite(config.port) ? String(config.port) : "";
+    const scheme = useSsl ? "ldaps://" : "ldap://";
+    const defaultPort = useSsl ? "636" : "389";
+    const displayPort = port !== "" && port !== defaultPort ? `:${port}` : "";
+    base.ldap = {
+      host: host ? `${scheme}${host}${displayPort}` : "",
+      port: port && port !== defaultPort ? port : "",
+      baseDn: typeof config.base_dn === "string" ? config.base_dn : "",
+      bindStrategy: config.bind_strategy === "direct" ? "direct" : "service",
+      bindDn: typeof config.bind_dn === "string" ? config.bind_dn : "",
+      bindPassword: typeof config.bind_password === "string" ? config.bind_password : "",
+      userDnTemplate: typeof config.user_dn_template === "string" ? config.user_dn_template : base.ldap.userDnTemplate,
+      userFilter: typeof config.user_filter === "string" ? config.user_filter : base.ldap.userFilter,
+      timeout: typeof config.timeout === "number" && Number.isFinite(config.timeout) ? String(config.timeout) : "",
+      emailAttribute: typeof config.email_attribute === "string" ? config.email_attribute : base.ldap.emailAttribute,
+      nameAttribute: typeof config.name_attribute === "string" ? config.name_attribute : base.ldap.nameAttribute,
+      usernameAttribute:
+        typeof config.username_attribute === "string" ? config.username_attribute : base.ldap.usernameAttribute,
+      photoAttribute: typeof config.photo_attribute === "string" ? config.photo_attribute : "",
+      useSsl,
+      startTls: config.start_tls === true,
+      requireTls: config.require_tls === true,
+    };
+  }
+
+  return base;
 }
 
 function parseUrlValue(candidate: string, secureOnly = false): string | null {
@@ -449,17 +551,18 @@ function normalizeDetail(value: unknown): Record<string, unknown> | null {
 export default function IdpProviders(): JSX.Element {
   const toast = useToast();
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [providers, setProviders] = useState<IdpProvider[]>([]);
-  const [meta, setMeta] = useState<IdpProviderListMeta>({ total: 0, enabled: 0 });
+  const [, setMeta] = useState<IdpProviderListMeta>({ total: 0, enabled: 0 });
   const [stubMode, setStubMode] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState<PendingAction | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<IdpProvider | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
-  const [createOpen, setCreateOpen] = useState(false);
-  const [createBusy, setCreateBusy] = useState(false);
+  const [formOpen, setFormOpen] = useState(false);
+  const [formMode, setFormMode] = useState<"create" | "edit">("create");
+  const [formBusy, setFormBusy] = useState(false);
+  const [editingProvider, setEditingProvider] = useState<IdpProvider | null>(null);
   const [form, setForm] = useState<FormState>(() => createDefaultFormState());
   const [formErrors, setFormErrors] = useState<FormErrors>({ fields: {} });
   const [metadataLoading, setMetadataLoading] = useState<Record<IdpProviderDriver, boolean>>({
@@ -477,6 +580,7 @@ export default function IdpProviders(): JSX.Element {
   const [ldapBrowserError, setLdapBrowserError] = useState<string | null>(null);
   const [ldapBrowserDetail, setLdapBrowserDetail] = useState<Record<string, unknown> | null>(null);
   const [ldapBrowserDiagnostics, setLdapBrowserDiagnostics] = useState<Record<string, unknown> | null>(null);
+  const [draggingId, setDraggingId] = useState<string | null>(null);
   const [ldapBrowserPath, setLdapBrowserPath] = useState<string[]>([]);
   const [ldapBrowserBaseDn, setLdapBrowserBaseDn] = useState<string | null>(null);
   const [ldapBrowserTree, setLdapBrowserTree] = useState<Record<string, LdapBrowseEntry[]>>({});
@@ -547,9 +651,7 @@ export default function IdpProviders(): JSX.Element {
   const loadProviders = useCallback(
     async (options?: { silent?: boolean }) => {
       const silent = options?.silent ?? false;
-      if (silent) {
-        setRefreshing(true);
-      } else {
+      if (!silent) {
         setLoading(true);
       }
       setError(null);
@@ -561,9 +663,7 @@ export default function IdpProviders(): JSX.Element {
       } catch {
         setError("Failed to load Identity Providers. Please try again.");
       } finally {
-        if (silent) {
-          setRefreshing(false);
-        } else {
+        if (!silent) {
           setLoading(false);
         }
       }
@@ -600,15 +700,8 @@ export default function IdpProviders(): JSX.Element {
     [loadProviders, toast]
   );
 
-  const handleReorder = useCallback(
-    async (provider: IdpProvider, direction: "up" | "down") => {
-      const sorted = orderedProviders;
-      const index = sorted.findIndex((item) => providerIdentifier(item) === providerIdentifier(provider));
-      if (index < 0) return;
-      const targetIndex = direction === "up" ? index - 1 : index + 1;
-      if (targetIndex < 0 || targetIndex >= sorted.length) return;
-      const targetProvider = sorted[targetIndex];
-      const newOrder = targetProvider.evaluation_order;
+  const applyEvaluationOrderChange = useCallback(
+    async (provider: IdpProvider, newOrder: number) => {
       const identifier = providerIdentifier(provider);
       setPending({ type: "reorder", id: identifier });
       try {
@@ -631,7 +724,51 @@ export default function IdpProviders(): JSX.Element {
         void loadProviders({ silent: true });
       }
     },
-    [loadProviders, orderedProviders, toast]
+    [loadProviders, toast]
+  );
+
+  const handleReorderDrop = useCallback(
+    async (sourceId: string, targetId: string) => {
+      const sorted = orderedProviders;
+      const sourceIndex = sorted.findIndex((item) => providerIdentifier(item) === sourceId);
+      const targetIndex = sorted.findIndex((item) => providerIdentifier(item) === targetId);
+      if (sourceIndex < 0 || targetIndex < 0 || sourceIndex === targetIndex) return;
+      const provider = sorted[sourceIndex];
+      const reference = sorted[targetIndex];
+      await applyEvaluationOrderChange(provider, reference.evaluation_order);
+    },
+    [applyEvaluationOrderChange, orderedProviders]
+  );
+
+  const handleRowDragStart = useCallback(
+    (event: DragEvent<HTMLElement>, provider: IdpProvider) => {
+      const identifier = providerIdentifier(provider);
+      setDraggingId(identifier);
+      event.dataTransfer.effectAllowed = "move";
+      event.dataTransfer.setData("text/plain", identifier);
+    },
+    []
+  );
+
+  const handleRowDragOver = useCallback((event: DragEvent<HTMLElement>) => {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+  }, []);
+
+  const handleRowDragEnd = useCallback(() => {
+    setDraggingId(null);
+  }, []);
+
+  const handleRowDrop = useCallback(
+    (event: DragEvent<HTMLElement>, target: IdpProvider) => {
+      event.preventDefault();
+      const targetId = providerIdentifier(target);
+      const sourceId = event.dataTransfer.getData("text/plain") || draggingId;
+      setDraggingId(null);
+      if (!sourceId || sourceId === targetId) return;
+      void handleReorderDrop(sourceId, targetId);
+    },
+    [draggingId, handleReorderDrop]
   );
 
   const openDeleteModal = useCallback((provider: IdpProvider) => {
@@ -675,6 +812,8 @@ export default function IdpProviders(): JSX.Element {
     setFormErrors({ fields: {} });
     setMetadataLoading({ entra: false, ldap: false, oidc: false, saml: false });
     setAdvancedOpen(false);
+    setFormMode("create");
+    setEditingProvider(null);
     setLdapBrowserTree({});
     setLdapBrowserExpanded({});
     setLdapBrowserPath([]);
@@ -688,21 +827,38 @@ export default function IdpProviders(): JSX.Element {
 
   const openCreateModal = useCallback(() => {
     resetForm();
-    setCreateOpen(true);
+    setFormMode("create");
+    setFormOpen(true);
   }, [resetForm]);
 
-  const closeCreateModal = useCallback(() => {
-    if (createBusy) return;
-    setCreateOpen(false);
-  }, [createBusy]);
+  const openEditModal = useCallback(
+    (provider: IdpProvider) => {
+      resetForm();
+      const nextForm = createFormStateFromProvider(provider);
+      setForm(nextForm);
+      setFormMode("edit");
+      setEditingProvider(provider);
+      setAdvancedOpen(nextForm.meta.trim() !== "");
+      setFormOpen(true);
+    },
+    [resetForm]
+  );
+
+  const closeFormModal = useCallback(() => {
+    if (formBusy) return;
+    setFormOpen(false);
+    setEditingProvider(null);
+    setFormMode("create");
+  }, [formBusy]);
 
   const validateForm = useCallback(
     (
       state: FormState,
-      options?: { skipIdentityFields?: boolean }
+      options?: { skipIdentityFields?: boolean; editing?: boolean }
     ): { valid: boolean; payload?: IdpProviderRequestPayload } => {
       const fieldErrors: Record<string, string> = {};
       const skipIdentity = options?.skipIdentityFields ?? false;
+      const editing = options?.editing ?? false;
 
       const trimmedName = state.name.trim();
       if (!skipIdentity && trimmedName.length < 3) {
@@ -729,7 +885,7 @@ export default function IdpProviders(): JSX.Element {
         }
 
         const clientSecret = state.oidc.clientSecret.trim();
-        if (clientSecret === "") {
+        if (clientSecret === "" && !editing) {
           fieldErrors["oidc.clientSecret"] = "Client secret is required.";
         }
 
@@ -751,8 +907,10 @@ export default function IdpProviders(): JSX.Element {
           config = {
             issuer: normalizedIssuer ?? issuer,
             client_id: clientId,
-            client_secret: clientSecret,
           };
+          if (!editing || clientSecret !== "") {
+            config.client_secret = clientSecret;
+          }
           if (scopes.length > 0) {
             config.scopes = scopes;
           }
@@ -781,7 +939,7 @@ export default function IdpProviders(): JSX.Element {
         }
 
         const clientSecret = state.entra.clientSecret.trim();
-        if (clientSecret === "") {
+        if (clientSecret === "" && !editing) {
           fieldErrors["entra.clientSecret"] = "Client secret is required.";
         }
 
@@ -803,8 +961,10 @@ export default function IdpProviders(): JSX.Element {
           config = {
             tenant_id: tenantId,
             client_id: clientId,
-            client_secret: clientSecret,
           };
+          if (!editing || clientSecret !== "") {
+            config.client_secret = clientSecret;
+          }
 
           if (normalizedIssuer) {
             config.issuer = normalizedIssuer;
@@ -879,7 +1039,7 @@ export default function IdpProviders(): JSX.Element {
           if (bindDn === "") {
             fieldErrors["ldap.bindDn"] = "Bind DN is required when using a service account.";
           }
-          if (bindPassword === "") {
+          if (bindPassword === "" && !editing) {
             fieldErrors["ldap.bindPassword"] = "Bind password is required when using a service account.";
           }
         } else if (bindStrategy === "direct") {
@@ -952,7 +1112,9 @@ export default function IdpProviders(): JSX.Element {
 
           if (bindStrategy === "service") {
             config.bind_dn = bindDn;
-            config.bind_password = bindPassword;
+            if (!editing || bindPassword !== "") {
+              config.bind_password = bindPassword;
+            }
           } else {
             config.user_dn_template = userDnTemplate;
           }
@@ -999,37 +1161,87 @@ export default function IdpProviders(): JSX.Element {
     []
   );
 
-  const submitCreate = useCallback(async () => {
-    const { valid, payload } = validateForm(form);
+  const handleFormSubmit = useCallback(async () => {
+    const { valid, payload } = validateForm(form, { editing: formMode === "edit" });
     if (!valid || !payload) return;
-    setCreateBusy(true);
-    setPending({ type: "create", id: null });
-    try {
-      const res = await createIdpProvider(payload);
-      if (isStubResponse(res)) {
-        toast.info("Creation accepted in stub-only mode; persistence disabled.");
-      } else {
-        toast.success(`Created provider ${res.provider.name}.`);
-        setProviders((prev) => sortByEvaluationOrder([...prev, res.provider]));
+
+    if (formMode === "create") {
+      setFormBusy(true);
+      setPending({ type: "create", id: null });
+      try {
+        const res = await createIdpProvider(payload);
+        if (isStubResponse(res)) {
+          toast.info("Creation accepted in stub-only mode; persistence disabled.");
+        } else {
+          toast.success(`Created provider ${res.provider.name}.`);
+          setProviders((prev) => sortByEvaluationOrder([...prev, res.provider]));
+        }
+        setFormOpen(false);
+        resetForm();
+        void loadProviders({ silent: true });
+      } catch (error) {
+        if (error instanceof HttpError) {
+          const { message, fieldErrors } = parseHttpError(
+            error,
+            "Failed to create provider. Check inputs and try again."
+          );
+          setFormErrors({ general: message, fields: fieldErrors });
+        } else {
+          setFormErrors({ general: "Failed to create provider. Check inputs and try again.", fields: {} });
+        }
+      } finally {
+        setPending(null);
+        setFormBusy(false);
       }
-      setCreateOpen(false);
+      return;
+    }
+
+    if (!editingProvider) {
+      return;
+    }
+
+    const identifier = providerIdentifier(editingProvider);
+    const updatePayload: IdpProviderUpdatePayload = {
+      name: payload.name,
+      driver: payload.driver,
+      enabled: payload.enabled,
+      config: payload.config,
+      meta: payload.meta ?? null,
+    };
+
+    setFormBusy(true);
+    setPending({ type: "update", id: identifier });
+    try {
+      const res = await updateIdpProvider(identifier, updatePayload);
+      if (isStubResponse(res)) {
+        toast.info("Update accepted in stub-only mode; persistence disabled.");
+      } else if ("provider" in res) {
+        toast.success(`Updated provider ${res.provider.name}.`);
+        setProviders((prev) => {
+          const updated = prev.map((item) => (providerIdentifier(item) === identifier ? res.provider : item));
+          return sortByEvaluationOrder(updated);
+        });
+      }
+      setFormOpen(false);
       resetForm();
       void loadProviders({ silent: true });
     } catch (error) {
       if (error instanceof HttpError) {
         const { message, fieldErrors } = parseHttpError(
           error,
-          "Failed to create provider. Check inputs and try again."
+          "Failed to update provider. Check inputs and try again."
         );
         setFormErrors({ general: message, fields: fieldErrors });
       } else {
-        setFormErrors({ general: "Failed to create provider. Check inputs and try again.", fields: {} });
+        setFormErrors({ general: "Failed to update provider. Check inputs and try again.", fields: {} });
       }
     } finally {
       setPending(null);
-      setCreateBusy(false);
+      setFormBusy(false);
+      setEditingProvider(null);
+      setFormMode("create");
     }
-  }, [form, loadProviders, resetForm, toast, validateForm]);
+  }, [editingProvider, form, formMode, loadProviders, resetForm, toast, validateForm]);
 
   const disabledIds = useMemo(() => {
     if (!pending) return new Set<string>();
@@ -1585,33 +1797,6 @@ export default function IdpProviders(): JSX.Element {
     [applyFormUpdate]
   );
 
-  const handleLdapUseFilter = useCallback(
-    (entry: LdapBrowseEntry) => {
-      const parts = entry.rdn.split("=", 2);
-      if (parts.length !== 2) {
-        applyFormUpdate((prev) => ({
-          ...prev,
-          ldap: {
-            ...prev.ldap,
-            userFilter: prev.ldap.userFilter,
-          },
-        }));
-        return;
-      }
-
-      const attribute = parts[0].trim().toLowerCase();
-      applyFormUpdate((prev) => ({
-        ...prev,
-        ldap: {
-          ...prev.ldap,
-          userFilter: `(&(objectClass=person)(${attribute}={{username}}))`,
-        },
-      }));
-      setLdapBrowserOpen(false);
-    },
-    [applyFormUpdate]
-  );
-
   const handleLdapHostChange = useCallback(
     (event: ChangeEvent<HTMLInputElement>) => {
       const value = event.target.value;
@@ -1685,61 +1870,46 @@ export default function IdpProviders(): JSX.Element {
     const selectedBaseDn = form.ldap.baseDn.trim();
 
     return (
-      <ul className="list-unstyled mb-0">
+      <ul className="list-unstyled mb-0 ldap-tree">
         {entries.map((entry) => {
           const hasChildren = entry.has_children;
           const expanded = hasChildren ? Boolean(ldapBrowserExpanded[entry.dn]) : false;
           const childEntries = hasChildren ? ldapBrowserTree[entry.dn] ?? [] : [];
-          const entryPath = parentPath;
           const selected = selectedBaseDn !== "" && selectedBaseDn === entry.dn;
           const leafIcon = resolveLeafIcon(entry.type);
 
           return (
-            <li key={entry.dn} className="mb-2">
-              <div className="d-flex align-items-center gap-2">
+            <li key={entry.dn} className="ldap-tree__item">
+              <div className={`ldap-tree__row${selected ? " is-selected" : ""}`}>
                 {hasChildren ? (
                   <button
                     type="button"
-                    className="btn btn-link btn-sm p-0 d-flex align-items-center"
-                    onClick={() => handleLdapToggleNode(entry, entryPath)}
+                    className="btn btn-link btn-sm p-0 d-flex align-items-center ldap-tree__toggle"
+                    onClick={() => handleLdapToggleNode(entry, parentPath)}
                     aria-expanded={expanded}
                     aria-label={`${expanded ? "Collapse" : "Expand"} ${entry.name}`}
                   >
                     <i className={`bi bi-${expanded ? "folder-minus" : "folder-plus"}`} aria-hidden="true" />
                   </button>
                 ) : (
-                  <span className="text-muted d-inline-flex align-items-center">
+                  <span className="ldap-tree__icon">
                     <i className={`bi bi-${leafIcon}`} aria-hidden="true" />
                   </span>
                 )}
                 <button
                   type="button"
-                  className={`btn btn-link btn-sm text-start flex-grow-1 p-0${selected ? " fw-semibold" : ""}`}
+                  className="btn btn-link btn-sm text-start flex-grow-1 p-0 ldap-tree__label"
                   onClick={() => handleLdapUseBaseDn(entry.dn)}
                   disabled={ldapBrowserBusy}
                 >
-                  <span className="d-inline-flex align-items-center gap-2">
+                  <span className="d-inline-flex align-items-center gap-2 position-relative">
                     {selected ? <i className="bi bi-forward-fill text-success" aria-hidden="true" /> : null}
-                    <span>{entry.name}</span>
+                    <span className="text-truncate">{entry.name}</span>
                   </span>
                 </button>
-                {entry.type === "person" ? (
-                  <button
-                    type="button"
-                    className="btn btn-outline-secondary btn-sm"
-                    onClick={() => handleLdapUseFilter(entry)}
-                    disabled={ldapBrowserBusy}
-                  >
-                    Use for filter
-                  </button>
-                ) : null}
-              </div>
-              <div className="ps-4 ms-2 text-muted small">
-                <div>{entry.dn}</div>
-                <div className="text-uppercase">{entry.type}</div>
               </div>
               {hasChildren && expanded ? (
-                <div className="ps-4 ms-2 border-start border-2">
+                <div className="ldap-tree__children">
                   {renderLdapTree(childEntries, [...parentPath, entry.dn])}
                 </div>
               ) : null}
@@ -1788,7 +1958,7 @@ export default function IdpProviders(): JSX.Element {
                     : { ...prev, entra: { ...prev.entra, issuer: event.target.value } }
                 )
               }
-              disabled={createBusy}
+              disabled={formBusy}
               placeholder={
                 driver === "entra"
                   ? "https://login.microsoftonline.com/<tenant>/v2.0"
@@ -1824,7 +1994,7 @@ export default function IdpProviders(): JSX.Element {
                     entra: { ...prev.entra, tenantId: event.target.value },
                   }))
                 }
-                disabled={createBusy}
+                disabled={formBusy}
                 placeholder="11111111-2222-3333-4444-555555555555"
                 autoComplete="off"
                 aria-describedby="entra-tenant-id-help"
@@ -1856,7 +2026,7 @@ export default function IdpProviders(): JSX.Element {
                     : { ...prev, entra: { ...prev.entra, clientId: event.target.value } }
                 )
               }
-              disabled={createBusy}
+              disabled={formBusy}
               placeholder="0oa1example123"
               autoComplete="off"
               aria-describedby={`${baseId}-client-id-help`}
@@ -1887,7 +2057,7 @@ export default function IdpProviders(): JSX.Element {
                     : { ...prev, entra: { ...prev.entra, clientSecret: event.target.value } }
                 )
               }
-              disabled={createBusy}
+              disabled={formBusy}
               placeholder="••••••••••••"
               autoComplete="off"
               aria-describedby={`${baseId}-client-secret-help`}
@@ -1918,7 +2088,7 @@ export default function IdpProviders(): JSX.Element {
                     : { ...prev, entra: { ...prev.entra, scopes: event.target.value } }
                 )
               }
-              disabled={createBusy}
+              disabled={formBusy}
               placeholder="openid profile email"
               autoComplete="off"
               aria-describedby={`${baseId}-scopes-help`}
@@ -1946,7 +2116,7 @@ export default function IdpProviders(): JSX.Element {
                     : { ...prev, entra: { ...prev.entra, redirectUris: event.target.value } }
                 )
               }
-              disabled={createBusy}
+              disabled={formBusy}
               placeholder="https://app.example.com/auth/callback"
               aria-describedby={`${baseId}-redirect-uris-help`}
             />
@@ -1978,7 +2148,7 @@ export default function IdpProviders(): JSX.Element {
                   )
                 }
                 placeholder={metadataPlaceholder}
-                disabled={createBusy || loading}
+                disabled={formBusy || loading}
                 inputMode="url"
                 autoComplete="off"
                 aria-describedby={`${baseId}-metadata-url-help`}
@@ -1987,7 +2157,7 @@ export default function IdpProviders(): JSX.Element {
                 type="button"
                 className="btn btn-outline-secondary"
                 onClick={() => void handleOidcMetadataFetch(driver)}
-                disabled={createBusy || loading}
+                disabled={formBusy || loading}
               >
                 {loading ? (
                   <>
@@ -2019,7 +2189,7 @@ export default function IdpProviders(): JSX.Element {
               className="form-control"
               accept=".json,application/json,.txt"
               onChange={(event) => handleOidcMetadataFileChange(driver, event)}
-              disabled={createBusy || loading}
+              disabled={formBusy || loading}
               aria-describedby={`${baseId}-metadata-file-help`}
             />
           </div>
@@ -2055,7 +2225,7 @@ export default function IdpProviders(): JSX.Element {
               onChange={(event) =>
                 applyFormUpdate((prev) => ({ ...prev, saml: { ...prev.saml, entityId: event.target.value } }))
               }
-              disabled={createBusy}
+              disabled={formBusy}
               placeholder="urn:example:idp"
               autoComplete="off"
               aria-describedby="saml-entity-id-help"
@@ -2082,7 +2252,7 @@ export default function IdpProviders(): JSX.Element {
               onChange={(event) =>
                 applyFormUpdate((prev) => ({ ...prev, saml: { ...prev.saml, ssoUrl: event.target.value } }))
               }
-              disabled={createBusy}
+              disabled={formBusy}
               placeholder="https://idp.example.com/saml2"
               inputMode="url"
               autoComplete="off"
@@ -2110,7 +2280,7 @@ export default function IdpProviders(): JSX.Element {
               onChange={(event) =>
                 applyFormUpdate((prev) => ({ ...prev, saml: { ...prev.saml, certificate: event.target.value } }))
               }
-              disabled={createBusy}
+              disabled={formBusy}
               placeholder="-----BEGIN CERTIFICATE-----"
               aria-describedby="saml-certificate-help"
             />
@@ -2138,7 +2308,7 @@ export default function IdpProviders(): JSX.Element {
                   applyFormUpdate((prev) => ({ ...prev, saml: { ...prev.saml, metadataUrl: event.target.value } }))
                 }
                 placeholder="https://idp.example.com/federationmetadata.xml"
-                disabled={createBusy || loading}
+                disabled={formBusy || loading}
                 inputMode="url"
                 autoComplete="off"
                 aria-describedby="saml-metadata-url-help"
@@ -2147,7 +2317,7 @@ export default function IdpProviders(): JSX.Element {
                 type="button"
                 className="btn btn-outline-secondary"
                 onClick={() => void handleSamlMetadataFetch()}
-                disabled={createBusy || loading}
+                disabled={formBusy || loading}
               >
                 {loading ? (
                   <>
@@ -2181,7 +2351,7 @@ export default function IdpProviders(): JSX.Element {
               className="form-control"
               accept=".xml,application/xml,text/xml"
               onChange={handleSamlMetadataFileChange}
-              disabled={createBusy || loading}
+              disabled={formBusy || loading}
               aria-describedby="saml-metadata-file-help"
             />
           </div>
@@ -2203,7 +2373,7 @@ export default function IdpProviders(): JSX.Element {
               type="button"
               className="btn btn-outline-secondary btn-sm"
               onClick={() => applyLdapPreset("ad")}
-              disabled={createBusy}
+              disabled={formBusy}
             >
               Active Directory
             </button>
@@ -2211,7 +2381,7 @@ export default function IdpProviders(): JSX.Element {
               type="button"
               className="btn btn-outline-secondary btn-sm"
               onClick={() => applyLdapPreset("generic")}
-              disabled={createBusy}
+              disabled={formBusy}
             >
               LDAP
             </button>
@@ -2233,7 +2403,7 @@ export default function IdpProviders(): JSX.Element {
               className={`form-control${fieldError("ldap.host") ? " is-invalid" : ""}`}
               value={form.ldap.host}
               onChange={handleLdapHostChange}
-              disabled={createBusy}
+              disabled={formBusy}
               placeholder="ldaps://ldap.example.com"
               autoComplete="off"
               aria-describedby="ldap-host-help"
@@ -2260,7 +2430,7 @@ export default function IdpProviders(): JSX.Element {
               onChange={(event) =>
                 applyFormUpdate((prev) => ({ ...prev, ldap: { ...prev.ldap, port: event.target.value } }))
               }
-              disabled={createBusy}
+              disabled={formBusy}
               placeholder="389"
               aria-describedby="ldap-port-help"
             />
@@ -2286,7 +2456,7 @@ export default function IdpProviders(): JSX.Element {
               onChange={(event) =>
                 applyFormUpdate((prev) => ({ ...prev, ldap: { ...prev.ldap, timeout: event.target.value } }))
               }
-              disabled={createBusy}
+              disabled={formBusy}
               placeholder="15"
               aria-describedby="ldap-timeout-help"
             />
@@ -2310,7 +2480,7 @@ export default function IdpProviders(): JSX.Element {
               onChange={(event) =>
                 applyFormUpdate((prev) => ({ ...prev, ldap: { ...prev.ldap, baseDn: event.target.value } }))
               }
-              disabled={createBusy}
+              disabled={formBusy}
               placeholder="dc=example,dc=com"
               autoComplete="off"
               aria-describedby="ldap-base-dn-help"
@@ -2329,7 +2499,7 @@ export default function IdpProviders(): JSX.Element {
                 onChange={(event) =>
                   applyFormUpdate((prev) => ({ ...prev, ldap: { ...prev.ldap, startTls: event.target.checked } }))
                 }
-                disabled={createBusy}
+                disabled={formBusy}
                 aria-describedby="ldap-start-tls-help"
               />
               <HoverHelpLabel
@@ -2354,7 +2524,7 @@ export default function IdpProviders(): JSX.Element {
                 onChange={(event) =>
                   applyFormUpdate((prev) => ({ ...prev, ldap: { ...prev.ldap, requireTls: event.target.checked } }))
                 }
-                disabled={createBusy}
+                disabled={formBusy}
                 aria-describedby="ldap-require-tls-help"
               />
               <HoverHelpLabel
@@ -2387,7 +2557,7 @@ export default function IdpProviders(): JSX.Element {
                   ldap: { ...prev.ldap, bindStrategy: event.target.value as LdapFormState["bindStrategy"] },
                 }))
               }
-              disabled={createBusy}
+              disabled={formBusy}
               aria-describedby="ldap-bind-strategy-help"
             >
               <option value="service">Service Account</option>
@@ -2417,7 +2587,7 @@ export default function IdpProviders(): JSX.Element {
                   onChange={(event) =>
                     applyFormUpdate((prev) => ({ ...prev, ldap: { ...prev.ldap, bindDn: event.target.value } }))
                   }
-                  disabled={createBusy}
+                  disabled={formBusy}
                   placeholder="cn=service,ou=accounts,dc=example,dc=com"
                   autoComplete="off"
                   aria-describedby="ldap-bind-dn-help"
@@ -2444,7 +2614,7 @@ export default function IdpProviders(): JSX.Element {
                   onChange={(event) =>
                     applyFormUpdate((prev) => ({ ...prev, ldap: { ...prev.ldap, bindPassword: event.target.value } }))
                   }
-                  disabled={createBusy}
+                  disabled={formBusy}
                   placeholder="••••••••"
                   autoComplete="off"
                   aria-describedby="ldap-bind-password-help"
@@ -2472,7 +2642,7 @@ export default function IdpProviders(): JSX.Element {
                 onChange={(event) =>
                   applyFormUpdate((prev) => ({ ...prev, ldap: { ...prev.ldap, userDnTemplate: event.target.value } }))
                 }
-                disabled={createBusy}
+                disabled={formBusy}
                 placeholder="uid={{username}},ou=people,dc=example,dc=com"
                 autoComplete="off"
                 aria-describedby="ldap-user-dn-template-help"
@@ -2500,7 +2670,7 @@ export default function IdpProviders(): JSX.Element {
               onChange={(event) =>
                 applyFormUpdate((prev) => ({ ...prev, ldap: { ...prev.ldap, userFilter: event.target.value } }))
               }
-              disabled={createBusy}
+              disabled={formBusy}
               placeholder="(&(objectClass=person)(uid={{username}}))"
               autoComplete="off"
               aria-describedby="ldap-user-filter-help"
@@ -2527,7 +2697,7 @@ export default function IdpProviders(): JSX.Element {
               onChange={(event) =>
                 applyFormUpdate((prev) => ({ ...prev, ldap: { ...prev.ldap, emailAttribute: event.target.value } }))
               }
-              disabled={createBusy}
+              disabled={formBusy}
               placeholder="mail"
               autoComplete="off"
               aria-describedby="ldap-email-attribute-help"
@@ -2554,7 +2724,7 @@ export default function IdpProviders(): JSX.Element {
               onChange={(event) =>
                 applyFormUpdate((prev) => ({ ...prev, ldap: { ...prev.ldap, nameAttribute: event.target.value } }))
               }
-              disabled={createBusy}
+              disabled={formBusy}
               placeholder="cn"
               autoComplete="off"
               aria-describedby="ldap-name-attribute-help"
@@ -2581,7 +2751,7 @@ export default function IdpProviders(): JSX.Element {
               onChange={(event) =>
                 applyFormUpdate((prev) => ({ ...prev, ldap: { ...prev.ldap, usernameAttribute: event.target.value } }))
               }
-              disabled={createBusy}
+              disabled={formBusy}
               placeholder="uid"
               autoComplete="off"
               aria-describedby="ldap-username-attribute-help"
@@ -2608,7 +2778,7 @@ export default function IdpProviders(): JSX.Element {
               onChange={(event) =>
                 applyFormUpdate((prev) => ({ ...prev, ldap: { ...prev.ldap, photoAttribute: event.target.value } }))
               }
-              disabled={createBusy}
+              disabled={formBusy}
               placeholder="thumbnailPhoto"
               autoComplete="off"
               aria-describedby="ldap-photo-attribute-help"
@@ -2676,45 +2846,6 @@ export default function IdpProviders(): JSX.Element {
         </div>
       ) : null}
 
-      <div className="card mb-4">
-        <div className="card-body d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3">
-          <div>
-            <h2 className="h5 mb-1">Provider summary</h2>
-            <p className="text-muted mb-0">Highest priority providers appear first. Evaluation order updates immediately.</p>
-          </div>
-          <dl className="row mb-0 small text-muted text-md-end">
-            <div className="col-6 col-md-auto">
-              <dt className="fw-normal">Total</dt>
-              <dd className="fw-semibold mb-0">{meta.total}</dd>
-            </div>
-            <div className="col-6 col-md-auto">
-              <dt className="fw-normal">Enabled</dt>
-              <dd className="fw-semibold mb-0">{meta.enabled}</dd>
-            </div>
-            <div className="col-12 col-md-auto mt-2 mt-md-0">
-              <dt className="fw-normal">Refresh</dt>
-              <dd className="mb-0">
-                <button
-                  type="button"
-                  className="btn btn-sm btn-outline-secondary"
-                  onClick={() => loadProviders({ silent: true })}
-                  disabled={loading || refreshing || busy}
-                >
-                  {refreshing ? (
-                    <>
-                      <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true" />
-                      Loading...
-                    </>
-                  ) : (
-                    "Reload"
-                  )}
-                </button>
-              </dd>
-            </div>
-          </dl>
-        </div>
-      </div>
-
       {loading ? (
         <div className="d-flex justify-content-center align-items-center py-5" role="status" aria-live="polite">
           <div className="spinner-border text-primary" role="presentation" aria-hidden="true" />
@@ -2737,83 +2868,93 @@ export default function IdpProviders(): JSX.Element {
           <table className="table align-middle">
             <thead>
               <tr>
-                <th scope="col" style={{ width: "3rem" }} className="text-center">
-                  #
+                <th scope="col" style={{ width: "4rem" }} className="text-center">
+                  Order
                 </th>
                 <th scope="col">Provider</th>
                 <th scope="col">Idp Type</th>
                 <th scope="col">Key</th>
                 <th scope="col">Status</th>
-                <th scope="col" style={{ width: "12rem" }} className="text-end">
+                <th scope="col" style={{ width: "8rem" }} className="text-end">
                   Actions
                 </th>
               </tr>
             </thead>
             <tbody>
-              {orderedProviders.map((provider, index) => {
+              {orderedProviders.map((provider) => {
                 const identifier = providerIdentifier(provider);
                 const disabled = disabledIds.has(identifier) || busy;
-                const canMoveUp = index > 0;
-                const canMoveDown = index < orderedProviders.length - 1;
+                const isDragging = draggingId === identifier;
+                const draggable = !disabled && orderedProviders.length > 1;
 
                 return (
-                  <tr key={identifier}>
-                    <td className="text-center fw-semibold">{provider.evaluation_order}</td>
-                <td>
-                  <div className="fw-semibold">{provider.name}</div>
-                  <div className="small text-muted">
-                    Added {new Date(provider.created_at).toLocaleString(undefined, { hour12: false })}
-                  </div>
-                  <div className="small text-muted">Reference #{provider.reference}</div>
-                </td>
+                  <tr
+                    key={identifier}
+                    className={isDragging ? "table-active" : undefined}
+                    onDragOver={handleRowDragOver}
+                    onDrop={(event) => handleRowDrop(event, provider)}
+                    data-provider-id={identifier}
+                  >
+                    <td className="align-middle text-center">
+                      <div className="d-inline-flex align-items-center gap-2 text-muted">
+                        <button
+                          type="button"
+                          className="btn btn-link btn-sm p-0 text-muted idp-dnd-handle"
+                          draggable={draggable}
+                          onDragStart={(event) => handleRowDragStart(event, provider)}
+                          onDragEnd={handleRowDragEnd}
+                          aria-label={`Drag to reorder ${provider.name}`}
+                          aria-grabbed={isDragging}
+                        >
+                          <i className="bi bi-grip-vertical" aria-hidden="true" />
+                        </button>
+                        <span className="fw-semibold text-body">{provider.evaluation_order}</span>
+                      </div>
+                    </td>
+                    <td>
+                      <div className="fw-semibold">{provider.name}</div>
+                      <div className="small text-muted">
+                        Added {new Date(provider.created_at).toLocaleString(undefined, { hour12: false })}
+                      </div>
+                      <div className="small text-muted">Reference #{provider.reference}</div>
+                    </td>
                     <td className="text-uppercase fw-semibold small">{provider.driver}</td>
                     <td>
                       <code>{provider.key}</code>
                     </td>
                     <td>
-                      <span
-                        className={`badge rounded-pill ${
+                      <button
+                        type="button"
+                        className={`badge rounded-pill border-0 idp-status-toggle ${
                           provider.enabled ? "text-bg-success" : "text-bg-secondary"
                         }`}
+                        onClick={() => handleToggle(provider)}
+                        disabled={disabled}
+                        aria-pressed={provider.enabled}
+                        aria-label={`${provider.enabled ? "Disable" : "Enable"} ${provider.name}`}
                       >
                         {provider.enabled ? "Enabled" : "Disabled"}
-                      </span>
+                      </button>
                     </td>
                     <td className="text-end">
                       <div className="btn-group btn-group-sm" role="group" aria-label={`Actions for ${provider.name}`}>
                         <button
                           type="button"
                           className="btn btn-outline-secondary"
-                          onClick={() => handleReorder(provider, "up")}
-                          disabled={!canMoveUp || disabled}
-                          aria-label={`Move ${provider.name} higher`}
-                        >
-                          ↑
-                        </button>
-                        <button
-                          type="button"
-                          className="btn btn-outline-secondary"
-                          onClick={() => handleReorder(provider, "down")}
-                          disabled={!canMoveDown || disabled}
-                          aria-label={`Move ${provider.name} lower`}
-                        >
-                          ↓
-                        </button>
-                        <button
-                          type="button"
-                          className={`btn ${provider.enabled ? "btn-outline-warning" : "btn-outline-success"}`}
-                          onClick={() => handleToggle(provider)}
+                          onClick={() => openEditModal(provider)}
                           disabled={disabled}
+                          aria-label={`Edit ${provider.name}`}
                         >
-                          {provider.enabled ? "Disable" : "Enable"}
+                          <i className="bi bi-pencil-square" aria-hidden="true" />
                         </button>
                         <button
                           type="button"
                           className="btn btn-outline-danger"
                           onClick={() => openDeleteModal(provider)}
                           disabled={disabled}
+                          aria-label={`Delete ${provider.name}`}
                         >
-                          Delete
+                          <i className="bi bi-trash" aria-hidden="true" />
                         </button>
                       </div>
                     </td>
@@ -2846,14 +2987,14 @@ export default function IdpProviders(): JSX.Element {
       </ConfirmModal>
 
       <ConfirmModal
-        open={createOpen}
-        title="Add Identity Provider"
-        onCancel={closeCreateModal}
-        onConfirm={submitCreate}
-        busy={createBusy}
-        confirmLabel="Create"
+        open={formOpen}
+        title={formMode === "edit" ? "Edit Identity Provider" : "Add Identity Provider"}
+        onCancel={closeFormModal}
+        onConfirm={handleFormSubmit}
+        busy={formBusy}
+        confirmLabel={formMode === "edit" ? "Save" : "Create"}
         confirmTone="primary"
-        confirmDisabled={createBusy}
+        confirmDisabled={formBusy}
         dialogClassName="modal-dialog modal-dialog-centered modal-xl"
         bodyClassName="modal-body pt-0"
         footerClassName="modal-footer flex-column flex-md-row align-items-start gap-3"
@@ -2867,11 +3008,11 @@ export default function IdpProviders(): JSX.Element {
       >
         <form
           className="d-flex flex-column gap-4"
-        onSubmit={(event) => {
-          event.preventDefault();
-          void submitCreate();
-        }}
-      >
+          onSubmit={(event) => {
+            event.preventDefault();
+            void handleFormSubmit();
+          }}
+        >
           <div className="row g-3">
             <div className="col-12 col-md-6">
               <HoverHelpLabel
@@ -2890,7 +3031,7 @@ export default function IdpProviders(): JSX.Element {
                 value={form.name}
                 onChange={(event) => applyFormUpdate((prev) => ({ ...prev, name: event.target.value }))}
                 placeholder="Microsoft Entra - Primary"
-                disabled={createBusy}
+                disabled={formBusy}
                 autoComplete="off"
                 aria-describedby="idp-name-help"
                 required
@@ -2917,7 +3058,7 @@ export default function IdpProviders(): JSX.Element {
                     driver: event.target.value as IdpProviderDriver,
                   }))
                 }
-                disabled={createBusy}
+                disabled={formBusy || formMode === "edit"}
                 aria-describedby="idp-driver-help"
                 required
               >
@@ -2940,7 +3081,7 @@ export default function IdpProviders(): JSX.Element {
                   checked={form.enabled}
                   onChange={(event) => applyFormUpdate((prev) => ({ ...prev, enabled: event.target.checked }))}
                   aria-describedby="idp-enabled-help"
-                  disabled={createBusy}
+                  disabled={formBusy}
                 />
                 <HoverHelpLabel
                   className="form-check-label"
@@ -2962,7 +3103,7 @@ export default function IdpProviders(): JSX.Element {
                 type="button"
                 className="btn btn-outline-info"
                 onClick={() => void handleTestConfiguration()}
-                disabled={createBusy || testBusy}
+                disabled={formBusy || testBusy}
               >
                 {testBusy ? (
                   <>
@@ -2978,7 +3119,7 @@ export default function IdpProviders(): JSX.Element {
                   type="button"
                   className="btn btn-outline-primary"
                   onClick={openLdapBrowser}
-                  disabled={createBusy || ldapBrowserBusy}
+                  disabled={formBusy || ldapBrowserBusy}
                 >
                   {ldapBrowserBusy ? (
                     <>
@@ -3068,7 +3209,7 @@ export default function IdpProviders(): JSX.Element {
                   rows={3}
                   value={form.meta}
                   onChange={(event) => applyFormUpdate((prev) => ({ ...prev, meta: event.target.value }))}
-                  disabled={createBusy}
+                  disabled={formBusy}
                   placeholder='{"display_region": "us-east"}'
                   aria-describedby="idp-meta-help"
                 />
