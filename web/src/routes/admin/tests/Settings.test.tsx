@@ -28,6 +28,10 @@ type Payload = {
         sign_authn_requests?: boolean;
         want_assertions_signed?: boolean;
         want_assertions_encrypted?: boolean;
+        certificate?: string;
+        private_key?: string;
+        private_key_path?: string;
+        private_key_passphrase?: string;
       };
     };
   };
@@ -74,6 +78,14 @@ describe("Core Settings page", () => {
                       sign_authn_requests: false,
                       want_assertions_signed: true,
                       want_assertions_encrypted: false,
+                      certificate: `-----BEGIN CERTIFICATE-----
+OLDCERT
+-----END CERTIFICATE-----`,
+                      private_key: `-----BEGIN PRIVATE KEY-----
+OLD
+-----END PRIVATE KEY-----`,
+                      private_key_path: "/opt/phpgrc/shared/saml/sp.key",
+                      private_key_passphrase: "old-secret",
                     },
                   },
                 },
@@ -156,6 +168,30 @@ describe("Core Settings page", () => {
     fireEvent.click(wantEncryptedSwitch);
     expect(wantEncryptedSwitch.checked).toBe(true);
 
+    const certificateField = screen.getByLabelText("Signing certificate") as HTMLTextAreaElement;
+    expect(certificateField.value).toContain("OLDCERT");
+    fireEvent.change(certificateField, {
+      target: { value: `-----BEGIN CERTIFICATE-----
+UPDATEDCERT
+-----END CERTIFICATE-----` },
+    });
+
+    const signingKeyField = screen.getByLabelText("Signing private key") as HTMLTextAreaElement;
+    expect(signingKeyField.value).toContain("OLD");
+    fireEvent.change(signingKeyField, {
+      target: { value: `-----BEGIN PRIVATE KEY-----
+UPDATED
+-----END PRIVATE KEY-----` },
+    });
+
+    const keyPathInput = screen.getByLabelText("Private key path") as HTMLInputElement;
+    expect(keyPathInput.value).toBe("/opt/phpgrc/shared/saml/sp.key");
+    fireEvent.change(keyPathInput, { target: { value: "/etc/phpgrc/sp.key" } });
+
+    const passphraseInput = screen.getByLabelText("Private key passphrase") as HTMLInputElement;
+    expect(passphraseInput.value).toBe("old-secret");
+    fireEvent.change(passphraseInput, { target: { value: "new-secret" } });
+
     const blobPath = screen.getByLabelText("Blob storage path") as HTMLInputElement;
     expect(blobPath.value).toBe("");
     expect(blobPath.placeholder).toBe("/opt/phpgrc/shared/blobs");
@@ -198,6 +234,12 @@ describe("Core Settings page", () => {
     expect(payload.auth?.saml?.sp?.sign_authn_requests).toBe(true);
     expect(payload.auth?.saml?.sp?.want_assertions_signed).toBe(false);
     expect(payload.auth?.saml?.sp?.want_assertions_encrypted).toBe(true);
+    expect(payload.auth?.saml?.sp?.certificate).toBe(`-----BEGIN CERTIFICATE-----
+UPDATEDCERT
+-----END CERTIFICATE-----`);
+    expect(payload.auth?.saml?.sp?.private_key).toBe("-----BEGIN PRIVATE KEY-----\nUPDATED\n-----END PRIVATE KEY-----");
+    expect(payload.auth?.saml?.sp?.private_key_path).toBe("/etc/phpgrc/sp.key");
+    expect(payload.auth?.saml?.sp?.private_key_passphrase).toBe("new-secret");
   });
 
   it("clamps authentication window above max on save", async () => {

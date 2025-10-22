@@ -42,7 +42,7 @@ final class SamlServiceProviderConfigResolver
     {
         $inline = $this->normalizeOptional(config('core.auth.saml.sp.private_key'));
         if ($inline !== null) {
-            return $inline;
+            return $this->normalizePrivateKey($inline);
         }
 
         $path = $this->normalizeOptional(config('core.auth.saml.sp.private_key_path'));
@@ -62,7 +62,11 @@ final class SamlServiceProviderConfigResolver
 
         $trimmed = trim($contents);
 
-        return $trimmed === '' ? null : $trimmed;
+        if ($trimmed === '') {
+            return null;
+        }
+
+        return $this->normalizePrivateKey($trimmed);
     }
 
     public function privateKeyPassphrase(): ?string
@@ -159,5 +163,26 @@ final class SamlServiceProviderConfigResolver
         }
 
         return (bool) preg_match('/^[A-Za-z]:[\\\\\\/]/', $path);
+    }
+
+    private function normalizePrivateKey(string $raw): string
+    {
+        if (str_contains($raw, '-----BEGIN')) {
+            return $raw;
+        }
+
+        $compact = preg_replace('/\\s+/', '', $raw);
+        if ($compact === null || $compact === '') {
+            return $raw;
+        }
+
+        $decoded = base64_decode($compact, true);
+        if ($decoded === false) {
+            return $raw;
+        }
+
+        $body = chunk_split($compact, 64, "\n");
+
+        return "-----BEGIN PRIVATE KEY-----\n".$body."-----END PRIVATE KEY-----\n";
     }
 }

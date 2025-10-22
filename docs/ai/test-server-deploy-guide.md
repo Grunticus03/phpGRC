@@ -10,11 +10,17 @@ This checklist is for refreshing the phpGRC **test** server after making fronten
 - Verify no `.tar.gz` artifacts remain in the repo root (cleanup with `perl -e 'unlink ...'` if needed).
 
 ## 2. Push Source Changes
-1. Copy edited files directly to the server:
+1. Copy edited files directly to the server. You can upload individual files **or** bundle several into an archive for a single transfer:
    ```bash
+   # Option A: single file
    sshpass -p 'Newmail1' scp -P 2332 path/to/file administrator@phpgrc.gruntlabs.net:/home/administrator/<file>
+
+   # Option B: archive multiple files (extract on the server before moving)
+   tar czf /tmp/phpgrc-payload.tgz path/to/file1 path/to/file2
+   sshpass -p 'Newmail1' scp -P 2332 /tmp/phpgrc-payload.tgz administrator@phpgrc.gruntlabs.net:/home/administrator/
+   sshpass -p 'Newmail1' ssh -p 2332 administrator@phpgrc.gruntlabs.net "cd /home/administrator && tar xzf phpgrc-payload.tgz"
    ```
-2. Move them into the project with sudo:
+2. Move the uploaded files into the project with sudo:
    ```bash
    sshpass -p 'Newmail1' ssh -p 2332 administrator@phpgrc.gruntlabs.net \
      "echo 'Newmail1' | sudo -S mv /home/administrator/<file> /var/www/phpgrc/current/<target>"

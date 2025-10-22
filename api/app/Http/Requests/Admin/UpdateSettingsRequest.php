@@ -107,6 +107,10 @@ final class UpdateSettingsRequest extends FormRequest
             'auth.saml.sp.sign_authn_requests' => ['sometimes', 'boolean'],
             'auth.saml.sp.want_assertions_signed' => ['sometimes', 'boolean'],
             'auth.saml.sp.want_assertions_encrypted' => ['sometimes', 'boolean'],
+            'auth.saml.sp.certificate' => ['sometimes', 'string'],
+            'auth.saml.sp.private_key' => ['sometimes', 'string'],
+            'auth.saml.sp.private_key_path' => ['sometimes', 'string'],
+            'auth.saml.sp.private_key_passphrase' => ['sometimes', 'string'],
 
             'apply' => ['sometimes', 'boolean'],
         ];

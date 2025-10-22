@@ -47,6 +47,10 @@ final class SettingsService
         'auth.saml.sp.sign_authn_requests',
         'auth.saml.sp.want_assertions_signed',
         'auth.saml.sp.want_assertions_encrypted',
+        'auth.saml.sp.certificate',
+        'auth.saml.sp.private_key',
+        'auth.saml.sp.private_key_path',
+        'auth.saml.sp.private_key_passphrase',
     ];
 
     /** @var list<string> */
@@ -499,6 +503,22 @@ final class SettingsService
             );
         }
 
+        if (array_key_exists('certificate', $spRaw)) {
+            $normalizedSp['certificate'] = $this->toString($spRaw['certificate'] ?? '');
+        }
+
+        if (array_key_exists('private_key', $spRaw)) {
+            $normalizedSp['private_key'] = $this->toString($spRaw['private_key'] ?? '');
+        }
+
+        if (array_key_exists('private_key_path', $spRaw)) {
+            $normalizedSp['private_key_path'] = $this->toString($spRaw['private_key_path'] ?? '');
+        }
+
+        if (array_key_exists('private_key_passphrase', $spRaw)) {
+            $normalizedSp['private_key_passphrase'] = $this->toString($spRaw['private_key_passphrase'] ?? '');
+        }
+
         if ($normalizedSp === []) {
             return [];
         }
@@ -693,6 +713,10 @@ final class SettingsService
                     'want_assertions_encrypted' => $this->toBool(
                         $this->scalarOrDefault($spRaw['want_assertions_encrypted'] ?? false, false)
                     ),
+                    'certificate' => $this->toString($spRaw['certificate'] ?? ''),
+                    'private_key' => $this->toString($spRaw['private_key'] ?? ''),
+                    'private_key_path' => $this->toString($spRaw['private_key_path'] ?? ''),
+                    'private_key_passphrase' => $this->toString($spRaw['private_key_passphrase'] ?? ''),
                 ],
             ],
         ];

@@ -18,6 +18,10 @@ type EffectiveConfig = {
           sign_authn_requests?: boolean;
           want_assertions_signed?: boolean;
           want_assertions_encrypted?: boolean;
+          certificate?: string;
+          private_key?: string;
+          private_key_path?: string;
+          private_key_passphrase?: string;
         };
       };
     };
@@ -36,6 +40,10 @@ type SettingsSnapshot = {
   signAuthnRequests: boolean;
   wantAssertionsSigned: boolean;
   wantAssertionsEncrypted: boolean;
+  samlPrivateKey: string;
+  samlPrivateKeyPath: string;
+  samlPrivateKeyPassphrase: string;
+  samlCertificate: string;
 };
 
 type SettingsPayload = {
@@ -57,6 +65,10 @@ type SettingsPayload = {
         sign_authn_requests?: boolean;
         want_assertions_signed?: boolean;
         want_assertions_encrypted?: boolean;
+        certificate?: string;
+        private_key?: string;
+        private_key_path?: string;
+        private_key_passphrase?: string;
       };
     };
   };
@@ -88,6 +100,10 @@ export default function CoreSettings(): JSX.Element {
   const [signAuthnRequests, setSignAuthnRequests] = useState(false);
   const [wantAssertionsSigned, setWantAssertionsSigned] = useState(true);
   const [wantAssertionsEncrypted, setWantAssertionsEncrypted] = useState(false);
+  const [samlPrivateKey, setSamlPrivateKey] = useState("");
+  const [samlPrivateKeyPath, setSamlPrivateKeyPath] = useState("");
+  const [samlPrivateKeyPassphrase, setSamlPrivateKeyPassphrase] = useState("");
+  const [samlCertificate, setSamlCertificate] = useState("");
   const blobPlaceholderDefault = "/opt/phpgrc/shared/blobs";
   const [purging, setPurging] = useState(false);
   const timeFormatExample =
@@ -123,6 +139,11 @@ export default function CoreSettings(): JSX.Element {
       const nextWantSigned =
         typeof wantSignedRaw === "boolean" ? wantSignedRaw : wantSignedRaw == null ? true : Boolean(wantSignedRaw);
       const nextWantEncrypted = Boolean(sp?.want_assertions_encrypted ?? false);
+      const nextPrivateKey = typeof sp?.private_key === "string" ? sp.private_key : "";
+      const nextPrivateKeyPath = typeof sp?.private_key_path === "string" ? sp.private_key_path : "";
+      const nextPrivateKeyPassphrase = typeof sp?.private_key_passphrase === "string" ? sp.private_key_passphrase : "";
+      const nextCertificateRaw = typeof sp?.certificate === "string" ? sp.certificate : "";
+      const nextCertificate = nextCertificateRaw.trim();
 
       setCacheTtl(nextCacheTtl);
       setRbacDays(nextRbacDays);
@@ -135,6 +156,10 @@ export default function CoreSettings(): JSX.Element {
       setSignAuthnRequests(nextSign);
       setWantAssertionsSigned(nextWantSigned);
       setWantAssertionsEncrypted(nextWantEncrypted);
+      setSamlPrivateKey(nextPrivateKey);
+      setSamlPrivateKeyPath(nextPrivateKeyPath);
+      setSamlPrivateKeyPassphrase(nextPrivateKeyPassphrase);
+      setSamlCertificate(nextCertificate);
 
       snapshotRef.current = {
         cacheTtl: nextCacheTtl,
@@ -148,6 +173,10 @@ export default function CoreSettings(): JSX.Element {
         signAuthnRequests: nextSign,
         wantAssertionsSigned: nextWantSigned,
         wantAssertionsEncrypted: nextWantEncrypted,
+        samlPrivateKey: nextPrivateKey,
+        samlPrivateKeyPath: nextPrivateKeyPath,
+        samlPrivateKeyPassphrase: nextPrivateKeyPassphrase,
+        samlCertificate: nextCertificate,
       };
     },
     [blobPlaceholderDefault]
@@ -205,6 +234,10 @@ export default function CoreSettings(): JSX.Element {
     signAuthnRequests,
     wantAssertionsSigned,
     wantAssertionsEncrypted,
+    samlPrivateKey,
+    samlPrivateKeyPath: samlPrivateKeyPath.trim(),
+    samlPrivateKeyPassphrase,
+    samlCertificate: samlCertificate.trim(),
   });
 
   const buildPayload = (): SettingsPayload => {
@@ -234,6 +267,10 @@ export default function CoreSettings(): JSX.Element {
             sign_authn_requests: current.signAuthnRequests,
             want_assertions_signed: current.wantAssertionsSigned,
             want_assertions_encrypted: current.wantAssertionsEncrypted,
+            private_key: current.samlPrivateKey,
+            private_key_path: current.samlPrivateKeyPath,
+            private_key_passphrase: current.samlPrivateKeyPassphrase,
+            certificate: current.samlCertificate,
           },
         },
       };
@@ -291,6 +328,18 @@ export default function CoreSettings(): JSX.Element {
     }
     if (current.wantAssertionsEncrypted !== baseline.wantAssertionsEncrypted) {
       spDiffs.want_assertions_encrypted = current.wantAssertionsEncrypted;
+    }
+    if (current.samlCertificate !== baseline.samlCertificate) {
+      spDiffs.certificate = current.samlCertificate;
+    }
+    if (current.samlPrivateKey !== baseline.samlPrivateKey) {
+      spDiffs.private_key = current.samlPrivateKey;
+    }
+    if (current.samlPrivateKeyPath !== baseline.samlPrivateKeyPath) {
+      spDiffs.private_key_path = current.samlPrivateKeyPath;
+    }
+    if (current.samlPrivateKeyPassphrase !== baseline.samlPrivateKeyPassphrase) {
+      spDiffs.private_key_passphrase = current.samlPrivateKeyPassphrase;
     }
     if (Object.keys(spDiffs).length > 0) {
       payload.auth = {
@@ -387,6 +436,10 @@ export default function CoreSettings(): JSX.Element {
         setSignAuthnRequests(updated.signAuthnRequests);
         setWantAssertionsSigned(updated.wantAssertionsSigned);
         setWantAssertionsEncrypted(updated.wantAssertionsEncrypted);
+        setSamlPrivateKey(updated.samlPrivateKey);
+        setSamlPrivateKeyPath(updated.samlPrivateKeyPath);
+        setSamlPrivateKeyPassphrase(updated.samlPrivateKeyPassphrase);
+        setSamlCertificate(updated.samlCertificate);
       }
 
       const apiMsg =
@@ -528,6 +581,83 @@ export default function CoreSettings(): JSX.Element {
                   Enable when assertions must be encrypted with the configured service provider certificate.
                 </p>
               </div>
+              <SettingField
+                fieldId="samlCertificate"
+                label="Signing certificate"
+                description="PEM-encoded X.509 certificate that matches the private key and is published in metadata."
+              >
+                {({ id, describedBy }) => (
+                  <textarea
+                    id={id}
+                    aria-describedby={describedBy}
+                    className="form-control font-monospace"
+                    rows={4}
+                    value={samlCertificate}
+                    onChange={(event) => setSamlCertificate(event.target.value)}
+                    placeholder="-----BEGIN CERTIFICATE-----"
+                  />
+                )}
+              </SettingField>
+
+              {signAuthnRequests ? (
+                <div className="vstack gap-3">
+                  <SettingField
+                    fieldId="samlPrivateKey"
+                    label="Signing private key"
+                    description="Inline PEM-encoded RSA private key used to sign AuthnRequests."
+                    help="Leave blank if you plan to load the key from disk via the path below."
+                  >
+                    {({ id, describedBy }) => (
+                      <textarea
+                        id={id}
+                        aria-describedby={describedBy}
+                        className="form-control font-monospace"
+                        rows={6}
+                        value={samlPrivateKey}
+                        onChange={(event) => setSamlPrivateKey(event.target.value)}
+                        placeholder="-----BEGIN PRIVATE KEY-----"
+                      />
+                    )}
+                  </SettingField>
+
+                  <SettingField
+                    fieldId="samlPrivateKeyPath"
+                    label="Private key path"
+                    help="Optional absolute path that phpgrc should read for the signing key."
+                  >
+                    {({ id, describedBy }) => (
+                      <input
+                        id={id}
+                        aria-describedby={describedBy}
+                        type="text"
+                        className="form-control"
+                        value={samlPrivateKeyPath}
+                        onChange={(event) => setSamlPrivateKeyPath(event.target.value)}
+                        placeholder="/opt/phpgrc/shared/saml/sp.key"
+                        autoComplete="off"
+                      />
+                    )}
+                  </SettingField>
+
+                  <SettingField
+                    fieldId="samlPrivateKeyPassphrase"
+                    label="Private key passphrase"
+                    help="Optional passphrase used to decrypt the signing key."
+                  >
+                    {({ id, describedBy }) => (
+                      <input
+                        id={id}
+                        aria-describedby={describedBy}
+                        type="password"
+                        className="form-control"
+                        value={samlPrivateKeyPassphrase}
+                        onChange={(event) => setSamlPrivateKeyPassphrase(event.target.value)}
+                        autoComplete="new-password"
+                      />
+                    )}
+                  </SettingField>
+                </div>
+              ) : null}
             </div>
           </section>
 
