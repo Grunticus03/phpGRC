@@ -47,6 +47,12 @@ final class SamlServiceProviderMetadataTest extends TestCase
         self::assertNotEmpty($spDescriptor);
         self::assertSame('false', (string) ($spDescriptor[0]['AuthnRequestsSigned'] ?? ''));
         self::assertSame('true', (string) ($spDescriptor[0]['WantAssertionsSigned'] ?? ''));
+        $signingNodes = $document->xpath('/md:EntityDescriptor/md:SPSSODescriptor/md:KeyDescriptor[@use="signing"]');
+        self::assertNotFalse($signingNodes);
+        self::assertCount(0, $signingNodes);
+        $encryptionNodes = $document->xpath('/md:EntityDescriptor/md:SPSSODescriptor/md:KeyDescriptor[@use="encryption"]');
+        self::assertNotFalse($encryptionNodes);
+        self::assertCount(0, $encryptionNodes);
     }
 
     #[Test]
@@ -60,6 +66,7 @@ final class SamlServiceProviderMetadataTest extends TestCase
             'certificate' => $this->sampleCertificate(),
             'sign_authn_requests' => true,
             'want_assertions_signed' => false,
+            'want_assertions_encrypted' => true,
         ]);
 
         $response = $this->get('/auth/saml/metadata');
@@ -84,6 +91,9 @@ final class SamlServiceProviderMetadataTest extends TestCase
         self::assertNotEmpty($spDescriptor);
         self::assertSame('true', (string) ($spDescriptor[0]['AuthnRequestsSigned'] ?? ''));
         self::assertSame('false', (string) ($spDescriptor[0]['WantAssertionsSigned'] ?? ''));
+        $encryptionDescriptors = $document->xpath('/md:EntityDescriptor/md:SPSSODescriptor/md:KeyDescriptor[@use="encryption"]');
+        self::assertNotFalse($encryptionDescriptors);
+        self::assertCount(1, $encryptionDescriptors);
     }
 
     private function sampleCertificate(): string

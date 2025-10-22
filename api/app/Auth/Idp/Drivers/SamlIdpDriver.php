@@ -108,7 +108,7 @@ final class SamlIdpDriver extends AbstractIdpDriver
 
     /**
      * @param  array<string,mixed>  $config
-     * @param  array{entity_id:string,acs_url:string,metadata_url:string,sign_authn_requests:bool,want_assertions_signed:bool,certificate?:string}  $sp
+     * @param  array{entity_id:string,acs_url:string,metadata_url:string,sign_authn_requests:bool,want_assertions_signed:bool,want_assertions_encrypted:bool,certificate?:string}  $sp
      *
      * @SuppressWarnings("PMD.StaticAccess")
      */
@@ -153,7 +153,7 @@ final class SamlIdpDriver extends AbstractIdpDriver
     }
 
     /**
-     * @param  array{entity_id:string,acs_url:string,metadata_url:string,sign_authn_requests:bool,want_assertions_signed:bool,certificate?:string}  $sp
+     * @param  array{entity_id:string,acs_url:string,metadata_url:string,sign_authn_requests:bool,want_assertions_signed:bool,want_assertions_encrypted:bool,certificate?:string}  $sp
      * @return array{id:string,relay_state:string,url:string,destination:string,encoded_request:string,xml:string}
      *
      * @SuppressWarnings("PMD.StaticAccess")
@@ -172,10 +172,20 @@ final class SamlIdpDriver extends AbstractIdpDriver
         );
 
         $relayState = 'phpgrc-health-'.Str::lower(Str::random(12));
-        $query = http_build_query([
+        $queryParams = [
             'SAMLRequest' => $encodedRequest,
             'RelayState' => $relayState,
-        ], '', '&', PHP_QUERY_RFC3986);
+        ];
+
+        if ($sp['sign_authn_requests']) {
+            $sigAlg = 'http://www.w3.org/2001/04/xmldsig-more#rsa-sha256';
+            $signatureInput = $this->buildRedirectSignaturePayload($encodedRequest, $relayState, $sigAlg);
+            $signature = $this->signRedirectPayload($signatureInput);
+            $queryParams['SigAlg'] = $sigAlg;
+            $queryParams['Signature'] = $signature;
+        }
+
+        $query = http_build_query($queryParams, '', '&', PHP_QUERY_RFC3986);
 
         return [
             'id' => $requestId,
@@ -214,7 +224,7 @@ final class SamlIdpDriver extends AbstractIdpDriver
 
     /**
      * @param  array{id:string,relay_state:string,url:string,destination:string,encoded_request:string,xml:string}  $requestData
-     * @param  array{entity_id:string,acs_url:string,metadata_url:string,sign_authn_requests:bool,want_assertions_signed:bool,certificate?:string}  $sp
+     * @param  array{entity_id:string,acs_url:string,metadata_url:string,sign_authn_requests:bool,want_assertions_signed:bool,want_assertions_encrypted:bool,certificate?:string}  $sp
      * @return array<string,mixed>
      */
     private function assembleResponseDetails(array $requestData, Response $response, array $sp): array
@@ -307,7 +317,7 @@ final class SamlIdpDriver extends AbstractIdpDriver
     }
 
     /**
-     * @return array{entity_id:string,acs_url:string,metadata_url:string,sign_authn_requests:bool,want_assertions_signed:bool,certificate?:string}
+     * @return array{entity_id:string,acs_url:string,metadata_url:string,sign_authn_requests:bool,want_assertions_signed:bool,want_assertions_encrypted:bool,certificate?:string}
      */
     private function serviceProviderConfig(): array
     {
@@ -360,6 +370,54 @@ final class SamlIdpDriver extends AbstractIdpDriver
         $encoded = base64_encode($deflated);
 
         return [$requestId, $encoded, $trimmedXml];
+    }
+
+    private function buildRedirectSignaturePayload(string $encodedRequest, string $relayState, string $sigAlg): string
+    {
+        $parts = [
+            'SAMLRequest='.rawurlencode($encodedRequest),
+        ];
+
+        if ($relayState !== '') {
+            $parts[] = 'RelayState='.rawurlencode($relayState);
+        }
+
+        $parts[] = 'SigAlg='.rawurlencode($sigAlg);
+
+        return implode('&', $parts);
+    }
+
+    private function signRedirectPayload(string $payload): string
+    {
+        $privateKey = $this->spConfig->privateKey();
+        if ($privateKey === null) {
+            throw new RuntimeException('SAML SP private key is required to sign AuthnRequests.');
+        }
+
+        $passphrase = $this->spConfig->privateKeyPassphrase();
+        $key = openssl_pkey_get_private($privateKey, $passphrase ?? '');
+        if ($key === false) {
+            throw new RuntimeException('Unable to load SAML SP private key for signing.');
+        }
+
+        $rawSignature = '';
+        $success = false;
+        try {
+            $success = openssl_sign($payload, $rawSignature, $key, OPENSSL_ALGO_SHA256);
+        } finally {
+            openssl_pkey_free($key);
+        }
+
+        if ($success !== true) {
+            throw new RuntimeException('SAML AuthnRequest signature generation returned an invalid value.');
+        }
+
+        if ($rawSignature === '') {
+            throw new RuntimeException('SAML AuthnRequest signature generation returned an empty value.');
+        }
+
+        /** @var string $rawSignature */
+        return base64_encode($rawSignature);
     }
 
     private function appendQueryString(string $base, string $query): string

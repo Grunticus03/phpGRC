@@ -11,10 +11,12 @@ use App\Http\Requests\Auth\IdpProviderStoreRequest;
 use App\Http\Requests\Auth\IdpProviderUpdateRequest;
 use App\Http\Requests\Auth\SamlMetadataPreviewRequest;
 use App\Http\Requests\Auth\SamlMetadataRequest;
+use App\Http\Requests\Auth\SamlServiceProviderUpdateRequest;
 use App\Models\IdpProvider;
 use App\Services\Auth\IdpProviderService;
 use App\Services\Auth\SamlMetadataService;
 use App\Services\Auth\SamlServiceProviderConfigResolver;
+use App\Services\Settings\SettingsService;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Http\Client\ConnectionException;
@@ -34,7 +36,8 @@ final class IdpProviderController extends Controller
     public function __construct(
         private readonly IdpProviderService $service,
         private readonly SamlMetadataService $samlMetadata,
-        private readonly SamlServiceProviderConfigResolver $samlSpConfig
+        private readonly SamlServiceProviderConfigResolver $samlSpConfig,
+        private readonly SettingsService $settings
     ) {}
 
     public function index(): JsonResponse
@@ -73,6 +76,49 @@ final class IdpProviderController extends Controller
         return response()->json([
             'ok' => true,
             'sp' => $config,
+        ], 200);
+    }
+
+    public function updateSamlServiceProvider(SamlServiceProviderUpdateRequest $request): JsonResponse
+    {
+        if (! $this->settings->persistenceAvailable()) {
+            return response()->json([
+                'ok' => true,
+                'note' => 'stub-only',
+                'sp' => $this->samlSpConfig->resolve(),
+            ], 202);
+        }
+
+        /** @var array{sign_authn_requests:bool,want_assertions_signed:bool,want_assertions_encrypted:bool} $payload */
+        $payload = $request->validated();
+
+        $accepted = [
+            'auth' => [
+                'saml' => [
+                    'sp' => [
+                        'sign_authn_requests' => $payload['sign_authn_requests'],
+                        'want_assertions_signed' => $payload['want_assertions_signed'],
+                        'want_assertions_encrypted' => $payload['want_assertions_encrypted'],
+                    ],
+                ],
+            ],
+        ];
+
+        $uid = auth()->id();
+        $actorId = is_int($uid)
+            ? $uid
+            : (is_string($uid) && ctype_digit($uid) ? (int) $uid : null);
+
+        $result = $this->settings->apply(
+            accepted: $accepted,
+            actorId: $actorId,
+            context: ['origin' => 'auth.saml.sp']
+        );
+
+        return response()->json([
+            'ok' => true,
+            'sp' => $this->samlSpConfig->resolve(),
+            'changes' => $result['changes'],
         ], 200);
     }
 

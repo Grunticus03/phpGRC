@@ -63,6 +63,7 @@ describe("Admin IdP Providers page", () => {
             metadata_url: "https://phpgrc.example/auth/saml/metadata",
             sign_authn_requests: false,
             want_assertions_signed: true,
+            want_assertions_encrypted: false,
           },
         });
       }
@@ -77,7 +78,7 @@ describe("Admin IdP Providers page", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
-  test("renders SAML metadata URL as a link", async () => {
+  test("renders SAML metadata details when accordion is opened", async () => {
     const user = userEvent.setup();
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const method = (init?.method ?? "GET").toUpperCase();
@@ -100,6 +101,7 @@ describe("Admin IdP Providers page", () => {
             metadata_url: "https://phpgrc.example/auth/saml/metadata",
             sign_authn_requests: false,
             want_assertions_signed: true,
+            want_assertions_encrypted: false,
           },
         });
       }
@@ -119,15 +121,19 @@ describe("Admin IdP Providers page", () => {
     const spAccordionToggle = await within(dialog).findByRole("button", { name: /service provider urls/i });
     await user.click(spAccordionToggle);
 
-    expect(within(dialog).getByText(/signs authnrequests/i)).toBeInTheDocument();
-    expect(within(dialog).getByText(/requires signed responses/i)).toBeInTheDocument();
+    expect(within(dialog).getByText("https://phpgrc.example/auth/saml/metadata")).toBeInTheDocument();
+    expect(
+      within(dialog).queryByRole("link", { name: "https://phpgrc.example/auth/saml/metadata" })
+    ).not.toBeInTheDocument();
 
-    const metadataLink = await within(dialog).findByRole("link", {
-      name: "https://phpgrc.example/auth/saml/metadata",
-    });
-    expect(metadataLink).toHaveAttribute("href", "https://phpgrc.example/auth/saml/metadata");
-    expect(metadataLink).toHaveAttribute("target", "_blank");
+    expect(within(dialog).queryByText(/sign authnrequests/i)).toBeNull();
+    expect(within(dialog).queryByText(/require signed responses/i)).toBeNull();
+    expect(within(dialog).queryByText(/require encrypted assertions/i)).toBeNull();
+
+    const settingsLink = within(dialog).getByRole("link", { name: /settings page/i });
+    expect(settingsLink).toHaveAttribute("href", "/admin/settings/core");
   });
+
 
   test("allows toggling provider status", async () => {
     const user = userEvent.setup();
@@ -184,6 +190,7 @@ describe("Admin IdP Providers page", () => {
             metadata_url: "https://phpgrc.example/auth/saml/metadata",
             sign_authn_requests: false,
             want_assertions_signed: true,
+            want_assertions_encrypted: false,
           },
         });
       }
@@ -286,6 +293,7 @@ describe("Admin IdP Providers page", () => {
             metadata_url: "https://phpgrc.example/auth/saml/metadata",
             sign_authn_requests: false,
             want_assertions_signed: true,
+            want_assertions_encrypted: false,
           },
         });
       }
@@ -299,6 +307,7 @@ describe("Admin IdP Providers page", () => {
             metadata_url: "https://phpgrc.example/auth/saml/metadata",
             sign_authn_requests: false,
             want_assertions_signed: true,
+            want_assertions_encrypted: false,
           },
         });
       }
@@ -312,6 +321,7 @@ describe("Admin IdP Providers page", () => {
             metadata_url: "https://phpgrc.example/auth/saml/metadata",
             sign_authn_requests: false,
             want_assertions_signed: true,
+            want_assertions_encrypted: false,
           },
         });
       }
@@ -587,6 +597,7 @@ describe("Admin IdP Providers page", () => {
             metadata_url: "https://phpgrc.example/auth/saml/metadata",
             sign_authn_requests: false,
             want_assertions_signed: true,
+            want_assertions_encrypted: false,
           },
         });
       }
@@ -600,6 +611,7 @@ describe("Admin IdP Providers page", () => {
             metadata_url: "https://phpgrc.example/auth/saml/metadata",
             sign_authn_requests: false,
             want_assertions_signed: true,
+            want_assertions_encrypted: false,
           },
         });
       }

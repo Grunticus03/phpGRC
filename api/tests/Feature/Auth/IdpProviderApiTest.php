@@ -394,13 +394,52 @@ final class IdpProviderApiTest extends TestCase
             'metadata_url' => 'https://phpgrc.example/auth/saml/metadata',
             'sign_authn_requests' => true,
             'want_assertions_signed' => false,
+            'want_assertions_encrypted' => true,
         ]);
 
         $this->getJson('/admin/idp/providers/saml/sp')
             ->assertStatus(200)
             ->assertJsonPath('sp.entity_id', 'https://phpgrc.example/saml/sp')
             ->assertJsonPath('sp.sign_authn_requests', true)
-            ->assertJsonPath('sp.want_assertions_signed', false);
+            ->assertJsonPath('sp.want_assertions_signed', false)
+            ->assertJsonPath('sp.want_assertions_encrypted', true);
+    }
+
+    #[Test]
+    public function update_saml_service_provider_updates_signing_flags(): void
+    {
+        $this->actingAsAdmin();
+
+        config()->set('core.auth.saml.sp', [
+            'entity_id' => 'https://phpgrc.example/saml/sp',
+            'acs_url' => 'https://phpgrc.example/auth/saml/acs',
+            'metadata_url' => 'https://phpgrc.example/auth/saml/metadata',
+            'sign_authn_requests' => false,
+            'want_assertions_signed' => true,
+            'want_assertions_encrypted' => false,
+        ]);
+
+        $this->patchJson('/admin/idp/providers/saml/sp', [
+            'sign_authn_requests' => true,
+            'want_assertions_signed' => false,
+            'want_assertions_encrypted' => true,
+        ])
+            ->assertStatus(200)
+            ->assertJsonPath('sp.sign_authn_requests', true)
+            ->assertJsonPath('sp.want_assertions_signed', false)
+            ->assertJsonPath('sp.want_assertions_encrypted', true);
+
+        $this->assertDatabaseHas('core_settings', [
+            'key' => 'core.auth.saml.sp.sign_authn_requests',
+        ]);
+
+        $this->assertDatabaseHas('core_settings', [
+            'key' => 'core.auth.saml.sp.want_assertions_signed',
+        ]);
+
+        $this->assertDatabaseHas('core_settings', [
+            'key' => 'core.auth.saml.sp.want_assertions_encrypted',
+        ]);
     }
 
     #[Test]
@@ -777,6 +816,98 @@ final class IdpProviderApiTest extends TestCase
     }
 
     #[Test]
+    public function preview_health_for_saml_signs_requests_when_configured(): void
+    {
+        $this->actingAsAdmin();
+
+        $privateKey = $this->sampleServiceProviderPrivateKey();
+
+        config()->set('core.auth.saml.sp', [
+            'entity_id' => 'https://phpgrc.example.test/saml/sp',
+            'acs_url' => 'https://phpgrc.example.test/auth/saml/acs',
+            'metadata_url' => 'https://phpgrc.example.test/auth/saml/metadata',
+            'sign_authn_requests' => true,
+            'private_key' => $privateKey,
+        ]);
+
+        Http::fake([
+            'https://sso.example.test/adfs/ls*' => Http::response('<html><title>Sign In</title></html>', 200),
+        ]);
+
+        $this->postJson('/admin/idp/providers/preview-health', [
+            'driver' => 'saml',
+            'config' => [
+                'entity_id' => 'https://sso.example.test/adfs/services/trust',
+                'sso_url' => 'https://sso.example.test/adfs/ls',
+                'certificate' => $this->sampleCertificate(),
+            ],
+        ])->assertStatus(200);
+
+        Http::assertSent(static function ($request) use ($privateKey) {
+            if (! str_starts_with($request->url(), 'https://sso.example.test/adfs/ls')) {
+                return false;
+            }
+
+            $query = parse_url($request->url(), PHP_URL_QUERY);
+            if (! is_string($query) || $query === '') {
+                return false;
+            }
+
+            parse_str($query, $params);
+            if (! isset($params['SAMLRequest'], $params['Signature'], $params['SigAlg'])) {
+                return false;
+            }
+
+            if ($params['SigAlg'] !== 'http://www.w3.org/2001/04/xmldsig-more#rsa-sha256') {
+                return false;
+            }
+
+            $parts = [
+                'SAMLRequest='.rawurlencode((string) $params['SAMLRequest']),
+            ];
+
+            if (isset($params['RelayState']) && $params['RelayState'] !== '') {
+                $parts[] = 'RelayState='.rawurlencode((string) $params['RelayState']);
+            }
+
+            $parts[] = 'SigAlg='.rawurlencode((string) $params['SigAlg']);
+            $payload = implode('&', $parts);
+
+            $signature = base64_decode((string) $params['Signature'], true);
+            if ($signature === false) {
+                return false;
+            }
+
+            $privateResource = openssl_pkey_get_private($privateKey);
+            if ($privateResource === false) {
+                return false;
+            }
+
+            try {
+                $details = openssl_pkey_get_details($privateResource);
+            } finally {
+                openssl_pkey_free($privateResource);
+            }
+
+            $publicKey = $details['key'] ?? null;
+            if (! is_string($publicKey) || $publicKey === '') {
+                return false;
+            }
+
+            $publicResource = openssl_pkey_get_public($publicKey);
+            if ($publicResource === false) {
+                return false;
+            }
+
+            try {
+                return openssl_verify($payload, $signature, $publicResource, OPENSSL_ALGO_SHA256) === 1;
+            } finally {
+                openssl_pkey_free($publicResource);
+            }
+        });
+    }
+
+    #[Test]
     public function preview_health_for_saml_reports_relying_party_error(): void
     {
         $this->actingAsAdmin();
@@ -932,5 +1063,39 @@ X3h5xUEwsDPN9/5lCq3QxvxZ2O8xbrv6iH98sX8j5dhPj6l3SeSYyYqO6xbyicWG
 ECdAPOTwv0u62Y8JEA==
 -----END CERTIFICATE-----
 PEM;
+    }
+
+    private function sampleServiceProviderPrivateKey(): string
+    {
+        return <<<'KEY'
+-----BEGIN PRIVATE KEY-----
+MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQC5YD/qLVneFfkB
+inkL0CC8hhZxgcrZcfvx1HadSXj9mMjyZPpuvr94pH3wXMMJ7GCSSG9Uroecbbdq
+bkTapbzAd/FyP9pyBLXtBfKnauJcmDTRQtwNI0tEPlAYpeQYPDe6sSIFfm+leBSg
+QdhR8n2zrBcCI99G7WMwj+T73ishPoTFLn5qkcbtAEKl0c12jT4g8y0Fm7HDZVwf
+U8Uhr9jY1uj6po0l/OyEz8lV9R04cBR5Ka4HhUh8VaSdsGWIJmX7SY6hfqGQDCfQ
+FBOCDnWvsdyvXwlmU1PTOpa2uK4Tg/Fkl6sdpqkhoEOcUJ2uCKo7CFyi5z7svvJ5
+Bp3UWpU5AgMBAAECggEACNFFD97q74hhdHRPADqzsaPw2H4ssJ2wpKSGErBWaIYv
+fnAeToQ5oUz+RbHhkjqM060EWzfOAzs7D31dPn5Yh6MjwVsFCWVaiV4ZfNDaRhoZ
+A1cjhB4tOZ9W3o5o6O7FeY1sziLzUfwCFN3s68DxLW4+hMiKmZDugVHUlTJi1xZR
+ksmyWxav+gGBNb5hZ9TEH3PRve8TYBUAhOzXBvYnwNJW+e6RRuMwYyYrGgIyaEMw
+e+B4WVZ/KLVxpleatVhblFhpr9uzKTcvh2zE+Oj7ZjJjYJ17XyIk4CQcob8AKarb
+y/BBl3bwB6pyF0cOvjjlgmefaNmJfGizYuFvsqr7DQKBgQDoCOcPV95ggxWnB+In
+D2oqcRIbISamnDLyJSw1hJhWd8cs9kO8HEhOgqbO6WXOt0IGE68P/d21OgLotg6g
+/jpyoyU4RqHWRPxwf+l2fpirUYwXw2l4l6MEou+K6I9EMvvx/Zq/WH3tTEqtcLmg
+Aj2xvS1DsAsT1IaIq6ZGNFl5ewKBgQDMhaswgF3Dn+/nmGKrEQXqVn/MErsRoLsl
+VxyGd6cASXMMlKeJP645amAG22OkUgES5V8Nb3PYEqF40/7VA65IV51ZLvooQ1k8
+pF1bJGgk+zsG7LW74g0AbtkmGKRe2lvKDQkpIISrqg1Bp00mLnfNaT5yLWH6M2k/
+Bvh93Lgr2wKBgQDm4lTok4qXhlg5SELkkxYU/UYC8M3A45ReFlcTOclL4Quz1ag4
+ufvJA4BwSxYex4NPAK8lvnqqJftXDDEqSU5nW6dhhAbtat+2IdFxMy8+6Xn4+10r
+vddcebTaB+bm+cRxWuRsmeVUBqIYSx6p9RDml1M/EyEyrjrgK8zb9qNBmQKBgBXJ
+I0weUF6XOdHcrJ32SUAGCMTvNdgR2/2FQveb5UElkcjESPhYvTFGgIYadom5Zn3h
+yvc+aQOaMHMTefCs3LK+CnfGhkUlr2rDQ2KDBUjzLf1114H0+VeTdzQUqeWksuRZ
+8SDdYuR6T8Evlgs8JezOiiVVajthoJNjJbMagM/DAoGATFudh+ND7YHYBzWEXcjW
+Z3m0eijxN4AnfrKuLDs1a7/zSz12JfRP/xDkie63DK9sSDXwwy12lwxsuy+dkFrM
+A+/22bKSO//rHNykcJWQBh9WlKldOW9TRinU+gOLBaB8N+pc85JnPeTK0+JM0Wdb
+CBnAPcnLlPfdIDw9qvwZCwc=
+-----END PRIVATE KEY-----
+KEY;
     }
 }

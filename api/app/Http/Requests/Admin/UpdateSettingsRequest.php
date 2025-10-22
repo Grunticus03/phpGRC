@@ -8,6 +8,11 @@ use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\Exceptions\HttpResponseException;
 
+/**
+ * @SuppressWarnings("PHPMD.ExcessiveMethodLength")
+ * @SuppressWarnings("PHPMD.NPathComplexity")
+ * @SuppressWarnings("PHPMD.ElseExpression")
+ */
 final class UpdateSettingsRequest extends FormRequest
 {
     #[\Override]
@@ -20,7 +25,7 @@ final class UpdateSettingsRequest extends FormRequest
             /** @var array<string,mixed> $merge */
             $merge = [];
 
-            foreach (['rbac', 'audit', 'evidence', 'avatars', 'metrics', 'ui'] as $section) {
+            foreach (['rbac', 'audit', 'evidence', 'avatars', 'metrics', 'ui', 'auth'] as $section) {
                 if (array_key_exists($section, $core) && is_array($core[$section])) {
                     /** @var array<string,mixed> $sectionVal */
                     $sectionVal = $core[$section];
@@ -95,6 +100,13 @@ final class UpdateSettingsRequest extends FormRequest
             'metrics.cache_ttl_seconds' => ['sometimes', 'integer', 'min:0'],     // 0 = disable
             'metrics.rbac_denies' => ['sometimes', 'array'],
             'metrics.rbac_denies.window_days' => ['sometimes', 'integer', 'min:7', 'max:365'],
+
+            'auth' => ['sometimes', 'array'],
+            'auth.saml' => ['sometimes', 'array'],
+            'auth.saml.sp' => ['sometimes', 'array'],
+            'auth.saml.sp.sign_authn_requests' => ['sometimes', 'boolean'],
+            'auth.saml.sp.want_assertions_signed' => ['sometimes', 'boolean'],
+            'auth.saml.sp.want_assertions_encrypted' => ['sometimes', 'boolean'],
 
             'apply' => ['sometimes', 'boolean'],
         ];

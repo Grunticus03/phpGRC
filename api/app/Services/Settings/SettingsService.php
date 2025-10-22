@@ -11,7 +11,14 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use JsonException;
+use RuntimeException;
 
+/**
+ * @SuppressWarnings("PHPMD.StaticAccess")
+ * @SuppressWarnings("PHPMD.ExcessiveClassComplexity")
+ * @SuppressWarnings("PHPMD.ExcessiveMethodLength")
+ * @SuppressWarnings("PHPMD.NPathComplexity")
+ */
 final class SettingsService
 {
     /** @var list<string> */
@@ -37,6 +44,9 @@ final class SettingsService
         'metrics.cache_ttl_seconds',
         'metrics.rbac_denies.window_days',
         'ui.time_format',
+        'auth.saml.sp.sign_authn_requests',
+        'auth.saml.sp.want_assertions_signed',
+        'auth.saml.sp.want_assertions_encrypted',
     ];
 
     /** @var list<string> */
@@ -60,7 +70,7 @@ final class SettingsService
         try {
             $encoded = json_encode($normalized, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
         } catch (JsonException $e) {
-            throw new \RuntimeException('Unable to encode settings for ETag', previous: $e);
+            throw new RuntimeException('Unable to encode settings for ETag', previous: $e);
         }
 
         $fingerprint = hash('sha256', $encoded);
@@ -99,6 +109,7 @@ final class SettingsService
             'avatars' => is_array($merged['avatars'] ?? null) ? (array) $merged['avatars'] : [],
             'metrics' => is_array($merged['metrics'] ?? null) ? (array) $merged['metrics'] : [],
             'ui' => is_array($merged['ui'] ?? null) ? (array) $merged['ui'] : [],
+            'auth' => is_array($merged['auth'] ?? null) ? (array) $merged['auth'] : [],
         ];
 
         /** @var array<string, mixed> $finalCore */
@@ -159,12 +170,25 @@ final class SettingsService
     public function apply(array $accepted, ?int $actorId = null, array $context = []): array
     {
         /** @var array<string, mixed> $onlyAccepted */
-        $onlyAccepted = Arr::only($accepted, ['rbac', 'audit', 'evidence', 'avatars', 'metrics', 'ui']);
+        $onlyAccepted = Arr::only($accepted, ['rbac', 'audit', 'evidence', 'avatars', 'metrics', 'ui', 'auth']);
 
         if (isset($onlyAccepted['ui']) && is_array($onlyAccepted['ui'])) {
             /** @var array<string, mixed> $uiAccepted */
             $uiAccepted = $onlyAccepted['ui'];
             $onlyAccepted['ui']['time_format'] = $this->normalizeTimeFormat($uiAccepted['time_format'] ?? null);
+        }
+
+        if (isset($onlyAccepted['auth']) && is_array($onlyAccepted['auth'])) {
+            /** @var array<string,mixed> $authInput */
+            $authInput = $onlyAccepted['auth'];
+            $normalizedAuth = $this->normalizeAuthConfig($authInput);
+            if ($normalizedAuth === []) {
+                unset($onlyAccepted['auth']);
+            }
+
+            if ($normalizedAuth !== []) {
+                $onlyAccepted['auth'] = $normalizedAuth;
+            }
         }
 
         /** @var array<string, mixed> $flatAcceptedInput */
@@ -297,6 +321,21 @@ final class SettingsService
             });
         }
 
+        /** @var mixed $v */
+        foreach ($toUpsert as $k => $v) {
+            config([$k => $v]);
+        }
+
+        foreach ($toDelete as $k) {
+            if (array_key_exists($k, $flatDefaults)) {
+                config([$k => $flatDefaults[$k]]);
+
+                continue;
+            }
+
+            config([$k => null]);
+        }
+
         /** @var list<array{key:string, old:mixed, new:mixed, action:string}> $changes */
         $changes = [];
 
@@ -421,13 +460,54 @@ final class SettingsService
                 str_starts_with($k, 'evidence.') ||
                 str_starts_with($k, 'avatars.') ||
                 str_starts_with($k, 'metrics.') ||
-                str_starts_with($k, 'ui.')
+                str_starts_with($k, 'ui.') ||
+                str_starts_with($k, 'auth.')
             ) {
                 $out['core.'.$k] = $v;
             }
         }
 
         return $out;
+    }
+
+    /**
+     * @param  array<string, mixed>  $auth
+     * @return array<string, mixed>
+     */
+    private function normalizeAuthConfig(array $auth): array
+    {
+        $samlRaw = is_array($auth['saml'] ?? null) ? (array) $auth['saml'] : [];
+        $spRaw = is_array($samlRaw['sp'] ?? null) ? (array) $samlRaw['sp'] : [];
+
+        $normalizedSp = [];
+
+        if (array_key_exists('sign_authn_requests', $spRaw)) {
+            $normalizedSp['sign_authn_requests'] = $this->toBool(
+                $this->scalarOrDefault($spRaw['sign_authn_requests'], false)
+            );
+        }
+
+        if (array_key_exists('want_assertions_signed', $spRaw)) {
+            $normalizedSp['want_assertions_signed'] = $this->toBool(
+                $this->scalarOrDefault($spRaw['want_assertions_signed'], true)
+            );
+        }
+
+        if (array_key_exists('want_assertions_encrypted', $spRaw)) {
+            $normalizedSp['want_assertions_encrypted'] = $this->toBool(
+                $this->scalarOrDefault($spRaw['want_assertions_encrypted'], false)
+            );
+        }
+
+        if ($normalizedSp === []) {
+            return [];
+        }
+
+        return [
+            'saml' => [
+                'sp' => $normalizedSp,
+            ],
+        ];
     }
 
     private function normalizeTimeFormat(mixed $value): string
@@ -512,7 +592,7 @@ final class SettingsService
         // arrays / objects / null => JSON
         $json = json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         if ($json === false) {
-            throw new \RuntimeException('Failed to encode JSON for settings value.');
+            throw new RuntimeException('Failed to encode JSON for settings value.');
         }
 
         return [$json, 'json'];
@@ -525,7 +605,7 @@ final class SettingsService
     private function filterForContract(array $core): array
     {
         /** @var array<string,mixed> $coreOnly */
-        $coreOnly = Arr::only($core, ['rbac', 'audit', 'evidence', 'avatars', 'metrics', 'ui']);
+        $coreOnly = Arr::only($core, ['rbac', 'audit', 'evidence', 'avatars', 'metrics', 'ui', 'auth']);
 
         /** @var array<string, mixed> $rbacRaw */
         $rbacRaw = (array) ($coreOnly['rbac'] ?? []);
@@ -537,6 +617,13 @@ final class SettingsService
         $avatarsRaw = (array) ($coreOnly['avatars'] ?? []);
         /** @var array<string, mixed> $metricsRaw */
         $metricsRaw = (array) ($coreOnly['metrics'] ?? []);
+
+        /** @var array<string, mixed> $authRaw */
+        $authRaw = (array) ($coreOnly['auth'] ?? []);
+        /** @var array<string, mixed> $samlRaw */
+        $samlRaw = is_array($authRaw['saml'] ?? null) ? (array) $authRaw['saml'] : [];
+        /** @var array<string, mixed> $spRaw */
+        $spRaw = is_array($samlRaw['sp'] ?? null) ? (array) $samlRaw['sp'] : [];
 
         /** @var array<string, mixed> $uiRaw */
         $uiRaw = (array) ($coreOnly['ui'] ?? []);
@@ -594,6 +681,22 @@ final class SettingsService
             'time_format' => $this->normalizeTimeFormat($uiRaw['time_format'] ?? null),
         ];
 
+        $auth = [
+            'saml' => [
+                'sp' => [
+                    'sign_authn_requests' => $this->toBool(
+                        $this->scalarOrDefault($spRaw['sign_authn_requests'] ?? false, false)
+                    ),
+                    'want_assertions_signed' => $this->toBool(
+                        $this->scalarOrDefault($spRaw['want_assertions_signed'] ?? true, true)
+                    ),
+                    'want_assertions_encrypted' => $this->toBool(
+                        $this->scalarOrDefault($spRaw['want_assertions_encrypted'] ?? false, false)
+                    ),
+                ],
+            ],
+        ];
+
         return [
             'rbac' => $rbac,
             'audit' => $audit,
@@ -601,6 +704,7 @@ final class SettingsService
             'avatars' => $avatars,
             'metrics' => $metrics,
             'ui' => $ui,
+            'auth' => $auth,
         ];
     }
 

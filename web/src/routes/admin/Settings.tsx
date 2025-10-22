@@ -12,6 +12,15 @@ type EffectiveConfig = {
     audit?: { retention_days?: number };
     evidence?: { blob_storage_path?: string; max_mb?: number };
     ui?: { time_format?: string };
+    auth?: {
+      saml?: {
+        sp?: {
+          sign_authn_requests?: boolean;
+          want_assertions_signed?: boolean;
+          want_assertions_encrypted?: boolean;
+        };
+      };
+    };
   };
 };
 
@@ -24,6 +33,9 @@ type SettingsSnapshot = {
   timeFormat: TimeFormat;
   evidenceBlobPath: string;
   evidenceMaxMb: number;
+  signAuthnRequests: boolean;
+  wantAssertionsSigned: boolean;
+  wantAssertionsEncrypted: boolean;
 };
 
 type SettingsPayload = {
@@ -39,6 +51,15 @@ type SettingsPayload = {
   };
   ui?: { time_format: TimeFormat };
   evidence?: { blob_storage_path?: string; max_mb?: number };
+  auth?: {
+    saml?: {
+      sp?: {
+        sign_authn_requests?: boolean;
+        want_assertions_signed?: boolean;
+        want_assertions_encrypted?: boolean;
+      };
+    };
+  };
 };
 
 type EvidencePurgeResponse = { ok?: boolean; deleted?: number; note?: string };
@@ -64,6 +85,9 @@ export default function CoreSettings(): JSX.Element {
   const [timeFormat, setTimeFormat] = useState<TimeFormat>(DEFAULT_TIME_FORMAT);
   const [evidenceBlobPath, setEvidenceBlobPath] = useState<string>("");
   const [evidenceMaxMb, setEvidenceMaxMb] = useState<number>(25);
+  const [signAuthnRequests, setSignAuthnRequests] = useState(false);
+  const [wantAssertionsSigned, setWantAssertionsSigned] = useState(true);
+  const [wantAssertionsEncrypted, setWantAssertionsEncrypted] = useState(false);
   const blobPlaceholderDefault = "/opt/phpgrc/shared/blobs";
   const [purging, setPurging] = useState(false);
   const timeFormatExample =
@@ -81,6 +105,9 @@ export default function CoreSettings(): JSX.Element {
       const rbac = core.rbac ?? {};
       const audit = core.audit ?? {};
       const evidence = core.evidence ?? {};
+      const auth = core.auth ?? {};
+      const saml = auth.saml ?? {};
+      const sp = saml.sp ?? {};
 
       const nextCacheTtl = clamp(Number(metrics.cache_ttl_seconds ?? 0), 0, 2_592_000);
       const nextRbacDays = clamp(Number(metrics.rbac_denies?.window_days ?? 7), 7, 365);
@@ -91,6 +118,11 @@ export default function CoreSettings(): JSX.Element {
       const rawBlobPath = typeof evidence?.blob_storage_path === "string" ? evidence.blob_storage_path.trim() : "";
       const nextBlobPath = rawBlobPath === blobPlaceholderDefault ? "" : rawBlobPath;
       const nextMaxMb = clamp(Number(evidence?.max_mb ?? 25), 1, 4096);
+      const nextSign = Boolean(sp?.sign_authn_requests ?? false);
+      const wantSignedRaw = sp?.want_assertions_signed;
+      const nextWantSigned =
+        typeof wantSignedRaw === "boolean" ? wantSignedRaw : wantSignedRaw == null ? true : Boolean(wantSignedRaw);
+      const nextWantEncrypted = Boolean(sp?.want_assertions_encrypted ?? false);
 
       setCacheTtl(nextCacheTtl);
       setRbacDays(nextRbacDays);
@@ -100,6 +132,9 @@ export default function CoreSettings(): JSX.Element {
       setTimeFormat(nextTimeFormat);
       setEvidenceBlobPath(nextBlobPath);
       setEvidenceMaxMb(nextMaxMb);
+      setSignAuthnRequests(nextSign);
+      setWantAssertionsSigned(nextWantSigned);
+      setWantAssertionsEncrypted(nextWantEncrypted);
 
       snapshotRef.current = {
         cacheTtl: nextCacheTtl,
@@ -110,6 +145,9 @@ export default function CoreSettings(): JSX.Element {
         timeFormat: nextTimeFormat,
         evidenceBlobPath: nextBlobPath,
         evidenceMaxMb: nextMaxMb,
+        signAuthnRequests: nextSign,
+        wantAssertionsSigned: nextWantSigned,
+        wantAssertionsEncrypted: nextWantEncrypted,
       };
     },
     [blobPlaceholderDefault]
@@ -164,6 +202,9 @@ export default function CoreSettings(): JSX.Element {
     timeFormat,
     evidenceBlobPath: evidenceBlobPath.trim(),
     evidenceMaxMb: clamp(Number(evidenceMaxMb) || 25, 1, 4096),
+    signAuthnRequests,
+    wantAssertionsSigned,
+    wantAssertionsEncrypted,
   });
 
   const buildPayload = (): SettingsPayload => {
@@ -186,6 +227,15 @@ export default function CoreSettings(): JSX.Element {
       payload.evidence = {
         blob_storage_path: current.evidenceBlobPath,
         max_mb: current.evidenceMaxMb,
+      };
+      payload.auth = {
+        saml: {
+          sp: {
+            sign_authn_requests: current.signAuthnRequests,
+            want_assertions_signed: current.wantAssertionsSigned,
+            want_assertions_encrypted: current.wantAssertionsEncrypted,
+          },
+        },
       };
 
       return payload;
@@ -230,6 +280,29 @@ export default function CoreSettings(): JSX.Element {
     }
     if (Object.keys(evidenceDiffs).length > 0) {
       payload.evidence = evidenceDiffs;
+    }
+
+    const spDiffs: NonNullable<NonNullable<NonNullable<SettingsPayload["auth"]>["saml"]>["sp"]> = {};
+    if (current.signAuthnRequests !== baseline.signAuthnRequests) {
+      spDiffs.sign_authn_requests = current.signAuthnRequests;
+    }
+    if (current.wantAssertionsSigned !== baseline.wantAssertionsSigned) {
+      spDiffs.want_assertions_signed = current.wantAssertionsSigned;
+    }
+    if (current.wantAssertionsEncrypted !== baseline.wantAssertionsEncrypted) {
+      spDiffs.want_assertions_encrypted = current.wantAssertionsEncrypted;
+    }
+    if (Object.keys(spDiffs).length > 0) {
+      payload.auth = {
+        ...(payload.auth ?? {}),
+        saml: {
+          ...(payload.auth?.saml ?? {}),
+          sp: {
+            ...(payload.auth?.saml?.sp ?? {}),
+            ...spDiffs,
+          },
+        },
+      };
     }
 
     return payload;
@@ -311,6 +384,9 @@ export default function CoreSettings(): JSX.Element {
         setTimeFormat(updated.timeFormat);
         setEvidenceBlobPath(updated.evidenceBlobPath);
         setEvidenceMaxMb(updated.evidenceMaxMb);
+        setSignAuthnRequests(updated.signAuthnRequests);
+        setWantAssertionsSigned(updated.wantAssertionsSigned);
+        setWantAssertionsEncrypted(updated.wantAssertionsEncrypted);
       }
 
       const apiMsg =
@@ -394,6 +470,64 @@ export default function CoreSettings(): JSX.Element {
                   />
                 )}
               </SettingField>
+
+              <hr className="my-3" />
+              <h2 className="h6 text-uppercase text-muted mb-2">SAML Settings</h2>
+
+              <div className="d-flex flex-column gap-1">
+                <div className="form-check form-switch d-flex align-items-center gap-2">
+                  <input
+                    id="samlSignAuthnRequests"
+                    type="checkbox"
+                    className="form-check-input"
+                    role="switch"
+                    checked={signAuthnRequests}
+                    onChange={(event) => setSignAuthnRequests(event.target.checked)}
+                  />
+                  <label htmlFor="samlSignAuthnRequests" className="form-check-label">
+                    Sign AuthnRequests
+                  </label>
+                </div>
+                <p className="form-text mb-0">
+                  Enable when the Identity Provider requires signed AuthnRequest messages.
+                </p>
+              </div>
+
+              <div className="d-flex flex-column gap-1">
+                <div className="form-check form-switch d-flex align-items-center gap-2">
+                  <input
+                    id="samlWantAssertionsSigned"
+                    type="checkbox"
+                    className="form-check-input"
+                    role="switch"
+                    checked={wantAssertionsSigned}
+                    onChange={(event) => setWantAssertionsSigned(event.target.checked)}
+                  />
+                  <label htmlFor="samlWantAssertionsSigned" className="form-check-label">
+                    Require signed responses
+                  </label>
+                </div>
+                <p className="form-text mb-0">Disable only if the Identity Provider cannot sign responses.</p>
+              </div>
+
+              <div className="d-flex flex-column gap-1">
+                <div className="form-check form-switch d-flex align-items-center gap-2">
+                  <input
+                    id="samlWantAssertionsEncrypted"
+                    type="checkbox"
+                    className="form-check-input"
+                    role="switch"
+                    checked={wantAssertionsEncrypted}
+                    onChange={(event) => setWantAssertionsEncrypted(event.target.checked)}
+                  />
+                  <label htmlFor="samlWantAssertionsEncrypted" className="form-check-label">
+                    Require encrypted assertions
+                  </label>
+                </div>
+                <p className="form-text mb-0">
+                  Enable when assertions must be encrypted with the configured service provider certificate.
+                </p>
+              </div>
             </div>
           </section>
 

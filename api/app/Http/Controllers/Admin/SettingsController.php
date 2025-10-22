@@ -13,6 +13,11 @@ use Illuminate\Routing\Controller;
 use Illuminate\Support\Arr;
 use Symfony\Component\HttpFoundation\Response;
 
+/**
+ * @SuppressWarnings("PHPMD.StaticAccess")
+ * @SuppressWarnings("PHPMD.ExcessiveMethodLength")
+ * @SuppressWarnings("PHPMD.NPathComplexity")
+ */
 final class SettingsController extends Controller
 {
     public function __construct(private readonly SettingsService $settings) {}
@@ -60,7 +65,7 @@ final class SettingsController extends Controller
         $legacy = is_array(Arr::get($raw, 'core')) ? (array) $raw['core'] : [];
 
         // Build accepted strictly from validated sections to avoid silent drops
-        $sections = ['rbac', 'audit', 'evidence', 'avatars', 'metrics', 'ui'];
+        $sections = ['rbac', 'audit', 'evidence', 'avatars', 'metrics', 'ui', 'auth'];
         /** @var array<string,mixed> $accepted */
         $accepted = [];
         foreach ($sections as $sec) {

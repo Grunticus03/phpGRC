@@ -1,4 +1,5 @@
 import { ChangeEvent, DragEvent, ReactNode, useCallback, useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import ConfirmModal from "../../components/modal/ConfirmModal";
 import { useToast } from "../../components/toast/ToastProvider";
 import {
@@ -2345,16 +2346,6 @@ export default function IdpProviders(): JSX.Element {
     const spEntityId = samlSpInfo?.entity_id ?? fallback;
     const spAcsUrl = samlSpInfo?.acs_url ?? fallback;
     const spMetadataUrl = typeof samlSpInfo?.metadata_url === "string" ? samlSpInfo.metadata_url : null;
-    const signRequestsState =
-      samlSpInfo && typeof samlSpInfo.sign_authn_requests === "boolean"
-        ? samlSpInfo.sign_authn_requests
-        : null;
-    const wantSignedState =
-      samlSpInfo && typeof samlSpInfo.want_assertions_signed === "boolean"
-        ? samlSpInfo.want_assertions_signed
-        : null;
-    const signingLabel = signRequestsState === null ? fallback : signRequestsState ? "Enabled" : "Disabled";
-    const responsesLabel = wantSignedState === null ? fallback : wantSignedState ? "Required" : "Optional";
     const headingId = "saml-sp-urls-heading";
     const collapseId = "saml-sp-urls-collapse";
 
@@ -2396,33 +2387,16 @@ export default function IdpProviders(): JSX.Element {
                   </div>
                   <div className="col-12 col-md-6">
                     <p className="text-muted mb-1">Metadata URL</p>
-                    <p className="font-monospace text-break mb-0">
-                      {spMetadataUrl ? (
-                        <a
-                          href={spMetadataUrl}
-                          target="_blank"
-                          rel="noreferrer noopener"
-                          className="link-offset-1 text-decoration-none"
-                        >
-                          {spMetadataUrl}
-                        </a>
-                      ) : (
-                        fallback
-                      )}
-                    </p>
+                    <p className="font-monospace text-break mb-0">{spMetadataUrl ?? fallback}</p>
                   </div>
                 </div>
-                <hr className="my-3" />
-                <div className="row g-3 mb-0 small">
-                  <div className="col-12 col-md-6">
-                    <p className="text-muted mb-1">Signs AuthnRequests</p>
-                    <p className="mb-0">{signingLabel}</p>
-                  </div>
-                  <div className="col-12 col-md-6">
-                    <p className="text-muted mb-1">Requires signed responses</p>
-                    <p className="mb-0">{responsesLabel}</p>
-                  </div>
-                </div>
+                <p className="form-text mt-3 mb-0">
+                  Manage signing preferences from the{" "}
+                  <Link to="/admin/settings/core" className="text-decoration-none">
+                    Settings page
+                  </Link>
+                  .
+                </p>
               </div>
             </div>
           </div>

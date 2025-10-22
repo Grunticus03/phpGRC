@@ -191,6 +191,8 @@ Route::prefix('/admin')
 
             Route::match(['GET', 'HEAD'], '/saml/sp', [IdpProviderController::class, 'samlServiceProvider'])
                 ->defaults('policy', 'auth.idp.manage');
+            Route::patch('/saml/sp', [IdpProviderController::class, 'updateSamlServiceProvider'])
+                ->defaults('policy', 'auth.idp.manage');
 
             Route::post('/', [IdpProviderController::class, 'store'])
                 ->defaults('policy', 'auth.idp.manage');

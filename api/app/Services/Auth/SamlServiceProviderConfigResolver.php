@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace App\Services\Auth;
 
+use RuntimeException;
+
 final class SamlServiceProviderConfigResolver
 {
     /**
-     * @return array{entity_id:string,acs_url:string,metadata_url:string,sign_authn_requests:bool,want_assertions_signed:bool,certificate?:string}
+     * @return array{entity_id:string,acs_url:string,metadata_url:string,sign_authn_requests:bool,want_assertions_signed:bool,want_assertions_encrypted:bool,certificate?:string}
      */
     public function resolve(): array
     {
@@ -17,6 +19,7 @@ final class SamlServiceProviderConfigResolver
         $appUrl = $this->applicationUrl();
         $signAuthnRequests = $this->normalizeBoolean($raw['sign_authn_requests'] ?? null, false);
         $wantAssertionsSigned = $this->normalizeBoolean($raw['want_assertions_signed'] ?? null, true);
+        $encryptAssertions = $this->normalizeBoolean($raw['want_assertions_encrypted'] ?? null, false);
 
         $resolved = [
             'entity_id' => $this->normalize($raw['entity_id'] ?? null, $appUrl.'/saml/sp'),
@@ -24,6 +27,7 @@ final class SamlServiceProviderConfigResolver
             'metadata_url' => $this->normalize($raw['metadata_url'] ?? null, $appUrl.'/auth/saml/metadata'),
             'sign_authn_requests' => $signAuthnRequests,
             'want_assertions_signed' => $wantAssertionsSigned,
+            'want_assertions_encrypted' => $encryptAssertions,
         ];
 
         $certificate = $this->normalizeOptional($raw['certificate'] ?? null);
@@ -32,6 +36,38 @@ final class SamlServiceProviderConfigResolver
         }
 
         return $resolved;
+    }
+
+    public function privateKey(): ?string
+    {
+        $inline = $this->normalizeOptional(config('core.auth.saml.sp.private_key'));
+        if ($inline !== null) {
+            return $inline;
+        }
+
+        $path = $this->normalizeOptional(config('core.auth.saml.sp.private_key_path'));
+        if ($path === null) {
+            return null;
+        }
+
+        $resolvedPath = $this->resolvePath($path);
+        if (! is_file($resolvedPath)) {
+            throw new RuntimeException(sprintf('SAML SP private key path "%s" does not exist.', $path));
+        }
+
+        $contents = file_get_contents($resolvedPath);
+        if ($contents === false) {
+            throw new RuntimeException(sprintf('Unable to read SAML SP private key from "%s".', $resolvedPath));
+        }
+
+        $trimmed = trim($contents);
+
+        return $trimmed === '' ? null : $trimmed;
+    }
+
+    public function privateKeyPassphrase(): ?string
+    {
+        return $this->normalizeOptional(config('core.auth.saml.sp.private_key_passphrase'));
     }
 
     private function applicationUrl(): string
@@ -97,5 +133,31 @@ final class SamlServiceProviderConfigResolver
         }
 
         return (bool) $value;
+    }
+
+    private function resolvePath(string $path): string
+    {
+        if ($path === '') {
+            return $path;
+        }
+
+        if ($this->isAbsolutePath($path)) {
+            return $path;
+        }
+
+        return base_path($path);
+    }
+
+    private function isAbsolutePath(string $path): bool
+    {
+        if ($path === '') {
+            return false;
+        }
+
+        if (str_starts_with($path, DIRECTORY_SEPARATOR)) {
+            return true;
+        }
+
+        return (bool) preg_match('/^[A-Za-z]:[\\\\\\/]/', $path);
     }
 }

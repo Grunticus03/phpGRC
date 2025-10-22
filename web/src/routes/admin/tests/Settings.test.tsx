@@ -22,6 +22,15 @@ type Payload = {
   metrics?: { cache_ttl_seconds?: number; rbac_denies?: { window_days: number } };
   ui?: { time_format: string };
   evidence?: { blob_storage_path?: string; max_mb?: number };
+  auth?: {
+    saml?: {
+      sp?: {
+        sign_authn_requests?: boolean;
+        want_assertions_signed?: boolean;
+        want_assertions_encrypted?: boolean;
+      };
+    };
+  };
 };
 
 describe("Core Settings page", () => {
@@ -59,6 +68,15 @@ describe("Core Settings page", () => {
                 },
                 avatars: { enabled: true, size_px: 128, format: "webp" },
                 ui: { time_format: "LOCAL" },
+                auth: {
+                  saml: {
+                    sp: {
+                      sign_authn_requests: false,
+                      want_assertions_signed: true,
+                      want_assertions_encrypted: false,
+                    },
+                  },
+                },
               },
             },
           },
@@ -96,6 +114,7 @@ describe("Core Settings page", () => {
     await waitFor(() => expect(screen.queryByText("Loading")).toBeNull());
     expect(screen.getByText("0 disables caching. Max 30 days (2,592,000 seconds).")).toBeInTheDocument();
     expect(screen.getByText("Controls RBAC deny cache. Range: 7–365.")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /saml settings/i })).toBeInTheDocument();
 
     const requireAuth = screen.getByLabelText("Enforce Authentication") as HTMLInputElement;
     expect(requireAuth.checked).toBe(false);
@@ -119,6 +138,23 @@ describe("Core Settings page", () => {
     const timeFormatSelect = screen.getByLabelText(/Timestamp display/i) as HTMLSelectElement;
     fireEvent.change(timeFormatSelect, { target: { value: "ISO_8601" } });
     expect(timeFormatSelect.value).toBe("ISO_8601");
+
+    const signRequestsSwitch = screen.getByRole("switch", { name: /sign authnrequests/i }) as HTMLInputElement;
+    expect(signRequestsSwitch.checked).toBe(false);
+    fireEvent.click(signRequestsSwitch);
+    expect(signRequestsSwitch.checked).toBe(true);
+
+    const wantSignedSwitch = screen.getByRole("switch", { name: /require signed responses/i }) as HTMLInputElement;
+    expect(wantSignedSwitch.checked).toBe(true);
+    fireEvent.click(wantSignedSwitch);
+    expect(wantSignedSwitch.checked).toBe(false);
+
+    const wantEncryptedSwitch = screen.getByRole("switch", {
+      name: /require encrypted assertions/i,
+    }) as HTMLInputElement;
+    expect(wantEncryptedSwitch.checked).toBe(false);
+    fireEvent.click(wantEncryptedSwitch);
+    expect(wantEncryptedSwitch.checked).toBe(true);
 
     const blobPath = screen.getByLabelText("Blob storage path") as HTMLInputElement;
     expect(blobPath.value).toBe("");
@@ -159,6 +195,9 @@ describe("Core Settings page", () => {
     expect(payload.metrics?.cache_ttl_seconds).toBeUndefined();
     expect(payload.evidence?.blob_storage_path).toBe("/var/data/evidence");
     expect(payload.evidence?.max_mb).toBe(100);
+    expect(payload.auth?.saml?.sp?.sign_authn_requests).toBe(true);
+    expect(payload.auth?.saml?.sp?.want_assertions_signed).toBe(false);
+    expect(payload.auth?.saml?.sp?.want_assertions_encrypted).toBe(true);
   });
 
   it("clamps authentication window above max on save", async () => {

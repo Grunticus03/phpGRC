@@ -123,6 +123,7 @@ export type SamlServiceProviderInfo = {
   metadata_url: string;
   sign_authn_requests: boolean;
   want_assertions_signed: boolean;
+  want_assertions_encrypted: boolean;
 };
 
 export type SamlSpConfigResponse = {
