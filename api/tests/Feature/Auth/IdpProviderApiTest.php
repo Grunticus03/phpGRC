@@ -84,6 +84,25 @@ final class IdpProviderApiTest extends TestCase
     }
 
     #[Test]
+    public function saml_sp_config_endpoint_returns_service_provider_values(): void
+    {
+        $this->actingAsAdmin();
+
+        config()->set('core.auth.saml.sp', [
+            'entity_id' => 'urn:phpgrc:test',
+            'acs_url' => 'https://phpgrc.example.test/auth/saml/acs',
+            'metadata_url' => 'https://phpgrc.example.test/auth/saml/metadata',
+        ]);
+
+        $this->getJson('/admin/idp/providers/saml/sp')
+            ->assertStatus(200)
+            ->assertJsonPath('ok', true)
+            ->assertJsonPath('sp.entity_id', 'urn:phpgrc:test')
+            ->assertJsonPath('sp.acs_url', 'https://phpgrc.example.test/auth/saml/acs')
+            ->assertJsonPath('sp.metadata_url', 'https://phpgrc.example.test/auth/saml/metadata');
+    }
+
+    #[Test]
     public function store_creates_provider_and_encrypts_secret(): void
     {
         $this->actingAsAdmin();
@@ -175,6 +194,73 @@ final class IdpProviderApiTest extends TestCase
         self::assertFalse($provider->config['require_tls']);
         self::assertSame('service', $provider->config['bind_strategy']);
         self::assertSame(1, Arr::get($provider->meta, 'reference'));
+    }
+
+    #[Test]
+    public function store_accepts_ldap_configuration_with_identifier_source(): void
+    {
+        $this->actingAsAdmin();
+
+        $payload = [
+            'name' => 'LDAP Directory',
+            'driver' => 'ldap',
+            'enabled' => true,
+            'config' => [
+                'host' => 'ldap.example.test',
+                'base_dn' => 'dc=example,dc=test',
+                'bind_dn' => 'cn=service,dc=example,dc=test',
+                'bind_password' => 'secret',
+                'user_identifier_source' => 'email_attribute',
+                'email_attribute' => 'userPrincipalName',
+                'name_attribute' => 'cn',
+                'username_attribute' => 'sAMAccountName',
+                'require_tls' => false,
+            ],
+        ];
+
+        $this->postJson('/admin/idp/providers', $payload)
+            ->assertStatus(201)
+            ->assertJsonPath('ok', true)
+            ->assertJsonPath('provider.driver', 'ldap')
+            ->assertJsonPath('provider.config.user_identifier_source', 'email_attribute')
+            ->assertJsonPath('provider.config.user_filter', '(userprincipalname={{username}})');
+    }
+
+    #[Test]
+    public function store_rejects_duplicate_display_name(): void
+    {
+        $this->actingAsAdmin();
+
+        IdpProvider::query()->create([
+            'key' => 'existing',
+            'name' => 'Duplicate Name',
+            'driver' => 'oidc',
+            'enabled' => true,
+            'evaluation_order' => 1,
+            'config' => [
+                'issuer' => 'https://issuer.example.test',
+                'client_id' => 'client',
+                'client_secret' => 'secret',
+            ],
+        ]);
+
+        $payload = [
+            'name' => 'Duplicate Name',
+            'driver' => 'ldap',
+            'config' => [
+                'host' => 'ldap.example.test',
+                'base_dn' => 'dc=example,dc=test',
+                'bind_dn' => 'cn=service,dc=example,dc=test',
+                'bind_password' => 'secret',
+                'user_filter' => '(uid={{username}})',
+                'require_tls' => false,
+            ],
+        ];
+
+        $response = $this->postJson('/admin/idp/providers', $payload)
+            ->assertStatus(422);
+
+        $response->assertJsonValidationErrorFor('name');
     }
 
     #[Test]
@@ -298,6 +384,26 @@ final class IdpProviderApiTest extends TestCase
     }
 
     #[Test]
+    public function saml_service_provider_endpoint_reports_signing_capabilities(): void
+    {
+        $this->actingAsAdmin();
+
+        config()->set('core.auth.saml.sp', [
+            'entity_id' => 'https://phpgrc.example/saml/sp',
+            'acs_url' => 'https://phpgrc.example/auth/saml/acs',
+            'metadata_url' => 'https://phpgrc.example/auth/saml/metadata',
+            'sign_authn_requests' => true,
+            'want_assertions_signed' => false,
+        ]);
+
+        $this->getJson('/admin/idp/providers/saml/sp')
+            ->assertStatus(200)
+            ->assertJsonPath('sp.entity_id', 'https://phpgrc.example/saml/sp')
+            ->assertJsonPath('sp.sign_authn_requests', true)
+            ->assertJsonPath('sp.want_assertions_signed', false);
+    }
+
+    #[Test]
     public function update_allows_reordering_and_toggle(): void
     {
         $this->actingAsAdmin();
@@ -349,6 +455,50 @@ final class IdpProviderApiTest extends TestCase
             ->latest('occurred_at')
             ->first();
         self::assertNotNull($audit);
+    }
+
+    #[Test]
+    public function update_rejects_duplicate_display_name(): void
+    {
+        $this->actingAsAdmin();
+
+        IdpProvider::query()->create([
+            'key' => 'primary',
+            'name' => 'Primary Name',
+            'driver' => 'saml',
+            'enabled' => true,
+            'evaluation_order' => 1,
+            'config' => [
+                'entity_id' => 'https://sso.example.test/entity',
+                'sso_url' => 'https://sso.example.test/login',
+                'certificate' => $this->sampleCertificate(),
+            ],
+        ]);
+
+        $secondary = IdpProvider::query()->create([
+            'key' => 'secondary',
+            'name' => 'Secondary Name',
+            'driver' => 'ldap',
+            'enabled' => true,
+            'evaluation_order' => 2,
+            'config' => [
+                'host' => 'ldap.example.test',
+                'base_dn' => 'dc=example,dc=test',
+                'bind_dn' => 'cn=service,dc=example,dc=test',
+                'bind_password' => 'secret',
+                'user_filter' => '(uid={{username}})',
+                'require_tls' => false,
+            ],
+        ]);
+
+        $this->patchJson("/admin/idp/providers/{$secondary->key}", [
+            'name' => 'Primary Name',
+        ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrorFor('name');
+
+        $secondary->refresh();
+        self::assertSame('Secondary Name', $secondary->name);
     }
 
     #[Test]
@@ -587,6 +737,92 @@ final class IdpProviderApiTest extends TestCase
         ])
             ->assertStatus(422)
             ->assertJsonValidationErrors(['config.issuer', 'config.client_secret']);
+    }
+
+    #[Test]
+    public function preview_health_for_saml_invokes_remote_endpoint(): void
+    {
+        $this->actingAsAdmin();
+
+        config()->set('core.auth.saml.sp', [
+            'entity_id' => 'https://phpgrc.example.test/saml/sp',
+            'acs_url' => 'https://phpgrc.example.test/auth/saml/acs',
+            'metadata_url' => 'https://phpgrc.example.test/auth/saml/metadata',
+        ]);
+
+        Http::fake([
+            'https://sso.example.test/adfs/ls*' => Http::response('<html><title>Sign In</title></html>', 200, [
+                'Content-Type' => 'text/html',
+            ]),
+        ]);
+
+        $response = $this->postJson('/admin/idp/providers/preview-health', [
+            'driver' => 'saml',
+            'config' => [
+                'entity_id' => 'https://sso.example.test/adfs/services/trust',
+                'sso_url' => 'https://sso.example.test/adfs/ls',
+                'certificate' => $this->sampleCertificate(),
+            ],
+        ])
+            ->assertStatus(200)
+            ->assertJsonPath('status', IdpHealthCheckResult::STATUS_OK)
+            ->assertJsonPath('details.response.status', 200)
+            ->assertJsonPath('details.request.id', fn ($value) => is_string($value) && str_starts_with($value, '_'));
+
+        Http::assertSent(static function ($request) {
+            return str_starts_with($request->url(), 'https://sso.example.test/adfs/ls')
+                && $request->hasHeader('User-Agent', 'phpGRC SAML Health/1.0')
+                && str_contains($request->url(), 'SAMLRequest=');
+        });
+    }
+
+    #[Test]
+    public function preview_health_for_saml_reports_relying_party_error(): void
+    {
+        $this->actingAsAdmin();
+
+        Http::fake([
+            'https://sso.invalid.test/*' => Http::response('<html>MSIS7012: Relying party trust not found.</html>', 200),
+        ]);
+
+        $this->postJson('/admin/idp/providers/preview-health', [
+            'driver' => 'saml',
+            'config' => [
+                'entity_id' => 'https://sso.invalid.test/adfs/services/trust',
+                'sso_url' => 'https://sso.invalid.test/adfs/ls',
+                'certificate' => $this->sampleCertificate(),
+            ],
+        ])
+            ->assertStatus(200)
+            ->assertJsonPath('status', IdpHealthCheckResult::STATUS_ERROR)
+            ->assertJsonPath('details.response.status', 200)
+            ->assertJsonPath('message', fn ($value) => is_string($value) && str_contains($value, 'error page'))
+            ->assertJsonPath('details.response.adfs_error_detail', fn ($value) => is_string($value) && str_contains($value, 'MSIS7012'));
+    }
+
+    #[Test]
+    public function preview_health_for_saml_reports_forwarded_status_code(): void
+    {
+        $this->actingAsAdmin();
+
+        Http::fake([
+            'https://sso.forwarded.test/*' => Http::response('<html>Sign in</html>', 200, [
+                'X-MS-Forwarded-Status-Code' => '500',
+            ]),
+        ]);
+
+        $this->postJson('/admin/idp/providers/preview-health', [
+            'driver' => 'saml',
+            'config' => [
+                'entity_id' => 'https://sso.forwarded.test/adfs/services/trust',
+                'sso_url' => 'https://sso.forwarded.test/adfs/ls',
+                'certificate' => $this->sampleCertificate(),
+            ],
+        ])
+            ->assertStatus(200)
+            ->assertJsonPath('status', IdpHealthCheckResult::STATUS_ERROR)
+            ->assertJsonPath('message', fn ($value) => is_string($value) && str_contains($value, 'forwarded HTTP 500'))
+            ->assertJsonPath('details.response.forwarded_status', 500);
     }
 
     #[Test]

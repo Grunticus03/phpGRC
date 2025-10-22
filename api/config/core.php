@@ -2,6 +2,11 @@
 
 declare(strict_types=1);
 
+$appUrl = rtrim((string) env('APP_URL', 'http://localhost'), '/');
+$defaultSamlEntityId = sprintf('%s/saml/sp', $appUrl);
+$defaultSamlAcs = sprintf('%s/auth/saml/acs', $appUrl);
+$defaultSamlMetadata = sprintf('%s/auth/saml/metadata', $appUrl);
+
 return [
     // Persistence gates (informational; not used to block writes)
     'settings' => [
@@ -50,6 +55,16 @@ return [
             'name' => 'phpgrc_token',
             'ttl_minutes' => 120,
             'same_site' => 'strict',
+        ],
+
+        'saml' => [
+            'sp' => [
+                'entity_id' => env('SAML_SP_ENTITY_ID', $defaultSamlEntityId),
+                'acs_url' => env('SAML_SP_ACS_URL', $defaultSamlAcs),
+                'metadata_url' => env('SAML_SP_METADATA_URL', $defaultSamlMetadata),
+                'sign_authn_requests' => env('SAML_SP_SIGN_REQUESTS', false),
+                'want_assertions_signed' => env('SAML_SP_WANT_ASSERTIONS_SIGNED', true),
+            ],
         ],
     ],
 

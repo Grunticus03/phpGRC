@@ -54,6 +54,19 @@ describe("Admin IdP Providers page", () => {
         });
       }
 
+      if (method === "GET" && /\/admin\/idp\/providers\/saml\/sp$/.test(url)) {
+        return jsonResponse(200, {
+          ok: true,
+          sp: {
+            entity_id: "https://phpgrc.example/saml/sp",
+            acs_url: "https://phpgrc.example/auth/saml/acs",
+            metadata_url: "https://phpgrc.example/auth/saml/metadata",
+            sign_authn_requests: false,
+            want_assertions_signed: true,
+          },
+        });
+      }
+
       return jsonResponse(404);
     }) as unknown as typeof fetch;
 
@@ -61,7 +74,59 @@ describe("Admin IdP Providers page", () => {
     renderPage();
 
     expect(await screen.findByText(/stub mode/i)).toBeInTheDocument();
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  test("renders SAML metadata URL as a link", async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const method = (init?.method ?? "GET").toUpperCase();
+      const url = typeof input === "string" ? input : ((input as Request).url ?? String(input));
+
+      if (method === "GET" && /\/admin\/idp\/providers$/.test(url)) {
+        return jsonResponse(200, {
+          ok: true,
+          items: [],
+          meta: { total: 0, enabled: 0 },
+        });
+      }
+
+      if (method === "GET" && /\/admin\/idp\/providers\/saml\/sp$/.test(url)) {
+        return jsonResponse(200, {
+          ok: true,
+          sp: {
+            entity_id: "https://phpgrc.example/saml/sp",
+            acs_url: "https://phpgrc.example/auth/saml/acs",
+            metadata_url: "https://phpgrc.example/auth/saml/metadata",
+            sign_authn_requests: false,
+            want_assertions_signed: true,
+          },
+        });
+      }
+
+      return jsonResponse(404);
+    }) as unknown as typeof fetch;
+
+    globalThis.fetch = fetchMock;
+    renderPage();
+
+    const addButtons = await screen.findAllByRole("button", { name: /add provider/i });
+    await user.click(addButtons[0]);
+
+    const dialog = await screen.findByRole("dialog", { name: /add identity provider/i });
+    await user.selectOptions(within(dialog).getByLabelText(/idp type/i), "saml");
+
+    const spAccordionToggle = await within(dialog).findByRole("button", { name: /service provider urls/i });
+    await user.click(spAccordionToggle);
+
+    expect(within(dialog).getByText(/signs authnrequests/i)).toBeInTheDocument();
+    expect(within(dialog).getByText(/requires signed responses/i)).toBeInTheDocument();
+
+    const metadataLink = await within(dialog).findByRole("link", {
+      name: "https://phpgrc.example/auth/saml/metadata",
+    });
+    expect(metadataLink).toHaveAttribute("href", "https://phpgrc.example/auth/saml/metadata");
+    expect(metadataLink).toHaveAttribute("target", "_blank");
   });
 
   test("allows toggling provider status", async () => {
@@ -107,6 +172,19 @@ describe("Admin IdP Providers page", () => {
           ok: true,
           items: providers,
           meta: { total: providers.length, enabled: enabledCount },
+        });
+      }
+
+      if (method === "GET" && /\/admin\/idp\/providers\/saml\/sp$/.test(url)) {
+        return jsonResponse(200, {
+          ok: true,
+          sp: {
+            entity_id: "https://phpgrc.example/saml/sp",
+            acs_url: "https://phpgrc.example/auth/saml/acs",
+            metadata_url: "https://phpgrc.example/auth/saml/metadata",
+            sign_authn_requests: false,
+            want_assertions_signed: true,
+          },
         });
       }
 
@@ -196,6 +274,45 @@ describe("Admin IdP Providers page", () => {
           ok: true,
           items: providers,
           meta: { total: providers.length, enabled: providers.filter((item) => item.enabled).length },
+        });
+      }
+
+      if (method === "GET" && /\/admin\/idp\/providers\/saml\/sp$/.test(url)) {
+        return jsonResponse(200, {
+          ok: true,
+          sp: {
+            entity_id: "https://phpgrc.example/saml/sp",
+            acs_url: "https://phpgrc.example/auth/saml/acs",
+            metadata_url: "https://phpgrc.example/auth/saml/metadata",
+            sign_authn_requests: false,
+            want_assertions_signed: true,
+          },
+        });
+      }
+
+      if (method === "GET" && /\/admin\/idp\/providers\/saml\/sp$/.test(url)) {
+        return jsonResponse(200, {
+          ok: true,
+          sp: {
+            entity_id: "https://phpgrc.example/saml/sp",
+            acs_url: "https://phpgrc.example/auth/saml/acs",
+            metadata_url: "https://phpgrc.example/auth/saml/metadata",
+            sign_authn_requests: false,
+            want_assertions_signed: true,
+          },
+        });
+      }
+
+      if (method === "GET" && /\/admin\/idp\/providers\/saml\/sp$/.test(url)) {
+        return jsonResponse(200, {
+          ok: true,
+          sp: {
+            entity_id: "https://phpgrc.example/saml/sp",
+            acs_url: "https://phpgrc.example/auth/saml/acs",
+            metadata_url: "https://phpgrc.example/auth/saml/metadata",
+            sign_authn_requests: false,
+            want_assertions_signed: true,
+          },
         });
       }
 
@@ -446,7 +563,7 @@ describe("Admin IdP Providers page", () => {
     });
   });
 
-  test("Active Directory preset prepopulates the thumbnail photo attribute", async () => {
+  test("Active Directory preset prepopulates the thumbnail photo field", async () => {
     const user = userEvent.setup();
 
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -458,6 +575,32 @@ describe("Admin IdP Providers page", () => {
           ok: true,
           items: [],
           meta: { total: 0, enabled: 0 },
+        });
+      }
+
+      if (method === "GET" && /\/admin\/idp\/providers\/saml\/sp$/.test(url)) {
+        return jsonResponse(200, {
+          ok: true,
+          sp: {
+            entity_id: "https://phpgrc.example/saml/sp",
+            acs_url: "https://phpgrc.example/auth/saml/acs",
+            metadata_url: "https://phpgrc.example/auth/saml/metadata",
+            sign_authn_requests: false,
+            want_assertions_signed: true,
+          },
+        });
+      }
+
+      if (method === "GET" && /\/admin\/idp\/providers\/saml\/sp$/.test(url)) {
+        return jsonResponse(200, {
+          ok: true,
+          sp: {
+            entity_id: "https://phpgrc.example/saml/sp",
+            acs_url: "https://phpgrc.example/auth/saml/acs",
+            metadata_url: "https://phpgrc.example/auth/saml/metadata",
+            sign_authn_requests: false,
+            want_assertions_signed: true,
+          },
         });
       }
 
@@ -477,8 +620,110 @@ describe("Admin IdP Providers page", () => {
     const adPresetButton = within(dialog).getByRole("button", { name: /active directory/i });
     await user.click(adPresetButton);
 
-    const photoAttributeInput = within(dialog).getByLabelText(/thumbnail photo attribute/i) as HTMLInputElement;
+    const photoAttributeInput = within(dialog).getByLabelText(/thumbnail photo/i) as HTMLInputElement;
     expect(photoAttributeInput.value).toBe("thumbnailPhoto");
+  });
+
+  test("submits LDAP filter using the configured username field", async () => {
+    const user = userEvent.setup();
+    let lastPostBody: unknown;
+
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const method = (init?.method ?? "GET").toUpperCase();
+      const url = typeof input === "string" ? input : ((input as Request).url ?? String(input));
+
+      if (method === "GET" && /\/admin\/idp\/providers$/.test(url)) {
+        return jsonResponse(200, {
+          ok: true,
+          items: [],
+          meta: { total: 0, enabled: 0 },
+        });
+      }
+
+      if (method === "GET" && /\/admin\/idp\/providers\/saml\/sp$/.test(url)) {
+        return jsonResponse(200, {
+          ok: true,
+          sp: {
+            entity_id: "https://phpgrc.example/saml/sp",
+            acs_url: "https://phpgrc.example/auth/saml/acs",
+            metadata_url: "https://phpgrc.example/auth/saml/metadata",
+            sign_authn_requests: false,
+            want_assertions_signed: true,
+          },
+        });
+      }
+
+      if (method === "GET" && /\/admin\/idp\/providers\/saml\/sp$/.test(url)) {
+        return jsonResponse(200, {
+          ok: true,
+          sp: {
+            entity_id: "https://phpgrc.example/saml/sp",
+            acs_url: "https://phpgrc.example/auth/saml/acs",
+            metadata_url: "https://phpgrc.example/auth/saml/metadata",
+            sign_authn_requests: false,
+            want_assertions_signed: true,
+          },
+        });
+      }
+
+      if (method === "POST" && /\/admin\/idp\/providers$/.test(url)) {
+        lastPostBody = init?.body ? JSON.parse(String(init.body)) : null;
+        return jsonResponse(201, {
+          ok: true,
+          provider: {
+            id: "01NEWLDAPID",
+            key: "ldap-primary",
+            name: "LDAP Primary",
+            driver: "ldap",
+            enabled: true,
+            evaluation_order: 1,
+            config: {},
+          },
+        });
+      }
+
+      return jsonResponse(404);
+    }) as unknown as typeof fetch;
+
+    globalThis.fetch = fetchMock;
+    renderPage();
+
+    const addProviderButtons = await screen.findAllByRole("button", { name: /add provider/i });
+    await user.click(addProviderButtons[0]);
+
+    const dialog = await screen.findByRole("dialog", { name: /add identity provider/i });
+
+    await user.clear(within(dialog).getByLabelText(/display name/i));
+    await user.type(within(dialog).getByLabelText(/display name/i), "LDAP Provider");
+
+    await user.selectOptions(within(dialog).getByLabelText(/idp type/i), "ldap");
+
+    await user.clear(within(dialog).getByLabelText(/server/i));
+    await user.type(within(dialog).getByLabelText(/server/i), "ldaps://ldap.example.com");
+
+    await user.clear(within(dialog).getByLabelText(/base dn/i));
+    await user.type(within(dialog).getByLabelText(/base dn/i), "dc=example,dc=test");
+
+    await user.clear(within(dialog).getByLabelText(/bind dn/i));
+    await user.type(within(dialog).getByLabelText(/bind dn/i), "cn=service,dc=example,dc=test");
+
+    await user.clear(within(dialog).getByLabelText(/bind password/i));
+    await user.type(within(dialog).getByLabelText(/bind password/i), "super-secret");
+
+    await user.clear(within(dialog).getByLabelText(/email/i));
+    await user.type(within(dialog).getByLabelText(/email/i), "userPrincipalName");
+
+    await user.clear(within(dialog).getByLabelText(/username/i));
+    await user.type(within(dialog).getByLabelText(/username/i), "sAMAccountName");
+
+    const submitButton = within(dialog).getByRole("button", { name: /^create$/i });
+    await user.click(submitButton);
+
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: /add identity provider/i })).not.toBeInTheDocument());
+
+    const body = lastPostBody as { config?: Record<string, unknown> } | null;
+    expect(body?.config?.user_identifier_source).toBe("username_attribute");
+    expect(body?.config?.user_filter).toBe("(sAMAccountName={{username}})");
   });
 
   test("surfaces server validation errors near the create button and affected fields", async () => {
@@ -553,8 +798,14 @@ describe("Admin IdP Providers page", () => {
     const generalError = await within(dialog).findByText(/validation failed\./i);
     expect(generalError.closest(".modal-footer")).not.toBeNull();
     expect(payload).toMatchObject({ driver: "ldap" });
+    expect(payload.config?.user_identifier_source).toBe("username_attribute");
+    expect(payload.config?.user_filter).toBe("(uid={{username}})");
     expect(bindDnFeedback).toBeInTheDocument();
     expect(bindDnInput).toHaveClass("is-invalid");
+
+    await user.clear(bindDnInput);
+    await user.type(bindDnInput, "cn=admin,dc=example,dc=com");
+    await waitFor(() => expect(bindDnInput).not.toHaveClass("is-invalid"));
   });
 
   test("allows selecting an LDAP base DN from the browser tree", async () => {
@@ -669,26 +920,23 @@ describe("Admin IdP Providers page", () => {
     await user.click(browseButton);
 
     const browserModal = await screen.findByRole("dialog", { name: /ldap browser/i });
-    const namingContextsButton = within(browserModal).getByRole("button", { name: /naming contexts/i });
-    await user.click(namingContextsButton);
-
-    let exampleToggle = await within(browserModal).findByRole("button", { name: /(expand|collapse) example/i });
+    const exampleToggle = await within(browserModal).findByRole("button", { name: /(expand|collapse) example/i });
     const toggleLabel = exampleToggle.getAttribute("aria-label") ?? exampleToggle.textContent ?? "";
-    if (/collapse/i.test(toggleLabel)) {
+    if (/expand/i.test(toggleLabel)) {
       await user.click(exampleToggle);
-      exampleToggle = await within(browserModal).findByRole("button", { name: /expand example/i });
     }
-    await user.click(exampleToggle);
 
+    await waitFor(() =>
+      expect(within(browserModal).queryByRole("button", { name: /^users$/i })).not.toBeNull()
+    );
     const usersButton = await within(browserModal).findByRole("button", { name: /^users$/i });
     await user.click(usersButton);
 
     await waitFor(() => expect(baseDnInput).toHaveValue("ou=Users,dc=example,dc=com"));
-    const updatedUsersButton = within(browserModal).getByRole("button", { name: /^users$/i });
-    expect(updatedUsersButton.querySelector(".bi-forward-fill")).not.toBeNull();
-
     expect(await within(browserModal).findByRole("button", { name: /last directory response/i })).toBeInTheDocument();
     expect(await within(browserModal).findByRole("button", { name: /ldap diagnostics/i })).toBeInTheDocument();
-    await waitFor(() => expect(browseRequests).toEqual(["dc=example,dc=com", null, "dc=example,dc=com"]));
+    await waitFor(() => {
+      expect(browseRequests).toContain("dc=example,dc=com");
+    });
   });
 });

@@ -16,6 +16,7 @@ use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\LogoutController;
 use App\Http\Controllers\Auth\MeController;
 use App\Http\Controllers\Auth\OidcLoginController;
+use App\Http\Controllers\Auth\SamlServiceProviderMetadataController;
 use App\Http\Controllers\Auth\TotpController;
 use App\Http\Controllers\Avatar\AvatarController;
 use App\Http\Controllers\Branding\FaviconController;
@@ -147,6 +148,7 @@ Route::get('/auth/options', [AuthOptionsController::class, 'show']);
 
 Route::post('/auth/totp/enroll', [TotpController::class, 'enroll']);
 Route::post('/auth/totp/verify', [TotpController::class, 'verify']);
+Route::match(['GET', 'HEAD'], '/auth/saml/metadata', SamlServiceProviderMetadataController::class);
 
 /*
  |--------------------------------------------------------------------------
@@ -185,6 +187,9 @@ Route::prefix('/admin')
 
         Route::prefix('/idp/providers')->group(function (): void {
             Route::match(['GET', 'HEAD'], '/', [IdpProviderController::class, 'index'])
+                ->defaults('policy', 'auth.idp.manage');
+
+            Route::match(['GET', 'HEAD'], '/saml/sp', [IdpProviderController::class, 'samlServiceProvider'])
                 ->defaults('policy', 'auth.idp.manage');
 
             Route::post('/', [IdpProviderController::class, 'store'])

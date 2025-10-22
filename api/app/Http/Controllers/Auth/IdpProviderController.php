@@ -14,6 +14,7 @@ use App\Http\Requests\Auth\SamlMetadataRequest;
 use App\Models\IdpProvider;
 use App\Services\Auth\IdpProviderService;
 use App\Services\Auth\SamlMetadataService;
+use App\Services\Auth\SamlServiceProviderConfigResolver;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Http\Client\ConnectionException;
@@ -32,7 +33,8 @@ final class IdpProviderController extends Controller
 {
     public function __construct(
         private readonly IdpProviderService $service,
-        private readonly SamlMetadataService $samlMetadata
+        private readonly SamlMetadataService $samlMetadata,
+        private readonly SamlServiceProviderConfigResolver $samlSpConfig
     ) {}
 
     public function index(): JsonResponse
@@ -61,6 +63,16 @@ final class IdpProviderController extends Controller
                 'total' => $providers->count(),
                 'enabled' => $enabledCount,
             ],
+        ], 200);
+    }
+
+    public function samlServiceProvider(): JsonResponse
+    {
+        $config = $this->samlSpConfig->resolve();
+
+        return response()->json([
+            'ok' => true,
+            'sp' => $config,
         ], 200);
     }
 

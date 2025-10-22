@@ -117,6 +117,19 @@ export type SamlMetadataPreviewRequestPayload = {
   url?: string;
 };
 
+export type SamlServiceProviderInfo = {
+  entity_id: string;
+  acs_url: string;
+  metadata_url: string;
+  sign_authn_requests: boolean;
+  want_assertions_signed: boolean;
+};
+
+export type SamlSpConfigResponse = {
+  ok: true;
+  sp: SamlServiceProviderInfo;
+};
+
 export function previewSamlMetadata(
   payload: SamlMetadataPreviewRequestPayload,
   signal?: AbortSignal
@@ -130,6 +143,10 @@ export function previewSamlMetadata(
 
 export function previewSamlMetadataFromUrl(url: string, signal?: AbortSignal): Promise<SamlMetadataPreviewResponse> {
   return previewSamlMetadata({ url }, signal);
+}
+
+export function fetchSamlSpConfig(signal?: AbortSignal): Promise<SamlSpConfigResponse> {
+  return apiGet<SamlSpConfigResponse>("/admin/idp/providers/saml/sp", undefined, signal);
 }
 
 export type IdpProviderPreviewPayload = {

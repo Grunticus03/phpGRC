@@ -6,6 +6,7 @@ namespace App\Services\Auth;
 
 use App\Exceptions\Auth\SamlMetadataException;
 use Carbon\CarbonImmutable;
+use DOMDocument;
 use SimpleXMLElement;
 
 final class SamlMetadataService
@@ -72,7 +73,7 @@ final class SamlMetadataService
         $ssoUrl = trim($ssoUrl);
         $certificateValue = $this->certificateToMetadataValue($certificate);
 
-        $document = new \DOMDocument('1.0', 'UTF-8');
+        $document = new DOMDocument('1.0', 'UTF-8');
         $document->formatOutput = true;
 
         $entityDescriptor = $document->createElementNS(self::METADATA_NAMESPACE, 'md:EntityDescriptor');
@@ -189,6 +190,21 @@ final class SamlMetadataService
 
     private function extractCertificate(SimpleXMLElement $entityDescriptor): string
     {
+        $candidates = $this->certificateCandidates($entityDescriptor);
+        if ($candidates === []) {
+            throw new SamlMetadataException('SAML metadata missing X509Certificate.');
+        }
+
+        $selected = $this->selectCertificateCandidate($candidates);
+
+        return $this->formatCertificate($selected);
+    }
+
+    /**
+     * @return list<array{use:string,value:string}>
+     */
+    private function certificateCandidates(SimpleXMLElement $entityDescriptor): array
+    {
         $certificateNodes = $entityDescriptor->xpath('./md:IDPSSODescriptor/md:KeyDescriptor');
         if ($certificateNodes === false || $certificateNodes === []) {
             throw new SamlMetadataException('SAML metadata missing KeyDescriptor.');
@@ -199,6 +215,9 @@ final class SamlMetadataService
 
         $candidates = [];
         foreach ($keyDescriptors as $descriptor) {
+            $descriptor->registerXPathNamespace('md', self::METADATA_NAMESPACE);
+            $descriptor->registerXPathNamespace('ds', self::SIGNATURE_NAMESPACE);
+
             $use = trim((string) ($descriptor['use'] ?? ''));
             $values = $descriptor->xpath('.//ds:X509Certificate');
             if ($values === false || $values === []) {
@@ -220,23 +239,21 @@ final class SamlMetadataService
             }
         }
 
-        if ($candidates === []) {
-            throw new SamlMetadataException('SAML metadata missing X509Certificate.');
-        }
+        return $candidates;
+    }
 
-        $selected = null;
+    /**
+     * @param  list<array{use:string,value:string}>  $candidates
+     */
+    private function selectCertificateCandidate(array $candidates): string
+    {
         foreach ($candidates as $candidate) {
             if ($candidate['use'] === 'signing') {
-                $selected = $candidate['value'];
-
-                break;
+                return $candidate['value'];
             }
         }
-        if ($selected === null) {
-            $selected = $candidates[0]['value'];
-        }
 
-        return $this->formatCertificate($selected);
+        return $candidates[0]['value'];
     }
 
     private function formatCertificate(string $certificate): string

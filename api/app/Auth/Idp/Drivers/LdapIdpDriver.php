@@ -22,6 +22,8 @@ final class LdapIdpDriver extends AbstractIdpDriver
      */
     private const SUPPORTED_BIND_STRATEGIES = ['service', 'direct'];
 
+    private const USER_IDENTIFIER_SOURCES = ['email_attribute', 'name_attribute', 'username_attribute'];
+
     public function __construct(private readonly LdapClientInterface $client) {}
 
     #[\Override]
@@ -46,8 +48,8 @@ final class LdapIdpDriver extends AbstractIdpDriver
         $config = $this->normalizeCore($config, $errors);
         $config = $this->normalizeBindStrategy($config, $errors);
         $config = $this->normalizeTimeout($config, $errors);
-        $config = $this->normalizeUserDiscovery($config, $errors);
         $config = $this->normalizeAttributeMapping($config, $errors);
+        $config = $this->normalizeUserDiscovery($config, $errors);
 
         $this->validateTlsRequirement($config, $errors);
         $this->throwIfErrors($errors);
@@ -230,7 +232,18 @@ final class LdapIdpDriver extends AbstractIdpDriver
      */
     private function normalizeUserDiscovery(array $config, array &$errors): array
     {
-        $filter = '(&(objectClass=person)(uid='.self::USERNAME_PLACEHOLDER.'))';
+        $source = $this->resolveUserIdentifierSource($config, $errors);
+        if ($source !== null) {
+            $attribute = $this->resolveUserIdentifierAttribute($config, $source, $errors);
+            if ($attribute !== null) {
+                $config['user_identifier_source'] = $source;
+                $config['user_filter'] = '('.$attribute.'='.self::USERNAME_PLACEHOLDER.')';
+            }
+
+            return $config;
+        }
+
+        $filter = '(uid='.self::USERNAME_PLACEHOLDER.')';
         if (isset($config['user_filter']) && is_string($config['user_filter'])) {
             $candidate = trim($config['user_filter']);
             if ($candidate !== '') {
@@ -245,6 +258,56 @@ final class LdapIdpDriver extends AbstractIdpDriver
         $config['user_filter'] = trim($filter);
 
         return $config;
+    }
+
+    /**
+     * @param  array<string,mixed>  $config
+     * @param  array<string,list<string>>  $errors
+     */
+    private function resolveUserIdentifierSource(array $config, array &$errors): ?string
+    {
+        if (! array_key_exists('user_identifier_source', $config)) {
+            return null;
+        }
+
+        $raw = $config['user_identifier_source'];
+        if (! is_string($raw) || trim($raw) === '') {
+            $this->addError($errors, 'config.user_identifier_source', 'Select a username attribute source.');
+
+            return 'username_attribute';
+        }
+
+        $normalized = strtolower(trim($raw));
+        if (! in_array($normalized, self::USER_IDENTIFIER_SOURCES, true)) {
+            $this->addError($errors, 'config.user_identifier_source', 'Select a username attribute source.');
+
+            return 'username_attribute';
+        }
+
+        return $normalized;
+    }
+
+    /**
+     * @param  array<string,mixed>  $config
+     * @param  array<string,list<string>>  $errors
+     */
+    private function resolveUserIdentifierAttribute(array $config, string $source, array &$errors): ?string
+    {
+        $attributeMap = [
+            'email_attribute' => $config['email_attribute'] ?? null,
+            'name_attribute' => $config['name_attribute'] ?? null,
+            'username_attribute' => $config['username_attribute'] ?? null,
+        ];
+
+        /** @var mixed $attributeRaw */
+        $attributeRaw = $attributeMap[$source] ?? null;
+        if (! is_string($attributeRaw) || trim($attributeRaw) === '') {
+            $this->addError($errors, 'config.user_identifier_source', 'Selected username attribute is unavailable.');
+
+            return null;
+        }
+
+        return strtolower(trim($attributeRaw));
     }
 
     /**

@@ -32,13 +32,37 @@ final class LdapIdpDriverTest extends TestCase
 
         $this->assertSame('service', $normalized['bind_strategy']);
         $this->assertSame(389, $normalized['port']);
-        $this->assertSame('(&(objectClass=person)(uid={{username}}))', $normalized['user_filter']);
+        $this->assertSame('(uid={{username}})', $normalized['user_filter']);
         $this->assertFalse($normalized['use_ssl']);
         $this->assertFalse($normalized['start_tls']);
         $this->assertArrayHasKey('bind_password', $normalized);
         $this->assertSame('mail', $normalized['email_attribute']);
         $this->assertSame('cn', $normalized['name_attribute']);
         $this->assertSame('uid', $normalized['username_attribute']);
+    }
+
+    public function test_normalize_config_respects_identifier_source(): void
+    {
+        /** @var LdapClientInterface&Mockery\MockInterface $client */
+        $client = Mockery::mock(LdapClientInterface::class);
+        $driver = new LdapIdpDriver($client);
+
+        $config = [
+            'host' => 'ldap.example.test',
+            'base_dn' => 'dc=example,dc=test',
+            'bind_dn' => 'cn=service,dc=example,dc=test',
+            'bind_password' => 'secret',
+            'user_identifier_source' => 'email_attribute',
+            'email_attribute' => 'userPrincipalName',
+            'name_attribute' => 'cn',
+            'username_attribute' => 'sAMAccountName',
+        ];
+
+        $normalized = $driver->normalizeConfig($config);
+
+        $this->assertSame('service', $normalized['bind_strategy']);
+        $this->assertSame('email_attribute', $normalized['user_identifier_source'] ?? null);
+        $this->assertSame('(userprincipalname={{username}})', $normalized['user_filter']);
     }
 
     public function test_normalize_config_direct_strategy(): void

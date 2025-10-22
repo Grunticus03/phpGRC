@@ -19,6 +19,8 @@ import {
   type SamlMetadataConfig,
   type IdpProviderPreviewHealthResult,
   type LdapBrowseEntry,
+  fetchSamlSpConfig,
+  type SamlServiceProviderInfo,
 } from "../../lib/api/idpProviders";
 import { HttpError } from "../../lib/api";
 import "./IdpProviders.css";
@@ -52,7 +54,6 @@ type LdapFormState = {
   bindDn: string;
   bindPassword: string;
   userDnTemplate: string;
-  userFilter: string;
   timeout: string;
   emailAttribute: string;
   nameAttribute: string;
@@ -168,6 +169,46 @@ function parseLdapConnectionUri(input: string): ParsedLdapHost | null {
   };
 }
 
+type LdapExpandTarget = { dn: string; path: string[] };
+
+function normalizeDn(input: string): string {
+  return input.trim().toLowerCase();
+}
+
+function buildLdapExpansionTargets(baseDn: string): LdapExpandTarget[] {
+  const components = baseDn
+    .split(',')
+    .map((part) => part.trim())
+    .filter((part) => part !== '');
+  if (components.length === 0) {
+    return [];
+  }
+
+  const domainStart = components.findIndex((part) => part.toUpperCase().startsWith('DC='));
+  if (domainStart === -1) {
+    return [];
+  }
+
+  const targets: LdapExpandTarget[] = [];
+  const seen = new Set<string>();
+  const domainDn = components.slice(domainStart).join(',');
+  if (!seen.has(domainDn)) {
+    seen.add(domainDn);
+    targets.push({ dn: domainDn, path: [domainDn] });
+  }
+
+  const pathStack = [domainDn];
+  for (let i = domainStart - 1; i >= 0; i -= 1) {
+    const dn = components.slice(i).join(',');
+    if (seen.has(dn)) continue;
+    pathStack.push(dn);
+    seen.add(dn);
+    targets.push({ dn, path: [...pathStack] });
+  }
+
+  return targets;
+}
+
 function createDefaultFormState(): FormState {
   return {
     name: "",
@@ -206,7 +247,6 @@ function createDefaultFormState(): FormState {
       bindDn: "",
       bindPassword: "",
       userDnTemplate: "uid={{username}},ou=people,dc=example,dc=com",
-      userFilter: "(&(objectClass=person)(uid={{username}}))",
       timeout: "",
       emailAttribute: "mail",
       nameAttribute: "cn",
@@ -305,7 +345,6 @@ function createFormStateFromProvider(provider: IdpProvider): FormState {
       bindDn: typeof config.bind_dn === "string" ? config.bind_dn : "",
       bindPassword: typeof config.bind_password === "string" ? config.bind_password : "",
       userDnTemplate: typeof config.user_dn_template === "string" ? config.user_dn_template : base.ldap.userDnTemplate,
-      userFilter: typeof config.user_filter === "string" ? config.user_filter : base.ldap.userFilter,
       timeout: typeof config.timeout === "number" && Number.isFinite(config.timeout) ? String(config.timeout) : "",
       emailAttribute: typeof config.email_attribute === "string" ? config.email_attribute : base.ldap.emailAttribute,
       nameAttribute: typeof config.name_attribute === "string" ? config.name_attribute : base.ldap.nameAttribute,
@@ -362,7 +401,7 @@ const API_ERROR_FIELD_MAP: Record<string, string | string[]> = {
   "config.bind_dn": "ldap.bindDn",
   "config.bind_password": "ldap.bindPassword",
   "config.user_dn_template": "ldap.userDnTemplate",
-  "config.user_filter": "ldap.userFilter",
+  "config.user_filter": "ldap.usernameAttribute",
   "config.timeout": "ldap.timeout",
   "config.email_attribute": "ldap.emailAttribute",
   "config.name_attribute": "ldap.nameAttribute",
@@ -559,6 +598,10 @@ export default function IdpProviders(): JSX.Element {
   const [deleteTarget, setDeleteTarget] = useState<IdpProvider | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [samlSpInfo, setSamlSpInfo] = useState<SamlServiceProviderInfo | null>(null);
+  const [samlSpError, setSamlSpError] = useState<string | null>(null);
+  const [samlSpLoading, setSamlSpLoading] = useState(false);
+  const [samlSpUrlsOpen, setSamlSpUrlsOpen] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
   const [formMode, setFormMode] = useState<"create" | "edit">("create");
   const [formBusy, setFormBusy] = useState(false);
@@ -574,12 +617,14 @@ export default function IdpProviders(): JSX.Element {
   const [testBusy, setTestBusy] = useState(false);
   const [testResult, setTestResult] = useState<IdpProviderPreviewHealthResult | null>(null);
   const [testError, setTestError] = useState<string | null>(null);
+  const [testDetailsOpen, setTestDetailsOpen] = useState(false);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [ldapBrowserOpen, setLdapBrowserOpen] = useState(false);
   const [ldapBrowserBusy, setLdapBrowserBusy] = useState(false);
   const [ldapBrowserError, setLdapBrowserError] = useState<string | null>(null);
   const [ldapBrowserDetail, setLdapBrowserDetail] = useState<Record<string, unknown> | null>(null);
   const [ldapBrowserDiagnostics, setLdapBrowserDiagnostics] = useState<Record<string, unknown> | null>(null);
+  const [pendingExpandTargets, setPendingExpandTargets] = useState<LdapExpandTarget[]>([]);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [ldapBrowserPath, setLdapBrowserPath] = useState<string[]>([]);
   const [ldapBrowserBaseDn, setLdapBrowserBaseDn] = useState<string | null>(null);
@@ -633,15 +678,43 @@ export default function IdpProviders(): JSX.Element {
     };
   }, [testResult]);
 
+  const adfsErrorDetail = useMemo((): string | null => {
+    if (!testResult) {
+      return null;
+    }
+
+    const responseDetails = testResult.details?.response;
+    if (!responseDetails || typeof responseDetails !== "object" || Array.isArray(responseDetails)) {
+      return null;
+    }
+
+    const detail = (responseDetails as Record<string, unknown>).adfs_error_detail;
+    if (typeof detail !== "string") {
+      return null;
+    }
+
+    const trimmed = detail.trim();
+    return trimmed === "" ? null : trimmed;
+  }, [testResult]);
+
   const clearTestFeedback = useCallback(() => {
     setTestResult(null);
     setTestError(null);
+    setTestDetailsOpen(false);
   }, []);
 
   const applyFormUpdate = useCallback(
-    (updater: FormState | ((prev: FormState) => FormState)) => {
+    (updater: FormState | ((prev: FormState) => FormState), clearedFields?: string[]) => {
       setForm((prev) => (typeof updater === "function" ? (updater as (current: FormState) => FormState)(prev) : updater));
       clearTestFeedback();
+      if (clearedFields && clearedFields.length > 0) {
+        setFormErrors((prev) => ({
+          general: prev.general,
+          fields: Object.fromEntries(
+            Object.entries(prev.fields).filter(([key]) => !clearedFields.includes(key))
+          ),
+        }));
+      }
     },
     [clearTestFeedback]
   );
@@ -671,9 +744,27 @@ export default function IdpProviders(): JSX.Element {
     []
   );
 
+  const loadSamlSpInfo = useCallback(async () => {
+    setSamlSpLoading(true);
+    setSamlSpError(null);
+    try {
+      const res = await fetchSamlSpConfig();
+      setSamlSpInfo(res.sp ?? null);
+    } catch {
+      setSamlSpInfo(null);
+      setSamlSpError("Unable to load phpGRC service provider details.");
+    } finally {
+      setSamlSpLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     void loadProviders();
   }, [loadProviders]);
+
+  useEffect(() => {
+    void loadSamlSpInfo();
+  }, [loadSamlSpInfo]);
 
   const handleToggle = useCallback(
     async (provider: IdpProvider) => {
@@ -1050,13 +1141,6 @@ export default function IdpProviders(): JSX.Element {
           }
         }
 
-        const userFilter = state.ldap.userFilter.trim();
-        if (userFilter === "") {
-          fieldErrors["ldap.userFilter"] = "User search filter is required.";
-        } else if (!userFilter.includes("{{username}}")) {
-          fieldErrors["ldap.userFilter"] = 'Filter must include the placeholder "{{username}}".';
-        }
-
         const timeoutRaw = state.ldap.timeout.trim();
         let timeout: number | undefined;
         if (timeoutRaw !== "") {
@@ -1086,6 +1170,8 @@ export default function IdpProviders(): JSX.Element {
         const photoAttribute = state.ldap.photoAttribute.trim();
 
         if (Object.keys(fieldErrors).length === 0 && parsedHost) {
+          const normalizedAttribute = usernameAttribute === "" ? "uid" : usernameAttribute;
+          const userFilter = `(${normalizedAttribute}={{username}})`;
           config = {
             host: parsedHost.host,
             base_dn: baseDn,
@@ -1094,6 +1180,7 @@ export default function IdpProviders(): JSX.Element {
             start_tls: state.ldap.startTls,
             require_tls: state.ldap.requireTls,
             user_filter: userFilter,
+            user_identifier_source: "username_attribute",
             email_attribute: emailAttribute,
             name_attribute: nameAttribute,
             username_attribute: usernameAttribute,
@@ -1537,6 +1624,7 @@ export default function IdpProviders(): JSX.Element {
       const result = await previewIdpHealth(requestBody);
       setTestResult(result);
       setTestError(null);
+      setTestDetailsOpen(false);
     } catch (error) {
       if (error instanceof HttpError) {
         const fallback = "Failed to run health check. Please try again.";
@@ -1564,6 +1652,7 @@ export default function IdpProviders(): JSX.Element {
           details,
         });
         setTestError(null);
+        setTestDetailsOpen(false);
       } else {
         const fallback = "Failed to run health check. Please try again.";
         const message = formatUnknownError(error, fallback);
@@ -1575,6 +1664,7 @@ export default function IdpProviders(): JSX.Element {
           details: { error: message },
         });
         setTestError(null);
+        setTestDetailsOpen(false);
       }
     } finally {
       setTestBusy(false);
@@ -1598,10 +1688,6 @@ export default function IdpProviders(): JSX.Element {
           ...prev.ldap,
           port: prev.ldap.port || defaultPort,
           bindStrategy: "service",
-          userFilter:
-            preset === "ad"
-              ? "(&(objectClass=user)(sAMAccountName={{username}}))"
-              : "(&(objectClass=person)(uid={{username}}))",
           emailAttribute: "mail",
           nameAttribute: preset === "ad" ? "displayName" : "cn",
           usernameAttribute: preset === "ad" ? "sAMAccountName" : "uid",
@@ -1643,12 +1729,26 @@ export default function IdpProviders(): JSX.Element {
           base_dn: targetBaseDn ?? null,
         });
 
-        const entries = Array.isArray(response.entries) ? response.entries : [];
+        let entries = Array.isArray(response.entries) ? response.entries : [];
         const resolvedBaseDn = response.base_dn ?? targetBaseDn ?? null;
         const diagnostics =
           response.diagnostics && typeof response.diagnostics === "object" ? response.diagnostics : null;
         const trimmedTarget = targetBaseDn?.trim() ?? "";
         const treeKey = trimmedTarget !== "" ? trimmedTarget : LDAP_ROOT_KEY;
+        const normalizedTreeKey = treeKey === LDAP_ROOT_KEY ? LDAP_ROOT_KEY : normalizeDn(treeKey);
+        if (treeKey === LDAP_ROOT_KEY) {
+          entries = entries.filter((entry) => {
+            if (!entry?.dn || typeof entry.dn !== "string") return false;
+            const upperDn = entry.dn.toUpperCase();
+            const components = upperDn.split(",").map((part) => part.trim()).filter(Boolean);
+            const domainComponents = components.filter((component) => component.startsWith("DC="));
+            const ouComponents = components.filter((component) => component.startsWith("OU="));
+            if (ouComponents.length > 0) {
+              return true;
+            }
+            return domainComponents.length <= 2;
+          });
+        }
         const summary: Record<string, unknown> = {
           requestedBaseDn: response.requested_base_dn ?? targetBaseDn,
           effectiveBaseDn: resolvedBaseDn,
@@ -1659,18 +1759,24 @@ export default function IdpProviders(): JSX.Element {
           ...(diagnostics ? { diagnostics } : {}),
         };
 
-        setLdapBrowserTree((prev) => ({ ...prev, [treeKey]: entries }));
+        setLdapBrowserTree((prev) => {
+          const next = { ...prev };
+          next[normalizedTreeKey] = entries;
+          if (treeKey !== normalizedTreeKey) {
+            next[treeKey] = entries;
+          }
+          return next;
+        });
         setLdapBrowserBaseDn(resolvedBaseDn);
         setLdapBrowserPath(nextPath);
         setLdapBrowserDetail(summary);
         setLdapBrowserDiagnostics(diagnostics ?? null);
         setLdapBrowserExpanded((prev) => {
           const next = { ...prev };
-          next[treeKey] = true;
+          next[normalizedTreeKey] = true;
           nextPath.forEach((dn) => {
-            if (dn) {
-              next[dn] = true;
-            }
+            if (!dn) return;
+            next[normalizeDn(dn)] = true;
           });
           if (!next[LDAP_ROOT_KEY]) {
             next[LDAP_ROOT_KEY] = true;
@@ -1732,15 +1838,27 @@ export default function IdpProviders(): JSX.Element {
 
     setLdapBrowserError(null);
     setLdapBrowserTree({});
-    setLdapBrowserExpanded({});
-    setLdapBrowserPath(initialBaseDn ? [initialBaseDn] : []);
+    const expansionTargets = initialBaseDn ? buildLdapExpansionTargets(initialBaseDn) : [];
+    const seededExpanded: Record<string, boolean> = {};
+    expansionTargets.forEach((target) => {
+      target.path.forEach((dn) => {
+        if (!dn) return;
+        seededExpanded[normalizeDn(dn)] = true;
+      });
+    });
+    if (Object.keys(seededExpanded).length > 0) {
+      seededExpanded[LDAP_ROOT_KEY] = true;
+    }
+    setLdapBrowserExpanded(seededExpanded);
+    setLdapBrowserPath([]);
     setLdapBrowserBaseDn(initialBaseDn);
     setLdapBrowserDetail(null);
     setLdapBrowserDiagnostics(null);
     setLdapBrowserDetailOpen(false);
     setLdapBrowserDiagnosticsOpen(false);
+    setPendingExpandTargets(expansionTargets);
     setLdapBrowserOpen(true);
-    void loadLdapDirectory(initialBaseDn, initialBaseDn ? [initialBaseDn] : []);
+    void loadLdapDirectory(null, []);
   }, [form.ldap.baseDn, loadLdapDirectory]);
 
   const closeLdapBrowser = useCallback(() => {
@@ -1752,7 +1870,18 @@ export default function IdpProviders(): JSX.Element {
     setLdapBrowserError(null);
     setLdapBrowserDetail(null);
     setLdapBrowserDiagnostics(null);
+    setPendingExpandTargets([]);
   }, [ldapBrowserBusy]);
+
+  useEffect(() => {
+    if (!ldapBrowserOpen) return;
+    if (pendingExpandTargets.length === 0) return;
+    if (ldapBrowserBusy) return;
+
+    const [next, ...rest] = pendingExpandTargets;
+    setPendingExpandTargets(rest);
+    void loadLdapDirectory(next.dn, next.path);
+  }, [ldapBrowserBusy, ldapBrowserOpen, loadLdapDirectory, pendingExpandTargets]);
 
   const handleLdapNavigateTo = useCallback(
     (dn: string | null, index: number) => {
@@ -1768,10 +1897,11 @@ export default function IdpProviders(): JSX.Element {
         return;
       }
 
-      if (ldapBrowserExpanded[entry.dn]) {
+      const key = normalizeDn(entry.dn);
+      if (ldapBrowserExpanded[key]) {
         setLdapBrowserExpanded((prev) => {
           const next = { ...prev };
-          delete next[entry.dn];
+          next[key] = false;
           return next;
         });
         return;
@@ -1854,7 +1984,8 @@ export default function IdpProviders(): JSX.Element {
       return root;
     }
     if (ldapBrowserBaseDn) {
-      const baseEntries = ldapBrowserTree[ldapBrowserBaseDn];
+      const normalizedBase = normalizeDn(ldapBrowserBaseDn);
+      const baseEntries = ldapBrowserTree[normalizedBase] ?? ldapBrowserTree[ldapBrowserBaseDn];
       if (Array.isArray(baseEntries) && baseEntries.length > 0) {
         return baseEntries;
       }
@@ -1873,8 +2004,16 @@ export default function IdpProviders(): JSX.Element {
       <ul className="list-unstyled mb-0 ldap-tree">
         {entries.map((entry) => {
           const hasChildren = entry.has_children;
-          const expanded = hasChildren ? Boolean(ldapBrowserExpanded[entry.dn]) : false;
-          const childEntries = hasChildren ? ldapBrowserTree[entry.dn] ?? [] : [];
+          const normalizedEntryKey = normalizeDn(entry.dn);
+          const hasExplicitState = Object.prototype.hasOwnProperty.call(ldapBrowserExpanded, normalizedEntryKey);
+          const expanded = hasChildren
+            ? hasExplicitState
+              ? Boolean(ldapBrowserExpanded[normalizedEntryKey])
+              : parentPath.length === 0
+            : false;
+          const childEntries = hasChildren
+            ? ldapBrowserTree[normalizedEntryKey] ?? ldapBrowserTree[entry.dn] ?? []
+            : [];
           const selected = selectedBaseDn !== "" && selectedBaseDn === entry.dn;
           const leafIcon = resolveLeafIcon(entry.type);
 
@@ -1885,7 +2024,10 @@ export default function IdpProviders(): JSX.Element {
                   <button
                     type="button"
                     className="btn btn-link btn-sm p-0 d-flex align-items-center ldap-tree__toggle"
-                    onClick={() => handleLdapToggleNode(entry, parentPath)}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      handleLdapToggleNode(entry, parentPath);
+                    }}
                     aria-expanded={expanded}
                     aria-label={`${expanded ? "Collapse" : "Expand"} ${entry.name}`}
                   >
@@ -1956,7 +2098,7 @@ export default function IdpProviders(): JSX.Element {
                   driver === "oidc"
                     ? { ...prev, oidc: { ...prev.oidc, issuer: event.target.value } }
                     : { ...prev, entra: { ...prev.entra, issuer: event.target.value } }
-                )
+                , driver === "oidc" ? ['oidc.issuer'] : ['entra.issuer'])
               }
               disabled={formBusy}
               placeholder={
@@ -2024,7 +2166,7 @@ export default function IdpProviders(): JSX.Element {
                   driver === "oidc"
                     ? { ...prev, oidc: { ...prev.oidc, clientId: event.target.value } }
                     : { ...prev, entra: { ...prev.entra, clientId: event.target.value } }
-                )
+                , driver === "oidc" ? ['oidc.clientId'] : ['entra.clientId'])
               }
               disabled={formBusy}
               placeholder="0oa1example123"
@@ -2055,7 +2197,7 @@ export default function IdpProviders(): JSX.Element {
                   driver === "oidc"
                     ? { ...prev, oidc: { ...prev.oidc, clientSecret: event.target.value } }
                     : { ...prev, entra: { ...prev.entra, clientSecret: event.target.value } }
-                )
+                , driver === "oidc" ? ['oidc.clientSecret'] : ['entra.clientSecret'])
               }
               disabled={formBusy}
               placeholder="••••••••••••"
@@ -2086,7 +2228,7 @@ export default function IdpProviders(): JSX.Element {
                   driver === "oidc"
                     ? { ...prev, oidc: { ...prev.oidc, scopes: event.target.value } }
                     : { ...prev, entra: { ...prev.entra, scopes: event.target.value } }
-                )
+                , driver === "oidc" ? ['oidc.scopes'] : ['entra.scopes'])
               }
               disabled={formBusy}
               placeholder="openid profile email"
@@ -2114,7 +2256,7 @@ export default function IdpProviders(): JSX.Element {
                   driver === "oidc"
                     ? { ...prev, oidc: { ...prev.oidc, redirectUris: event.target.value } }
                     : { ...prev, entra: { ...prev.entra, redirectUris: event.target.value } }
-                )
+                , driver === "oidc" ? ['oidc.redirectUris'] : ['entra.redirectUris'])
               }
               disabled={formBusy}
               placeholder="https://app.example.com/auth/callback"
@@ -2145,7 +2287,7 @@ export default function IdpProviders(): JSX.Element {
                     driver === "oidc"
                       ? { ...prev, oidc: { ...prev.oidc, metadataUrl: event.target.value } }
                       : { ...prev, entra: { ...prev.entra, metadataUrl: event.target.value } }
-                  )
+                  , driver === "oidc" ? ['oidc.metadataUrl'] : ['entra.metadataUrl'])
                 }
                 placeholder={metadataPlaceholder}
                 disabled={formBusy || loading}
@@ -2198,15 +2340,103 @@ export default function IdpProviders(): JSX.Element {
     );
   };
 
+  const renderSamlSpSummary = (): JSX.Element => {
+    const fallback = samlSpLoading ? "Loading..." : "Unavailable";
+    const spEntityId = samlSpInfo?.entity_id ?? fallback;
+    const spAcsUrl = samlSpInfo?.acs_url ?? fallback;
+    const spMetadataUrl = typeof samlSpInfo?.metadata_url === "string" ? samlSpInfo.metadata_url : null;
+    const signRequestsState =
+      samlSpInfo && typeof samlSpInfo.sign_authn_requests === "boolean"
+        ? samlSpInfo.sign_authn_requests
+        : null;
+    const wantSignedState =
+      samlSpInfo && typeof samlSpInfo.want_assertions_signed === "boolean"
+        ? samlSpInfo.want_assertions_signed
+        : null;
+    const signingLabel = signRequestsState === null ? fallback : signRequestsState ? "Enabled" : "Disabled";
+    const responsesLabel = wantSignedState === null ? fallback : wantSignedState ? "Required" : "Optional";
+    const headingId = "saml-sp-urls-heading";
+    const collapseId = "saml-sp-urls-collapse";
+
+    return (
+      <div className="my-3">
+        {samlSpError ? (
+          <div className="alert alert-warning mb-3" role="alert">
+            Unable to load service provider details. {samlSpError}
+          </div>
+        ) : null}
+
+        <div className="accordion" id="saml-sp-urls">
+          <div className="accordion-item">
+            <h2 className="accordion-header" id={headingId}>
+              <button
+                className={`accordion-button${samlSpUrlsOpen ? "" : " collapsed"}`}
+                type="button"
+                aria-expanded={samlSpUrlsOpen}
+                aria-controls={collapseId}
+                onClick={() => setSamlSpUrlsOpen((open) => !open)}
+              >
+                Service Provider URLs
+              </button>
+            </h2>
+            <div
+              id={collapseId}
+              className={`accordion-collapse collapse${samlSpUrlsOpen ? " show" : ""}`}
+              aria-labelledby={headingId}
+            >
+              <div className="accordion-body">
+                <div className="row g-3 mb-0 small">
+                  <div className="col-12 col-md-6">
+                    <p className="text-muted mb-1">Entity ID</p>
+                    <p className="font-monospace text-break mb-0">{spEntityId}</p>
+                  </div>
+                  <div className="col-12 col-md-6">
+                    <p className="text-muted mb-1">ACS URL</p>
+                    <p className="font-monospace text-break mb-0">{spAcsUrl}</p>
+                  </div>
+                  <div className="col-12 col-md-6">
+                    <p className="text-muted mb-1">Metadata URL</p>
+                    <p className="font-monospace text-break mb-0">
+                      {spMetadataUrl ? (
+                        <a
+                          href={spMetadataUrl}
+                          target="_blank"
+                          rel="noreferrer noopener"
+                          className="link-offset-1 text-decoration-none"
+                        >
+                          {spMetadataUrl}
+                        </a>
+                      ) : (
+                        fallback
+                      )}
+                    </p>
+                  </div>
+                </div>
+                <hr className="my-3" />
+                <div className="row g-3 mb-0 small">
+                  <div className="col-12 col-md-6">
+                    <p className="text-muted mb-1">Signs AuthnRequests</p>
+                    <p className="mb-0">{signingLabel}</p>
+                  </div>
+                  <div className="col-12 col-md-6">
+                    <p className="text-muted mb-1">Requires signed responses</p>
+                    <p className="mb-0">{responsesLabel}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const renderSamlFields = (): JSX.Element => {
     const loading = metadataLoading.saml;
 
     return (
       <div>
         <h2 className="h6 mb-2">SAML configuration</h2>
-        <p className="text-muted small mb-3">
-          Provide the entity ID, SSO endpoint, and signing certificate from your IdP metadata.
-        </p>
         <div className="row g-3">
           <div className="col-12">
             <HoverHelpLabel
@@ -2223,7 +2453,7 @@ export default function IdpProviders(): JSX.Element {
               className={`form-control${fieldError("saml.entityId") ? " is-invalid" : ""}`}
               value={form.saml.entityId}
               onChange={(event) =>
-                applyFormUpdate((prev) => ({ ...prev, saml: { ...prev.saml, entityId: event.target.value } }))
+                applyFormUpdate((prev) => ({ ...prev, saml: { ...prev.saml, entityId: event.target.value } }), ['saml.entityId'])
               }
               disabled={formBusy}
               placeholder="urn:example:idp"
@@ -2250,7 +2480,7 @@ export default function IdpProviders(): JSX.Element {
               className={`form-control${fieldError("saml.ssoUrl") ? " is-invalid" : ""}`}
               value={form.saml.ssoUrl}
               onChange={(event) =>
-                applyFormUpdate((prev) => ({ ...prev, saml: { ...prev.saml, ssoUrl: event.target.value } }))
+                applyFormUpdate((prev) => ({ ...prev, saml: { ...prev.saml, ssoUrl: event.target.value } }), ['saml.ssoUrl'])
               }
               disabled={formBusy}
               placeholder="https://idp.example.com/saml2"
@@ -2278,7 +2508,7 @@ export default function IdpProviders(): JSX.Element {
               rows={5}
               value={form.saml.certificate}
               onChange={(event) =>
-                applyFormUpdate((prev) => ({ ...prev, saml: { ...prev.saml, certificate: event.target.value } }))
+                applyFormUpdate((prev) => ({ ...prev, saml: { ...prev.saml, certificate: event.target.value } }), ['saml.certificate'])
               }
               disabled={formBusy}
               placeholder="-----BEGIN CERTIFICATE-----"
@@ -2305,7 +2535,7 @@ export default function IdpProviders(): JSX.Element {
                 className={`form-control${fieldError("saml.metadataUrl") ? " is-invalid" : ""}`}
                 value={form.saml.metadataUrl}
                 onChange={(event) =>
-                  applyFormUpdate((prev) => ({ ...prev, saml: { ...prev.saml, metadataUrl: event.target.value } }))
+                  applyFormUpdate((prev) => ({ ...prev, saml: { ...prev.saml, metadataUrl: event.target.value } }), ['saml.metadataUrl'])
                 }
                 placeholder="https://idp.example.com/federationmetadata.xml"
                 disabled={formBusy || loading}
@@ -2363,7 +2593,6 @@ export default function IdpProviders(): JSX.Element {
 
   const renderLdapFields = (): JSX.Element => {
     const bindStrategy = form.ldap.bindStrategy;
-
     return (
       <div>
         <h2 className="h6 mb-3">LDAP configuration</h2>
@@ -2428,7 +2657,7 @@ export default function IdpProviders(): JSX.Element {
               className={`form-control${fieldError("ldap.port") ? " is-invalid" : ""}`}
               value={form.ldap.port}
               onChange={(event) =>
-                applyFormUpdate((prev) => ({ ...prev, ldap: { ...prev.ldap, port: event.target.value } }))
+                applyFormUpdate((prev) => ({ ...prev, ldap: { ...prev.ldap, port: event.target.value } }), ['ldap.port'])
               }
               disabled={formBusy}
               placeholder="389"
@@ -2454,7 +2683,7 @@ export default function IdpProviders(): JSX.Element {
               className={`form-control${fieldError("ldap.timeout") ? " is-invalid" : ""}`}
               value={form.ldap.timeout}
               onChange={(event) =>
-                applyFormUpdate((prev) => ({ ...prev, ldap: { ...prev.ldap, timeout: event.target.value } }))
+                applyFormUpdate((prev) => ({ ...prev, ldap: { ...prev.ldap, timeout: event.target.value } }), ['ldap.timeout'])
               }
               disabled={formBusy}
               placeholder="15"
@@ -2478,7 +2707,7 @@ export default function IdpProviders(): JSX.Element {
               className={`form-control${fieldError("ldap.baseDn") ? " is-invalid" : ""}`}
               value={form.ldap.baseDn}
               onChange={(event) =>
-                applyFormUpdate((prev) => ({ ...prev, ldap: { ...prev.ldap, baseDn: event.target.value } }))
+                applyFormUpdate((prev) => ({ ...prev, ldap: { ...prev.ldap, baseDn: event.target.value } }), ['ldap.baseDn'])
               }
               disabled={formBusy}
               placeholder="dc=example,dc=com"
@@ -2585,7 +2814,7 @@ export default function IdpProviders(): JSX.Element {
                   className={`form-control${fieldError("ldap.bindDn") ? " is-invalid" : ""}`}
                   value={form.ldap.bindDn}
                   onChange={(event) =>
-                    applyFormUpdate((prev) => ({ ...prev, ldap: { ...prev.ldap, bindDn: event.target.value } }))
+                    applyFormUpdate((prev) => ({ ...prev, ldap: { ...prev.ldap, bindDn: event.target.value } }), ['ldap.bindDn'])
                   }
                   disabled={formBusy}
                   placeholder="cn=service,ou=accounts,dc=example,dc=com"
@@ -2612,7 +2841,7 @@ export default function IdpProviders(): JSX.Element {
                   className={`form-control${fieldError("ldap.bindPassword") ? " is-invalid" : ""}`}
                   value={form.ldap.bindPassword}
                   onChange={(event) =>
-                    applyFormUpdate((prev) => ({ ...prev, ldap: { ...prev.ldap, bindPassword: event.target.value } }))
+                    applyFormUpdate((prev) => ({ ...prev, ldap: { ...prev.ldap, bindPassword: event.target.value } }), ['ldap.bindPassword'])
                   }
                   disabled={formBusy}
                   placeholder="••••••••"
@@ -2640,7 +2869,7 @@ export default function IdpProviders(): JSX.Element {
                 className={`form-control${fieldError("ldap.userDnTemplate") ? " is-invalid" : ""}`}
                 value={form.ldap.userDnTemplate}
                 onChange={(event) =>
-                  applyFormUpdate((prev) => ({ ...prev, ldap: { ...prev.ldap, userDnTemplate: event.target.value } }))
+                  applyFormUpdate((prev) => ({ ...prev, ldap: { ...prev.ldap, userDnTemplate: event.target.value } }), ['ldap.userDnTemplate'])
                 }
                 disabled={formBusy}
                 placeholder="uid={{username}},ou=people,dc=example,dc=com"
@@ -2654,30 +2883,9 @@ export default function IdpProviders(): JSX.Element {
           )}
 
           <div className="col-12">
-            <HoverHelpLabel
-              htmlFor="ldap-user-filter"
-              className="form-label"
-              helpText="Standard LDAP filter expression. The placeholder {{username}} is replaced with the submitted username."
-              helpId="ldap-user-filter-help"
-            >
-              User search filter
-            </HoverHelpLabel>
-            <input
-              id="ldap-user-filter"
-              type="text"
-              className={`form-control${fieldError("ldap.userFilter") ? " is-invalid" : ""}`}
-              value={form.ldap.userFilter}
-              onChange={(event) =>
-                applyFormUpdate((prev) => ({ ...prev, ldap: { ...prev.ldap, userFilter: event.target.value } }))
-              }
-              disabled={formBusy}
-              placeholder="(&(objectClass=person)(uid={{username}}))"
-              autoComplete="off"
-              aria-describedby="ldap-user-filter-help"
-            />
-            {fieldError("ldap.userFilter") ? (
-              <div className="invalid-feedback">{fieldError("ldap.userFilter")}</div>
-            ) : null}
+            <div className="border-top mt-2 pt-3">
+              <h3 className="h6 text-muted text-uppercase mb-3">Attribute Mapping</h3>
+            </div>
           </div>
 
           <div className="col-12 col-lg-6 col-xl-3">
@@ -2687,7 +2895,7 @@ export default function IdpProviders(): JSX.Element {
               helpText="Attribute containing the user's email address."
               helpId="ldap-email-attribute-help"
             >
-              Email attribute
+              Email
             </HoverHelpLabel>
             <input
               id="ldap-email-attribute"
@@ -2695,7 +2903,7 @@ export default function IdpProviders(): JSX.Element {
               className={`form-control${fieldError("ldap.emailAttribute") ? " is-invalid" : ""}`}
               value={form.ldap.emailAttribute}
               onChange={(event) =>
-                applyFormUpdate((prev) => ({ ...prev, ldap: { ...prev.ldap, emailAttribute: event.target.value } }))
+                applyFormUpdate((prev) => ({ ...prev, ldap: { ...prev.ldap, emailAttribute: event.target.value } }), ['ldap.emailAttribute'])
               }
               disabled={formBusy}
               placeholder="mail"
@@ -2714,7 +2922,7 @@ export default function IdpProviders(): JSX.Element {
               helpText="Attribute used for the user's display name."
               helpId="ldap-name-attribute-help"
             >
-              Display name attribute
+              Display name
             </HoverHelpLabel>
             <input
               id="ldap-name-attribute"
@@ -2722,7 +2930,7 @@ export default function IdpProviders(): JSX.Element {
               className={`form-control${fieldError("ldap.nameAttribute") ? " is-invalid" : ""}`}
               value={form.ldap.nameAttribute}
               onChange={(event) =>
-                applyFormUpdate((prev) => ({ ...prev, ldap: { ...prev.ldap, nameAttribute: event.target.value } }))
+                applyFormUpdate((prev) => ({ ...prev, ldap: { ...prev.ldap, nameAttribute: event.target.value } }), ['ldap.nameAttribute'])
               }
               disabled={formBusy}
               placeholder="cn"
@@ -2741,7 +2949,7 @@ export default function IdpProviders(): JSX.Element {
               helpText="Attribute used to match usernames during login."
               helpId="ldap-username-attribute-help"
             >
-              Username attribute
+              Username
             </HoverHelpLabel>
             <input
               id="ldap-username-attribute"
@@ -2749,7 +2957,7 @@ export default function IdpProviders(): JSX.Element {
               className={`form-control${fieldError("ldap.usernameAttribute") ? " is-invalid" : ""}`}
               value={form.ldap.usernameAttribute}
               onChange={(event) =>
-                applyFormUpdate((prev) => ({ ...prev, ldap: { ...prev.ldap, usernameAttribute: event.target.value } }))
+                applyFormUpdate((prev) => ({ ...prev, ldap: { ...prev.ldap, usernameAttribute: event.target.value } }), ['ldap.usernameAttribute'])
               }
               disabled={formBusy}
               placeholder="uid"
@@ -2768,7 +2976,7 @@ export default function IdpProviders(): JSX.Element {
               helpText="Optional attribute containing a user thumbnail image."
               helpId="ldap-photo-attribute-help"
             >
-              Thumbnail photo attribute
+              Thumbnail photo
             </HoverHelpLabel>
             <input
               id="ldap-photo-attribute"
@@ -2776,7 +2984,7 @@ export default function IdpProviders(): JSX.Element {
               className={`form-control${fieldError("ldap.photoAttribute") ? " is-invalid" : ""}`}
               value={form.ldap.photoAttribute}
               onChange={(event) =>
-                applyFormUpdate((prev) => ({ ...prev, ldap: { ...prev.ldap, photoAttribute: event.target.value } }))
+                applyFormUpdate((prev) => ({ ...prev, ldap: { ...prev.ldap, photoAttribute: event.target.value } }), ['ldap.photoAttribute'])
               }
               disabled={formBusy}
               placeholder="thumbnailPhoto"
@@ -3014,7 +3222,7 @@ export default function IdpProviders(): JSX.Element {
           }}
         >
           <div className="row g-3">
-            <div className="col-12 col-md-6">
+            <div className="col-12 col-md-5">
               <HoverHelpLabel
                 htmlFor="idp-name"
                 className="form-label"
@@ -3029,7 +3237,7 @@ export default function IdpProviders(): JSX.Element {
                 type="text"
                 className={`form-control${fieldError("name") ? " is-invalid" : ""}`}
                 value={form.name}
-                onChange={(event) => applyFormUpdate((prev) => ({ ...prev, name: event.target.value }))}
+                onChange={(event) => applyFormUpdate((prev) => ({ ...prev, name: event.target.value }), ['name'])}
                 placeholder="Microsoft Entra - Primary"
                 disabled={formBusy}
                 autoComplete="off"
@@ -3038,7 +3246,7 @@ export default function IdpProviders(): JSX.Element {
               />
               {fieldError("name") ? <div className="invalid-feedback">{fieldError("name")}</div> : null}
             </div>
-            <div className="col-12 col-md-6">
+            <div className="col-12 col-md-5">
               <HoverHelpLabel
                 htmlFor="idp-driver"
                 className="form-label"
@@ -3070,8 +3278,8 @@ export default function IdpProviders(): JSX.Element {
               </select>
               {fieldError("driver") ? <div className="invalid-feedback">{fieldError("driver")}</div> : null}
             </div>
-            <div className="col-12 col-md-6">
-              <div className="form-check form-switch pt-2">
+            <div className="col-12 col-md-2 d-flex align-items-end">
+              <div className="form-check form-switch d-flex align-items-center gap-2 mb-0">
                 <input
                   id="idp-enabled"
                   name="enabled"
@@ -3079,12 +3287,12 @@ export default function IdpProviders(): JSX.Element {
                   className="form-check-input"
                   role="switch"
                   checked={form.enabled}
-                  onChange={(event) => applyFormUpdate((prev) => ({ ...prev, enabled: event.target.checked }))}
+                  onChange={(event) => applyFormUpdate((prev) => ({ ...prev, enabled: event.target.checked }), ['enabled'])}
                   aria-describedby="idp-enabled-help"
                   disabled={formBusy}
                 />
                 <HoverHelpLabel
-                  className="form-check-label"
+                  className="form-check-label mb-0"
                   htmlFor="idp-enabled"
                   helpText="You can toggle availability later from the overview."
                   helpId="idp-enabled-help"
@@ -3092,10 +3300,12 @@ export default function IdpProviders(): JSX.Element {
                   Enable
                 </HoverHelpLabel>
               </div>
-            </div>
           </div>
+        </div>
 
-          <div className="border-top pt-3">{renderDriverFields()}</div>
+        {form.driver === "saml" ? renderSamlSpSummary() : null}
+
+        <div className="border-top pt-3">{renderDriverFields()}</div>
 
           <div className="border-top pt-3">
             <div className="d-flex flex-wrap gap-3 align-items-center">
@@ -3170,10 +3380,38 @@ export default function IdpProviders(): JSX.Element {
                 {resolvedTestDetailMessage ? (
                   <div className="small mb-1">{resolvedTestDetailMessage}</div>
                 ) : null}
+                {adfsErrorDetail ? (
+                  <div className="small mb-2">
+                    <strong>IdP error:</strong> {adfsErrorDetail}
+                  </div>
+                ) : null}
                 {Object.keys(testResult.details ?? {}).length > 0 ? (
-                  <pre className="mt-2 mb-0 bg-body-secondary border rounded p-2 small overflow-auto">
-                    {JSON.stringify(testResult.details, null, 2)}
-                  </pre>
+                  <div className="accordion" id="idp-health-details">
+                    <div className="accordion-item">
+                      <h2 className="accordion-header" id="idp-health-details-heading">
+                        <button
+                          className={`accordion-button ${testDetailsOpen ? "" : "collapsed"}`}
+                          type="button"
+                          onClick={() => setTestDetailsOpen((prev) => !prev)}
+                          aria-expanded={testDetailsOpen}
+                          aria-controls="idp-health-details-body"
+                        >
+                          Technical details
+                        </button>
+                      </h2>
+                      <div
+                        id="idp-health-details-body"
+                        className={`accordion-collapse collapse ${testDetailsOpen ? "show" : ""}`}
+                        aria-labelledby="idp-health-details-heading"
+                      >
+                        <div className="accordion-body p-0">
+                          <pre className="bg-body-secondary border-top rounded-bottom p-2 small overflow-auto mb-0">
+                            {JSON.stringify(testResult.details, null, 2)}
+                          </pre>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 ) : null}
               </div>
             ) : null}
@@ -3193,7 +3431,6 @@ export default function IdpProviders(): JSX.Element {
             </div>
             {advancedOpen ? (
               <div id="idp-meta-panel" className="mt-3">
-                <p className="text-muted small mb-2">Optional JSON configuration</p>
                 <HoverHelpLabel
                   htmlFor="idp-meta"
                   className="form-label"
@@ -3208,7 +3445,7 @@ export default function IdpProviders(): JSX.Element {
                   className={`form-control font-monospace${fieldError("meta") ? " is-invalid" : ""}`}
                   rows={3}
                   value={form.meta}
-                  onChange={(event) => applyFormUpdate((prev) => ({ ...prev, meta: event.target.value }))}
+                  onChange={(event) => applyFormUpdate((prev) => ({ ...prev, meta: event.target.value }), ['meta'])}
                   disabled={formBusy}
                   placeholder='{"display_region": "us-east"}'
                   aria-describedby="idp-meta-help"
@@ -3233,30 +3470,24 @@ export default function IdpProviders(): JSX.Element {
         dialogClassName="modal-dialog modal-dialog-centered modal-lg"
         bodyClassName="modal-body pt-0"
       >
-        <div className="d-flex flex-wrap align-items-center gap-2 mb-3">
-          <span className="fw-semibold small text-uppercase text-muted">Path:</span>
-          <button
-            type="button"
-            className="btn btn-link btn-sm px-0"
-            onClick={() => handleLdapNavigateTo(null, -1)}
-            disabled={ldapBrowserBusy}
-          >
-            Naming contexts
-          </button>
-          {ldapBrowserPath.map((dn, index) => (
-            <span key={dn} className="d-flex align-items-center gap-2">
-              <span className="text-muted">/</span>
-              <button
-                type="button"
-                className="btn btn-link btn-sm px-0"
-                onClick={() => handleLdapNavigateTo(dn, index)}
-                disabled={ldapBrowserBusy}
-              >
-                {dn}
-              </button>
-            </span>
-          ))}
-        </div>
+        {ldapBrowserPath.length > 0 ? (
+          <div className="d-flex flex-wrap align-items-center gap-2 mb-3">
+            <span className="fw-semibold small text-uppercase text-muted">Path:</span>
+            {ldapBrowserPath.map((dn, index) => (
+              <span key={dn} className="d-flex align-items-center gap-2">
+                <span className="text-muted">/</span>
+                <button
+                  type="button"
+                  className="btn btn-link btn-sm px-0"
+                  onClick={() => handleLdapNavigateTo(dn, index)}
+                  disabled={ldapBrowserBusy}
+                >
+                  {dn}
+                </button>
+              </span>
+            ))}
+          </div>
+        ) : null}
         {ldapBrowserError ? (
           <div className="alert alert-danger" role="alert">
             <div className="fw-semibold">{ldapBrowserError}</div>
