@@ -53,13 +53,8 @@ abstract class AbstractIdpDriver implements IdpDriver
      * @param  array<string,mixed>  $config
      * @param  array<string,list<string>>  $errors
      */
-    protected function requireUrl(
-        array &$config,
-        string $key,
-        array &$errors,
-        bool $requireHttps = false,
-        string $message = 'This field must be a valid URL.'
-    ): string {
+    protected function requireUrl(array &$config, string $key, array &$errors, string $message = 'This field must be a valid URL.'): string
+    {
         $url = $this->requireString($config, $key, $errors, $message);
         if ($url === '') {
             return '';
@@ -72,14 +67,35 @@ abstract class AbstractIdpDriver implements IdpDriver
             return '';
         }
 
-        if ($requireHttps && ! str_starts_with(strtolower($normalized), 'https://')) {
-            $this->addError($errors, "config.$key", 'URL must use HTTPS.');
-        }
-
         $sanitized = rtrim($normalized, '/');
         $config[$key] = $sanitized;
 
         return $sanitized;
+    }
+
+    /**
+     * @param  array<string,mixed>  $config
+     * @param  array<string,list<string>>  $errors
+     */
+    protected function requireHttpsUrl(
+        array &$config,
+        string $key,
+        array &$errors,
+        string $message = 'This field must be a valid URL.',
+        string $httpsMessage = 'URL must use HTTPS.'
+    ): string {
+        $url = $this->requireUrl($config, $key, $errors, $message);
+        if ($url === '') {
+            return '';
+        }
+
+        if (! str_starts_with(strtolower($url), 'https://')) {
+            $this->addError($errors, "config.$key", $httpsMessage);
+
+            return '';
+        }
+
+        return $url;
     }
 
     /**
@@ -96,14 +112,21 @@ abstract class AbstractIdpDriver implements IdpDriver
             return [];
         }
 
-        /** @var list<string> $candidates */
+        if (! is_string($value) && ! is_array($value)) {
+            $this->addError($errors, "config.$key", $message);
+
+            return [];
+        }
+
         $candidates = [];
 
         if (is_string($value)) {
             /** @var list<string> $parts */
             $parts = array_map(static fn (string $part): string => trim($part), explode(',', $value));
             $candidates = $parts;
-        } elseif (is_array($value)) {
+        }
+
+        if (is_array($value)) {
             /** @var list<string> $parts */
             $parts = array_map(static function ($item): string {
                 if (is_string($item) || is_numeric($item)) {
@@ -113,10 +136,6 @@ abstract class AbstractIdpDriver implements IdpDriver
                 return '';
             }, $value);
             $candidates = $parts;
-        } else {
-            $this->addError($errors, "config.$key", $message);
-
-            return [];
         }
 
         /** @var list<string> $list */
@@ -158,6 +177,8 @@ abstract class AbstractIdpDriver implements IdpDriver
 
     /**
      * @param  array<string,list<string>>  $errors
+     *
+     * @SuppressWarnings("PMD.StaticAccess")
      */
     protected function throwIfErrors(array $errors): void
     {

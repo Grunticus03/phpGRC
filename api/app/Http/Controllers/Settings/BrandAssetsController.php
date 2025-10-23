@@ -10,14 +10,20 @@ use App\Models\BrandProfile;
 use App\Services\Settings\BrandAssetStorageService;
 use App\Services\Settings\UiSettingsService;
 use Carbon\CarbonInterface;
+use finfo;
+use Illuminate\Database\DatabaseManager;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Routing\Controller;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
+use RuntimeException;
+use Symfony\Component\Uid\Ulid;
+use Throwable;
 
+/**
+ * @SuppressWarnings("PMD.ExcessiveClassComplexity")
+ */
 final class BrandAssetsController extends Controller
 {
     /**
@@ -37,7 +43,8 @@ final class BrandAssetsController extends Controller
 
     public function __construct(
         private readonly UiSettingsService $settings,
-        private readonly BrandAssetStorageService $storage
+        private readonly BrandAssetStorageService $storage,
+        private readonly DatabaseManager $db
     ) {}
 
     public function index(Request $request): JsonResponse
@@ -75,6 +82,12 @@ final class BrandAssetsController extends Controller
         ], 200);
     }
 
+    /**
+     * @SuppressWarnings("PMD.LongMethod")
+     * @SuppressWarnings("PMD.ExcessiveMethodLength")
+     * @SuppressWarnings("PMD.NPathComplexity")
+     * @SuppressWarnings("PMD.CyclomaticComplexity")
+     */
     public function store(BrandAssetUploadRequest $request): JsonResponse
     {
         /** @var mixed $rawFile */
@@ -110,14 +123,7 @@ final class BrandAssetsController extends Controller
             ], 413);
         }
 
-        $finfo = new \finfo(FILEINFO_MIME_TYPE);
-        $detectedMime = $finfo->buffer($bytes);
-        if (is_string($detectedMime) && $detectedMime !== '') {
-            $mime = $detectedMime;
-        } else {
-            $fallbackMime = $uploaded->getMimeType();
-            $mime = is_string($fallbackMime) && $fallbackMime !== '' ? $fallbackMime : 'application/octet-stream';
-        }
+        $mime = $this->determineMimeType($uploaded, $bytes);
 
         $allowed = [
             'image/png',
@@ -190,7 +196,7 @@ final class BrandAssetsController extends Controller
         }
 
         $baseSlug = $this->baseFileSlug($name);
-        $groupKey = Str::lower(Str::ulid()->toBase32());
+        $groupKey = strtolower((new Ulid)->toBase32());
 
         /** @var mixed $kindInput */
         $kindInput = $request->input('kind', 'primary_logo');
@@ -199,7 +205,7 @@ final class BrandAssetsController extends Controller
         if ($kind === 'primary_logo') {
             try {
                 $variants = $this->createVariantImages($bytes, $baseSlug, $groupKey);
-            } catch (\RuntimeException $exception) {
+            } catch (RuntimeException $exception) {
                 report($exception);
 
                 return response()->json([
@@ -212,7 +218,7 @@ final class BrandAssetsController extends Controller
             /** @var array<string, BrandAsset> $created */
             $created = [];
 
-            DB::transaction(function () use (&$created, $variants, $profile, $actorId, $actorName): void {
+            $this->db->transaction(function () use (&$created, $variants, $profile, $actorId, $actorName): void {
                 foreach ($variants as $variantKind => $variant) {
                     $record = new BrandAsset([
                         'profile_id' => $profile->getAttribute('id'),
@@ -236,13 +242,13 @@ final class BrandAssetsController extends Controller
                     /** @var mixed $rawBytes */
                     $rawBytes = $asset->getAttribute('bytes');
                     if (! is_string($rawBytes)) {
-                        throw new \RuntimeException('Missing asset bytes.');
+                        throw new RuntimeException('Missing asset bytes.');
                     }
                     $this->storage->writeAsset($asset, $rawBytes);
                 }
-            } catch (\Throwable $exception) {
+            } catch (Throwable $exception) {
                 report($exception);
-                DB::transaction(function () use ($created): void {
+                $this->db->transaction(function () use ($created): void {
                     foreach ($created as $asset) {
                         /** @var mixed $storedId */
                         $storedId = $asset->getAttribute('id');
@@ -276,7 +282,7 @@ final class BrandAssetsController extends Controller
         if ($kind === 'background_image') {
             try {
                 $background = $this->createBackgroundImage($bytes, $baseSlug, $groupKey);
-            } catch (\RuntimeException $exception) {
+            } catch (RuntimeException $exception) {
                 report($exception);
 
                 return response()->json([
@@ -289,7 +295,7 @@ final class BrandAssetsController extends Controller
             /** @var BrandAsset|null $backgroundAsset */
             $backgroundAsset = null;
 
-            DB::transaction(function () use (&$backgroundAsset, $background, $profile, $actorId, $actorName): void {
+            $this->db->transaction(function () use (&$backgroundAsset, $background, $profile, $actorId, $actorName): void {
                 $record = new BrandAsset([
                     'profile_id' => $profile->getAttribute('id'),
                     'kind' => 'background_image',
@@ -318,13 +324,13 @@ final class BrandAssetsController extends Controller
                 /** @var mixed $rawBytes */
                 $rawBytes = $backgroundAsset->getAttribute('bytes');
                 if (! is_string($rawBytes)) {
-                    throw new \RuntimeException('Missing asset bytes.');
+                    throw new RuntimeException('Missing asset bytes.');
                 }
 
                 $this->storage->writeAsset($backgroundAsset, $rawBytes);
-            } catch (\Throwable $exception) {
+            } catch (Throwable $exception) {
                 report($exception);
-                DB::transaction(function () use ($backgroundAsset): void {
+                $this->db->transaction(function () use ($backgroundAsset): void {
                     /** @var mixed $storedId */
                     $storedId = $backgroundAsset->getAttribute('id');
                     $cleanupId = is_string($storedId) ? $storedId : null;
@@ -357,6 +363,9 @@ final class BrandAssetsController extends Controller
         ], 422);
     }
 
+    /**
+     * @SuppressWarnings("PMD.NPathComplexity")
+     */
     public function download(string $assetId): Response
     {
         /** @var BrandAsset|null $asset */
@@ -406,6 +415,10 @@ final class BrandAssetsController extends Controller
         return response($rawBytes, 200, $headers);
     }
 
+    /**
+     * @SuppressWarnings("PMD.NPathComplexity")
+     * @SuppressWarnings("PMD.UnusedFormalParameter")
+     */
     public function destroy(Request $request, string $assetId): JsonResponse
     {
         /** @var BrandAsset|null $asset */
@@ -442,7 +455,7 @@ final class BrandAssetsController extends Controller
             }
         }
 
-        DB::transaction(function () use ($assetsToDelete): void {
+        $this->db->transaction(function () use ($assetsToDelete): void {
             foreach ($assetsToDelete as $entry) {
                 /** @var mixed $storedId */
                 $storedId = $entry->getAttribute('id');
@@ -457,7 +470,7 @@ final class BrandAssetsController extends Controller
         foreach ($assetsToDelete as $entry) {
             try {
                 $this->storage->deleteAsset($entry);
-            } catch (\Throwable $exception) {
+            } catch (Throwable $exception) {
                 report($exception);
 
                 return response()->json([
@@ -473,20 +486,30 @@ final class BrandAssetsController extends Controller
         ], 200);
     }
 
+    private function determineMimeType(UploadedFile $uploaded, string $bytes): string
+    {
+        $finfo = new finfo(FILEINFO_MIME_TYPE);
+        $detectedMime = $finfo->buffer($bytes);
+        if (is_string($detectedMime) && $detectedMime !== '') {
+            return $detectedMime;
+        }
+
+        $fallbackMime = $uploaded->getMimeType();
+        if (is_string($fallbackMime) && $fallbackMime !== '') {
+            return $fallbackMime;
+        }
+
+        return 'application/octet-stream';
+    }
+
     /**
      * @return array<string, array{name:string,bytes:string,size_bytes:int,sha256:string,mime:string}>
      */
     private function createVariantImages(string $bytes, string $baseSlug, string $groupKey): array
     {
-        if (! function_exists('imagecreatefromstring') || ! function_exists('imagewebp')) {
-            throw new \RuntimeException('Image conversion to WebP is not available.');
-        }
+        $this->ensureFunctionAvailable('imagewebp', 'Image conversion to WebP is not available.');
 
-        $source = @imagecreatefromstring($bytes);
-        if (! $source instanceof \GdImage) {
-            throw new \RuntimeException('Unable to decode uploaded image.');
-        }
-
+        $source = $this->createImageResource($bytes);
         $source = $this->ensureTrueColor($source);
 
         $variants = [];
@@ -494,15 +517,7 @@ final class BrandAssetsController extends Controller
         try {
             foreach (self::VARIANT_SPECS as $kind => $spec) {
                 $resized = $this->resizeToFit($source, $spec['width'], $spec['height']);
-                if ($spec['extension'] === 'ico') {
-                    if (! function_exists('imagepng')) {
-                        throw new \RuntimeException('Image conversion to ICO is not available.');
-                    }
-                    $encoded = $this->encodeIco($resized);
-                } else {
-                    $quality = $spec['quality'];
-                    $encoded = $this->encodeWebp($resized, $quality);
-                }
+                $encoded = $this->encodeVariantImage($resized, $spec);
                 imagedestroy($resized);
 
                 $variants[$kind] = [
@@ -527,15 +542,9 @@ final class BrandAssetsController extends Controller
      */
     private function createBackgroundImage(string $bytes, string $baseSlug, string $groupKey): array
     {
-        if (! function_exists('imagecreatefromstring') || ! function_exists('imagewebp')) {
-            throw new \RuntimeException('Image conversion to WebP is not available.');
-        }
+        $this->ensureFunctionAvailable('imagewebp', 'Image conversion to WebP is not available.');
 
-        $source = @imagecreatefromstring($bytes);
-        if (! $source instanceof \GdImage) {
-            throw new \RuntimeException('Unable to decode uploaded image.');
-        }
-
+        $source = $this->createImageResource($bytes);
         $source = $this->ensureTrueColor($source);
 
         $resized = null;
@@ -560,6 +569,50 @@ final class BrandAssetsController extends Controller
         ];
     }
 
+    private function ensureFunctionAvailable(string $function, string $message): void
+    {
+        if (! function_exists($function)) {
+            throw new RuntimeException($message);
+        }
+    }
+
+    private function createImageResource(string $bytes): \GdImage
+    {
+        $this->ensureFunctionAvailable('imagecreatefromstring', 'Image conversion to WebP is not available.');
+
+        set_error_handler(static function (): bool {
+            return true;
+        });
+
+        try {
+            $resource = imagecreatefromstring($bytes);
+        } finally {
+            restore_error_handler();
+        }
+
+        if (! $resource instanceof \GdImage) {
+            throw new RuntimeException('Unable to decode uploaded image.');
+        }
+
+        return $resource;
+    }
+
+    /**
+     * @param  array{width:int,height:int,mime:string,extension:string,quality?:int}  $spec
+     */
+    private function encodeVariantImage(\GdImage $image, array $spec): string
+    {
+        if ($spec['extension'] === 'ico') {
+            $this->ensureFunctionAvailable('imagepng', 'Image conversion to ICO is not available.');
+
+            return $this->encodeIco($image);
+        }
+
+        $quality = $spec['quality'] ?? self::BACKGROUND_WEBP_QUALITY;
+
+        return $this->encodeWebp($image, $quality);
+    }
+
     private function ensureTrueColor(\GdImage $image): \GdImage
     {
         if (imageistruecolor($image)) {
@@ -574,7 +627,7 @@ final class BrandAssetsController extends Controller
 
         $trueColor = imagecreatetruecolor($width, $height);
         if (! $trueColor instanceof \GdImage) {
-            throw new \RuntimeException('Unable to create image buffer.');
+            throw new RuntimeException('Unable to create image buffer.');
         }
 
         imagealphablending($trueColor, false);
@@ -582,17 +635,17 @@ final class BrandAssetsController extends Controller
         $transparent = imagecolorallocatealpha($trueColor, 0, 0, 0, 127);
         if (! is_int($transparent)) {
             imagedestroy($trueColor);
-            throw new \RuntimeException('Unable to allocate transparent color.');
+            throw new RuntimeException('Unable to allocate transparent color.');
         }
 
         if (! imagefill($trueColor, 0, 0, $transparent)) {
             imagedestroy($trueColor);
-            throw new \RuntimeException('Unable to initialise image fill.');
+            throw new RuntimeException('Unable to initialise image fill.');
         }
 
         if (! imagecopy($trueColor, $image, 0, 0, 0, 0, $width, $height)) {
             imagedestroy($trueColor);
-            throw new \RuntimeException('Unable to normalize uploaded image.');
+            throw new RuntimeException('Unable to normalize uploaded image.');
         }
 
         imagedestroy($image);
@@ -619,7 +672,7 @@ final class BrandAssetsController extends Controller
 
         $canvas = imagecreatetruecolor($width, $height);
         if (! $canvas instanceof \GdImage) {
-            throw new \RuntimeException('Unable to create resized image buffer.');
+            throw new RuntimeException('Unable to create resized image buffer.');
         }
 
         imagealphablending($canvas, false);
@@ -627,17 +680,17 @@ final class BrandAssetsController extends Controller
         $transparent = imagecolorallocatealpha($canvas, 0, 0, 0, 127);
         if (! is_int($transparent)) {
             imagedestroy($canvas);
-            throw new \RuntimeException('Unable to allocate transparent color.');
+            throw new RuntimeException('Unable to allocate transparent color.');
         }
 
         if (! imagefill($canvas, 0, 0, $transparent)) {
             imagedestroy($canvas);
-            throw new \RuntimeException('Unable to prime resized image.');
+            throw new RuntimeException('Unable to prime resized image.');
         }
 
         if (! imagecopyresampled($canvas, $source, 0, 0, 0, 0, $width, $height, $sourceWidth, $sourceHeight)) {
             imagedestroy($canvas);
-            throw new \RuntimeException('Unable to resize uploaded image.');
+            throw new RuntimeException('Unable to resize uploaded image.');
         }
 
         return $canvas;
@@ -648,14 +701,14 @@ final class BrandAssetsController extends Controller
         ob_start();
         try {
             if (! imagewebp($image, null, $quality)) {
-                throw new \RuntimeException('Unable to encode image as WebP.');
+                throw new RuntimeException('Unable to encode image as WebP.');
             }
         } finally {
             $encoded = ob_get_clean();
         }
 
         if (! is_string($encoded) || $encoded === '') {
-            throw new \RuntimeException('Failed to capture encoded WebP image.');
+            throw new RuntimeException('Failed to capture encoded WebP image.');
         }
 
         return $encoded;
@@ -669,14 +722,14 @@ final class BrandAssetsController extends Controller
         ob_start();
         try {
             if (! imagepng($image)) {
-                throw new \RuntimeException('Unable to encode image as PNG for favicon.');
+                throw new RuntimeException('Unable to encode image as PNG for favicon.');
             }
         } finally {
             $pngData = ob_get_clean();
         }
 
         if (! is_string($pngData) || $pngData === '') {
-            throw new \RuntimeException('Failed to capture PNG bytes for favicon.');
+            throw new RuntimeException('Failed to capture PNG bytes for favicon.');
         }
 
         $pngSize = strlen($pngData);
@@ -727,13 +780,7 @@ final class BrandAssetsController extends Controller
         if (! is_string($uploaded) || $uploaded === '') {
             /** @var mixed $rawId */
             $rawId = $asset->getAttribute('uploaded_by');
-            if (is_int($rawId)) {
-                $uploaded = 'user:'.(string) $rawId;
-            } elseif (is_string($rawId) && $rawId !== '') {
-                $uploaded = 'user:'.$rawId;
-            } else {
-                $uploaded = null;
-            }
+            $uploaded = $this->normalizeUploadedBy($rawId);
         }
 
         /** @var mixed $createdAtRaw */
@@ -745,10 +792,10 @@ final class BrandAssetsController extends Controller
             'profile_id' => $asset->getAttribute('profile_id'),
             'kind' => $kind,
             'name' => $name,
-            'display_name' => $this->displayNameForAsset($asset, $name),
+            'display_name' => $this->displayNameForAsset($name),
             'mime' => $mime,
             'size_bytes' => $size,
-            'sha256' => Str::lower($sha),
+            'sha256' => strtolower($sha),
             'uploaded_by' => is_string($uploaded) ? $uploaded : null,
             'created_at' => $createdAt->toJSON(),
         ];
@@ -764,7 +811,7 @@ final class BrandAssetsController extends Controller
         return $normalized !== '' ? $normalized : 'brand';
     }
 
-    private function displayNameForAsset(BrandAsset $asset, string $storedName): string
+    private function displayNameForAsset(string $storedName): string
     {
         $extension = pathinfo($storedName, PATHINFO_EXTENSION);
         /** @var string $filename */
@@ -794,5 +841,18 @@ final class BrandAssetsController extends Controller
         }
 
         return sprintf('%s--%s', $slug, $group);
+    }
+
+    private function normalizeUploadedBy(mixed $rawIdentifier): ?string
+    {
+        if (is_int($rawIdentifier)) {
+            return 'user:'.(string) $rawIdentifier;
+        }
+
+        if (is_string($rawIdentifier) && $rawIdentifier !== '') {
+            return 'user:'.$rawIdentifier;
+        }
+
+        return null;
     }
 }

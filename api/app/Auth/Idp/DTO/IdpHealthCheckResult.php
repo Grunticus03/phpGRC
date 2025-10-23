@@ -34,7 +34,7 @@ final class IdpHealthCheckResult
      */
     public static function healthy(string $message = 'Health check passed.', array $details = []): self
     {
-        return new self(self::STATUS_OK, $message, $details, CarbonImmutable::now('UTC'));
+        return new self(self::STATUS_OK, $message, $details, self::nowUtc());
     }
 
     /**
@@ -44,7 +44,7 @@ final class IdpHealthCheckResult
      */
     public static function warning(string $message, array $details = []): self
     {
-        return new self(self::STATUS_WARNING, $message, $details, CarbonImmutable::now('UTC'));
+        return new self(self::STATUS_WARNING, $message, $details, self::nowUtc());
     }
 
     /**
@@ -54,7 +54,7 @@ final class IdpHealthCheckResult
      */
     public static function failed(string $message, array $details = []): self
     {
-        return new self(self::STATUS_ERROR, $message, $details, CarbonImmutable::now('UTC'));
+        return new self(self::STATUS_ERROR, $message, $details, self::nowUtc());
     }
 
     public function isHealthy(): bool
@@ -78,5 +78,10 @@ final class IdpHealthCheckResult
             'checked_at' => $this->checkedAt->toIso8601String(),
             'details' => $this->details,
         ];
+    }
+
+    private static function nowUtc(): CarbonImmutable
+    {
+        return new CarbonImmutable('now', 'UTC');
     }
 }

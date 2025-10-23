@@ -516,7 +516,7 @@ final class OidcAuthenticator implements OidcAuthenticatorContract
 
     /**
      * @param  array<int|string,mixed>  $rawKeys
-     * @return array<int|string,array<string,mixed>>
+     * @return array<int|string,array<array-key,mixed>>
      */
     private function normalizeJwkList(array $rawKeys): array
     {
@@ -526,8 +526,6 @@ final class OidcAuthenticator implements OidcAuthenticatorContract
             if (! is_array($key)) {
                 continue;
             }
-
-            /** @var array<string,mixed> $key */
 
             /** @var mixed $algRaw */
             $algRaw = $key['alg'] ?? null;
@@ -541,6 +539,7 @@ final class OidcAuthenticator implements OidcAuthenticatorContract
                 }
             }
 
+            /** @var array<array-key,mixed> $key */
             $normalized[$index] = $key;
         }
 

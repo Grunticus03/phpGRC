@@ -8,6 +8,7 @@ use App\Auth\Idp\DTO\IdpHealthCheckResult;
 use GuzzleHttp\ClientInterface;
 use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Validation\ValidationException;
+use Psr\Http\Message\ResponseInterface;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
 
@@ -45,7 +46,13 @@ class OidcIdpDriver extends AbstractIdpDriver
         /** @var array<string,list<string>> $errors */
         $errors = [];
 
-        $issuer = $this->requireUrl($config, 'issuer', $errors, true, 'Issuer must be a valid HTTPS URL.');
+        $issuer = $this->requireHttpsUrl(
+            $config,
+            'issuer',
+            $errors,
+            'Issuer must be a valid HTTPS URL.',
+            'Issuer must be a valid HTTPS URL.'
+        );
         $clientId = $this->requireString($config, 'client_id', $errors, 'Client ID is required.');
         $clientSecret = $this->requireString($config, 'client_secret', $errors, 'Client secret is required.');
 
@@ -235,25 +242,14 @@ class OidcIdpDriver extends AbstractIdpDriver
     }
 
     /**
-     * @return array{status:'ok'|'warning'|'invalid',message:string,details:array<string,mixed>}
-     *
-     * @SuppressWarnings("PMD.ExcessiveMethodLength")
-     */
-    /**
      * @param  list<string>  $scopes
      * @return array{status:'ok'|'warning'|'invalid',message:string,details:array<string,mixed>}
      */
     private function probeClientCredentials(string $tokenEndpoint, string $clientId, string $clientSecret, array $scopes): array
     {
-        $probeScope = 'openid';
-        foreach ($scopes as $candidate) {
-            if (str_contains($candidate, '.default')) {
-                $probeScope = $candidate;
-                break;
-            }
-        }
+        $probeScope = $this->determineProbeScope($scopes);
 
-        if ($clientId === '' || $clientSecret === '') {
+        if ($this->credentialsMissing($clientId, $clientSecret)) {
             return [
                 'status' => 'warning',
                 'message' => 'Client credentials were not provided; skipping token endpoint verification.',
@@ -261,37 +257,7 @@ class OidcIdpDriver extends AbstractIdpDriver
             ];
         }
 
-        $attempts = [
-            [
-                'mode' => 'basic',
-                'options' => [
-                    'headers' => [
-                        'Accept' => 'application/json',
-                        'Authorization' => 'Basic '.base64_encode(rawurlencode($clientId).':'.rawurlencode($clientSecret)),
-                    ],
-                    'form_params' => [
-                        'grant_type' => 'client_credentials',
-                        'scope' => $probeScope,
-                    ],
-                ],
-            ],
-            [
-                'mode' => 'post',
-                'options' => [
-                    'headers' => [
-                        'Accept' => 'application/json',
-                    ],
-                    'form_params' => [
-                        'grant_type' => 'client_credentials',
-                        'client_id' => $clientId,
-                        'client_secret' => $clientSecret,
-                        'scope' => $probeScope,
-                    ],
-                ],
-            ],
-        ];
-
-        foreach ($attempts as $attempt) {
+        foreach ($this->buildProbeAttempts($clientId, $clientSecret, $probeScope) as $attempt) {
             try {
                 $response = $this->http->request('POST', $tokenEndpoint, $attempt['options'] + [
                     'timeout' => 10,
@@ -314,87 +280,12 @@ class OidcIdpDriver extends AbstractIdpDriver
                 ];
             }
 
-            $status = $response->getStatusCode();
-            $body = (string) $response->getBody();
-            /** @var mixed $decodedPayload */
-            $decodedPayload = json_decode($body, true);
-            $error = null;
-            if (is_array($decodedPayload)) {
-                /** @var array<array-key, mixed> $payload */
-                $payload = $decodedPayload;
-                /** @var mixed $errorValue */
-                $errorValue = $payload['error'] ?? null;
-                if (is_string($errorValue)) {
-                    $error = $errorValue;
-                }
+            $evaluation = $this->interpretProbeResponse($attempt['mode'], $response);
+            if ($evaluation === null) {
+                continue;
             }
 
-            if ($status === 401 || $error === 'invalid_client') {
-                if ($attempt['mode'] === 'basic') {
-                    continue; // try POST mode before failing
-                }
-
-                return [
-                    'status' => 'invalid',
-                    'message' => 'Token endpoint rejected the provided client credentials.',
-                    'details' => [
-                        'status' => $status,
-                        'error' => $error ?? $body,
-                    ],
-                ];
-            }
-
-            if ($status >= 500) {
-                return [
-                    'status' => 'warning',
-                    'message' => 'Token endpoint returned an unexpected server error.',
-                    'details' => ['status' => $status],
-                ];
-            }
-
-            if ($status === 400) {
-                if ($error === 'invalid_scope') {
-                    return [
-                        'status' => 'ok',
-                        'message' => 'Token endpoint rejected the client-credentials scope (invalid_scope) but interactive authorization_code flows are still valid.',
-                        'details' => [
-                            'status' => $status,
-                            'error' => $error,
-                            'mode' => $attempt['mode'],
-                        ],
-                    ];
-                }
-
-                if (in_array($error, ['unauthorized_client', 'unsupported_grant_type', 'invalid_request'], true)) {
-                    return [
-                        'status' => 'warning',
-                        'message' => 'Token endpoint responded, but additional configuration may be required (check scopes or grant type).',
-                        'details' => [
-                            'status' => $status,
-                            'error' => $error,
-                            'mode' => $attempt['mode'],
-                        ],
-                    ];
-                }
-
-                return [
-                    'status' => 'warning',
-                    'message' => 'Token endpoint returned an unexpected response.',
-                    'details' => [
-                        'status' => $status,
-                        'error' => $error !== null ? $error : $body,
-                    ],
-                ];
-            }
-
-            return [
-                'status' => 'ok',
-                'message' => 'OIDC metadata and client credentials validated.',
-                'details' => [
-                    'status' => $status,
-                    'error' => $error,
-                ],
-            ];
+            return $evaluation;
         }
 
         return [
@@ -402,6 +293,152 @@ class OidcIdpDriver extends AbstractIdpDriver
             'message' => 'Token endpoint rejected the provided client credentials.',
             'details' => ['mode' => 'post'],
         ];
+    }
+
+    /**
+     * @param  list<string>  $scopes
+     */
+    private function determineProbeScope(array $scopes): string
+    {
+        foreach ($scopes as $candidate) {
+            if (str_contains($candidate, '.default')) {
+                return $candidate;
+            }
+        }
+
+        return 'openid';
+    }
+
+    /**
+     * @return list<array{mode:string,options:array<string,mixed>}>
+     */
+    private function buildProbeAttempts(string $clientId, string $clientSecret, string $scope): array
+    {
+        return [
+            [
+                'mode' => 'basic',
+                'options' => [
+                    'headers' => [
+                        'Accept' => 'application/json',
+                        'Authorization' => 'Basic '.base64_encode(rawurlencode($clientId).':'.rawurlencode($clientSecret)),
+                    ],
+                    'form_params' => [
+                        'grant_type' => 'client_credentials',
+                        'scope' => $scope,
+                    ],
+                ],
+            ],
+            [
+                'mode' => 'post',
+                'options' => [
+                    'headers' => [
+                        'Accept' => 'application/json',
+                    ],
+                    'form_params' => [
+                        'grant_type' => 'client_credentials',
+                        'client_id' => $clientId,
+                        'client_secret' => $clientSecret,
+                        'scope' => $scope,
+                    ],
+                ],
+            ],
+        ];
+    }
+
+    private function credentialsMissing(string $clientId, string $clientSecret): bool
+    {
+        return $clientId === '' || $clientSecret === '';
+    }
+
+    /**
+     * @return array{status:'ok'|'warning'|'invalid',message:string,details:array<string,mixed>}|null
+     */
+    private function interpretProbeResponse(string $mode, ResponseInterface $response): ?array
+    {
+        $status = $response->getStatusCode();
+        $body = (string) $response->getBody();
+        $error = $this->extractProbeError($body);
+
+        if ($status === 401 || $error === 'invalid_client') {
+            if ($mode === 'basic') {
+                return null;
+            }
+
+            return [
+                'status' => 'invalid',
+                'message' => 'Token endpoint rejected the provided client credentials.',
+                'details' => [
+                    'status' => $status,
+                    'error' => $error ?? $body,
+                ],
+            ];
+        }
+
+        if ($status >= 500) {
+            return [
+                'status' => 'warning',
+                'message' => 'Token endpoint returned an unexpected server error.',
+                'details' => ['status' => $status],
+            ];
+        }
+
+        if ($status === 400) {
+            if ($error === 'invalid_scope') {
+                return [
+                    'status' => 'ok',
+                    'message' => 'Token endpoint rejected the client-credentials scope (invalid_scope) but interactive authorization_code flows are still valid.',
+                    'details' => [
+                        'status' => $status,
+                        'error' => $error,
+                        'mode' => $mode,
+                    ],
+                ];
+            }
+
+            if (in_array($error, ['unauthorized_client', 'unsupported_grant_type', 'invalid_request'], true)) {
+                return [
+                    'status' => 'warning',
+                    'message' => 'Token endpoint responded, but additional configuration may be required (check scopes or grant type).',
+                    'details' => [
+                        'status' => $status,
+                        'error' => $error,
+                        'mode' => $mode,
+                    ],
+                ];
+            }
+
+            return [
+                'status' => 'warning',
+                'message' => 'Token endpoint returned an unexpected response.',
+                'details' => [
+                    'status' => $status,
+                    'error' => $error ?? $body,
+                ],
+            ];
+        }
+
+        return [
+            'status' => 'ok',
+            'message' => 'OIDC metadata and client credentials validated.',
+            'details' => [
+                'status' => $status,
+                'error' => $error,
+            ],
+        ];
+    }
+
+    private function extractProbeError(string $body): ?string
+    {
+        /** @var mixed $decoded */
+        $decoded = json_decode($body, true);
+        if (! is_array($decoded)) {
+            return null;
+        }
+
+        /** @var mixed $error */
+        $error = $decoded['error'] ?? null;
+
+        return is_string($error) ? $error : null;
     }
 
     /**

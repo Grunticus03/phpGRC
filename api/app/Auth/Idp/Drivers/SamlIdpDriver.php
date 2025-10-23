@@ -57,7 +57,7 @@ final class SamlIdpDriver extends AbstractIdpDriver
         }
 
         $entityId = $this->requireString($config, 'entity_id', $errors, 'Entity ID is required.');
-        $ssoUrl = $this->requireUrl($config, 'sso_url', $errors, false, 'SSO URL must be a valid URL.');
+        $ssoUrl = $this->requireUrl($config, 'sso_url', $errors, 'SSO URL must be a valid URL.');
         $certificate = $this->requireString($config, 'certificate', $errors, 'Signing certificate is required.');
 
         if ($certificate !== '' && ! str_contains($certificate, 'BEGIN CERTIFICATE')) {
