@@ -90,10 +90,11 @@ jobs:
           umask 027
 
           mkdir -p "$ROOT/shared/storage/app/public" "$ROOT/shared/bootstrap/cache"
-          find "$ROOT/shared/storage" -type d -exec chmod 2775 {} \; || true
-          find "$ROOT/shared/bootstrap" -type d -exec chmod 2775 {} \; || true
-
           me="$(whoami)"
+
+          find "$ROOT/shared/storage" -type d -user "$me" -exec chmod 2775 {} \; || true
+          find "$ROOT/shared/bootstrap" -type d -user "$me" -exec chmod 2775 {} \; || true
+
           find "$ROOT/shared/storage" -type d -user "$me" -exec chmod g+rwXs {} + || true
           find "$ROOT/shared/storage" -type f -user "$me" -exec chmod g+rw {} + || true
           find "$ROOT/shared/bootstrap/cache" -type d -user "$me" -exec chmod g+rwXs {} + || true
