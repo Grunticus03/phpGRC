@@ -140,6 +140,13 @@ jobs:
           SPA_DIST="$RELEASE_DIR/web/dist"
           PUBLIC_DIR="$RELEASE_DIR/api/public"
 
+          STATIC_BACKUP="$(mktemp -d)"
+          for item in index.php .htaccess images api api-docs; do
+            if [ -e "$PUBLIC_DIR/$item" ]; then
+              cp -a "$PUBLIC_DIR/$item" "$STATIC_BACKUP/"
+            fi
+          done
+
           if [ -d "$SPA_DIST" ]; then
             if [ ! -f "$SPA_DIST/index.html" ]; then
               echo "SPA build missing index.html in $SPA_DIST" >&2
@@ -170,6 +177,18 @@ jobs:
           <h1>phpGRC</h1><p>SPA build missing in this release. JSON API available at <code>/api</code>.</p>
           HTML
           fi
+
+          for item in index.php .htaccess images api api-docs; do
+            if [ -e "$STATIC_BACKUP/$item" ]; then
+              if [ -d "$STATIC_BACKUP/$item" ]; then
+                rm -rf "$PUBLIC_DIR/$item"
+                cp -a "$STATIC_BACKUP/$item" "$PUBLIC_DIR/"
+              else
+                install -Dm0644 "$STATIC_BACKUP/$item" "$PUBLIC_DIR/$item"
+              fi
+            fi
+          done
+          rm -rf "$STATIC_BACKUP"
           REMOTE
 
       - name: Install PHP deps & warm caches (server)

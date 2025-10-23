@@ -1,35 +1,36 @@
+import { lazy } from "react";
 import { createBrowserRouter, createRoutesFromElements, Route, Navigate } from "react-router-dom";
 import AppLayout from "./layouts/AppLayout";
 
 // Dashboard
-import Dashboard from "./routes/dashboard";
+const Dashboard = lazy(() => import("./routes/dashboard"));
 
 // Core modules
-import RisksIndex from "./routes/risks";
-import ComplianceIndex from "./routes/compliance";
-import AuditsIndex from "./routes/audits";
-import PoliciesIndex from "./routes/policies";
+const RisksIndex = lazy(() => import("./routes/risks"));
+const ComplianceIndex = lazy(() => import("./routes/compliance"));
+const AuditsIndex = lazy(() => import("./routes/audits"));
+const PoliciesIndex = lazy(() => import("./routes/policies"));
 
 // Admin routes
-import AdminIndex from "./routes/admin/index";
-import CoreSettings from "./routes/admin/Settings";
-import BrandingSettings from "./routes/admin/BrandingSettings";
-import ThemingSettings from "./routes/admin/ThemingSettings";
-import ThemeDesigner from "./routes/admin/ThemeDesigner";
-import Roles from "./routes/admin/Roles";
-import Audit from "./routes/admin/Audit";
-import IdpProviders from "./routes/admin/IdpProviders";
-import EvidenceList from "./routes/evidence/List";
-import Users from "./routes/admin/Users";
-import ExportsIndex from "./routes/exports";
+const AdminIndex = lazy(() => import("./routes/admin/index"));
+const CoreSettings = lazy(() => import("./routes/admin/Settings"));
+const BrandingSettings = lazy(() => import("./routes/admin/BrandingSettings"));
+const ThemingSettings = lazy(() => import("./routes/admin/ThemingSettings"));
+const ThemeDesigner = lazy(() => import("./routes/admin/ThemeDesigner"));
+const Roles = lazy(() => import("./routes/admin/Roles"));
+const Audit = lazy(() => import("./routes/admin/Audit"));
+const IdpProviders = lazy(() => import("./routes/admin/IdpProviders"));
+const EvidenceList = lazy(() => import("./routes/evidence/List"));
+const Users = lazy(() => import("./routes/admin/Users"));
+const ExportsIndex = lazy(() => import("./routes/exports"));
 
 // Profile routes
-import Avatar from "./routes/profile/Avatar";
-import ThemePreferences from "./routes/profile/ThemePreferences";
+const Avatar = lazy(() => import("./routes/profile/Avatar"));
+const ThemePreferences = lazy(() => import("./routes/profile/ThemePreferences"));
 
 // Auth routes
-import Login from "./routes/auth/Login";
-import OidcCallback from "./routes/auth/OidcCallback";
+const Login = lazy(() => import("./routes/auth/Login"));
+const OidcCallback = lazy(() => import("./routes/auth/OidcCallback"));
 
 const router = createBrowserRouter(
   createRoutesFromElements(

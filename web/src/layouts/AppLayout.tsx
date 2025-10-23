@@ -1,5 +1,6 @@
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
+  Suspense,
   useCallback,
   useEffect,
   useMemo,
@@ -107,6 +108,17 @@ const HIDDEN_DRAG_END_ID = "__hidden_end__";
 const DASHBOARD_TOGGLE_EDIT_MODE_EVENT = "dashboard-toggle-edit-mode";
 const DASHBOARD_EDIT_MODE_STATE_EVENT = "dashboard-edit-mode-state";
 const PAGE_FADE_DURATION_MS = 180;
+
+const ROUTE_FALLBACK = (
+  <div
+    className="d-flex flex-column align-items-center justify-content-center w-100 py-5"
+    role="status"
+    aria-live="polite"
+  >
+    <span className="spinner-border text-primary" aria-hidden="true"></span>
+    <span className="visually-hidden">Loading page…</span>
+  </div>
+);
 
 const ADMIN_NAV_ITEMS: readonly AdminNavItem[] = [
   {
@@ -1343,6 +1355,7 @@ export default function AppLayout(): JSX.Element | null {
   const navbarBackgroundClass = themeMode === "dark" ? "bg-dark" : "bg-primary";
   const headerButtonVariant = "btn-outline-light";
   const dropdownMenuTone = "dropdown-menu dropdown-menu-dark";
+  const outletContent = <Suspense fallback={ROUTE_FALLBACK}><Outlet /></Suspense>;
 
   const accountDropdownStyle: CSSProperties = {
     right: 0,
@@ -2179,7 +2192,7 @@ export default function AppLayout(): JSX.Element | null {
           onClickCapture={closeFloatingSidebar}
           onFocusCapture={closeFloatingSidebar}
         >
-          <Outlet />
+          {outletContent}
         </main>
       </div>
     </div>
@@ -2187,7 +2200,7 @@ export default function AppLayout(): JSX.Element | null {
 
   const content = hideNav ? (
     <main id="main" role="main" ref={pageFadeRef} className="page-fade-target">
-      <Outlet />
+      {outletContent}
     </main>
   ) : (
     layout
