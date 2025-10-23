@@ -157,10 +157,29 @@ class OidcIdpDriver extends AbstractIdpDriver
             throw new RuntimeException('Client secret is missing from normalized configuration.');
         }
 
+        $scopes = [];
+        if (isset($normalized['scopes']) && is_array($normalized['scopes'])) {
+            /** @var array<int|string, mixed> $rawScopes */
+            $rawScopes = $normalized['scopes'];
+            foreach ($rawScopes as $scope) {
+                if (! is_string($scope)) {
+                    continue;
+                }
+
+                $trimmed = trim($scope);
+                if ($trimmed === '') {
+                    continue;
+                }
+
+                $scopes[] = $trimmed;
+            }
+        }
+
         $probe = $this->probeClientCredentials(
             $tokenEndpoint,
             $clientId,
-            $clientSecret
+            $clientSecret,
+            $scopes
         );
 
         $details['token_probe'] = $probe['details'];
@@ -220,8 +239,20 @@ class OidcIdpDriver extends AbstractIdpDriver
      *
      * @SuppressWarnings("PMD.ExcessiveMethodLength")
      */
-    private function probeClientCredentials(string $tokenEndpoint, string $clientId, string $clientSecret): array
+    /**
+     * @param  list<string>  $scopes
+     * @return array{status:'ok'|'warning'|'invalid',message:string,details:array<string,mixed>}
+     */
+    private function probeClientCredentials(string $tokenEndpoint, string $clientId, string $clientSecret, array $scopes): array
     {
+        $probeScope = 'openid';
+        foreach ($scopes as $candidate) {
+            if (str_contains($candidate, '.default')) {
+                $probeScope = $candidate;
+                break;
+            }
+        }
+
         if ($clientId === '' || $clientSecret === '') {
             return [
                 'status' => 'warning',
@@ -240,7 +271,7 @@ class OidcIdpDriver extends AbstractIdpDriver
                     ],
                     'form_params' => [
                         'grant_type' => 'client_credentials',
-                        'scope' => 'openid',
+                        'scope' => $probeScope,
                     ],
                 ],
             ],
@@ -254,7 +285,7 @@ class OidcIdpDriver extends AbstractIdpDriver
                         'grant_type' => 'client_credentials',
                         'client_id' => $clientId,
                         'client_secret' => $clientSecret,
-                        'scope' => 'openid',
+                        'scope' => $probeScope,
                     ],
                 ],
             ],
@@ -322,13 +353,26 @@ class OidcIdpDriver extends AbstractIdpDriver
             }
 
             if ($status === 400) {
-                if (in_array($error, ['unauthorized_client', 'unsupported_grant_type', 'invalid_scope', 'invalid_request'], true)) {
+                if ($error === 'invalid_scope') {
+                    return [
+                        'status' => 'ok',
+                        'message' => 'Token endpoint rejected the client-credentials scope (invalid_scope) but interactive authorization_code flows are still valid.',
+                        'details' => [
+                            'status' => $status,
+                            'error' => $error,
+                            'mode' => $attempt['mode'],
+                        ],
+                    ];
+                }
+
+                if (in_array($error, ['unauthorized_client', 'unsupported_grant_type', 'invalid_request'], true)) {
                     return [
                         'status' => 'warning',
                         'message' => 'Token endpoint responded, but additional configuration may be required (check scopes or grant type).',
                         'details' => [
                             'status' => $status,
                             'error' => $error,
+                            'mode' => $attempt['mode'],
                         ],
                     ];
                 }

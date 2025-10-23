@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { consumeIntendedPath, authOidcLogin } from "../../lib/api";
+import { consumeIntendedPath, authOidcLogin, HttpError } from "../../lib/api";
 import { consumeOidcProvider } from "./OidcStorage";
 
 type ViewState =
@@ -85,11 +85,31 @@ export default function OidcCallback(): JSX.Element {
         const destination = consumeIntendedPath() || "/dashboard";
         window.location.assign(destination);
       })
-      .catch(() => {
-        setState({
-          status: "error",
-          message: "Unable to finish Microsoft Entra sign-in. Please return to the login page and try again.",
-        });
+      .catch((err: unknown) => {
+        console.error("OIDC login failed", err);
+        let message =
+          "Unable to finish Microsoft Entra sign-in. Please return to the login page and try again.";
+        if (err instanceof HttpError) {
+          const body = err.body;
+          if (body && typeof body === "object") {
+            const asObject = body as Record<string, unknown>;
+            if (typeof asObject.message === "string" && asObject.message.trim() !== "") {
+              message = asObject.message.trim();
+            } else if (Array.isArray(asObject.errors)) {
+              const first = asObject.errors.find((entry) => typeof entry === "string");
+              if (typeof first === "string" && first.trim() !== "") {
+                message = first.trim();
+              }
+            } else if (typeof asObject.error === "string" && asObject.error.trim() !== "") {
+              const description =
+                typeof asObject.error_description === "string"
+                  ? asObject.error_description.trim()
+                  : null;
+              message = description && description !== "" ? description : asObject.error.trim();
+            }
+          }
+        }
+        setState({ status: "error", message });
       });
   }, [searchParams]);
 

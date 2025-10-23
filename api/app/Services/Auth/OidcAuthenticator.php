@@ -31,7 +31,7 @@ final class OidcAuthenticator implements OidcAuthenticatorContract
 {
     use ResolvesJitAssignments;
 
-    private const int JWKS_CACHE_TTL = 900;
+    private const JWKS_CACHE_TTL = 900;
 
     public function __construct(
         private readonly ClientInterface $http,
@@ -104,14 +104,16 @@ final class OidcAuthenticator implements OidcAuthenticatorContract
             $this->logFailure($provider, $request, $config, $errors);
             throw $e;
         } catch (OidcAuthenticationException $e) {
-            $this->logFailure($provider, $request, $config, ['message' => [$e->getMessage()]]);
+            $details = ['message' => [$e->getMessage()]];
+            $this->logFailure($provider, $request, $config, $details);
             throw ValidationException::withMessages([
                 'code' => [$e->getMessage()],
             ])->status(401);
         } catch (RuntimeException $e) {
-            $this->logFailure($provider, $request, $config, ['message' => [$e->getMessage()]]);
+            $details = ['message' => [$e->getMessage()]];
+            $this->logFailure($provider, $request, $config, $details);
             throw ValidationException::withMessages([
-                'code' => ['OIDC authentication failed.'],
+                'code' => [$e->getMessage()],
             ])->status(401);
         }
     }
@@ -122,6 +124,7 @@ final class OidcAuthenticator implements OidcAuthenticatorContract
      * @param  array<string,mixed>  $input
      *
      * @SuppressWarnings("PMD.NPathComplexity")
+     * @SuppressWarnings("PMD.ExcessiveMethodLength")
      */
     private function resolveIdToken(IdpProvider $provider, array $config, array $discovery, array $input): string
     {
@@ -171,6 +174,28 @@ final class OidcAuthenticator implements OidcAuthenticatorContract
             'client_secret' => $clientSecret,
         ];
 
+        $scopes = [];
+        if (isset($config['scopes']) && is_array($config['scopes'])) {
+            foreach ($config['scopes'] as $scope) {
+                if (! is_string($scope)) {
+                    continue;
+                }
+
+                $trimmed = trim($scope);
+                if ($trimmed === '') {
+                    continue;
+                }
+
+                $scopes[$trimmed] = true;
+            }
+        }
+
+        if (! isset($scopes['openid'])) {
+            $scopes['openid'] = true;
+        }
+
+        $form['scope'] = implode(' ', array_keys($scopes));
+
         if (isset($input['code_verifier']) && is_string($input['code_verifier'])) {
             $form['code_verifier'] = trim($input['code_verifier']);
         }
@@ -195,7 +220,24 @@ final class OidcAuthenticator implements OidcAuthenticatorContract
 
         $idTokenResponse = $decoded['id_token'] ?? null;
         if (! is_string($idTokenResponse) || trim($idTokenResponse) === '') {
-            throw new OidcAuthenticationException('Provider did not return an id_token.');
+            $description = null;
+            if (isset($decoded['error_description']) && is_string($decoded['error_description'])) {
+                $candidate = trim($decoded['error_description']);
+                if ($candidate !== '') {
+                    $description = $candidate;
+                }
+            }
+
+            if ($description === null && isset($decoded['error']) && is_string($decoded['error'])) {
+                $candidate = trim($decoded['error']);
+                if ($candidate !== '') {
+                    $description = $candidate;
+                }
+            }
+
+            $message = $description ?? 'Provider did not return an id_token.';
+
+            throw new OidcAuthenticationException($message);
         }
 
         return trim($idTokenResponse);
@@ -408,8 +450,9 @@ final class OidcAuthenticator implements OidcAuthenticatorContract
         /** @var array<string,mixed>|null $cached */
         $cached = $this->cache->get($cacheKey);
         if (is_array($cached) && $cached !== []) {
+            $normalizedCached = $this->normalizeJwksDocument($cached);
             /** @var array<string, Key> $parsedCached */
-            $parsedCached = JWK::parseKeySet($cached);
+            $parsedCached = JWK::parseKeySet($normalizedCached);
 
             if ($parsedCached === []) {
                 throw new RuntimeException('JWKS response malformed.');
@@ -435,15 +478,73 @@ final class OidcAuthenticator implements OidcAuthenticatorContract
             throw new RuntimeException('JWKS response malformed.');
         }
 
-        $this->cache->put($cacheKey, $decoded, self::JWKS_CACHE_TTL);
+        $normalized = $this->normalizeJwksDocument($decoded);
+
+        $this->cache->put($cacheKey, $normalized, self::JWKS_CACHE_TTL);
 
         /** @var array<string, Key> $parsed */
-        $parsed = JWK::parseKeySet($decoded);
+        $parsed = JWK::parseKeySet($normalized);
         if ($parsed === []) {
             throw new RuntimeException('JWKS response malformed.');
         }
 
         return $parsed;
+    }
+
+    /**
+     * @param  array<string,mixed>  $jwks
+     * @return array<string,mixed>
+     */
+    /**
+     * @param  array<mixed,mixed>  $jwks
+     * @return array<string,mixed>
+     */
+    private function normalizeJwksDocument(array $jwks): array
+    {
+        /** @var array<string,mixed> $document */
+        $document = $jwks;
+
+        $rawKeys = $document['keys'] ?? null;
+        if (! is_array($rawKeys)) {
+            return $document;
+        }
+
+        $document['keys'] = $this->normalizeJwkList($rawKeys);
+
+        return $document;
+    }
+
+    /**
+     * @param  array<int|string,mixed>  $rawKeys
+     * @return array<int|string,array<string,mixed>>
+     */
+    private function normalizeJwkList(array $rawKeys): array
+    {
+        $normalized = [];
+
+        foreach ($rawKeys as $index => $key) {
+            if (! is_array($key)) {
+                continue;
+            }
+
+            /** @var array<string,mixed> $key */
+
+            /** @var mixed $algRaw */
+            $algRaw = $key['alg'] ?? null;
+            $alg = is_string($algRaw) ? trim($algRaw) : '';
+            if ($alg === '') {
+                /** @var mixed $ktyRaw */
+                $ktyRaw = $key['kty'] ?? null;
+                $kty = is_string($ktyRaw) ? strtoupper(trim($ktyRaw)) : '';
+                if ($kty === 'RSA') {
+                    $key['alg'] = 'RS256';
+                }
+            }
+
+            $normalized[$index] = $key;
+        }
+
+        return $normalized;
     }
 
     /**

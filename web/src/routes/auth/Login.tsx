@@ -216,17 +216,47 @@ export default function Login(): JSX.Element {
 
       if (typeof window !== "undefined") {
         const driver = typeof provider.driver === "string" ? provider.driver.toLowerCase() : "";
+        let remembered = false;
         if (driver === "oidc" || driver === "entra") {
           try {
             const identifier = provider.id || provider.key;
             if (identifier) {
               rememberOidcProvider(identifier);
+              remembered = true;
             }
           } catch {
             // ignore storage failures
           }
         }
-        window.location.assign(authorizeUrl);
+
+        const attemptRedirect = async (): Promise<void> => {
+          if (remembered) {
+            try {
+              const response = await fetch(authorizeUrl, {
+                method: "GET",
+                credentials: "include",
+                headers: { Accept: "application/json" },
+              });
+              if (response.ok) {
+                const contentType = response.headers.get("Content-Type") ?? "";
+                if (contentType.includes("application/json")) {
+                  const data = (await response.json()) as { redirect?: string | null };
+                  const redirectUrl = typeof data?.redirect === "string" ? data.redirect.trim() : "";
+                  if (redirectUrl !== "") {
+                    window.location.assign(redirectUrl);
+                    return;
+                  }
+                }
+              }
+            } catch {
+              // fall back to direct navigation below
+            }
+          }
+
+          window.location.assign(authorizeUrl);
+        };
+
+        void attemptRedirect();
       }
     },
     []

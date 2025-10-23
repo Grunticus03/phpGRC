@@ -95,6 +95,13 @@ final class OidcAuthorizeController extends Controller
         $delimiter = str_contains($authEndpoint, '?') ? '&' : '?';
         $location = $authEndpoint.$delimiter.http_build_query($filteredParams, '', '&', PHP_QUERY_RFC3986);
 
+        if ($request->wantsJson()) {
+            return response()->json([
+                'ok' => true,
+                'redirect' => $location,
+            ]);
+        }
+
         return redirect()->away($location);
     }
 
