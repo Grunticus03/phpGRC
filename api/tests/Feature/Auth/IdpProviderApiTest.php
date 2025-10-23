@@ -13,6 +13,11 @@ use App\Services\Auth\Ldap\LdapClientInterface;
 use App\Services\Auth\SamlMetadataService;
 use App\Support\Rbac\PolicyMap;
 use Carbon\CarbonImmutable;
+use GuzzleHttp\Client;
+use GuzzleHttp\ClientInterface;
+use GuzzleHttp\Handler\MockHandler;
+use GuzzleHttp\HandlerStack;
+use GuzzleHttp\Psr7\Response;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Http;
@@ -726,6 +731,22 @@ final class IdpProviderApiTest extends TestCase
             ],
         ]);
 
+        $mock = new MockHandler([
+            new Response(200, ['Content-Type' => 'application/json'], json_encode([
+                'issuer' => 'https://health.example.test',
+                'token_endpoint' => 'https://health.example.test/token',
+            ], JSON_THROW_ON_ERROR)),
+            new Response(200, ['Content-Type' => 'application/json'], json_encode([
+                'access_token' => 'token',
+                'token_type' => 'Bearer',
+            ], JSON_THROW_ON_ERROR)),
+        ]);
+
+        app()->instance(ClientInterface::class, new Client([
+            'handler' => HandlerStack::create($mock),
+            'http_errors' => false,
+        ]));
+
         $this->postJson("/admin/idp/providers/{$provider->id}/health")
             ->assertStatus(200)
             ->assertJsonPath('status', IdpHealthCheckResult::STATUS_OK)
@@ -749,6 +770,22 @@ final class IdpProviderApiTest extends TestCase
     public function preview_health_endpoint_validates_configuration(): void
     {
         $this->actingAsAdmin();
+
+        $mock = new MockHandler([
+            new Response(200, ['Content-Type' => 'application/json'], json_encode([
+                'issuer' => 'https://issuer.example/',
+                'token_endpoint' => 'https://issuer.example/token',
+            ], JSON_THROW_ON_ERROR)),
+            new Response(200, ['Content-Type' => 'application/json'], json_encode([
+                'access_token' => 'token',
+                'token_type' => 'Bearer',
+            ], JSON_THROW_ON_ERROR)),
+        ]);
+
+        app()->instance(ClientInterface::class, new Client([
+            'handler' => HandlerStack::create($mock),
+            'http_errors' => false,
+        ]));
 
         $this->postJson('/admin/idp/providers/preview-health', [
             'driver' => 'oidc',

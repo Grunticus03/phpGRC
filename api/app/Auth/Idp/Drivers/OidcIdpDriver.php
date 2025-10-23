@@ -5,10 +5,28 @@ declare(strict_types=1);
 namespace App\Auth\Idp\Drivers;
 
 use App\Auth\Idp\DTO\IdpHealthCheckResult;
+use GuzzleHttp\ClientInterface;
+use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Validation\ValidationException;
+use Psr\Log\LoggerInterface;
+use RuntimeException;
 
+/**
+ * @SuppressWarnings("PMD.CyclomaticComplexity")
+ * @SuppressWarnings("PMD.NPathComplexity")
+ * @SuppressWarnings("PMD.LongClass")
+ * @SuppressWarnings("PMD.ExcessiveClassComplexity")
+ * @SuppressWarnings("PMD.LongMethod")
+ * @SuppressWarnings("PMD.StaticAccess")
+ * @SuppressWarnings("PMD.ElseExpression")
+ */
 class OidcIdpDriver extends AbstractIdpDriver
 {
+    public function __construct(
+        private readonly ClientInterface $http,
+        private readonly LoggerInterface $logger
+    ) {}
+
     #[\Override]
     public function key(): string
     {
@@ -93,15 +111,260 @@ class OidcIdpDriver extends AbstractIdpDriver
             ]);
         }
 
-        return IdpHealthCheckResult::healthy('OIDC configuration validated.', [
+        $details = [
             'issuer' => $normalized['issuer'] ?? null,
             'scopes' => $normalized['scopes'] ?? [],
-        ]);
+        ];
+
+        $issuer = $normalized['issuer'] ?? null;
+        if (! is_string($issuer) || trim($issuer) === '') {
+            return IdpHealthCheckResult::failed('Issuer is required to run health checks.', [
+                'errors' => [
+                    'config.issuer' => ['Issuer must be provided.'],
+                ],
+            ]);
+        }
+
+        try {
+            $discovery = $this->fetchDiscoveryDocument($issuer);
+            $details['discovery'] = [
+                'issuer' => $discovery['issuer'] ?? null,
+                'authorization_endpoint' => $discovery['authorization_endpoint'] ?? null,
+                'token_endpoint' => $discovery['token_endpoint'] ?? null,
+                'jwks_uri' => $discovery['jwks_uri'] ?? null,
+            ];
+        } catch (RuntimeException $e) {
+            return IdpHealthCheckResult::failed('Failed to download OIDC discovery metadata.', $details + [
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        $tokenEndpoint = isset($discovery['token_endpoint']) && is_string($discovery['token_endpoint'])
+            ? trim($discovery['token_endpoint'])
+            : null;
+
+        if ($tokenEndpoint === null || $tokenEndpoint === '') {
+            return IdpHealthCheckResult::warning('Discovery metadata loaded, but the token endpoint was not provided.', $details);
+        }
+
+        $clientId = $normalized['client_id'] ?? null;
+        if (! is_string($clientId)) {
+            throw new RuntimeException('Client ID is missing from normalized configuration.');
+        }
+
+        $clientSecret = $normalized['client_secret'] ?? null;
+        if (! is_string($clientSecret)) {
+            throw new RuntimeException('Client secret is missing from normalized configuration.');
+        }
+
+        $probe = $this->probeClientCredentials(
+            $tokenEndpoint,
+            $clientId,
+            $clientSecret
+        );
+
+        $details['token_probe'] = $probe['details'];
+
+        return match ($probe['status']) {
+            'invalid' => IdpHealthCheckResult::failed($probe['message'], $details),
+            'warning' => IdpHealthCheckResult::warning($probe['message'], $details),
+            default => IdpHealthCheckResult::healthy($probe['message'], $details),
+        };
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function fetchDiscoveryDocument(string $issuer): array
+    {
+        $endpoint = rtrim($issuer, '/').'/.well-known/openid-configuration';
+
+        try {
+            $response = $this->http->request('GET', $endpoint, [
+                'headers' => ['Accept' => 'application/json'],
+                'timeout' => 10,
+                'connect_timeout' => 5,
+            ]);
+        } catch (GuzzleException $e) {
+            $this->logger->warning('OIDC discovery request failed.', [
+                'endpoint' => $endpoint,
+                'error' => $e->getMessage(),
+            ]);
+
+            throw new RuntimeException('Unable to reach discovery endpoint.');
+        }
+
+        if ($response->getStatusCode() >= 400) {
+            $this->logger->warning('OIDC discovery returned an error.', [
+                'endpoint' => $endpoint,
+                'status' => $response->getStatusCode(),
+            ]);
+
+            throw new RuntimeException(sprintf('Discovery endpoint returned HTTP %d.', $response->getStatusCode()));
+        }
+
+        /** @var mixed $decoded */
+        $decoded = json_decode((string) $response->getBody(), true);
+        if (! is_array($decoded)) {
+            throw new RuntimeException('Discovery document response was not valid JSON.');
+        }
+
+        /** @var array<string,mixed> $document */
+        $document = $decoded;
+
+        return $document;
+    }
+
+    /**
+     * @return array{status:'ok'|'warning'|'invalid',message:string,details:array<string,mixed>}
+     *
+     * @SuppressWarnings("PMD.ExcessiveMethodLength")
+     */
+    private function probeClientCredentials(string $tokenEndpoint, string $clientId, string $clientSecret): array
+    {
+        if ($clientId === '' || $clientSecret === '') {
+            return [
+                'status' => 'warning',
+                'message' => 'Client credentials were not provided; skipping token endpoint verification.',
+                'details' => ['skipped' => true],
+            ];
+        }
+
+        $attempts = [
+            [
+                'mode' => 'basic',
+                'options' => [
+                    'headers' => [
+                        'Accept' => 'application/json',
+                        'Authorization' => 'Basic '.base64_encode(rawurlencode($clientId).':'.rawurlencode($clientSecret)),
+                    ],
+                    'form_params' => [
+                        'grant_type' => 'client_credentials',
+                        'scope' => 'openid',
+                    ],
+                ],
+            ],
+            [
+                'mode' => 'post',
+                'options' => [
+                    'headers' => [
+                        'Accept' => 'application/json',
+                    ],
+                    'form_params' => [
+                        'grant_type' => 'client_credentials',
+                        'client_id' => $clientId,
+                        'client_secret' => $clientSecret,
+                        'scope' => 'openid',
+                    ],
+                ],
+            ],
+        ];
+
+        foreach ($attempts as $attempt) {
+            try {
+                $response = $this->http->request('POST', $tokenEndpoint, $attempt['options'] + [
+                    'timeout' => 10,
+                    'connect_timeout' => 5,
+                ]);
+            } catch (GuzzleException $e) {
+                $this->logger->warning('OIDC token endpoint probe failed.', [
+                    'endpoint' => $tokenEndpoint,
+                    'mode' => $attempt['mode'],
+                    'error' => $e->getMessage(),
+                ]);
+
+                return [
+                    'status' => 'warning',
+                    'message' => 'Unable to reach the token endpoint during validation.',
+                    'details' => [
+                        'mode' => $attempt['mode'],
+                        'error' => $e->getMessage(),
+                    ],
+                ];
+            }
+
+            $status = $response->getStatusCode();
+            $body = (string) $response->getBody();
+            /** @var mixed $decodedPayload */
+            $decodedPayload = json_decode($body, true);
+            $error = null;
+            if (is_array($decodedPayload)) {
+                /** @var array<array-key, mixed> $payload */
+                $payload = $decodedPayload;
+                /** @var mixed $errorValue */
+                $errorValue = $payload['error'] ?? null;
+                if (is_string($errorValue)) {
+                    $error = $errorValue;
+                }
+            }
+
+            if ($status === 401 || $error === 'invalid_client') {
+                if ($attempt['mode'] === 'basic') {
+                    continue; // try POST mode before failing
+                }
+
+                return [
+                    'status' => 'invalid',
+                    'message' => 'Token endpoint rejected the provided client credentials.',
+                    'details' => [
+                        'status' => $status,
+                        'error' => $error ?? $body,
+                    ],
+                ];
+            }
+
+            if ($status >= 500) {
+                return [
+                    'status' => 'warning',
+                    'message' => 'Token endpoint returned an unexpected server error.',
+                    'details' => ['status' => $status],
+                ];
+            }
+
+            if ($status === 400) {
+                if (in_array($error, ['unauthorized_client', 'unsupported_grant_type', 'invalid_scope', 'invalid_request'], true)) {
+                    return [
+                        'status' => 'warning',
+                        'message' => 'Token endpoint responded, but additional configuration may be required (check scopes or grant type).',
+                        'details' => [
+                            'status' => $status,
+                            'error' => $error,
+                        ],
+                    ];
+                }
+
+                return [
+                    'status' => 'warning',
+                    'message' => 'Token endpoint returned an unexpected response.',
+                    'details' => [
+                        'status' => $status,
+                        'error' => $error !== null ? $error : $body,
+                    ],
+                ];
+            }
+
+            return [
+                'status' => 'ok',
+                'message' => 'OIDC metadata and client credentials validated.',
+                'details' => [
+                    'status' => $status,
+                    'error' => $error,
+                ],
+            ];
+        }
+
+        return [
+            'status' => 'invalid',
+            'message' => 'Token endpoint rejected the provided client credentials.',
+            'details' => ['mode' => 'post'],
+        ];
     }
 
     /**
      * @param  array<string,list<string>>  $errors
      * @return array{create_users:bool,default_roles:list<string>,role_templates:list<array{claim:string,values:list<string>,roles:list<string>}>}
+     *
+     * @SuppressWarnings("PMD.ExcessiveMethodLength")
      */
     private function normalizeJitConfig(mixed $jitConfig, array &$errors): array
     {

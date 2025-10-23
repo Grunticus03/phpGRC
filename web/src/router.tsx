@@ -29,6 +29,7 @@ import ThemePreferences from "./routes/profile/ThemePreferences";
 
 // Auth routes
 import Login from "./routes/auth/Login";
+import OidcCallback from "./routes/auth/OidcCallback";
 
 const router = createBrowserRouter(
   createRoutesFromElements(
@@ -37,6 +38,7 @@ const router = createBrowserRouter(
 
       <Route path="auth">
         <Route path="login" element={<Login />} />
+        <Route path="callback" element={<OidcCallback />} />
       </Route>
 
       <Route path="dashboard" element={<Dashboard />} />

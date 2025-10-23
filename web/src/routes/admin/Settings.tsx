@@ -1,6 +1,7 @@
 import { FormEvent, ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { apiPost, baseHeaders } from "../../lib/api";
 import { DEFAULT_TIME_FORMAT, normalizeTimeFormat, type TimeFormat } from "../../lib/formatters";
+import "./InlineAccordion.css";
 
 type EffectiveConfig = {
   core: {
@@ -104,6 +105,8 @@ export default function CoreSettings(): JSX.Element {
   const [samlPrivateKeyPath, setSamlPrivateKeyPath] = useState("");
   const [samlPrivateKeyPassphrase, setSamlPrivateKeyPassphrase] = useState("");
   const [samlCertificate, setSamlCertificate] = useState("");
+  const [samlCertificateAccordionOpen, setSamlCertificateAccordionOpen] = useState(false);
+  const [samlPrivateKeyAccordionOpen, setSamlPrivateKeyAccordionOpen] = useState(false);
   const blobPlaceholderDefault = "/opt/phpgrc/shared/blobs";
   const [purging, setPurging] = useState(false);
   const timeFormatExample =
@@ -111,8 +114,55 @@ export default function CoreSettings(): JSX.Element {
 
   const snapshotRef = useRef<SettingsSnapshot | null>(null);
   const etagRef = useRef<string | null>(null);
+  const samlCertificateAutoOpenRef = useRef(true);
+  const samlPrivateKeyAutoOpenRef = useRef(true);
 
   const clamp = (n: number, min: number, max: number) => Math.max(min, Math.min(max, Math.trunc(n)));
+
+  useEffect(() => {
+    const trimmed = samlCertificate.trim();
+    if (trimmed === "") {
+      samlCertificateAutoOpenRef.current = true;
+    }
+
+    if (!samlCertificateAccordionOpen && samlCertificateAutoOpenRef.current && trimmed !== "") {
+      setSamlCertificateAccordionOpen(true);
+    }
+  }, [samlCertificate, samlCertificateAccordionOpen]);
+
+  useEffect(() => {
+    const trimmed = samlPrivateKey.trim();
+    if (trimmed === "") {
+      samlPrivateKeyAutoOpenRef.current = true;
+    }
+
+    if (!samlPrivateKeyAccordionOpen && samlPrivateKeyAutoOpenRef.current && trimmed !== "") {
+      setSamlPrivateKeyAccordionOpen(true);
+    }
+  }, [samlPrivateKey, samlPrivateKeyAccordionOpen]);
+
+  const toggleSamlCertificateAccordion = useCallback(() => {
+    setSamlCertificateAccordionOpen((prev) => {
+      const next = !prev;
+      if (!next) {
+        samlCertificateAutoOpenRef.current = false;
+      }
+      return next;
+    });
+  }, []);
+
+  const toggleSamlPrivateKeyAccordion = useCallback(() => {
+    setSamlPrivateKeyAccordionOpen((prev) => {
+      const next = !prev;
+      if (!next) {
+        samlPrivateKeyAutoOpenRef.current = false;
+      }
+      return next;
+    });
+  }, []);
+
+  const samlCertificatePanelId = "samlCertificate-panel";
+  const samlPrivateKeyPanelId = "samlPrivateKey-panel";
 
   const applyConfig = useCallback(
     (config?: EffectiveConfig | null) => {
@@ -585,17 +635,39 @@ export default function CoreSettings(): JSX.Element {
                 fieldId="samlCertificate"
                 label="Signing certificate"
                 description="PEM-encoded X.509 certificate that matches the private key and is published in metadata."
+                labelAction={
+                  <button
+                    type="button"
+                    className="btn btn-link btn-sm p-0 inline-accordion-toggle"
+                    onClick={toggleSamlCertificateAccordion}
+                    aria-expanded={samlCertificateAccordionOpen}
+                    aria-controls={samlCertificatePanelId}
+                    aria-label={`${samlCertificateAccordionOpen ? "Hide" : "Show"} signing certificate editor`}
+                  >
+                    <i
+                      className={`bi ${samlCertificateAccordionOpen ? "bi-caret-up-fill" : "bi-caret-down-fill"}`}
+                      aria-hidden="true"
+                    />
+                  </button>
+                }
               >
                 {({ id, describedBy }) => (
-                  <textarea
-                    id={id}
-                    aria-describedby={describedBy}
-                    className="form-control font-monospace"
-                    rows={4}
-                    value={samlCertificate}
-                    onChange={(event) => setSamlCertificate(event.target.value)}
-                    placeholder="-----BEGIN CERTIFICATE-----"
-                  />
+                  <div
+                    id={samlCertificatePanelId}
+                    className={`collapse inline-accordion-collapse${samlCertificateAccordionOpen ? " show" : ""}`}
+                  >
+                    <div className="mt-2">
+                      <textarea
+                        id={id}
+                        aria-describedby={describedBy}
+                        className="form-control font-monospace"
+                        style={{ resize: "both", minHeight: "8rem", width: "auto", minWidth: "100%" }}
+                        value={samlCertificate}
+                        onChange={(event) => setSamlCertificate(event.target.value)}
+                        placeholder="-----BEGIN CERTIFICATE-----"
+                      />
+                    </div>
+                  </div>
                 )}
               </SettingField>
 
@@ -606,17 +678,39 @@ export default function CoreSettings(): JSX.Element {
                     label="Signing private key"
                     description="Inline PEM-encoded RSA private key used to sign AuthnRequests."
                     help="Leave blank if you plan to load the key from disk via the path below."
+                    labelAction={
+                      <button
+                        type="button"
+                        className="btn btn-link btn-sm p-0 inline-accordion-toggle"
+                        onClick={toggleSamlPrivateKeyAccordion}
+                        aria-expanded={samlPrivateKeyAccordionOpen}
+                        aria-controls={samlPrivateKeyPanelId}
+                        aria-label={`${samlPrivateKeyAccordionOpen ? "Hide" : "Show"} signing private key editor`}
+                      >
+                        <i
+                          className={`bi ${samlPrivateKeyAccordionOpen ? "bi-caret-up-fill" : "bi-caret-down-fill"}`}
+                          aria-hidden="true"
+                        />
+                      </button>
+                    }
                   >
                     {({ id, describedBy }) => (
-                      <textarea
-                        id={id}
-                        aria-describedby={describedBy}
-                        className="form-control font-monospace"
-                        rows={6}
-                        value={samlPrivateKey}
-                        onChange={(event) => setSamlPrivateKey(event.target.value)}
-                        placeholder="-----BEGIN PRIVATE KEY-----"
-                      />
+                      <div
+                        id={samlPrivateKeyPanelId}
+                        className={`collapse inline-accordion-collapse${samlPrivateKeyAccordionOpen ? " show" : ""}`}
+                      >
+                        <div className="mt-2">
+                          <textarea
+                            id={id}
+                            aria-describedby={describedBy}
+                            className="form-control font-monospace"
+                            rows={6}
+                            value={samlPrivateKey}
+                            onChange={(event) => setSamlPrivateKey(event.target.value)}
+                            placeholder="-----BEGIN PRIVATE KEY-----"
+                          />
+                        </div>
+                      </div>
                     )}
                   </SettingField>
 
@@ -846,10 +940,11 @@ type SettingFieldProps = {
   label: string;
   description?: ReactNode;
   help?: ReactNode;
+  labelAction?: ReactNode;
   children: (attributes: { id: string; describedBy?: string }) => ReactNode;
 };
 
-function SettingField({ fieldId, label, description, help, children }: SettingFieldProps): JSX.Element {
+function SettingField({ fieldId, label, description, help, labelAction, children }: SettingFieldProps): JSX.Element {
   const descriptionId = description ? `${fieldId}-description` : undefined;
   const helpId = help ? `${fieldId}-help` : undefined;
   const describedBy = [descriptionId, helpId].filter(Boolean).join(" ") || undefined;
@@ -857,9 +952,12 @@ function SettingField({ fieldId, label, description, help, children }: SettingFi
   return (
     <div className="row align-items-start g-3 py-2" data-setting-row>
       <div className="col-lg-5">
-        <label htmlFor={fieldId} className="form-label fw-semibold mb-0">
-          {label}
-        </label>
+        <div className="d-flex align-items-center gap-2 flex-wrap">
+          <label htmlFor={fieldId} className="form-label fw-semibold mb-0">
+            {label}
+          </label>
+          {labelAction}
+        </div>
         {description ? (
           <div id={descriptionId} className="form-text">
             {description}

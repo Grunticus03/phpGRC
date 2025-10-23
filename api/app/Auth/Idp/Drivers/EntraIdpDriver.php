@@ -5,10 +5,20 @@ declare(strict_types=1);
 namespace App\Auth\Idp\Drivers;
 
 use App\Auth\Idp\DTO\IdpHealthCheckResult;
+use GuzzleHttp\ClientInterface;
 use Illuminate\Validation\ValidationException;
+use Psr\Log\LoggerInterface;
 
+/**
+ * @SuppressWarnings("PMD.StaticAccess")
+ */
 final class EntraIdpDriver extends OidcIdpDriver
 {
+    public function __construct(ClientInterface $http, LoggerInterface $logger)
+    {
+        parent::__construct($http, $logger);
+    }
+
     #[\Override]
     public function key(): string
     {
@@ -57,9 +67,15 @@ final class EntraIdpDriver extends OidcIdpDriver
             ]);
         }
 
-        return IdpHealthCheckResult::healthy('Entra configuration validated.', [
+        $base = parent::checkHealth($normalized);
+        $details = $base->details + [
             'tenant_id' => $normalized['tenant_id'] ?? null,
-            'issuer' => $normalized['issuer'] ?? null,
-        ]);
+        ];
+
+        return match ($base->status) {
+            IdpHealthCheckResult::STATUS_WARNING => IdpHealthCheckResult::warning($base->message, $details),
+            IdpHealthCheckResult::STATUS_ERROR => IdpHealthCheckResult::failed($base->message, $details),
+            default => IdpHealthCheckResult::healthy($base->message, $details),
+        };
     }
 }

@@ -481,6 +481,8 @@ describe("Admin IdP Providers page", () => {
 
       if (method === "POST" && /\/admin\/idp\/providers$/.test(url)) {
         const body = JSON.parse(String(init?.body ?? "{}"));
+        const expectedRedirect = `${window.location.origin}/auth/callback`;
+
         expect(body).toEqual({
           name: "New IdP",
           driver: "oidc",
@@ -490,7 +492,7 @@ describe("Admin IdP Providers page", () => {
             client_id: "client",
             client_secret: "super-secret",
             scopes: ["openid", "profile", "email"],
-            redirect_uris: ["https://app.example.com/auth/callback"],
+            redirect_uris: [expectedRedirect],
           },
           meta: {
             display_region: "us",
@@ -552,8 +554,8 @@ describe("Admin IdP Providers page", () => {
     const clientSecretInput = within(dialog).getByLabelText(/client secret/i);
     await user.type(clientSecretInput, "super-secret");
 
-    const redirectUrisArea = within(dialog).getByLabelText(/redirect uris/i);
-    await user.type(redirectUrisArea, "https://app.example.com/auth/callback");
+    const defaultRedirect = `${window.location.origin}/auth/callback`;
+    expect(within(dialog).getByText(defaultRedirect)).toBeInTheDocument();
 
     const advancedToggle = within(dialog).getByRole("button", { name: /^advanced$/i });
     await user.click(advancedToggle);

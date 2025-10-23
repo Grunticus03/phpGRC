@@ -24,11 +24,12 @@ use Illuminate\Validation\ValidationException;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
 
+/**
+ * @SuppressWarnings("PMD.ExcessiveClassComplexity")
+ */
 final class OidcAuthenticator implements OidcAuthenticatorContract
 {
     use ResolvesJitAssignments;
-
-    private const int DISCOVERY_CACHE_TTL = 3600;
 
     private const int JWKS_CACHE_TTL = 900;
 
@@ -36,7 +37,8 @@ final class OidcAuthenticator implements OidcAuthenticatorContract
         private readonly ClientInterface $http,
         private readonly CacheRepository $cache,
         private readonly AuditLogger $audit,
-        private readonly LoggerInterface $logger
+        private readonly LoggerInterface $logger,
+        private readonly OidcProviderMetadataService $metadata
     ) {}
 
     /**
@@ -46,7 +48,7 @@ final class OidcAuthenticator implements OidcAuthenticatorContract
     public function authenticate(IdpProvider $provider, array $input, Request $request): User
     {
         /** @var array<string,mixed> $config */
-        $config = $this->readProviderConfig($provider);
+        $config = $this->metadata->readConfig($provider);
         $driverKey = strtolower($provider->driver);
 
         if (! in_array($driverKey, ['oidc', 'entra'], true)) {
@@ -64,12 +66,12 @@ final class OidcAuthenticator implements OidcAuthenticatorContract
         }
 
         try {
-            $discovery = $this->discover($provider, $config);
+            $discovery = $this->metadata->discovery($provider, $config);
 
             $idToken = $this->resolveIdToken($provider, $config, $discovery, $input);
             $claims = $this->validateIdToken($provider, $config, $discovery, $idToken, $nonce);
 
-            $user = $this->provisionUser($provider, $config, $claims);
+            $user = $this->provisionUser($config, $claims);
 
             $entityId = trim($provider->id);
             if ($entityId === '') {
@@ -116,59 +118,10 @@ final class OidcAuthenticator implements OidcAuthenticatorContract
 
     /**
      * @param  array<string,mixed>  $config
-     * @return array<string,mixed>
-     */
-    private function discover(IdpProvider $provider, array $config): array
-    {
-        $issuer = $config['issuer'] ?? null;
-        if (! is_string($issuer) || trim($issuer) === '') {
-            throw new RuntimeException('Provider issuer is not configured.');
-        }
-
-        $cacheKey = sprintf('idp:%s:oidc:discovery', $provider->id);
-
-        /** @var array<string,mixed>|null $cached */
-        $cached = $this->cache->get($cacheKey);
-        if (is_array($cached) && isset($cached['_cached_at'])) {
-            /** @var array<string,mixed> $document */
-            $document = $cached;
-
-            return $document;
-        }
-
-        $endpoint = rtrim($issuer, '/').'/.well-known/openid-configuration';
-
-        try {
-            $response = $this->http->request('GET', $endpoint, [
-                'headers' => ['Accept' => 'application/json'],
-                'connect_timeout' => 5,
-                'timeout' => 10,
-            ]);
-        } catch (GuzzleException $e) {
-            $this->logger->error('OIDC discovery fetch failed.', ['provider' => $provider->id, 'error' => $e->getMessage()]);
-            throw new RuntimeException('Unable to retrieve discovery document.');
-        }
-
-        $body = (string) $response->getBody();
-        /** @var mixed $decoded */
-        $decoded = json_decode($body, true);
-        if (! is_array($decoded)) {
-            throw new RuntimeException('Discovery document response is invalid.');
-        }
-
-        /** @var array<string,mixed> $document */
-        $document = $decoded;
-        $document['_cached_at'] = time();
-
-        $this->cache->put($cacheKey, $document, self::DISCOVERY_CACHE_TTL);
-
-        return $document;
-    }
-
-    /**
-     * @param  array<string,mixed>  $config
      * @param  array<string,mixed>  $discovery
      * @param  array<string,mixed>  $input
+     *
+     * @SuppressWarnings("PMD.NPathComplexity")
      */
     private function resolveIdToken(IdpProvider $provider, array $config, array $discovery, array $input): string
     {
@@ -251,6 +204,10 @@ final class OidcAuthenticator implements OidcAuthenticatorContract
     /**
      * @param  array<string,mixed>  $config
      * @param  array<string,mixed>  $discovery
+     *
+     * @SuppressWarnings("PMD.NPathComplexity")
+     * @SuppressWarnings("PMD.StaticAccess")
+     *
      * @return array<string,mixed>
      */
     private function validateIdToken(IdpProvider $provider, array $config, array $discovery, string $idToken, ?string $nonce): array
@@ -321,8 +278,11 @@ final class OidcAuthenticator implements OidcAuthenticatorContract
     /**
      * @param  array<string,mixed>  $config
      * @param  array<string,mixed>  $claims
+     *
+     * @SuppressWarnings("PMD.StaticAccess")
+     * @SuppressWarnings("PMD.ElseExpression")
      */
-    private function provisionUser(IdpProvider $provider, array $config, array $claims): User
+    private function provisionUser(array $config, array $claims): User
     {
         $jit = $this->resolveJitSettings($config);
 
@@ -439,6 +399,8 @@ final class OidcAuthenticator implements OidcAuthenticatorContract
 
     /**
      * @return array<string, Key>
+     *
+     * @SuppressWarnings("PMD.StaticAccess")
      */
     private function retrieveJwks(IdpProvider $provider, string $jwksUri): array
     {
@@ -482,43 +444,6 @@ final class OidcAuthenticator implements OidcAuthenticatorContract
         }
 
         return $parsed;
-    }
-
-    /**
-     * @return array<string,mixed>
-     */
-    private function readProviderConfig(IdpProvider $provider): array
-    {
-        /** @var mixed $configValue */
-        $configValue = $provider->getAttribute('config');
-
-        if ($configValue === null) {
-            return [];
-        }
-
-        if ($configValue instanceof \ArrayObject) {
-            /** @var array<string,mixed> $copy */
-            $copy = $configValue->getArrayCopy();
-
-            return $copy;
-        }
-
-        if ($configValue instanceof \Traversable) {
-            /** @var array<string,mixed> $array */
-            $array = iterator_to_array($configValue);
-
-            return $array;
-        }
-
-        if (is_array($configValue)) {
-            /** @var array<string,mixed> $configValue */
-            return $configValue;
-        }
-
-        /** @var array<string,mixed> $cast */
-        $cast = (array) $configValue;
-
-        return $cast;
     }
 
     /**

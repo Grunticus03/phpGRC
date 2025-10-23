@@ -7,7 +7,10 @@ namespace Tests\Feature\Auth;
 use App\Contracts\Auth\OidcAuthenticatorContract;
 use App\Models\IdpProvider;
 use App\Models\User;
+use App\Services\Auth\OidcStateStore;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 use Laravel\Sanctum\PersonalAccessToken;
 use Tests\TestCase;
@@ -18,6 +21,7 @@ final class OidcLoginControllerTest extends TestCase
 
     public function test_oidc_login_issues_token_and_replaces_existing_tokens(): void
     {
+        Cache::flush();
         $provider = IdpProvider::query()->create([
             'id' => (string) Str::ulid(),
             'key' => 'oidc-primary',
@@ -87,6 +91,7 @@ final class OidcLoginControllerTest extends TestCase
 
     public function test_oidc_login_returns_forbidden_when_provider_disabled(): void
     {
+        Cache::flush();
         IdpProvider::query()->create([
             'id' => (string) Str::ulid(),
             'key' => 'oidc-disabled',
@@ -118,11 +123,87 @@ final class OidcLoginControllerTest extends TestCase
 
     public function test_oidc_login_validates_required_fields(): void
     {
+        Cache::flush();
         $response = $this->postJson('/auth/oidc/login', [
             'provider' => 'missing-provider',
         ]);
 
         $response->assertStatus(422)
             ->assertJsonValidationErrors(['code']);
+    }
+
+    public function test_oidc_login_merges_state_payload(): void
+    {
+        Cache::flush();
+
+        $provider = IdpProvider::query()->create([
+            'id' => (string) Str::ulid(),
+            'key' => 'oidc-stateful',
+            'name' => 'OIDC Stateful',
+            'driver' => 'oidc',
+            'enabled' => true,
+            'evaluation_order' => 1,
+            'config' => [
+                'issuer' => 'https://sso.example.test',
+                'client_id' => 'client-123',
+                'client_secret' => 'secret',
+            ],
+        ]);
+
+        $user = User::factory()->create([
+            'email' => 'state-user@example.test',
+        ]);
+
+        $captured = [];
+        $stub = new class($user, function (array $input) use (&$captured): void {
+            $captured = $input;
+        }) implements OidcAuthenticatorContract
+        {
+
+            public function __construct(private readonly User $user, private readonly \Closure $callback) {}
+
+            /**
+             * @param  array<string,mixed>  $input
+             */
+            public function authenticate(IdpProvider $provider, array $input, \Illuminate\Http\Request $request): User
+            {
+                ($this->callback)($input);
+
+                return $this->user;
+            }
+        };
+
+        $this->app->instance(OidcAuthenticatorContract::class, $stub);
+
+        /** @var OidcStateStore $stateStore */
+        $stateStore = $this->app->make(OidcStateStore::class);
+
+        $issueRequest = Request::create('/auth/oidc/authorize', 'GET', [], [], [], [
+            'REMOTE_ADDR' => '127.0.0.1',
+            'HTTP_USER_AGENT' => 'PHPUnit',
+        ]);
+
+        $state = $stateStore->issue(
+            $provider,
+            'https://spa.example.test/auth/callback',
+            'verifier-abc',
+            'nonce-xyz',
+            $issueRequest
+        );
+
+        $this->withHeaders([
+            'User-Agent' => 'PHPUnit',
+        ])->withServerVariables([
+            'REMOTE_ADDR' => '127.0.0.1',
+        ])->postJson('/auth/oidc/login', [
+            'provider' => $provider->id,
+            'code' => 'auth-code',
+            'state' => $state,
+        ])->assertStatus(200);
+
+        $this->assertSame('verifier-abc', $captured['code_verifier'] ?? null);
+        $this->assertSame('nonce-xyz', $captured['nonce'] ?? null);
+        $this->assertSame('https://spa.example.test/auth/callback', $captured['redirect_uri'] ?? null);
+        $this->assertFalse(Cache::has('idp:oidc:state:'.$state));
     }
 }

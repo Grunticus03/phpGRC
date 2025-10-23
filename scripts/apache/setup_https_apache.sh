@@ -66,7 +66,7 @@ cat >/etc/apache2/sites-available/${SITE_NAME} <<'EOF'
     Header always set X-Frame-Options "SAMEORIGIN"
     Header always set X-XSS-Protection "0"
     Header always set Referrer-Policy "no-referrer-when-downgrade"
-    Header always set Content-Security-Policy "default-src 'self'; connect-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data:; frame-ancestors 'self'; base-uri 'self'"
+    Header always set Content-Security-Policy "default-src 'self'; connect-src 'self' https://login.microsoftonline.com; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data:; frame-ancestors 'self'; base-uri 'self'"
 
     # HSTS (HTTPS-only requirement)
     Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"

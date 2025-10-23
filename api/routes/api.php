@@ -15,6 +15,7 @@ use App\Http\Controllers\Auth\LdapLoginController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\LogoutController;
 use App\Http\Controllers\Auth\MeController;
+use App\Http\Controllers\Auth\OidcAuthorizeController;
 use App\Http\Controllers\Auth\OidcLoginController;
 use App\Http\Controllers\Auth\SamlServiceProviderMetadataController;
 use App\Http\Controllers\Auth\TotpController;
@@ -140,6 +141,7 @@ Route::get('/openapi.json', [OpenApiController::class, 'json']);
  |--------------------------------------------------------------------------
 */
 Route::post('/auth/login', [LoginController::class,  'login'])->middleware([LocalAuthEnabled::class, BruteForceGuard::class]);
+Route::get('/auth/oidc/authorize', [OidcAuthorizeController::class, 'redirect']);
 Route::post('/auth/oidc/login', [OidcLoginController::class, 'login']);
 Route::post('/auth/ldap/login', [LdapLoginController::class, 'login'])->middleware(BruteForceGuard::class);
 Route::post('/auth/logout', [LogoutController::class, 'logout'])->middleware(['auth.cookie', 'auth:sanctum']);

@@ -16,6 +16,7 @@ use App\Services\Auth\Ldap\LdapClientInterface;
 use App\Services\Auth\Ldap\NativeLdapClient;
 use App\Services\Auth\LdapAuthenticator;
 use App\Services\Auth\OidcAuthenticator;
+use App\Services\Auth\OidcProviderMetadataService;
 use GuzzleHttp\Client;
 use GuzzleHttp\ClientInterface;
 use Illuminate\Contracts\Cache\Repository as CacheRepository;
@@ -28,6 +29,20 @@ final class IdpServiceProvider extends ServiceProvider
     #[\Override]
     public function register(): void
     {
+        $this->app->singleton(OidcIdpDriver::class, function (Container $app): OidcIdpDriver {
+            return new OidcIdpDriver(
+                $app->make(ClientInterface::class),
+                $app->make(LoggerInterface::class),
+            );
+        });
+
+        $this->app->singleton(EntraIdpDriver::class, function (Container $app): EntraIdpDriver {
+            return new EntraIdpDriver(
+                $app->make(ClientInterface::class),
+                $app->make(LoggerInterface::class),
+            );
+        });
+
         $this->app->singleton(IdpDriverRegistry::class, function (Container $app): IdpDriverRegistry {
             /** @var OidcIdpDriver $oidc */
             $oidc = $app->make(OidcIdpDriver::class);
@@ -44,12 +59,21 @@ final class IdpServiceProvider extends ServiceProvider
         $this->app->bind(ClientInterface::class, static fn (): ClientInterface => new Client(['http_errors' => false]));
         $this->app->singleton(LdapClientInterface::class, NativeLdapClient::class);
 
+        $this->app->singleton(OidcProviderMetadataService::class, function (Container $app): OidcProviderMetadataService {
+            return new OidcProviderMetadataService(
+                $app->make(ClientInterface::class),
+                $app->make(CacheRepository::class),
+                $app->make(LoggerInterface::class),
+            );
+        });
+
         $this->app->singleton(OidcAuthenticatorContract::class, function (Container $app): OidcAuthenticatorContract {
             return new OidcAuthenticator(
                 $app->make(ClientInterface::class),
                 $app->make(CacheRepository::class),
                 $app->make(AuditLogger::class),
                 $app->make(LoggerInterface::class),
+                $app->make(OidcProviderMetadataService::class),
             );
         });
 

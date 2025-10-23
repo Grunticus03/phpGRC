@@ -362,6 +362,32 @@ export async function authLogin(creds: { email: string; password: string }): Pro
   return user;
 }
 
+type OidcLoginPayload = {
+  provider: string;
+  code?: string;
+  id_token?: string;
+  state?: string;
+  redirect_uri: string;
+};
+
+export async function authOidcLogin(payload: OidcLoginPayload): Promise<AuthUser> {
+  const res = await apiPost<LoginResponse, OidcLoginPayload>("/auth/oidc/login", payload);
+  const token = res?.token;
+  const user = res?.user;
+
+  if (!token || typeof token !== "string") {
+    throw new Error("Missing auth token in OIDC login response");
+  }
+
+  if (!user || typeof user.id === "undefined") {
+    throw new Error("Missing user payload in OIDC login response");
+  }
+
+  rememberAuthToken(token);
+
+  return user;
+}
+
 /** Logout helper: server best-effort then local clear. */
 export async function authLogout(): Promise<void> {
   try {

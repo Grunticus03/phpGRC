@@ -8,6 +8,7 @@ use App\Models\AuditEvent;
 use App\Models\IdpProvider;
 use App\Models\Role;
 use App\Services\Auth\OidcAuthenticator;
+use App\Services\Auth\OidcProviderMetadataService;
 use Firebase\JWT\JWT;
 use GuzzleHttp\Client;
 use GuzzleHttp\Handler\MockHandler;
@@ -194,11 +195,15 @@ final class OidcAuthenticatorTest extends TestCase
         /** @var CacheRepository $cache */
         $cache = $this->app->make(CacheRepository::class);
 
+        $logger = $this->app->make(LoggerInterface::class);
+        $metadata = new OidcProviderMetadataService($client, $cache, $logger);
+
         return new OidcAuthenticator(
             $client,
             $cache,
             $this->app->make(\App\Services\Audit\AuditLogger::class),
-            $this->app->make(LoggerInterface::class)
+            $logger,
+            $metadata
         );
     }
 }

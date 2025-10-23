@@ -561,6 +561,56 @@ paths:
         "422":
           $ref: "#/components/responses/ValidationFailed"
 
+  /auth/oidc/authorize:
+    get:
+      operationId: authOidcAuthorize
+      tags: [Auth]
+      summary: Initiate OIDC authorization
+      description: |
+        Redirects the browser to the configured OIDC authorization endpoint after generating PKCE and nonce parameters for the selected Identity Provider.
+      parameters:
+        - name: provider
+          in: query
+          required: true
+          description: Identity Provider ULID or key.
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 160
+      responses:
+        "302":
+          description: Redirect to provider authorization endpoint
+        "403":
+          description: Provider disabled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IdpProviderDisabled"
+        "404":
+          description: Provider not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IdpProviderNotFound"
+        "409":
+          description: Persistence disabled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IdpPersistenceDisabled"
+        "422":
+          description: Invalid or unsupported provider
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IdpProviderInvalid"
+        "502":
+          description: Discovery document could not be loaded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IdpDiscoveryFailed"
+
   /auth/oidc/login:
     post:
       operationId: authOidcLogin
@@ -3050,6 +3100,8 @@ components:
           type: string
         nonce:
           type: string
+        state:
+          type: string
       anyOf:
         - required: [code, redirect_uri]
         - required: [id_token]
@@ -3064,6 +3116,32 @@ components:
         code:
           type: string
           enum: [IDP_PROVIDER_DISABLED]
+
+    IdpProviderInvalid:
+      type: object
+      required: [ok, code]
+      properties:
+        ok:
+          type: boolean
+          const: false
+        code:
+          type: string
+          enum: [IDP_PROVIDER_INVALID, IDP_PROVIDER_UNSUPPORTED]
+
+    IdpDiscoveryFailed:
+      type: object
+      required: [ok, code]
+      properties:
+        ok:
+          type: boolean
+          const: false
+        code:
+          type: string
+          enum: [IDP_OIDC_DISCOVERY_FAILED]
+        meta:
+          type: object
+          description: Additional error metadata when available.
+          additionalProperties: true
 
     RoleListResponse:
       type: object

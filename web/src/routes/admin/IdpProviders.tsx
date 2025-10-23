@@ -1,4 +1,4 @@
-import { ChangeEvent, DragEvent, ReactNode, useCallback, useEffect, useMemo, useState } from "react";
+import { ChangeEvent, DragEvent, ReactNode, useCallback, useEffect, useMemo, useRef, useState, KeyboardEvent } from "react";
 import { Link } from "react-router-dom";
 import ConfirmModal from "../../components/modal/ConfirmModal";
 import { useToast } from "../../components/toast/ToastProvider";
@@ -25,13 +25,14 @@ import {
 } from "../../lib/api/idpProviders";
 import { HttpError } from "../../lib/api";
 import "./IdpProviders.css";
+import "./InlineAccordion.css";
 
 type OidcFormState = {
   issuer: string;
   clientId: string;
   clientSecret: string;
-  scopes: string;
-  redirectUris: string;
+  scopes: string[];
+  redirectUris: string[];
   metadataUrl: string;
 };
 
@@ -170,6 +171,102 @@ function parseLdapConnectionUri(input: string): ParsedLdapHost | null {
   };
 }
 
+function resolveDefaultRedirectUri(): string {
+  if (typeof window === "undefined" || !window.location) {
+    return "http://localhost/auth/callback";
+  }
+
+  const origin = window.location.origin || `${window.location.protocol}//${window.location.host}`;
+  const normalizedOrigin = origin.endsWith("/") ? origin.slice(0, -1) : origin;
+  return `${normalizedOrigin}/auth/callback`;
+}
+
+function uniqueStrings(values: string[]): string[] {
+  return Array.from(new Set(values.map((value) => value.trim()).filter((value) => value !== "")));
+}
+
+type ScopeInputProps = {
+  id: string;
+  value: string[];
+  onChange: (next: string[]) => void;
+  disabled?: boolean;
+  describedBy?: string;
+  placeholder?: string;
+};
+
+function ScopeInput({ id, value, onChange, disabled = false, describedBy, placeholder }: ScopeInputProps): JSX.Element {
+  const tokens = useMemo(() => uniqueStrings(value), [value]);
+  const [draft, setDraft] = useState("");
+
+  const commitDraft = useCallback(() => {
+    const normalized = draft.trim();
+    if (normalized === "") return;
+    const next = uniqueStrings([...tokens, normalized]);
+    onChange(next);
+    setDraft("");
+  }, [draft, onChange, tokens]);
+
+  const handleKeyDown = useCallback(
+    (event: KeyboardEvent<HTMLInputElement>) => {
+      if (disabled) return;
+      if (event.key === "Enter" || event.key === "," || event.key === " ") {
+        event.preventDefault();
+        commitDraft();
+      } else if (event.key === "Backspace" && draft === "" && tokens.length > 0) {
+        event.preventDefault();
+        const next = [...tokens];
+        next.pop();
+        onChange(next);
+      }
+    },
+    [commitDraft, disabled, draft, onChange, tokens]
+  );
+
+  const handleRemove = useCallback(
+    (token: string) => {
+      const next = tokens.filter((entry) => entry !== token);
+      onChange(next);
+    },
+    [onChange, tokens]
+  );
+
+  return (
+    <div className={`scope-tag-container${disabled ? " scope-tag-container-disabled" : ""}`}>
+      <div className="scope-tag-list">
+        {tokens.map((token) => (
+          <span
+            key={token}
+            className="scope-tag badge text-bg-primary d-inline-flex align-items-center gap-2"
+            aria-label={`Scope ${token}`}
+          >
+            <span>{token}</span>
+            <button type="button" className="scope-tag-remove" onClick={() => handleRemove(token)} disabled={disabled}>
+              <i className="bi bi-x-lg" aria-hidden="true" />
+              <span className="visually-hidden">Remove scope {token}</span>
+            </button>
+          </span>
+        ))}
+        <input
+          id={id}
+          type="text"
+          value={draft}
+          onChange={(event) => setDraft(event.target.value)}
+          onKeyDown={handleKeyDown}
+          onBlur={() => {
+            if (!disabled) {
+              commitDraft();
+            }
+          }}
+          className="scope-tag-input"
+          disabled={disabled}
+          aria-describedby={describedBy}
+          placeholder={tokens.length === 0 ? placeholder ?? "Add scope" : ""}
+        />
+      </div>
+    </div>
+  );
+}
+
 type LdapExpandTarget = { dn: string; path: string[] };
 
 function normalizeDn(input: string): string {
@@ -220,16 +317,16 @@ function createDefaultFormState(): FormState {
       issuer: "",
       clientId: "",
       clientSecret: "",
-      scopes: "openid profile email",
-      redirectUris: "",
+      scopes: ["openid", "profile", "email"],
+      redirectUris: [],
       metadataUrl: "",
     },
     entra: {
       issuer: "",
       clientId: "",
       clientSecret: "",
-      scopes: "openid profile email",
-      redirectUris: "",
+      scopes: ["openid", "profile", "email"],
+      redirectUris: [],
       metadataUrl: "",
       tenantId: "",
     },
@@ -282,16 +379,23 @@ function createFormStateFromProvider(provider: IdpProvider): FormState {
   if (base.driver === "oidc") {
     const scopes =
       Array.isArray(config.scopes) && config.scopes.every((entry) => typeof entry === "string")
-        ? (config.scopes as string[]).join(" ")
+        ? (config.scopes as string[])
+            .map((entry) => entry.trim())
+            .filter((entry) => entry !== "")
         : typeof config.scopes === "string"
         ? config.scopes
+            .split(/\s+/)
+            .map((entry) => entry.trim())
+            .filter((entry) => entry !== "")
         : base.oidc.scopes;
     const redirectUris =
       Array.isArray(config.redirect_uris) && config.redirect_uris.every((entry) => typeof entry === "string")
-        ? (config.redirect_uris as string[]).join("\n")
+        ? (config.redirect_uris as string[])
+            .map((entry) => entry.trim())
+            .filter((entry) => entry !== "")
         : typeof config.redirect_uris === "string"
-        ? config.redirect_uris
-        : "";
+        ? [config.redirect_uris.trim()].filter((entry) => entry !== "")
+        : base.oidc.redirectUris;
     base.oidc = {
       issuer: typeof config.issuer === "string" ? config.issuer : "",
       clientId: typeof config.client_id === "string" ? config.client_id : "",
@@ -303,16 +407,23 @@ function createFormStateFromProvider(provider: IdpProvider): FormState {
   } else if (base.driver === "entra") {
     const scopes =
       Array.isArray(config.scopes) && config.scopes.every((entry) => typeof entry === "string")
-        ? (config.scopes as string[]).join(" ")
+        ? (config.scopes as string[])
+            .map((entry) => entry.trim())
+            .filter((entry) => entry !== "")
         : typeof config.scopes === "string"
         ? config.scopes
+            .split(/\s+/)
+            .map((entry) => entry.trim())
+            .filter((entry) => entry !== "")
         : base.entra.scopes;
     const redirectUris =
       Array.isArray(config.redirect_uris) && config.redirect_uris.every((entry) => typeof entry === "string")
-        ? (config.redirect_uris as string[]).join("\n")
+        ? (config.redirect_uris as string[])
+            .map((entry) => entry.trim())
+            .filter((entry) => entry !== "")
         : typeof config.redirect_uris === "string"
-        ? config.redirect_uris
-        : "";
+        ? [config.redirect_uris.trim()].filter((entry) => entry !== "")
+        : base.entra.redirectUris;
     base.entra = {
       issuer: typeof config.issuer === "string" ? config.issuer : "",
       clientId: typeof config.client_id === "string" ? config.client_id : "",
@@ -603,6 +714,7 @@ export default function IdpProviders(): JSX.Element {
   const [samlSpError, setSamlSpError] = useState<string | null>(null);
   const [samlSpLoading, setSamlSpLoading] = useState(false);
   const [samlSpUrlsOpen, setSamlSpUrlsOpen] = useState(false);
+  const [entraRedirectOpen, setEntraRedirectOpen] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
   const [formMode, setFormMode] = useState<"create" | "edit">("create");
   const [formBusy, setFormBusy] = useState(false);
@@ -620,6 +732,10 @@ export default function IdpProviders(): JSX.Element {
   const [testError, setTestError] = useState<string | null>(null);
   const [testDetailsOpen, setTestDetailsOpen] = useState(false);
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  const advancedAutoOpenRef = useRef(true);
+  const certificateAccordionAutoOpenRef = useRef(true);
+  const [certificateAccordionOpen, setCertificateAccordionOpen] = useState(false);
+  const [dropTargetId, setDropTargetId] = useState<string | null>(null);
   const [ldapBrowserOpen, setLdapBrowserOpen] = useState(false);
   const [ldapBrowserBusy, setLdapBrowserBusy] = useState(false);
   const [ldapBrowserError, setLdapBrowserError] = useState<string | null>(null);
@@ -702,6 +818,26 @@ export default function IdpProviders(): JSX.Element {
     setTestResult(null);
     setTestError(null);
     setTestDetailsOpen(false);
+  }, []);
+
+  const toggleCertificateAccordion = useCallback(() => {
+    setCertificateAccordionOpen((prev) => {
+      const next = !prev;
+      if (!next) {
+        certificateAccordionAutoOpenRef.current = false;
+      }
+      return next;
+    });
+  }, []);
+
+  const toggleAdvancedAccordion = useCallback(() => {
+    setAdvancedOpen((prev) => {
+      const next = !prev;
+      if (!next) {
+        advancedAutoOpenRef.current = false;
+      }
+      return next;
+    });
   }, []);
 
   const applyFormUpdate = useCallback(
@@ -842,13 +978,28 @@ export default function IdpProviders(): JSX.Element {
     []
   );
 
-  const handleRowDragOver = useCallback((event: DragEvent<HTMLElement>) => {
-    event.preventDefault();
-    event.dataTransfer.dropEffect = "move";
+  const handleRowDragOver = useCallback(
+    (event: DragEvent<HTMLElement>, target: IdpProvider) => {
+      event.preventDefault();
+      event.dataTransfer.dropEffect = "move";
+      const targetId = providerIdentifier(target);
+      setDropTargetId((prev) => (prev === targetId ? prev : targetId));
+    },
+    []
+  );
+
+  const handleRowDragLeave = useCallback((event: DragEvent<HTMLElement>, target: IdpProvider) => {
+    const related = event.relatedTarget;
+    if (related && event.currentTarget.contains(related as Node)) {
+      return;
+    }
+    const targetId = providerIdentifier(target);
+    setDropTargetId((prev) => (prev === targetId ? null : prev));
   }, []);
 
   const handleRowDragEnd = useCallback(() => {
     setDraggingId(null);
+    setDropTargetId(null);
   }, []);
 
   const handleRowDrop = useCallback(
@@ -857,6 +1008,7 @@ export default function IdpProviders(): JSX.Element {
       const targetId = providerIdentifier(target);
       const sourceId = event.dataTransfer.getData("text/plain") || draggingId;
       setDraggingId(null);
+      setDropTargetId(null);
       if (!sourceId || sourceId === targetId) return;
       void handleReorderDrop(sourceId, targetId);
     },
@@ -903,7 +1055,11 @@ export default function IdpProviders(): JSX.Element {
     clearTestFeedback();
     setFormErrors({ fields: {} });
     setMetadataLoading({ entra: false, ldap: false, oidc: false, saml: false });
+    setCertificateAccordionOpen(false);
+    certificateAccordionAutoOpenRef.current = true;
     setAdvancedOpen(false);
+    advancedAutoOpenRef.current = true;
+    setDropTargetId(null);
     setFormMode("create");
     setEditingProvider(null);
     setLdapBrowserTree({});
@@ -981,14 +1137,10 @@ export default function IdpProviders(): JSX.Element {
           fieldErrors["oidc.clientSecret"] = "Client secret is required.";
         }
 
-        const scopesRaw = state.oidc.scopes.trim();
-        const scopes = scopesRaw === "" ? [] : scopesRaw.split(/\s+/).map((scope) => scope.trim()).filter(Boolean);
+        const scopes = uniqueStrings(state.oidc.scopes);
 
-        const redirectUrisRaw = state.oidc.redirectUris;
-        const redirectUris = redirectUrisRaw
-          .split(/[\n,]/)
-          .map((entry) => entry.trim())
-          .filter((entry) => entry !== "");
+        const redirectSources = state.oidc.redirectUris.length > 0 ? state.oidc.redirectUris : [resolveDefaultRedirectUri()];
+        const redirectUris = uniqueStrings(redirectSources);
 
         const invalidRedirect = redirectUris.find((uri) => parseUrlValue(uri) === null);
         if (invalidRedirect) {
@@ -1006,9 +1158,7 @@ export default function IdpProviders(): JSX.Element {
           if (scopes.length > 0) {
             config.scopes = scopes;
           }
-          if (!invalidRedirect && redirectUris.length > 0) {
-            config.redirect_uris = redirectUris;
-          }
+          config.redirect_uris = redirectUris;
         }
       } else if (driver === "entra") {
         const issuer = state.entra.issuer.trim();
@@ -1035,14 +1185,10 @@ export default function IdpProviders(): JSX.Element {
           fieldErrors["entra.clientSecret"] = "Client secret is required.";
         }
 
-        const scopesRaw = state.entra.scopes.trim();
-        const scopes = scopesRaw === "" ? [] : scopesRaw.split(/\s+/).map((scope) => scope.trim()).filter(Boolean);
+        const scopes = uniqueStrings(state.entra.scopes);
 
-        const redirectUrisRaw = state.entra.redirectUris;
-        const redirectUris = redirectUrisRaw
-          .split(/[\n,]/)
-          .map((entry) => entry.trim())
-          .filter((entry) => entry !== "");
+        const redirectSources = state.entra.redirectUris.length > 0 ? state.entra.redirectUris : [resolveDefaultRedirectUri()];
+        const redirectUris = uniqueStrings(redirectSources);
 
         const invalidRedirect = redirectUris.find((uri) => parseUrlValue(uri) === null);
         if (invalidRedirect) {
@@ -1066,9 +1212,7 @@ export default function IdpProviders(): JSX.Element {
             config.scopes = scopes;
           }
 
-          if (!invalidRedirect && redirectUris.length > 0) {
-            config.redirect_uris = redirectUris;
-          }
+          config.redirect_uris = redirectUris;
         }
       } else if (driver === "saml") {
         const entityId = state.saml.entityId.trim();
@@ -1358,17 +1502,47 @@ export default function IdpProviders(): JSX.Element {
     });
   }, []);
 
+  const samlCertificateError = formErrors.fields["saml.certificate"];
+  const samlCertificateDescribedBy = ["saml-certificate-help", samlCertificateError ? "saml-certificate-error" : null]
+    .filter(Boolean)
+    .join(" ") || undefined;
+
   useEffect(() => {
-    if (!advancedOpen && (form.meta.trim() !== "" || Boolean(formErrors.fields.meta))) {
+    const trimmed = form.saml.certificate.trim();
+    if (trimmed === "") {
+      certificateAccordionAutoOpenRef.current = true;
+    }
+
+    if (
+      !certificateAccordionOpen &&
+      certificateAccordionAutoOpenRef.current &&
+      (trimmed !== "" || Boolean(samlCertificateError))
+    ) {
+      setCertificateAccordionOpen(true);
+    }
+  }, [certificateAccordionOpen, form.saml.certificate, samlCertificateError]);
+
+  const advancedMetaError = formErrors.fields.meta;
+
+  useEffect(() => {
+    const hasMeta = form.meta.trim() !== "";
+    if (!hasMeta) {
+      advancedAutoOpenRef.current = true;
+    }
+
+    if (!advancedOpen && advancedAutoOpenRef.current && (hasMeta || Boolean(advancedMetaError))) {
       setAdvancedOpen(true);
     }
-  }, [advancedOpen, form.meta, formErrors.fields.meta]);
+  }, [advancedOpen, advancedMetaError, form.meta]);
 
   const applyOidcMetadata = useCallback(
     (driver: "oidc" | "entra", metadata: Record<string, unknown>, source?: { url?: string }) => {
       const issuer = typeof metadata.issuer === "string" ? metadata.issuer : "";
       const scopesSupported = Array.isArray(metadata.scopes_supported)
-        ? (metadata.scopes_supported as unknown[]).filter((entry): entry is string => typeof entry === "string")
+        ? uniqueStrings(
+            (metadata.scopes_supported as unknown[])
+              .filter((entry): entry is string => typeof entry === "string")
+          )
         : [];
 
       applyFormUpdate((prev) => {
@@ -1379,10 +1553,7 @@ export default function IdpProviders(): JSX.Element {
               ...prev.oidc,
               metadataUrl: source?.url ?? prev.oidc.metadataUrl,
               issuer: issuer !== "" ? issuer : prev.oidc.issuer,
-              scopes:
-                scopesSupported.length > 0
-                  ? scopesSupported.join(" ")
-                  : prev.oidc.scopes,
+              scopes: scopesSupported.length > 0 ? scopesSupported : prev.oidc.scopes,
             },
           };
         }
@@ -1401,10 +1572,7 @@ export default function IdpProviders(): JSX.Element {
             ...prev.entra,
             metadataUrl: source?.url ?? prev.entra.metadataUrl,
             issuer: issuer !== "" ? issuer : prev.entra.issuer,
-            scopes:
-              scopesSupported.length > 0
-                ? scopesSupported.join(" ")
-                : prev.entra.scopes,
+            scopes: scopesSupported.length > 0 ? scopesSupported : prev.entra.scopes,
             tenantId,
           },
         };
@@ -2072,13 +2240,50 @@ export default function IdpProviders(): JSX.Element {
       driver === "entra"
         ? "https://login.microsoftonline.com/<tenant>/v2.0/.well-known/openid-configuration"
         : "https://example.okta.com/oauth2/default/.well-known/openid-configuration";
+    const effectiveRedirectUris = state.redirectUris.length > 0 ? uniqueStrings(state.redirectUris) : [resolveDefaultRedirectUri()];
 
     return (
       <div>
         <h2 className="h6 mb-2">{displayName} configuration</h2>
-        <p className="text-muted small mb-3">
-          Capture the discovery details and credentials required for {displayName} sign-in.
-        </p>
+        {driver === "oidc" ? (
+          <p className="text-muted small mb-3">
+            Capture the discovery details and credentials required for OIDC sign-in.
+          </p>
+        ) : null}
+        {driver === "entra" ? (
+          <div className="my-3">
+            <div className="d-flex align-items-center gap-2">
+              <span className="fw-semibold">Redirect URI</span>
+              <button
+                type="button"
+                className="btn btn-link btn-sm p-0 inline-accordion-toggle"
+                onClick={() => setEntraRedirectOpen((open) => !open)}
+                aria-expanded={entraRedirectOpen}
+                aria-controls={`${baseId}-redirect-collapse`}
+                aria-label={`${entraRedirectOpen ? "Hide" : "Show"} redirect URI`}
+              >
+                <i className={`bi ${entraRedirectOpen ? "bi-caret-up-fill" : "bi-caret-down-fill"}`} aria-hidden="true" />
+              </button>
+            </div>
+            <div
+              id={`${baseId}-redirect-collapse`}
+              className={`collapse inline-accordion-collapse${entraRedirectOpen ? " show" : ""}`}
+            >
+              <div className="mt-2 border rounded p-3">
+                <div className="small">
+                  {effectiveRedirectUris.map((uri) => (
+                    <p key={`${baseId}-redirect-${uri}`} className="font-monospace text-break mb-1">
+                      {uri}
+                    </p>
+                  ))}
+                </div>
+              </div>
+            </div>
+            {fieldError("entra.redirectUris") ? (
+              <div className="invalid-feedback d-block mt-2">{fieldError("entra.redirectUris")}</div>
+            ) : null}
+          </div>
+        ) : null}
         <div className="row g-3">
           <div className="col-12">
             <HoverHelpLabel
@@ -2219,54 +2424,42 @@ export default function IdpProviders(): JSX.Element {
             >
               Scopes
             </HoverHelpLabel>
-            <input
+            <ScopeInput
               id={`${baseId}-scopes`}
-              type="text"
-              className="form-control"
               value={state.scopes}
-              onChange={(event) =>
-                applyFormUpdate((prev) =>
-                  driver === "oidc"
-                    ? { ...prev, oidc: { ...prev.oidc, scopes: event.target.value } }
-                    : { ...prev, entra: { ...prev.entra, scopes: event.target.value } }
-                , driver === "oidc" ? ['oidc.scopes'] : ['entra.scopes'])
+              onChange={(next) =>
+                applyFormUpdate(
+                  (prev) =>
+                    driver === "oidc"
+                      ? { ...prev, oidc: { ...prev.oidc, scopes: next } }
+                      : { ...prev, entra: { ...prev.entra, scopes: next } },
+                  driver === "oidc" ? ["oidc.scopes"] : ["entra.scopes"]
+                )
               }
               disabled={formBusy}
-              placeholder="openid profile email"
-              autoComplete="off"
-              aria-describedby={`${baseId}-scopes-help`}
+              describedBy={`${baseId}-scopes-help`}
+              placeholder="openid"
             />
-          </div>
-
-          <div className="col-12">
-            <HoverHelpLabel
-              htmlFor={`${baseId}-redirect-uris`}
-              className="form-label"
-              helpText="One URL per line or separate with commas."
-              helpId={`${baseId}-redirect-uris-help`}
-            >
-              Redirect URIs
-            </HoverHelpLabel>
-            <textarea
-              id={`${baseId}-redirect-uris`}
-              className={`form-control font-monospace${fieldError(`${driver}.redirectUris`) ? " is-invalid" : ""}`}
-              rows={3}
-              value={state.redirectUris}
-              onChange={(event) =>
-                applyFormUpdate((prev) =>
-                  driver === "oidc"
-                    ? { ...prev, oidc: { ...prev.oidc, redirectUris: event.target.value } }
-                    : { ...prev, entra: { ...prev.entra, redirectUris: event.target.value } }
-                , driver === "oidc" ? ['oidc.redirectUris'] : ['entra.redirectUris'])
-              }
-              disabled={formBusy}
-              placeholder="https://app.example.com/auth/callback"
-              aria-describedby={`${baseId}-redirect-uris-help`}
-            />
-            {fieldError(`${driver}.redirectUris`) ? (
-              <div className="invalid-feedback">{fieldError(`${driver}.redirectUris`)}</div>
+            {fieldError(`${driver}.scopes`) ? (
+              <div className="invalid-feedback d-block">{fieldError(`${driver}.scopes`)}</div>
             ) : null}
           </div>
+
+          {driver === "oidc" ? (
+            <div className="col-12">
+              <div className="form-label fw-semibold mb-1">Redirect URI</div>
+              <ul className="list-unstyled mb-0 small">
+                {effectiveRedirectUris.map((uri) => (
+                  <li key={`${baseId}-redirect-${uri}`} className="mb-1">
+                    <code>{uri}</code>
+                  </li>
+                ))}
+              </ul>
+              {fieldError(`${driver}.redirectUris`) ? (
+                <div className="invalid-feedback d-block">{fieldError(`${driver}.redirectUris`)}</div>
+              ) : null}
+            </div>
+          ) : null}
 
           <div className="col-12">
             <HoverHelpLabel
@@ -2288,7 +2481,7 @@ export default function IdpProviders(): JSX.Element {
                     driver === "oidc"
                       ? { ...prev, oidc: { ...prev.oidc, metadataUrl: event.target.value } }
                       : { ...prev, entra: { ...prev.entra, metadataUrl: event.target.value } }
-                  , driver === "oidc" ? ['oidc.metadataUrl'] : ['entra.metadataUrl'])
+                , driver === "oidc" ? ['oidc.metadataUrl'] : ['entra.metadataUrl'])
                 }
                 placeholder={metadataPlaceholder}
                 disabled={formBusy || loading}
@@ -2339,14 +2532,11 @@ export default function IdpProviders(): JSX.Element {
         </div>
       </div>
     );
-  };
-
-  const renderSamlSpSummary = (): JSX.Element => {
+  };  const renderSamlSpSummary = (): JSX.Element => {
     const fallback = samlSpLoading ? "Loading..." : "Unavailable";
     const spEntityId = samlSpInfo?.entity_id ?? fallback;
     const spAcsUrl = samlSpInfo?.acs_url ?? fallback;
     const spMetadataUrl = typeof samlSpInfo?.metadata_url === "string" ? samlSpInfo.metadata_url : null;
-    const headingId = "saml-sp-urls-heading";
     const collapseId = "saml-sp-urls-collapse";
 
     return (
@@ -2357,48 +2547,42 @@ export default function IdpProviders(): JSX.Element {
           </div>
         ) : null}
 
-        <div className="accordion" id="saml-sp-urls">
-          <div className="accordion-item">
-            <h2 className="accordion-header" id={headingId}>
-              <button
-                className={`accordion-button${samlSpUrlsOpen ? "" : " collapsed"}`}
-                type="button"
-                aria-expanded={samlSpUrlsOpen}
-                aria-controls={collapseId}
-                onClick={() => setSamlSpUrlsOpen((open) => !open)}
-              >
-                Service Provider URLs
-              </button>
-            </h2>
-            <div
-              id={collapseId}
-              className={`accordion-collapse collapse${samlSpUrlsOpen ? " show" : ""}`}
-              aria-labelledby={headingId}
-            >
-              <div className="accordion-body">
-                <div className="row g-3 mb-0 small">
-                  <div className="col-12 col-md-6">
-                    <p className="text-muted mb-1">Entity ID</p>
-                    <p className="font-monospace text-break mb-0">{spEntityId}</p>
-                  </div>
-                  <div className="col-12 col-md-6">
-                    <p className="text-muted mb-1">ACS URL</p>
-                    <p className="font-monospace text-break mb-0">{spAcsUrl}</p>
-                  </div>
-                  <div className="col-12 col-md-6">
-                    <p className="text-muted mb-1">Metadata URL</p>
-                    <p className="font-monospace text-break mb-0">{spMetadataUrl ?? fallback}</p>
-                  </div>
-                </div>
-                <p className="form-text mt-3 mb-0">
-                  Manage signing preferences from the{" "}
-                  <Link to="/admin/settings/core" className="text-decoration-none">
-                    Settings page
-                  </Link>
-                  .
-                </p>
+        <div className="d-flex align-items-center gap-2">
+          <span className="fw-semibold">Service provider URLs</span>
+          <button
+            type="button"
+            className="btn btn-link btn-sm p-0 inline-accordion-toggle"
+            onClick={() => setSamlSpUrlsOpen((open) => !open)}
+            aria-expanded={samlSpUrlsOpen}
+            aria-controls={collapseId}
+            aria-label={`${samlSpUrlsOpen ? "Hide" : "Show"} service provider URLs`}
+          >
+            <i className={`bi ${samlSpUrlsOpen ? "bi-caret-up-fill" : "bi-caret-down-fill"}`} aria-hidden="true" />
+          </button>
+        </div>
+        <div id={collapseId} className={`collapse inline-accordion-collapse${samlSpUrlsOpen ? " show" : ""}`}>
+          <div className="mt-2 border rounded p-3">
+            <div className="row g-3 mb-0 small">
+              <div className="col-12 col-md-6">
+                <p className="text-muted mb-1">Entity ID</p>
+                <p className="font-monospace text-break mb-0">{spEntityId}</p>
+              </div>
+              <div className="col-12 col-md-6">
+                <p className="text-muted mb-1">ACS URL</p>
+                <p className="font-monospace text-break mb-0">{spAcsUrl}</p>
+              </div>
+              <div className="col-12 col-md-6">
+                <p className="text-muted mb-1">Metadata URL</p>
+                <p className="font-monospace text-break mb-0">{spMetadataUrl ?? fallback}</p>
               </div>
             </div>
+            <p className="form-text mt-3 mb-0">
+              Manage signing preferences from the{" "}
+              <Link to="/admin/settings/core" className="text-decoration-none">
+                Settings page
+              </Link>
+              .
+            </p>
           </div>
         </div>
       </div>
@@ -2468,28 +2652,55 @@ export default function IdpProviders(): JSX.Element {
           </div>
 
           <div className="col-12">
-            <HoverHelpLabel
-              htmlFor="saml-certificate"
-              className="form-label"
-              helpText="Paste the full PEM encoded signing certificate from your IdP."
-              helpId="saml-certificate-help"
+            <div className="d-flex align-items-center gap-2">
+              <HoverHelpLabel
+                htmlFor="saml-certificate"
+                className="form-label mb-0"
+                helpText="Paste the full PEM encoded signing certificate from your IdP."
+                helpId="saml-certificate-help"
+              >
+                Signing certificate
+              </HoverHelpLabel>
+              <button
+                type="button"
+                className="btn btn-link btn-sm p-0 inline-accordion-toggle"
+                onClick={toggleCertificateAccordion}
+                aria-expanded={certificateAccordionOpen}
+                aria-controls="saml-certificate-panel"
+                aria-label={`${certificateAccordionOpen ? "Hide" : "Show"} signing certificate editor`}
+              >
+                <i
+                  className={`bi ${certificateAccordionOpen ? "bi-caret-up-fill" : "bi-caret-down-fill"}`}
+                  aria-hidden="true"
+                />
+              </button>
+            </div>
+            <div
+              id="saml-certificate-panel"
+              className={`collapse inline-accordion-collapse${certificateAccordionOpen ? " show" : ""}`}
             >
-              Signing certificate
-            </HoverHelpLabel>
-            <textarea
-              id="saml-certificate"
-              className={`form-control font-monospace${fieldError("saml.certificate") ? " is-invalid" : ""}`}
-              rows={5}
-              value={form.saml.certificate}
-              onChange={(event) =>
-                applyFormUpdate((prev) => ({ ...prev, saml: { ...prev.saml, certificate: event.target.value } }), ['saml.certificate'])
-              }
-              disabled={formBusy}
-              placeholder="-----BEGIN CERTIFICATE-----"
-              aria-describedby="saml-certificate-help"
-            />
-            {fieldError("saml.certificate") ? (
-              <div className="invalid-feedback">{fieldError("saml.certificate")}</div>
+              <div className="mt-2">
+                <textarea
+                  id="saml-certificate"
+                  className={`form-control font-monospace${samlCertificateError ? " is-invalid" : ""}`}
+                  style={{ resize: "both", minHeight: "8rem", width: "auto", minWidth: "100%" }}
+                  value={form.saml.certificate}
+                  onChange={(event) =>
+                    applyFormUpdate(
+                      (prev) => ({ ...prev, saml: { ...prev.saml, certificate: event.target.value } }),
+                      ['saml.certificate']
+                    )
+                  }
+                  disabled={formBusy}
+                  placeholder="-----BEGIN CERTIFICATE-----"
+                  aria-describedby={samlCertificateDescribedBy}
+                />
+              </div>
+            </div>
+            {samlCertificateError ? (
+              <div id="saml-certificate-error" className="invalid-feedback d-block mt-2">
+                {samlCertificateError}
+              </div>
             ) : null}
           </div>
 
@@ -3002,9 +3213,6 @@ export default function IdpProviders(): JSX.Element {
       <header className="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3 mb-4">
         <div>
           <h1 className="h3 mb-1">Identity Providers</h1>
-          <p className="text-muted mb-0">
-            Manage external authentication providers, toggle availability, and adjust evaluation order.
-          </p>
         </div>
         <div className="d-flex gap-2">
           <button type="button" className="btn btn-primary" onClick={openCreateModal} disabled={busy}>
@@ -3055,7 +3263,6 @@ export default function IdpProviders(): JSX.Element {
                 </th>
                 <th scope="col">Provider</th>
                 <th scope="col">Idp Type</th>
-                <th scope="col">Key</th>
                 <th scope="col">Status</th>
                 <th scope="col" style={{ width: "8rem" }} className="text-end">
                   Actions
@@ -3068,12 +3275,21 @@ export default function IdpProviders(): JSX.Element {
                 const disabled = disabledIds.has(identifier) || busy;
                 const isDragging = draggingId === identifier;
                 const draggable = !disabled && orderedProviders.length > 1;
+                const isDropTarget = dropTargetId === identifier && draggingId !== identifier;
+                const rowClassNames = [
+                  isDragging ? "table-active" : null,
+                  isDropTarget ? "table-drop-target" : null,
+                ]
+                  .filter(Boolean)
+                  .join(" ") || undefined;
 
                 return (
                   <tr
                     key={identifier}
-                    className={isDragging ? "table-active" : undefined}
-                    onDragOver={handleRowDragOver}
+                    className={rowClassNames}
+                    onDragOver={(event) => handleRowDragOver(event, provider)}
+                    onDragEnter={(event) => handleRowDragOver(event, provider)}
+                    onDragLeave={(event) => handleRowDragLeave(event, provider)}
                     onDrop={(event) => handleRowDrop(event, provider)}
                     data-provider-id={identifier}
                   >
@@ -3096,14 +3312,10 @@ export default function IdpProviders(): JSX.Element {
                     <td>
                       <div className="fw-semibold">{provider.name}</div>
                       <div className="small text-muted">
-                        Added {new Date(provider.created_at).toLocaleString(undefined, { hour12: false })}
+                        Key: <code>{provider.key}</code>
                       </div>
-                      <div className="small text-muted">Reference #{provider.reference}</div>
                     </td>
                     <td className="text-uppercase fw-semibold small">{provider.driver}</td>
-                    <td>
-                      <code>{provider.key}</code>
-                    </td>
                     <td>
                       <button
                         type="button"
@@ -3393,18 +3605,26 @@ export default function IdpProviders(): JSX.Element {
 
           <div className="border-top pt-3">
             <div className="d-flex align-items-center gap-2">
+              <span className="d-inline-flex align-items-center gap-2 fw-semibold">
+                <span>Advanced</span>
+                {advancedMetaError ? <span className="badge text-bg-danger">Needs attention</span> : null}
+              </span>
               <button
                 type="button"
-                className="btn btn-link p-0"
-                onClick={() => setAdvancedOpen((prev) => !prev)}
+                className="btn btn-link btn-sm p-0 inline-accordion-toggle"
+                onClick={toggleAdvancedAccordion}
                 aria-expanded={advancedOpen}
                 aria-controls="idp-meta-panel"
+                aria-label="Advanced"
               >
-                Advanced
+                <i className={`bi ${advancedOpen ? "bi-caret-up-fill" : "bi-caret-down-fill"}`} aria-hidden="true" />
               </button>
             </div>
-            {advancedOpen ? (
-              <div id="idp-meta-panel" className="mt-3">
+            <div
+              id="idp-meta-panel"
+              className={`collapse inline-accordion-collapse${advancedOpen ? " show" : ""}`}
+            >
+              <div className="mt-3">
                 <HoverHelpLabel
                   htmlFor="idp-meta"
                   className="form-label"
@@ -3426,7 +3646,7 @@ export default function IdpProviders(): JSX.Element {
                 />
                 {fieldError("meta") ? <div className="invalid-feedback">{fieldError("meta")}</div> : null}
               </div>
-            ) : null}
+            </div>
           </div>
         </form>
       </ConfirmModal>

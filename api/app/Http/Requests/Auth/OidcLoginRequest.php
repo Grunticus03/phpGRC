@@ -26,6 +26,7 @@ final class OidcLoginRequest extends FormRequest
             'redirect_uri' => ['required_with:code', 'sometimes', 'string', 'url'],
             'code_verifier' => ['sometimes', 'string'],
             'nonce' => ['sometimes', 'string'],
+            'state' => ['sometimes', 'string'],
         ];
     }
 
@@ -37,7 +38,7 @@ final class OidcLoginRequest extends FormRequest
      *
      * @psalm-param array<array-key, mixed>|int|string|null $key
      *
-     * @return array{provider:string,code?:string,id_token?:string,redirect_uri?:string,code_verifier?:string,nonce?:string}
+     * @return array{provider:string,code?:string,id_token?:string,redirect_uri?:string,code_verifier?:string,nonce?:string,state?:string}
      */
     #[\Override]
     public function validated($key = null, $default = null): array

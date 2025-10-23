@@ -26,6 +26,7 @@ import {
 } from "../../theme/themeManager";
 import { DEFAULT_THEME_SETTINGS, type ThemeSettings } from "../admin/themeData";
 import "./LoginLayout3.css";
+import { rememberOidcProvider } from "./OidcStorage";
 
 const DEFAULT_LOGO_SRC = "/images/phpGRC-light-horizontal-trans.webp";
 
@@ -214,6 +215,17 @@ export default function Login(): JSX.Element {
       }
 
       if (typeof window !== "undefined") {
+        const driver = typeof provider.driver === "string" ? provider.driver.toLowerCase() : "";
+        if (driver === "oidc" || driver === "entra") {
+          try {
+            const identifier = provider.id || provider.key;
+            if (identifier) {
+              rememberOidcProvider(identifier);
+            }
+          } catch {
+            // ignore storage failures
+          }
+        }
         window.location.assign(authorizeUrl);
       }
     },

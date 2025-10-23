@@ -1054,6 +1054,84 @@
         }
       }
     },
+    "/auth/oidc/authorize": {
+      "get": {
+        "operationId": "authOidcAuthorize",
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Initiate OIDC authorization",
+        "description": "Redirects the browser to the configured OIDC authorization endpoint after generating PKCE and nonce parameters for the selected Identity Provider.\n",
+        "parameters": [
+          {
+            "name": "provider",
+            "in": "query",
+            "required": true,
+            "description": "Identity Provider ULID or key.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 160
+            }
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "Redirect to provider authorization endpoint"
+          },
+          "403": {
+            "description": "Provider disabled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IdpProviderDisabled"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Provider not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IdpProviderNotFound"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Persistence disabled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IdpPersistenceDisabled"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid or unsupported provider",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IdpProviderInvalid"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Discovery document could not be loaded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IdpDiscoveryFailed"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/auth/oidc/login": {
       "post": {
         "operationId": "authOidcLogin",
@@ -1775,7 +1853,7 @@
           "Settings"
         ],
         "summary": "Import theme pack",
-        "description": "Imports a theme pack zip archive (≤ 50 MB). Requires `core.settings.manage`.",
+        "description": "Imports a theme pack zip archive (\u2264 50 MB). Requires `core.settings.manage`.",
         "requestBody": {
           "required": true,
           "content": {
@@ -1992,8 +2070,8 @@
           }
         },
         "responses": {
-          "200": {
-            "description": "Theme updated",
+          "201": {
+            "description": "Theme created",
             "content": {
               "application/json": {
                 "schema": {
@@ -2002,8 +2080,8 @@
               }
             }
           },
-          "201": {
-            "description": "Theme created",
+          "200": {
+            "description": "Theme updated",
             "content": {
               "application/json": {
                 "schema": {
@@ -5055,6 +5133,9 @@
           },
           "nonce": {
             "type": "string"
+          },
+          "state": {
+            "type": "string"
           }
         },
         "anyOf": [
@@ -5087,6 +5168,50 @@
             "enum": [
               "IDP_PROVIDER_DISABLED"
             ]
+          }
+        }
+      },
+      "IdpProviderInvalid": {
+        "type": "object",
+        "required": [
+          "ok",
+          "code"
+        ],
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "const": false
+          },
+          "code": {
+            "type": "string",
+            "enum": [
+              "IDP_PROVIDER_INVALID",
+              "IDP_PROVIDER_UNSUPPORTED"
+            ]
+          }
+        }
+      },
+      "IdpDiscoveryFailed": {
+        "type": "object",
+        "required": [
+          "ok",
+          "code"
+        ],
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "const": false
+          },
+          "code": {
+            "type": "string",
+            "enum": [
+              "IDP_OIDC_DISCOVERY_FAILED"
+            ]
+          },
+          "meta": {
+            "type": "object",
+            "description": "Additional error metadata when available.",
+            "additionalProperties": true
           }
         }
       },
@@ -5836,8 +5961,8 @@
             "type": "string",
             "format": "uri",
             "maxLength": 2048,
-            "pattern": "^https?://",
-            "description": "HTTPS URL where the metadata can be downloaded."
+            "description": "HTTPS URL where the metadata can be downloaded.",
+            "pattern": "^https?://"
           }
         },
         "anyOf": [
@@ -6110,7 +6235,7 @@
               "string",
               "null"
             ],
-            "description": "Longer description of the policy’s purpose."
+            "description": "Longer description of the policy\u2019s purpose."
           },
           "roles": {
             "type": "array",
