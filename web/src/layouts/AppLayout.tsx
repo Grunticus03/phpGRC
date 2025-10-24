@@ -783,19 +783,16 @@ export default function AppLayout(): JSX.Element | null {
         setRequireAuth(req);
 
         if (req) {
-          if (!hasAuthToken()) {
-            setAuthed(false);
-            return;
-          }
           try {
             await authMe();
             setAuthed(true);
           } catch {
             setAuthed(false);
           }
-        } else {
-          setAuthed(true);
+          return;
         }
+
+        setAuthed(true);
       } finally {
         setLoading(false);
       }

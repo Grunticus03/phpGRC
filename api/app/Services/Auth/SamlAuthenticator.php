@@ -185,6 +185,13 @@ final class SamlAuthenticator implements SamlAuthenticatorContract
             ])->status(422);
         }
 
+        $decoded = $this->normalizeNamespacePrefixes($decoded);
+        if ($decoded === '') {
+            throw ValidationException::withMessages([
+                'SAMLResponse' => ['Unable to decode SAMLResponse payload.'],
+            ])->status(422);
+        }
+
         $document = new DOMDocument('1.0', 'UTF-8');
         $previous = libxml_use_internal_errors(true);
 
@@ -216,8 +223,7 @@ final class SamlAuthenticator implements SamlAuthenticatorContract
             throw new RuntimeException('Failed to create SimpleXMLElement from SAML response.');
         }
 
-        $xml->registerXPathNamespace('samlp', self::PROTOCOL_NS);
-        $xml->registerXPathNamespace('saml', self::ASSERTION_NS);
+        $this->registerNamespaces($xml);
 
         return $xml;
     }
@@ -290,16 +296,50 @@ final class SamlAuthenticator implements SamlAuthenticatorContract
 
     private function extractAssertion(SimpleXMLElement $xml): SimpleXMLElement
     {
+        $this->registerNamespaces($xml);
+
         $assertions = $xml->xpath('./saml:Assertion');
+        if (! is_array($assertions) || $assertions === []) {
+            $assertions = $xml->xpath('./saml2:Assertion');
+        }
+        if (! is_array($assertions) || $assertions === []) {
+            $assertions = $xml->xpath('//*[local-name()="Assertion" and namespace-uri()="'.self::ASSERTION_NS.'"]');
+        }
         if (! is_array($assertions) || $assertions === []) {
             throw new RuntimeException('SAML response missing Assertion element.');
         }
 
         /** @var non-empty-array<SimpleXMLElement> $assertions */
         $assertion = $assertions[0];
-        $assertion->registerXPathNamespace('saml', self::ASSERTION_NS);
+        $this->registerNamespaces($assertion);
 
         return $assertion;
+    }
+
+    private function normalizeNamespacePrefixes(string $xml): string
+    {
+        $search = [
+            'xmlns:saml2p=',
+            'xmlns:saml2=',
+            'saml2p:',
+            'saml2:',
+        ];
+        $replace = [
+            'xmlns:samlp=',
+            'xmlns:saml=',
+            'samlp:',
+            'saml:',
+        ];
+
+        return str_replace($search, $replace, $xml);
+    }
+
+    private function registerNamespaces(SimpleXMLElement $element): void
+    {
+        $element->registerXPathNamespace('saml', self::ASSERTION_NS);
+        $element->registerXPathNamespace('samlp', self::PROTOCOL_NS);
+        $element->registerXPathNamespace('saml2', self::ASSERTION_NS);
+        $element->registerXPathNamespace('saml2p', self::PROTOCOL_NS);
     }
 
     private function validateResponseAttributes(SimpleXMLElement $xml, ?string $expectedRequestId, string $acsUrl): void
@@ -342,6 +382,7 @@ final class SamlAuthenticator implements SamlAuthenticatorContract
 
         /** @var non-empty-array<SimpleXMLElement> $conditions */
         $conditionsNode = $conditions[0];
+        $this->registerNamespaces($conditionsNode);
 
         $now = CarbonImmutable::now('UTC');
 
@@ -446,6 +487,8 @@ final class SamlAuthenticator implements SamlAuthenticatorContract
                 /** @var SimpleXMLElement $attribute */
                 $name = $this->stringValue($attribute['Name'] ?? null);
                 $friendlyName = $this->stringValue($attribute['FriendlyName'] ?? null);
+
+                $this->registerNamespaces($attribute);
 
                 $values = $attribute->xpath('./saml:AttributeValue');
                 if (! is_array($values) || $values === []) {
