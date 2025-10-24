@@ -3,7 +3,6 @@
 Use this checklist to connect Keycloak to phpGRC via OpenID Connect for both interactive logins and the built-in health check.
 
 ## Prerequisites
-- phpGRC build where generic OIDC issuers can be HTTP (current mainline).
 - Working Keycloak realm reachable from the phpGRC host.
 - Administrative access to both phpGRC and Keycloak.
 - Optional but recommended: HTTPS in front of Keycloak to avoid browser mixed-content blocks.
@@ -11,41 +10,39 @@ Use this checklist to connect Keycloak to phpGRC via OpenID Connect for both int
 ## Configure the Keycloak Client
 1. In Keycloak select the target realm and open **Clients → Create**.
 2. Fill in:
-   - **Client ID**: `phpgrc` (or your preferred identifier).
    - **Client Type**: OpenID Connect.
-   - **Access Type**: Confidential.
-   - **Standard Flow Enabled**: On.
-3. Add redirect URI(s): `https://<phpgrc-host>/auth/callback` (add the HTTP variant if phpGRC runs without TLS in dev).
-4. Under **Web Origins** add the phpGRC origin (`https://<phpgrc-host>`).
-5. Save, then open the **Credentials** tab and copy the generated client secret.
-6. Enable **Service Accounts** (Settings → toggle *Service Accounts Enabled* → Save). This allows phpGRC’s health check to call `client_credentials`.
-7. If ID tokens lack an e-mail claim, add a mapper (**Client → Mappers → Create**):
-   - Mapper Type: *User Property*.
-   - Property: `email`.
-   - Token Claim Name: `email`.
-   - Include in ID Token: On.
-8. Optionally add mappers for display name (`displayName`), given name, and family name so phpGRC shows friendly names instead of usernames.
-9. No extra scope tweaks are required; the default `openid profile email` scopes work for both interactive and health check flows.
+   - **Client ID**: `phpgrc` (or your preferred identifier).
+   - **Client Name**: `phpGRC`
+   - **Client autnentication**: On
+   - **Standard Flow**: Enable.
+   - **Root URL**: `https://<phpgrc-host>`
+3. Settings>Access settings:
+    - **Valid redirect URIs**: `https://<phpgrc-host>/auth/callback`
+4. Save, then open the **Credentials** tab
+    - If you do not see a Credentials tab, ensure that Settings>Capability config>Client authentication is toggled 'On'
+    - **Client Authenticator**: `Client Id and Secret`
+        - Copy the Client Secret value for use in phpGRC.
+5. Enable **Service Account Roles** Settings>Capability Config
+    - Toggle *Service Accounts Enabled*
+    - This allows phpGRC’s health check to call `client_credentials`.
 
 ## Add the Provider in phpGRC
 1. Sign in to phpGRC as an admin and navigate to **Admin → Identity Providers**.
 2. Choose **Add Provider**, set **Provider Type** to `OIDC`.
-3. Fill in the basics:
-   - **Issuer**: Realm base URL, e.g. `http://172.16.0.40:8081/realms/corp`.
+3. Click **Fetch & Autofill** to pull metadata. If the browser blocks the request, see the CSP notes below.
+4. Fill in the basics:
+   - **Issuer**: Realm base URL, e.g. `http://<keycloak-host>/realms/corp`.
    - **Client ID / Secret**: values from Keycloak.
-   - **Scopes**: `openid profile email` (add `offline_access` only if you want refresh tokens).
-   - **Redirect URIs**: leave blank to use the phpGRC default or list explicit callbacks.
-4. Click **Fetch & Autofill** to pull metadata. If the browser blocks the request, see the CSP notes below.
-5. Adjust JIT provisioning if needed (defaults create users automatically).
-6. Save, then use **Test Connection**. A green result confirms metadata + client credentials are configured.
+   - **Scopes**: `openid profile email`
+5. Save, then use **Test Connection**. A green result confirms metadata + client credentials are configured.
 
 ## CSP and Mixed Content Considerations
-- phpGRC sends a strict CSP header. Add your Keycloak host to `connect-src`, for example:
+- phpGRC sends a strict CSP header. To allow access to the OIDC metadata URL, add your Keycloak host to `connect-src`, for example:
   ```apache
   Header always set Content-Security-Policy \
-    "default-src 'self'; connect-src 'self' http://172.16.0.40:8081 https://login.microsoftonline.com; ..."
+    "default-src 'self'; connect-src 'self' http://keycloak.example.com; ..."
   ```
-- If phpGRC runs over HTTPS while Keycloak is plain HTTP, modern browsers flag metadata requests as mixed content. Either:
+- If phpGRC and Keycloak mix HTTP/HTTPS, modern browsers flag metadata requests as mixed content. Either:
   - Terminate TLS in front of Keycloak, or
   - Run phpGRC over HTTP during testing, or
   - Temporarily allow mixed content (Edge: shield icon → *Load unsafe scripts* or `edge://settings/content/insecureContent`).
