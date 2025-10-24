@@ -43,6 +43,19 @@ final class OidcIdpDriverTest extends TestCase
         ];
     }
 
+    public function test_normalize_allows_http_issuer(): void
+    {
+        $driver = $this->makeDriver([]);
+
+        $config = $driver->normalizeConfig([
+            'issuer' => 'http://idp.local.test',
+            'client_id' => 'client-id',
+            'client_secret' => 'secret',
+        ]);
+
+        self::assertSame('http://idp.local.test', $config['issuer']);
+    }
+
     public function test_check_health_fails_when_client_secret_rejected(): void
     {
         $driver = $this->makeDriver([

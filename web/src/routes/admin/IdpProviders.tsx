@@ -1122,9 +1122,9 @@ export default function IdpProviders(): JSX.Element {
 
       if (driver === "oidc") {
         const issuer = state.oidc.issuer.trim();
-        const normalizedIssuer = parseUrlValue(issuer, true);
+        const normalizedIssuer = parseUrlValue(issuer);
         if (!normalizedIssuer) {
-          fieldErrors["oidc.issuer"] = "Issuer must be a valid https:// URL.";
+          fieldErrors["oidc.issuer"] = "Issuer must be a valid URL.";
         }
 
         const clientId = state.oidc.clientId.trim();

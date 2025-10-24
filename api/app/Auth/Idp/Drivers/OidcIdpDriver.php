@@ -46,12 +46,11 @@ class OidcIdpDriver extends AbstractIdpDriver
         /** @var array<string,list<string>> $errors */
         $errors = [];
 
-        $issuer = $this->requireHttpsUrl(
+        $issuer = $this->requireUrl(
             $config,
             'issuer',
             $errors,
-            'Issuer must be a valid HTTPS URL.',
-            'Issuer must be a valid HTTPS URL.'
+            'Issuer must be a valid URL.'
         );
         $clientId = $this->requireString($config, 'client_id', $errors, 'Client ID is required.');
         $clientSecret = $this->requireString($config, 'client_secret', $errors, 'Client secret is required.');

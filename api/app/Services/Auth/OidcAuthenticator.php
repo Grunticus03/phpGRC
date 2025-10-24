@@ -393,12 +393,43 @@ final class OidcAuthenticator implements OidcAuthenticatorContract
      */
     private function extractEmail(array $claims): string
     {
-        $email = $claims['email'] ?? $claims['preferred_username'] ?? null;
-        if (! is_string($email) || trim($email) === '') {
-            return '';
+        $candidateKeys = [
+            'email',
+            'preferred_username',
+            'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress',
+            'upn',
+            'unique_name',
+        ];
+
+        foreach ($candidateKeys as $key) {
+            $candidate = $claims[$key] ?? null;
+            if (! is_string($candidate)) {
+                continue;
+            }
+
+            $trimmed = trim($candidate);
+            if ($trimmed === '') {
+                continue;
+            }
+
+            if (in_array($key, ['upn', 'unique_name'], true) && ! str_contains($trimmed, '@')) {
+                continue;
+            }
+
+            return mb_strtolower($trimmed);
         }
 
-        return mb_strtolower(trim($email));
+        try {
+            $this->logger->notice('OIDC email claim not found in ID token.', [
+                'issuer' => $claims['iss'] ?? null,
+                'subject' => $claims['sub'] ?? null,
+                'available_claims' => array_keys($claims),
+            ]);
+        } catch (\Throwable $e) {
+            // Logging should never interfere with authentication flow.
+        }
+
+        return '';
     }
 
     /**
@@ -406,22 +437,74 @@ final class OidcAuthenticator implements OidcAuthenticatorContract
      */
     private function resolveName(array $claims, string $fallbackEmail): string
     {
-        if (isset($claims['name']) && is_string($claims['name']) && trim($claims['name']) !== '') {
-            return trim($claims['name']);
+        $display = $this->firstNonEmptyString($claims, [
+            'name',
+            'http://schemas.microsoft.com/identity/claims/displayname',
+            'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/displayname',
+            'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name',
+        ]);
+        if ($display !== null) {
+            return $display;
         }
 
-        $hasGiven = isset($claims['given_name']) && is_string($claims['given_name']) && trim($claims['given_name']) !== '';
-        $hasFamily = isset($claims['family_name']) && is_string($claims['family_name']) && trim($claims['family_name']) !== '';
-        if ($hasGiven && $hasFamily) {
-            /** @var string $given */
-            $given = $claims['given_name'];
-            /** @var string $family */
-            $family = $claims['family_name'];
+        $given = $this->firstNonEmptyString($claims, [
+            'given_name',
+            'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/givenname',
+        ]);
+        $family = $this->firstNonEmptyString($claims, [
+            'family_name',
+            'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/surname',
+        ]);
 
+        if ($given !== null && $family !== null) {
             return trim($given).' '.trim($family);
         }
 
+        if ($given !== null) {
+            return $given;
+        }
+
+        if ($family !== null) {
+            return $family;
+        }
+
+        $principal = $this->firstNonEmptyString($claims, ['unique_name', 'upn']);
+        if ($principal !== null) {
+            return $this->normalizePrincipal($principal);
+        }
+
+        try {
+            $this->logger->notice('OIDC name claims missing; falling back to email.', [
+                'issuer' => $claims['iss'] ?? null,
+                'subject' => $claims['sub'] ?? null,
+                'available_claims' => array_keys($claims),
+            ]);
+        } catch (\Throwable $e) {
+            // Logging should never interfere with authentication flow.
+        }
+
         return $fallbackEmail;
+    }
+
+    /**
+     * @param  array<string,mixed>  $claims
+     * @param  list<string>  $keys
+     */
+    private function firstNonEmptyString(array $claims, array $keys): ?string
+    {
+        foreach ($keys as $key) {
+            $value = $claims[$key] ?? null;
+            if (! is_string($value)) {
+                continue;
+            }
+
+            $trimmed = trim($value);
+            if ($trimmed !== '') {
+                return $trimmed;
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -431,12 +514,38 @@ final class OidcAuthenticator implements OidcAuthenticatorContract
     {
         $resolved = trim($this->resolveName($claims, $user->email));
         $currentName = trim($user->name);
+
+        if (strcasecmp($resolved, trim($user->email)) === 0) {
+            return;
+        }
+
         if ($currentName === $resolved) {
             return;
         }
 
         $user->name = $resolved;
         $user->save();
+    }
+
+    private function normalizePrincipal(string $principal): string
+    {
+        $normalized = trim($principal);
+        if ($normalized === '') {
+            return $normalized;
+        }
+
+        if (! str_contains($normalized, '@') && str_contains($normalized, '\\')) {
+            $parts = array_filter(explode('\\', $normalized), static fn ($part): bool => $part !== '');
+            if ($parts !== []) {
+                /** @var list<string> $parts */
+                $last = end($parts);
+                if ($last !== false) {
+                    return trim($last);
+                }
+            }
+        }
+
+        return $normalized;
     }
 
     /**

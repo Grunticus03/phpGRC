@@ -48,6 +48,12 @@ final class EntraIdpDriver extends OidcIdpDriver
         $this->throwIfErrors($errors);
 
         $normalized = parent::normalizeConfig($config);
+        $issuer = $normalized['issuer'] ?? '';
+        if (! is_string($issuer) || ! str_starts_with(strtolower(trim($issuer)), 'https://')) {
+            throw ValidationException::withMessages([
+                'config.issuer' => ['Issuer must be a valid HTTPS URL.'],
+            ]);
+        }
         $normalized['tenant_id'] = $tenantId;
 
         return $normalized;
