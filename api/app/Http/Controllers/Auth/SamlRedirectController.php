@@ -10,11 +10,12 @@ use App\Models\IdpProvider;
 use App\Services\Auth\IdpProviderService;
 use App\Services\Auth\SamlAuthnRequestBuilder;
 use App\Services\Auth\SamlServiceProviderConfigResolver;
-use App\Services\Auth\SamlStateStore;
+use App\Services\Auth\SamlStateTokenFactory;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use RuntimeException;
 
 final class SamlRedirectController extends Controller
 {
@@ -22,7 +23,7 @@ final class SamlRedirectController extends Controller
         private readonly IdpProviderService $providers,
         private readonly SamlAuthnRequestBuilder $requestBuilder,
         private readonly SamlServiceProviderConfigResolver $spConfig,
-        private readonly SamlStateStore $stateStore,
+        private readonly SamlStateTokenFactory $stateTokens,
         private readonly SamlIdpDriver $driver
     ) {}
 
@@ -92,14 +93,18 @@ final class SamlRedirectController extends Controller
         $intended = $this->sanitizeReturnPath($request->query('return'));
 
         $requestId = '_'.str_replace('-', '', Str::uuid()->toString());
-        $state = $this->stateStore->issue($provider, $requestId, $intended, $request);
+        $descriptor = $this->stateTokens->issue($provider, $requestId, $intended, $request);
+        $relayState = $descriptor->token;
+        if ($relayState === null) {
+            throw new RuntimeException('Unable to issue SAML RelayState token.');
+        }
 
         try {
             /** @var array{id:string,relay_state:string|null,url:string,destination:string,encoded_request:string,xml:string} $requestData */
             $requestData = $this->requestBuilder->build(
                 $sp,
                 $idpConfig,
-                $state,
+                $relayState,
                 $privateKey,
                 $passphrase,
                 $requestId
@@ -113,9 +118,19 @@ final class SamlRedirectController extends Controller
         $redirectUrl = $requestData['url'];
 
         if ($request->wantsJson()) {
+            $stateMeta = [
+                'token' => $relayState,
+                'request_id' => $descriptor->requestId,
+                'provider_id' => $descriptor->providerId,
+                'provider_key' => $descriptor->providerKey,
+                'intended' => $descriptor->intendedPath,
+                'issued_at' => $descriptor->issuedAt,
+            ];
+
             return response()->json([
                 'ok' => true,
                 'redirect' => $redirectUrl,
+                'state' => $stateMeta,
             ]);
         }
 

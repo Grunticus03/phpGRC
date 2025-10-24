@@ -47,6 +47,13 @@ final class IdpProviderToolService
         $normalized = $config;
         $driver = $this->drivers->get($driverKey);
 
+        if (strtolower($driverKey) === 'saml') {
+            $normalized['_provider'] = [
+                'id' => 'saml-health-preview',
+                'key' => 'saml-health-preview',
+            ];
+        }
+
         return $driver->checkHealth($normalized);
     }
 

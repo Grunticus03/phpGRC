@@ -30,6 +30,17 @@ abstract class TestCase extends BaseTestCase
             config()->set('database.connections.sqlite.database', ':memory:');
         }
 
+        $stateConfig = config('core.auth.saml.state');
+        if (! is_array($stateConfig) || ! is_string($stateConfig['secret'] ?? null) || trim((string) $stateConfig['secret']) === '') {
+            config()->set('core.auth.saml.state', [
+                'secret' => 'base64:'.base64_encode(str_repeat('#', 32)),
+                'previous_secret' => null,
+                'ttl_seconds' => 300,
+                'clock_skew_seconds' => 30,
+                'enforce_client_hash' => true,
+            ]);
+        }
+
         // No global middleware tweaks yet.
     }
 

@@ -7,7 +7,6 @@ namespace Tests\Feature\Auth;
 use App\Models\IdpProvider;
 use App\Models\User;
 use App\Support\AuthTokenCookie;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
@@ -71,6 +70,19 @@ O2HyNCg//1U3xps2FN7fGfyc
 -----END PRIVATE KEY-----
 PEM;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        Config::set('core.auth.saml.state', [
+            'secret' => 'base64:'.base64_encode(str_repeat('#', 32)),
+            'previous_secret' => null,
+            'ttl_seconds' => 300,
+            'clock_skew_seconds' => 30,
+            'enforce_client_hash' => true,
+        ]);
+    }
+
     public function test_redirect_endpoint_returns_authorize_url(): void
     {
         $this->actingAsAdmin();
@@ -110,8 +122,11 @@ PEM;
         self::assertTrue($document->loadXML($xmlPayload));
         self::assertSame('false', $document->documentElement->getAttribute('IsPassive'));
 
-        $cacheKey = 'idp:saml:state:'.$query['RelayState'];
-        self::assertTrue(Cache::has($cacheKey));
+        $payload = $this->decodeRelayState((string) $query['RelayState']);
+        self::assertSame('phpgrc.saml.state', $payload['iss']);
+        self::assertArrayHasKey('dest', $payload);
+        self::assertNull($payload['dest']);
+        self::assertArrayHasKey('rid', $payload);
     }
 
     public function test_acs_endpoint_authenticates_and_redirects(): void
@@ -141,11 +156,10 @@ PEM;
 
         parse_str($parts['query'] ?? '', $query);
         self::assertArrayHasKey('RelayState', $query);
-        $relayState = $query['RelayState'];
+        $relayState = (string) $query['RelayState'];
 
-        $cachePayload = Cache::get('idp:saml:state:'.$relayState);
-        self::assertIsArray($cachePayload);
-        $requestId = $cachePayload['request_id'] ?? null;
+        $payload = $this->decodeRelayState($relayState);
+        $requestId = $payload['rid'] ?? null;
         self::assertIsString($requestId);
 
         $samlResponse = $this->buildSignedResponse(
@@ -260,5 +274,31 @@ XML;
         $objDSig->appendSignature($document->documentElement);
 
         return $document->saveXML() ?: '';
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function decodeRelayState(string $token): array
+    {
+        $parts = explode('.', $token);
+        self::assertCount(3, $parts, 'RelayState token must contain 3 segments.');
+
+        $payloadJson = $this->base64UrlDecode($parts[1]);
+        $payload = json_decode($payloadJson, true);
+        self::assertIsArray($payload);
+
+        return $payload;
+    }
+
+    private function base64UrlDecode(string $value): string
+    {
+        $padded = strtr($value, '-_', '+/');
+        $padded .= str_repeat('=', (4 - strlen($padded) % 4) % 4);
+
+        $decoded = base64_decode($padded, true);
+        self::assertIsString($decoded, 'RelayState token payload is not valid base64url.');
+
+        return $decoded;
     }
 }

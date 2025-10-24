@@ -843,7 +843,8 @@ final class IdpProviderApiTest extends TestCase
             ->assertStatus(200)
             ->assertJsonPath('status', IdpHealthCheckResult::STATUS_OK)
             ->assertJsonPath('details.response.status', 200)
-            ->assertJsonPath('details.request.id', fn ($value) => is_string($value) && str_starts_with($value, '_'));
+            ->assertJsonPath('details.request.id', fn ($value) => is_string($value) && str_starts_with($value, '_'))
+            ->assertJsonPath('details.request.relay_state', fn ($value) => is_string($value) && substr_count($value, '.') === 2);
 
         $requestUrl = $response->json('details.request.url');
         self::assertIsString($requestUrl);
@@ -859,6 +860,15 @@ final class IdpProviderApiTest extends TestCase
 
         $inflated = gzinflate($deflated);
         self::assertIsString($inflated);
+
+        self::assertArrayHasKey('RelayState', $requestParams);
+        $relayStateToken = (string) $requestParams['RelayState'];
+        $relayPayload = $this->decodeRelayStateToken($relayStateToken);
+        $requestId = $response->json('details.request.id');
+        self::assertIsString($requestId);
+        self::assertSame($requestId, $relayPayload['rid'] ?? null);
+        self::assertSame('saml-health-preview', $relayPayload['pid'] ?? null);
+        self::assertSame('saml-health-preview', $relayPayload['pkey'] ?? null);
 
         $document = new \DOMDocument('1.0', 'UTF-8');
         self::assertTrue($document->loadXML($inflated));
@@ -1094,6 +1104,33 @@ final class IdpProviderApiTest extends TestCase
             'sso_url' => 'https://sso.example.test/login',
             'certificate' => $this->sampleCertificate(),
         ], CarbonImmutable::create(2030, 1, 1, 0, 0, 0, 'UTC'));
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function decodeRelayStateToken(string $token): array
+    {
+        $parts = explode('.', $token);
+        self::assertCount(3, $parts);
+
+        $payloadJson = $this->base64UrlDecode($parts[1]);
+        $payload = json_decode($payloadJson, true, flags: JSON_THROW_ON_ERROR);
+        self::assertIsArray($payload);
+
+        /** @var array<string,mixed> $payload */
+        return $payload;
+    }
+
+    private function base64UrlDecode(string $value): string
+    {
+        $padded = strtr($value, '-_', '+/');
+        $padded .= str_repeat('=', (4 - strlen($padded) % 4) % 4);
+
+        $decoded = base64_decode($padded, true);
+        self::assertNotFalse($decoded);
+
+        return $decoded;
     }
 
     private function sampleCertificate(): string

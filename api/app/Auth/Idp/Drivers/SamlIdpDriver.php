@@ -6,15 +6,19 @@ namespace App\Auth\Idp\Drivers;
 
 use App\Auth\Idp\DTO\IdpHealthCheckResult;
 use App\Exceptions\Auth\SamlMetadataException;
+use App\Models\IdpProvider;
 use App\Services\Auth\SamlAuthnRequestBuilder;
 use App\Services\Auth\SamlMetadataService;
 use App\Services\Auth\SamlServiceProviderConfigResolver;
+use App\Services\Auth\SamlStateTokenFactory;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\Client\Response;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use RuntimeException;
 
 /**
  * @SuppressWarnings("PMD.ExcessiveClassComplexity")
@@ -24,7 +28,8 @@ final class SamlIdpDriver extends AbstractIdpDriver
     public function __construct(
         private readonly SamlMetadataService $metadata,
         private readonly SamlServiceProviderConfigResolver $spConfig,
-        private readonly SamlAuthnRequestBuilder $requestBuilder
+        private readonly SamlAuthnRequestBuilder $requestBuilder,
+        private readonly SamlStateTokenFactory $stateTokens
     ) {}
 
     #[\Override]
@@ -120,7 +125,21 @@ final class SamlIdpDriver extends AbstractIdpDriver
             ]);
         }
 
-        $relayState = 'phpgrc-health-'.Str::lower(Str::random(12));
+        $provider = $this->resolveProviderContext($config);
+        $requestId = '_'.str_replace('-', '', Str::uuid()->toString());
+
+        try {
+            $relayState = $this->issueHealthRelayState($provider, $requestId);
+        } catch (\Throwable $e) {
+            return IdpHealthCheckResult::failed('Failed to issue SAML RelayState token for health check.', [
+                'sp' => $sp,
+                'provider' => [
+                    'id' => $provider->id,
+                    'key' => $provider->key,
+                ],
+                'error' => $this->exceptionMessage($e),
+            ]);
+        }
 
         $entityIdValue = $config['entity_id'] ?? null;
         $ssoUrlValue = $config['sso_url'] ?? null;
@@ -146,7 +165,7 @@ final class SamlIdpDriver extends AbstractIdpDriver
                 $relayState,
                 $this->spConfig->privateKey(),
                 $this->spConfig->privateKeyPassphrase(),
-                null,
+                $requestId,
                 SamlAuthnRequestBuilder::INTERACTION_PASSIVE
             );
         } catch (\Throwable $e) {
@@ -175,6 +194,60 @@ final class SamlIdpDriver extends AbstractIdpDriver
         $details = $this->assembleResponseDetails($requestData, $response, $sp);
 
         return $this->interpretHealthResponse($response, $details);
+    }
+
+    private function issueHealthRelayState(IdpProvider $provider, string $requestId): string
+    {
+        $request = new Request([], [], [], [], [], [
+            'REMOTE_ADDR' => '127.0.0.1',
+            'HTTP_USER_AGENT' => 'phpGRC SAML Health/1.0',
+        ]);
+
+        $descriptor = $this->stateTokens->issue($provider, $requestId, null, $request);
+        $token = $descriptor->token;
+
+        if ($token === null) {
+            throw new RuntimeException('RelayState token factory returned null token.');
+        }
+
+        return $token;
+    }
+
+    /**
+     * @param  array<string,mixed>  $config
+     */
+    private function resolveProviderContext(array &$config): IdpProvider
+    {
+        /** @var array<string,mixed>|null $meta */
+        $meta = $config['_provider'] ?? null;
+        unset($config['_provider']);
+
+        $id = null;
+        $key = null;
+
+        if (is_array($meta)) {
+            /** @var mixed $idValue */
+            $idValue = $meta['id'] ?? $meta['provider_id'] ?? null;
+            if (is_string($idValue) && trim($idValue) !== '') {
+                $id = trim($idValue);
+            }
+
+            /** @var mixed $keyValue */
+            $keyValue = $meta['key'] ?? $meta['provider_key'] ?? null;
+            if (is_string($keyValue) && trim($keyValue) !== '') {
+                $key = trim($keyValue);
+            }
+        }
+
+        $id ??= 'saml-health-preview';
+        $key ??= 'saml-health-preview';
+
+        $provider = new IdpProvider;
+        $provider->setAttribute('id', $id);
+        $provider->setAttribute('key', $key);
+        $provider->setAttribute('driver', 'saml');
+
+        return $provider;
     }
 
     private function sendHealthRequest(string $url): Response

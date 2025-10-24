@@ -21,13 +21,15 @@ use App\Services\Auth\OidcProviderMetadataService;
 use App\Services\Auth\SamlAuthenticator;
 use App\Services\Auth\SamlAuthnRequestBuilder;
 use App\Services\Auth\SamlServiceProviderConfigResolver;
-use App\Services\Auth\SamlStateStore;
+use App\Services\Auth\SamlStateTokenFactory;
+use App\Services\Auth\SamlStateTokenSigner;
 use GuzzleHttp\Client;
 use GuzzleHttp\ClientInterface;
 use Illuminate\Contracts\Cache\Repository as CacheRepository;
 use Illuminate\Contracts\Container\Container;
 use Illuminate\Support\ServiceProvider;
 use Psr\Log\LoggerInterface;
+use RuntimeException;
 
 final class IdpServiceProvider extends ServiceProvider
 {
@@ -50,8 +52,71 @@ final class IdpServiceProvider extends ServiceProvider
 
         $this->app->singleton(SamlAuthnRequestBuilder::class, static fn (): SamlAuthnRequestBuilder => new SamlAuthnRequestBuilder);
 
-        $this->app->singleton(SamlStateStore::class, function (Container $app): SamlStateStore {
-            return new SamlStateStore($app->make(CacheRepository::class));
+        $this->app->singleton(SamlStateTokenSigner::class, function (): SamlStateTokenSigner {
+            $state = config('core.auth.saml.state', []);
+            if (! is_array($state)) {
+                throw new RuntimeException('SAML state configuration must be an array.');
+            }
+
+            $secret = $state['secret'] ?? null;
+            if (! is_string($secret) || trim($secret) === '') {
+                throw new RuntimeException('SAML state signing secret (core.auth.saml.state_secret) is not configured.');
+            }
+
+            /** @var mixed $previousRaw */
+            $previousRaw = $state['previous_secret'] ?? null;
+            $previous = null;
+            if (is_string($previousRaw)) {
+                $previousRaw = trim($previousRaw);
+                if ($previousRaw !== '') {
+                    $previous = $previousRaw;
+                }
+            }
+
+            /** @var mixed $issuerRaw */
+            $issuerRaw = $state['issuer'] ?? 'phpgrc.saml.state';
+            $issuer = is_string($issuerRaw) && trim($issuerRaw) !== '' ? trim($issuerRaw) : 'phpgrc.saml.state';
+
+            $audience = config('core.auth.saml.sp.acs_url');
+            if (! is_string($audience) || trim($audience) === '') {
+                throw new RuntimeException('SAML SP ACS URL must be configured before issuing RelayState tokens.');
+            }
+
+            return new SamlStateTokenSigner($issuer, trim($audience), $secret, $previous);
+        });
+
+        $this->app->singleton(SamlStateTokenFactory::class, function (Container $app): SamlStateTokenFactory {
+            $state = config('core.auth.saml.state', []);
+            if (! is_array($state)) {
+                throw new RuntimeException('SAML state configuration must be an array.');
+            }
+
+            /** @var mixed $ttlRaw */
+            $ttlRaw = $state['ttl_seconds'] ?? 300;
+            $ttl = is_numeric($ttlRaw) ? (int) $ttlRaw : 300;
+            if ($ttl <= 0) {
+                $ttl = 300;
+            }
+
+            /** @var mixed $skewRaw */
+            $skewRaw = $state['clock_skew_seconds'] ?? 30;
+            $skew = is_numeric($skewRaw) ? (int) $skewRaw : 30;
+            if ($skew < 0) {
+                $skew = 0;
+            }
+
+            $enforceRaw = array_key_exists('enforce_client_hash', $state)
+                ? filter_var($state['enforce_client_hash'], FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE)
+                : null;
+            $enforceHash = $enforceRaw ?? true;
+
+            return new SamlStateTokenFactory(
+                $app->make(CacheRepository::class),
+                $app->make(SamlStateTokenSigner::class),
+                $ttl,
+                $skew,
+                $enforceHash
+            );
         });
 
         $this->app->singleton(IdpDriverRegistry::class, function (Container $app): IdpDriverRegistry {

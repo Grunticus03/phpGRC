@@ -6,6 +6,9 @@ $appUrl = rtrim((string) env('APP_URL', 'http://localhost'), '/');
 $defaultSamlEntityId = sprintf('%s/saml/sp', $appUrl);
 $defaultSamlAcs = sprintf('%s/auth/saml/acs', $appUrl);
 $defaultSamlMetadata = sprintf('%s/auth/saml/metadata', $appUrl);
+$defaultSamlStateTtl = (int) env('CORE_AUTH_SAML_STATE_TTL_SECONDS', 300);
+$defaultSamlStateSkew = (int) env('CORE_AUTH_SAML_STATE_SKEW_SECONDS', 30);
+$defaultSamlStateEnforceHash = filter_var(env('CORE_AUTH_SAML_STATE_ENFORCE_CLIENT_HASH', true), FILTER_VALIDATE_BOOLEAN);
 
 return [
     // Persistence gates (informational; not used to block writes)
@@ -58,6 +61,13 @@ return [
         ],
 
         'saml' => [
+            'state' => [
+                'secret' => env('CORE_AUTH_SAML_STATE_SECRET'),
+                'previous_secret' => env('CORE_AUTH_SAML_STATE_PREVIOUS_SECRET'),
+                'ttl_seconds' => $defaultSamlStateTtl,
+                'clock_skew_seconds' => $defaultSamlStateSkew,
+                'enforce_client_hash' => $defaultSamlStateEnforceHash,
+            ],
             'sp' => [
                 'entity_id' => env('SAML_SP_ENTITY_ID', $defaultSamlEntityId),
                 'acs_url' => env('SAML_SP_ACS_URL', $defaultSamlAcs),

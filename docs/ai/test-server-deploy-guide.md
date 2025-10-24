@@ -7,6 +7,9 @@ This checklist is for refreshing the phpGRC **test** server after making fronten
   - `npm run typecheck`
   - `npm run test -- IdpProviders.test.tsx` (or relevant suite)
   - `npm run build`
+- Ensure the SAML RelayState secrets are present in the **process environment** on the server (never `.env`):
+  - `CORE_AUTH_SAML_STATE_SECRET` (required)
+  - `CORE_AUTH_SAML_STATE_PREVIOUS_SECRET` (optional for rotations)
 - Verify no `.tar.gz` artifacts remain in the repo root (cleanup with `perl -e 'unlink ...'` if needed).
 
 ## 2. Push Source Changes

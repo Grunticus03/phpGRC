@@ -208,7 +208,16 @@ final class IdpProviderService
         }
 
         $driver = $this->drivers->get($provider->driver);
-        $result = $driver->checkHealth($this->readConfig($provider));
+
+        $config = $this->readConfig($provider);
+        if (strtolower($provider->driver) === 'saml') {
+            $config['_provider'] = [
+                'id' => $provider->id,
+                'key' => $provider->key,
+            ];
+        }
+
+        $result = $driver->checkHealth($config);
 
         /** @var IdpProvider $updated */
         $updated = DB::transaction(function () use ($provider, $result): IdpProvider {
@@ -250,7 +259,7 @@ final class IdpProviderService
      * @param  array<string,mixed>  $attributes
      * @return array<string,mixed>
      *
-     * @SuppressWarnings("PMD.BooleanFlagArgument")
+     * @SuppressWarnings("PMD.BooleanArgumentFlag")
      * @SuppressWarnings("PMD.ExcessiveMethodLength")
      */
     private function sanitizeAttributes(array $attributes, bool $isUpdate = false, ?string $currentDriver = null): array
@@ -787,7 +796,7 @@ final class IdpProviderService
     }
 
     /**
-     * @SuppressWarnings("PMD.BooleanFlagArgument")
+     * @SuppressWarnings("PMD.BooleanArgumentFlag")
      */
     private function shiftRangeDown(int $start, ?int $end, ?string $excludeId = null, bool $collapse = false): void
     {

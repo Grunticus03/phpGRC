@@ -236,7 +236,7 @@ export default function Login(): JSX.Element {
             try {
               const absolute = new URL(authorizeUrl, window.location.origin);
               absolute.searchParams.set("return", intended);
-              authorizeUrl = `${absolute.pathname}${absolute.search}${absolute.hash}`;
+              authorizeUrl = absolute.toString();
             } catch {
               const separator = authorizeUrl.includes("?") ? "&" : "?";
               authorizeUrl = `${authorizeUrl}${separator}return=${encodeURIComponent(intended)}`;
@@ -245,9 +245,10 @@ export default function Login(): JSX.Element {
         }
 
         const targetUrl = authorizeUrl;
+        const shouldPrefetch = remembered || driver === "saml";
 
         const attemptRedirect = async (): Promise<void> => {
-          if (remembered) {
+          if (shouldPrefetch) {
             try {
               const response = await fetch(targetUrl, {
                 method: "GET",
@@ -257,7 +258,22 @@ export default function Login(): JSX.Element {
               if (response.ok) {
                 const contentType = response.headers.get("Content-Type") ?? "";
                 if (contentType.includes("application/json")) {
-                  const data = (await response.json()) as { redirect?: string | null };
+                  const data = (await response.json()) as {
+                    ok?: boolean | null;
+                    redirect?: string | null;
+                    code?: string | null;
+                    meta?: Record<string, unknown> | null;
+                  };
+                  if (data?.ok === false) {
+                    const meta = data.meta && typeof data.meta === "object" ? (data.meta as Record<string, unknown>) : null;
+                    const fieldMessage = meta && typeof meta.message === "string" ? meta.message.trim() : null;
+                    const display = fieldMessage && fieldMessage !== "" ? fieldMessage : "SAML sign-in is unavailable right now.";
+                    setInfo(null);
+                    setErr(display);
+                    setBusy(false);
+                    return;
+                  }
+
                   const redirectUrl = typeof data?.redirect === "string" ? data.redirect.trim() : "";
                   if (redirectUrl !== "") {
                     window.location.assign(redirectUrl);
