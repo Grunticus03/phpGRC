@@ -3,8 +3,8 @@
 This playbook guides CodeX through replacing the bespoke SAML and OIDC implementations with maintained libraries and streamlining the Apache vhost while keeping phpGRC deployable on a single host. Follow the steps in order; do not skip validation gates.
 
 ## 0. Global prerequisites
-- [ ] Run `composer install` under `api/` to ensure autoloaders are up to date before editing PHP files.
-- [ ] Review coding standards in `docs/STYLEGUIDE.md` and authentication docs in `docs/auth/` for naming and exception handling conventions.
+- [x] Run `composer install` under `api/` to ensure autoloaders are up to date before editing PHP files.
+- [x] Review coding standards in `docs/STYLEGUIDE.md` and authentication docs in `docs/auth/` for naming and exception handling conventions.
 - [ ] Keep commits atomic and prefixed with the scope (e.g., `feat(api): ...`, `refactor(auth): ...`).
 - [ ] Whenever a PHP file is touched, run `phpmd` on that file as described in `AGENTS.md`.
 - [ ] After each major task, run `vendor/bin/phpunit --testdox` inside `api/` and capture failing cases for remediation.
@@ -12,26 +12,27 @@ This playbook guides CodeX through replacing the bespoke SAML and OIDC implement
 ## 1. Transition SAML flow to `onelogin/php-saml`
 
 ### 1.1 Introduce the dependency and bootstrap
-- [ ] Add `onelogin/php-saml` to `api/composer.json` and run `composer update onelogin/php-saml`.
-- [ ] Create a configuration bridge in `api/config/auth.php` (or an appropriate new config file) exposing SP entity ID, ACS URL, certificate paths, and IdP metadata settings expected by the library.
-- [ ] Register any required service bindings in `api/app/Providers/IdpServiceProvider.php` so the new adapter can be resolved via Laravel’s container.
+- [x] Add `onelogin/php-saml` to `api/composer.json` and run `composer update onelogin/php-saml`.
+- [x] Create a configuration bridge in `api/config/auth.php` (or an appropriate new config file) exposing SP entity ID, ACS URL, certificate paths, and IdP metadata settings expected by the library.
+- [x] Register any required service bindings in `api/app/Providers/IdpServiceProvider.php` so the new adapter can be resolved via Laravel’s container.
 
 ### 1.2 Implement the adapter layer
-- [ ] Add a `App\Services\Auth\SamlLibraryFactory` that builds configured `OneLogin_Saml2_Auth` instances using `SamlServiceProviderConfigResolver` data.
-- [ ] Create a `App\Services\Auth\SamlLibraryBridge` (or similar) that wraps library calls for: metadata parsing, AuthnRequest creation, logout, and response validation. Ensure it surfaces value objects compatible with existing controllers.
-- [ ] Refactor `api/app/Auth/Idp/Drivers/SamlIdpDriver.php` to delegate to the bridge for remote metadata fetching, health checks, and relay state issuance. Remove direct XML handling.
-- [ ] Replace `SamlAuthnRequestBuilder`, `SamlMetadataService`, and `SamlStateTokenFactory` usage inside controllers with the bridge or Laravel session helpers. Delete superseded services after verifying no other classes reference them (`rg "SamlAuthnRequestBuilder" api/app`).
+- [x] Add a `App\Services\Auth\SamlLibraryFactory` that builds configured `OneLogin_Saml2_Auth` instances using `SamlServiceProviderConfigResolver` data.
+- [x] Create a `App\Services\Auth\SamlLibraryBridge` (or similar) that wraps library calls for: metadata parsing, AuthnRequest creation, logout, and response validation. Ensure it surfaces value objects compatible with existing controllers.
+- [x] Refactor `api/app/Auth/Idp/Drivers/SamlIdpDriver.php` to delegate to the bridge for remote metadata fetching, health checks, and relay state issuance. Remove direct XML handling.
+- [x] Replace `SamlAuthnRequestBuilder`, `SamlMetadataService`, and `SamlStateTokenFactory` usage inside controllers with the bridge or Laravel session helpers. Delete superseded services after verifying no other classes reference them (`rg "SamlAuthnRequestBuilder" api/app`).
 
 ### 1.3 Update controllers and requests
-- [ ] Modify `SamlRedirectController` to call the new bridge for generating the redirect URL and to store RelayState data via session or the library’s helper instead of custom tokens.
-- [ ] Update `SamlAssertionConsumerController` to validate the SAML response using `OneLogin_Saml2_Auth`. Map successful assertions into existing provisioning logic.
-- [ ] Ensure request validators under `api/app/Http/Requests/Auth/` reflect any new configuration requirements (e.g., certificate paths instead of raw metadata XML).
+- [x] Modify `SamlRedirectController` to call the new bridge for generating the redirect URL and to store RelayState data via session or the library’s helper instead of custom tokens.
+- [x] Update `SamlAssertionConsumerController` to validate the SAML response using `OneLogin_Saml2_Auth`. Map successful assertions into existing provisioning logic.
+- [x] Ensure request validators under `api/app/Http/Requests/Auth/` reflect any new configuration requirements (e.g., certificate paths instead of raw metadata XML).
 
 ### 1.4 Testing and cleanup
-- [ ] Rewrite or adjust feature tests under `api/tests/Feature/Auth/` to mock the library and assert correct redirects and ACS handling. Prefer Laravel’s HTTP testing utilities.
-- [ ] Add unit tests for the bridge to confirm that failure states from `OneLogin_Saml2_Error` convert into domain exceptions.
-- [ ] Remove obsolete configuration keys and update documentation under `docs/auth/` to describe how to provide metadata or certificates for the new flow.
-- [ ] Run `phpunit`, `phpstan`, `psalm`, and targeted `phpmd` checks; resolve findings before proceeding.
+- [x] Rewrite or adjust feature tests under `api/tests/Feature/Auth/` to mock the library and assert correct redirects and ACS handling. Prefer Laravel’s HTTP testing utilities.
+- [x] Add unit tests for the bridge to confirm that failure states from `OneLogin_Saml2_Error` convert into domain exceptions.
+- [x] Remove obsolete configuration keys and update documentation under `docs/auth/` to describe how to provide metadata or certificates for the new flow.
+- [x] Ensure the SAML health preview surfaces request signature state in its response payload so the admin UI reflects whether signing is active.
+- [x] Run `phpunit`, `phpstan`, `psalm`, and targeted `phpmd` checks; resolve findings before proceeding.
 
 ## 2. Transition OIDC flow to `jumbojett/openid-connect-php`
 

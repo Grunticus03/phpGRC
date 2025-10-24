@@ -8,22 +8,16 @@ use App\Auth\Idp\Drivers\SamlIdpDriver;
 use App\Http\Controllers\Controller;
 use App\Models\IdpProvider;
 use App\Services\Auth\IdpProviderService;
-use App\Services\Auth\SamlAuthnRequestBuilder;
-use App\Services\Auth\SamlServiceProviderConfigResolver;
-use App\Services\Auth\SamlStateTokenFactory;
+use App\Services\Auth\SamlLibraryBridge;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
-use RuntimeException;
 
 final class SamlRedirectController extends Controller
 {
     public function __construct(
         private readonly IdpProviderService $providers,
-        private readonly SamlAuthnRequestBuilder $requestBuilder,
-        private readonly SamlServiceProviderConfigResolver $spConfig,
-        private readonly SamlStateTokenFactory $stateTokens,
+        private readonly SamlLibraryBridge $saml,
         private readonly SamlIdpDriver $driver
     ) {}
 
@@ -70,56 +64,21 @@ final class SamlRedirectController extends Controller
             ]);
         }
 
-        $entityIdValue = $normalizedConfig['entity_id'] ?? null;
-        $ssoUrlValue = $normalizedConfig['sso_url'] ?? null;
-        $certificateValue = $normalizedConfig['certificate'] ?? null;
-
-        if (! is_string($entityIdValue) || ! is_string($ssoUrlValue) || ! is_string($certificateValue)) {
-            return $this->errorResponse(422, 'IDP_PROVIDER_INVALID', [
-                'message' => 'SAML provider configuration incomplete.',
-            ]);
-        }
-
-        $idpConfig = [
-            'entity_id' => $entityIdValue,
-            'sso_url' => $ssoUrlValue,
-            'certificate' => $certificateValue,
-        ];
-
-        $sp = $this->spConfig->resolve();
-        $privateKey = $this->spConfig->privateKey();
-        $passphrase = $this->spConfig->privateKeyPassphrase();
-
         $intended = $this->sanitizeReturnPath($request->query('return'));
-
-        $requestId = '_'.str_replace('-', '', Str::uuid()->toString());
-        $descriptor = $this->stateTokens->issue($provider, $requestId, $intended, $request);
-        $relayState = $descriptor->token;
-        if ($relayState === null) {
-            throw new RuntimeException('Unable to issue SAML RelayState token.');
-        }
-
         try {
-            /** @var array{id:string,relay_state:string|null,url:string,destination:string,encoded_request:string,xml:string} $requestData */
-            $requestData = $this->requestBuilder->build(
-                $sp,
-                $idpConfig,
-                $relayState,
-                $privateKey,
-                $passphrase,
-                $requestId
-            );
+            $requestContext = $this->saml->createLoginRequest($provider, $normalizedConfig, $request, $intended);
         } catch (\Throwable $e) {
             return $this->errorResponse(500, 'IDP_SAML_REQUEST_FAILED', [
                 'message' => $e->getMessage(),
             ]);
         }
 
-        $redirectUrl = $requestData['url'];
+        $redirectUrl = $requestContext->redirectUrl;
+        $descriptor = $requestContext->stateDescriptor;
 
         if ($request->wantsJson()) {
             $stateMeta = [
-                'token' => $relayState,
+                'token' => $descriptor->token,
                 'request_id' => $descriptor->requestId,
                 'provider_id' => $descriptor->providerId,
                 'provider_key' => $descriptor->providerKey,

@@ -19,6 +19,23 @@ final class SamlServiceProviderMetadataTest extends TestCase
             'metadata_url' => 'https://phpgrc.example/auth/saml/metadata',
         ]);
 
+        config()->set('saml.sp', array_merge(config('saml.sp', []), [
+            'entityId' => 'urn:phpgrc:sp',
+            'assertionConsumerService' => array_merge(
+                config('saml.sp.assertionConsumerService', []),
+                [
+                    'url' => 'https://phpgrc.example/auth/saml/acs',
+                ]
+            ),
+            'metadataUrl' => 'https://phpgrc.example/auth/saml/metadata',
+        ]));
+
+        config()->set('saml.security', array_merge(config('saml.security', []), [
+            'authnRequestsSigned' => false,
+            'wantAssertionsSigned' => true,
+            'wantAssertionsEncrypted' => false,
+        ]));
+
         $response = $this->get('/auth/saml/metadata');
 
         $response->assertStatus(200);
@@ -68,6 +85,24 @@ final class SamlServiceProviderMetadataTest extends TestCase
             'want_assertions_signed' => false,
             'want_assertions_encrypted' => true,
         ]);
+
+        config()->set('saml.sp', array_merge(config('saml.sp', []), [
+            'entityId' => 'urn:phpgrc:sp:cert',
+            'assertionConsumerService' => array_merge(
+                config('saml.sp.assertionConsumerService', []),
+                [
+                    'url' => 'https://phpgrc.example/auth/saml/acs',
+                ]
+            ),
+            'metadataUrl' => 'https://phpgrc.example/auth/saml/metadata',
+            'x509cert' => $this->sampleCertificate(),
+        ]));
+
+        config()->set('saml.security', array_merge(config('saml.security', []), [
+            'authnRequestsSigned' => true,
+            'wantAssertionsSigned' => false,
+            'wantAssertionsEncrypted' => true,
+        ]));
 
         $response = $this->get('/auth/saml/metadata');
 

@@ -12,6 +12,7 @@ use App\Auth\Idp\IdpDriverRegistry;
 use App\Contracts\Auth\LdapAuthenticatorContract;
 use App\Contracts\Auth\OidcAuthenticatorContract;
 use App\Contracts\Auth\SamlAuthenticatorContract;
+use App\Models\User;
 use App\Services\Audit\AuditLogger;
 use App\Services\Auth\Ldap\LdapClientInterface;
 use App\Services\Auth\Ldap\NativeLdapClient;
@@ -19,23 +20,47 @@ use App\Services\Auth\LdapAuthenticator;
 use App\Services\Auth\OidcAuthenticator;
 use App\Services\Auth\OidcProviderMetadataService;
 use App\Services\Auth\SamlAuthenticator;
-use App\Services\Auth\SamlAuthnRequestBuilder;
+use App\Services\Auth\SamlLibraryBridge;
+use App\Services\Auth\SamlLibraryFactory;
 use App\Services\Auth\SamlServiceProviderConfigResolver;
 use App\Services\Auth\SamlStateTokenFactory;
 use App\Services\Auth\SamlStateTokenSigner;
 use GuzzleHttp\Client;
 use GuzzleHttp\ClientInterface;
 use Illuminate\Contracts\Cache\Repository as CacheRepository;
+use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Illuminate\Contracts\Container\Container;
+use Illuminate\Contracts\Hashing\Hasher as HasherContract;
 use Illuminate\Support\ServiceProvider;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
 
 final class IdpServiceProvider extends ServiceProvider
 {
+    /**
+     * @SuppressWarnings("PMD.ExcessiveMethodLength")
+     * @SuppressWarnings("PMD.NPathComplexity")
+     */
     #[\Override]
     public function register(): void
     {
+        $this->app->singleton('saml.library.config', function (Container $app): array {
+            /** @var ConfigRepository $config */
+            $config = $app->make(ConfigRepository::class);
+
+            /** @var array<string,mixed> $settings */
+            $settings = (array) $config->get('saml', []);
+
+            return $settings;
+        });
+
+        $this->app->singleton(SamlLibraryFactory::class, function (Container $app): SamlLibraryFactory {
+            return new SamlLibraryFactory(
+                $app->make(ConfigRepository::class),
+                $app->make(SamlServiceProviderConfigResolver::class)
+            );
+        });
+
         $this->app->singleton(OidcIdpDriver::class, function (Container $app): OidcIdpDriver {
             return new OidcIdpDriver(
                 $app->make(ClientInterface::class),
@@ -49,8 +74,6 @@ final class IdpServiceProvider extends ServiceProvider
                 $app->make(LoggerInterface::class),
             );
         });
-
-        $this->app->singleton(SamlAuthnRequestBuilder::class, static fn (): SamlAuthnRequestBuilder => new SamlAuthnRequestBuilder);
 
         $this->app->singleton(SamlStateTokenSigner::class, function (): SamlStateTokenSigner {
             $state = config('core.auth.saml.state', []);
@@ -119,6 +142,14 @@ final class IdpServiceProvider extends ServiceProvider
             );
         });
 
+        $this->app->singleton(SamlLibraryBridge::class, function (Container $app): SamlLibraryBridge {
+            return new SamlLibraryBridge(
+                $app->make(SamlLibraryFactory::class),
+                $app->make(SamlStateTokenFactory::class),
+                $app->make(LoggerInterface::class)
+            );
+        });
+
         $this->app->singleton(IdpDriverRegistry::class, function (Container $app): IdpDriverRegistry {
             /** @var OidcIdpDriver $oidc */
             $oidc = $app->make(OidcIdpDriver::class);
@@ -169,7 +200,9 @@ final class IdpServiceProvider extends ServiceProvider
             return new SamlAuthenticator(
                 $app->make(AuditLogger::class),
                 $app->make(LoggerInterface::class),
-                $app->make(SamlServiceProviderConfigResolver::class)
+                $app->make(SamlLibraryBridge::class),
+                $app->make(HasherContract::class),
+                $app->make(User::class)
             );
         });
 

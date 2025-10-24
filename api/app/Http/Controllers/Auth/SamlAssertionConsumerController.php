@@ -5,22 +5,24 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Auth;
 
 use App\Contracts\Auth\SamlAuthenticatorContract;
+use App\Exceptions\Auth\SamlLibraryException;
 use App\Http\Controllers\Controller;
 use App\Models\IdpProvider;
 use App\Models\User;
 use App\Services\Auth\IdpProviderService;
-use App\Services\Auth\SamlStateTokenFactory;
+use App\Services\Auth\SamlLibraryBridge;
 use App\Support\AuthTokenCookie;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
+use OneLogin\Saml2\Auth as OneLoginAuth;
 use UnexpectedValueException;
 
 final class SamlAssertionConsumerController extends Controller
 {
     public function __construct(
         private readonly IdpProviderService $providers,
-        private readonly SamlStateTokenFactory $stateTokens,
+        private readonly SamlLibraryBridge $saml,
         private readonly SamlAuthenticatorContract $authenticator
     ) {}
 
@@ -81,7 +83,15 @@ final class SamlAssertionConsumerController extends Controller
         $payload = [
             'SAMLResponse' => $request->input('SAMLResponse'),
             'request_id' => $stateContext['request_id'] ?? null,
+            'relay_state' => $relayState,
         ];
+
+        $libraryAuth = $this->resolveLibraryAuthInstance($request, $provider, $stateContext, $relayState);
+        if ($libraryAuth instanceof RedirectResponse) {
+            return $libraryAuth;
+        }
+
+        $payload['saml_auth'] = $libraryAuth;
 
         try {
             $user = $this->authenticator->authenticate($provider, $payload, $request);
@@ -153,11 +163,64 @@ final class SamlAssertionConsumerController extends Controller
     }
 
     /**
+     * @param  array{provider_id:?string,provider_key:?string,request_id:?string,intended:?string,source:string}  $stateContext
+     */
+    private function resolveLibraryAuthInstance(
+        Request $request,
+        IdpProvider $provider,
+        array $stateContext,
+        string $relayState
+    ): OneLoginAuth|RedirectResponse {
+        /** @var array<string,mixed> $providerConfig */
+        $providerConfig = (array) $provider->getAttribute('config');
+
+        try {
+            $requestId = $stateContext['request_id'] ?? null;
+            if (! is_string($requestId) || $requestId === '') {
+                $requestId = null;
+            }
+
+            return $this->saml->processResponse(
+                $provider,
+                $providerConfig,
+                $request,
+                $requestId
+            );
+        } catch (SamlLibraryException $e) {
+            return $this->abortAndRedirect(
+                $request,
+                $this->sanitizeReturnPath($stateContext['intended'] ?? null),
+                'SAML response failed validation. Please try again.',
+                'saml response validation failed',
+                [
+                    'relay_state' => $relayState,
+                    'provider' => $provider->key,
+                    'state_source' => $stateContext['source'],
+                    'error' => $e->getMessage(),
+                ]
+            );
+        } catch (\Throwable $e) {
+            return $this->abortAndRedirect(
+                $request,
+                $this->sanitizeReturnPath($stateContext['intended'] ?? null),
+                'Unexpected error while processing SAML response.',
+                'saml response unexpected error',
+                [
+                    'relay_state' => $relayState,
+                    'provider' => $provider->key,
+                    'state_source' => $stateContext['source'],
+                    'error' => $e->getMessage(),
+                ]
+            );
+        }
+    }
+
+    /**
      * @return array{provider_id:?string,provider_key:?string,request_id:?string,intended:?string,source:string}
      */
     private function resolveStateContext(string $relayState, Request $request): array
     {
-        $descriptor = $this->stateTokens->validate($relayState, $request);
+        $descriptor = $this->saml->validateRelayState($relayState, $request);
 
         return [
             'provider_id' => $descriptor->providerId,

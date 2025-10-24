@@ -16,19 +16,15 @@ use App\Jobs\IntegrationBus\ProcessIntegrationBusMessage;
 use App\Services\IntegrationBus\IntegrationBusDispatcher;
 use Illuminate\Support\Facades\Event;
 use InvalidArgumentException;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
-/**
- * @covers \App\Jobs\IntegrationBus\ProcessIntegrationBusMessage
- * @covers \App\Services\IntegrationBus\IntegrationBusDispatcher
- */
+#[CoversClass(ProcessIntegrationBusMessage::class)]
+#[CoversClass(IntegrationBusDispatcher::class)]
 final class ProcessIntegrationBusMessageTest extends TestCase
 {
-    /**
-     * @dataProvider kindProvider
-     *
-     * @param  class-string  $expectedEvent
-     */
+    #[DataProvider('kindProvider')]
     public function test_it_dispatches_expected_event_for_kind(string $kind, string $expectedEvent): void
     {
         Event::fake();

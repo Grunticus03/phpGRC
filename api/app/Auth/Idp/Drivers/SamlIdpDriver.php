@@ -7,18 +7,14 @@ namespace App\Auth\Idp\Drivers;
 use App\Auth\Idp\DTO\IdpHealthCheckResult;
 use App\Exceptions\Auth\SamlMetadataException;
 use App\Models\IdpProvider;
-use App\Services\Auth\SamlAuthnRequestBuilder;
-use App\Services\Auth\SamlMetadataService;
+use App\Services\Auth\SamlLibraryBridge;
 use App\Services\Auth\SamlServiceProviderConfigResolver;
-use App\Services\Auth\SamlStateTokenFactory;
+use App\ValueObjects\Auth\SamlLoginRequest;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\Client\Response;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
-use RuntimeException;
 
 /**
  * @SuppressWarnings("PMD.ExcessiveClassComplexity")
@@ -26,10 +22,8 @@ use RuntimeException;
 final class SamlIdpDriver extends AbstractIdpDriver
 {
     public function __construct(
-        private readonly SamlMetadataService $metadata,
-        private readonly SamlServiceProviderConfigResolver $spConfig,
-        private readonly SamlAuthnRequestBuilder $requestBuilder,
-        private readonly SamlStateTokenFactory $stateTokens
+        private readonly SamlLibraryBridge $bridge,
+        private readonly SamlServiceProviderConfigResolver $spConfig
     ) {}
 
     #[\Override]
@@ -53,12 +47,13 @@ final class SamlIdpDriver extends AbstractIdpDriver
         $metadataXml = $config['metadata'] ?? $config['metadata_xml'] ?? null;
         if (is_string($metadataXml) && trim($metadataXml) !== '') {
             try {
-                $parsed = $this->metadata->parse($metadataXml);
+                $parsed = $this->bridge->parseMetadata($metadataXml);
                 $config = array_merge($config, $parsed);
             } catch (SamlMetadataException $e) {
                 $this->addError($errors, 'config.metadata', $e->getMessage());
             }
         }
+        unset($config['metadata'], $config['metadata_xml']);
 
         $entityId = $this->requireString($config, 'entity_id', $errors, 'Entity ID is required.');
         $ssoUrl = $this->requireUrl($config, 'sso_url', $errors, 'SSO URL must be a valid URL.');
@@ -68,12 +63,27 @@ final class SamlIdpDriver extends AbstractIdpDriver
             $this->addError($errors, 'config.certificate', 'Certificate must be a PEM encoded block.');
         }
 
-        $this->throwIfErrors($errors);
-
         $config['entity_id'] = $entityId;
         $config['sso_url'] = $ssoUrl;
         $config['certificate'] = $certificate;
-        unset($config['metadata'], $config['metadata_xml']);
+
+        if (isset($config['slo_url']) && is_string($config['slo_url'])) {
+            $sloUrl = trim($config['slo_url']);
+            if ($sloUrl === '') {
+                unset($config['slo_url']);
+            }
+
+            $isValidSlo = $sloUrl !== '' && filter_var($sloUrl, FILTER_VALIDATE_URL);
+            if ($sloUrl !== '' && ! $isValidSlo) {
+                $this->addError($errors, 'config.slo_url', 'SLO URL must be a valid URL.');
+            }
+
+            if ($isValidSlo) {
+                $config['slo_url'] = $sloUrl;
+            }
+        }
+
+        $this->throwIfErrors($errors);
 
         return $config;
     }
@@ -126,12 +136,11 @@ final class SamlIdpDriver extends AbstractIdpDriver
         }
 
         $provider = $this->resolveProviderContext($config);
-        $requestId = '_'.str_replace('-', '', Str::uuid()->toString());
 
         try {
-            $relayState = $this->issueHealthRelayState($provider, $requestId);
+            $requestContext = $this->bridge->createPassiveLoginRequest($provider, $config);
         } catch (\Throwable $e) {
-            return IdpHealthCheckResult::failed('Failed to issue SAML RelayState token for health check.', [
+            return IdpHealthCheckResult::failed('Failed to prepare SAML AuthnRequest.', [
                 'sp' => $sp,
                 'provider' => [
                     'id' => $provider->id,
@@ -141,76 +150,25 @@ final class SamlIdpDriver extends AbstractIdpDriver
             ]);
         }
 
-        $entityIdValue = $config['entity_id'] ?? null;
-        $ssoUrlValue = $config['sso_url'] ?? null;
-        $certificateValue = $config['certificate'] ?? null;
-
-        if (! is_string($entityIdValue) || ! is_string($ssoUrlValue) || ! is_string($certificateValue)) {
-            return IdpHealthCheckResult::failed('SAML configuration missing required values.', [
-                'sp' => $sp,
-            ]);
-        }
-
-        $idpConfig = [
-            'entity_id' => $entityIdValue,
-            'sso_url' => $ssoUrlValue,
-            'certificate' => $certificateValue,
-        ];
-
         try {
-            /** @var array{id:string,relay_state:string|null,url:string,destination:string,encoded_request:string,xml:string} $requestData */
-            $requestData = $this->requestBuilder->build(
-                $sp,
-                $idpConfig,
-                $relayState,
-                $this->spConfig->privateKey(),
-                $this->spConfig->privateKeyPassphrase(),
-                $requestId,
-                SamlAuthnRequestBuilder::INTERACTION_PASSIVE
-            );
-        } catch (\Throwable $e) {
-            return IdpHealthCheckResult::failed('Failed to prepare SAML AuthnRequest.', [
-                'sp' => $sp,
-                'error' => $this->exceptionMessage($e),
-            ]);
-        }
-
-        try {
-            $response = $this->sendHealthRequest($requestData['url']);
+            $response = $this->sendHealthRequest($requestContext->redirectUrl);
         } catch (ConnectionException|RequestException $e) {
             return IdpHealthCheckResult::failed('Unable to contact SAML SSO endpoint.', [
                 'sp' => $sp,
-                'request' => $this->requestMeta($requestData),
+                'request' => $this->requestMeta($requestContext),
                 'error' => $this->exceptionMessage($e),
             ]);
         } catch (\Throwable $e) {
             return IdpHealthCheckResult::failed('Unexpected error during SAML health check.', [
                 'sp' => $sp,
-                'request' => $this->requestMeta($requestData),
+                'request' => $this->requestMeta($requestContext),
                 'error' => $this->exceptionMessage($e),
             ]);
         }
 
-        $details = $this->assembleResponseDetails($requestData, $response, $sp);
+        $details = $this->assembleResponseDetails($requestContext, $response, $sp);
 
         return $this->interpretHealthResponse($response, $details);
-    }
-
-    private function issueHealthRelayState(IdpProvider $provider, string $requestId): string
-    {
-        $request = new Request([], [], [], [], [], [
-            'REMOTE_ADDR' => '127.0.0.1',
-            'HTTP_USER_AGENT' => 'phpGRC SAML Health/1.0',
-        ]);
-
-        $descriptor = $this->stateTokens->issue($provider, $requestId, null, $request);
-        $token = $descriptor->token;
-
-        if ($token === null) {
-            throw new RuntimeException('RelayState token factory returned null token.');
-        }
-
-        return $token;
     }
 
     /**
@@ -262,25 +220,30 @@ final class SamlIdpDriver extends AbstractIdpDriver
     }
 
     /**
-     * @param  array{id:string,relay_state:string|null,url:string,destination:string,encoded_request:string,xml:string}  $requestData
-     * @return array<string,mixed>
+     * @return array{
+     *     id: string,
+     *     relay_state: string|null,
+     *     url: string,
+     *     destination: string,
+     *     signed: bool,
+     *     signature_algorithm: string|null
+     * }
      */
-    private function requestMeta(array $requestData): array
+    private function requestMeta(SamlLoginRequest $request): array
     {
-        return [
-            'id' => $requestData['id'],
-            'relay_state' => $requestData['relay_state'],
-            'url' => $requestData['url'],
-            'destination' => $requestData['destination'],
-        ];
+        return array_merge([
+            'id' => $request->requestId,
+            'relay_state' => $request->relayState,
+            'url' => $request->redirectUrl,
+            'destination' => $request->destination,
+        ], $this->requestSignatureFlags($request));
     }
 
     /**
-     * @param  array{id:string,relay_state:string|null,url:string,destination:string,encoded_request:string,xml:string}  $requestData
      * @param  array{entity_id:string,acs_url:string,metadata_url:string,sign_authn_requests:bool,want_assertions_signed:bool,want_assertions_encrypted:bool,certificate?:string}  $sp
      * @return array<string,mixed>
      */
-    private function assembleResponseDetails(array $requestData, Response $response, array $sp): array
+    private function assembleResponseDetails(SamlLoginRequest $request, Response $response, array $sp): array
     {
         $status = $response->status();
         $rawBody = $response->body();
@@ -311,17 +274,18 @@ final class SamlIdpDriver extends AbstractIdpDriver
             $responsePayload['adfs_error_detail'] = $adfsErrorDetail;
         }
 
+        $requestDetails = array_merge(
+            $this->requestMeta($request),
+            [
+                'encoded_length' => strlen($request->encodedRequest),
+                'xml_preview' => $this->extractBodyPreview($request->xml, 256),
+            ]
+        );
+
         /** @var array<string,mixed> $details */
         $details = [
             'sp' => $sp,
-            'request' => [
-                'id' => $requestData['id'],
-                'relay_state' => $requestData['relay_state'],
-                'url' => $requestData['url'],
-                'destination' => $requestData['destination'],
-                'encoded_length' => strlen($requestData['encoded_request']),
-                'xml_preview' => $this->extractBodyPreview($requestData['xml'], 256),
-            ],
+            'request' => $requestDetails,
             'response' => $responsePayload,
         ];
 
@@ -375,6 +339,38 @@ final class SamlIdpDriver extends AbstractIdpDriver
     private function serviceProviderConfig(): array
     {
         return $this->spConfig->resolve();
+    }
+
+    /**
+     * @return array{signed:bool,signature_algorithm:?string}
+     */
+    private function requestSignatureFlags(SamlLoginRequest $request): array
+    {
+        /** @var array<string,mixed> $parameters */
+        $parameters = $request->parameters;
+
+        $signatureRaw = $parameters['Signature'] ?? null;
+        $signed = is_string($signatureRaw) && trim($signatureRaw) !== '';
+
+        if (! $signed) {
+            return [
+                'signed' => false,
+                'signature_algorithm' => null,
+            ];
+        }
+
+        $algorithm = null;
+        if (isset($parameters['SigAlg']) && is_string($parameters['SigAlg'])) {
+            $trimmed = trim($parameters['SigAlg']);
+            if ($trimmed !== '') {
+                $algorithm = $trimmed;
+            }
+        }
+
+        return [
+            'signed' => true,
+            'signature_algorithm' => $algorithm,
+        ];
     }
 
     private function exceptionMessage(\Throwable $e): string

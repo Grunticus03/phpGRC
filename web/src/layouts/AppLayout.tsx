@@ -16,7 +16,6 @@ import {
   authLogout,
   authMe,
   baseHeaders,
-  hasAuthToken,
   markSessionExpired,
   onUnauthorized,
   rememberIntendedPath,

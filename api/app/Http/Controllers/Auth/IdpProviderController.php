@@ -14,7 +14,7 @@ use App\Http\Requests\Auth\SamlMetadataRequest;
 use App\Http\Requests\Auth\SamlServiceProviderUpdateRequest;
 use App\Models\IdpProvider;
 use App\Services\Auth\IdpProviderService;
-use App\Services\Auth\SamlMetadataService;
+use App\Services\Auth\SamlLibraryBridge;
 use App\Services\Auth\SamlServiceProviderConfigResolver;
 use App\Services\Settings\SettingsService;
 use Carbon\CarbonImmutable;
@@ -35,7 +35,7 @@ final class IdpProviderController extends Controller
 {
     public function __construct(
         private readonly IdpProviderService $service,
-        private readonly SamlMetadataService $samlMetadata,
+        private readonly SamlLibraryBridge $saml,
         private readonly SamlServiceProviderConfigResolver $samlSpConfig,
         private readonly SettingsService $settings
     ) {}
@@ -279,7 +279,7 @@ final class IdpProviderController extends Controller
         }
 
         try {
-            $config = $this->samlMetadata->parse($metadata);
+            $config = $this->saml->parseMetadata($metadata);
         } catch (SamlMetadataException $e) {
             throw ValidationException::withMessages([
                 'metadata' => [$e->getMessage()],
@@ -379,7 +379,7 @@ final class IdpProviderController extends Controller
         $payload = $request->validated();
 
         try {
-            $config = $this->samlMetadata->parse($payload['metadata']);
+            $config = $this->saml->parseMetadata($payload['metadata']);
         } catch (SamlMetadataException $e) {
             throw ValidationException::withMessages([
                 'metadata' => [$e->getMessage()],
@@ -434,7 +434,7 @@ final class IdpProviderController extends Controller
         }
 
         try {
-            $metadata = $this->samlMetadata->generate([
+            $metadata = $this->saml->generateIdentityProviderMetadata([
                 'entity_id' => $entityId,
                 'sso_url' => $ssoUrl,
                 'certificate' => $certificate,

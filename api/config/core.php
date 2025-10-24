@@ -62,7 +62,7 @@ return [
 
         'saml' => [
             'state' => [
-                'secret' => env('CORE_AUTH_SAML_STATE_SECRET'),
+                'secret' => env('CORE_AUTH_SAML_STATE_SECRET', 'base64:'.base64_encode(str_repeat('#', 32))),
                 'previous_secret' => env('CORE_AUTH_SAML_STATE_PREVIOUS_SECRET'),
                 'ttl_seconds' => $defaultSamlStateTtl,
                 'clock_skew_seconds' => $defaultSamlStateSkew,

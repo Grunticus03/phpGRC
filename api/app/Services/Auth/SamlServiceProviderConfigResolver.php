@@ -13,24 +13,51 @@ final class SamlServiceProviderConfigResolver
      */
     public function resolve(): array
     {
-        /** @var array<string,mixed> $raw */
-        $raw = (array) config('core.auth.saml.sp', []);
+        /** @var array<string,mixed> $sp */
+        $sp = (array) config('saml.sp', []);
+        /** @var array<string,mixed> $security */
+        $security = (array) config('saml.security', []);
+        /** @var array<string,mixed> $legacy */
+        $legacy = (array) config('core.auth.saml.sp', []);
 
         $appUrl = $this->applicationUrl();
-        $signAuthnRequests = $this->normalizeBoolean($raw['sign_authn_requests'] ?? null, false);
-        $wantAssertionsSigned = $this->normalizeBoolean($raw['want_assertions_signed'] ?? null, true);
-        $encryptAssertions = $this->normalizeBoolean($raw['want_assertions_encrypted'] ?? null, false);
+        $entityIdOverride = $this->normalizeOptional($sp['entityId'] ?? null)
+            ?? $this->normalizeOptional($legacy['entity_id'] ?? null);
+
+        $acsOverride = null;
+        if (isset($sp['assertionConsumerService']) && is_array($sp['assertionConsumerService'])) {
+            $acsOverride = $this->normalizeOptional($sp['assertionConsumerService']['url'] ?? null);
+        }
+        if ($acsOverride === null) {
+            $acsOverride = $this->normalizeOptional($legacy['acs_url'] ?? null);
+        }
+
+        $metadataOverride = $this->normalizeOptional($sp['metadataUrl'] ?? null)
+            ?? $this->normalizeOptional($legacy['metadata_url'] ?? null);
+
+        $signAuthnRequests = $this->normalizeBoolean(
+            $security['authnRequestsSigned'] ?? $legacy['sign_authn_requests'] ?? null,
+            false
+        );
+        $wantAssertionsSigned = $this->normalizeBoolean(
+            $security['wantAssertionsSigned'] ?? $legacy['want_assertions_signed'] ?? null,
+            true
+        );
+        $encryptAssertions = $this->normalizeBoolean(
+            $security['wantAssertionsEncrypted'] ?? $legacy['want_assertions_encrypted'] ?? null,
+            false
+        );
 
         $resolved = [
-            'entity_id' => $this->normalize($raw['entity_id'] ?? null, $appUrl.'/saml/sp'),
-            'acs_url' => $this->normalize($raw['acs_url'] ?? null, $appUrl.'/auth/saml/acs'),
-            'metadata_url' => $this->normalize($raw['metadata_url'] ?? null, $appUrl.'/auth/saml/metadata'),
+            'entity_id' => $this->normalize($entityIdOverride, $appUrl.'/saml/sp'),
+            'acs_url' => $this->normalize($acsOverride, $appUrl.'/auth/saml/acs'),
+            'metadata_url' => $this->normalize($metadataOverride, $appUrl.'/auth/saml/metadata'),
             'sign_authn_requests' => $signAuthnRequests,
             'want_assertions_signed' => $wantAssertionsSigned,
             'want_assertions_encrypted' => $encryptAssertions,
         ];
 
-        $certificate = $this->normalizeOptional($raw['certificate'] ?? null);
+        $certificate = $this->normalizeOptional($sp['x509cert'] ?? $legacy['certificate'] ?? null);
         if ($certificate !== null) {
             $resolved['certificate'] = $certificate;
         }
@@ -40,12 +67,14 @@ final class SamlServiceProviderConfigResolver
 
     public function privateKey(): ?string
     {
-        $inline = $this->normalizeOptional(config('core.auth.saml.sp.private_key'));
+        $inline = $this->normalizeOptional(config('saml.sp.privateKey'))
+            ?? $this->normalizeOptional(config('core.auth.saml.sp.private_key'));
         if ($inline !== null) {
             return $this->normalizePrivateKey($inline);
         }
 
-        $path = $this->normalizeOptional(config('core.auth.saml.sp.private_key_path'));
+        $path = $this->normalizeOptional(config('saml.sp.privateKeyPath'))
+            ?? $this->normalizeOptional(config('core.auth.saml.sp.private_key_path'));
         if ($path === null) {
             return null;
         }
@@ -71,7 +100,10 @@ final class SamlServiceProviderConfigResolver
 
     public function privateKeyPassphrase(): ?string
     {
-        return $this->normalizeOptional(config('core.auth.saml.sp.private_key_passphrase'));
+        return $this->normalizeOptional(
+            config('saml.sp.privateKeyPassphrase')
+            ?? config('core.auth.saml.sp.private_key_passphrase')
+        );
     }
 
     private function applicationUrl(): string

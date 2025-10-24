@@ -10,7 +10,7 @@ use App\Models\IdpProvider;
 use App\Models\Role;
 use App\Models\User;
 use App\Services\Auth\Ldap\LdapClientInterface;
-use App\Services\Auth\SamlMetadataService;
+use App\Services\Auth\SamlLibraryBridge;
 use App\Support\Rbac\PolicyMap;
 use Carbon\CarbonImmutable;
 use GuzzleHttp\Client;
@@ -93,11 +93,22 @@ final class IdpProviderApiTest extends TestCase
     {
         $this->actingAsAdmin();
 
+        config()->set('saml.sp', array_merge(config('saml.sp', []), [
+            'entityId' => 'urn:phpgrc:test',
+            'assertionConsumerService' => array_merge(config('saml.sp.assertionConsumerService', []), [
+                'url' => 'https://phpgrc.example.test/auth/saml/acs',
+                'binding' => 'urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST',
+            ]),
+            'metadataUrl' => 'https://phpgrc.example.test/auth/saml/metadata',
+        ]));
+
         config()->set('core.auth.saml.sp', [
             'entity_id' => 'urn:phpgrc:test',
             'acs_url' => 'https://phpgrc.example.test/auth/saml/acs',
             'metadata_url' => 'https://phpgrc.example.test/auth/saml/metadata',
         ]);
+
+        self::assertSame('urn:phpgrc:test', config('saml.sp.entityId'));
 
         $this->getJson('/admin/idp/providers/saml/sp')
             ->assertStatus(200)
@@ -393,6 +404,21 @@ final class IdpProviderApiTest extends TestCase
     {
         $this->actingAsAdmin();
 
+        config()->set('saml.sp', array_merge(config('saml.sp', []), [
+            'entityId' => 'https://phpgrc.example/saml/sp',
+            'assertionConsumerService' => array_merge(config('saml.sp.assertionConsumerService', []), [
+                'url' => 'https://phpgrc.example/auth/saml/acs',
+                'binding' => 'urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST',
+            ]),
+            'metadataUrl' => 'https://phpgrc.example/auth/saml/metadata',
+        ]));
+
+        config()->set('saml.security', array_merge(config('saml.security', []), [
+            'authnRequestsSigned' => true,
+            'wantAssertionsSigned' => false,
+            'wantAssertionsEncrypted' => true,
+        ]));
+
         config()->set('core.auth.saml.sp', [
             'entity_id' => 'https://phpgrc.example/saml/sp',
             'acs_url' => 'https://phpgrc.example/auth/saml/acs',
@@ -415,6 +441,21 @@ final class IdpProviderApiTest extends TestCase
     {
         $this->actingAsAdmin();
 
+        config()->set('saml.sp', array_merge(config('saml.sp', []), [
+            'entityId' => 'https://phpgrc.example/saml/sp',
+            'assertionConsumerService' => array_merge(config('saml.sp.assertionConsumerService', []), [
+                'url' => 'https://phpgrc.example/auth/saml/acs',
+                'binding' => 'urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST',
+            ]),
+            'metadataUrl' => 'https://phpgrc.example/auth/saml/metadata',
+        ]));
+
+        config()->set('saml.security', array_merge(config('saml.security', []), [
+            'authnRequestsSigned' => false,
+            'wantAssertionsSigned' => true,
+            'wantAssertionsEncrypted' => false,
+        ]));
+
         config()->set('core.auth.saml.sp', [
             'entity_id' => 'https://phpgrc.example/saml/sp',
             'acs_url' => 'https://phpgrc.example/auth/saml/acs',
@@ -424,15 +465,26 @@ final class IdpProviderApiTest extends TestCase
             'want_assertions_encrypted' => false,
         ]);
 
-        $this->patchJson('/admin/idp/providers/saml/sp', [
+        $response = $this->patchJson('/admin/idp/providers/saml/sp', [
             'sign_authn_requests' => true,
             'want_assertions_signed' => false,
             'want_assertions_encrypted' => true,
         ])
-            ->assertStatus(200)
-            ->assertJsonPath('sp.sign_authn_requests', true)
-            ->assertJsonPath('sp.want_assertions_signed', false)
-            ->assertJsonPath('sp.want_assertions_encrypted', true);
+            ->assertStatus(200);
+
+        $changes = $response->json('changes');
+        self::assertIsArray($changes);
+
+        $indexedChanges = collect($changes)->keyBy('key');
+        self::assertSame(true, $indexedChanges->get('core.auth.saml.sp.sign_authn_requests')['new'] ?? null);
+        self::assertSame(false, $indexedChanges->get('core.auth.saml.sp.want_assertions_signed')['new'] ?? null);
+        self::assertSame(true, $indexedChanges->get('core.auth.saml.sp.want_assertions_encrypted')['new'] ?? null);
+
+        config()->set('saml.security', array_merge(config('saml.security', []), [
+            'authnRequestsSigned' => true,
+            'wantAssertionsSigned' => false,
+            'wantAssertionsEncrypted' => true,
+        ]));
 
         $this->assertDatabaseHas('core_settings', [
             'key' => 'core.auth.saml.sp.sign_authn_requests',
@@ -820,6 +872,15 @@ final class IdpProviderApiTest extends TestCase
     {
         $this->actingAsAdmin();
 
+        config()->set('saml.sp', array_merge(config('saml.sp', []), [
+            'entityId' => 'https://phpgrc.example.test/saml/sp',
+            'assertionConsumerService' => array_merge(config('saml.sp.assertionConsumerService', []), [
+                'url' => 'https://phpgrc.example.test/auth/saml/acs',
+                'binding' => 'urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST',
+            ]),
+            'metadataUrl' => 'https://phpgrc.example.test/auth/saml/metadata',
+        ]));
+
         config()->set('core.auth.saml.sp', [
             'entity_id' => 'https://phpgrc.example.test/saml/sp',
             'acs_url' => 'https://phpgrc.example.test/auth/saml/acs',
@@ -839,12 +900,17 @@ final class IdpProviderApiTest extends TestCase
                 'sso_url' => 'https://sso.example.test/adfs/ls',
                 'certificate' => $this->sampleCertificate(),
             ],
-        ])
+        ]);
+
+        $response
             ->assertStatus(200)
             ->assertJsonPath('status', IdpHealthCheckResult::STATUS_OK)
             ->assertJsonPath('details.response.status', 200)
-            ->assertJsonPath('details.request.id', fn ($value) => is_string($value) && str_starts_with($value, '_'))
-            ->assertJsonPath('details.request.relay_state', fn ($value) => is_string($value) && substr_count($value, '.') === 2);
+            ->assertJsonPath('details.request.id', fn ($value) => is_string($value)
+                && (str_starts_with($value, '_') || str_starts_with($value, 'ONELOGIN_')))
+            ->assertJsonPath('details.request.relay_state', fn ($value) => is_string($value) && substr_count($value, '.') === 2)
+            ->assertJsonPath('details.request.signed', false)
+            ->assertJsonPath('details.request.signature_algorithm', null);
 
         $requestUrl = $response->json('details.request.url');
         self::assertIsString($requestUrl);
@@ -894,20 +960,37 @@ final class IdpProviderApiTest extends TestCase
             'metadata_url' => 'https://phpgrc.example.test/auth/saml/metadata',
             'sign_authn_requests' => true,
             'private_key' => $privateKey,
+            'certificate' => $this->sampleCertificate(),
         ]);
+
+        config()->set('saml.security', array_merge(config('saml.security', []), [
+            'authnRequestsSigned' => true,
+        ]));
+
+        config()->set('saml.sp', array_merge(config('saml.sp', []), [
+            'privateKey' => $privateKey,
+            'x509cert' => $this->sampleCertificate(),
+        ]));
 
         Http::fake([
             'https://sso.example.test/adfs/ls*' => Http::response('<html><title>Sign In</title></html>', 200),
         ]);
 
-        $this->postJson('/admin/idp/providers/preview-health', [
+        $response = $this->postJson('/admin/idp/providers/preview-health', [
             'driver' => 'saml',
             'config' => [
                 'entity_id' => 'https://sso.example.test/adfs/services/trust',
                 'sso_url' => 'https://sso.example.test/adfs/ls',
                 'certificate' => $this->sampleCertificate(),
             ],
-        ])->assertStatus(200);
+        ]);
+
+        $response
+            ->assertStatus(200)
+            ->assertJsonPath('details.request.signed', true)
+            ->assertJsonPath('details.request.signature_algorithm', 'http://www.w3.org/2001/04/xmldsig-more#rsa-sha256');
+
+        self::assertTrue((bool) $response->json('details.sp.sign_authn_requests'));
 
         Http::assertSent(static function ($request) use ($privateKey) {
             if (! str_starts_with($request->url(), 'https://sso.example.test/adfs/ls')) {
@@ -1096,10 +1179,10 @@ final class IdpProviderApiTest extends TestCase
 
     private function sampleMetadataXml(): string
     {
-        /** @var SamlMetadataService $service */
-        $service = app(SamlMetadataService::class);
+        /** @var SamlLibraryBridge $bridge */
+        $bridge = app(SamlLibraryBridge::class);
 
-        return $service->generate([
+        return $bridge->generateIdentityProviderMetadata([
             'entity_id' => 'https://sso.example.test/entity',
             'sso_url' => 'https://sso.example.test/login',
             'certificate' => $this->sampleCertificate(),
