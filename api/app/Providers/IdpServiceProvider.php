@@ -11,12 +11,17 @@ use App\Auth\Idp\Drivers\SamlIdpDriver;
 use App\Auth\Idp\IdpDriverRegistry;
 use App\Contracts\Auth\LdapAuthenticatorContract;
 use App\Contracts\Auth\OidcAuthenticatorContract;
+use App\Contracts\Auth\SamlAuthenticatorContract;
 use App\Services\Audit\AuditLogger;
 use App\Services\Auth\Ldap\LdapClientInterface;
 use App\Services\Auth\Ldap\NativeLdapClient;
 use App\Services\Auth\LdapAuthenticator;
 use App\Services\Auth\OidcAuthenticator;
 use App\Services\Auth\OidcProviderMetadataService;
+use App\Services\Auth\SamlAuthenticator;
+use App\Services\Auth\SamlAuthnRequestBuilder;
+use App\Services\Auth\SamlServiceProviderConfigResolver;
+use App\Services\Auth\SamlStateStore;
 use GuzzleHttp\Client;
 use GuzzleHttp\ClientInterface;
 use Illuminate\Contracts\Cache\Repository as CacheRepository;
@@ -41,6 +46,12 @@ final class IdpServiceProvider extends ServiceProvider
                 $app->make(ClientInterface::class),
                 $app->make(LoggerInterface::class),
             );
+        });
+
+        $this->app->singleton(SamlAuthnRequestBuilder::class, static fn (): SamlAuthnRequestBuilder => new SamlAuthnRequestBuilder);
+
+        $this->app->singleton(SamlStateStore::class, function (Container $app): SamlStateStore {
+            return new SamlStateStore($app->make(CacheRepository::class));
         });
 
         $this->app->singleton(IdpDriverRegistry::class, function (Container $app): IdpDriverRegistry {
@@ -88,5 +99,15 @@ final class IdpServiceProvider extends ServiceProvider
         });
 
         $this->app->alias(LdapAuthenticatorContract::class, LdapAuthenticator::class);
+
+        $this->app->singleton(SamlAuthenticatorContract::class, function (Container $app): SamlAuthenticatorContract {
+            return new SamlAuthenticator(
+                $app->make(AuditLogger::class),
+                $app->make(LoggerInterface::class),
+                $app->make(SamlServiceProviderConfigResolver::class)
+            );
+        });
+
+        $this->app->alias(SamlAuthenticatorContract::class, SamlAuthenticator::class);
     }
 }

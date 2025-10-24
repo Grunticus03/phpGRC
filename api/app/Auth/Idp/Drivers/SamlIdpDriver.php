@@ -6,17 +6,15 @@ namespace App\Auth\Idp\Drivers;
 
 use App\Auth\Idp\DTO\IdpHealthCheckResult;
 use App\Exceptions\Auth\SamlMetadataException;
+use App\Services\Auth\SamlAuthnRequestBuilder;
 use App\Services\Auth\SamlMetadataService;
 use App\Services\Auth\SamlServiceProviderConfigResolver;
-use Carbon\CarbonImmutable;
-use DOMDocument;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
-use RuntimeException;
 
 /**
  * @SuppressWarnings("PMD.ExcessiveClassComplexity")
@@ -25,7 +23,8 @@ final class SamlIdpDriver extends AbstractIdpDriver
 {
     public function __construct(
         private readonly SamlMetadataService $metadata,
-        private readonly SamlServiceProviderConfigResolver $spConfig
+        private readonly SamlServiceProviderConfigResolver $spConfig,
+        private readonly SamlAuthnRequestBuilder $requestBuilder
     ) {}
 
     #[\Override]
@@ -121,9 +120,35 @@ final class SamlIdpDriver extends AbstractIdpDriver
             ]);
         }
 
+        $relayState = 'phpgrc-health-'.Str::lower(Str::random(12));
+
+        $entityIdValue = $config['entity_id'] ?? null;
+        $ssoUrlValue = $config['sso_url'] ?? null;
+        $certificateValue = $config['certificate'] ?? null;
+
+        if (! is_string($entityIdValue) || ! is_string($ssoUrlValue) || ! is_string($certificateValue)) {
+            return IdpHealthCheckResult::failed('SAML configuration missing required values.', [
+                'sp' => $sp,
+            ]);
+        }
+
+        $idpConfig = [
+            'entity_id' => $entityIdValue,
+            'sso_url' => $ssoUrlValue,
+            'certificate' => $certificateValue,
+        ];
+
         try {
-            /** @var array{id:string,relay_state:string,url:string,destination:string,encoded_request:string,xml:string} $requestData */
-            $requestData = $this->buildHealthRequestData($sp, $destination);
+            /** @var array{id:string,relay_state:string|null,url:string,destination:string,encoded_request:string,xml:string} $requestData */
+            $requestData = $this->requestBuilder->build(
+                $sp,
+                $idpConfig,
+                $relayState,
+                $this->spConfig->privateKey(),
+                $this->spConfig->privateKeyPassphrase(),
+                null,
+                SamlAuthnRequestBuilder::INTERACTION_PASSIVE
+            );
         } catch (\Throwable $e) {
             return IdpHealthCheckResult::failed('Failed to prepare SAML AuthnRequest.', [
                 'sp' => $sp,
@@ -152,51 +177,6 @@ final class SamlIdpDriver extends AbstractIdpDriver
         return $this->interpretHealthResponse($response, $details);
     }
 
-    /**
-     * @param  array{entity_id:string,acs_url:string,metadata_url:string,sign_authn_requests:bool,want_assertions_signed:bool,want_assertions_encrypted:bool,certificate?:string}  $sp
-     * @return array{id:string,relay_state:string,url:string,destination:string,encoded_request:string,xml:string}
-     *
-     * @SuppressWarnings("PMD.StaticAccess")
-     */
-    private function buildHealthRequestData(array $sp, string $destination): array
-    {
-        /** @var string $entityId */
-        $entityId = $sp['entity_id'];
-        /** @var string $acsUrl */
-        $acsUrl = $sp['acs_url'];
-
-        [$requestId, $encodedRequest, $requestXml] = $this->buildAuthnRequest(
-            $entityId,
-            $acsUrl,
-            $destination
-        );
-
-        $relayState = 'phpgrc-health-'.Str::lower(Str::random(12));
-        $queryParams = [
-            'SAMLRequest' => $encodedRequest,
-            'RelayState' => $relayState,
-        ];
-
-        if ($sp['sign_authn_requests']) {
-            $sigAlg = 'http://www.w3.org/2001/04/xmldsig-more#rsa-sha256';
-            $signatureInput = $this->buildRedirectSignaturePayload($encodedRequest, $relayState, $sigAlg);
-            $signature = $this->signRedirectPayload($signatureInput);
-            $queryParams['SigAlg'] = $sigAlg;
-            $queryParams['Signature'] = $signature;
-        }
-
-        $query = http_build_query($queryParams, '', '&', PHP_QUERY_RFC3986);
-
-        return [
-            'id' => $requestId,
-            'relay_state' => $relayState,
-            'url' => $this->appendQueryString($destination, $query),
-            'destination' => $destination,
-            'encoded_request' => $encodedRequest,
-            'xml' => $requestXml,
-        ];
-    }
-
     private function sendHealthRequest(string $url): Response
     {
         return Http::withHeaders([
@@ -209,7 +189,7 @@ final class SamlIdpDriver extends AbstractIdpDriver
     }
 
     /**
-     * @param  array{id:string,relay_state:string,url:string,destination:string,encoded_request:string,xml:string}  $requestData
+     * @param  array{id:string,relay_state:string|null,url:string,destination:string,encoded_request:string,xml:string}  $requestData
      * @return array<string,mixed>
      */
     private function requestMeta(array $requestData): array
@@ -223,7 +203,7 @@ final class SamlIdpDriver extends AbstractIdpDriver
     }
 
     /**
-     * @param  array{id:string,relay_state:string,url:string,destination:string,encoded_request:string,xml:string}  $requestData
+     * @param  array{id:string,relay_state:string|null,url:string,destination:string,encoded_request:string,xml:string}  $requestData
      * @param  array{entity_id:string,acs_url:string,metadata_url:string,sign_authn_requests:bool,want_assertions_signed:bool,want_assertions_encrypted:bool,certificate?:string}  $sp
      * @return array<string,mixed>
      */
@@ -322,111 +302,6 @@ final class SamlIdpDriver extends AbstractIdpDriver
     private function serviceProviderConfig(): array
     {
         return $this->spConfig->resolve();
-    }
-
-    /**
-     * @return array{0:string,1:string,2:string}
-     *
-     * @SuppressWarnings("PMD.StaticAccess")
-     */
-    private function buildAuthnRequest(string $entityId, string $acsUrl, string $destination): array
-    {
-        $document = new DOMDocument('1.0', 'UTF-8');
-        $document->formatOutput = false;
-
-        $requestId = '_'.str_replace('-', '', Str::uuid()->toString());
-        $issueInstant = CarbonImmutable::now('UTC')->format('Y-m-d\TH:i:s\Z');
-
-        $root = $document->createElementNS('urn:oasis:names:tc:SAML:2.0:protocol', 'samlp:AuthnRequest');
-        $root->setAttribute('ID', $requestId);
-        $root->setAttribute('Version', '2.0');
-        $root->setAttribute('IssueInstant', $issueInstant);
-        $root->setAttribute('Destination', $destination);
-        $root->setAttribute('ProtocolBinding', 'urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST');
-        $root->setAttribute('AssertionConsumerServiceURL', $acsUrl);
-        $root->setAttribute('ForceAuthn', 'false');
-        $root->setAttribute('IsPassive', 'true');
-        $document->appendChild($root);
-
-        $issuer = $document->createElementNS('urn:oasis:names:tc:SAML:2.0:assertion', 'saml:Issuer', $entityId);
-        $root->appendChild($issuer);
-
-        $nameIdPolicy = $document->createElementNS('urn:oasis:names:tc:SAML:2.0:protocol', 'samlp:NameIDPolicy');
-        $nameIdPolicy->setAttribute('Format', 'urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified');
-        $nameIdPolicy->setAttribute('AllowCreate', 'false');
-        $root->appendChild($nameIdPolicy);
-
-        $xml = $document->saveXML();
-        if (! is_string($xml)) {
-            throw new RuntimeException('Unable to serialize AuthnRequest XML.');
-        }
-
-        $trimmedXml = trim($xml);
-        $deflated = gzdeflate($trimmedXml, 9);
-        if ($deflated === false) {
-            throw new RuntimeException('Failed to compress AuthnRequest payload.');
-        }
-
-        $encoded = base64_encode($deflated);
-
-        return [$requestId, $encoded, $trimmedXml];
-    }
-
-    private function buildRedirectSignaturePayload(string $encodedRequest, string $relayState, string $sigAlg): string
-    {
-        $parts = [
-            'SAMLRequest='.rawurlencode($encodedRequest),
-        ];
-
-        if ($relayState !== '') {
-            $parts[] = 'RelayState='.rawurlencode($relayState);
-        }
-
-        $parts[] = 'SigAlg='.rawurlencode($sigAlg);
-
-        return implode('&', $parts);
-    }
-
-    private function signRedirectPayload(string $payload): string
-    {
-        $privateKey = $this->spConfig->privateKey();
-        if ($privateKey === null) {
-            throw new RuntimeException('SAML SP private key is required to sign AuthnRequests.');
-        }
-
-        $passphrase = $this->spConfig->privateKeyPassphrase();
-        $key = openssl_pkey_get_private($privateKey, $passphrase ?? '');
-        if ($key === false) {
-            throw new RuntimeException('Unable to load SAML SP private key for signing.');
-        }
-
-        $rawSignature = '';
-        $success = false;
-        try {
-            $success = openssl_sign($payload, $rawSignature, $key, OPENSSL_ALGO_SHA256);
-        } finally {
-            openssl_pkey_free($key);
-        }
-
-        if ($success !== true) {
-            throw new RuntimeException('SAML AuthnRequest signature generation returned an invalid value.');
-        }
-
-        if ($rawSignature === '') {
-            throw new RuntimeException('SAML AuthnRequest signature generation returned an empty value.');
-        }
-
-        /** @var string $rawSignature */
-        return base64_encode($rawSignature);
-    }
-
-    private function appendQueryString(string $base, string $query): string
-    {
-        if ($query === '') {
-            return $base;
-        }
-
-        return $base.(str_contains($base, '?') ? '&' : '?').$query;
     }
 
     private function exceptionMessage(\Throwable $e): string

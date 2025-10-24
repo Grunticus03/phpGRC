@@ -281,6 +281,14 @@ export function consumeIntendedPath(): string | null {
   }
 }
 
+export function peekIntendedPath(): string | null {
+  try {
+    return sessionStorage.getItem(INTENDED_KEY);
+  } catch {
+    return null;
+  }
+}
+
 /** Session-expired one-shot banner flag. */
 export function markSessionExpired(): void {
   try {

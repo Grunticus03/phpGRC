@@ -9,6 +9,13 @@ type ViewState =
 
 const CALLBACK_PATH = "/auth/callback";
 
+const sanitizeDestination = (value: string | null): string | null => {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed.startsWith("/") || trimmed.startsWith("//")) return null;
+  return trimmed;
+};
+
 function decodeErrorDescription(raw: string | null): string {
   if (!raw) return "Sign-in failed. Please try again.";
   try {
@@ -19,14 +26,31 @@ function decodeErrorDescription(raw: string | null): string {
 }
 
 export default function OidcCallback(): JSX.Element {
+  const searchParams = useMemo(() => new URLSearchParams(window.location.search), []);
+  const isSaml = searchParams.get("saml") === "1";
+
   const [state, setState] = useState<ViewState>({
     status: "working",
-    message: "Finishing Microsoft Entra sign-in…",
+    message: isSaml ? "Finishing SAML sign-in…" : "Finishing Microsoft Entra sign-in…",
   });
 
-  const searchParams = useMemo(() => new URLSearchParams(window.location.search), []);
-
   useEffect(() => {
+    if (isSaml) {
+      const errorMessage = searchParams.get("error");
+      if (errorMessage && errorMessage.trim() !== "") {
+        setState({
+          status: "error",
+          message: errorMessage.trim(),
+        });
+        return;
+      }
+
+      const destination = consumeIntendedPath() || sanitizeDestination(searchParams.get("dest")) || "/dashboard";
+      setState({ status: "done" });
+      window.location.assign(destination);
+      return;
+    }
+
     const error = searchParams.get("error");
     if (error) {
       const reason = decodeErrorDescription(searchParams.get("error_description"));
@@ -111,7 +135,7 @@ export default function OidcCallback(): JSX.Element {
         }
         setState({ status: "error", message });
       });
-  }, [searchParams]);
+  }, [isSaml, searchParams]);
 
   if (state.status === "error") {
     return (

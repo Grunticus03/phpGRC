@@ -13,6 +13,7 @@ import {
   authLogin,
   consumeSessionExpired,
   fetchAuthOptions,
+  peekIntendedPath,
   type AuthOptions,
   type AuthOptionsIdpProvider,
 } from "../../lib/api";
@@ -198,7 +199,7 @@ export default function Login(): JSX.Element {
 
   const startIdpFlow = useCallback(
     (provider: AuthOptionsIdpProvider, auto = false) => {
-      const authorizeUrl = provider.links?.authorize ?? resolveAuthorizeUrl(provider);
+      let authorizeUrl = provider.links?.authorize ?? resolveAuthorizeUrl(provider);
       const label = providerLabel(provider);
 
       if (!authorizeUrl) {
@@ -229,10 +230,26 @@ export default function Login(): JSX.Element {
           }
         }
 
+        if (driver === "saml") {
+          const intended = peekIntendedPath();
+          if (intended) {
+            try {
+              const absolute = new URL(authorizeUrl, window.location.origin);
+              absolute.searchParams.set("return", intended);
+              authorizeUrl = `${absolute.pathname}${absolute.search}${absolute.hash}`;
+            } catch {
+              const separator = authorizeUrl.includes("?") ? "&" : "?";
+              authorizeUrl = `${authorizeUrl}${separator}return=${encodeURIComponent(intended)}`;
+            }
+          }
+        }
+
+        const targetUrl = authorizeUrl;
+
         const attemptRedirect = async (): Promise<void> => {
           if (remembered) {
             try {
-              const response = await fetch(authorizeUrl, {
+              const response = await fetch(targetUrl, {
                 method: "GET",
                 credentials: "include",
                 headers: { Accept: "application/json" },
@@ -253,7 +270,7 @@ export default function Login(): JSX.Element {
             }
           }
 
-          window.location.assign(authorizeUrl);
+          window.location.assign(targetUrl);
         };
 
         void attemptRedirect();

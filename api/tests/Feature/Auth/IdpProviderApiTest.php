@@ -845,6 +845,25 @@ final class IdpProviderApiTest extends TestCase
             ->assertJsonPath('details.response.status', 200)
             ->assertJsonPath('details.request.id', fn ($value) => is_string($value) && str_starts_with($value, '_'));
 
+        $requestUrl = $response->json('details.request.url');
+        self::assertIsString($requestUrl);
+
+        $requestQuery = parse_url($requestUrl, PHP_URL_QUERY);
+        self::assertIsString($requestQuery);
+
+        parse_str($requestQuery, $requestParams);
+        self::assertArrayHasKey('SAMLRequest', $requestParams);
+
+        $deflated = base64_decode((string) $requestParams['SAMLRequest'], true);
+        self::assertNotFalse($deflated);
+
+        $inflated = gzinflate($deflated);
+        self::assertIsString($inflated);
+
+        $document = new \DOMDocument('1.0', 'UTF-8');
+        self::assertTrue($document->loadXML($inflated));
+        self::assertSame('true', $document->documentElement->getAttribute('IsPassive'));
+
         Http::assertSent(static function ($request) {
             return str_starts_with($request->url(), 'https://sso.example.test/adfs/ls')
                 && $request->hasHeader('User-Agent', 'phpGRC SAML Health/1.0')
