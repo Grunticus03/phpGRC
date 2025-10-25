@@ -25,7 +25,7 @@ final class UpdateSettingsRequest extends FormRequest
             /** @var array<string,mixed> $merge */
             $merge = [];
 
-            foreach (['rbac', 'audit', 'evidence', 'avatars', 'metrics', 'ui', 'auth'] as $section) {
+            foreach (['rbac', 'audit', 'evidence', 'avatars', 'metrics', 'ui', 'saml'] as $section) {
                 if (array_key_exists($section, $core) && is_array($core[$section])) {
                     /** @var array<string,mixed> $sectionVal */
                     $sectionVal = $core[$section];
@@ -101,16 +101,20 @@ final class UpdateSettingsRequest extends FormRequest
             'metrics.rbac_denies' => ['sometimes', 'array'],
             'metrics.rbac_denies.window_days' => ['sometimes', 'integer', 'min:7', 'max:365'],
 
-            'auth' => ['sometimes', 'array'],
-            'auth.saml' => ['sometimes', 'array'],
-            'auth.saml.sp' => ['sometimes', 'array'],
-            'auth.saml.sp.sign_authn_requests' => ['sometimes', 'boolean'],
-            'auth.saml.sp.want_assertions_signed' => ['sometimes', 'boolean'],
-            'auth.saml.sp.want_assertions_encrypted' => ['sometimes', 'boolean'],
-            'auth.saml.sp.certificate' => ['sometimes', 'string'],
-            'auth.saml.sp.private_key' => ['sometimes', 'string'],
-            'auth.saml.sp.private_key_path' => ['sometimes', 'string'],
-            'auth.saml.sp.private_key_passphrase' => ['sometimes', 'string'],
+            'auth' => ['prohibited'],
+            'core.auth' => ['prohibited'],
+            'core.auth.*' => ['prohibited'],
+
+            'saml' => ['sometimes', 'array'],
+            'saml.security' => ['sometimes', 'array'],
+            'saml.security.authnRequestsSigned' => ['sometimes', 'boolean'],
+            'saml.security.wantAssertionsSigned' => ['sometimes', 'boolean'],
+            'saml.security.wantAssertionsEncrypted' => ['sometimes', 'boolean'],
+            'saml.sp' => ['sometimes', 'array'],
+            'saml.sp.x509cert' => ['sometimes', 'string'],
+            'saml.sp.privateKey' => ['sometimes', 'string'],
+            'saml.sp.privateKeyPath' => ['sometimes', 'string'],
+            'saml.sp.privateKeyPassphrase' => ['sometimes', 'string'],
 
             'apply' => ['sometimes', 'boolean'],
         ];

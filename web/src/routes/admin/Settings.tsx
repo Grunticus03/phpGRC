@@ -13,18 +13,18 @@ type EffectiveConfig = {
     audit?: { retention_days?: number };
     evidence?: { blob_storage_path?: string; max_mb?: number };
     ui?: { time_format?: string };
-    auth?: {
-      saml?: {
-        sp?: {
-          sign_authn_requests?: boolean;
-          want_assertions_signed?: boolean;
-          want_assertions_encrypted?: boolean;
-          certificate?: string;
-          private_key?: string;
-          private_key_path?: string;
-          private_key_passphrase?: string;
-        };
-      };
+  };
+  saml?: {
+    security?: {
+      authnRequestsSigned?: boolean;
+      wantAssertionsSigned?: boolean;
+      wantAssertionsEncrypted?: boolean;
+    };
+    sp?: {
+      x509cert?: string;
+      privateKey?: string;
+      privateKeyPath?: string;
+      privateKeyPassphrase?: string;
     };
   };
 };
@@ -60,17 +60,17 @@ type SettingsPayload = {
   };
   ui?: { time_format: TimeFormat };
   evidence?: { blob_storage_path?: string; max_mb?: number };
-  auth?: {
-    saml?: {
-      sp?: {
-        sign_authn_requests?: boolean;
-        want_assertions_signed?: boolean;
-        want_assertions_encrypted?: boolean;
-        certificate?: string;
-        private_key?: string;
-        private_key_path?: string;
-        private_key_passphrase?: string;
-      };
+  saml?: {
+    security?: {
+      authnRequestsSigned?: boolean;
+      wantAssertionsSigned?: boolean;
+      wantAssertionsEncrypted?: boolean;
+    };
+    sp?: {
+      x509cert?: string;
+      privateKey?: string;
+      privateKeyPath?: string;
+      privateKeyPassphrase?: string;
     };
   };
 };
@@ -171,9 +171,9 @@ export default function CoreSettings(): JSX.Element {
       const rbac = core.rbac ?? {};
       const audit = core.audit ?? {};
       const evidence = core.evidence ?? {};
-      const auth = core.auth ?? {};
-      const saml = auth.saml ?? {};
-      const sp = saml.sp ?? {};
+      const saml = config?.saml ?? {};
+      const samlSecurity = saml.security ?? {};
+      const samlSp = saml.sp ?? {};
 
       const nextCacheTtl = clamp(Number(metrics.cache_ttl_seconds ?? 0), 0, 2_592_000);
       const nextRbacDays = clamp(Number(metrics.rbac_denies?.window_days ?? 7), 7, 365);
@@ -184,15 +184,16 @@ export default function CoreSettings(): JSX.Element {
       const rawBlobPath = typeof evidence?.blob_storage_path === "string" ? evidence.blob_storage_path.trim() : "";
       const nextBlobPath = rawBlobPath === blobPlaceholderDefault ? "" : rawBlobPath;
       const nextMaxMb = clamp(Number(evidence?.max_mb ?? 25), 1, 4096);
-      const nextSign = Boolean(sp?.sign_authn_requests ?? false);
-      const wantSignedRaw = sp?.want_assertions_signed;
+      const nextSign = Boolean(samlSecurity?.authnRequestsSigned ?? false);
+      const wantSignedRaw = samlSecurity?.wantAssertionsSigned;
       const nextWantSigned =
         typeof wantSignedRaw === "boolean" ? wantSignedRaw : wantSignedRaw == null ? true : Boolean(wantSignedRaw);
-      const nextWantEncrypted = Boolean(sp?.want_assertions_encrypted ?? false);
-      const nextPrivateKey = typeof sp?.private_key === "string" ? sp.private_key : "";
-      const nextPrivateKeyPath = typeof sp?.private_key_path === "string" ? sp.private_key_path : "";
-      const nextPrivateKeyPassphrase = typeof sp?.private_key_passphrase === "string" ? sp.private_key_passphrase : "";
-      const nextCertificateRaw = typeof sp?.certificate === "string" ? sp.certificate : "";
+      const nextWantEncrypted = Boolean(samlSecurity?.wantAssertionsEncrypted ?? false);
+      const nextPrivateKey = typeof samlSp?.privateKey === "string" ? samlSp.privateKey : "";
+      const nextPrivateKeyPath = typeof samlSp?.privateKeyPath === "string" ? samlSp.privateKeyPath : "";
+      const nextPrivateKeyPassphrase =
+        typeof samlSp?.privateKeyPassphrase === "string" ? samlSp.privateKeyPassphrase : "";
+      const nextCertificateRaw = typeof samlSp?.x509cert === "string" ? samlSp.x509cert : "";
       const nextCertificate = nextCertificateRaw.trim();
 
       setCacheTtl(nextCacheTtl);
@@ -311,17 +312,17 @@ export default function CoreSettings(): JSX.Element {
         blob_storage_path: current.evidenceBlobPath,
         max_mb: current.evidenceMaxMb,
       };
-      payload.auth = {
-        saml: {
-          sp: {
-            sign_authn_requests: current.signAuthnRequests,
-            want_assertions_signed: current.wantAssertionsSigned,
-            want_assertions_encrypted: current.wantAssertionsEncrypted,
-            private_key: current.samlPrivateKey,
-            private_key_path: current.samlPrivateKeyPath,
-            private_key_passphrase: current.samlPrivateKeyPassphrase,
-            certificate: current.samlCertificate,
-          },
+      payload.saml = {
+        security: {
+          authnRequestsSigned: current.signAuthnRequests,
+          wantAssertionsSigned: current.wantAssertionsSigned,
+          wantAssertionsEncrypted: current.wantAssertionsEncrypted,
+        },
+        sp: {
+          privateKey: current.samlPrivateKey,
+          privateKeyPath: current.samlPrivateKeyPath,
+          privateKeyPassphrase: current.samlPrivateKeyPassphrase,
+          x509cert: current.samlCertificate,
         },
       };
 
@@ -369,38 +370,36 @@ export default function CoreSettings(): JSX.Element {
       payload.evidence = evidenceDiffs;
     }
 
-    const spDiffs: NonNullable<NonNullable<NonNullable<SettingsPayload["auth"]>["saml"]>["sp"]> = {};
+    const samlSecurityDiffs: NonNullable<NonNullable<SettingsPayload["saml"]>["security"]> = {};
     if (current.signAuthnRequests !== baseline.signAuthnRequests) {
-      spDiffs.sign_authn_requests = current.signAuthnRequests;
+      samlSecurityDiffs.authnRequestsSigned = current.signAuthnRequests;
     }
     if (current.wantAssertionsSigned !== baseline.wantAssertionsSigned) {
-      spDiffs.want_assertions_signed = current.wantAssertionsSigned;
+      samlSecurityDiffs.wantAssertionsSigned = current.wantAssertionsSigned;
     }
     if (current.wantAssertionsEncrypted !== baseline.wantAssertionsEncrypted) {
-      spDiffs.want_assertions_encrypted = current.wantAssertionsEncrypted;
+      samlSecurityDiffs.wantAssertionsEncrypted = current.wantAssertionsEncrypted;
     }
+
+    const samlSpDiffs: NonNullable<NonNullable<SettingsPayload["saml"]>["sp"]> = {};
     if (current.samlCertificate !== baseline.samlCertificate) {
-      spDiffs.certificate = current.samlCertificate;
+      samlSpDiffs.x509cert = current.samlCertificate;
     }
     if (current.samlPrivateKey !== baseline.samlPrivateKey) {
-      spDiffs.private_key = current.samlPrivateKey;
+      samlSpDiffs.privateKey = current.samlPrivateKey;
     }
     if (current.samlPrivateKeyPath !== baseline.samlPrivateKeyPath) {
-      spDiffs.private_key_path = current.samlPrivateKeyPath;
+      samlSpDiffs.privateKeyPath = current.samlPrivateKeyPath;
     }
     if (current.samlPrivateKeyPassphrase !== baseline.samlPrivateKeyPassphrase) {
-      spDiffs.private_key_passphrase = current.samlPrivateKeyPassphrase;
+      samlSpDiffs.privateKeyPassphrase = current.samlPrivateKeyPassphrase;
     }
-    if (Object.keys(spDiffs).length > 0) {
-      payload.auth = {
-        ...(payload.auth ?? {}),
-        saml: {
-          ...(payload.auth?.saml ?? {}),
-          sp: {
-            ...(payload.auth?.saml?.sp ?? {}),
-            ...spDiffs,
-          },
-        },
+
+    if (Object.keys(samlSecurityDiffs).length > 0 || Object.keys(samlSpDiffs).length > 0) {
+      payload.saml = {
+        ...(payload.saml ?? {}),
+        ...(Object.keys(samlSecurityDiffs).length > 0 ? { security: samlSecurityDiffs } : {}),
+        ...(Object.keys(samlSpDiffs).length > 0 ? { sp: samlSpDiffs } : {}),
       };
     }
 

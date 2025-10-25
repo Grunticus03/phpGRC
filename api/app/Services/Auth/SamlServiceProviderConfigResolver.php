@@ -17,34 +17,27 @@ final class SamlServiceProviderConfigResolver
         $sp = (array) config('saml.sp', []);
         /** @var array<string,mixed> $security */
         $security = (array) config('saml.security', []);
-        /** @var array<string,mixed> $legacy */
-        $legacy = (array) config('core.auth.saml.sp', []);
-
         $appUrl = $this->applicationUrl();
         $entityIdOverride = $this->normalizeOptional($sp['entityId'] ?? null)
-            ?? $this->normalizeOptional($legacy['entity_id'] ?? null);
+            ?? null;
 
         $acsOverride = null;
         if (isset($sp['assertionConsumerService']) && is_array($sp['assertionConsumerService'])) {
             $acsOverride = $this->normalizeOptional($sp['assertionConsumerService']['url'] ?? null);
         }
-        if ($acsOverride === null) {
-            $acsOverride = $this->normalizeOptional($legacy['acs_url'] ?? null);
-        }
 
-        $metadataOverride = $this->normalizeOptional($sp['metadataUrl'] ?? null)
-            ?? $this->normalizeOptional($legacy['metadata_url'] ?? null);
+        $metadataOverride = $this->normalizeOptional($sp['metadataUrl'] ?? null);
 
         $signAuthnRequests = $this->normalizeBoolean(
-            $security['authnRequestsSigned'] ?? $legacy['sign_authn_requests'] ?? null,
+            $security['authnRequestsSigned'] ?? null,
             false
         );
         $wantAssertionsSigned = $this->normalizeBoolean(
-            $security['wantAssertionsSigned'] ?? $legacy['want_assertions_signed'] ?? null,
+            $security['wantAssertionsSigned'] ?? null,
             true
         );
         $encryptAssertions = $this->normalizeBoolean(
-            $security['wantAssertionsEncrypted'] ?? $legacy['want_assertions_encrypted'] ?? null,
+            $security['wantAssertionsEncrypted'] ?? null,
             false
         );
 
@@ -57,7 +50,7 @@ final class SamlServiceProviderConfigResolver
             'want_assertions_encrypted' => $encryptAssertions,
         ];
 
-        $certificate = $this->normalizeOptional($sp['x509cert'] ?? $legacy['certificate'] ?? null);
+        $certificate = $this->normalizeOptional($sp['x509cert'] ?? null);
         if ($certificate !== null) {
             $resolved['certificate'] = $certificate;
         }
@@ -67,14 +60,12 @@ final class SamlServiceProviderConfigResolver
 
     public function privateKey(): ?string
     {
-        $inline = $this->normalizeOptional(config('saml.sp.privateKey'))
-            ?? $this->normalizeOptional(config('core.auth.saml.sp.private_key'));
+        $inline = $this->normalizeOptional(config('saml.sp.privateKey'));
         if ($inline !== null) {
             return $this->normalizePrivateKey($inline);
         }
 
-        $path = $this->normalizeOptional(config('saml.sp.privateKeyPath'))
-            ?? $this->normalizeOptional(config('core.auth.saml.sp.private_key_path'));
+        $path = $this->normalizeOptional(config('saml.sp.privateKeyPath'));
         if ($path === null) {
             return null;
         }
@@ -100,10 +91,7 @@ final class SamlServiceProviderConfigResolver
 
     public function privateKeyPassphrase(): ?string
     {
-        return $this->normalizeOptional(
-            config('saml.sp.privateKeyPassphrase')
-            ?? config('core.auth.saml.sp.private_key_passphrase')
-        );
+        return $this->normalizeOptional(config('saml.sp.privateKeyPassphrase'));
     }
 
     private function applicationUrl(): string

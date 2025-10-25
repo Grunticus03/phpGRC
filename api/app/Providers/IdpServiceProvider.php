@@ -100,7 +100,7 @@ final class IdpServiceProvider extends ServiceProvider
             $issuerRaw = $state['issuer'] ?? 'phpgrc.saml.state';
             $issuer = is_string($issuerRaw) && trim($issuerRaw) !== '' ? trim($issuerRaw) : 'phpgrc.saml.state';
 
-            $audience = config('core.auth.saml.sp.acs_url');
+            $audience = config('saml.sp.assertionConsumerService.url');
             if (! is_string($audience) || trim($audience) === '') {
                 throw new RuntimeException('SAML SP ACS URL must be configured before issuing RelayState tokens.');
             }

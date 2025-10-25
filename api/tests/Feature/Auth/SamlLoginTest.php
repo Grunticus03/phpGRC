@@ -87,14 +87,22 @@ PEM;
         $this->actingAsAdmin();
         $provider = $this->createProvider();
 
-        Config::set('core.auth.saml.sp', [
-            'entity_id' => 'https://phpgrc.example.test/saml/sp',
-            'acs_url' => 'https://phpgrc.example.test/auth/saml/acs',
-            'metadata_url' => 'https://phpgrc.example.test/auth/saml/metadata',
-            'sign_authn_requests' => false,
-            'want_assertions_signed' => false,
-            'want_assertions_encrypted' => false,
-        ]);
+        Config::set('saml.sp', array_merge(Config::get('saml.sp', []), [
+            'entityId' => 'https://phpgrc.example.test/saml/sp',
+            'assertionConsumerService' => array_merge(
+                Config::get('saml.sp.assertionConsumerService', []),
+                [
+                    'url' => 'https://phpgrc.example.test/auth/saml/acs',
+                ]
+            ),
+            'metadataUrl' => 'https://phpgrc.example.test/auth/saml/metadata',
+        ]));
+
+        Config::set('saml.security', array_merge(Config::get('saml.security', []), [
+            'authnRequestsSigned' => false,
+            'wantAssertionsSigned' => false,
+            'wantAssertionsEncrypted' => false,
+        ]));
 
         $response = $this->getJson('/auth/saml/redirect?provider='.$provider->id);
 
@@ -178,14 +186,22 @@ PEM;
             ],
         ]);
 
-        Config::set('core.auth.saml.sp', [
-            'entity_id' => $spEntityId,
-            'acs_url' => $acsUrl,
-            'metadata_url' => $metadataUrl,
-            'sign_authn_requests' => false,
-            'want_assertions_signed' => false,
-            'want_assertions_encrypted' => false,
-        ]);
+        Config::set('saml.sp', array_merge(Config::get('saml.sp', []), [
+            'entityId' => $spEntityId,
+            'assertionConsumerService' => array_merge(
+                Config::get('saml.sp.assertionConsumerService', []),
+                [
+                    'url' => $acsUrl,
+                ]
+            ),
+            'metadataUrl' => $metadataUrl,
+        ]));
+
+        Config::set('saml.security', array_merge(Config::get('saml.security', []), [
+            'authnRequestsSigned' => false,
+            'wantAssertionsSigned' => false,
+            'wantAssertionsEncrypted' => false,
+        ]));
 
         $redirect = $this->getJson('/auth/saml/redirect?provider='.$provider->id.'&return=/dashboard')->json();
 

@@ -93,13 +93,11 @@ final class IdpProviderController extends Controller
         $payload = $request->validated();
 
         $accepted = [
-            'auth' => [
-                'saml' => [
-                    'sp' => [
-                        'sign_authn_requests' => $payload['sign_authn_requests'],
-                        'want_assertions_signed' => $payload['want_assertions_signed'],
-                        'want_assertions_encrypted' => $payload['want_assertions_encrypted'],
-                    ],
+            'saml' => [
+                'security' => [
+                    'authnRequestsSigned' => $payload['sign_authn_requests'],
+                    'wantAssertionsSigned' => $payload['want_assertions_signed'],
+                    'wantAssertionsEncrypted' => $payload['want_assertions_encrypted'],
                 ],
             ],
         ];
@@ -112,7 +110,7 @@ final class IdpProviderController extends Controller
         $result = $this->settings->apply(
             accepted: $accepted,
             actorId: $actorId,
-            context: ['origin' => 'auth.saml.sp']
+            context: ['origin' => 'saml.security']
         );
 
         return response()->json([

@@ -49,6 +49,20 @@ final class SettingsControllerTest extends TestCase
                 ->where('format', 'webp')
                 ->etc()
             )
+            ->has('config.saml.security', fn (AssertableJson $j) => $j
+                ->whereType('authnRequestsSigned', 'boolean')
+                ->whereType('wantAssertionsSigned', 'boolean')
+                ->whereType('wantAssertionsEncrypted', 'boolean')
+                ->etc()
+            )
+            ->has('config.saml.sp', fn (AssertableJson $j) => $j
+                ->whereType('x509cert', 'string')
+                ->whereType('privateKey', 'string')
+                ->whereType('privateKeyPath', 'string')
+                ->whereType('privateKeyPassphrase', 'string')
+                ->etc()
+            )
+            ->missing('config.core.auth.saml')
         );
     }
 
@@ -80,38 +94,35 @@ final class SettingsControllerTest extends TestCase
 
     public function test_post_settings_accepts_spec_shape_and_normalizes(): void
     {
+        $cert = <<<'CERT'
+-----BEGIN CERTIFICATE-----
+TEST
+-----END CERTIFICATE-----
+CERT;
+
+        $privateKey = <<<'KEY'
+-----BEGIN PRIVATE KEY-----
+TEST
+-----END PRIVATE KEY-----
+KEY;
+
         $payload = [
             'rbac' => ['enabled' => true, 'roles' => ['Admin', 'Auditor', 'Risk Manager', 'User']],
             'audit' => ['enabled' => true, 'retention_days' => 365],
             'evidence' => ['enabled' => true, 'max_mb' => 25, 'allowed_mime' => ['application/pdf', 'image/png', 'image/jpeg', 'text/plain'], 'blob_storage_path' => '/opt/phpgrc/shared/blobs'],
             'avatars' => ['enabled' => true, 'size_px' => 128, 'format' => 'webp'],
-        ];
-
-        $response = $this->postJson('/admin/settings', $payload);
-
-        $response->assertOk();
-
-        $this->assertTrue($response->headers->has('ETag'));
-        $response->assertJson(fn (AssertableJson $json) => $json->where('ok', true)
-            ->where('applied', false)
-            ->where('note', 'stub-only')
-            ->whereType('etag', 'string')
-            ->has('config.core')
-            ->has('accepted', fn (AssertableJson $j) => $j->hasAll(['rbac', 'audit', 'evidence', 'avatars'])
-                ->where('avatars.size_px', 128)
-                ->where('avatars.format', 'webp')
-            )
-        );
-    }
-
-    public function test_post_settings_accepts_legacy_shape_and_normalizes(): void
-    {
-        $payload = [
-            'core' => [
-                'rbac' => ['enabled' => true, 'roles' => ['Admin', 'Auditor', 'Risk Manager', 'User']],
-                'audit' => ['enabled' => true, 'retention_days' => 365],
-                'evidence' => ['enabled' => true, 'max_mb' => 25, 'allowed_mime' => ['application/pdf', 'image/png', 'image/jpeg', 'text/plain'], 'blob_storage_path' => '/opt/phpgrc/shared/blobs'],
-                'avatars' => ['enabled' => true, 'size_px' => 128, 'format' => 'webp'],
+            'saml' => [
+                'security' => [
+                    'authnRequestsSigned' => true,
+                    'wantAssertionsSigned' => false,
+                    'wantAssertionsEncrypted' => true,
+                ],
+                'sp' => [
+                    'x509cert' => $cert,
+                    'privateKey' => $privateKey,
+                    'privateKeyPath' => '/opt/phpgrc/shared/sp.key',
+                    'privateKeyPassphrase' => 'secret',
+                ],
             ],
         ];
 
@@ -125,10 +136,51 @@ final class SettingsControllerTest extends TestCase
             ->where('note', 'stub-only')
             ->whereType('etag', 'string')
             ->has('config.core')
-            ->has('accepted', fn (AssertableJson $j) => $j->hasAll(['rbac', 'audit', 'evidence', 'avatars'])
+            ->has('accepted', fn (AssertableJson $j) => $j->hasAll(['rbac', 'audit', 'evidence', 'avatars', 'saml'])
                 ->where('avatars.size_px', 128)
                 ->where('avatars.format', 'webp')
+                ->where('saml.security.authnRequestsSigned', true)
+                ->where('saml.security.wantAssertionsSigned', false)
+                ->where('saml.security.wantAssertionsEncrypted', true)
+                ->where('saml.sp.x509cert', $cert)
+                ->where('saml.sp.privateKeyPath', '/opt/phpgrc/shared/sp.key')
             )
+        );
+    }
+
+    public function test_post_settings_rejects_legacy_contract_payload(): void
+    {
+        $payload = [
+            'core' => [
+                'rbac' => ['enabled' => true, 'roles' => ['Admin', 'Auditor', 'Risk Manager', 'User']],
+                'audit' => ['enabled' => true, 'retention_days' => 365],
+                'evidence' => ['enabled' => true, 'max_mb' => 25, 'allowed_mime' => ['application/pdf', 'image/png', 'image/jpeg', 'text/plain'], 'blob_storage_path' => '/opt/phpgrc/shared/blobs'],
+                'avatars' => ['enabled' => true, 'size_px' => 128, 'format' => 'webp'],
+                'auth' => [
+                    'saml' => [
+                        'sp' => [
+                            'sign_authn_requests' => true,
+                            'want_assertions_signed' => false,
+                            'want_assertions_encrypted' => true,
+                            'certificate' => 'legacy',
+                            'private_key' => 'legacy-key',
+                            'private_key_path' => '/opt/phpgrc/legacy.key',
+                            'private_key_passphrase' => 'legacy-pass',
+                        ],
+                    ],
+                ],
+            ],
+        ];
+
+        $response = $this->postJson('/admin/settings', $payload);
+
+        $response->assertStatus(422);
+        $response->assertJson(fn (AssertableJson $json) => $json
+            ->where('ok', false)
+            ->where('code', 'VALIDATION_FAILED')
+            ->where('errors.core.auth.0', 'The core.auth field is prohibited.')
+            ->where('errors.core.auth.saml.0', 'The core.auth.saml field is prohibited.')
+            ->etc()
         );
     }
 
@@ -144,6 +196,54 @@ final class SettingsControllerTest extends TestCase
         $response = $this->postJson('/admin/settings', $payload);
 
         $response->assertUnauthorized();
+    }
+
+    public function test_post_settings_accepts_saml_contract_payload(): void
+    {
+        $cert = <<<'CERT'
+-----BEGIN CERTIFICATE-----
+UI
+-----END CERTIFICATE-----
+CERT;
+
+        $privateKey = <<<'KEY'
+-----BEGIN PRIVATE KEY-----
+UI
+-----END PRIVATE KEY-----
+KEY;
+
+        $payload = [
+            'saml' => [
+                'security' => [
+                    'authnRequestsSigned' => true,
+                    'wantAssertionsSigned' => false,
+                    'wantAssertionsEncrypted' => true,
+                ],
+                'sp' => [
+                    'x509cert' => $cert,
+                    'privateKey' => $privateKey,
+                    'privateKeyPath' => '/opt/phpgrc/sp.key',
+                    'privateKeyPassphrase' => 'pass',
+                ],
+            ],
+        ];
+
+        $response = $this->postJson('/admin/settings', $payload);
+
+        $response->assertOk();
+        $response->assertJson(fn (AssertableJson $json) => $json
+            ->where('ok', true)
+            ->where('applied', false)
+            ->has('accepted', fn (AssertableJson $accepted) => $accepted
+                ->where('saml.security.authnRequestsSigned', true)
+                ->where('saml.security.wantAssertionsSigned', false)
+                ->where('saml.security.wantAssertionsEncrypted', true)
+                ->where('saml.sp.x509cert', $cert)
+                ->where('saml.sp.privateKeyPath', '/opt/phpgrc/sp.key')
+                ->etc()
+            )
+            ->etc()
+        );
     }
 
     public function test_post_settings_requires_if_match_when_applying_changes(): void
@@ -169,7 +269,7 @@ final class SettingsControllerTest extends TestCase
     public function test_post_settings_rejects_stale_etag(): void
     {
         $user = $this->createAdminUser();
-        $staleEtag = 'W/"settings:stale"';
+        $staleEtag = 'W/'.chr(34).'settings:stale'.chr(34);
         $payload = [
             'audit' => ['enabled' => true, 'retention_days' => 400],
             'apply' => true,

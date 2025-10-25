@@ -20,19 +20,19 @@ type Payload = {
   rbac?: { require_auth?: boolean; user_search?: { default_per_page: number } };
   audit?: { retention_days: number };
   metrics?: { cache_ttl_seconds?: number; rbac_denies?: { window_days: number } };
-  ui?: { time_format: string };
+  ui?: { time_format?: string };
   evidence?: { blob_storage_path?: string; max_mb?: number };
-  auth?: {
-    saml?: {
-      sp?: {
-        sign_authn_requests?: boolean;
-        want_assertions_signed?: boolean;
-        want_assertions_encrypted?: boolean;
-        certificate?: string;
-        private_key?: string;
-        private_key_path?: string;
-        private_key_passphrase?: string;
-      };
+  saml?: {
+    security?: {
+      authnRequestsSigned?: boolean;
+      wantAssertionsSigned?: boolean;
+      wantAssertionsEncrypted?: boolean;
+    };
+    sp?: {
+      x509cert?: string;
+      privateKey?: string;
+      privateKeyPath?: string;
+      privateKeyPassphrase?: string;
     };
   };
 };
@@ -72,22 +72,22 @@ describe("Core Settings page", () => {
                 },
                 avatars: { enabled: true, size_px: 128, format: "webp" },
                 ui: { time_format: "LOCAL" },
-                auth: {
-                  saml: {
-                    sp: {
-                      sign_authn_requests: false,
-                      want_assertions_signed: true,
-                      want_assertions_encrypted: false,
-                      certificate: `-----BEGIN CERTIFICATE-----
+              },
+              saml: {
+                security: {
+                  authnRequestsSigned: false,
+                  wantAssertionsSigned: true,
+                  wantAssertionsEncrypted: false,
+                },
+                sp: {
+                  x509cert: `-----BEGIN CERTIFICATE-----
 OLDCERT
 -----END CERTIFICATE-----`,
-                      private_key: `-----BEGIN PRIVATE KEY-----
+                  privateKey: `-----BEGIN PRIVATE KEY-----
 OLD
 -----END PRIVATE KEY-----`,
-                      private_key_path: "/opt/phpgrc/shared/saml/sp.key",
-                      private_key_passphrase: "old-secret",
-                    },
-                  },
+                  privateKeyPath: "/opt/phpgrc/shared/saml/sp.key",
+                  privateKeyPassphrase: "old-secret",
                 },
               },
             },
@@ -231,15 +231,15 @@ UPDATED
     expect(payload.metrics?.cache_ttl_seconds).toBeUndefined();
     expect(payload.evidence?.blob_storage_path).toBe("/var/data/evidence");
     expect(payload.evidence?.max_mb).toBe(100);
-    expect(payload.auth?.saml?.sp?.sign_authn_requests).toBe(true);
-    expect(payload.auth?.saml?.sp?.want_assertions_signed).toBe(false);
-    expect(payload.auth?.saml?.sp?.want_assertions_encrypted).toBe(true);
-    expect(payload.auth?.saml?.sp?.certificate).toBe(`-----BEGIN CERTIFICATE-----
+    expect(payload.saml?.security?.authnRequestsSigned).toBe(true);
+    expect(payload.saml?.security?.wantAssertionsSigned).toBe(false);
+    expect(payload.saml?.security?.wantAssertionsEncrypted).toBe(true);
+    expect(payload.saml?.sp?.x509cert).toBe(`-----BEGIN CERTIFICATE-----
 UPDATEDCERT
 -----END CERTIFICATE-----`);
-    expect(payload.auth?.saml?.sp?.private_key).toBe("-----BEGIN PRIVATE KEY-----\nUPDATED\n-----END PRIVATE KEY-----");
-    expect(payload.auth?.saml?.sp?.private_key_path).toBe("/etc/phpgrc/sp.key");
-    expect(payload.auth?.saml?.sp?.private_key_passphrase).toBe("new-secret");
+    expect(payload.saml?.sp?.privateKey).toBe("-----BEGIN PRIVATE KEY-----\nUPDATED\n-----END PRIVATE KEY-----");
+    expect(payload.saml?.sp?.privateKeyPath).toBe("/etc/phpgrc/sp.key");
+    expect(payload.saml?.sp?.privateKeyPassphrase).toBe("new-secret");
   });
 
   it("clamps authentication window above max on save", async () => {

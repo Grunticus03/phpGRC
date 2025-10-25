@@ -16,6 +16,7 @@ use RuntimeException;
 /**
  * @SuppressWarnings("PHPMD.StaticAccess")
  * @SuppressWarnings("PHPMD.ExcessiveClassComplexity")
+ * @SuppressWarnings("PHPMD.ExcessiveClassLength")
  * @SuppressWarnings("PHPMD.ExcessiveMethodLength")
  * @SuppressWarnings("PHPMD.NPathComplexity")
  */
@@ -44,13 +45,13 @@ final class SettingsService
         'metrics.cache_ttl_seconds',
         'metrics.rbac_denies.window_days',
         'ui.time_format',
-        'auth.saml.sp.sign_authn_requests',
-        'auth.saml.sp.want_assertions_signed',
-        'auth.saml.sp.want_assertions_encrypted',
-        'auth.saml.sp.certificate',
-        'auth.saml.sp.private_key',
-        'auth.saml.sp.private_key_path',
-        'auth.saml.sp.private_key_passphrase',
+        'saml.security.authnRequestsSigned',
+        'saml.security.wantAssertionsSigned',
+        'saml.security.wantAssertionsEncrypted',
+        'saml.sp.x509cert',
+        'saml.sp.privateKey',
+        'saml.sp.privateKeyPath',
+        'saml.sp.privateKeyPassphrase',
     ];
 
     /** @var list<string> */
@@ -82,7 +83,7 @@ final class SettingsService
         return sprintf('W/"settings:%s"', $fingerprint);
     }
 
-    /** @return array{core: array<string, mixed>} */
+    /** @return array{core: array<string, mixed>, saml: array<string, mixed>} */
     public function effectiveConfig(): array
     {
         /** @var array<string, mixed> $defaults */
@@ -92,16 +93,30 @@ final class SettingsService
 
         /** @var array<string, mixed> $merged */
         $merged = $this->filterForContract($defaults);
+        /** @var array<string, mixed> $samlRaw */
+        $samlRaw = (array) config('saml', []);
 
         /** @psalm-suppress MixedAssignment */
         foreach ($overrides as $dotKey => $val) {
             /** @var string $dotKey */
-            if (! str_starts_with($dotKey, 'core.')) {
-                continue;
+            $keyToCheck = $dotKey;
+            $target = null;
+
+            if (str_starts_with($dotKey, 'core.')) {
+                $keyToCheck = substr($dotKey, 5);
+                $target = 'core';
+            } elseif (str_starts_with($dotKey, 'saml.')) {
+                $target = 'saml';
+                $keyToCheck = $dotKey;
             }
-            $sub = substr($dotKey, 5);
-            if ($this->isContractKey($sub)) {
-                Arr::set($merged, $sub, $val);
+
+            if ($target === 'core' && $this->isContractKey($keyToCheck)) {
+                Arr::set($merged, $keyToCheck, $val);
+            }
+
+            if ($target === 'saml' && $this->isContractKey($keyToCheck)) {
+                $subKey = substr($keyToCheck, strlen('saml.'));
+                Arr::set($samlRaw, $subKey, $val);
             }
         }
 
@@ -113,13 +128,15 @@ final class SettingsService
             'avatars' => is_array($merged['avatars'] ?? null) ? (array) $merged['avatars'] : [],
             'metrics' => is_array($merged['metrics'] ?? null) ? (array) $merged['metrics'] : [],
             'ui' => is_array($merged['ui'] ?? null) ? (array) $merged['ui'] : [],
-            'auth' => is_array($merged['auth'] ?? null) ? (array) $merged['auth'] : [],
         ];
 
         /** @var array<string, mixed> $finalCore */
         $finalCore = $this->filterForContract($trimInput);
 
-        return ['core' => $finalCore];
+        return [
+            'core' => $finalCore,
+            'saml' => $this->filterSamlConfig($samlRaw),
+        ];
     }
 
     private function normalizeForHash(mixed $value): mixed
@@ -174,7 +191,7 @@ final class SettingsService
     public function apply(array $accepted, ?int $actorId = null, array $context = []): array
     {
         /** @var array<string, mixed> $onlyAccepted */
-        $onlyAccepted = Arr::only($accepted, ['rbac', 'audit', 'evidence', 'avatars', 'metrics', 'ui', 'auth']);
+        $onlyAccepted = Arr::only($accepted, ['rbac', 'audit', 'evidence', 'avatars', 'metrics', 'ui', 'saml']);
 
         if (isset($onlyAccepted['ui']) && is_array($onlyAccepted['ui'])) {
             /** @var array<string, mixed> $uiAccepted */
@@ -182,16 +199,16 @@ final class SettingsService
             $onlyAccepted['ui']['time_format'] = $this->normalizeTimeFormat($uiAccepted['time_format'] ?? null);
         }
 
-        if (isset($onlyAccepted['auth']) && is_array($onlyAccepted['auth'])) {
-            /** @var array<string,mixed> $authInput */
-            $authInput = $onlyAccepted['auth'];
-            $normalizedAuth = $this->normalizeAuthConfig($authInput);
-            if ($normalizedAuth === []) {
-                unset($onlyAccepted['auth']);
+        if (isset($onlyAccepted['saml']) && is_array($onlyAccepted['saml'])) {
+            /** @var array<string,mixed> $samlInput */
+            $samlInput = $onlyAccepted['saml'];
+            $normalizedSaml = $this->normalizeSamlConfig($samlInput);
+            if ($normalizedSaml === []) {
+                unset($onlyAccepted['saml']);
             }
 
-            if ($normalizedAuth !== []) {
-                $onlyAccepted['auth'] = $normalizedAuth;
+            if ($normalizedSaml !== []) {
+                $onlyAccepted['saml'] = $normalizedSaml;
             }
         }
 
@@ -212,6 +229,21 @@ final class SettingsService
         $flatDefaultsInput = Arr::dot($filteredDefaults);
         /** @var array<string,mixed> $flatDefaults */
         $flatDefaults = $this->prefixWithCore($flatDefaultsInput);
+
+        /** @var array<string,mixed> $samlDefaultsRaw */
+        $samlDefaultsRaw = (array) config('saml', []);
+        $samlDefaultFiltered = $this->filterSamlConfig($samlDefaultsRaw);
+        /** @psalm-suppress MixedAssignment */
+        foreach ($samlDefaultFiltered as $section => $sectionValues) {
+            if (! is_array($sectionValues)) {
+                continue;
+            }
+
+            foreach ($sectionValues as $key => $value) {
+                /** @psalm-var mixed $value */
+                $flatDefaults['saml.'.$section.'.'.$key] = $value;
+            }
+        }
 
         /** @var array<string, mixed> $toUpsert */
         $toUpsert = [];
@@ -458,14 +490,19 @@ final class SettingsService
         /** @psalm-suppress MixedAssignment */
         foreach ($flat as $k => $v) {
             /** @var string $k */
+            if (str_starts_with($k, 'saml.')) {
+                $out[$k] = $v;
+
+                continue;
+            }
+
             if (
                 str_starts_with($k, 'rbac.') ||
                 str_starts_with($k, 'audit.') ||
                 str_starts_with($k, 'evidence.') ||
                 str_starts_with($k, 'avatars.') ||
                 str_starts_with($k, 'metrics.') ||
-                str_starts_with($k, 'ui.') ||
-                str_starts_with($k, 'auth.')
+                str_starts_with($k, 'ui.')
             ) {
                 $out['core.'.$k] = $v;
             }
@@ -475,59 +512,90 @@ final class SettingsService
     }
 
     /**
-     * @param  array<string, mixed>  $auth
-     * @return array<string, mixed>
+     * @param  array<string,mixed>  $saml
+     * @return array<string,mixed>
      */
-    private function normalizeAuthConfig(array $auth): array
+    private function normalizeSamlConfig(array $saml): array
     {
-        $samlRaw = is_array($auth['saml'] ?? null) ? (array) $auth['saml'] : [];
-        $spRaw = is_array($samlRaw['sp'] ?? null) ? (array) $samlRaw['sp'] : [];
+        /** @var array<string,mixed> $normalized */
+        $normalized = [];
 
-        $normalizedSp = [];
+        if (isset($saml['security']) && is_array($saml['security'])) {
+            /** @var array<mixed,mixed> $security */
+            $security = $saml['security'];
+            $normalizedSecurity = [];
 
-        if (array_key_exists('sign_authn_requests', $spRaw)) {
-            $normalizedSp['sign_authn_requests'] = $this->toBool(
-                $this->scalarOrDefault($spRaw['sign_authn_requests'], false)
-            );
+            $authnKey = array_key_exists('authnRequestsSigned', $security)
+                ? 'authnRequestsSigned'
+                : (array_key_exists('authn_requests_signed', $security) ? 'authn_requests_signed' : null);
+            if ($authnKey !== null) {
+                $normalizedSecurity['authnRequestsSigned'] = $this->toBool(
+                    $this->scalarOrDefault($security[$authnKey], false)
+                );
+            }
+
+            $wantSignedKey = array_key_exists('wantAssertionsSigned', $security)
+                ? 'wantAssertionsSigned'
+                : (array_key_exists('want_assertions_signed', $security) ? 'want_assertions_signed' : null);
+            if ($wantSignedKey !== null) {
+                $normalizedSecurity['wantAssertionsSigned'] = $this->toBool(
+                    $this->scalarOrDefault($security[$wantSignedKey], true)
+                );
+            }
+
+            $wantEncryptedKey = array_key_exists('wantAssertionsEncrypted', $security)
+                ? 'wantAssertionsEncrypted'
+                : (array_key_exists('want_assertions_encrypted', $security) ? 'want_assertions_encrypted' : null);
+            if ($wantEncryptedKey !== null) {
+                $normalizedSecurity['wantAssertionsEncrypted'] = $this->toBool(
+                    $this->scalarOrDefault($security[$wantEncryptedKey], false)
+                );
+            }
+
+            if ($normalizedSecurity !== []) {
+                $normalized['security'] = $normalizedSecurity;
+            }
         }
 
-        if (array_key_exists('want_assertions_signed', $spRaw)) {
-            $normalizedSp['want_assertions_signed'] = $this->toBool(
-                $this->scalarOrDefault($spRaw['want_assertions_signed'], true)
-            );
+        if (isset($saml['sp']) && is_array($saml['sp'])) {
+            /** @var array<mixed,mixed> $sp */
+            $sp = $saml['sp'];
+            $normalizedSp = [];
+
+            $certKey = array_key_exists('x509cert', $sp)
+                ? 'x509cert'
+                : (array_key_exists('certificate', $sp) ? 'certificate' : null);
+            if ($certKey !== null) {
+                $normalizedSp['x509cert'] = trim($this->toString($sp[$certKey] ?? ''));
+            }
+
+            $privateKeyKey = array_key_exists('privateKey', $sp)
+                ? 'privateKey'
+                : (array_key_exists('private_key', $sp) ? 'private_key' : null);
+            if ($privateKeyKey !== null) {
+                $normalizedSp['privateKey'] = $this->toString($sp[$privateKeyKey] ?? '');
+            }
+
+            $privateKeyPathKey = array_key_exists('privateKeyPath', $sp)
+                ? 'privateKeyPath'
+                : (array_key_exists('private_key_path', $sp) ? 'private_key_path' : null);
+            if ($privateKeyPathKey !== null) {
+                $normalizedSp['privateKeyPath'] = trim($this->toString($sp[$privateKeyPathKey] ?? ''));
+            }
+
+            $passphraseKey = array_key_exists('privateKeyPassphrase', $sp)
+                ? 'privateKeyPassphrase'
+                : (array_key_exists('private_key_passphrase', $sp) ? 'private_key_passphrase' : null);
+            if ($passphraseKey !== null) {
+                $normalizedSp['privateKeyPassphrase'] = $this->toString($sp[$passphraseKey] ?? '');
+            }
+
+            if ($normalizedSp !== []) {
+                $normalized['sp'] = $normalizedSp;
+            }
         }
 
-        if (array_key_exists('want_assertions_encrypted', $spRaw)) {
-            $normalizedSp['want_assertions_encrypted'] = $this->toBool(
-                $this->scalarOrDefault($spRaw['want_assertions_encrypted'], false)
-            );
-        }
-
-        if (array_key_exists('certificate', $spRaw)) {
-            $normalizedSp['certificate'] = $this->toString($spRaw['certificate'] ?? '');
-        }
-
-        if (array_key_exists('private_key', $spRaw)) {
-            $normalizedSp['private_key'] = $this->toString($spRaw['private_key'] ?? '');
-        }
-
-        if (array_key_exists('private_key_path', $spRaw)) {
-            $normalizedSp['private_key_path'] = $this->toString($spRaw['private_key_path'] ?? '');
-        }
-
-        if (array_key_exists('private_key_passphrase', $spRaw)) {
-            $normalizedSp['private_key_passphrase'] = $this->toString($spRaw['private_key_passphrase'] ?? '');
-        }
-
-        if ($normalizedSp === []) {
-            return [];
-        }
-
-        return [
-            'saml' => [
-                'sp' => $normalizedSp,
-            ],
-        ];
+        return $normalized;
     }
 
     private function normalizeTimeFormat(mixed $value): string
@@ -625,7 +693,7 @@ final class SettingsService
     private function filterForContract(array $core): array
     {
         /** @var array<string,mixed> $coreOnly */
-        $coreOnly = Arr::only($core, ['rbac', 'audit', 'evidence', 'avatars', 'metrics', 'ui', 'auth']);
+        $coreOnly = Arr::only($core, ['rbac', 'audit', 'evidence', 'avatars', 'metrics', 'ui']);
 
         /** @var array<string, mixed> $rbacRaw */
         $rbacRaw = (array) ($coreOnly['rbac'] ?? []);
@@ -637,13 +705,6 @@ final class SettingsService
         $avatarsRaw = (array) ($coreOnly['avatars'] ?? []);
         /** @var array<string, mixed> $metricsRaw */
         $metricsRaw = (array) ($coreOnly['metrics'] ?? []);
-
-        /** @var array<string, mixed> $authRaw */
-        $authRaw = (array) ($coreOnly['auth'] ?? []);
-        /** @var array<string, mixed> $samlRaw */
-        $samlRaw = is_array($authRaw['saml'] ?? null) ? (array) $authRaw['saml'] : [];
-        /** @var array<string, mixed> $spRaw */
-        $spRaw = is_array($samlRaw['sp'] ?? null) ? (array) $samlRaw['sp'] : [];
 
         /** @var array<string, mixed> $uiRaw */
         $uiRaw = (array) ($coreOnly['ui'] ?? []);
@@ -701,26 +762,6 @@ final class SettingsService
             'time_format' => $this->normalizeTimeFormat($uiRaw['time_format'] ?? null),
         ];
 
-        $auth = [
-            'saml' => [
-                'sp' => [
-                    'sign_authn_requests' => $this->toBool(
-                        $this->scalarOrDefault($spRaw['sign_authn_requests'] ?? false, false)
-                    ),
-                    'want_assertions_signed' => $this->toBool(
-                        $this->scalarOrDefault($spRaw['want_assertions_signed'] ?? true, true)
-                    ),
-                    'want_assertions_encrypted' => $this->toBool(
-                        $this->scalarOrDefault($spRaw['want_assertions_encrypted'] ?? false, false)
-                    ),
-                    'certificate' => $this->toString($spRaw['certificate'] ?? ''),
-                    'private_key' => $this->toString($spRaw['private_key'] ?? ''),
-                    'private_key_path' => $this->toString($spRaw['private_key_path'] ?? ''),
-                    'private_key_passphrase' => $this->toString($spRaw['private_key_passphrase'] ?? ''),
-                ],
-            ],
-        ];
-
         return [
             'rbac' => $rbac,
             'audit' => $audit,
@@ -728,7 +769,36 @@ final class SettingsService
             'avatars' => $avatars,
             'metrics' => $metrics,
             'ui' => $ui,
-            'auth' => $auth,
+        ];
+    }
+
+    /**
+     * @param  array<mixed,mixed>  $saml
+     * @return array<string,mixed>
+     */
+    private function filterSamlConfig(array $saml): array
+    {
+        /** @var array<string,mixed> $securityRaw */
+        $securityRaw = is_array($saml['security'] ?? null) ? (array) $saml['security'] : [];
+        /** @var array<string,mixed> $spRaw */
+        $spRaw = is_array($saml['sp'] ?? null) ? (array) $saml['sp'] : [];
+
+        $security = [
+            'authnRequestsSigned' => $this->toBool($this->scalarOrDefault($securityRaw['authnRequestsSigned'] ?? false, false)),
+            'wantAssertionsSigned' => $this->toBool($this->scalarOrDefault($securityRaw['wantAssertionsSigned'] ?? true, true)),
+            'wantAssertionsEncrypted' => $this->toBool($this->scalarOrDefault($securityRaw['wantAssertionsEncrypted'] ?? false, false)),
+        ];
+
+        $sp = [
+            'x509cert' => trim($this->toString($spRaw['x509cert'] ?? '')),
+            'privateKey' => $this->toString($spRaw['privateKey'] ?? ''),
+            'privateKeyPath' => trim($this->toString($spRaw['privateKeyPath'] ?? '')),
+            'privateKeyPassphrase' => $this->toString($spRaw['privateKeyPassphrase'] ?? ''),
+        ];
+
+        return [
+            'security' => $security,
+            'sp' => $sp,
         ];
     }
 

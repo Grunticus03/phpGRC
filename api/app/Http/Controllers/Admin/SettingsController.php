@@ -65,7 +65,7 @@ final class SettingsController extends Controller
         $legacy = is_array(Arr::get($raw, 'core')) ? (array) $raw['core'] : [];
 
         // Build accepted strictly from validated sections to avoid silent drops
-        $sections = ['rbac', 'audit', 'evidence', 'avatars', 'metrics', 'ui', 'auth'];
+        $sections = ['rbac', 'audit', 'evidence', 'avatars', 'metrics', 'ui', 'saml'];
         /** @var array<string,mixed> $accepted */
         $accepted = [];
         foreach ($sections as $sec) {
