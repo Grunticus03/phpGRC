@@ -11,6 +11,10 @@ use Illuminate\Support\Facades\Auth;
 
 final class MeController extends Controller
 {
+    /**
+     * @SuppressWarnings("PMD.ShortMethodName")
+     * @SuppressWarnings("PMD.StaticAccess")
+     */
     public function me(): JsonResponse
     {
         // Ensure Sanctum PATs are used.
@@ -19,6 +23,10 @@ final class MeController extends Controller
         /** @var mixed $auth */
         $auth = Auth::user();
         if (! $auth instanceof AppUser) {
+            logger()->info('MeController unauthenticated.', [
+                'bearer_prefix' => substr((string) request()->bearerToken(), 0, 12),
+                'cookies' => array_keys((array) request()->cookies?->all()),
+            ]);
             return response()->json(['ok' => false, 'code' => 'UNAUTHENTICATED'], 401);
         }
 
