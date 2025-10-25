@@ -17,14 +17,20 @@ final class TokenCookieGuard
      *
      * @param  Closure(Request): Response  $next
      */
+    /**
+     * @SuppressWarnings("PMD.StaticAccess")
+     */
     public function handle(Request $request, Closure $next): Response
     {
         if ($request->bearerToken() === null) {
             $cookie = $request->cookie(AuthTokenCookie::name());
             if (is_string($cookie) && $cookie !== '') {
-                $decoded = urldecode($cookie);
+                $decoded = rawurldecode($cookie);
                 if (! str_contains($decoded, '|')) {
-                    $decoded = strtr($cookie, ['%7C' => '|', '%7c' => '|']);
+                    $decoded = strtr($decoded, ['%7C' => '|', '%7c' => '|']);
+                }
+                if (str_contains($decoded, ' ')) {
+                    $decoded = str_replace(' ', '+', $decoded);
                 }
                 $token = 'Bearer '.trim($decoded);
                 $request->headers->set('Authorization', $token);
@@ -35,6 +41,9 @@ final class TokenCookieGuard
             }
         }
 
-        return $next($request);
+        /** @var Response $response */
+        $response = $next($request);
+
+        return $response;
     }
 }

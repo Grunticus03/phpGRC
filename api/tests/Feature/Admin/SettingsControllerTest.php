@@ -148,7 +148,7 @@ KEY;
         );
     }
 
-    public function test_post_settings_rejects_legacy_contract_payload(): void
+    public function test_post_settings_rejects_core_scoped_payload(): void
     {
         $payload = [
             'core' => [
@@ -162,10 +162,10 @@ KEY;
                             'sign_authn_requests' => true,
                             'want_assertions_signed' => false,
                             'want_assertions_encrypted' => true,
-                            'certificate' => 'legacy',
-                            'private_key' => 'legacy-key',
-                            'private_key_path' => '/opt/phpgrc/legacy.key',
-                            'private_key_passphrase' => 'legacy-pass',
+                            'certificate' => 'placeholder-cert',
+                            'private_key' => 'placeholder-key',
+                            'private_key_path' => '/opt/phpgrc/sp.key',
+                            'private_key_passphrase' => 'placeholder-passphrase',
                         ],
                     ],
                 ],

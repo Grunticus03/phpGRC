@@ -1,4 +1,4 @@
-import { apiDelete, apiGet, apiPatch, apiPost } from "../api";
+import { apiDelete, apiGet, apiPatch, apiPost, apiPostFormData } from "../api";
 
 export type IdpProviderDriver = "oidc" | "saml" | "ldap" | "entra";
 
@@ -115,6 +115,7 @@ export type SamlMetadataPreviewResponse = {
 export type SamlMetadataPreviewRequestPayload = {
   metadata?: string;
   url?: string;
+  metadataFile?: File;
 };
 
 export type SamlServiceProviderInfo = {
@@ -135,9 +136,29 @@ export function previewSamlMetadata(
   payload: SamlMetadataPreviewRequestPayload,
   signal?: AbortSignal
 ): Promise<SamlMetadataPreviewResponse> {
+  if (payload.metadataFile instanceof File) {
+    const form = new FormData();
+    form.append("metadata_file", payload.metadataFile, payload.metadataFile.name || "metadata.xml");
+    if (typeof payload.metadata === "string" && payload.metadata.trim() !== "") {
+      form.append("metadata", payload.metadata);
+    }
+    if (typeof payload.url === "string" && payload.url.trim() !== "") {
+      form.append("url", payload.url);
+    }
+    return apiPostFormData<SamlMetadataPreviewResponse>(
+      "/admin/idp/providers/saml/metadata/preview",
+      form,
+      signal
+    );
+  }
+
+  const body: SamlMetadataPreviewRequestPayload = {};
+  if (typeof payload.metadata === "string") body.metadata = payload.metadata;
+  if (typeof payload.url === "string") body.url = payload.url;
+
   return apiPost<SamlMetadataPreviewResponse, SamlMetadataPreviewRequestPayload>(
     "/admin/idp/providers/saml/metadata/preview",
-    payload,
+    body,
     signal
   );
 }

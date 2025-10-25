@@ -9,7 +9,6 @@ import {
   listIdpProviders,
   updateIdpProvider,
   previewSamlMetadata,
-  previewSamlMetadataFromUrl,
   previewIdpHealth,
   browseLdapDirectory,
   type IdpProvider,
@@ -18,6 +17,7 @@ import {
   type IdpProviderRequestPayload,
   type IdpProviderUpdatePayload,
   type SamlMetadataConfig,
+  type SamlMetadataPreviewRequestPayload,
   type IdpProviderPreviewHealthResult,
   type LdapBrowseEntry,
   fetchSamlSpConfig,
@@ -1672,26 +1672,39 @@ export default function IdpProviders(): JSX.Element {
     }));
   }, [applyFormUpdate]);
 
-  const previewSamlMetadataXml = useCallback(
-    async (metadataXml: string, source?: { url?: string; fileName?: string }) => {
-      if (metadataXml.trim().length < 20) {
-        toast.danger("Metadata file looks too small. Check the content and try again.");
-        return false;
-      }
+  const processSamlMetadata = useCallback(
+    async (
+      payload: SamlMetadataPreviewRequestPayload,
+      source?: { url?: string; fileName?: string }
+    ): Promise<boolean> => {
+      const usingUrl = typeof payload.url === "string" && payload.url.trim() !== "";
+      const fallback = usingUrl
+        ? "Failed to download metadata. Verify the URL and CORS settings."
+        : "Failed to parse metadata. Ensure the document is valid XML.";
 
       try {
-        const response = await previewSamlMetadata({ metadata: metadataXml });
+        const response = await previewSamlMetadata(payload);
         if (!response || typeof response !== "object" || !response.config) {
           throw new Error("Invalid metadata preview response.");
         }
 
         applySamlMetadata(response.config, source);
+        updateFieldError("saml.metadataUrl");
         toast.success("Metadata parsed. Review the pre-filled fields.");
         return true;
       } catch (error) {
-        const fallback = "Failed to parse metadata. Ensure the document is valid XML.";
         if (error instanceof HttpError) {
-          const { message } = parseHttpError(error, fallback);
+          const { message, fieldErrors } = parseHttpError(error, fallback);
+          if (usingUrl) {
+            Object.entries(fieldErrors).forEach(([field, msg]) => {
+              if (field === "url" || field === "metadata") {
+                const first = Array.isArray(msg) ? msg.find((entry) => typeof entry === "string") : msg;
+                if (typeof first === "string" && first.trim() !== "") {
+                  updateFieldError("saml.metadataUrl", first.trim());
+                }
+              }
+            });
+          }
           toast.danger(message);
         } else {
           toast.danger(formatUnknownError(error, fallback));
@@ -1699,7 +1712,7 @@ export default function IdpProviders(): JSX.Element {
         return false;
       }
     },
-    [applySamlMetadata, toast]
+    [applySamlMetadata, toast, updateFieldError]
   );
 
   const handleSamlMetadataFetch = useCallback(async () => {
@@ -1713,63 +1726,27 @@ export default function IdpProviders(): JSX.Element {
     setMetadataLoading((prev) => ({ ...prev, saml: true }));
 
     try {
-      const response = await previewSamlMetadataFromUrl(trimmedUrl);
-      if (!response || typeof response !== "object" || !response.config) {
-        throw new Error("Invalid metadata preview response.");
-      }
-
-      applySamlMetadata(response.config, { url: trimmedUrl });
-      updateFieldError("saml.metadataUrl");
-      toast.success("Metadata parsed. Review the pre-filled fields.");
-    } catch (error) {
-      const fallback = "Failed to download metadata. Verify the URL and CORS settings.";
-      if (error instanceof HttpError) {
-        const { message, fieldErrors } = parseHttpError(error, fallback);
-        Object.entries(fieldErrors).forEach(([field, msg]) => updateFieldError(field, msg));
-        toast.danger(message);
-      } else {
-        toast.danger(formatUnknownError(error, fallback));
-      }
+      await processSamlMetadata({ url: trimmedUrl }, { url: trimmedUrl });
     } finally {
       setMetadataLoading((prev) => ({ ...prev, saml: false }));
     }
-  }, [applySamlMetadata, form.saml.metadataUrl, toast, updateFieldError]);
+  }, [form.saml.metadataUrl, processSamlMetadata, updateFieldError]);
 
   const handleSamlMetadataFileChange = useCallback(
-    (event: ChangeEvent<HTMLInputElement>) => {
+    async (event: ChangeEvent<HTMLInputElement>) => {
       const file = event.target.files?.[0];
       if (!file) return;
 
-      const reader = new FileReader();
       setMetadataLoading((prev) => ({ ...prev, saml: true }));
 
-      reader.onload = async () => {
-        const text = typeof reader.result === "string" ? reader.result : "";
-        if (text.trim() === "") {
-          toast.danger("Metadata file was empty.");
-          setMetadataLoading((prev) => ({ ...prev, saml: false }));
-          return;
-        }
-
-        try {
-          const success = await previewSamlMetadataXml(text, { fileName: file.name });
-          if (success) {
-            updateFieldError("saml.metadataUrl");
-          }
-        } finally {
-          setMetadataLoading((prev) => ({ ...prev, saml: false }));
-        }
-      };
-
-      reader.onerror = () => {
-        toast.danger("Could not read that metadata file. Please try again.");
+      try {
+        await processSamlMetadata({ metadataFile: file }, { fileName: file.name });
+      } finally {
         setMetadataLoading((prev) => ({ ...prev, saml: false }));
-      };
-
-      reader.readAsText(file);
-      event.target.value = "";
+        event.target.value = "";
+      }
     },
-    [previewSamlMetadataXml, toast, updateFieldError]
+    [processSamlMetadata]
   );
 
   const handleTestConfiguration = useCallback(async () => {

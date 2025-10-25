@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Requests\Auth;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Http\UploadedFile;
 
 final class SamlMetadataPreviewRequest extends FormRequest
 {
@@ -19,8 +20,15 @@ final class SamlMetadataPreviewRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'metadata' => ['required_without:url', 'string', 'min:20'],
-            'url' => ['required_without:metadata', 'string', 'url', 'max:2048'],
+            'metadata' => ['sometimes', 'required_without_all:url,metadata_file', 'string', 'min:20'],
+            'metadata_file' => [
+                'sometimes',
+                'required_without_all:metadata,url',
+                'file',
+                'mimetypes:application/xml,text/xml,application/samlmetadata+xml',
+                'max:512', // 512 KB
+            ],
+            'url' => ['sometimes', 'required_without_all:metadata,metadata_file', 'string', 'url', 'max:2048'],
         ];
     }
 
@@ -31,8 +39,9 @@ final class SamlMetadataPreviewRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'metadata.required_without' => 'Provide metadata XML or a URL to download it.',
-            'url.required_without' => 'Provide metadata XML or a URL to download it.',
+            'metadata.required_without_all' => 'Provide metadata XML, an upload, or a URL to download it.',
+            'metadata_file.required_without_all' => 'Provide metadata XML, an upload, or a URL to download it.',
+            'url.required_without_all' => 'Provide metadata XML, an upload, or a URL to download it.',
         ];
     }
 
@@ -56,8 +65,18 @@ final class SamlMetadataPreviewRequest extends FormRequest
             $trimmed = trim($data['metadata']);
             if ($trimmed === '') {
                 unset($data['metadata']);
-            } else {
+            }
+
+            if ($trimmed !== '') {
                 $data['metadata'] = $trimmed;
+            }
+        }
+
+        $file = $this->file('metadata_file');
+        if ($file instanceof UploadedFile) {
+            $contents = trim((string) $file->get());
+            if ($contents !== '') {
+                $data['metadata'] = $contents;
             }
         }
 
@@ -65,7 +84,9 @@ final class SamlMetadataPreviewRequest extends FormRequest
             $trimmedUrl = trim($data['url']);
             if ($trimmedUrl === '') {
                 unset($data['url']);
-            } else {
+            }
+
+            if ($trimmedUrl !== '') {
                 $data['url'] = $trimmedUrl;
             }
         }

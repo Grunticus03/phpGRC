@@ -19,6 +19,7 @@ use GuzzleHttp\Handler\MockHandler;
 use GuzzleHttp\HandlerStack;
 use GuzzleHttp\Psr7\Response;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
@@ -616,6 +617,23 @@ final class IdpProviderApiTest extends TestCase
     }
 
     #[Test]
+    public function preview_saml_metadata_accepts_uploaded_file(): void
+    {
+        $this->actingAsAdmin();
+
+        $metadata = $this->sampleMetadataXml();
+        $file = UploadedFile::fake()->createWithContent('metadata.xml', $metadata);
+
+        $this->post('/admin/idp/providers/saml/metadata/preview', [
+            'metadata_file' => $file,
+        ])
+            ->assertStatus(200)
+            ->assertJsonPath('ok', true)
+            ->assertJsonPath('config.entity_id', 'https://sso.example.test/entity')
+            ->assertJsonPath('config.sso_url', 'https://sso.example.test/login');
+    }
+
+    #[Test]
     public function import_saml_metadata_updates_provider_config(): void
     {
         $this->actingAsAdmin();
@@ -654,6 +672,40 @@ final class IdpProviderApiTest extends TestCase
         self::assertArrayHasKey('saml', $meta);
         self::assertArrayHasKey('metadata_imported_at', $meta['saml']);
         self::assertSame(hash('sha256', trim($metadata)), $meta['saml']['metadata_sha256'] ?? null);
+    }
+
+    #[Test]
+    public function import_saml_metadata_accepts_uploaded_file(): void
+    {
+        $this->actingAsAdmin();
+
+        /** @var IdpProvider $provider */
+        $provider = IdpProvider::query()->create([
+            'key' => 'saml-upload',
+            'name' => 'SAML Upload',
+            'driver' => 'saml',
+            'enabled' => true,
+            'evaluation_order' => 1,
+            'config' => [
+                'entity_id' => 'https://old.example.test',
+                'sso_url' => 'https://old.example.test/login',
+                'certificate' => $this->sampleCertificate(),
+            ],
+        ]);
+
+        $metadata = $this->sampleMetadataXml();
+        $file = UploadedFile::fake()->createWithContent('metadata.xml', $metadata);
+
+        $this->post("/admin/idp/providers/{$provider->id}/saml/metadata", [
+            'metadata_file' => $file,
+        ])
+            ->assertStatus(200)
+            ->assertJsonPath('ok', true)
+            ->assertJsonPath('provider.config.entity_id', 'https://sso.example.test/entity');
+
+        $provider->refresh();
+        self::assertSame('https://sso.example.test/entity', $provider->config['entity_id'] ?? null);
+        self::assertSame('https://sso.example.test/login', $provider->config['sso_url'] ?? null);
     }
 
     #[Test]

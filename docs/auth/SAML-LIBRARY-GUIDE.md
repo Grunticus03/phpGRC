@@ -24,7 +24,7 @@ The bridge exposes helper methods used by controllers and tests:
 - `SamlLibraryBridge::parseMetadata(string $xml)` extracts entity ID, SSO/SLO endpoints, and certificates from remote IdP metadata.
 - `SamlLibraryBridge::generateIdentityProviderMetadata(array $config)` emits IdP metadata when operators choose to host their own.
 
-These helpers replace the legacy `SamlMetadataService`. Any automation or tests should exercise the bridge rather than the removed service class.
+These helpers cover metadata operations previously handled by `SamlMetadataService`. Any automation or tests should exercise the bridge rather than the removed service class.
 
 ## Error handling
 

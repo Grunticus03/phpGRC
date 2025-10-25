@@ -60,9 +60,9 @@ final class SettingsController extends Controller
             'Pragma' => 'no-cache',
         ];
 
-        // Accept both spec shape (top-level) and legacy shape (under core.*)
-        /** @var array<string,mixed> $legacy */
-        $legacy = is_array(Arr::get($raw, 'core')) ? (array) $raw['core'] : [];
+        // Accept both top-level sections and core.*-scoped payloads
+        /** @var array<string,mixed> $coreScoped */
+        $coreScoped = is_array(Arr::get($raw, 'core')) ? (array) $raw['core'] : [];
 
         // Build accepted strictly from validated sections to avoid silent drops
         $sections = ['rbac', 'audit', 'evidence', 'avatars', 'metrics', 'ui', 'saml'];
@@ -70,13 +70,13 @@ final class SettingsController extends Controller
         $accepted = [];
         foreach ($sections as $sec) {
             /** @var mixed $val */
-            $val = $validated[$sec] ?? ($legacy[$sec] ?? null);
+            $val = $validated[$sec] ?? ($coreScoped[$sec] ?? null);
             if (is_array($val)) {
                 $accepted[$sec] = $val;
             }
         }
 
-        // Determine apply flag from top-level or legacy core.apply
+        // Determine apply flag from top-level or core.apply input
         $apply = false;
         if ($request->has('apply')) {
             $apply = $request->boolean('apply');

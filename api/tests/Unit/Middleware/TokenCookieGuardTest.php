@@ -44,4 +44,24 @@ final class TokenCookieGuardTest extends TestCase
 
         $this->assertNull($request->headers->get('Authorization'));
     }
+
+    public function test_decodes_urlencoded_cookie_and_preserves_plus(): void
+    {
+        $middleware = new TokenCookieGuard;
+        $request = Request::create('/dummy', 'GET');
+
+        $token = '1|AbC+DeF/ghi=';
+        $request->cookies->set(AuthTokenCookie::name(), rawurlencode($token));
+
+        $captured = null;
+
+        $middleware->handle($request, function (Request $req) use (&$captured): Response {
+            $captured = $req->bearerToken();
+
+            return new Response;
+        });
+
+        $this->assertSame($token, $captured);
+        $this->assertSame('Bearer '.$token, $request->headers->get('Authorization'));
+    }
 }
