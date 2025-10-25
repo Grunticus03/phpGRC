@@ -71,10 +71,14 @@ final class AuthTokenCookie
     public static function sameSite(): string
     {
         /** @var mixed $raw */
-        $raw = config('core.auth.token_cookie.same_site', 'strict');
-        $value = strtolower(is_string($raw) ? $raw : 'strict');
+        $raw = config('core.auth.token_cookie.same_site', 'lax');
+        $value = is_string($raw) ? strtolower(trim($raw)) : '';
 
-        return in_array($value, ['lax', 'strict', 'none'], true) ? $value : 'lax';
+        if (! in_array($value, ['lax', 'strict', 'none'], true)) {
+            return 'lax';
+        }
+
+        return $value;
     }
 
     /**
@@ -84,7 +88,12 @@ final class AuthTokenCookie
     {
         /** @var mixed $domain */
         $domain = config('session.domain');
-        $secure = (bool) config('session.secure', $request->isSecure());
+        $secure = self::shouldSecure($request);
+
+        $sameSite = self::sameSite();
+        if ($sameSite === 'none' && ! $secure) {
+            $secure = true;
+        }
 
         return cookie(
             self::name(),
@@ -95,7 +104,7 @@ final class AuthTokenCookie
             $secure,
             true,
             false,
-            self::sameSite()
+            $sameSite
         );
     }
 
@@ -106,7 +115,12 @@ final class AuthTokenCookie
     {
         /** @var mixed $domain */
         $domain = config('session.domain');
-        $secure = (bool) config('session.secure', $request->isSecure());
+        $secure = self::shouldSecure($request);
+
+        $sameSite = self::sameSite();
+        if ($sameSite === 'none' && ! $secure) {
+            $secure = true;
+        }
 
         return cookie(
             self::name(),
@@ -117,7 +131,61 @@ final class AuthTokenCookie
             $secure,
             true,
             false,
-            self::sameSite()
+            $sameSite
         );
+    }
+
+    private static function shouldSecure(Request $request): bool
+    {
+        /** @var mixed $rawSecure */
+        $rawSecure = config('core.auth.token_cookie.secure');
+        $explicit = self::normalizeBoolean($rawSecure);
+        if ($explicit !== null) {
+            return $explicit;
+        }
+
+        if (is_string($rawSecure)) {
+            $mode = strtolower(trim($rawSecure));
+            if ($mode === 'inherit') {
+                $inherited = self::normalizeBoolean(config('session.secure'));
+                if ($inherited !== null) {
+                    return $inherited;
+                }
+            }
+        }
+
+        $sessionSecure = self::normalizeBoolean(config('session.secure'));
+        if ($sessionSecure === true) {
+            return true;
+        }
+
+        return $request->isSecure();
+    }
+
+    private static function normalizeBoolean(mixed $value): ?bool
+    {
+        if (is_bool($value)) {
+            return $value;
+        }
+        if (is_int($value)) {
+            return $value !== 0;
+        }
+        if (is_numeric($value)) {
+            return (int) $value !== 0;
+        }
+        if (is_string($value)) {
+            $normalized = strtolower(trim($value));
+            if ($normalized === '') {
+                return null;
+            }
+            if (in_array($normalized, ['1', 'true', 'yes', 'on'], true)) {
+                return true;
+            }
+            if (in_array($normalized, ['0', 'false', 'no', 'off'], true)) {
+                return false;
+            }
+        }
+
+        return null;
     }
 }

@@ -19,6 +19,7 @@ final class RequireSanctumWhenRequired
      * @param  Closure(Request):Response  $next
      *
      * @throws AuthenticationException
+     * @SuppressWarnings("PMD.StaticAccess")
      */
     public function handle(Request $request, Closure $next): Response
     {
@@ -31,6 +32,11 @@ final class RequireSanctumWhenRequired
         if (Auth::guard('sanctum')->check()) {
             return $next($request);
         }
+
+        logger()->warning('RequireSanctumWhenRequired rejected request.', [
+            'path' => $request->path(),
+            'bearer_prefix' => substr((string) $request->bearerToken(), 0, 12),
+        ]);
 
         throw new AuthenticationException;
     }

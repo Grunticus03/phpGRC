@@ -57,7 +57,8 @@ return [
         'token_cookie' => [
             'name' => 'phpgrc_token',
             'ttl_minutes' => 120,
-            'same_site' => 'strict',
+            'secure' => env('CORE_AUTH_TOKEN_COOKIE_SECURE', 'auto'),
+            'same_site' => 'lax',
         ],
 
         'saml' => [

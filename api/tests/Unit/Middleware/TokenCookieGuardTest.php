@@ -64,4 +64,21 @@ final class TokenCookieGuardTest extends TestCase
         $this->assertSame($token, $captured);
         $this->assertSame('Bearer '.$token, $request->headers->get('Authorization'));
     }
+
+    public function test_cookie_overrides_existing_bearer_header(): void
+    {
+        $middleware = new TokenCookieGuard;
+        $request = Request::create('/dummy', 'GET');
+        $request->headers->set('Authorization', 'Bearer stale-token');
+        $request->cookies->set(AuthTokenCookie::name(), 'fresh|token');
+
+        $middleware->handle($request, function (Request $req): Response {
+            $this->assertSame('fresh|token', $req->bearerToken());
+
+            return new Response;
+        });
+
+        $this->assertSame('Bearer fresh|token', $request->headers->get('Authorization'));
+        $this->assertSame('Bearer fresh|token', $request->server->get('HTTP_AUTHORIZATION'));
+    }
 }

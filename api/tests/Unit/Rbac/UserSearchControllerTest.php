@@ -17,13 +17,15 @@ final class UserSearchControllerTest extends TestCase
 {
     use RefreshDatabase;
 
-    private function makeUsers(int $n = 30, string $prefix = 'User'): void
+    private function makeUsers(int $n = 30, string $prefix = 'User', ?string $passwordHash = null): void
     {
+        $password = $passwordHash ?? bcrypt('secret');
+
         for ($i = 1; $i <= $n; $i++) {
             User::query()->create([
                 'name' => sprintf('%s %02d', $prefix, $i),
                 'email' => sprintf('%s%02d@example.test', strtolower($prefix), $i),
-                'password' => bcrypt('secret'),
+                'password' => $password,
             ]);
         }
     }
@@ -62,7 +64,9 @@ final class UserSearchControllerTest extends TestCase
 
     public function test_per_page_parsing_variants_and_clamping(): void
     {
-        $this->makeUsers(600, 'Bravo');
+        // Precomputed bcrypt hash for "secret" to avoid repeated hashing cost during setup
+        $hashedSecret = '$2y$10$ALqzzppk9SDveM0fy6CEgeq4o.CX.gm7RGcDN/2U.br4xL.0GGvyK';
+        $this->makeUsers(600, 'Bravo', $hashedSecret);
 
         // numeric string
         $req1 = Request::create('/rbac/users/search', 'GET', ['q' => 'bravo', 'per_page' => '7']);
